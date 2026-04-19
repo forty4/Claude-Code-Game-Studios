@@ -36,8 +36,8 @@
 #   Sections: entities | items | formulas | constants
 #   Each entry: name, status, source, referenced_by[], attributes{}, added, revised
 
-version: 1
-last_updated: ""
+version: 2
+last_updated: "2026-04-19"  # grid-battle.md v5.0 adjudication (2026-04-19): `defend_stance_reduction` value 30 → 50 per CR-13 Pillar-3 trajectory fix (hp-status.md F-4 multiplier 0.70 → 0.50 in same patch); `defend_stance_reduction.referenced_by` + `two_tap_timeout_s.referenced_by` + `tactical_read_extension_tiles` (NEW, Strategist-only TR passive) add grid-battle.md / battle-hud.md consumers. No other constants or formulas changed this revision. Prior rev same-day: destiny-branch.md v1.0 (2026-04-19): +2 referenced_by updates — resolve_branch and is_echo_gate_open now list destiny-branch.md as consumer (destiny-branch EXECUTES F-SP-1 inside DestinyBranchJudge per scenario-progression spec ownership; ratifies ADR-0001 DestinyBranchChoice PROVISIONAL payload as 8 fields). No new formulas/constants/entities registered this revision — F-DB-1 (DestinyBranchChoice assembly) is a thin wrapper over registered F-SP-1; DestinyBranchChoice payload shape is documented in ADR-0001 + destiny-branch.md F-DB-4 (will register when #10/#16/#17 VS GDDs reference it). Prior rev 2.5 of damage-calc (2026-04-19): damage_resolve formula — `class` field rename → `unit_class` (sixth-pass BLK-6-4 propagation gap; GDScript 4.6 reserved keyword), BASE_CEILING comment corrected 100→83, revised: 2026-04-19. Prior rev 2.4 (2026-04-19): base_ceiling value 100 → 83 per CRITICAL-3 fifth-pass resolution. Prior 2026-04-18: damage-calc.md v1.0 Phase 5: +1 formula (damage_resolve) + 2 new constants (charge_bonus=1.20, ambush_bonus=1.15) + 9 referenced_by updates. Prior same-day: scenario-progression.md v2.0 (9 constants, 3 formulas) + grid-battle.md v3 (7 constants, 2 ref updates).
 
 # ─── ENTITIES ────────────────────────────────────────────────────────────────
 # Named game-world objects: enemies, NPCs, characters, factions, bosses.
@@ -106,7 +106,142 @@ items: []
 #   output_range[min, max], added
 # Optional: expression (the actual formula), notes
 
-formulas: []
+formulas:
+  - name: damage_intake_pipeline
+    status: active
+    source: design/gdd/hp-status.md
+    referenced_by:
+      - design/gdd/hp-status.md
+    variables:
+      - resolved_damage
+      - attack_type
+      - passive_tags
+      - SHIELD_WALL_FLAT
+      - MIN_DAMAGE
+    output_range: [1, 999]
+    expression: "final_damage = max(MIN_DAMAGE, resolved_damage - passive_flat_reduction); current_hp = max(0, current_hp - final_damage)"
+    notes: "Intake-only pipeline. Damage Calc owns ATK/DEF/terrain/direction. HP/Status owns
+      Shield Wall flat reduction, status effect modifiers, min damage floor, and HP reduction."
+    added: 2026-04-16
+    revised: ""
+
+  - name: healing_formula
+    status: active
+    source: design/gdd/hp-status.md
+    referenced_by:
+      - design/gdd/hp-status.md
+    variables:
+      - HEAL_BASE
+      - max_hp
+      - HEAL_HP_RATIO
+      - HEAL_PER_USE_CAP
+      - EXHAUSTED_HEAL_MULT
+    output_range: [1, 50]
+    expression: "heal_amount = clamp(floor(HEAL_BASE + ceil(max_hp × HEAL_HP_RATIO)), 1, HEAL_PER_USE_CAP)"
+    notes: "EXHAUSTED halves heal (min 1). Overheal prevention: min(raw_heal, max_hp - current_hp)."
+    added: 2026-04-16
+    revised: ""
+
+  - name: stat_polarization_index
+    status: active
+    source: design/gdd/hero-database.md
+    referenced_by:
+      - design/gdd/hero-database.md
+    variables:
+      - stat_max
+      - stat_min
+      - stat_avg
+    output_range: [0.0, 3.3]
+    expression: "(stat_max - stat_min) / stat_avg"
+    notes: "SPI < 0.5 triggers 'too flat' design warning. Used to enforce Pillar 3
+      (Every Hero Has a Role) — heroes must be specialized, not generalists."
+    added: 2026-04-16
+    revised: ""
+
+  - name: resolve_branch
+    status: active
+    source: design/gdd/scenario-progression.md
+    referenced_by:
+      - design/gdd/scenario-progression.md
+      - design/gdd/destiny-branch.md   # EXECUTES F-SP-1 inside DestinyBranchJudge.resolve() per F-DB-1 assembly algorithm; consumes branch_key + is_draw_fallback; does NOT re-implement the formula per registry contract (added 2026-04-19)
+    variables:
+      - chapter
+      - outcome           # Result enum {WIN, DRAW, LOSS}
+      - echo_count
+      - chapter.author_draw_branch
+      - chapter.branch_table
+    output_range: ["{branch_key:String, is_draw_fallback:bool, cue_tag:String|null}"]
+    expression: "F-SP-1: if outcome==DRAW AND NOT chapter.author_draw_branch → reuse WIN branch + cue_tag='draw_fallback'; else exact match (outcome, echo_count_bucket) on chapter.branch_table."
+    notes: "Scenario Progression is the sole owner of branch resolution. Destiny Branch #4 will
+      consume branch_key from this formula; MUST NOT re-implement the DRAW-fallback branch
+      by pattern. Cross-GDD contract: chapter.branch_table MUST include one entry per
+      outcome ∈ {WIN, LOSS} at minimum; DRAW entries required iff author_draw_branch==true."
+    added: 2026-04-18
+    revised: ""
+
+  - name: is_echo_gate_open
+    status: active
+    source: design/gdd/scenario-progression.md
+    referenced_by:
+      - design/gdd/scenario-progression.md
+      - design/gdd/destiny-branch.md   # DestinyBranchJudge invokes this predicate transitively via F-SP-1; MUST NOT re-derive per registry contract (added 2026-04-19)
+    variables:
+      - outcome           # Result enum {WIN, DRAW, LOSS}
+      - echo_count
+      - echo_threshold
+    output_range: [false, true]
+    expression: "F-SP-2: (outcome == DRAW) AND (echo_count >= echo_threshold)"
+    notes: "Echo-gate predicate. Clean DRAW (echo_count == 0) excluded by contract (CR-8).
+      Ch1 rejects any echo_threshold field (CR-13) — authoring validator enforces.
+      Destiny Branch #4 and Destiny State #16 MUST call this predicate, not re-derive it."
+    added: 2026-04-18
+    revised: ""
+
+  - name: scenario_path_key_composition
+    status: active
+    source: design/gdd/scenario-progression.md
+    referenced_by:
+      - design/gdd/scenario-progression.md
+    variables:
+      - chapter_outcomes   # Array[{chapter_id, branch_path_id, echo_count_at_completion}]
+    output_range: ["String (e.g., 'WIN_ch1_default-DRAW_ch2_fallback-DRAW_ch3_echo')"]
+    expression: "F-SP-4: chapter_outcomes.map(c => c.branch_path_id).join('-')"
+    notes: "Stable epilogue-variant key. Consumed by scenario_complete(ScenarioResult) and
+      Save/Load #17 for save-slot metadata + epilogue selection. Destiny State #16 surfaces
+      the same value in playthrough telemetry. Format is authoring-stable — never renumber."
+    added: 2026-04-18
+    revised: ""
+
+  - name: damage_resolve
+    status: active
+    source: design/gdd/damage-calc.md
+    referenced_by:
+      - design/gdd/damage-calc.md
+      - design/gdd/grid-battle.md   # sole caller; primary + counter exchange invokes resolve() twice
+      - design/gdd/hp-status.md     # consumes ResolveResult.HIT.resolved_damage at apply_damage() boundary
+      - design/gdd/unit-role.md     # CLASS_DIRECTION_MULT contract + EC-7 multiplicative ordering
+      - design/gdd/terrain-effect.md  # provides terrain_def, terrain_evasion inputs
+    variables:
+      - attacker          # {unit_id, unit_class, charge_active, defend_stance_active, passives, raw_atk} — rev 2.5: class→unit_class (GDScript 4.6 reserved keyword)
+      - defender          # {unit_id, terrain_def, terrain_evasion, raw_def}
+      - modifiers         # {attack_type, direction_rel, is_counter, skill_id, rng}
+      - ATK_CAP           # 200
+      - DEF_CAP           # 100
+      - MIN_DAMAGE        # 1
+      - BASE_CEILING      # 83 (Stage 1 pre-direction cap; rev 2.4 lowered 100→83 for Pillar-1 math)
+      - DAMAGE_CEILING    # 180 (Stage 2 post-direction cap; raised 150→180 in damage-calc.md rev 2)
+      - COUNTER_ATTACK_MODIFIER  # 0.5
+      - DEFEND_STANCE_ATK_PENALTY  # 40
+      - MAX_DEFENSE_REDUCTION    # 30
+      - MAX_EVASION              # 30
+      - CHARGE_BONUS             # 1.20 (this GDD owns)
+      - AMBUSH_BONUS             # 1.15 (this GDD owns)
+      - CLASS_DIRECTION_MULT     # locked table from unit-role.md EC-7
+    output_range: ["ResolveResult.HIT(resolved_damage: int [1, 180], source_flags: Array[StringName], vfx_tags: Array[StringName]) | ResolveResult.MISS(source_flags: Array[StringName])"]
+    expression: "F-DC-1..7 stateless pipeline. Sketch: eff_atk = clamp(get_modified_stat(attacker, ATK), 1, ATK_CAP); eff_def = clamp(get_modified_stat(defender, DEF), 0, DEF_CAP); if defend_stance_active: eff_atk = floori(eff_atk * (1 - DEFEND_STANCE_ATK_PENALTY/100)); defense_mul = snappedf(1.0 - clamp(terrain_def, -30, 30)/100, 0.01); base = clamp(max(MIN_DAMAGE, floori(eff_atk - eff_def * defense_mul)), 1, BASE_CEILING); D_mult = snappedf(CLASS_DIRECTION_MULT[unit_class][direction_rel], 0.01); P_mult = snappedf(charge_factor * ambush_factor, 0.01); raw = clamp(floori(base * D_mult * P_mult), 1, DAMAGE_CEILING); if is_counter: raw = max(MIN_DAMAGE, floori(raw * COUNTER_ATTACK_MODIFIER)); return HIT(raw, ...). MISS branch: roll = rng.randi_range(1, 100); if roll <= clamp(terrain_evasion, 0, MAX_EVASION) AND NOT is_counter: return MISS(). Skill stub (skill_id != \"\"): return MISS() + source_flags ∋ 'skill_unresolved' (RNG NOT consumed). Guard failures (rng==null, unknown unit_class, unknown direction, illegal attack_type): push_error + MISS() with source_flags ∋ 'invariant_violation:<reason>' (rev 2.4 flagged-MISS redesign)."
+    notes: "Sole entry point for all PHYSICAL/MAGICAL damage resolution. Stateless synchronous service — emits ZERO signals (ADR-0001 §Damage Calc consumer-only). HP/Status owns the apply_damage write-path; Damage Calc never calls it directly. Counter-attack modeled as second resolve() call from Grid Battle with is_counter=true (NOT a {primary, counter} struct). DoT/POISON bypasses entirely — guard rejects attack_type ∉ {PHYSICAL, MAGICAL}. F-GB-PROV from grid-battle.md §CR-5 Step 7 is REPLACED by this formula and must be removed in same patch (AC-DC-44 enforces). Determinism: snappedf(_, 0.01) IEEE-754 quantization; randi_range inclusive on both ends; pinned for Godot 4.6 (AC-DC-49, AC-DC-50). Cross-platform (rev 2 — softened): same-platform replay is bit-identical; cross-platform (Windows D3D12 / macOS Metal / Linux Vulkan) establishes a known-good baseline — divergence is a regression to investigate (WARN), not a hard ship blocker (integer-only-math migration is a deferred ADR). See §Formulas determinism contract and AC-DC-25. Rev 2.5 (2026-04-19): field `class` renamed to `unit_class` (GDScript 4.6 reserved keyword avoidance per BLK-6-4); BASE_CEILING comment corrected from 100 to 83 to match rev 2.4 value; expression uses unit_class subscript."
+    added: 2026-04-18
+    revised: 2026-04-19
 
 # Example:
 #
@@ -139,7 +274,678 @@ formulas: []
 #
 # Required fields: name, status, source, referenced_by, value, unit, added
 
-constants: []
+constants:
+  - name: map_cols_min
+    status: active
+    source: design/gdd/map-grid.md
+    referenced_by:
+      - design/gdd/map-grid.md
+    value: 15
+    unit: tiles
+    added: 2026-04-16
+    revised: ""
+
+  - name: map_cols_max
+    status: active
+    source: design/gdd/map-grid.md
+    referenced_by:
+      - design/gdd/map-grid.md
+    value: 40
+    unit: tiles
+    added: 2026-04-16
+    revised: ""
+
+  - name: map_rows_min
+    status: active
+    source: design/gdd/map-grid.md
+    referenced_by:
+      - design/gdd/map-grid.md
+    value: 15
+    unit: tiles
+    added: 2026-04-16
+    revised: ""
+
+  - name: map_rows_max
+    status: active
+    source: design/gdd/map-grid.md
+    referenced_by:
+      - design/gdd/map-grid.md
+    value: 30
+    unit: tiles
+    added: 2026-04-16
+    revised: ""
+
+  - name: elevation_plains
+    status: active
+    source: design/gdd/map-grid.md
+    referenced_by:
+      - design/gdd/map-grid.md
+      - design/gdd/terrain-effect.md
+    value: 0
+    unit: level
+    added: 2026-04-16
+    revised: ""
+
+  - name: elevation_hills
+    status: active
+    source: design/gdd/map-grid.md
+    referenced_by:
+      - design/gdd/map-grid.md
+      - design/gdd/terrain-effect.md
+    value: 1
+    unit: level
+    added: 2026-04-16
+    revised: ""
+
+  - name: elevation_mountain
+    status: active
+    source: design/gdd/map-grid.md
+    referenced_by:
+      - design/gdd/map-grid.md
+      - design/gdd/terrain-effect.md
+    value: 2
+    unit: level
+    added: 2026-04-16
+    revised: ""
+
+  - name: terrain_cost_plains
+    status: active
+    source: design/gdd/map-grid.md
+    referenced_by:
+      - design/gdd/map-grid.md
+      - design/gdd/hero-database.md
+    value: 10
+    unit: cost_units
+    notes: "기준값. 다른 지형 코스트의 비교 기준. move_budget = move_range × 10"
+    added: 2026-04-16
+    revised: ""
+
+  - name: diagonal_tiebreak_rule
+    status: active
+    source: design/gdd/map-grid.md
+    referenced_by:
+      - design/gdd/map-grid.md
+    value: horizontal_preferred
+    unit: rule
+    notes: "abs(dc)==abs(dr) 동률 시 EAST/WEST 우선. Damage Calc GDD에서도 동일 적용 필수"
+    added: 2026-04-16
+    revised: ""
+
+  - name: stat_total_min
+    status: active
+    source: design/gdd/hero-database.md
+    referenced_by:
+      - design/gdd/hero-database.md
+    value: 180
+    unit: stat_points
+    notes: "4스탯 합산 하한. 닫힌 구간 — 180은 유효."
+    added: 2026-04-16
+    revised: ""
+
+  - name: stat_total_max
+    status: active
+    source: design/gdd/hero-database.md
+    referenced_by:
+      - design/gdd/hero-database.md
+    value: 280
+    unit: stat_points
+    notes: "4스탯 합산 상한. 닫힌 구간 — 280은 유효, 281부터 High-Risk."
+    added: 2026-04-16
+    revised: ""
+
+  - name: stat_hard_cap
+    status: active
+    source: design/gdd/hero-database.md
+    referenced_by:
+      - design/gdd/hero-database.md
+    value: 100
+    unit: stat_points
+    notes: "개별 스탯 절대 상한. 성장 공식(F-3)에서 클램프 기준."
+    added: 2026-04-16
+    revised: ""
+
+  - name: move_range_min
+    status: active
+    source: design/gdd/hero-database.md
+    referenced_by:
+      - design/gdd/hero-database.md
+      - design/gdd/unit-role.md
+    value: 2
+    unit: tiles
+    added: 2026-04-16
+    revised: ""
+
+  - name: move_range_max
+    status: active
+    source: design/gdd/hero-database.md
+    referenced_by:
+      - design/gdd/hero-database.md
+      - design/gdd/unit-role.md
+    value: 6
+    unit: tiles
+    added: 2026-04-16
+    revised: ""
+
+  - name: l_cap
+    status: active
+    source: design/gdd/hero-database.md
+    referenced_by:
+      - design/gdd/hero-database.md
+    value: 30
+    unit: levels
+    notes: "잠정값 — Character Growth GDD에서 확정 예정."
+    added: 2026-04-16
+    revised: ""
+
+  - name: max_defense_reduction
+    status: active
+    source: design/gdd/terrain-effect.md
+    referenced_by:
+      - design/gdd/terrain-effect.md
+      - design/gdd/damage-calc.md  # F-DC-3 defense_mul clamp argument; EC-DC-3 boundary fixture
+    value: 30
+    unit: percent
+    notes: "Symmetric clamp: -30 to +30. Damage Calc enforces in F-DC-3 (defense_mul). Config: terrain_config.json"
+    added: 2026-04-16
+    revised: 2026-04-18  # added damage-calc.md as consumer (was implicit; now explicit)
+
+  - name: max_evasion
+    status: active
+    source: design/gdd/terrain-effect.md
+    referenced_by:
+      - design/gdd/terrain-effect.md
+      - design/gdd/damage-calc.md  # F-DC-2 evasion roll clamp; EC-DC-4 boundary inclusive
+    value: 30
+    unit: percent
+    notes: "Evasion cap. Independent of defense. Damage Calc owns the roll (F-DC-2). Config: terrain_config.json"
+    added: 2026-04-16
+    revised: 2026-04-18  # added damage-calc.md as consumer + clarified roll ownership
+
+  - name: evasion_weight_ai
+    status: active
+    source: design/gdd/terrain-effect.md
+    referenced_by:
+      - design/gdd/terrain-effect.md
+    value: 1.2
+    unit: multiplier
+    notes: "AI terrain scoring — evasion valued slightly over defense. Config: terrain_config.json"
+    added: 2026-04-16
+    revised: ""
+
+  - name: atk_cap
+    status: active
+    source: design/gdd/unit-role.md
+    referenced_by:
+      - design/gdd/unit-role.md
+      - design/gdd/damage-calc.md  # F-DC-1 eff_atk clamp; EC-DC-7 over-cap defense fixture
+    value: 200
+    unit: stat_points
+    notes: "ATK hard cap. Theoretical max; in practice ≤ ~110. Damage Calc clamps via F-DC-1 (last line of defense per EC-DC-7). Config: balance_constants.json"
+    added: 2026-04-16
+    revised: 2026-04-18  # added damage-calc.md as consumer
+
+  - name: def_cap
+    status: active
+    source: design/gdd/unit-role.md
+    referenced_by:
+      - design/gdd/unit-role.md
+      - design/gdd/damage-calc.md  # F-DC-1 eff_def clamp
+    value: 100
+    unit: stat_points
+    notes: "Per-defense-type cap (phys_def and mag_def each). Damage Calc clamps via F-DC-1. Config: balance_constants.json"
+    added: 2026-04-16
+    revised: 2026-04-18  # added damage-calc.md as consumer
+
+  - name: hp_cap
+    status: active
+    source: design/gdd/unit-role.md
+    referenced_by:
+      - design/gdd/unit-role.md
+      - design/gdd/hp-status.md
+    value: 300
+    unit: hit_points
+    notes: "Absolute HP ceiling. Config: balance_constants.json"
+    added: 2026-04-16
+    revised: ""
+
+  - name: hp_scale
+    status: active
+    source: design/gdd/unit-role.md
+    referenced_by:
+      - design/gdd/unit-role.md
+      - design/gdd/hp-status.md
+    value: 2.0
+    unit: multiplier
+    notes: "Amplifies HP seed differences between classes. Config: balance_constants.json"
+    added: 2026-04-16
+    revised: ""
+
+  - name: hp_floor
+    status: active
+    source: design/gdd/unit-role.md
+    referenced_by:
+      - design/gdd/unit-role.md
+      - design/gdd/hp-status.md
+    value: 50
+    unit: hit_points
+    notes: "Additive HP minimum. Actual min max_hp is 51 (seed=1, lowest mult). Config: balance_constants.json"
+    added: 2026-04-16
+    revised: ""
+
+  - name: init_cap
+    status: active
+    source: design/gdd/unit-role.md
+    referenced_by:
+      - design/gdd/unit-role.md
+      - design/gdd/turn-order.md
+    value: 200
+    unit: stat_points
+    notes: "Initiative hard cap. Config: balance_constants.json"
+    added: 2026-04-16
+    revised: ""
+
+  - name: init_scale
+    status: active
+    source: design/gdd/unit-role.md
+    referenced_by:
+      - design/gdd/unit-role.md
+      - design/gdd/turn-order.md
+    value: 2.0
+    unit: multiplier
+    notes: "Amplifies initiative seed differences. Config: balance_constants.json"
+    added: 2026-04-16
+    revised: ""
+
+  - name: tactical_read_extension_tiles
+    status: active
+    source: design/gdd/unit-role.md  # Strategist class passive (v5.0 — sole owner per grid-battle CR-14 split decision; Commander's TR removed and replaced by Rally Pulse)
+    referenced_by:
+      - design/gdd/unit-role.md
+      - design/gdd/grid-battle.md   # CR-14 TacticalRead rule — defines forecast-visibility extension
+      - design/ux/battle-hud.md     # UI-GB-12 TacticalRead Extended Range visual — 황토 70% opacity tiles + 讀 micro-glyph per extended tile
+    value: 1
+    unit: tiles
+    notes: "Strategist TacticalRead passive extends combat-forecast visibility by this many tiles beyond natural attack range. UI affordance only — NOT an attack-range extender (CR-14 rule: 'post-move, target must still be in natural range to ATTACK'). EC-GB-43 + EC-GB-44 superseded post-v5.0 (Commander no longer has TR; dual-TR case removed). Config: unit_roles.json (Strategist passive block)."
+    added: 2026-04-19
+    revised: ""
+
+  - name: min_damage
+    status: active
+    source: design/gdd/hp-status.md
+    referenced_by:
+      - design/gdd/hp-status.md
+      - design/gdd/damage-calc.md  # F-DC-3 base floor + F-DC-7 counter floor + EC-DC-2/10/23/24 fixtures
+    value: 1
+    unit: hit_points
+    notes: "Damage floor. No 0-damage events. Damage Calc enforces at every floori() boundary (F-DC-3, F-DC-6, F-DC-7); HP/Status enforces at apply_damage() intake (D-5 contract). Config: balance_constants.json"
+    added: 2026-04-16
+    revised: 2026-04-18  # added damage-calc.md as consumer + clarified dual enforcement
+
+  - name: shield_wall_flat
+    status: active
+    source: design/gdd/hp-status.md
+    referenced_by:
+      - design/gdd/hp-status.md
+    value: 5
+    unit: hit_points
+    notes: "Infantry passive flat reduction vs PHYSICAL only. Config: balance_constants.json"
+    added: 2026-04-16
+    revised: ""
+
+  - name: max_status_effects_per_unit
+    status: active
+    source: design/gdd/hp-status.md
+    referenced_by:
+      - design/gdd/hp-status.md
+    value: 3
+    unit: slots
+    notes: "4th effect evicts oldest. Config: balance_constants.json"
+    added: 2026-04-16
+    revised: ""
+
+  - name: modifier_floor
+    status: active
+    source: design/gdd/hp-status.md
+    referenced_by:
+      - design/gdd/hp-status.md
+    value: -50
+    unit: percent
+    notes: "Total debuff clamp. Config: hp_status_config.json"
+    added: 2026-04-16
+    revised: ""
+
+  - name: modifier_ceiling
+    status: active
+    source: design/gdd/hp-status.md
+    referenced_by:
+      - design/gdd/hp-status.md
+    value: 50
+    unit: percent
+    notes: "Total buff clamp. Config: hp_status_config.json"
+    added: 2026-04-16
+    revised: ""
+
+  - name: defend_stance_reduction
+    status: active
+    source: design/gdd/hp-status.md
+    referenced_by:
+      - design/gdd/hp-status.md
+      - design/gdd/grid-battle.md  # CR-13 DEFEND action references this constant; grid-battle no longer defines a local DEFEND_DAMAGE_REDUCTION tuning knob post-v5.0
+    value: 50
+    unit: percent
+    notes: "Universal -50% damage taken. All classes. Applied in HP/Status F-4 intake pipeline (post passive-reduction, pre MIN_DAMAGE floor). Config: hp_status_config.json. Rev 2026-04-19: value 30 → 50 per grid-battle.md v5.0 CR-13 Pillar-3 trajectory fix. 30% was insufficient to differentiate DEFEND from WAIT (DEFEND selection rate projected <5% at 30%); 50% preserves Pillar 3 defensive identity without attackers-never-commit dominance. Tuning knob safe range: 30–70% — lower breaks DEFEND selection, higher approaches attacker-stall. hp-status.md F-4 multiplier updates 0.70 → 0.50 in the same patch."
+    added: 2026-04-16
+    revised: 2026-04-19  # value 30 → 50; +grid-battle.md consumer per v5.0 CR-13
+
+  - name: defend_stance_atk_penalty
+    status: active
+    source: design/gdd/hp-status.md
+    referenced_by:
+      - design/gdd/hp-status.md
+      - design/gdd/damage-calc.md  # F-DC-1 eff_atk modifier when defend_stance_active=true (D-8 worked example, EC-DC-2 floor recovery)
+    value: 40
+    unit: percent
+    notes: "Trade-off: -40% ATK while in DEFEND_STANCE. HP/Status sets the flag; Damage Calc applies the multiplier (1 - 0.40) on eff_atk via F-DC-1. Config: hp_status_config.json"
+    added: 2026-04-16
+    revised: 2026-04-18  # added damage-calc.md as consumer + clarified application boundary
+
+  - name: demoralized_radius
+    status: active
+    source: design/gdd/hp-status.md
+    referenced_by:
+      - design/gdd/hp-status.md
+    value: 4
+    unit: tiles
+    notes: "Manhattan distance for DEMORALIZED propagation on Commander/morale_anchor death. Config: hp_status_config.json"
+    added: 2026-04-16
+    revised: ""
+
+  - name: demoralized_recovery_radius
+    status: active
+    source: design/gdd/hp-status.md
+    referenced_by:
+      - design/gdd/hp-status.md
+    value: 2
+    unit: tiles
+    notes: "Manhattan distance to ally hero for DEMORALIZED auto-recovery. Config: hp_status_config.json"
+    added: 2026-04-16
+    revised: ""
+
+  - name: dot_max_per_turn
+    status: active
+    source: design/gdd/hp-status.md
+    referenced_by:
+      - design/gdd/hp-status.md
+    value: 20
+    unit: hit_points
+    notes: "Per-turn DoT cap. True damage (bypasses defense). Config: hp_status_config.json"
+    added: 2026-04-16
+    revised: ""
+
+  - name: heal_per_use_cap
+    status: active
+    source: design/gdd/hp-status.md
+    referenced_by:
+      - design/gdd/hp-status.md
+    value: 50
+    unit: hit_points
+    notes: "Single heal event cap. Config: hp_status_config.json"
+    added: 2026-04-16
+    revised: ""
+
+  - name: round_cap
+    status: active
+    source: design/gdd/turn-order.md
+    referenced_by:
+      - design/gdd/turn-order.md
+      - design/gdd/grid-battle.md  # CR-7 DRAW condition + AC-GB-13
+    value: 30
+    unit: rounds
+    notes: "Maximum rounds before DRAW. Config: turn_order_config.json"
+    added: 2026-04-17
+    revised: 2026-04-18  # added grid-battle.md to referenced_by
+
+  - name: charge_threshold
+    status: active
+    source: design/gdd/turn-order.md
+    referenced_by:
+      - design/gdd/turn-order.md
+      - design/gdd/grid-battle.md  # F-GB-1, CR-4, EC-GB-10, AC-GB-05
+    value: 40
+    unit: move_cost_points
+    notes: "Accumulated move cost for Cavalry Charge passive. Config: turn_order_config.json"
+    added: 2026-04-17
+    revised: 2026-04-18  # added grid-battle.md to referenced_by
+
+  - name: base_ceiling
+    status: active
+    source: design/gdd/damage-calc.md  # OWNERSHIP TRANSFER 2026-04-18: was grid-battle.md (F-GB-PROV); now Damage Calc owns Stage 1 cap per F-DC-3.
+    referenced_by:
+      - design/gdd/damage-calc.md
+      - design/gdd/grid-battle.md   # consumer-only post-F-GB-PROV retirement; no longer authoritative
+    value: 83
+    unit: damage
+    notes: "Stage 1 pre-direction cap (F-DC-3 base = clamp(...,1,BASE_CEILING)). Rev 2.4 (2026-04-19): lowered 100 → 83 per CRITICAL-3 fifth-pass review — value tuned so max Cavalry REAR+Charge = floori(83 × 1.80 × 1.20) = 179, one under DAMAGE_CEILING=180. Preserves 30-pt Pillar-1 peak differentiation at max ATK (REAR-only 149 vs REAR+Charge 179). AC-DC-02 and AC-DC-04 fixtures enforce. Config: balance_constants.json."
+    added: 2026-04-18
+    revised: 2026-04-19  # value 100 → 83 per damage-calc.md rev 2.4 CRITICAL-3 resolution
+
+  - name: damage_ceiling
+    status: active
+    source: design/gdd/damage-calc.md  # OWNERSHIP TRANSFER 2026-04-18: was grid-battle.md (F-GB-PROV); now Damage Calc owns Stage 2 cap per F-DC-6.
+    referenced_by:
+      - design/gdd/damage-calc.md
+      - design/gdd/grid-battle.md   # consumer-only post-F-GB-PROV retirement
+      - design/gdd/hp-status.md     # apply_damage upper-bound contract: resolved_damage ∈ [1, 180]
+    value: 180
+    unit: damage
+    notes: "Stage 2 post-direction cap (F-DC-6 raw = clamp(floori(base * D_mult * P_mult), 1, DAMAGE_CEILING)). 60% of HP_CAP=300 (raised 150→180 in damage-calc.md rev 2 to differentiate Cavalry REAR+Charge peak from REAR-only at the visible-output level). Prevents one-shot kills while preserving REAR>FLANK>FRONT scaling. AC-DC-04 fixture enforces. Config: balance_constants.json."
+    added: 2026-04-18
+    revised: 2026-04-18  # source TRANSFER grid-battle.md → damage-calc.md per F-GB-PROV retirement
+
+  - name: counter_attack_modifier
+    status: active
+    source: design/gdd/damage-calc.md  # OWNERSHIP TRANSFER 2026-04-18: was grid-battle.md (F-GB-PROV); now Damage Calc applies via F-DC-7.
+    referenced_by:
+      - design/gdd/damage-calc.md
+      - design/gdd/grid-battle.md   # consumer-only post-F-GB-PROV retirement; Grid Battle calls resolve(is_counter=true), Damage Calc applies the 0.5 multiplier internally
+    value: 0.5
+    unit: multiplier
+    notes: "Final multiplier applied to counter-attack damage in F-DC-7. Damage Calc applies internally when modifiers.is_counter=true; Grid Battle MUST NOT halve again (CR-9). AC-DC-08 + AC-DC-24 fixtures. Config: balance_constants.json."
+    added: 2026-04-18
+    revised: 2026-04-18  # source TRANSFER grid-battle.md → damage-calc.md per F-GB-PROV retirement
+
+  - name: charge_bonus
+    status: active
+    source: design/gdd/damage-calc.md
+    referenced_by:
+      - design/gdd/damage-calc.md
+      - design/gdd/unit-role.md  # Cavalry CHARGE passive defines the gate; Damage Calc owns the multiplier
+      - design/gdd/turn-order.md  # turn-order.md owns charge_threshold accumulator (40 move_cost_points); CHARGE_BONUS is the payoff once gate fires
+    value: 1.20
+    unit: multiplier
+    notes: "Cavalry Charge passive damage multiplier in F-DC-5 P_mult. TK-DC-1 tunable, safe range [1.05, 1.30]. Suppressed on counter-attacks (CR-8 / EC-DC-8 / AC-DC-16). Worked example AC-DC-03 (Cavalry REAR Charge: 80 ATK, 50 DEF → 64 damage). Cannot stack with AMBUSH_BONUS in production — class-guard mutex (Cavalry-only Charge vs Scout/Archer-only Ambush) per AC-DC-27. The value 1.38 (= snappedf(1.20 × 1.15, 0.01)) appears only in the defense-in-depth synthetic fixture EC-DC-9 that bypasses class guards to prove the DAMAGE_CEILING=180 two-stage cap still absorbs the overflow if a future bug removes a guard. Config: balance_constants.json."
+    added: 2026-04-18
+    revised: ""
+
+  - name: ambush_bonus
+    status: active
+    source: design/gdd/damage-calc.md
+    referenced_by:
+      - design/gdd/damage-calc.md
+      - design/gdd/unit-role.md  # Scout AMBUSH passive defines the gate (FLANK + round >= 2 + defender hasn't acted); Damage Calc owns the multiplier
+      - design/gdd/turn-order.md  # turn-order.md owns the round counter consumed by the Ambush gate
+    value: 1.15
+    unit: multiplier
+    notes: "Scout Ambush passive damage multiplier in F-DC-5 P_mult. TK-DC-2 tunable, safe range [1.05, 1.25]. Worked example AC-DC-09 (Scout FLANK round 3, defender unacted: 70 ATK, 40 DEF → 41 damage). Suppressed on counter-attacks (CR-8 rev 2 — not_is_counter guard mirrors Charge). Cannot stack with CHARGE_BONUS in production — class-guard mutex (Scout/Archer-only Ambush vs Cavalry-only Charge) per AC-DC-27. The value 1.38 (= snappedf(1.20 × 1.15, 0.01)) appears only in the defense-in-depth synthetic fixture EC-DC-9 that bypasses class guards to prove the DAMAGE_CEILING=180 two-stage cap still absorbs the overflow if a future bug removes a guard. Config: balance_constants.json."
+    added: 2026-04-18
+    revised: ""
+
+  - name: two_tap_timeout_s
+    status: active
+    source: design/gdd/grid-battle.md
+    referenced_by:
+      - design/gdd/grid-battle.md
+      - design/gdd/input-handling.md  # consumed by S3/S4 touch flow
+      - design/ux/battle-hud.md       # CR-13 mobile DEFEND two-tap confirm (v5.0) reuses same timeout per AC-UX-HUD-09
+    value: 15.0
+    unit: seconds
+    notes: "Beat 2 touch-confirm timeout. Shared by (a) attack-confirm flow (CR-5 / UI-GB-04) and (b) DEFEND confirm flow (CR-13 / UI-GB-02, added v5.0). Anti-fat-finger safeguard only. Config: battle_constants.json"
+    added: 2026-04-18
+    revised: 2026-04-19  # +battle-hud.md consumer per grid-battle v5.0 CR-13 mobile DEFEND two-tap
+
+  - name: ai_decision_timeout_ms
+    status: active
+    source: design/gdd/grid-battle.md
+    referenced_by:
+      - design/gdd/grid-battle.md
+    value: 500
+    unit: milliseconds
+    notes: "AI deliberation budget per turn (CR-3). On expiry forces WAIT + error log. Informs AI System design budget. Config: battle_constants.json"
+    added: 2026-04-18
+    revised: ""
+
+  - name: ai_softlock_threshold
+    status: active
+    source: design/gdd/grid-battle.md
+    referenced_by:
+      - design/gdd/grid-battle.md
+    value: 2
+    unit: consecutive_timeouts
+    notes: "CR-3b round-level escalation trigger. Consecutive AI timeouts within one round before Grid Battle bypasses remaining AI turns. Config: battle_constants.json"
+    added: 2026-04-18
+    revised: ""
+
+  - name: animation_timeout_s
+    status: active
+    source: design/gdd/grid-battle.md
+    referenced_by:
+      - design/gdd/grid-battle.md
+    value: 3.0
+    unit: seconds
+    notes: "CR-12 defensive watchdog for animation_complete. Owned Timer node (not SceneTreeTimer). Production-injected via override for tests. Config: battle_constants.json"
+    added: 2026-04-18
+    revised: ""
+
+  - name: beat_2_envelope_min
+    status: active
+    source: design/gdd/scenario-progression.md
+    referenced_by:
+      - design/gdd/scenario-progression.md
+    value: 4.0
+    unit: seconds
+    notes: "Beat 2 (Prior-State Echo) minimum authored duration. Hard architectural constraint
+      per CR-9 — TK-SP-5 safe range is [3.0, 7.0] but authored range is fixed [4.0, 6.0].
+      Lower bounds cue-tail audibility on mobile speakers. Sound/Music #24 and Story Event
+      UI #20 MUST respect this envelope."
+    added: 2026-04-18
+    revised: ""
+
+  - name: beat_2_envelope_max
+    status: active
+    source: design/gdd/scenario-progression.md
+    referenced_by:
+      - design/gdd/scenario-progression.md
+    value: 6.0
+    unit: seconds
+    notes: "Beat 2 maximum authored duration. CR-9 hard constraint. Upper bound per
+      ux-designer convergent verdict — >7.0s breaks pacing; Ch1 uses silent-visual
+      variant at the same envelope."
+    added: 2026-04-18
+    revised: ""
+
+  - name: beat_2_audio_lufs_min
+    status: active
+    source: design/gdd/scenario-progression.md
+    referenced_by:
+      - design/gdd/scenario-progression.md
+    value: -18.0
+    unit: LUFS
+    notes: "Beat 2 integrated-loudness mandatory floor (mobile audibility). AC-SP-37 enforces
+      via ebur128. REPLACES v1.0 ≤−24 LUFS defect. Sound/Music #24 mixing MUST target
+      ≥ -18 LUFS. Preferred operating point: -15 LUFS ±1 inside [-18, -12] band."
+    added: 2026-04-18
+    revised: ""
+
+  - name: beat_2_audio_lufs_max
+    status: active
+    source: design/gdd/scenario-progression.md
+    referenced_by:
+      - design/gdd/scenario-progression.md
+    value: -12.0
+    unit: LUFS
+    notes: "Beat 2 integrated-loudness ceiling. Above this, Beat 2 cue dominates main mix bus.
+      True-peak ceiling is -1.0 dBTP (separate invariant). ebur128 instrumentation per AC-SP-37."
+    added: 2026-04-18
+    revised: ""
+
+  - name: beat_2_min_dwell
+    status: active
+    source: design/gdd/scenario-progression.md
+    referenced_by:
+      - design/gdd/scenario-progression.md
+    value: 2.0
+    unit: seconds
+    notes: "Beat 2 input lockout before tap-to-advance is honored. CR-9 / CR-15. AC-SP-6
+      asserts via Time.get_ticks_msec() dwell measurement. Input Handling #29 coordinates
+      silent-drop behavior during lockout per EC-SP-7."
+    added: 2026-04-18
+    revised: ""
+
+  - name: beat_7_dwell_lockout
+    status: active
+    source: design/gdd/scenario-progression.md
+    referenced_by:
+      - design/gdd/scenario-progression.md
+    value: 1.5
+    unit: seconds
+    notes: "Beat 7 (Judgment) witness-gate lockout before 'continue' affordance appears.
+      CR-11 narrative-director + ux-designer convergent lock — NOT a tuning knob.
+      Reveal-from-locked UI model: affordance is absent during lockout, fades in
+      post-lockout (150–200ms). Silent drop on pre-lockout taps per EC-SP-7."
+    added: 2026-04-18
+    revised: ""
+
+  - name: battle_outcome_timeout_default
+    status: active
+    source: design/gdd/scenario-progression.md
+    referenced_by:
+      - design/gdd/scenario-progression.md
+      - design/gdd/grid-battle.md   # Grid Battle must resolve within this window or trigger EC-SP-5
+    value: 60.0
+    unit: seconds
+    notes: "TK-SP-6 default. Max wait from battle_launch_requested emit to
+      battle_outcome_resolved receipt. Safe range [30, 120]. Grid Battle #1 MUST
+      guarantee outcome emission within this window under normal operation. Timeout →
+      BATTLE_LOADING escape + EC-SP-5 error dialog. ProjectSettings: scenario/*."
+    added: 2026-04-18
+    revised: ""
+
+  - name: battle_loading_timeout_default
+    status: active
+    source: design/gdd/scenario-progression.md
+    referenced_by:
+      - design/gdd/scenario-progression.md
+      - design/gdd/grid-battle.md   # scene-load window
+    value: 10.0
+    unit: seconds
+    notes: "TK-SP-7 default. BATTLE_LOADING sub-state max duration (Grid Battle scene load
+      window per ADR-0001 scope stability). Safe range [5, 30]. Timeout → EC-SP-5.
+      ProjectSettings: scenario/*."
+    added: 2026-04-18
+    revised: ""
+
+  - name: chapter_count_mvp_default
+    status: active
+    source: design/gdd/scenario-progression.md
+    referenced_by:
+      - design/gdd/scenario-progression.md
+    value: 5
+    unit: chapters
+    notes: "TK-SP-4 MVP default. Safe range [3, 5] for MVP scope. Authored in
+      scenarios/manifest.json. Beyond MVP this is a production contract, not a tuning
+      knob. Destiny State #16 and Save/Load #17 scale save-slot metadata to this value."
+    added: 2026-04-18
+    revised: ""
 
 # Example:
 #
