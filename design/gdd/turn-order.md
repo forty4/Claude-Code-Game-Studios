@@ -135,18 +135,22 @@ T6 — Mark acted
   unit.turn_state = DONE
   Emit unit_turn_ended(unit_id, acted_this_turn)
 
-T7 — Battle-end check
-  If all enemy units DEAD: emit battle_ended(PLAYER_WIN). Halt.
-  If all player units DEAD: emit battle_ended(PLAYER_LOSE). Halt.
+T7 — Victory-condition check
+  If all enemy units DEAD: emit victory_condition_detected(PLAYER_WIN). Halt.
+  If all player units DEAD: emit victory_condition_detected(PLAYER_LOSE). Halt.
   Else: proceed to next queue entry.
+  (Turn Order detects; Grid Battle owns emission of battle_ended / battle_outcome_resolved
+  per ADR-0001 single-owner rule. Grid Battle consumes victory_condition_detected and
+  transitions to RESOLUTION.)
 ```
 
-**Round End Sequence** (after last unit completes without battle_ended):
+**Round End Sequence** (after last unit completes without victory_condition_detected):
 
 ```
 RE1 — Emit round_ended(round_number)
 RE2 — Draw check: if current_round_number >= ROUND_CAP (default 30):
-       emit battle_ended(DRAW)
+       emit victory_condition_detected(DRAW)
+       (Grid Battle consumes and emits battle_ended per ADR-0001 single-owner rule.)
 RE3 — Return to Round Start (R1)
 ```
 
@@ -338,10 +342,10 @@ Transitions:
 BATTLE_NOT_STARTED → BATTLE_INITIALIZING  (battle trigger)
 BATTLE_INITIALIZING → ROUND_STARTING     (BI-6)
 ROUND_STARTING → ROUND_ACTIVE            (R4 complete)
-ROUND_ACTIVE → ROUND_ENDING              (queue exhausted, no battle_ended)
-ROUND_ACTIVE → BATTLE_ENDED              (T7: all-ally or all-enemy dead)
+ROUND_ACTIVE → ROUND_ENDING              (queue exhausted, no victory_condition_detected)
+ROUND_ACTIVE → BATTLE_ENDED              (T7: victory_condition_detected emitted — Grid Battle transitions to RESOLUTION)
 ROUND_ENDING → ROUND_STARTING            (RE3: next round)
-ROUND_ENDING → BATTLE_ENDED              (RE2: ROUND_CAP reached)
+ROUND_ENDING → BATTLE_ENDED              (RE2: victory_condition_detected(DRAW) emitted — Grid Battle transitions to RESOLUTION)
 ```
 
 #### Per-Unit Turn States
@@ -443,7 +447,12 @@ struct TurnOrderEntry:
 signal round_started(round_number: int)
 signal unit_turn_started(unit_id: int)
 signal unit_turn_ended(unit_id: int, acted: bool)
-signal battle_ended(result: enum {PLAYER_WIN, PLAYER_LOSE, DRAW})
+signal victory_condition_detected(result: enum {PLAYER_WIN, PLAYER_LOSE, DRAW})
+# `battle_ended` is NOT a Turn Order signal. Per ADR-0001 single-owner rule, Grid Battle
+# is the sole emitter of `battle_ended` / `battle_outcome_resolved` (GameBus). Turn Order
+# emits `victory_condition_detected` to notify Grid Battle that a terminal condition has
+# been reached; Grid Battle evaluates and emits the authoritative result. See
+# `grid-battle.md` §CR-7 and §Dependencies (Turn Order row, CLEANUP ownership annotation).
 ```
 
 **Contract 5: Turn Order → AI System** (on AI turn)
@@ -654,11 +663,11 @@ units with no lethal paths). Not scaled to map size or unit count.
 
 **EC-18. Round 30 ends without decisive outcome**
 - **If the last unit in Round 30's queue completes T7 with no `battle_ended`**:
-  RE1 emits `round_ended(30)`. RE2: `30 >= 30 = true` → `battle_ended(DRAW)`.
+  RE1 emits `round_ended(30)`. RE2: `30 >= 30 = true` → `victory_condition_detected(DRAW)` emitted by Turn Order; Grid Battle emits `battle_ended(DRAW)` per ADR-0001 single-owner rule.
   RE3 never executes.
 
 **EC-19. Last enemy dies in T7 of Round 30 — WIN or DRAW?**
-- **If T7 detects all enemies dead during Round 30**: T7 emits `battle_ended(PLAYER_WIN)`.
+- **If T7 detects all enemies dead during Round 30**: T7 emits `victory_condition_detected(PLAYER_WIN)`; Grid Battle emits `battle_ended(PLAYER_WIN)` per ADR-0001 single-owner rule.
   RE1/RE2/RE3 never execute. **PLAYER_WIN takes precedence** because T7 fires before
   RE2 in the execution sequence. ROUND_CAP DRAW is a fallback only when no decisive
   outcome occurs within the round.
@@ -681,7 +690,7 @@ units with no lethal paths). Not scaled to map size or unit count.
 | Consumer | 의존 유형 | 제공 데이터 | 참조 시점 | GDD Status |
 |----------|----------|-----------|----------|------------|
 | **Damage/Combat Calculation** | Hard | `get_acted_this_turn(unit_id)` → bool, `get_current_round_number()` → int | 공격 시 (Scout Ambush 판정) | Not Started |
-| **Grid Battle System** | Hard | `round_started`, `unit_turn_started`, `unit_turn_ended`, `battle_ended` signals | 라운드/턴 이벤트 | Not Started |
+| **Grid Battle System** | Hard | `round_started`, `unit_turn_started`, `unit_turn_ended`, `victory_condition_detected` signals | 라운드/턴 이벤트 — Grid Battle owns `battle_ended` emission per ADR-0001 single-owner rule | Not Started |
 | **Battle HUD** | Hard | `TurnOrderSnapshot` (Contract 3) | R4, T6, 유닛 사망 시 | Not Started |
 | **AI System** | Hard | `TurnOrderSnapshot`, `acted_this_turn` for all units | T4 (AI 턴 시작) | Not Started |
 | **Formation Bonus System** | Soft | `round_started` signal (진형 보너스 재계산 트리거) | R4 | Not Started |
@@ -693,7 +702,7 @@ units with no lethal paths). Not scaled to map size or unit count.
 1. **Contract 1: Turn Order → Damage Calc** — `get_acted_this_turn(unit_id)` → bool, `get_current_round_number()` → int. 읽기 전용. Scout Ambush 조건 판정용.
 2. **Contract 2: HP/Status → Turn Order** — `unit_died(unit_id)` signal → 큐 즉시 제거 (CR-7a). `tick_dot_effects(unit_id)` → bool (사망 여부 반환).
 3. **Contract 3: Turn Order → Battle HUD** — `TurnOrderSnapshot` struct 푸시. 상태 변경 시마다 갱신.
-4. **Contract 4: Turn Order → Grid Battle** — 4개 이벤트 signal. Grid Battle은 `unit_died` signal에서도 `battle_ended` 판정 수행 (EC-06 binding).
+4. **Contract 4: Turn Order → Grid Battle** — 4개 이벤트 signal (`round_started`, `unit_turn_started`, `unit_turn_ended`, `victory_condition_detected`). Turn Order는 terminal 조건 감지 시 `victory_condition_detected` emit; Grid Battle이 `battle_ended` / `battle_outcome_resolved` 단독 emit (ADR-0001 single-owner rule). Grid Battle은 `unit_died` signal에서도 승리 조건 판정 수행 (EC-06 binding).
 5. **Contract 5: Turn Order → AI System** — `ai_system.request_action(unit_id, queue_snapshot)` → `ActionDecision`. AI가 행동 결정, Turn Order가 T5 내 실행.
 
 ### 양방향 일관성 검증
@@ -887,7 +896,7 @@ Audio: 동일 종, 200ms에 즉시 차단.
 - **GIVEN** Cavalry attacks without spending MOVE token, **WHEN** ATTACK declared, **THEN** `accumulated_move_cost = 0`, `charge_ready = false`.
 
 **AC-16. F-3 Round Cap — DRAW at Round 30**
-- **GIVEN** Round 30 with units alive on both sides, last unit completes T7 without battle-end, **WHEN** RE2 evaluates, **THEN** `30 >= 30 = true`, `battle_ended(DRAW)` emitted. RE3 never executes.
+- **GIVEN** Round 30 with units alive on both sides, last unit completes T7 without victory-condition detection, **WHEN** RE2 evaluates, **THEN** `30 >= 30 = true`, Turn Order emits `victory_condition_detected(DRAW)`, Grid Battle emits `battle_ended(DRAW)`. RE3 never executes. (ADR-0001 single-owner rule: Turn Order detects; Grid Battle emits.)
 
 ### Edge Case Criteria
 
@@ -895,10 +904,10 @@ Audio: 동일 종, 200ms에 즉시 차단.
 - **GIVEN** POISON unit (`is_morale_anchor = true`) reaches HP 0 at T1, **WHEN** T1 executes, **THEN** `unit_died` emitted, DEMORALIZED propagates synchronously, unit removed from queue, T2–T7 entirely skipped, battle-end checked via `unit_died` signal path.
 
 **AC-18. EC-04 — Mutual Kill Results in PLAYER_WIN**
-- **GIVEN** last player unit A attacks last enemy B, B dies from attack, A dies from counter-attack, **WHEN** T7 evaluates battle-end, **THEN** `battle_ended(PLAYER_WIN)`. PLAYER_WIN is checked before PLAYER_LOSE.
+- **GIVEN** last player unit A attacks last enemy B, B dies from attack, A dies from counter-attack, **WHEN** T7 evaluates battle-end, **THEN** Turn Order emits `victory_condition_detected(PLAYER_WIN)`; Grid Battle emits `battle_ended(PLAYER_WIN)`. PLAYER_WIN is checked before PLAYER_LOSE. (ADR-0001 single-owner rule.)
 
 **AC-19. EC-06 — Battle-End via DoT Death Signal** (Integration)
-- **GIVEN** last enemy unit has POISON, HP→0 at T1 of its own turn, **WHEN** `unit_died` emitted, **THEN** Grid Battle evaluates `all_enemies_dead()` on signal, `battle_ended(PLAYER_WIN)` emitted before T2. T2–T7 never execute.
+- **GIVEN** last enemy unit has POISON, HP→0 at T1 of its own turn, **WHEN** `unit_died` emitted, **THEN** Grid Battle evaluates `all_enemies_dead()` on signal, Grid Battle emits `battle_ended(PLAYER_WIN)` before T2 (Turn Order is not in this code path — Grid Battle owns DoT-driven termination per ADR-0001). T2–T7 never execute.
 
 **AC-20. EC-13 — Scout Ambush Suppressed Round 1** (Integration)
 - **GIVEN** Scout attacks target (`acted_this_turn = false`) on Round 1, **WHEN** Damage Calc evaluates Ambush, **THEN** Ambush does NOT fire. `current_round_number = 1 < 2` gate evaluated first.
@@ -907,7 +916,7 @@ Audio: 동일 종, 200ms에 즉시 차단.
 - **GIVEN** Scout attacks WAIT target (`acted_this_turn = false`) on Round 3, **WHEN** Damage Calc evaluates Ambush, **THEN** Ambush fires: +15% damage applied, counter-attack suppressed.
 
 **AC-22. EC-19 — T7 WIN Beats RE2 DRAW in Round 30**
-- **GIVEN** Round 30, last enemy dies at T7, **WHEN** T7 evaluates, **THEN** `battle_ended(PLAYER_WIN)` emitted. RE1/RE2/RE3 never execute. WIN takes precedence over DRAW.
+- **GIVEN** Round 30, last enemy dies at T7, **WHEN** T7 evaluates, **THEN** Turn Order emits `victory_condition_detected(PLAYER_WIN)`; Grid Battle emits `battle_ended(PLAYER_WIN)`. RE1/RE2/RE3 never execute. WIN takes precedence over DRAW because T7 fires before RE2 in execution sequence. (ADR-0001 single-owner rule.)
 
 ### Performance Criteria
 

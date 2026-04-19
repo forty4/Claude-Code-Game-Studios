@@ -240,11 +240,16 @@ var is_counter: bool = false
 var skill_id: String = ""                        # "" = not a skill stub
 var rng: RandomNumberGenerator                   # typed — not Variant
 var round_number: int = 1                        # ≥ 1 (gate asserts)
+var rally_bonus: float = 0.0                     # rev 2.7 — Grid Battle pass-11c CR-15
+                                                 # value range [0.0, 0.15]; computed by Grid
+                                                 # Battle via get_rally_bonus(attacker_id);
+                                                 # consumed in F-DC-5 P_mult composition
 
 static func make(attack_type: AttackType, rng: RandomNumberGenerator,
                  direction_rel: StringName, round_number: int,
                  is_counter: bool = false, skill_id: String = "",
-                 source_flags: Array[StringName] = []) -> ResolveModifiers: ...
+                 source_flags: Array[StringName] = [],
+                 rally_bonus: float = 0.0) -> ResolveModifiers: ...
 ```
 
 **Phase-5 migration note — ADR candidate.** The switch from Dictionary to
@@ -623,6 +628,18 @@ passive_multiplier(attacker: AttackerContext,
        and not modifiers.is_counter \
        and ambush_round_gate_open(defender, modifiers):
         P_mult *= AMBUSH_BONUS            # 1.15
+
+    # Rally — additive bonus from adjacent Commanders (rev 2.7 — Grid Battle pass-11c CR-15 propagation)
+    # Rally is computed by Grid Battle via get_rally_bonus(attacker_id) and passed in
+    # via modifiers.rally_bonus (float in [0.0, 0.15] inclusive; cap enforced upstream
+    # in Grid Battle CR-15 rule 4 as min(0.15, N_adjacent_alive_commanders × 0.05)).
+    # Damage Calc trusts the upstream value and does NOT re-cap or re-validate.
+    # Applied as multiplicative composition with Charge + Ambush, mirroring the
+    # existing P_mult assembly pattern. Counters do NOT receive Rally — counters
+    # use COUNTER_ATTACK_MODIFIER only (rev 2.7 mirrors the Charge/Ambush counter guard).
+    if modifiers.rally_bonus > 0.0 \
+       and not modifiers.is_counter:
+        P_mult *= (1.0 + modifiers.rally_bonus)
 
     return snappedf(P_mult, 0.01)
 
