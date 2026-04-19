@@ -484,6 +484,33 @@ Rally is the Commander's defining class passive (`passive_rally`, declared in `d
 
 **Purpose (Pillar 3)**: Commander is the force-multiplier class. Rally makes the Commander a high-value assassination target — killing the Commander collapses the formation's damage output, creating a tactical imperative to protect or eliminate it. The **2-Commander cap (10% — rev 2.8)** prevents absurd stacking in hypothetical many-Commander compositions while preserving the incentive for intelligent Commander positioning. (Cap reduced from +15% per damage-calc rev 2.8 ceiling-collision fix.)
 
+**CR-16: Formation Bonus — Grid Battle Orchestration (v1.0 — Formation Bonus v1.1 cross-doc contract)**
+
+Formation Bonus is the spatial-coalition force-multiplier. This CR specifies the Grid Battle orchestration contract: when and how Formation Bonus snapshots are computed, published, stored, read per-attack, and surfaced to the UI. `design/gdd/formation-bonus.md` CR-FB-5 and CR-FB-6 own the Formation Bonus side of the same contract; this CR owns the Grid Battle wiring.
+
+**Rules**:
+
+1. **Trigger and scope**: Formation Bonus snapshots are computed once per round on `round_started(round_number: int)` (Turn Order Contract 4 — signal owner: Turn Order; GDScript declaration: `signal round_started(round_number: int)` per `design/gdd/turn-order.md`). Grid Battle subscribes FormationBonusSystem to `round_started` during CR-1 step 11 (immediately after `battle_initialized` is prepared and before the DEPLOYMENT transition — subscription must be live before the first `round_started` fires in COMBAT_ACTIVE). On each `round_started` fire, Grid Battle invokes `FormationBonusSystem.compute_and_publish_snapshot(units, round_number)`. The snapshot is stored in Grid Battle battle-state under key `formation_bonuses` (see rule 2; replaces the placeholder at line 905 of this document).
+
+2. **Storage contract**: `battle_state["formation_bonuses"]: Dictionary[int, Dictionary]` where each entry has the shape `{unit_id: {atk_bonus: float, def_bonus: float}}`. One entry per alive unit at snapshot time; values capped to `≤ 0.05` per-field per-unit before handoff (CR-FB-3 rule 4 — cap is enforced inside FormationBonusSystem, not re-enforced in Grid Battle). Default for a missing key at read time: `{atk_bonus: 0.0, def_bonus: 0.0}` — Grid Battle MUST NOT assume key presence.
+
+3. **Publication method signature**: `grid_battle.set_formation_bonuses(formation_bonuses: Dictionary[int, Dictionary]) -> void` — called by FormationBonusSystem after snapshot computation completes. Overwrites the previous round's snapshot wholesale (no partial merge). Snapshot persists for the full round regardless of mid-round unit deaths or moves (mirrors CR-FB-5 rule 2). After `set_formation_bonuses()` stores the snapshot, Grid Battle immediately emits `formation_bonuses_updated(snapshot: Dictionary[int, Dictionary])` for the UI layer (rule 6). Godot 4.6 typed signal declaration: `signal formation_bonuses_updated(snapshot: Dictionary)` on Grid Battle's main node.
+
+4. **Read path — CR-5 step 4 integration**: At CR-5 step 4 ("Check class passives that modify the attack"), Grid Battle populates the `ResolveModifiers` struct with Formation Bonus values by reading the attacker's and defender's snapshot entries before calling `damage_resolve()`:
+   - `modifiers.formation_atk_bonus = battle_state["formation_bonuses"].get(attacker_id, {}).get("atk_bonus", 0.0)`
+   - `modifiers.formation_def_bonus = battle_state["formation_bonuses"].get(defender_id, {}).get("def_bonus", 0.0)`
+   These are INPUT fields into `damage_resolve()` at CR-5 step 7. `F-DC-5` assembles `formation_atk_bonus` into `P_mult` (alongside `rally_bonus` and `CHARGE_BONUS`); `F-DC-3` applies `formation_def_bonus` to `eff_def` (per damage-calc.md rev 2.9 + Formation Bonus F-FB-5). Grid Battle is a consumer; it does not restate the composition math. Timing mirrors CR-15 rule 3 (Rally read at step 4, passed as input, applied inside damage-calc).
+
+5. **Formation Bonus ≠ Rally**: `formation_atk_bonus` and `rally_bonus` are independent `ResolveModifiers` fields. Rally is re-evaluated per-attack at CR-5 step 4 from live Commander positions; Formation Bonus is read from the round-start snapshot. The Rally cap is `min(0.10, N × 0.05)` (CR-15 rule 4); the Formation per-unit cap is `0.05` inside FormationBonusSystem (CR-FB-3 rule 4); the combined `P_MULT_COMBINED_CAP = 1.31` (F-DC-5) applies AFTER all multipliers are assembled inside damage-calc and is not enforced in Grid Battle. Formation stacking rules (pattern + relationship additive composition) are owned by CR-FB-3; Grid Battle does not arbitrate or re-enforce them.
+
+6. **UI signal emission**: After `set_formation_bonuses()` stores the snapshot, Grid Battle emits `formation_bonuses_updated(snapshot: Dictionary[int, Dictionary])`. UI-GB-14 (see `design/ux/battle-hud.md` §3.1) subscribes to this signal to render formation indicators and forecast tooltip lines. The signal name `formation_bonuses_updated` is ratified by this CR and matches the provisional name proposed in `design/ux/battle-hud.md` §3.1 and referenced in `design/gdd/formation-bonus.md` CR-FB-6 rule 5. Grid Battle emits no additional per-unit formation signals — the full snapshot is passed once per round and the UI derives per-unit state from it.
+
+7. **AI awareness**: `get_battle_state_snapshot()` exposes `formation_atk_bonus_active: float` and `formation_def_bonus_active: float` per unit entry (floats 0.0–0.05, reflecting the current-round per-unit formation contribution). AI positioning logic may consider Formation incentives in future work (AI System #8 not yet designed; field is informational only in current scope).
+
+8. **Dead unit / mid-round semantics**: Snapshot entries for units that die mid-round persist in the dict for the remainder of the round (CR-FB-5 rule 3). Grid Battle skips attack resolution for dead units (CR-5 step 1 gate: `target alive` check), so stale entries for dead units cause no incorrect damage application. At the next `round_started`, Grid Battle invokes `compute_and_publish_snapshot` again; FormationBonusSystem rebuilds the dict wholesale based on alive units at that moment. Grid Battle performs no partial updates or entry deletions between rounds.
+
+**Purpose (Pillar 1)**: Formation Bonus is the spatial-coalition force-multiplier. CR-16 ensures that the player's once-per-round positional decision is frozen at round-start — predictable, readable, and honoring the Pillar 1 "plan your round" intent — then fed into the damage pipeline as a first-class modifier alongside Rally and Charge via dedicated `ResolveModifiers` fields, and surfaced to the UI via a single dedicated signal. The `P_MULT_COMBINED_CAP = 1.31` (F-DC-5) keeps apex-damage combinations within the rev 2.8.1 ceiling-safe envelope (`floori(83 × 1.64 × 1.31) = 178 ≤ DAMAGE_CEILING`).
+
 ### States and Transitions
 
 **Battle State Machine** (top-level, distinct from Turn Order's queue lifecycle
@@ -595,7 +622,7 @@ that node is intended for animation blending only.
 | **Battle UI implementation** (not yet designed) | Battle state updates → consumes the contract defined in `design/ux/battle-hud.md` | Grid Battle emits UI update signals per CR-12 and the UX spec |
 | **Animation System** (not yet designed) | Animation triggers (move, attack, skill, death, status apply) → receives `animation_complete` callback | Grid Battle triggers animation, blocks input (S5), resumes on completion |
 | **Skill System** (not yet designed) | Skill execution requests → receives skill effect data | Grid Battle calls skill resolution; applies results through appropriate pipeline |
-| **Formation Bonus** (not yet designed) | Unit positions snapshot → receives formation bonuses (stat modifiers) | Grid Battle queries on `round_started`; applies bonuses as temporary stat modifiers |
+| **Formation Bonus** (Designed v1.1) | Unit positions snapshot at `round_started` → `formation_bonuses: Dictionary[int, {atk_bonus: float, def_bonus: float}]` snapshot published to Grid Battle via `set_formation_bonuses()`; Grid Battle CR-5 step 4 reads per-attack into `ResolveModifiers.formation_atk_bonus` / `formation_def_bonus`; UI notified via `formation_bonuses_updated` signal | CR-16 (this document) owns the full orchestration contract; `design/gdd/formation-bonus.md` v1.1 CR-FB-5, CR-FB-6 own the Formation Bonus side. |
 | **Battle Reward** (not yet designed) | Battle outcome, units participated, scenario data → receives nothing | Grid Battle emits `battle_complete(outcome_data)` on CLEANUP |
 | **Scenario Progression** (`design/gdd/scenario-progression.md` — Approved pending review) | `battle_complete(outcome_data)` → receives battle payload (`map_id`, `unit_roster[]`, `deployment_positions{}`, `victory_conditions{}`, optional `battle_start_effects[]`) at BATTLE_LOADING | Grid Battle is instantiated by Scenario Progression with the battle payload; reports back via `battle_complete(outcome_data)` relayed through GameBus autoload (see Scenario Progression OQ-SP-01). |
 
@@ -857,7 +884,7 @@ contract in the opposite direction (over-warning on a safe play).
 | Battle UI implementation | Not Started | Output | Consumes `design/ux/battle-hud.md` contract |
 | Animation System | Not Started | Input/Output | Animation triggers → animation_complete callbacks |
 | Skill System | Not Started | Input/Output | Skill execution → skill effect data |
-| Formation Bonus | **Designed (v1.0 initial draft 2026-04-19; pre-`/design-review`)** | Input/Output | Unit positions → `formation_bonuses: Dictionary[int, {atk_bonus, def_bonus}]` snapshot. Subscribes to `round_started`; publishes via `set_formation_bonuses()`. Grid Battle CR-5 step 4 reads snapshot per-attack to populate `ResolveModifiers.formation_atk_bonus` / `formation_def_bonus` (per damage-calc.md rev 2.9). See `design/gdd/formation-bonus.md` v1.0 + cross-doc obligations §6. |
+| Formation Bonus | **Designed (v1.1 — pass-1 NEEDS REVISION close-out; narrow re-review pending)** | Input/Output | Unit positions → `formation_bonuses: Dictionary[int, {atk_bonus: float, def_bonus: float}]` snapshot. Subscribes to `round_started`; publishes via `set_formation_bonuses()`. Grid Battle CR-5 step 4 reads snapshot per-attack to populate `ResolveModifiers.formation_atk_bonus` / `formation_def_bonus` (per damage-calc.md rev 2.9 + F-FB-5). Full Grid Battle orchestration contract: **CR-16** (this document). See `design/gdd/formation-bonus.md` v1.1 CR-FB-5, CR-FB-6. |
 | Battle Reward | Not Started | Output | `battle_complete(outcome_data)` signal |
 | Scenario Progression | Approved (pending /design-review) — `design/gdd/scenario-progression.md` | Input/Output | Battle payload (`map_id`, `unit_roster[]`, `deployment_positions{}`, `victory_conditions{}`, optional `battle_start_effects[]`) → `battle_complete(outcome_data)` signal relayed via GameBus autoload **at CLEANUP state only**. Grid Battle makes NO GameBus connections during BATTLE state — the autoload is wired exclusively when the state machine reaches CLEANUP. AC-GB-25 asserts this contract with a negative connection check at test start. |
 
@@ -902,7 +929,7 @@ contract in the opposite direction (over-warning on a safe play).
     "movement_budget_map": {unit_id: accumulated_budget},
     "terrain_tiles": [{col, row, terrain_type, elevation, defense_bonus, evasion_bonus}],
     "initiative_queue": [unit_id, ...],
-    "formation_bonuses": {unit_id: {stat: modifier}},
+    "formation_bonuses": Dictionary[int, Dictionary],  # {unit_id: {atk_bonus: float, def_bonus: float}} — populated by FormationBonusSystem via set_formation_bonuses() at round_started (CR-16).
     "victory_conditions": {type, target_commander_id?},
     "tactical_read_forecasts": [                                # v4.0 — per qualifying AI unit
       {

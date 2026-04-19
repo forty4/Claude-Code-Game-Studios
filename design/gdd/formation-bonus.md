@@ -1,8 +1,9 @@
 # Formation Bonus System (진형 보너스)
 
-> **Status**: In Design — v1.0 draft (synthesizer-assembled from game-designer + systems-designer parallel specialist outputs 2026-04-19)
-> **Author**: game-designer (narrative + content); systems-designer (formulas + edge cases + caps + AC)
-> **Last Updated**: 2026-04-19 (v1.0 first draft — pre-`/design-review`)
+> **Status**: In Design — v1.1 (pass-1 NEEDS REVISION close-out — 4 specialist-authored edit-sets applied 2026-04-20)
+> **Author**: game-designer (narrative + vignette + tuning notes); systems-designer (formulas + edge cases + caps + AC); ux-designer (UI-GB-14 + R-2 tokens in battle-hud.md); qa-lead (fixture schema)
+> **Last Updated**: 2026-04-20 (v1.1 — resolves pass-1 10+ blockers + 5 user design adjudications; pending narrow re-review)
+> **Change log (v1.0 → v1.1)**: (a) F-FB-1 self-cache replaces fabricated `grid.get_unit_at()` API; (b) F-FB-2 queries both hero_ids with symmetric-pair dedup (fixes asymmetric record miss); (c) F-FB-3a PatternDef + BonusVal class_name RefCounted spec; (d) Vignette 1 rewritten with non-Cavalry anchor (Pillar-1 honesty); (e) LORD_VASSAL DEF 0.02 → 0.04 (floori-visibility parity with 방진); (f) AC-FB-04 stale 0.02 → 0.04; (g) AC-FB-06 stale 0.02 → 0.04 (consistency); (h) 9 new ACs (AC-FB-17–25) covering EC-FB-3/5/6/10/11/12 + sub-apex P_mult + formation_def consumer + distance-1 boundary; (i) OQ-FB-03 RESOLVED (HUD viz contract cross-doc battle-hud.md UI-GB-14 + UI-GB-04 Passives line + R-2 token); (j) OQ-FB-01 kept with explicit defer rationale; (k) cross-doc to grid-battle.md CR-16, map-grid.md self-cache advisory, accessibility-requirements.md R-2 Formation token.
 > **Implements Pillar**: Pillar 1 (형세의 전술 — Tactics of Formation) primary; Pillar 4 (삼국지의 숨결 — historical bond resonance) supporting
 > **Depends on**: Hero Database (`get_relationships`), Map/Grid (`get_adjacent_units`), Damage Calc (`ResolveModifiers` cross-doc obligation rev 2.9), Turn Order (`round_started` signal), Balance/Data (`config/formations.json`)
 > **Coordinates with**: `design/gdd/grid-battle.md` CR-15 (Rally — architectural template; Formation Bonus is parallel additive modifier, NOT Rally), `design/gdd/unit-role.md` EC-12 (Rally Stacking Cap — distinct contract)
@@ -22,7 +23,9 @@ The Formation Bonus System rewards deliberate spatial positioning by granting sm
 
 ### Vignette 1 — 어진형의 완성 (The Wedge Completes)
 
-It is turn 3. 관우 anchors the spearhead, 장비 stands one tile diagonally back-left, and a nameless spearman holds one tile diagonally back-right — forming the 어진형 (V-shaped wedge). The player has been shuffling these three toward alignment for two turns, sacrificing a flanking opportunity. On `round_started` of turn 4, the board calculates: three allied units in a wedge — 어진형 recognised. A soft formation glyph pulses along the V. 관우 (the anchor) ticks up `formation_atk_bonus = 0.03`. On 관우's next attack the damage roll is +3% higher — not a massive swing, but visible, earned, and exactly the edge needed to crack the enemy's fortified tile.
+It is turn 3. A nameless 창병 (spear infantry) anchors the spearhead, and two more spearmen stand one tile diagonally back-left and back-right — forming the 어진형 (V-shaped wedge). The player has been shuffling these three toward alignment for two turns, sacrificing a flanking opportunity. On `round_started` of turn 4, the board calculates: three allied units in a wedge — 어진형 recognised. A soft formation glyph pulses along the V. The anchor spearman ticks up `formation_atk_bonus = 0.03`.
+
+On his next attack — REAR strike, ATK 70 vs DEF 30, no special passive active — the damage reads `floori(40 × 1.65 × 1.03) = 68` instead of the baseline `floori(40 × 1.65) = 66`. Two points. Not a massive swing, but visible, earned, and exactly the edge needed to crack the enemy's fortified tile.
 
 The player feels the satisfaction Pillar 1 promises: a decision made two turns ago, maturing now. The formation bonus is not a reward for clicking correctly — it is proof that they read the 형세.
 
@@ -60,6 +63,7 @@ A pattern bonus is granted when all required tile slots of a defined formation t
 4. **Multi-pattern overlap**: A unit may participate in multiple patterns simultaneously (e.g., anchor of 어진형 AND member of 방진). All contributions sum into raw_atk / raw_def, then per-unit cap (CR-FB-3 rule 4) applies.
 5. **Pattern recalculation**: Called exactly once per round at `round_started` (see CR-FB-5).
 6. **Data source**: Pattern shape definitions read from `assets/data/config/formations.json` (Balance/Data CR-2). The GDD is authoritative spec; JSON is tunable data layer.
+7. **Grid Battle orchestration**: The caller responsible for invoking `compute_and_publish_snapshot` and reading the resulting snapshot per-attack is specified in `design/gdd/grid-battle.md` CR-16 (Formation Bonus orchestration — authored by godot-specialist in v1.1). This GDD defines the data contract; CR-16 defines the wiring.
 
 **CR-FB-2. Relationship Adjacency Contract.**
 
@@ -102,6 +106,7 @@ At `round_started`, Formation Bonus writes computed bonuses into a snapshot dict
    - `modifiers.formation_def_bonus = formation_bonuses.get(defender_id, {}).get("def_bonus", 0.0)`
 3. **Default**: If a unit_id is missing from the snapshot dict (e.g., unit joined battle after snapshot), default both fields to `0.0`.
 4. **Reset**: At next `round_started`, snapshot is recomputed and overwritten.
+5. **Grid Battle CR reference**: The Grid Battle side of this handoff (signal subscription, `compute_and_publish_snapshot` invocation timing, and CR-5 step 4 read path integration) is formally specified in `design/gdd/grid-battle.md` CR-16 (Formation Bonus orchestration). CR-16 is the authoritative cross-doc anchor for the wiring; this rule block is the Formation Bonus side of the same contract.
 
 ### Pattern Rules (4 MVP patterns)
 
@@ -175,8 +180,8 @@ Template (anchor at (0,0)):
 **CR-FB-12. LORD_VASSAL (군신).**
 
 - **is_symmetric**: `false` — vassal unit only receives bonus.
-- **Bonus (vassal only)**: `formation_def_bonus += 0.02`.
-- **Rationale**: The vassal fights to protect the lord — resilience and loyalty, not aggression. Asymmetry models the historical relationship: the lord inspires by presence; the vassal is emboldened to hold ground. Avoids making the lord stronger by positioning (which would conflict with Pillar 3 — every hero has a role, not "stack the strongest unit near the lord").
+- **Bonus (vassal only)**: `formation_def_bonus += 0.04` (v1.1 — was 0.02; raised per floori-visibility audit mirroring 방진 rev 2.9.1 precedent).
+- **Rationale**: The vassal fights to protect the lord — resilience and loyalty, not aggression. Asymmetry models the historical relationship: the lord inspires by presence; the vassal is emboldened to hold ground. ATK on the lord was rejected: making the lord stronger by positioning conflicts with Pillar 3 (every hero has a role, not "stack the strongest unit near the lord"). DEF 0.04 chosen for floori-visibility parity with 방진 rev 2.9.1 fix. At typical vassal DEF=30, `floori(30 × 0.04) = 1` absorbed damage per attack; at DEF=50, `floori(50 × 0.04) = 2`. Below DEF=25 the bonus is invisible (acceptable tier floor — low-DEF units are unlikely to be structurally positioned as vassals).
 
 **CR-FB-13. RIVAL (숙적).**
 
@@ -198,21 +203,27 @@ Template (anchor at (0,0)):
 ### F-FB-1. Pattern Detection Algorithm
 
 ```
-# Pattern definition (from formations.json):
-# PatternDef {
-#   id: StringName,
-#   name: String,                           # display name e.g., "어진형"
-#   anchor_bonus: { atk: float, def: float },
-#   member_bonus: { atk: float, def: float },
-#   offsets: Array[{ dc: int, dr: int }]    # offsets relative to anchor (0,0)
-# }
+# Pattern definition (from formations.json); types formally specified in F-FB-3a.
+# PatternDef { id: StringName, name: String, anchor_bonus: BonusVal,
+#              member_bonus: BonusVal, offsets: Array[Vector2i] }
+# BonusVal { atk: float, def: float }
+
+# v1.1: Formation Bonus builds a local coord→unit_id cache from the `units`
+# array at function entry. No new Map/Grid API required — the cache is
+# self-contained and scoped to this round's snapshot computation.
 
 detect_patterns(units: Array[UnitState],
-                grid: MapGrid,
                 patterns: Array[PatternDef]
                 ) -> { anchors: Dictionary[int, Array[StringName]],
                        members: Dictionary[int, Array[StringName]] }:
 
+    # ── Build self-cache O(U) ───────────────────────────────────────────
+    coord_to_unit_id: Dictionary[Vector2i, int] = {}
+    for unit in units:
+        if unit.is_alive:
+            coord_to_unit_id[unit.coord] = unit.unit_id
+
+    # ── Pattern sweep O(U × P × T) ─────────────────────────────────────
     anchor_map: Dictionary[int, Array[StringName]] = {}
     member_map: Dictionary[int, Array[StringName]] = {}
 
@@ -223,13 +234,14 @@ detect_patterns(units: Array[UnitState],
             occupants: Array[int] = [unit_a.unit_id]        # anchor itself
 
             for offset in pattern.offsets:                  # O(T)
-                target: Vector2i = unit_a.coord + Vector2i(offset.dc, offset.dr)
-                neighbor_id: int = grid.get_unit_at(target, unit_a.faction)
-                if neighbor_id == -1:                       # tile empty or wrong faction
+                target: Vector2i = unit_a.coord + offset
+                if not coord_to_unit_id.has(target):        # tile empty per self-cache
                     all_filled = false
                     break
+                neighbor_id: int = coord_to_unit_id[target]
                 neighbor: UnitState = get_unit(neighbor_id)
-                if neighbor == null or not neighbor.is_alive:
+                if neighbor == null or not neighbor.is_alive \
+                        or neighbor.faction != unit_a.faction:  # wrong faction
                     all_filled = false
                     break
                 occupants.append(neighbor_id)
@@ -240,7 +252,7 @@ detect_patterns(units: Array[UnitState],
                 anchor_map[unit_a.unit_id].append(pattern.id)
                 # Record members (excluding anchor)
                 for i in range(1, occupants.size()):
-                    member_id = occupants[i]
+                    member_id: int = occupants[i]
                     if not member_map.has(member_id):
                         member_map[member_id] = []
                     member_map[member_id].append(pattern.id)
@@ -254,24 +266,32 @@ detect_patterns(units: Array[UnitState],
 |--------|------|-------|-------------|
 | `U` | int | 1–8 (MVP 4v4) | Alive unit count |
 | `P` | int | 4 (MVP) | Pattern count loaded from formations.json |
-| `T` | int | 2–4 | Template size per pattern (2 for 어진형/학익진/방진 anchor + offsets; 4 for 마름진) |
+| `T` | int | 2–4 | Template offset count per pattern |
 | `unit_a.coord` | Vector2i | grid bounds | Candidate anchor position |
-| `offset.{dc, dr}` | int | -1 to +1 (MVP) | Relative position from anchor |
-| `anchor_map` | Dictionary[int, Array] | — | unit_id → patterns where this unit is anchor |
-| `member_map` | Dictionary[int, Array] | — | unit_id → patterns where this unit is non-anchor member |
+| `offset` | Vector2i | -1 to +1 (MVP) | Relative offset from anchor (loaded as `Vector2i(dc, dr)` in PatternDef) |
+| `coord_to_unit_id` | Dictionary[Vector2i, int] | — | Local self-cache: tile coord → unit_id; built at function entry from `units` array; no Map/Grid API required |
+| `anchor_map` | Dictionary[int, Array[StringName]] | — | unit_id → patterns where this unit is anchor |
+| `member_map` | Dictionary[int, Array[StringName]] | — | unit_id → patterns where this unit is non-anchor member |
 
-**Complexity**: O(U × P × T) ≤ 8 × 4 × 4 = 128 iterations per `round_started`. Negligible cost.
+**Complexity**: O(U) cache build + O(U × P × T) sweep ≤ 8 + 8 × 4 × 4 = 136 operations per `round_started`. Negligible cost.
 
 ### F-FB-2. Relationship Pair Detection
 
 ```
+# v1.1 fix: asymmetric record miss bug.
+# Original i<j loop only queried unit_a's relationships. If unit_b holds the
+# record (B→A with is_symmetric=false), the bonus was silently skipped.
+# Fix: for each adjacent pair (i,j), query BOTH hero_ids and merge.
+# Deduplicate symmetric records via sorted-pair-key set to prevent double-apply.
+
 detect_relationship_bonuses(units: Array[UnitState],
                             hero_db: HeroDatabase,
                             rel_effect_table: Dictionary[StringName, BonusVal]
                             ) -> Dictionary[int, BonusVal]:
-    # BonusVal { atk: float, def: float }
+    # BonusVal { atk: float, def: float } — see F-FB-3a class_name spec.
 
     contributions: Dictionary[int, BonusVal] = {}
+    seen_symmetric_pairs: Dictionary[String, bool] = {}   # dedup: "minId_maxId_tag"
 
     for i in range(units.size()):                    # O(U^2 × R)
         unit_a = units[i]
@@ -284,21 +304,39 @@ detect_relationship_bonuses(units: Array[UnitState],
 
             # Faction check (CR-FB-4 RIVAL exception)
             same_faction: bool = unit_a.faction == unit_b.faction
-            rels_a: Array[Relationship] = hero_db.get_relationships(unit_a.hero_id)
 
-            for rel in rels_a:
-                if rel.hero_b_id != unit_b.hero_id: continue
-                if rel.relation_type != &"RIVAL" and not same_faction: continue
-                # RIVAL fires cross-faction; all others same-faction only
+            # Query relationships from BOTH heroes — fixes asymmetric record
+            # miss. A record where B holds "B→A is_symmetric=false" is only
+            # visible in get_relationships(unit_b.hero_id), not A's list.
+            var rel_sources: Array = [
+                [unit_a, unit_b, hero_db.get_relationships(unit_a.hero_id)],
+                [unit_b, unit_a, hero_db.get_relationships(unit_b.hero_id)]
+            ]
 
-                bonus: BonusVal = rel_effect_table[rel.effect_tag]
+            for source in rel_sources:
+                holder: UnitState = source[0]   # unit whose hero_db record we're reading
+                other:  UnitState = source[1]   # the paired unit
+                rels: Array[Relationship] = source[2]
 
-                if rel.is_symmetric:
-                    apply_bonus(contributions, unit_a.unit_id, bonus)
-                    apply_bonus(contributions, unit_b.unit_id, bonus)
-                else:
-                    # One-directional: record-holder (unit_a) only
-                    apply_bonus(contributions, unit_a.unit_id, bonus)
+                for rel in rels:
+                    if rel.hero_b_id != other.hero_id: continue
+                    if rel.relation_type != &"RIVAL" and not same_faction: continue
+                    # RIVAL fires cross-faction; all others same-faction only
+
+                    bonus: BonusVal = rel_effect_table[rel.effect_tag]
+
+                    if rel.is_symmetric:
+                        # Dedup: symmetric record may appear in both A→B and B→A lists.
+                        var id_lo: int = mini(unit_a.unit_id, unit_b.unit_id)
+                        var id_hi: int = maxi(unit_a.unit_id, unit_b.unit_id)
+                        var dedup_key: String = "%d_%d_%s" % [id_lo, id_hi, rel.effect_tag]
+                        if seen_symmetric_pairs.has(dedup_key): continue
+                        seen_symmetric_pairs[dedup_key] = true
+                        apply_bonus(contributions, unit_a.unit_id, bonus)
+                        apply_bonus(contributions, unit_b.unit_id, bonus)
+                    else:
+                        # Asymmetric: only the record-holder receives the bonus.
+                        apply_bonus(contributions, holder.unit_id, bonus)
 
     return contributions
 ```
@@ -312,8 +350,54 @@ detect_relationship_bonuses(units: Array[UnitState],
 | `rel.is_symmetric` | bool | — | If true, both units receive bonus |
 | `rel.relation_type` | StringName | {SWORN_BROTHER, LORD_VASSAL, RIVAL, MENTOR_STUDENT} | Hero DB enum |
 | `rel.effect_tag` | StringName | 4 MVP tags | Key into rel_effect_table |
+| `seen_symmetric_pairs` | Dictionary[String, bool] | — | Dedup set for symmetric records; key = `"minId_maxId_tag"`; prevents double-apply when both A→B and B→A are present in hero_db |
 | `BonusVal.atk` | float | 0.0–0.02 | Per-relationship ATK contribution |
-| `BonusVal.def` | float | 0.0–0.02 | Per-relationship DEF contribution |
+| `BonusVal.def` | float | 0.0–0.04 | Per-relationship DEF contribution (LORD_VASSAL vassal 0.04 per v1.1 CR-FB-12; others 0.0 for ATK-only relationships) |
+
+### F-FB-3a. PatternDef and BonusVal Type Specifications
+
+GDScript 4.6 allows at most one `class_name` per file. Split into two files at the same path level:
+
+- `src/gameplay/formation/bonus_val.gd` — `class_name BonusVal`
+- `src/gameplay/formation/pattern_def.gd` — `class_name PatternDef`
+
+```gdscript
+# src/gameplay/formation/bonus_val.gd
+class_name BonusVal extends RefCounted
+
+var atk: float = 0.0   ## ATK contribution; range [0.0, 0.05] after per-unit cap
+var def: float = 0.0   ## DEF contribution; range [0.0, 0.05] after per-unit cap
+
+static func make(p_atk: float = 0.0, p_def: float = 0.0) -> BonusVal:
+    var b := BonusVal.new()
+    b.atk = p_atk
+    b.def = p_def
+    return b
+```
+
+```gdscript
+# src/gameplay/formation/pattern_def.gd
+class_name PatternDef extends RefCounted
+
+var id: StringName = &""         ## e.g. &"square" — matches formations.json "id" key
+var name: String = ""            ## Display name e.g. "방진"
+var anchor_bonus: BonusVal       ## Bonus issued to the anchor unit
+var member_bonus: BonusVal       ## Bonus issued to each non-anchor member
+var offsets: Array[Vector2i] = []  ## Tile offsets relative to anchor (0,0)
+
+static func make(p_id: StringName, p_name: String,
+                 p_anchor: BonusVal, p_member: BonusVal,
+                 p_offsets: Array[Vector2i]) -> PatternDef:
+    var pd := PatternDef.new()
+    pd.id = p_id
+    pd.name = p_name
+    pd.anchor_bonus = p_anchor
+    pd.member_bonus = p_member
+    pd.offsets = p_offsets
+    return pd
+```
+
+**Design note**: `BonusVal` is intentionally minimal (atk + def only). Future bonus axes (e.g., evasion, move range) would add typed fields here rather than widening the `Dictionary` return shapes in F-FB-3. The two-file split is required by GDScript 4.6's one-`class_name`-per-file rule. Dot-access in F-FB-3 pseudocode (e.g., `anchor_bonus.atk`) relies on these `class_name RefCounted` definitions.
 
 ### F-FB-3. Bonus Aggregation Per Unit
 
@@ -429,7 +513,7 @@ eff_def = defender.def_stat + terrain_def_bonus + floori(defender.def_stat * mod
 
 **EC-FB-6. Asymmetric conflicting relationships (A→B SWORN_BROTHER `is_symmetric=true`, B→A RIVAL `is_symmetric=true`).** Per Hero Database EC-6, both records load independently and emit a design-warning at load time. F-FB-2 processes each record independently: A's SWORN_BROTHER record applies sworn_atk_boost to both; B's RIVAL record applies rival_atk_boost to both. Both bonuses sum subject to per-unit cap. The load-time design-warning is the authoring-error mitigation; Formation Bonus does not arbitrate.
 
-**EC-FB-7. `formations.json` parse failure or missing.** At init, missing file is FATAL (per Balance/Data CR-4). At runtime parse failure (e.g., file corruption mid-session): WARNING-level log; publish empty `formation_bonuses` dict; all units receive `{atk_bonus: 0.0, def_bonus: 0.0}`. Grid Battle proceeds without error.
+**EC-FB-7. `formations.json` parse failure or missing.** At init, missing file is FATAL (per Balance/Data CR-4). At runtime parse failure (e.g., file corruption mid-session): WARNING-level log MUST include the exact substring `"EC-FB-7: formations.json"` (this substring is the spec-anchor for AC-FB-14's log assertion — changing it breaks the test). After logging: publish empty `formation_bonuses` dict; all units receive `{atk_bonus: 0.0, def_bonus: 0.0}`. Grid Battle proceeds without error.
 
 **EC-FB-8. Pattern requires N units but only N−1 alive.** F-FB-1 checks all template offsets at `round_started`. Any unoccupied/wrong-faction offset → pattern not matched. No partial bonus.
 
@@ -450,7 +534,7 @@ eff_def = defender.def_stat + terrain_def_bonus + floori(defender.def_stat * mod
 | System | GDD | Type | Contract | Data Consumed |
 |--------|-----|------|----------|---------------|
 | Hero Database | `design/gdd/hero-database.md` | Hard | `get_relationships(hero_id) → Array[Relationship]` (read-only) | `relation_type`, `effect_tag`, `is_symmetric`, `hero_b_id` |
-| Map/Grid | `design/gdd/map-grid.md` | Hard | `get_adjacent_units(coord, faction) → Array[int]`; `get_unit_at(coord, faction) → int` (or -1 if empty/wrong-faction) | Unit positions at snapshot time |
+| Map/Grid | `design/gdd/map-grid.md` | Hard | `get_adjacent_units(coord, faction) → Array[int]` (read-only; orthogonal adjacency for relationship pair detection CR-FB-2). Point-lookup by coord is NOT delegated to Map/Grid — Formation Bonus builds a self-cache `coord_to_unit_id: Dictionary[Vector2i, int]` from the `units` array at function entry (F-FB-1, v1.1). No `get_unit_at()` API required or assumed. | Unit positions at snapshot time |
 | Turn Order | `design/gdd/turn-order.md` | Soft (signal) | `round_started(round_number: int)` subscriber. Resolves OQ-3 (line 946). | `round_number` for snapshot audit |
 | Balance/Data | `design/gdd/balance-data.md` | Hard | `assets/data/config/formations.json` schema (pattern templates + rel effect bonuses + caps); FATAL on missing at boot per Balance/Data CR-4 | Pattern templates, `rel_effect_table`, `FORMATION_ATK_BONUS_CAP`, `FORMATION_DEF_BONUS_CAP`, `P_MULT_COMBINED_CAP` |
 
@@ -461,14 +545,18 @@ eff_def = defender.def_stat + terrain_def_bonus + floori(defender.def_stat * mod
 | Grid Battle | `design/gdd/grid-battle.md` | Hard | `formation_bonuses: Dictionary[int, {atk_bonus, def_bonus}]` snapshot via `set_formation_bonuses()`. Grid Battle CR-5 step 4 reads to populate `ResolveModifiers.formation_atk_bonus` / `formation_def_bonus`. **Cross-doc obligation**: grid-battle.md needs new CR (analogous to CR-15 Rally) covering Formation Bonus orchestration. |
 | Damage Calc | `design/gdd/damage-calc.md` | Hard | **Cross-doc obligation rev 2.9**: ResolveModifiers wrapper adds `formation_atk_bonus: float`, `formation_def_bonus: float` fields + `make()` factory signature update. F-DC-5 adds Formation block (after Rally, before final cap). F-DC-3 adds formation_def_bonus to `eff_def`. New constant `P_MULT_COMBINED_CAP = 1.31` registered. |
 
-### Cross-doc obligations summary (not yet propagated — pending implementation pass)
+### Cross-doc obligations summary (v1.1 propagation status)
 
-1. **damage-calc.md rev 2.9**: ResolveModifiers field additions + F-DC-5 Formation block + F-DC-3 eff_def addition + P_MULT_COMBINED_CAP constant + apex arithmetic re-verification (Cavalry apex 179 → 178).
-2. **grid-battle.md**: New CR for Formation Bonus orchestration (subscribe to `round_started`, invoke `compute_and_publish_snapshot`, read snapshot in CR-5 step 4). Update Dependencies table Formation Bonus row from "Not Started" to "Designed (v1.0)".
-3. **turn-order.md OQ-3**: Resolution note added — "RESOLVED via Formation Bonus GDD v1.0; direct subscription to `round_started`."
-4. **balance-data.md**: Update formations.json schema spec to reflect MVP content (4 patterns + 4 relationship effect tags + 3 cap constants).
-5. **design/registry/entities.yaml**: Register `P_MULT_COMBINED_CAP=1.31`, `FORMATION_ATK_BONUS_CAP=0.05`, `FORMATION_DEF_BONUS_CAP=0.05` constants.
-6. **hero-database.md**: Confirm `effect_tag` values for the 4 MVP relationship types: `sworn_atk_boost`, `lord_vassal_def_boost_vassal`, `rival_atk_boost`, `mentor_student_atk_boost_student`.
+1. **damage-calc.md rev 2.9 / 2.9.1**: ✅ Applied (prior commits `8f256b6` + `a31d4b7`) — ResolveModifiers field additions + F-DC-5 Formation block + F-DC-3 eff_def addition + P_MULT_COMBINED_CAP constant + apex arithmetic re-verification (Cavalry apex 179 → 178).
+2. **grid-battle.md CR-16**: ✅ Applied (v1.1) — Formation Bonus orchestration (subscribe to `round_started`, invoke `compute_and_publish_snapshot`, read snapshot in CR-5 step 4). Dependencies table Formation Bonus row set to "Designed (v1.1 — pass-1 NEEDS REVISION close-out)".
+3. **turn-order.md OQ-3**: ✅ Resolution note added — "RESOLVED via Formation Bonus GDD v1.0; direct subscription to `round_started`." (Preserved through v1.1.)
+4. **battle-hud.md §3.1 UI-GB-14 + §4.1 §6 Passives Formation entry + §6.1 청록 palette + §7 UX-EC-08/09**: ✅ Applied (v1.1) — closes 4 ux-designer pass-1 BLOCKERs.
+5. **accessibility-requirements.md §4 R-2 Formation State Token + §9 v1.2 revision + contrast advisory**: ✅ Applied (v1.1).
+6. **map-grid.md advisory**: ✅ Applied (v1.1) — Formation Bonus self-caches; no new API.
+7. **tests/fixtures/formation_bonus/schema.md**: ✅ Created (v1.1) — YAML schema + 15-fixture inventory + GdUnit4 loader contract.
+8. **balance-data.md**: ⏳ Pending — update formations.json schema spec to reflect MVP content (4 patterns + 4 relationship effect tags + 3 cap constants). Activates when Balance/Data #26 implementation begins.
+9. **design/registry/entities.yaml**: ⏳ Pending — register `P_MULT_COMBINED_CAP=1.31`, `FORMATION_ATK_BONUS_CAP=0.05`, `FORMATION_DEF_BONUS_CAP=0.05` constants. Small registry task; not blocking.
+10. **hero-database.md**: ⏳ Pending — confirm `effect_tag` values for the 4 MVP relationship types: `sworn_atk_boost`, `lord_vassal_def_boost_vassal`, `rival_atk_boost`, `mentor_student_atk_boost_student`. Small confirmation task; not blocking.
 
 ---
 
@@ -492,7 +580,7 @@ All values read from `assets/data/config/formations.json`. No value hardcoded in
 | Knob | Key | Default | Category | Safe Range | Notes |
 |------|-----|---------|----------|------------|-------|
 | SWORN_BROTHER ATK | `rel_sworn_brother_atk` | 0.02 | Feel | 0.01–0.03 | Symmetric; both heroes per pair |
-| LORD_VASSAL DEF (vassal) | `rel_lord_vassal_def_vassal` | 0.02 | Feel | 0.01–0.03 | Asymmetric; vassal only |
+| LORD_VASSAL DEF (vassal) | `rel_lord_vassal_def_vassal` | 0.04 (v1.1 — was 0.02) | Feel | 0.02–0.05 | Asymmetric; vassal only. Floori math: `floori(DEF × 0.04)` = 0 below DEF=25; 1 at DEF 25–49; 2 at DEF 50–74. Target visibility: mid-tier heroes (DEF≈50) absorb 2 pts. Value 0.02 (pre-v1.1) produced `floori(50 × 0.02) = 1` — visible but below the 방진 member signal level, making the bond feel weaker than a formation contribution. 0.04 aligns LORD_VASSAL DEF signal with 방진 at typical DEF. |
 | RIVAL ATK | `rel_rival_atk` | 0.02 | Feel | 0.01–0.03 | Symmetric; cross-faction (CR-FB-4) |
 | MENTOR_STUDENT ATK (student) | `rel_mentor_student_atk_student` | 0.02 | Feel | 0.01–0.03 | Asymmetric; student only |
 
@@ -513,15 +601,17 @@ All values read from `assets/data/config/formations.json`. No value hardcoded in
 
 **Per-unit cap rationale**: Default 0.05 is set so that triad SWORN_BROTHER (raw 0.04) + 어진형 anchor (raw 0.03) = raw 0.07 → capped to 0.05. Prevents single-unit accumulation from exceeding the formation's clearly-subordinate register vs. Rally cap (+0.10).
 
+**Relationship DEF floori-visibility** (v1.1): ATK relationship bonuses at magnitude 0.02 are visible because they travel the multiplicative P_mult path, where even a 0.02 multiplier produces a distinct integer at typical base values. DEF relationship bonuses travel the additive eff_def path via `floori(eff_def × bonus)`, which rounds to zero for any unit with DEF < 25 at magnitude 0.02, and to zero again for DEF < 25 at 0.04 — making the bonus invisible at the low end. At the design-target DEF range of 25–49, magnitude 0.04 produces exactly `floori(DEF × 0.04) = 1` absorbed damage per attack, which clears the floori floor and registers as a real event in the combat log. LORD_VASSAL is the only DEF-path relationship bonus in MVP; it carries magnitude 0.04 accordingly, mirroring the 방진 rev 2.9.1 rationale.
+
 **Feel vs Gate categorization**: Pattern + relationship magnitudes are "Feel" (affects moment-to-moment combat texture). Caps and adjacency distance are "Gate" (control activation frequency / maximum theoretical output). No "Curve" knobs — Formation Bonus is flat-rate regardless of progression.
 
 ---
 
 ## 8. Acceptance Criteria
 
-**Coverage summary**: All 14 Core Rules + 5 Formulas + 12 Edge Cases covered by at least one AC below. Pattern + relationship parametric ACs use deferred-fixture pattern (`tests/fixtures/formation_bonus/*.yaml` files not yet on disk).
+**Coverage summary**: All 14 Core Rules + 5 Formulas (F-FB-1 through F-FB-5, plus type spec F-FB-3a) + 12 Edge Cases covered by at least one AC below. v1.1 added 9 ACs (AC-FB-17–25) closing the pass-1 gaps: 6 previously-unattested ECs + sub-apex P_mult path + formation_def_bonus consumer (cross-doc damage-calc) + distance-1 positive boundary. Pattern + relationship parametric ACs use deferred-fixture pattern (`tests/fixtures/formation_bonus/*.yaml`; schema spec at `tests/fixtures/formation_bonus/schema.md`).
 
-**Gate Summary (v1.0)**: 16 ACs total (AC-FB-01 through AC-FB-16). All BLOCKING. Sub-classification: 4 fixture-independent (inline params) + 12 deferred-fixture (require `formation_bonus/*.yaml` authoring at implementation sprint).
+**Gate Summary (v1.1)**: 25 ACs total (AC-FB-01 through AC-FB-25). All BLOCKING. Sub-classification: 10 fixture-independent (inline params or boundary-value tests — AC-FB-09, 10, 11, 13, 14, 15, 16, 23, 24, 25) + 15 deferred-fixture (AC-FB-01–08, 12, 17–22; inventory enumerated in `tests/fixtures/formation_bonus/schema.md` §2).
 
 ### Pattern detection (4 ACs)
 
@@ -534,7 +624,7 @@ All values read from `assets/data/config/formations.json`. No value hardcoded in
 **AC-FB-03** [LOGIC]: Given four same-faction alive units at (2,1), (1,2), (3,2), (2,3); when `detect_patterns` runs; then all four units are members of pattern `diamond` (마름진); each receives `atk_bonus += 0.01 AND def_bonus += 0.01`.
 - Type: Unit | Fixture: `tests/fixtures/formation_bonus/diamond_4unit.yaml` (deferred) | Gate: BLOCKING
 
-**AC-FB-04** [LOGIC]: Given four same-faction alive units at (1,1), (2,1), (1,2), (2,2); when `detect_patterns` runs; then all four are members of pattern `square` (방진); each receives `def_bonus += 0.02` (no ATK).
+**AC-FB-04** [LOGIC]: Given four same-faction alive units at (1,1), (2,1), (1,2), (2,2); when `detect_patterns` runs; then all four are members of pattern `square` (방진); each receives `def_bonus += 0.04` (no ATK). (v1.1 — was 0.02; updated per rev 2.9.1 floori-visibility audit matching CR-FB-10 and Tuning Knob row.)
 - Type: Unit | Fixture: `tests/fixtures/formation_bonus/square_4unit.yaml` (deferred) | Gate: BLOCKING
 
 ### Relationship bonuses (4 ACs)
@@ -542,7 +632,7 @@ All values read from `assets/data/config/formations.json`. No value hardcoded in
 **AC-FB-05** [LOGIC]: Given two alive same-faction units at Manhattan distance 1, with `get_relationships(A.hero_id)` returning `[{hero_b_id: B.hero_id, relation_type: SWORN_BROTHER, effect_tag: "sworn_atk_boost", is_symmetric: true}]`; when `detect_relationship_bonuses` runs; then both units' `atk_bonus` contributions = 0.02.
 - Type: Unit | Fixture: `tests/fixtures/formation_bonus/sworn_brother_pair.yaml` (deferred) | Gate: BLOCKING
 
-**AC-FB-06** [LOGIC]: Given a LORD_VASSAL relationship where `is_symmetric = false` and unit A (vassal) holds the record pointing to unit B (lord); when `detect_relationship_bonuses` runs; then only unit A's `def_bonus` = 0.02; unit B receives no bonus from this record.
+**AC-FB-06** [LOGIC]: Given a LORD_VASSAL relationship where `is_symmetric = false` and unit A (vassal) holds the record pointing to unit B (lord); when `detect_relationship_bonuses` runs; then only unit A's `def_bonus` = 0.04 (v1.1 — was 0.02; updated per CR-FB-12 floori-visibility fix); unit B receives no bonus from this record.
 - Type: Unit | Fixture: `tests/fixtures/formation_bonus/lord_vassal_pair.yaml` (deferred) | Gate: BLOCKING
 
 **AC-FB-07** [LOGIC]: Given a RIVAL pair on OPPOSITE factions with `is_symmetric = true`; when adjacent and processed; then both units (regardless of faction) receive `atk_bonus = 0.02` per CR-FB-4 cross-faction exception.
@@ -581,6 +671,35 @@ All values read from `assets/data/config/formations.json`. No value hardcoded in
 **AC-FB-16** [LOGIC]: Given pattern `square` (4 units required) and only 3 same-faction units occupying 3 of the 4 corners; when `detect_patterns` runs; then no `square` pattern detected (CR-FB-1 rule 3 — all template offsets must be filled).
 - Type: Unit | Fixture: inline coord setup | Gate: BLOCKING
 
+### Edge case + consumer path coverage (v1.1 — 9 new ACs)
+
+**AC-FB-17** [LOGIC] EC-FB-3 dual-pattern stack: Given unit U is anchor of `wedge` (어진형, anchor_bonus.atk=0.03) AND member of `square` (방진, member_bonus.def=0.04); when `aggregate_formation_bonuses` runs; then raw_atk=0.03, raw_def=0.04; capped_atk=0.03 (under cap), capped_def=0.04 (under cap); output `{atk_bonus: 0.03, def_bonus: 0.04}`. (Cap-firing boundary tested separately in AC-FB-09; this AC proves the cross-field stacking path.)
+- Type: Unit | Fixture: `tests/fixtures/formation_bonus/dual_pattern_stack.yaml` (deferred) | Gate: BLOCKING
+
+**AC-FB-18** [LOGIC] EC-FB-5 mid-round completion: Given unit U is NOT part of any pattern at `round_started` (snapshot records `{atk_bonus: 0.0, def_bonus: 0.0}` for U); when U moves into a valid pattern position mid-round; then `formation_bonuses[U.unit_id]` remains `{atk_bonus: 0.0, def_bonus: 0.0}` — no recalc fires until next `round_started`. Snapshot invariance holds.
+- Type: Unit | Fixture: `tests/fixtures/formation_bonus/mid_round_completion.yaml` (deferred) | Gate: BLOCKING
+
+**AC-FB-19** [LOGIC] EC-FB-6 conflicting records: Given unit A and unit B with two independent relationship records — A→B SWORN_BROTHER (`effect_tag: sworn_atk_boost`, is_symmetric=true, bonus=0.02 ATK) AND B→A RIVAL (`effect_tag: rival_atk_boost`, is_symmetric=true, bonus=0.02 ATK); when `detect_relationship_bonuses` runs; then each unit's raw_atk contribution from relationships = 0.04 (0.02 + 0.02); after `aggregate_formation_bonuses` per-unit cap (0.05), capped_atk = 0.04 (cap does not fire). No arbitration between conflicting records. Fixture `conflicting_records.yaml` MUST include both unit A and unit B in `expected_bonuses` with `{atk_bonus: 0.04, def_bonus: 0.0}` — both symmetric records apply to both units per F-FB-2 bidirectional query + effect_tag-distinct dedup keys.
+- Type: Unit | Fixture: `tests/fixtures/formation_bonus/conflicting_records.yaml` (deferred) | Gate: BLOCKING
+
+**AC-FB-20** [LOGIC] EC-FB-10 zero-case: Given unit U with no pattern participation and no adjacent hero with a matching relationship; when `compute_and_publish_snapshot` runs; then `formation_bonuses[U.unit_id]` == `{atk_bonus: 0.0, def_bonus: 0.0}` (entry exists in dict; no missing-key null risk at Grid Battle read).
+- Type: Unit | Fixture: `tests/fixtures/formation_bonus/zero_bonus_unit.yaml` (deferred) | Gate: BLOCKING
+
+**AC-FB-21** [LOGIC] EC-FB-11 empty relationships: Given unit U with a valid hero_id where `hero_db.get_relationships(U.hero_id)` returns `[]`; when `detect_relationship_bonuses` runs; then no exception is raised and U's contribution remains `{atk: 0.0, def: 0.0}`.
+- Type: Unit | Fixture: `tests/fixtures/formation_bonus/empty_relationships.yaml` (deferred) | Gate: BLOCKING
+
+**AC-FB-22** [LOGIC] EC-FB-12 same-faction RIVAL: Given units A and B on the SAME faction with RIVAL relationship (`is_symmetric=true`); when adjacent and `detect_relationship_bonuses` runs; then both units receive `atk_bonus = 0.02` (CR-FB-4 exception fires regardless of faction).
+- Type: Unit | Fixture: `tests/fixtures/formation_bonus/same_faction_rival.yaml` (deferred) | Gate: BLOCKING
+
+**AC-FB-23** [LOGIC] sub-apex formation_atk_bonus visible (cap NOT firing): Given Cavalry ATK=200, DEF=10, REAR, charge_active=true, passive_charge, rally_bonus=0.0, formation_atk_bonus=0.05; F-DC-3 derivation: `eff_atk=200, eff_def=10 → base = mini(83, max(1, 190)) = 83` (BASE_CEILING fires). F-DC-5: P_mult composition `1.20 × 1.05 = 1.26` (pre-cap); P_MULT_COMBINED_CAP=1.31 does NOT fire (1.26 < 1.31); post-cap P_mult=1.26; when `resolve()` is called; then `raw = floori(83 × 1.64 × 1.26) = floori(171.5) = 171`. Formation bonus contributes +8 damage over no-Formation baseline (163). Cap absent at this composition.
+- Type: Unit (damage-calc) | Fixture: inline ResolveModifiers.make() | Gate: BLOCKING
+
+**AC-FB-24** [LOGIC] formation_def_bonus consumer path (cross-doc F-DC-3): Given defender DEF=50, terrain_def=0 (defense_mul=1.00), formation_def_bonus=0.04; in F-DC-3: `eff_def = 50 + floori(50 × 0.04) = 50 + 2 = 52`; given attacker eff_atk=82; then `base = min(83, max(1, 82 − 52 × 1.00)) = 30`. Formation DEF bonus consumed correctly via F-DC-3 eff_def path.
+- Type: Unit (damage-calc cross-doc) | Fixture: inline ResolveModifiers.make() | Gate: BLOCKING
+
+**AC-FB-25** [LOGIC] distance-1 positive boundary (companion to AC-FB-15 negative distance-2): Given two same-faction units at (2,2) and (2,3) — Manhattan distance = 1 — with SWORN_BROTHER relationship; when `detect_relationship_bonuses` runs; then both units receive `atk_bonus = 0.02`. (Boundary: distance exactly 1 qualifies; AC-FB-15 confirms distance 2 does not.)
+- Type: Unit | Fixture: inline coord setup | Gate: BLOCKING
+
 ---
 
 ## Cross-References
@@ -594,6 +713,6 @@ All values read from `assets/data/config/formations.json`. No value hardcoded in
 
 ## Open Questions
 
-- **OQ-FB-01** [Vertical Slice]: Should pattern detection account for unit FACING direction? Currently pattern templates are absolute grid coordinates; a 어진형 wedge facing north vs south is the same template. If facing matters narratively (e.g., wedge must face the enemy), templates would need rotation logic. Defer to playtest — if players express confusion about formation orientation, revisit.
+- **OQ-FB-01** [Vertical Slice]: Should pattern detection account for unit FACING direction? Currently pattern templates are absolute grid coordinates; a 어진형 wedge facing north vs south is the same template. Facing-aware rotation is deferred for the following reasons. First, it adds O(P × 4) detection cost per template — four orientation variants per pattern at `round_started` — which, while still O(U × P × T), quadruples the pattern-iteration inner loop and complicates template authoring in `formations.json`. Second, player-readability risk is real: on a tile grid, distinguishing NW-facing from N-facing requires either strong visual cues or a facing HUD element not yet designed; players may not reliably read formation orientation without them. Third, the historical authenticity argument for facing-aware 형세 is acknowledged — a wedge that points into empty space rather than toward the enemy line feels narratively inert — but the MVP position is that absolute-coordinate templates already encode the spatial relationship and the player orients their units toward the enemy by default. If Vertical Slice playtesting surfaces concrete evidence of orientation confusion (e.g., players rotating their wedge away from the enemy and still receiving the bonus, expressed as frustration or exploitation), this OQ will be re-opened with a facing-API specification task.
 - **OQ-FB-02** [Alpha]: Per-faction pattern restrictions? E.g., 학익진 is historically a 蜀漢 (Shu) signature; should non-Shu factions get different bonuses for the same template? Defer until factional identity design solidifies.
-- **OQ-FB-03** [VS]: Formation Bonus visualization on the battle HUD — separate spec? Currently relies on game-feel via damage popups + forecast panel. UI-FB-* needs dedicated battle-hud.md additions if pillar fidelity demands explicit formation indicators.
+- **OQ-FB-03** [VS] [RESOLVED v1.1]: Minimum Formation visualization contract added per user adjudication — UI-GB-14 Formation Aura (cross-doc `design/ux/battle-hud.md` §UI-GB-14), UI-GB-04 §4.1 §6 Passives line Formation entry, R-2 tile-info formation state token (cross-doc `design/ux/accessibility-requirements.md` §4). Visualization refinement beyond minimum deferred to Vertical Slice playtest.

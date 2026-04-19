@@ -268,6 +268,55 @@ experience while logs flag the issue for debugging.
 | UI-GB-11 | **DEFEND Stance Badge** | Added in v1.0 for Grid Battle CR-13. When a unit has DEFEND_STANCE active, a 守 seal badge overlays its tile at 40% opacity 묵 ink. Persists until the unit's next `unit_turn_started` (DEFEND_STANCE duration is 1 turn per grid-battle.md CR-13 rule 2 / hp-status.md SE-3). Damage-reduction value is owned by hp-status.md (registry `defend_stance_reduction`); this element is visual only. | `status_applied(DEFEND_STANCE)`, `unit_turn_started` | MVP |
 | UI-GB-12 | **TacticalRead Extended Range** *(v1.1 — Strategist-only per grid-battle.md CR-14 v5.0)* | Extends the natural attack-range overlay for Strategist units. Natural attack range: 황토 25% opacity (current UI-GB-02 treatment). **TR-extended tiles** (those within `tactical_read_extension_tiles = 1` beyond natural range per registry): 황토 70% opacity with a 讀 (read) micro-glyph 8px, upper-left anchor, per extended tile in 묵 ink. Hovering a TR-extended target displays UI-GB-04 with a `[TR]` chip adjacent to the direction badge (§4.1 Section 5) so the player can distinguish TR-sourced forecasts from natural-range ones. TR does NOT extend attack range — the chip on a TR-tile communicates "you need to move 1 tile to attack here" visually via the natural-range vs TR-range opacity split. Commander units do NOT render UI-GB-12 (Commander's v5.0 passive is `passive_rally` per `design/gdd/unit-role.md` CR-2, not TR). | Strategist unit selected (S1), `unit_turn_started` | MVP |
 | UI-GB-13 | **Rally Aura Visual** *(pass-11b — B-10; per grid-battle.md CR-15)* | While a Commander unit is alive on the grid, each allied unit within Manhattan distance ≤ 1 (4-orthogonal only) renders a persistent low-opacity 황금(#C9A84C) tile overlay beneath the unit sprite. Opacity scales with stack count: 1 Commander adjacent (5%) → 20% opacity; 2 Commanders (10%) → 30%; 3+ Commanders (15% cap) → 40%. The Commander itself does NOT render the overlay (does not Rally itself per CR-15 rule 2); instead a 독전(獨戰) micro-seal at 8px upper-right of the Commander's tile frame in 황금 ink at 60% opacity indicates active aura projection (renders only when ≥1 ally is in range). **Forecast tooltip line**: in UI-GB-04 §4.1 Section 6 (Passives list), when the attacking unit has `rally_bonus_active > 0`, insert a Rally line before other passives: `[Commander → Rally → +X% ATK]` (X = integer percentage). i18n key `"forecast.passive.rally"` with `{bonus}` parameter (default EN: "Rally +{bonus}% ATK from adjacent Cmdr"). Counts toward the 3-line visible cap. **No animation** in v5.0 — overlay is a static per-frame render derived from current Commander positions; on Commander death the overlay disappears on next render frame. **Colorblind accessibility (pass-11c — ux B-1 correction)**: per `design/ux/accessibility-requirements.md` and WCAG 2.1 SC 1.4.11 (non-text contrast, 3:1 minimum), the 황금 overlay additionally renders a **2px logical** (≈4–6 physical px on Pixel 7-class 2.625x density) dashed border in 황금 at 80% opacity around each affected tile. The 2px logical width is the minimum that resolves to ≥4 physical pixels at the project's mobile reference density, ensuring the dashed pattern is visually distinguishable rather than appearing as a solid sub-pixel line. This border is visible regardless of fill opacity and serves as the shape-based colorblind indicator complementing the 독전 micro-seal on the Commander tile. *(Open follow-up: `design/ux/accessibility-requirements.md` should publish the measured 황금 #C9A84C contrast ratio against the project's standard tile background colors so that the WCAG 1.4.11 conformance is verified rather than asserted; tracked as advisory pass-11c R-3.)* | Commander present on grid; allied unit within Manhattan distance ≤ 1; `unit_died(commander_id)` triggers re-evaluation | MVP |
+| UI-GB-14 | **Formation Aura Visual** *(v1.1 — per formation-bonus.md CR-FB-1 through CR-FB-14)* | While a unit participates in an active formation snapshot (pattern role OR relationship bond, per `formation_bonuses_updated` signal), the tile receives a persistent Formation Aura overlay — pulsing octagonal outline in 청록(#3A7D6E) for pattern participation, plus a 緣 (yeon) bond glyph at midpoint between relationship-adjacent pairs. MVP fallback: flat 청록 tile tint at 15% opacity + 陣 corner glyph. See §3.1 UI-GB-14 detailed spec. | `formation_bonuses_updated(snapshot: Dictionary)` | MVP (fallback tier) |
+
+---
+
+### 3.1 UI-GB-14 — Formation Aura Visual (detailed spec, v1.1)
+
+The Formation Aura is the visual surface for the Formation Bonus system (`design/gdd/formation-bonus.md` CR-FB-1 through CR-FB-14). It must express two distinct states per tile: (a) pattern participation and (b) relationship bond activation. Both states redraw on `formation_bonuses_updated(snapshot: Dictionary)` — the signal name is provisional pending ratification in Grid Battle's Formation Bonus orchestration CR (cross-doc obligation: `design/gdd/grid-battle.md` CR-16, Formation Bonus v1.1).
+
+**Palette and hue.** Formation Aura uses **청록(靑綠) #3A7D6E** — a cool teal distinct from Rally's 황금(#C9A84C) warm amber. Rationale: Rally is a warm push outward (momentum, fire); Formation is a cool structural lock (discipline, shape). The two auras must not be visually ambiguous when both are active on the same tile (a unit inside both a 방진 square and a Commander's Rally range renders the octagonal 청록 outline on top of the Rally dashed square border).
+
+*WCAG contrast obligation (cross-doc advisory)*: the measured contrast ratio of 청록 #3A7D6E against the standard tile backgrounds is **TBD**. Tracked in `design/ux/accessibility-requirements.md` §4. Before UI-GB-14 ships, the contrast ratio must be verified against WCAG 2.1 SC 1.4.11 (non-text contrast, 3:1 minimum). Until verified, treat #3A7D6E as a provisional value subject to palette correction by the art-director.
+
+**Pattern participation overlay (full spec — shader-capable target).** Tiles whose units appear in the `snapshot` with a non-zero formation contribution from pattern detection (anchor OR non-anchor member) render a subtle pulsing octagonal outline — 2px logical width in 청록 at 70% opacity baseline. Pulse rate: **1.2 Hz** (one full cycle per 0.83 s). Below ~3 Hz so the pulse reads as persistent state, not alert. Opacity modulates between 50% and 90% via a sine envelope — never fully transparent, never fully opaque.
+
+Shape rationale: an octagonal outline (8-sided) is shape-distinct from Rally's dashed square border (rectilinear). Under any colorblind simulation, a player can distinguish "eight-sided pulse" from "dashed square" without relying on the 청록/황금 hue difference. Satisfies WCAG 1.4.11 shape-differentiation.
+
+**Audio**: none. Formation Aura is a persistent read-the-board indicator, not an event; audio is reserved for formation-recognition events (not yet specified — deferred to sound system).
+
+**Relationship bond icon.** When two units with an active relationship bond (CR-FB-11 through CR-FB-14) are within Manhattan distance ≤ 1 and the `snapshot` confirms their bonus is active, a small **bond icon** renders at the **midpoint between the two units' tile centers**. Z-order: above unit layer, below HUD overlay layer.
+
+- **Glyph**: 緣 (yeon — bond/fate/connection). Rendered at **10px** in 청록 ink at 80% opacity. Static (does not pulse) — distinct from the pulsing pattern overlay.
+- **Multi-bond case**: two simultaneous active relationships (e.g., sworn-brother pair AND mentor–student pair in range) render each midpoint glyph independently. Glyphs do not merge; if more than 2 pairs share an edge midpoint, the oldest-by-initiative-order pair takes precedence and overflow is silent (no "+N" indicator at this scope).
+- **Type differentiation**: the 緣 glyph alone does not distinguish SWORN_BROTHER from RIVAL etc. This is intentional at MVP — the forecast Passives line (UI-GB-04 §4.1 Section 6) carries the specific type label. No color-coding of bond type; the type is text-only in the forecast.
+
+**MVP fallback (shader cost-prohibitive).** If the pulsing octagonal shader overlay exceeds draw-call budget, mobile reference hardware, or artist capacity at MVP scope, the minimum-viable fallback is:
+
+1. **Flat tile tint**: replace pulsing octagonal outline with a static flat tint of 청록 #3A7D6E at 15% opacity over the full tile square (ink-wash flood fill, same style as §2.1 movement range). No animation, no shader.
+2. **Corner glyph**: a static 8px 陣 (jin — formation) micro-glyph in 청록 at 70% opacity, anchored to the **upper-right** corner of the tile frame. If a 독전 micro-seal is also present (Commander tile — also upper-right), the Formation 陣 glyph moves to **lower-right**. The 陣 glyph is the shape-based indicator replacing the octagonal outline for colorblind safety in the fallback.
+3. **Bond icon**: unchanged from full spec (not shader-dependent).
+
+The fallback is still Pillar-1-compliant: it communicates "this unit has an active formation bonus" at a glance without color reliance. Decision between full spec and fallback is a scope cut owned jointly by art-director and ui-programmer at implementation kickoff.
+
+**Signal subscription.** Formation Aura redraws on `formation_bonuses_updated(snapshot: Dictionary)` — fired by `FormationBonusSystem` at `round_started` after `compute_and_publish_snapshot` completes (formation-bonus.md CR-FB-5, CR-FB-6). Signal name is proposed here; canonical name must be ratified in Grid Battle CR-16. Subscription pattern: subscribe once on scene ready; on receipt, iterate snapshot dictionary, identify unit_ids with non-zero `atk_bonus` or `def_bonus`, map to tile positions via the grid's spatial index, redraw overlay + bond icons before the first unit's turn begins in the new round.
+
+**Accessibility.**
+- Colorblind safety: shape differentiation (octagonal outline or 陣 corner glyph vs Rally's dashed square border) satisfies WCAG 1.4.11 shape-based indicator requirement independently of hue.
+- R-2 screen-reader token: Formation state announced in tile-info panel per `design/ux/accessibility-requirements.md` §4 (FORMATION and BOND tokens). The aura is a redundant visual channel; the text channel is primary for screen-reader users.
+- Palette conflict check: art-director must verify that 청록 #3A7D6E does not conflict with the colorblind-mode palette swaps (deuteranopia / protanopia / tritanopia) defined in `design/ux/accessibility-requirements.md`.
+
+**UI-GB-14 Tuning Knobs.**
+
+| Knob | Default | Safe Range | Affects |
+|------|---------|------------|---------|
+| `FORMATION_AURA_PULSE_HZ` | 1.2 | 0.5–2.0 | Pulse rate of octagonal outline. Below 0.5: reads as static. Above 2.0: reads as urgent/agitated. |
+| `FORMATION_AURA_OPACITY_MIN` | 0.50 | 0.30–0.70 | Minimum opacity in pulse envelope. |
+| `FORMATION_AURA_OPACITY_MAX` | 0.90 | 0.70–1.00 | Maximum opacity in pulse envelope. |
+| `FORMATION_AURA_TINT_FALLBACK` | 0.15 | 0.08–0.25 | Tile tint opacity in MVP fallback mode. Below 0.08: invisible on grass. Above 0.25: competes with unit sprite. |
+| `FORMATION_BOND_ICON_PX` | 10 | 8–14 | Bond 緣 glyph rendered size. |
+| `FORMATION_CORNER_GLYPH_PX` | 8 | 6–10 | 陣 corner glyph size in fallback mode. |
 
 ---
 
@@ -291,6 +340,22 @@ the outcome before committing. UI-GB-04 IS that reading surface.
 4. **Hit chance** — displays `hit_chance%` per Grid Battle F-GB-2 hit-semantics (actual long-run hit rate, not miss-inverted). Small "2RN" chip indicates variance collapse.
 5. **Direction badge** — FRONT / FLANK / REAR chip with `D_mult` value.
 6. **Passives list** — one line per active passive, CAPPED at 3 lines per side visible (6 total). If more exist, a "+N more" affordance expands on tap. Each line format: `[Source → Passive → effect]`.
+
+   **Formation Bonus entry (v1.1)**: When the attacking unit has a non-zero `formation_atk_bonus` in the current round's snapshot, insert a Formation line in the Passives list. Token: **`Form`** (4 characters — fits alongside existing `Charge`/`Rally` tokens within a ≤ 24-char passive line budget at 14pt minimum font). Format:
+
+   `[Formation → Form → +X% ATK]`
+
+   where X is the integer percentage contribution from `formation_atk_bonus` (e.g., `formation_atk_bonus = 0.03` renders as `Form +3%`). i18n key: `"forecast.passive.formation_atk"` with `{bonus}` parameter (default KO: `진형 +{bonus}%`; default EN: `Form +{bonus}% ATK`).
+
+   When the defending unit has a non-zero `formation_def_bonus`, insert a corresponding line on the defender side:
+
+   `[Formation → Form → +X% DEF]`
+
+   i18n key: `"forecast.passive.formation_def"`, same `{bonus}` parameter (default KO: `진형 방어 +{bonus}%`; default EN: `Form +{bonus}% DEF`).
+
+   **Multi-pattern case**: a unit simultaneously anchor of 어진형 AND member of 방진 receives a single summed `formation_atk_bonus` from the snapshot (CR-FB-6 publishes a per-unit scalar). The Passives line shows the summed contribution as a single `Form` entry — NOT itemized per pattern. Overflow beyond the 3-line cap is handled by the existing "+N more" affordance (UX-EC-01).
+
+   **Panel width concern**: three concurrent passive tokens (Charge + Rally + Form) at 14pt minimum occupy approximately 22–24 characters on the passive line. At 320pt minimum viewport width this fits without truncation at the default forecast panel width (≈ 260pt content area). Any future fourth passive token falls to the "+N more" affordance; no new layout work is required here.
 
 ### 4.2 Counter-Kill Forecast Accuracy (P0 — Pillar 1 contract; v1.1 rewrite)
 
@@ -511,6 +576,7 @@ confirm button (A/Cross). Full gamepad spec deferred to
 - **주홍 (reserved)** — forbidden outside 운명 분기 moments. Any visual that
   needs "urgent" must use brush weight or glyph shape.
 - **금색 (reserved)** — victory screen only (Section 2.11).
+- **청록 (#3A7D6E)** *(v1.1)* — Formation Aura overlay (UI-GB-14). Distinct from Rally's 황금 warm amber. Contrast ratio against standard tile base: **TBD — pending art-director verification** (cross-doc obligation tracked in `design/ux/accessibility-requirements.md` §4). Do not use outside Formation Aura context.
 
 ### 6.2 Colorblind Support
 
@@ -545,6 +611,8 @@ confirm button (A/Cross). Full gamepad spec deferred to
 | UX-EC-05 | Accessibility screen-reader on forecast | Forecast sections are announced in order 1 → 4 → 2 → 3 → 5 → 6 (pillar priority: damage, hit, kill, counter, direction, passives). Full a11y spec in `design/ux/accessibility-requirements.md`. |
 | UX-EC-06 | DEFEND_STANCE badge overlaps status seal | 守 badge takes precedence on upper-left; other status seals stack below in age order. Maximum 3 visible; oldest evicted per HP/Status rule. |
 | UX-EC-07 | Victory screen mid-animation when player taps dismiss | Dismissal queues until animation completes (input blocked during Victory transition per Grid Battle CR-12). |
+| UX-EC-08 | Formation state in tile-info panel (R-2 compliance) | Tile-info panel (UI-GB-03, touch tap / keyboard focus on any unit) must include Formation state tokens per `design/ux/accessibility-requirements.md` §4 R-2. FORMATION and BOND tokens appended to R-2 announcement string when snapshot is active for the focused unit. |
+| UX-EC-09 | Formation overlay when unit is in both pattern and relationship simultaneously | Both Pattern Aura (octagonal outline / fallback tint + 陣 glyph) and Bond Icon (緣 glyph at midpoint) render independently. They do not merge. The tile-info panel R-2 token announces BOTH states separated by semicolon per §4 R-2 Formation token spec. |
 
 ---
 

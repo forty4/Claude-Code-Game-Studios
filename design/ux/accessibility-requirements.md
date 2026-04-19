@@ -78,6 +78,40 @@ Example: `"Col 5 Row 3 · Forest · Enemy Archer Liu Bei · HP 24/40"`
 
 Touch Tap Preview Protocol (Input Handling 80–120 px floating panel) already aligns with this contract — Battle HUD UX spec must fold R-2 into the panel content.
 
+**R-2 Formation State Token (v1.2 — Formation Bonus v1.1 cross-doc obligation):**
+
+When the tile-info panel announces a unit with an active formation snapshot entry, the panel text MUST append Formation state tokens to the existing R-2 string. Full announced format:
+
+```
+"Col [c] Row [r] · [terrain_type] · [occupant_role] [occupant_name] · HP [current]/[max] · [formation_tokens]"
+```
+
+Formation token format:
+
+- **Pattern participation**: `FORMATION: [pattern_name_ko] ([role])`
+  - `[pattern_name_ko]`: display name from `formations.json` `name` field (e.g., `어진형`, `방진`).
+  - `[role]`: `anchor` if unit is the anchor unit of the pattern; `member` if non-anchor participant.
+  - Example: `FORMATION: 어진형 (anchor)`
+
+- **Relationship bond**: `BOND: [relation_type_label] with [hero_name_ko]`
+  - `[relation_type_label]`: localized label. Default KO strings: SWORN_BROTHER → `의형제`; LORD_VASSAL → `군신`; RIVAL → `숙적`; MENTOR_STUDENT → `사제`.
+  - `[hero_name_ko]`: the partner hero's display name from Hero Database.
+  - Example: `BOND: 의형제 with 장비`
+
+- **Multi-state (unit is anchor of pattern AND holds a relationship bond)**: announce BOTH tokens, separated by semicolon, Formation first, Bond second:
+  - Example: `FORMATION: 어진형 (anchor); BOND: 의형제 with 장비`
+
+- **Multiple relationships**: if a unit has two active bonds, announce each BOND token separated by semicolon:
+  - Example: `BOND: 의형제 with 관우; BOND: 사제 with 제갈량`
+
+- **No active formation**: token omitted entirely. R-2 base string unchanged.
+
+This token appears in the R-2 focus-announcement string. Compatibility note: current Intermediate tier defers AccessKit screen-reader integration to Full Vision (§3), but R-2 is a text-completeness requirement independent of AccessKit — the token must appear in the panel's visible text at the time of tap/focus, as stated in the original R-2 contract. When AccessKit is adopted at Full Vision, the same token string feeds the accessibility node announcement without change.
+
+Cross-reference: `design/ux/battle-hud.md` §3.1 UI-GB-14 (Formation Aura visual), UI-GB-04 §4.1 §6 (Formation forecast Passives line), `design/gdd/formation-bonus.md` CR-FB-1 through CR-FB-14.
+
+**Formation color contrast obligation (v1.2 — tracked advisory):** `design/ux/battle-hud.md` §3.1 UI-GB-14 proposes **청록 #3A7D6E** as the Formation palette entry. The measured WCAG 2.1 SC 1.4.11 contrast ratio of this hex against the project's standard tile background colors (grass, dirt, stone) is **TBD** and must be verified by the art-director before UI-GB-14 ships. If the ratio falls below 3:1 on any tile background, the hex must be corrected and battle-hud.md §3.1 updated to match. This advisory parallels the existing Grid Battle pass-11c 황금 #C9A84C contrast tracking pattern established for Rally (UI-GB-13).
+
 ### R-3 — Beat 2 envelope MUST have reduced-motion alternative
 
 Scenario Progression v2.0 defines Beat 2 animation envelope at 4.0–6.0 s (AC-SP-6 floor). Under reduced-motion setting:
@@ -170,5 +204,6 @@ Accessibility requirements propagate into these systems. Each system's design do
 | 2026-04-18 | 1.0 | Initial authoring. Intermediate tier committed. R-1 through R-5 locked. 7 AC-A11Y criteria locked. 4 OQs logged; OQ-3 flagged as blocking. |
 | 2026-04-19 | 1.1 | Added back-reference row in §7 System Dependencies for Damage/Combat Calculation (#11) per damage-calc.md rev 2.5 BLK-6-8 bidirectional-citation fix. No tier change, no new commitments. |
 | 2026-04-19 | 1.1 (rev) | Added 7th Intermediate toggle `reduce_haptics` to §2 (rev 1.3 D1 decision on destiny-branch.md 2026-04-19 pass-9 — closes game-designer B-1 + ux B-UX-9-2 + a11y B-1 convergence). Updated §7 Settings/Options #28 toggle-count 6→7 and OQ-3 state to resolved. Added §7 Destiny Branch (#4) cross-reference row for A-DB-2 + UI-DB-4 + AC-DB-38 bindings. No tier change (Intermediate); Settings/Options #28 implementation-story scope expanded by one toggle. |
+| 2026-04-20 | 1.2 | Added R-2 Formation State Token spec (§4) per Formation Bonus v1.1 cross-doc obligation (ux-designer pass-1 BLOCKER). Added Formation color contrast obligation advisory (청록 #3A7D6E — parallels pass-11c 황금 #C9A84C tracking). No tier change. |
 
 Next review: Pre-Production → Production gate. Tier upgrade to Advanced is possible only after AccessKit engine-reference verification and OQ-3 resolution.
