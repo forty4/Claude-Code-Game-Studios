@@ -267,6 +267,7 @@ experience while logs flag the issue for debugging.
 | UI-GB-10 | **Undo Indicator** | Small visual cue when undo is available (unit has moved but not yet attacked). Shows "Undo" button or tap zone. Disappears when undo window closes (attack confirmed or end-turn). | Movement confirmed, ACTION token spent | MVP |
 | UI-GB-11 | **DEFEND Stance Badge** | Added in v1.0 for Grid Battle CR-13. When a unit has DEFEND_STANCE active, a 守 seal badge overlays its tile at 40% opacity 묵 ink. Persists until the unit's next `unit_turn_started` (DEFEND_STANCE duration is 1 turn per grid-battle.md CR-13 rule 2 / hp-status.md SE-3). Damage-reduction value is owned by hp-status.md (registry `defend_stance_reduction`); this element is visual only. | `status_applied(DEFEND_STANCE)`, `unit_turn_started` | MVP |
 | UI-GB-12 | **TacticalRead Extended Range** *(v1.1 — Strategist-only per grid-battle.md CR-14 v5.0)* | Extends the natural attack-range overlay for Strategist units. Natural attack range: 황토 25% opacity (current UI-GB-02 treatment). **TR-extended tiles** (those within `tactical_read_extension_tiles = 1` beyond natural range per registry): 황토 70% opacity with a 讀 (read) micro-glyph 8px, upper-left anchor, per extended tile in 묵 ink. Hovering a TR-extended target displays UI-GB-04 with a `[TR]` chip adjacent to the direction badge (§4.1 Section 5) so the player can distinguish TR-sourced forecasts from natural-range ones. TR does NOT extend attack range — the chip on a TR-tile communicates "you need to move 1 tile to attack here" visually via the natural-range vs TR-range opacity split. Commander units do NOT render UI-GB-12 (Commander's v5.0 passive is `passive_rally` per `design/gdd/unit-role.md` CR-2, not TR). | Strategist unit selected (S1), `unit_turn_started` | MVP |
+| UI-GB-13 | **Rally Aura Visual** *(pass-11b — B-10; per grid-battle.md CR-15)* | While a Commander unit is alive on the grid, each allied unit within Manhattan distance ≤ 1 (4-orthogonal only) renders a persistent low-opacity 황금(#C9A84C) tile overlay beneath the unit sprite. Opacity scales with stack count: 1 Commander adjacent (5%) → 20% opacity; 2 Commanders (10%) → 30%; 3+ Commanders (15% cap) → 40%. The Commander itself does NOT render the overlay (does not Rally itself per CR-15 rule 2); instead a 독전(獨戰) micro-seal at 8px upper-right of the Commander's tile frame in 황금 ink at 60% opacity indicates active aura projection (renders only when ≥1 ally is in range). **Forecast tooltip line**: in UI-GB-04 §4.1 Section 6 (Passives list), when the attacking unit has `rally_bonus_active > 0`, insert a Rally line before other passives: `[Commander → Rally → +X% ATK]` (X = integer percentage). i18n key `"forecast.passive.rally"` with `{bonus}` parameter (default EN: "Rally +{bonus}% ATK from adjacent Cmdr"). Counts toward the 3-line visible cap. **No animation** in v5.0 — overlay is a static per-frame render derived from current Commander positions; on Commander death the overlay disappears on next render frame. **Colorblind accessibility (pass-11c — ux B-1 correction)**: per `design/ux/accessibility-requirements.md` and WCAG 2.1 SC 1.4.11 (non-text contrast, 3:1 minimum), the 황금 overlay additionally renders a **2px logical** (≈4–6 physical px on Pixel 7-class 2.625x density) dashed border in 황금 at 80% opacity around each affected tile. The 2px logical width is the minimum that resolves to ≥4 physical pixels at the project's mobile reference density, ensuring the dashed pattern is visually distinguishable rather than appearing as a solid sub-pixel line. This border is visible regardless of fill opacity and serves as the shape-based colorblind indicator complementing the 독전 micro-seal on the Commander tile. *(Open follow-up: `design/ux/accessibility-requirements.md` should publish the measured 황금 #C9A84C contrast ratio against the project's standard tile background colors so that the WCAG 1.4.11 conformance is verified rather than asserted; tracked as advisory pass-11c R-3.)* | Commander present on grid; allied unit within Manhattan distance ≤ 1; `unit_died(commander_id)` triggers re-evaluation | MVP |
 
 ---
 
@@ -280,7 +281,13 @@ the outcome before committing. UI-GB-04 IS that reading surface.
 
 1. **Damage line** — `[ATK → raw_damage → defender HP_before → HP_after]`. Always visible.
 2. **Kill indicator** — when `HP_after ≤ 0`, render a heavy 묵(#1C1A17) ink brush outline (3px stroke) around the damage line plus an oversized 斬 (참) ink-seal glyph at 300% standard seal size in 묵 ink. **No red color.** Palette rule (Section 2.6 design note) reserves 주홍 for 운명 분기 only. Kill salience is achieved via brush weight and glyph size, not hue. Always visible when applicable.
-3. **Counter-attack line** — if Grid Battle CR-6 counter-eligibility is met: `[defender ATK → counter_damage (×0.5) → attacker HP_before → HP_after]` with the `×0.5` modifier displayed inline. If not eligible, replace with a short muted reason: "No counter — out of range / Ambush suppressed / status-only skill / counter-is-counter / Archer out of natural range".
+3. **Counter-attack line** — if Grid Battle CR-6 counter-eligibility is met: `[defender ATK → counter_damage (×0.5) → attacker HP_before → HP_after]` with the `×0.5` modifier displayed inline. If not eligible, replace with a short muted reason using the following localization keys and default strings:
+   - Out of range: i18n key `"forecast.no_counter.out_of_range"` (default EN: "No counter — out of range")
+   - Ambush suppressed (Scout Ambush fired — defender cannot counter): i18n key `"forecast.no_counter.ambush"` (default EN: "No counter — Ambush"). **Mandatory annotation (pass-11b R-6)**: when Ambush is the suppression reason, append a secondary explanation line in smaller muted text immediately below: i18n key `"forecast.no_counter.ambush_reason"` (default EN: "Target had not yet acted this turn"). This secondary line is always shown when Ambush suppresses — it is not behind an accessibility toggle. Rationale: since `show_wait_for_all_classes = false` hides the WAIT action from 5/6 classes, players cannot observe the `acted_this_turn = false` state that gates Ambush (grid-battle.md CR-6, CR-10). Without this line, Ambush suppression reads as arbitrary for all non-Scout players. The explanation resolves the readability gap without exposing internal state labels. Implementation: the forecast data object (`ForecastData`) must include a `counter_suppression_reason: StringName` field (values: `&"none"`, `&"out_of_range"`, `&"ambush"`, `&"defend_stance"`, `&"status_only"`, `&"counter_is_counter"`, `&"archer_range"`). When `counter_suppression_reason == &"ambush"`, the UI renders both the primary and secondary i18n strings.
+   - DEFEND_STANCE (defender not countering due to stance): i18n key `"forecast.no_counter.defend_stance"` (default KO: "반격 없음 — 방어 중"; default EN: "No counter — defending")
+   - Status-only skill: i18n key `"forecast.no_counter.status_only"` (default EN: "No counter — status skill")
+   - Counter-is-counter: i18n key `"forecast.no_counter.counter_is_counter"` (default EN: "No counter — can't chain")
+   - Archer out of natural range: i18n key `"forecast.no_counter.archer_range"` (default EN: "No counter — Archer range")
 4. **Hit chance** — displays `hit_chance%` per Grid Battle F-GB-2 hit-semantics (actual long-run hit rate, not miss-inverted). Small "2RN" chip indicates variance collapse.
 5. **Direction badge** — FRONT / FLANK / REAR chip with `D_mult` value.
 6. **Passives list** — one line per active passive, CAPPED at 3 lines per side visible (6 total). If more exist, a "+N more" affordance expands on tap. Each line format: `[Source → Passive → effect]`.
@@ -366,12 +373,17 @@ safe to attack?" can be answered without expanding the chevron on mobile.
   80ms, same animation as touch Beat 2 commit dismiss). No delay, no stickiness.
   This matches PC tooltip convention and the ink-wash restraint — crisp
   appearance, crisp dismissal.
-- **Render-abort on hover-dismiss race** (v1.1): if `attack_target_hovered`
-  fires and the cursor leaves the target tile BEFORE the two-frame layout+paint
-  window completes (per §4.6 seam), the render is aborted mid-flight — the
-  panel visibility MUST NOT transition to true (no 1-frame flash of a
-  forecast the player has already dismissed). AC-UX-HUD-01 includes this
-  sub-assertion.
+- **Render-abort on hover-dismiss race** (v1.1): if the cursor leaves the
+  target tile after `attack_target_hovered` fires but before the forecast panel
+  becomes visible, the render is aborted — the panel visibility MUST NOT
+  transition to true (no 1-frame flash). The abort guard is a synchronous
+  boolean flag `forecast_render_aborted`: it is set `true` synchronously inside
+  the `attack_target_hovered` invalidation event handler, **before any `await`**,
+  whenever a cursor-exit or target-invalidation event is received. The panel
+  layout coroutine checks `forecast_render_aborted` after each `await
+  get_tree().process_frame` call; if `true`, it exits without setting
+  `panel.visible = true`. This makes the guard frame-discrete and
+  deterministically testable. AC-UX-HUD-01 includes this sub-assertion.
 - Re-hovering a different valid target repositions the panel to the new target
   with a 60ms cross-fade; re-hovering the same target within 80ms of dismiss is
   a no-op (the panel is already visible).
@@ -457,9 +469,11 @@ interaction surface unified with ATTACK and complies with §1 design goal 3
 | Beat 1 | Player taps the DEFEND row in UI-GB-02 during PLAYER_TURN_ACTIVE (S1) | Button highlighted; `TWO_TAP_TIMEOUT_S` (15s, registry) starts | DEFEND button pulses once (0.15s ink-wash fade-in/fade-out); remaining tokens displayed; surrounding action-menu rows receive a brief desaturation to emphasise the committed-focus target |
 | Beat 2 | Player taps the DEFEND row **again** within the timeout | DEFEND commits: `unit_defended` then `unit_turn_ended` (grid-battle.md CR-13 rule 2); `DEFEND_STANCE` applied via HP/Status | Menu dismisses (80ms ink-wash fade-out); UI-GB-11 守 seal renders; initiative queue advances |
 | — | Player taps any UI element other than DEFEND or the UI-GB-02 panel | Returns to S1; DEFEND not committed | Button pulse clears; menu remains open if the tap target was elsewhere in UI-GB-02; closes if the tap was outside the menu bounds |
-| — | Player taps a **valid move-range tile** during Beat-1 pending state | Returns to S1; DEFEND not committed; the tap initiates MOVE to S2 with that tile as the new move target (MOVE preview shows immediately) | Menu dismisses (80ms fade); move preview renders; Beat-1 DEFEND state cleared. Fixture variant B (`defend_two_tap_cancel_move.yaml` — DEFERRED FIXTURE) covers this path. |
+| — | Player taps a **valid move-range tile** during Beat-1 pending state | Returns to S1; DEFEND not committed; **the tap is a cancel-only action** — no MOVE is initiated | Button pulse clears; movement overlay does NOT appear; menu remains open in S1 state. To begin MOVE the player must tap the unit again (entering the normal MOVE flow from S1). Fixture variant B (`defend_two_tap_cancel_move.yaml` — DEFERRED FIXTURE) covers this path. |
 | — | `TWO_TAP_TIMEOUT_S` expires without Beat 2 | Returns to S1; DEFEND not committed | Button pulse clears; menu remains open; no action taken |
 | — | Player taps Undo (UI-GB-10) during Beat-1 pending state | Returns to S1; prior MOVE undone per Input Handling M-1 | Menu dismisses; movement reverts (applies only if MOVE was used and ACTION unspent) |
+
+**Movement overlay during Beat-1 pending state**: the movement overlay (青회 range tiles) is NOT displayed while DEFEND Beat-1 is active. Tapping any tile during Beat-1 — including a tile that would be a valid move target — cancels DEFEND only. The player must tap the unit again from S1 to enter the MOVE flow. This enforces the single-action-per-tap rule and prevents the hidden double-action (cancel DEFEND + initiate MOVE) that would otherwise occur.
 
 **Once DEFEND is committed, it is NOT reversible.** Undo (UI-GB-10) becomes
 unavailable after `unit_defended` emits — this matches grid-battle.md
@@ -540,10 +554,11 @@ confirm button (A/Cross). Full gamepad spec deferred to
 hardware (Pixel 7-class mobile), UI-GB-04 renders all applicable sections within
 120ms measured via the deterministic two-frame seam in Grid Battle AC-GB-24.
 **Sub-assertion — render-abort on hover-dismiss race (v1.1, §4.5)**: in a
-companion test case, inject a cursor-exit event at frame 1 of the two-frame
-layout+paint seam; assert panel visibility never transitions to true between
-`attack_target_hovered` and the cursor-exit — no 1-frame flash. Panel remains
-at visibility=false throughout.
+companion test case, inject a cursor-exit event synchronously after
+`attack_target_hovered` fires and before the first `await get_tree().process_frame`
+completes in the panel layout coroutine; assert `forecast_render_aborted == true`
+immediately after injection; assert `panel.visible == false` after both
+`await get_tree().process_frame` calls complete. No 1-frame flash.
 — Type: Integration — Gate: BLOCKING — Co-owned with Grid Battle AC-GB-24.
 
 **AC-UX-HUD-02**: Given a counter-attack that would reduce attacker HP to ≤ 0
@@ -627,7 +642,7 @@ detection MUST NOT be wired to DEFEND.
 
 | System | Status | What this spec provides |
 |--------|--------|-------------------------|
-| Battle UI implementation | Not yet started | All of UI-GB-01..11, the 12 visual/audio specs, §4 forecast contract |
+| Battle UI implementation | Not yet started | All of UI-GB-01..13, the 13 visual/audio specs, §4 forecast contract |
 | Accessibility requirements spec | Not yet authored | Colorblind shape-distinction rules, screen-reader order |
 | Animation system | Not yet started | Animation durations and triggers from §2 |
 | Audio system | Not yet started | SFX/music cues from §2 |

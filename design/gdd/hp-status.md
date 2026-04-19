@@ -545,7 +545,7 @@ Commander 병종은 자동 발동이므로 이 필드는 Commander가 아닌 명
 | `DEMORALIZED_TURN_CAP` | 4 | 2–6 | 회복 기회 없이 게임 종료 | 즉시 회복 → 사기 시스템 무의미 | `hp_status_config.json` |
 | `DEMORALIZED_RECOVERY_RADIUS` | 2 | 1–3 | 회복 너무 쉬움 → 사기 위협 약화 | 회복이 어려움 → 사기저하 사실상 턴 캡까지 영구 | `hp_status_config.json` |
 | `DEFEND_STANCE_REDUCTION` | 50% | 30%–70% | 방어 태세가 무적에 가까움 → 공격자가 commit 안 함 | 방어 가치 하락 → WAIT와 동등, DEFEND 선택률 <5% 위험 (rev 2026-04-19: 30% → 50% per grid-battle v5.0 CR-13 Pillar-3) | `hp_status_config.json` |
-| `DEFEND_STANCE_ATK_PENALTY` | 40% | 25%–50% | commitment 비용 과도 → 방어 비선택 | trade-off 부족 → 방어가 항상 최적 | `hp_status_config.json` |
+| `DEFEND_STANCE_ATK_PENALTY` | 40% (provisional) | 25%–50% | commitment 비용 과도 → 방어 비선택 | trade-off 부족 → 방어가 항상 최적 | `hp_status_config.json` — **Provisional (pass-11b R-7).** 40%는 v3.2/v4.0 모델(DEFEND_STANCE 방어자가 -40% ATK으로 반격) 기준의 추측 값이다. v5.0 모델에서 이 경로는 **INERT** — `grid-battle.md` CR-13 rule 4가 DEFEND_STANCE 유닛의 반격을 전면 억제하므로 이 페널티가 실제 적용되는 코드 경로가 없다 (`grid-battle.md` Tuning Knobs v5.0 pass-9b Q3 INERT 주석 참조). 미래의 mid-turn DEFEND 스킬 설계 시 해당 스킬 맥락에서 재평가해야 하며, 현재 값(40%)을 "검증된 값"으로 이월하지 말 것. |
 | `INSPIRED_ATK_BONUS` | 20% | 10%–30% | 버프 유닛이 일격사 → 전투 변동성 과다 | 버프 효과 미미 → Commander 가치 하락 | `hp_status_config.json` |
 | `INSPIRED_DURATION` | 2 turns | 1–3 | 장기 버프 → 한 번 시전으로 충분 | 1턴 → 시전 후 즉시 소멸 → 타이밍 극단적 | `hp_status_config.json` |
 | `EXHAUSTED_MOVE_REDUCTION` | 1 | 1–2 | 이동 불가 수준 → 게임 불가 | (1이 최소) | `hp_status_config.json` |
