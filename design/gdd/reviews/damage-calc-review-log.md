@@ -513,3 +513,65 @@ Specialist arithmetic (game-designer + systems-designer convergent, independentl
 - pass-6 → 11 BLK resolved → rev 2.5
 - pass-7 → 11 deferred recommendeds + 6 nice-to-haves
 - **pass-8 (eighth-pass, fresh session)** → NEEDS REVISION (CRITICAL Rally-ceiling regression from rev 2.7) → rev 2.7 + **rev 2.8 close-out (in-session, systems-designer-derived constraint-optimized fix)**
+
+---
+
+## Rev 2.8.1 — Eighth-pass narrow re-review close-out (2026-04-19)
+
+Scope signal: S (5 stale-value defects from 3-spec narrow verification)
+Specialists: game-designer, systems-designer, qa-lead (narrow re-review of rev 2.8)
+Blocking items: 4 stale-value defects | Arithmetic correction: 1 (off-by-one in claimed apex table)
+
+### Findings
+
+3-spec narrow re-review of rev 2.8 sweep (per CD precedent: same-session-after-CRITICAL is high-risk historically; rev 2.8 was specialist-authored with explicit constraint-derivation, but verification still warranted) returned:
+
+- **game-designer**: CONCERNS — caught (1) Archer/Scout R=+10% off-by-one in apex table (174 claimed; correct 173), (2) AC-DC-03 expected_damage 64 should be 59, (3) AC-DC-04 pass criteria still cite stale D_mult=1.80
+- **systems-designer**: CONCERNS — caught (1) unit-role.md AC-10 still "+15%", (2) damage-calc.md L1240 Tuning Governance "Cavalry REAR=1.20"
+- **qa-lead**: NEEDS REVISION — convergent with game-designer on AC-DC-03 + AC-DC-04 (both BLOCKING for Logic-type test gates)
+
+### Convergent items (caught by ≥2 specialists)
+
+- AC-DC-03 expected_damage stale (game-designer + qa-lead)
+- AC-DC-04 pass criteria stale (game-designer + qa-lead)
+
+### Rev 2.8.1 fixes applied
+
+| # | Defect | Fix | File |
+|---|---|---|---|
+| 1 | AC-DC-03 expected_damage 64 → 59 | Updated AC-DC-03 title + pass criteria with rev 2.8 arithmetic | damage-calc.md |
+| 2 | AC-DC-04 pass criteria D_mult=1.80, P_mult=1.20 → D_mult=1.64, P_mult=1.32 | Updated pass criteria to rev 2.8 values; supplementary assertion documents both no-Rally (27pt) and max-Rally (30pt) differentiation | damage-calc.md |
+| 3 | L1240 Tuning Governance "Cavalry REAR=1.20" → 1.09 | Updated stale CLASS_DIRECTION_MULT reference | damage-calc.md |
+| 4 | Pillar-3 peak hierarchy table: Archer/Scout R=+10% 174 → 173 | Arithmetic correction `floori(83 × 1.65 × 1.27) = floori(173.9265) = 173`; Cavalry margin updated ≥5pt → ≥6pt | damage-calc.md |
+| 5 | unit-role.md AC-10 "caps at 15%" → "caps at 10%" | Stale cap reference | unit-role.md |
+
+### Verification
+
+The rev 2.8 structural fix (CLASS_DIRECTION_MULT[CAVALRY][REAR] 1.20→1.09 + Rally cap 0.15→0.10) is preserved across all formula sites + cross-doc references. The 5 stale-value defects were all in narrative/AC text, not in formula bodies — game-designer's independent recomputation confirmed the structural fix is correct. The off-by-one apex table claim (174 vs 173) was a derivation error in systems-designer's original arithmetic (computed 174.03 then floored; actual 173.93 → 173), not a structural defect.
+
+### Pillar verdict (re-confirmed)
+
+- Pillar 1 (Tactics of Momentum): HOLDS at 27/28/30pt differentiation across Rally states (no-Rally / +5% / +10%)
+- Pillar 3 (Every Hero Has a Role): HOLDS — Cavalry leads by 6pt at all 12 apex cells
+- Apex damage table (rev 2.8.1 corrected):
+
+| Class + optimal combo | R=0% | R=+5% | R=+10% (cap) |
+|---|---|---|---|
+| Cavalry REAR+Charge | 163 | 171 | 179 |
+| Archer FLANK+Ambush | 157 | 165 | **173** (was claimed 174) |
+| Scout REAR+Ambush | 157 | 165 | **173** (was claimed 174) |
+| Infantry REAR (no passive) | 136 | 143 | 150 |
+
+### Status transition (final)
+
+Damage Calc #11: **Designed (APPROVED post-eighth-pass + rev 2.8 + rev 2.8.1 close-out)**.
+
+### Carry-forward
+
+- 10 of seventh-pass 11 deferred recommendeds remain (push_error export-build log, V-3 600ms-vs-800ms ghost, etc.) — eligible for rev 2.9 bandwidth.
+- OQ-AUD-05 + OQ-VIS-03 unchanged.
+- Implementation gate: Logic-type stories (D-3 / D-4 unit tests) now have correct rev 2.8.1 expected values; tests can be authored without false-failure risk.
+
+### Process insight (rev 2.8.1)
+
+The rev 2.8 systems-designer-derived sweep correctly fixed the structural Pillar-1+3 regression but missed 5 narrative/AC stale-value sites. The pattern is consistent with CD's "same-session-after-CRITICAL is high-risk historically" guidance: the specialist focused on the formula correctness (got it right) but didn't audit every narrative reference that quoted the old values. A 3-spec narrow verification was the correct next step to catch these residuals. Rev 2.8.1 closes the loop atomically.

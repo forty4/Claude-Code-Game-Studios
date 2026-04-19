@@ -897,7 +897,7 @@ On zero-evasion terrain, the passive is a no-op (EC-15). Agility evasion is
 unaffected.
 
 **AC-10.** Commander Rally grants +5% ATK to allied units within Manhattan
-distance ≤ 1. Stacking from multiple Commanders caps at 15% total (EC-12).
+distance ≤ 1. Stacking from multiple Commanders caps at 10% total (rev 2.8 — was 15%; EC-12).
 A Commander at distance 2 does not contribute.
 
 **AC-11.** Scout Ambush fires if `current_turn_number >= 2` AND

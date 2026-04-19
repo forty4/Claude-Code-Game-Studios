@@ -557,11 +557,12 @@ HIT_DEVASTATING tier reached even without Ambush. REAR max=112
 HIT_DEVASTATING boundary) without rewriting Pillar-3 Archer identity.
 
 **Pillar-3 peak hierarchy (rev 2.8):** Cavalry REAR+Charge no-Rally=163, at Rally cap (+10%)=179 (apex);
-Scout REAR+Ambush no-Rally=157, at Rally cap=174; Archer FLANK+Ambush no-Rally=157,
-at Rally cap=174 (parity at optimal play, disjoint positions); Infantry REAR no-Rally=136,
-at Rally cap=150 (no-passive baseline). Cavalry leads by ≥5 pt at all 12 apex cells
+Scout REAR+Ambush no-Rally=157, at Rally cap=173; Archer FLANK+Ambush no-Rally=157,
+at Rally cap=173 (parity at optimal play, disjoint positions); Infantry REAR no-Rally=136,
+at Rally cap=150 (no-passive baseline). Cavalry leads by ≥6 pt at all 12 apex cells
 (0% / +5% / +10% Rally × 4 classes); hierarchy holds across all states; ceiling
-never fires on any primary path under the +10% Rally cap.
+never fires on any primary path under the +10% Rally cap. *(Rev 2.8.1 arithmetic
+correction: Archer/Scout at Rally cap = 173, not 174 — `floori(83 × 1.65 × 1.27) = floori(173.9265) = 173`.)*
 Archer > Infantry at optimal play holds the dedicated-damage-role
 promise. Scout vs Archer at parity ATK is distinguished by position
 (REAR vs FLANK) not by raw number — Ambush-access matrix intentional.
@@ -1237,7 +1238,7 @@ patch.
 - **`BASE_DIRECTION_MULT` table (1.00 / 1.20 / 1.50)** — owned by
   `unit-role.md` §EC-7. Locked per Pillar 1 directional-payoff design.
 - **`CLASS_DIRECTION_MULT` table (4 × 3 grid)** — owned by `unit-role.md`
-  §EC-7. Locked per Pillar 3 role-identity design. Cavalry REAR=1.20 and
+  §EC-7. Locked per Pillar 3 role-identity design. Cavalry REAR=1.09 (rev 2.8 — was 1.20 pre rev 2.8) and
   Scout REAR=1.10 are the role-defining anchors and cannot move
   independently.
 
@@ -1808,16 +1809,16 @@ Every worked example is a mandatory test fixture in `tests/unit/damage_calc/dama
 - Pass criteria: `resolve(eff_atk=190, eff_def=10, direction_rel=FRONT, no passives)` → `HIT(resolved_damage=83)`
 - Blocker for: Vertical Slice
 
-**AC-DC-03** [FORMULA] — D-3 Cavalry REAR Charge (primary) resolves to 64.
+**AC-DC-03** [FORMULA] — D-3 Cavalry REAR Charge (primary) resolves to 59 (rev 2.8 — was 64 pre rev 2.8 per CLASS_DIRECTION_MULT[CAVALRY][REAR] 1.20 → 1.09 reduction).
 - Test: `tests/unit/damage_calc/damage_calc_test.gd::test_d3_cavalry_rear_charge_primary`
 - Method: automated unit
-- Pass criteria: `resolve(CAVALRY, ATK=80, DEF=50, REAR, charge_active=true, passive_charge, is_counter=false)` → `HIT(resolved_damage=64)`
+- Pass criteria: `resolve(CAVALRY, ATK=80, DEF=50, REAR, charge_active=true, passive_charge, is_counter=false)` → `HIT(resolved_damage=59)` (rev 2.8 — D_mult=1.64, P_mult=1.20 → floori(30×1.64×1.20)=59; was 64 pre rev 2.8)
 - Blocker for: Vertical Slice
 
 **AC-DC-04** [FORMULA] — D-4 hardest primary-path hit (rev 2.4 + rev 2.8 Rally cap): Cavalry REAR Charge ATK=200, DEF=10, Rally(+10%) resolves to 179 — DAMAGE_CEILING=180 does NOT fire since BASE_CEILING=83 + CLASS_DIRECTION_MULT[CAVALRY][REAR]=1.09 + Rally cap caps the intermediate to `floori(83 × 1.64 × 1.32) = 179`. Pillar-1 peak differentiation = 30 pts (REAR-only+Rally 149 vs REAR+Charge+Rally 179) at max Rally; ≥27 pts at no-Rally (REAR-only 136 vs REAR+Charge 163).
 - Test: `tests/unit/damage_calc/damage_calc_test.gd::test_d4_hardest_primary_path_hit`
 - Method: automated unit
-- Pass criteria: base=83, D_mult=1.80, P_mult=1.20 → floori(83×1.80×1.20)=179, ≤ DAMAGE_CEILING (no clamp) → `HIT(resolved_damage=179)`. Supplementary assertion: for same inputs with `charge_active=false`, resolved_damage=149 — proving the 30-pt differentiation.
+- Pass criteria (rev 2.8): base=83, D_mult=1.64, P_mult=1.32 (Charge×Rally cap +10%) → floori(83×1.64×1.32)=179, ≤ DAMAGE_CEILING (no clamp) → `HIT(resolved_damage=179)`. Supplementary assertion: for same inputs with `charge_active=false` and Rally cap, resolved_damage=floori(83×1.64×1.10)=149 — proving the 30-pt differentiation at max Rally; no-Rally differentiation: REAR-only floori(83×1.64)=136 vs REAR+Charge floori(83×1.64×1.20)=163 = 27pt.
 - Blocker for: Vertical Slice
 
 **AC-DC-05** [FORMULA] — D-5 MIN_DAMAGE floor: ATK=30, DEF=100, T_def=+30 resolves to 1.
