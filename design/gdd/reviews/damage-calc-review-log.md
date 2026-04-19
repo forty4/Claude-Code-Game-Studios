@@ -575,3 +575,61 @@ Damage Calc #11: **Designed (APPROVED post-eighth-pass + rev 2.8 + rev 2.8.1 clo
 ### Process insight (rev 2.8.1)
 
 The rev 2.8 systems-designer-derived sweep correctly fixed the structural Pillar-1+3 regression but missed 5 narrative/AC stale-value sites. The pattern is consistent with CD's "same-session-after-CRITICAL is high-risk historically" guidance: the specialist focused on the formula correctness (got it right) but didn't audit every narrative reference that quoted the old values. A 3-spec narrow verification was the correct next step to catch these residuals. Rev 2.8.1 closes the loop atomically.
+
+---
+
+## Rev 2.9.1 — Narrow re-review close-out (2026-04-19)
+
+Scope signal: S (8 stale-value defects + 방진 DEF visibility fix + Pillar-3 inversion ratification)
+Specialists: systems-designer, game-designer, qa-lead (3-spec narrow re-review of rev 2.9 + Formation Bonus integration)
+Blocking items: 6 stale "179" sites + Player Fantasy 2.16x | New design call: Pillar-3 inversion (user-ratified)
+
+### Findings
+
+3-spec narrow re-review of rev 2.9 sweep (per CD precedent: same-session-after-modifier-addition warrants verification) returned:
+- **systems-designer**: APPROVED (all rev 2.9 arithmetic correct; cap fires correctly; backwards compat preserved)
+- **game-designer**: NEEDS REVISION (NEW Pillar-3 inversion Archer 179 > Cavalry 178; 방진 floori(20×0.02)=0 invisible; Player Fantasy 2.16x stale)
+- **qa-lead**: NEEDS REVISION (8 stale-value defects: AC-DC-04 + D-4 + CR-6 + F-DC-6 expected range + Pillar-3 peak hierarchy + 2 invariant claims; 2 missing ACs for new Formation paths D-7/D-8)
+
+### Convergent items
+
+- AC-DC-04 / D-4 stale 179 (systems-designer noted minor inherited imprecision; qa-lead caught as BLOCKER)
+- Player Fantasy 2.16x stale (game-designer + qa-lead implicit)
+
+### User adjudications (binding)
+
+**Pillar-3 inversion ratified as acceptable**: Archer FLANK+Ambush+Rally(+10%)+Formation cap = `floori(83 × 1.65 × 1.31) = 179` vs Cavalry REAR+Charge+Rally(+10%)+Formation cap = `floori(83 × 1.64 × 1.31) = 178`. Caused by P_MULT_COMBINED_CAP clamping both classes to identical P_mult; Archer's higher D_mult edges Cavalry by 1pt. Manifests ONLY at simultaneous max-everything (rare in typical play). User accepts: Pillar-3 hierarchy holds in 23 of 24 cells; strict apex ordering not required.
+
+### Rev 2.9.1 fixes applied
+
+| # | Defect | Fix | File |
+|---|---|---|---|
+| 1 | Player Fantasy 2.16x stale | → 2.15x with rev 2.9 P_MULT_COMBINED_CAP=1.31 attribution | damage-calc.md |
+| 2 | CR-6 hardest-hit narrative `floori(83×1.64×1.32)=179` | → `floori(83×1.64×1.31)=178` post-cap; Pillar-1 differentiation 30pt → 29pt | damage-calc.md |
+| 3 | CR-9 ceiling rationale `floori(83×1.64×1.32)=179` | → `floori(83×1.64×1.31)=178` post-cap | damage-calc.md |
+| 4 | F-DC-4 Pillar-3 peak hierarchy table | rev 2.9 update with full inversion ratification note (Archer 179 > Cavalry 178 acceptable per user adjudication) | damage-calc.md |
+| 5 | F-DC-6 expected range stanza `raw ∈ [1, 179]` | Updated to acknowledge Archer/Scout cap-pinned 179 as upper bound; Cavalry cap-pinned 178; both <180 | damage-calc.md |
+| 6 | D-4 worked example result 179 | → 178 (P_MULT_COMBINED_CAP fires); supplementary differentiation 30pt → 29pt | damage-calc.md |
+| 7 | Inline `floori(83×1.64×1.32)=179` in invariant clamp note | → `floori(83×1.64×1.31)=178` rev 2.9 | damage-calc.md |
+| 8 | AC-DC-04 pass criteria + title 179 | → 178; pre-cap P_mult=1.39 → cap 1.31; 30pt → 29pt | damage-calc.md |
+| 9 | 방진 DEF bonus 0.02 → 0.04 (game-designer floori issue) | CR-FB-10 + Tuning Knob row + Vignette 4 updated | formation-bonus.md |
+| 10 | Pillar-3 inversion ratification note added | F-FB-5 apex table + Pillar-3 inversion paragraph | formation-bonus.md |
+
+### Verification
+
+- Cavalry apex damage: rev 2.8.1=179 → rev 2.9=178 (1pt regression — user-adjudicated trade-off for Formation visibility)
+- Archer apex damage: rev 2.8.1=173 → rev 2.9 cap-pinned=179 (Formation pushes past cap; 1pt above Cavalry — user-ratified)
+- Pillar-1 differentiation: 30pt → 29pt at max-everything (still well above ≥15pt threshold)
+- Pillar-3: holds in 23 of 24 cells; 1 cell inversion ratified
+- DAMAGE_CEILING never fires on any primary path (max 179 < 180)
+- 방진 DEF visibility at typical Infantry DEF=50: `floori(50 × 0.04) = 2` (was 1 at 0.02; was 0 at typical low-DEF)
+
+### Carry-forward (not addressed in rev 2.9.1)
+
+- **D-7, D-8 missing ACs** (qa-lead): F-DC-5 Formation block consumer-side AC + F-DC-3 formation_def_bonus consumer-side AC. Both Logic-type BLOCKING per coding-standards. Defer to Formation Bonus implementation sprint when fixture authoring begins (`tests/fixtures/formation_bonus/*.yaml`). Coordinate with formation-bonus.md AC-FB-10/AC-FB-11 to avoid duplication.
+- 10 of seventh-pass 11 deferred recommendeds remain (push_error export-build log, V-3 600ms-vs-800ms ghost, etc.).
+- `design/gdd/balance-data.md` formations.json schema + `design/registry/entities.yaml` constant registration (P_MULT_COMBINED_CAP + FORMATION_ATK_BONUS_CAP + FORMATION_DEF_BONUS_CAP) — Phase 5 work.
+
+### Status (final)
+
+Damage Calc #11: **Designed (APPROVED post-rev-2.9.1 close-out)** — eighth pass + rev 2.7 + rev 2.8 + rev 2.8.1 + rev 2.9 + rev 2.9.1 all closed.

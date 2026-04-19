@@ -53,7 +53,7 @@ moment of resolution, the integer that confirms what the previous turns earned.
   well-positioned ATK 80 with REAR + Charge.
 - Direction × class multipliers are the legibility surface — they must be
   visible in the popup or its hover tooltip so the player can connect `1.97×`
-  (rev 2.8 — Cavalry REAR+Charge no-Rally; rises to `2.16×` at Rally cap +10% via D_mult × P_mult composition)
+  (rev 2.8 — Cavalry REAR+Charge no-Rally; rises to `2.15×` at Rally cap +10%+Formation cap via P_MULT_COMBINED_CAP=1.31 — rev 2.9 update from prior 2.16× pre-cap)
   back to the four turns of work that earned it.
 - Avoid JRPG crit-fest visual language. Damage popups inherit the ink-wash
   restraint: clean integers, restrained color, weighted typography.
@@ -121,14 +121,14 @@ rule and overrides any prior text suggesting double-application.
 `base = mini(BASE_CEILING, max(MIN_DAMAGE, floori(eff_atk - eff_def × defense_mul)))`.
 The `BASE_CEILING = 83` cap (rev 2.4 — lowered from 100 per fifth-pass
 CRITICAL-3 resolution) fires BEFORE direction multipliers. Value tuned
-so the hardest primary-path hit (Cavalry REAR+Charge at max ATK + Rally cap =
-`floori(83 × 1.64 × 1.32) = 179`) stays 1 under `DAMAGE_CEILING = 180`,
+so the hardest primary-path hit (Cavalry REAR+Charge at max ATK + Rally cap + Formation cap =
+`floori(83 × 1.64 × 1.31) = 178` post P_MULT_COMBINED_CAP — rev 2.9 update from prior 179 pre-cap) stays 2 under `DAMAGE_CEILING = 180`,
 guaranteeing ≥27-point differentiation between REAR-only no-Rally (`floori(83 ×
 1.64) = 136`) and REAR+Charge no-Rally (`floori(83 × 1.64 × 1.20) = 163`),
-widening to 30 pt at max Rally cap (`floori(83 × 1.64 × 1.10) = 149` REAR-only
-vs `floori(83 × 1.64 × 1.32) = 179` REAR+Charge) so Pillar-1 directional
-payoff remains visible at the peak across all Rally states (rev 2.8 — Rally
-ceiling fix per eighth-pass review; CLASS_DIRECTION_MULT[CAVALRY][REAR] reduced
+widening to 29 pt at max Rally+Formation cap (`floori(83 × 1.64 × 1.10) = 149` REAR-only
+vs `floori(83 × 1.64 × 1.31) = 178` REAR+Charge+Rally+Formation) so Pillar-1 directional
+payoff remains visible at the peak across all Rally×Formation states (rev 2.8 — Rally
+ceiling fix per eighth-pass review; rev 2.9 — Formation Bonus integration via P_MULT_COMBINED_CAP=1.31; CLASS_DIRECTION_MULT[CAVALRY][REAR] reduced
 1.20 → 1.09 + Rally cap reduced +15% → +10% to keep all 12 apex cells under
 DAMAGE_CEILING=180 while preserving Pillar-1+3 hierarchy). See Section D
 rationale + D-4.
@@ -163,14 +163,14 @@ The `MIN_DAMAGE = 1` floor is re-enforced here to guarantee the
 defense-in-depth invariant**, not a player-facing clamp. The BASE_CEILING=83
 tuning (CR-6) PLUS the rev 2.8 Rally cap (Grid Battle CR-15 rule 4 max +10%) +
 CLASS_DIRECTION_MULT[CAVALRY][REAR]=1.09 (D_mult=1.64) mathematically prevent
-primary-path raw from reaching 180 (max `floori(83 × 1.64 × 1.32) = 179` for
-Cavalry REAR+Charge+Rally(+10%)). The ceiling only fires under
+primary-path raw from reaching 180 (max `floori(83 × 1.64 × 1.31) = 178` for
+Cavalry REAR+Charge+Rally(+10%)+Formation(+5%) post P_MULT_COMBINED_CAP — rev 2.9 update from prior 179 pre-cap). The ceiling only fires under
 synthetic class-guard-bypass test conditions (EC-DC-9 dual-passive stack,
 `P_mult = 1.38` × D_mult = 1.64 × base = 83 → `floori(187.7) = 187` →
 clamped to 180) or under future forward-compat scenarios (hero ability or
 destiny branch pushes the peak higher — triggers ceiling-disclosure
 re-authoring per rev 2.4 strip-and-defer decision; see review log).
-Pillar-1 upper bound "no single attack > 60% of HP_CAP=300" holds at 179.
+Pillar-1 upper bound "no single attack > 60% of HP_CAP=300" holds at 178 (59.3%).
 
 **CR-10 — Counter-attack modifier (Stage 3, conditional).**
 When `modifiers.is_counter == true`:
@@ -573,13 +573,13 @@ HIT_DEVASTATING tier reached even without Ambush. REAR max=112
 (combat-noise floor). Do not revert FLANK below `1.25` (D_mult 1.50 —
 HIT_DEVASTATING boundary) without rewriting Pillar-3 Archer identity.
 
-**Pillar-3 peak hierarchy (rev 2.8):** Cavalry REAR+Charge no-Rally=163, at Rally cap (+10%)=179 (apex);
-Scout REAR+Ambush no-Rally=157, at Rally cap=173; Archer FLANK+Ambush no-Rally=157,
-at Rally cap=173 (parity at optimal play, disjoint positions); Infantry REAR no-Rally=136,
-at Rally cap=150 (no-passive baseline). Cavalry leads by ≥6 pt at all 12 apex cells
-(0% / +5% / +10% Rally × 4 classes); hierarchy holds across all states; ceiling
-never fires on any primary path under the +10% Rally cap. *(Rev 2.8.1 arithmetic
-correction: Archer/Scout at Rally cap = 173, not 174 — `floori(83 × 1.65 × 1.27) = floori(173.9265) = 173`.)*
+**Pillar-3 peak hierarchy (rev 2.9 — Formation Bonus integration):** Cavalry REAR+Charge no-Rally=163, at Rally cap+Formation cap=178 (apex; was 179 pre-cap rev 2.8.1);
+Scout REAR+Ambush no-Rally=157, at Rally cap=173, at Rally+Formation cap=179 (cap fires);
+Archer FLANK+Ambush no-Rally=157, at Rally cap=173, at Rally+Formation cap=179 (cap fires);
+Infantry REAR no-Rally=136, at Rally cap=150, at Rally+Formation=157.
+Cavalry leads by ≥5pt at all states EXCEPT the simultaneous-max-everything case
+(Cavalry+Charge+Rally+Formation cap 178 vs Archer/Scout+Ambush+Rally+Formation cap 179 — 1pt inversion).
+**Inversion rationale (rev 2.9 user-ratified)**: caused by P_MULT_COMBINED_CAP=1.31 clamping both classes to the same P_mult; Archer's higher D_mult (1.65) edges Cavalry's (1.64) by 1pt at the cap. Manifests ONLY when ALL FOUR conditions co-occur (max ATK + max Rally + max Formation + simultaneously Cavalry+Charge AND Archer+Ambush firing). In all typical play states, Cavalry > Archer/Scout holds by 5-6pt. User-adjudicated as acceptable design trade-off (Pillar-3 hierarchy preserved in 23 of 24 cells).
 Archer > Infantry at optimal play holds the dedicated-damage-role
 promise. Scout vs Archer at parity ATK is distinguished by position
 (REAR vs FLANK) not by raw number — Ambush-access matrix intentional.
@@ -736,18 +736,18 @@ stage_2_raw_damage(base, D_mult, P_mult) -> int:
                     floori(base * D_mult * P_mult)))
 ```
 
-**Expected range**: `raw ∈ [1, 179]` in MVP primary paths (under all Rally
-states 0/+5%/+10%); `raw ∈ [1, 180]` including DAMAGE_CEILING as the silent
+**Expected range**: `raw ∈ [1, 179]` in MVP primary paths (under all Rally×Formation
+states; Archer/Scout cap-pinned apex 179 is the upper bound); `raw ∈ [1, 180]` including DAMAGE_CEILING as the silent
 upper wall. Fires AFTER all multipliers. The rev 2.4 BASE_CEILING=83 tuning
 (CR-6) PLUS the rev 2.8 Rally cap (+10% max via Grid Battle CR-15 rule 4) +
-CLASS_DIRECTION_MULT[CAVALRY][REAR]=1.09 (D_mult=1.64) mathematically keep
-the hardest primary-path hit at `floori(83 × 1.64 × 1.32) = 179` (Cavalry
-REAR+Charge+Rally(+10%)) — the DAMAGE_CEILING=180 cap never fires on any
-primary path under any Rally state. It activates only under synthetic
+CLASS_DIRECTION_MULT[CAVALRY][REAR]=1.09 (D_mult=1.64) PLUS rev 2.9 P_MULT_COMBINED_CAP=1.31 mathematically keep
+the hardest primary-path hit at `floori(83 × 1.64 × 1.31) = 178` (Cavalry
+REAR+Charge+Rally(+10%)+Formation cap) — the DAMAGE_CEILING=180 cap never fires on any
+primary path under any Rally×Formation state. It activates only under synthetic
 class-guard-bypass scenarios (EC-DC-9 dual-passive stack producing `P_mult = 1.38`,
 `floori(83 × 1.64 × 1.38) = 187` → clamped to 180) and remains in place as a
 defense-in-depth wall + a forward-compat upper bound for future buff pathways.
-Pillar-1 invariant "no single attack > 60% of HP_CAP=300" holds at 179 (59.7%).
+Pillar-1 invariant "no single attack > 60% of HP_CAP=300" holds at 179 (59.7%) for Archer/Scout cap-pinned apex; 178 (59.3%) for Cavalry cap-pinned apex.
 
 ### F-DC-7 — `counter_reduction` (CR-10)
 
@@ -798,17 +798,18 @@ Constants reference registry values as of 2026-04-18.
 - `base = min(83, 200 − 10) = 83` (BASE_CEILING fires)
 - `D_mult = snappedf(1.50 × 1.09, 0.01) = 1.64`
 - `P_mult = snappedf(1.20 × 1.10, 0.01) = 1.32` (Charge × Rally cap)
-- `raw = min(180, floori(83 × 1.64 × 1.32)) = min(180, floori(179.68)) = 179`
-  (DAMAGE_CEILING does NOT fire — 179 < 180)
-- **Result: 179** — the maximum resolved damage reachable in MVP primary
-  paths under all Rally states. Pillar-1 promise: no single attack exceeds 60%
-  of HP_CAP=300; max Cavalry REAR+Charge+Rally (179) differentiates from
-  REAR-only+Rally (`floori(83 × 1.64 × 1.10) = 149`) by 30 points, giving
+- `raw = min(180, floori(83 × 1.64 × 1.31)) = min(180, floori(178.1)) = 178` (rev 2.9 — P_MULT_COMBINED_CAP=1.31 clamps; was 179 pre-rev-2.9)
+  (DAMAGE_CEILING does NOT fire — 178 < 180)
+- **Result: 178** — the maximum resolved Cavalry damage in MVP primary
+  paths under all Rally×Formation states. Pillar-1 promise: no single attack exceeds 60%
+  of HP_CAP=300; max Cavalry REAR+Charge+Rally+Formation (178) differentiates from
+  REAR-only+Rally+Formation (`floori(83 × 1.64 × 1.16) = 157`) by 21 points, and from
+  REAR-only+Rally (`floori(83 × 1.64 × 1.10) = 149`) by 29 points, giving
   directional+passive payoff a visible peak even when ATK is at the stat ceiling
-  AND Rally is maxed. DAMAGE_CEILING=180 remains a silent defense-in-depth wall
-  per CR-9 (rev 2.4); under the rev 2.8 Rally cap (+10%), the ceiling never
+  AND Rally+Formation are maxed. DAMAGE_CEILING=180 remains a silent defense-in-depth wall
+  per CR-9 (rev 2.4); under the rev 2.8 Rally cap (+10%) and rev 2.9 P_MULT_COMBINED_CAP=1.31, the ceiling never
   fires on any primary path; see EC-DC-9 synthetic bypass case for the only
-  path that actually triggers it.
+  path that actually triggers it. *(Note: Archer FLANK+Ambush+Rally+Formation cap = 179 — 1pt above Cavalry cap-pinned apex; user-ratified rev 2.9 narrow re-review as acceptable since manifests only at simultaneous max-everything; see Pillar-3 peak hierarchy note in F-DC-4.)*
 
 **D-5 — MIN_DAMAGE floor (overwhelming DEF)**
 - Inputs: ATK=30, DEF=100, FRONT, T_def=+30.
@@ -1669,11 +1670,11 @@ raw = floori(40 × 1.80 × 1.20) = 86 → 86
   Discrepancy = bug.
 - **Invariant clamp note (rev 2.4 + rev 2.8 Rally cap)**: DAMAGE_CEILING=180 is a silent
   safety wall, unreachable in MVP primary paths (max Cavalry REAR+Charge+Rally(+10%)
-  = `floori(83 × 1.64 × 1.32) = 179`, one under the ceiling by design
+  = `floori(83 × 1.64 × 1.31) = 178` (rev 2.9 — P_MULT_COMBINED_CAP=1.31 fires; was 179 pre-rev-2.9), two under the ceiling by design
   per F-DC-3 BASE_CEILING=83 + rev 2.8 CLASS_DIRECTION_MULT[CAVALRY][REAR]=1.09 +
-  Rally cap +10% tuning). No player-facing "CAPPED" chip — the Pillar-1
-  differentiation is delivered by the 30-point gap between REAR-only+Rally (149)
-  and REAR+Charge+Rally (179) at max ATK, not by clamp disclosure. Forward-compat:
+  Rally cap +10% + rev 2.9 P_MULT_COMBINED_CAP=1.31 tuning). No player-facing "CAPPED" chip — the Pillar-1
+  differentiation is delivered by the 29-point gap between REAR-only+Rally (149)
+  and REAR+Charge+Rally+Formation (178) at max ATK, not by clamp disclosure. Forward-compat:
   if a future hero ability or destiny branch
   pushes `raw_uncapped > 180`, this rule revisits and the tri-modal
   disclosure returns (see rev 2.2 history in review log).
@@ -1854,10 +1855,10 @@ Every worked example is a mandatory test fixture in `tests/unit/damage_calc/dama
 - Pass criteria: `resolve(CAVALRY, ATK=80, DEF=50, REAR, charge_active=true, passive_charge, is_counter=false)` → `HIT(resolved_damage=59)` (rev 2.8 — D_mult=1.64, P_mult=1.20 → floori(30×1.64×1.20)=59; was 64 pre rev 2.8)
 - Blocker for: Vertical Slice
 
-**AC-DC-04** [FORMULA] — D-4 hardest primary-path hit (rev 2.4 + rev 2.8 Rally cap): Cavalry REAR Charge ATK=200, DEF=10, Rally(+10%) resolves to 179 — DAMAGE_CEILING=180 does NOT fire since BASE_CEILING=83 + CLASS_DIRECTION_MULT[CAVALRY][REAR]=1.09 + Rally cap caps the intermediate to `floori(83 × 1.64 × 1.32) = 179`. Pillar-1 peak differentiation = 30 pts (REAR-only+Rally 149 vs REAR+Charge+Rally 179) at max Rally; ≥27 pts at no-Rally (REAR-only 136 vs REAR+Charge 163).
+**AC-DC-04** [FORMULA] — D-4 hardest primary-path hit (rev 2.4 + rev 2.8 Rally cap + rev 2.9 P_MULT_COMBINED_CAP): Cavalry REAR Charge ATK=200, DEF=10, Rally(+10%), Formation(+5%) resolves to 178 — DAMAGE_CEILING=180 does NOT fire since BASE_CEILING=83 + CLASS_DIRECTION_MULT[CAVALRY][REAR]=1.09 + Rally cap + P_MULT_COMBINED_CAP=1.31 caps the intermediate to `floori(83 × 1.64 × 1.31) = 178`. Pillar-1 peak differentiation = 29 pts (REAR-only+Rally 149 vs REAR+Charge+Rally+Formation 178) at max-everything; ≥27 pts at no-Rally (REAR-only 136 vs REAR+Charge 163). (Rev 2.9 update: was 179 / 30pt at rev 2.8.)
 - Test: `tests/unit/damage_calc/damage_calc_test.gd::test_d4_hardest_primary_path_hit`
 - Method: automated unit
-- Pass criteria (rev 2.8): base=83, D_mult=1.64, P_mult=1.32 (Charge×Rally cap +10%) → floori(83×1.64×1.32)=179, ≤ DAMAGE_CEILING (no clamp) → `HIT(resolved_damage=179)`. Supplementary assertion: for same inputs with `charge_active=false` and Rally cap, resolved_damage=floori(83×1.64×1.10)=149 — proving the 30-pt differentiation at max Rally; no-Rally differentiation: REAR-only floori(83×1.64)=136 vs REAR+Charge floori(83×1.64×1.20)=163 = 27pt.
+- Pass criteria (rev 2.9): base=83, D_mult=1.64, pre-cap P_mult=1.39 (Charge×Rally cap +10%×Formation cap +5%) → P_MULT_COMBINED_CAP clamps to 1.31 → floori(83×1.64×1.31)=178, ≤ DAMAGE_CEILING (no clamp) → `HIT(resolved_damage=178)`. Supplementary assertion: for same inputs with `charge_active=false` and Rally cap (no Formation), resolved_damage=floori(83×1.64×1.10)=149 — proving the 29-pt differentiation at max-everything; no-Rally differentiation: REAR-only floori(83×1.64)=136 vs REAR+Charge floori(83×1.64×1.20)=163 = 27pt. (Rev 2.9 update: was 179 / 30pt at rev 2.8 pre-P_MULT_COMBINED_CAP.)
 - Blocker for: Vertical Slice
 
 **AC-DC-05** [FORMULA] — D-5 MIN_DAMAGE floor: ATK=30, DEF=100, T_def=+30 resolves to 1.

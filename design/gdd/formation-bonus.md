@@ -40,7 +40,7 @@ The player did not plan this. The board did. But the game makes the moment feel 
 
 ### Vignette 4 — 방진의 방패 (The Square Holds)
 
-Four infantry occupy a 2×2 square in the strategic center. The enemy cavalry has Charge and REAR angle — but `round_started` has already issued the 방진 bonus: `formation_def_bonus += 0.02` to all four units. The cavalry hit lands. The Infantry's `formation_def_bonus` absorbs part of it via F-DC-3 effective DEF. The player holds the square through the cavalry push, buys one more turn, and the battle hinges on it.
+Four infantry occupy a 2×2 square in the strategic center. The enemy cavalry has Charge and REAR angle — but `round_started` has already issued the 방진 bonus: `formation_def_bonus += 0.04` (rev 2.9.1 increase from 0.02 per floori-visibility audit). All four units have DEF≈50 (mid-tier Infantry). The cavalry hit lands. The Infantry's `formation_def_bonus` adds `floori(50 × 0.04) = 2` to eff_def via F-DC-3, absorbing 2 points of incoming damage per attack. The player holds the square through the cavalry push, buys one more turn, and the battle hinges on it.
 
 방진's fantasy is not offense — it is resilience purchased through discipline. The player who defends correctly is rewarded the same way as the player who attacks correctly: formation as the answer to every tactical question.
 
@@ -158,7 +158,7 @@ Template (anchor at (0,0)):
 (0, +1)  (+1, +1)
 ```
 
-- **Bonus**: All four units receive `formation_def_bonus += 0.02`. No ATK bonus.
+- **Bonus**: All four units receive `formation_def_bonus += 0.04` (rev 2.9.1 — increased from 0.02 per game-designer floori-visibility finding: at typical Infantry DEF=20, `floori(20 × 0.02) = 0` ate the bonus entirely; `floori(20 × 0.04) = 0` still rounds to zero at low DEF but `floori(50 × 0.04) = 2` is visible at mid-tier DEF, mirroring 마름진 magnitude). No ATK bonus.
 - **Minimum size**: Exactly 4 units in 2×2.
 - **Larger blocks**: A 3×2 or 2×3 contains multiple overlapping 2×2 candidates; only one instance is active per CR-FB-1 rule 4 (multi-pattern overlap allowed but per-unit cap applies).
 - **Design intent** (Pillar 1): Pure-defensive formation rewarding hold-ground tactics. Choice between 방진 and 어진형 is a meaningful tactical decision (defense vs. advance).
@@ -409,7 +409,9 @@ eff_def = defender.def_stat + terrain_def_bonus + floori(defender.def_stat * mod
 | Cavalry REAR+Charge+Rally(+10%)+Formation(+5%) | 1.20×1.10×1.05=1.386 | 1.39 | 1.31 | floori(83×1.64×1.31)=178 | Cap absorbs Formation; ceiling never fires |
 | Cavalry REAR+Charge+Formation(+5%) no Rally | 1.20×1.05=1.26 | 1.26 | 1.26 | floori(83×1.64×1.26)=171 | Mid-range — Formation visible |
 
-**Pillar verdict**: Cavalry apex damage drops from 179 → 178 (rev 2.8.1 → rev 2.9) due to combined-cap clamping at 1.31 vs 1.32. This is a 1-point regression on pure-Cavalry-apex but is the cost of allowing Formation Bonus to exist as a primary-path-safe modifier. Pillar-1 differentiation remains 28pt (REAR-only+Rally 149 vs REAR+Charge+Rally 178; previously 30pt). User-adjudicated trade-off: Formation Bonus visibility for non-apex units > 1pt apex preservation.
+**Pillar verdict**: Cavalry apex damage drops from 179 → 178 (rev 2.8.1 → rev 2.9) due to combined-cap clamping at 1.31 vs 1.32. This is a 1-point regression on pure-Cavalry-apex but is the cost of allowing Formation Bonus to exist as a primary-path-safe modifier. Pillar-1 differentiation remains 29pt (REAR-only+Rally 149 vs REAR+Charge+Rally+Formation 178; previously 30pt). User-adjudicated trade-off: Formation Bonus visibility for non-apex units > 1pt apex preservation.
+
+**Pillar-3 apex inversion note (rev 2.9.1 — user-ratified)**: At simultaneous max-everything (max ATK + max Rally + max Formation + Cavalry+Charge AND Archer+Ambush firing), Archer FLANK+Ambush+Rally+Formation cap = `floori(83 × 1.65 × 1.31) = 179` edges Cavalry REAR+Charge+Rally+Formation cap = `floori(83 × 1.64 × 1.31) = 178` by 1pt. Caused by P_MULT_COMBINED_CAP clamping both classes to identical P_mult=1.31; Archer's higher D_mult (1.65 from rev 2.6 Pillar-3 fix) edges Cavalry's (1.64 from rev 2.8 Rally cap fix). User-ratified as acceptable: Pillar-3 hierarchy holds in 23 of 24 cells (all typical play states), only the simultaneous-max-everything edge case inverts by 1pt. Strict apex ordering not required for Pillar-3 fidelity — distinct tactical roles + meaningful differentiation in common play are preserved. See damage-calc.md F-DC-4 Pillar-3 peak hierarchy note (rev 2.9 update).
 
 ---
 
@@ -483,7 +485,7 @@ All values read from `assets/data/config/formations.json`. No value hardcoded in
 | 학익진 anchor ATK | `pattern_hakik_atk_anchor` | 0.04 | Feel | 0.02–0.05 | Center-anchor only; wingmen no bonus |
 | 마름진 ATK (per member) | `pattern_mareum_atk_member` | 0.01 | Feel | 0.00–0.02 | All 4 members |
 | 마름진 DEF (per member) | `pattern_mareum_def_member` | 0.01 | Feel | 0.00–0.02 | All 4 members |
-| 방진 DEF (per member) | `pattern_bangjin_def_member` | 0.02 | Feel | 0.01–0.03 | All 4 members; pure-defensive |
+| 방진 DEF (per member) | `pattern_bangjin_def_member` | 0.04 (rev 2.9.1 — was 0.02) | Feel | 0.02–0.05 | All 4 members; pure-defensive. Floori-visibility: `floori(eff_def × 0.04)` produces 0 below DEF=25, 1 at DEF 25-49, 2 at DEF 50-74. At typical mid-tier Infantry DEF≈50, +2 absorbed damage is the design target. Lower values (e.g., 0.02 pre rev 2.9.1) round to zero at typical DEF, making the bonus invisible. |
 
 ### Relationship Bonuses
 
