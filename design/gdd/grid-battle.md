@@ -857,7 +857,7 @@ contract in the opposite direction (over-warning on a safe play).
 | Battle UI implementation | Not Started | Output | Consumes `design/ux/battle-hud.md` contract |
 | Animation System | Not Started | Input/Output | Animation triggers → animation_complete callbacks |
 | Skill System | Not Started | Input/Output | Skill execution → skill effect data |
-| Formation Bonus | Not Started | Input/Output | Unit positions → stat modifier bonuses |
+| Formation Bonus | **Designed (v1.0 initial draft 2026-04-19; pre-`/design-review`)** | Input/Output | Unit positions → `formation_bonuses: Dictionary[int, {atk_bonus, def_bonus}]` snapshot. Subscribes to `round_started`; publishes via `set_formation_bonuses()`. Grid Battle CR-5 step 4 reads snapshot per-attack to populate `ResolveModifiers.formation_atk_bonus` / `formation_def_bonus` (per damage-calc.md rev 2.9). See `design/gdd/formation-bonus.md` v1.0 + cross-doc obligations §6. |
 | Battle Reward | Not Started | Output | `battle_complete(outcome_data)` signal |
 | Scenario Progression | Approved (pending /design-review) — `design/gdd/scenario-progression.md` | Input/Output | Battle payload (`map_id`, `unit_roster[]`, `deployment_positions{}`, `victory_conditions{}`, optional `battle_start_effects[]`) → `battle_complete(outcome_data)` signal relayed via GameBus autoload **at CLEANUP state only**. Grid Battle makes NO GameBus connections during BATTLE state — the autoload is wired exclusively when the state machine reaches CLEANUP. AC-GB-25 asserts this contract with a negative connection check at test start. |
 

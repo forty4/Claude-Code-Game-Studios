@@ -2,7 +2,7 @@
 
 > **Status**: Designed (APPROVED post-eighth-pass + rev 2.8 close-out 2026-04-19)
 > **Author**: systems-designer + user
-> **Last Updated**: 2026-04-19 (**rev 2.8 — eighth-pass BLK-8-1 Rally ceiling fix**: rev 2.7 (F-DC-5 rally_bonus extension) introduced Pillar-1+3 regression at max Rally; eighth-pass review (5 specialists) caught it via convergent game-designer + systems-designer arithmetic verification. Fix: CLASS_DIRECTION_MULT[CAVALRY][REAR] 1.20→1.09 (D_mult 1.80→1.64) AND Rally cap (Grid Battle CR-15 rule 4) +15%/3 commanders → +10%/2 commanders. All 12 apex cells (4 classes × 3 Rally states) preserved <180; Cavalry leads by ≥5pt at all states; ceiling never fires on primary path. Cross-doc: grid-battle.md CR-15 rule 4 + AC-GB-27 + UI-GB-12 strategist-affordance ref + Pillar-3 purpose updated; unit-role.md CR-2 + EC-12 + Tuning Knob row + Charge×REAR multiplier annotation updated. Prior: rev 2.7 — F-DC-5 passive_multiplier extended to accept rally_bonus via ResolveModifiers.rally_bonus per Grid Battle pass-11c CR-15 named obligation. Prior: rev 2.6 — seventh-pass BLK-7-1..10 resolution: direction_rel canonical type StringName per BLK-7-2; Archer FLANK class-mod 1.15→1.375 for Pillar-3 parity with Infantry REAR + HIT_DEVASTATING tier reach per BLK-7-9/10; Cross-System Patches #2 Archer row updated to current rev 2.6 endpoint per BLK-7-1; V-2 multiplier annotation extended to HIT_DIRECTIONAL per BLK-7-8; V-3 queue rule Reduce-Motion exception per BLK-7-7; AC-DC-46 frame-count→wall-clock deltas per BLK-7-3; AC-DC-47 opacity threshold 15%→10% with non-monotonic rationale per BLK-7-6; AC-DC-51(b) direct-call bypass-seam per BLK-7-4; AC-DC-21/28 bypass-seam via test-only RefCounted subclass per BLK-7-5)
+> **Last Updated**: 2026-04-19 (**rev 2.9 — Formation Bonus #3 v1.0 cross-doc obligation**: ResolveModifiers gains `formation_atk_bonus: float` (range [0.0, 0.05]) + `formation_def_bonus: float` (range [0.0, 0.05]) fields, plus `make()` factory signature update. F-DC-5 adds Formation block (after Rally, before final cap) with counter guard mirroring Charge/Ambush/Rally pattern. F-DC-3 adds formation_def_bonus to eff_def calculation (mirrors terrain DEF pattern). New constant `P_MULT_COMBINED_CAP = 1.31` enforced in F-DC-5 AFTER all multiplicative composition; absorbs Formation+Rally+Charge stack into a damage-ceiling-safe envelope. Apex arithmetic verification: Cavalry REAR+Charge+Rally(+10%)+Formation(+5%) = pre-cap P_mult 1.39 → clamped to 1.31 → raw 178 (was 179 pre rev 2.9; 1pt regression on pure-Cavalry-apex no-Formation case = user-adjudicated trade-off for Formation visibility on non-apex units). Pillar-1 differentiation 30pt → 29pt. Cross-doc references: design/gdd/formation-bonus.md F-FB-5, CR-FB-3 rule 5. Prior: **rev 2.8 — eighth-pass BLK-8-1 Rally ceiling fix**: rev 2.7 (F-DC-5 rally_bonus extension) introduced Pillar-1+3 regression at max Rally; eighth-pass review (5 specialists) caught it via convergent game-designer + systems-designer arithmetic verification. Fix: CLASS_DIRECTION_MULT[CAVALRY][REAR] 1.20→1.09 (D_mult 1.80→1.64) AND Rally cap (Grid Battle CR-15 rule 4) +15%/3 commanders → +10%/2 commanders. All 12 apex cells (4 classes × 3 Rally states) preserved <180; Cavalry leads by ≥5pt at all states; ceiling never fires on primary path. Cross-doc: grid-battle.md CR-15 rule 4 + AC-GB-27 + UI-GB-12 strategist-affordance ref + Pillar-3 purpose updated; unit-role.md CR-2 + EC-12 + Tuning Knob row + Charge×REAR multiplier annotation updated. Prior: rev 2.7 — F-DC-5 passive_multiplier extended to accept rally_bonus via ResolveModifiers.rally_bonus per Grid Battle pass-11c CR-15 named obligation. Prior: rev 2.6 — seventh-pass BLK-7-1..10 resolution: direction_rel canonical type StringName per BLK-7-2; Archer FLANK class-mod 1.15→1.375 for Pillar-3 parity with Infantry REAR + HIT_DEVASTATING tier reach per BLK-7-9/10; Cross-System Patches #2 Archer row updated to current rev 2.6 endpoint per BLK-7-1; V-2 multiplier annotation extended to HIT_DIRECTIONAL per BLK-7-8; V-3 queue rule Reduce-Motion exception per BLK-7-7; AC-DC-46 frame-count→wall-clock deltas per BLK-7-3; AC-DC-47 opacity threshold 15%→10% with non-monotonic rationale per BLK-7-6; AC-DC-51(b) direct-call bypass-seam per BLK-7-4; AC-DC-21/28 bypass-seam via test-only RefCounted subclass per BLK-7-5)
 > **Implements Pillar**: Pillar 1 (형세의 전술), Pillar 3 (Every Hero Has a Role)
 > **Source Brief**: design/gdd/damage-calc-design-brief.md
 
@@ -250,15 +250,25 @@ var skill_id: String = ""                        # "" = not a skill stub
 var rng: RandomNumberGenerator                   # typed — not Variant
 var round_number: int = 1                        # ≥ 1 (gate asserts)
 var rally_bonus: float = 0.0                     # rev 2.7 — Grid Battle pass-11c CR-15
-                                                 # value range [0.0, 0.15]; computed by Grid
-                                                 # Battle via get_rally_bonus(attacker_id);
+                                                 # value range [0.0, 0.10] (rev 2.8 cap reduction);
+                                                 # computed by Grid Battle via get_rally_bonus(attacker_id);
                                                  # consumed in F-DC-5 P_mult composition
+var formation_atk_bonus: float = 0.0             # rev 2.9 — Formation Bonus #3 v1.0 cross-doc obligation
+                                                 # value range [0.0, 0.05] (per-unit cap); computed by
+                                                 # Formation Bonus at round_started; consumed in F-DC-5
+                                                 # P_mult composition; combined cap P_MULT_COMBINED_CAP=1.31
+                                                 # enforced after Charge × Rally × Formation
+var formation_def_bonus: float = 0.0             # rev 2.9 — Formation Bonus #3 v1.0 cross-doc obligation
+                                                 # value range [0.0, 0.05]; consumed in F-DC-3
+                                                 # eff_def computation (mirror terrain DEF pattern)
 
 static func make(attack_type: AttackType, rng: RandomNumberGenerator,
                  direction_rel: StringName, round_number: int,
                  is_counter: bool = false, skill_id: String = "",
                  source_flags: Array[StringName] = [],
-                 rally_bonus: float = 0.0) -> ResolveModifiers: ...
+                 rally_bonus: float = 0.0,
+                 formation_atk_bonus: float = 0.0,
+                 formation_def_bonus: float = 0.0) -> ResolveModifiers: ...
 ```
 
 **Phase-5 migration note — ADR candidate.** The switch from Dictionary to
@@ -464,6 +474,13 @@ stage_1_base_damage(attacker, defender, modifiers) -> int:
                                           +MAX_DEFENSE_REDUCTION)
     defense_mul = snappedf(1.0 - T_def / 100.0, 0.01)
 
+    # rev 2.9 — Formation Bonus DEF (Formation Bonus #3 v1.0 cross-doc obligation)
+    # formation_def_bonus is a per-defender additive modifier applied to effective DEF.
+    # Mirror the terrain pattern: increase eff_def by floori(eff_def × formation_def_bonus).
+    # Per-unit cap (FORMATION_DEF_BONUS_CAP = 0.05) enforced upstream in F-FB-3.
+    if modifiers.formation_def_bonus > 0.0:
+        eff_def += floori(eff_def * modifiers.formation_def_bonus)
+
     # CR-6 — base with BASE_CEILING cap
     return mini(BASE_CEILING,
                 max(MIN_DAMAGE,
@@ -642,10 +659,11 @@ passive_multiplier(attacker: AttackerContext,
        and ambush_round_gate_open(defender, modifiers):
         P_mult *= AMBUSH_BONUS            # 1.15
 
-    # Rally — additive bonus from adjacent Commanders (rev 2.7 — Grid Battle pass-11c CR-15 propagation)
+    # Rally — additive bonus from adjacent Commanders (rev 2.7 — Grid Battle pass-11c CR-15 propagation;
+    # rev 2.8 cap reduction +15%→+10%)
     # Rally is computed by Grid Battle via get_rally_bonus(attacker_id) and passed in
-    # via modifiers.rally_bonus (float in [0.0, 0.15] inclusive; cap enforced upstream
-    # in Grid Battle CR-15 rule 4 as min(0.15, N_adjacent_alive_commanders × 0.05)).
+    # via modifiers.rally_bonus (float in [0.0, 0.10] inclusive; cap enforced upstream
+    # in Grid Battle CR-15 rule 4 as min(0.10, N_adjacent_alive_commanders × 0.05)).
     # Damage Calc trusts the upstream value and does NOT re-cap or re-validate.
     # Applied as multiplicative composition with Charge + Ambush, mirroring the
     # existing P_mult assembly pattern. Counters do NOT receive Rally — counters
@@ -653,6 +671,24 @@ passive_multiplier(attacker: AttackerContext,
     if modifiers.rally_bonus > 0.0 \
        and not modifiers.is_counter:
         P_mult *= (1.0 + modifiers.rally_bonus)
+
+    # Formation — additive bonus from spatial patterns + hero relationships (rev 2.9 — Formation
+    # Bonus #3 v1.0 cross-doc obligation). Formation Bonus is computed by FormationBonusSystem at
+    # round_started and published to Grid Battle's formation_bonuses snapshot dict. Grid Battle
+    # CR-5 step 4 reads modifiers.formation_atk_bonus from this snapshot per-attack.
+    # Per-unit cap (FORMATION_ATK_BONUS_CAP = 0.05) enforced upstream in Formation Bonus F-FB-3.
+    # Damage Calc trusts upstream value. Counter guard mirrors Charge/Ambush/Rally pattern.
+    if modifiers.formation_atk_bonus > 0.0 \
+       and not modifiers.is_counter:
+        P_mult *= (1.0 + modifiers.formation_atk_bonus)
+
+    # Combined P_mult cap (rev 2.9 apex safety — Formation Bonus integration)
+    # P_MULT_COMBINED_CAP = 1.31 ensures Cavalry REAR+Charge+Rally(+10%)+Formation(+5%) stays
+    # under DAMAGE_CEILING=180. Math: floori(83 × 1.64 × 1.31) = floori(178.1) = 178 ≤ 179.
+    # Without this cap, Formation+Rally+Charge composition would push apex above 180 collapsing
+    # Pillar-1+3 hierarchies (same regression class as rev 2.7→2.8 Rally fix; this cap is the
+    # general-case version applied AFTER all multiplicative composition).
+    P_mult = minf(P_mult, P_MULT_COMBINED_CAP)
 
     return snappedf(P_mult, 0.01)
 
@@ -677,6 +713,9 @@ COUNTER_ATTACK_MODIFIER applications.
 **NEW REGISTRY CANDIDATES (Phase 5 registration required)**:
 - `CHARGE_BONUS = 1.20` — Cavalry Charge passive multiplier (disabled on counters)
 - `AMBUSH_BONUS = 1.15` — Scout Ambush passive multiplier (gated on round ≥ 2 AND defender hasn't acted)
+- `P_MULT_COMBINED_CAP = 1.31` — rev 2.9 apex safety guard for Formation+Rally+Charge composition; enforced in F-DC-5 after all multiplicative composition; locked per Formation Bonus #3 v1.0 cross-doc obligation
+- `FORMATION_ATK_BONUS_CAP = 0.05` — rev 2.9 per-unit formation ATK ceiling; enforced upstream in Formation Bonus F-FB-3 before handoff to ResolveModifiers
+- `FORMATION_DEF_BONUS_CAP = 0.05` — rev 2.9 per-unit formation DEF ceiling; same enforcement
 
 Spatial Ambush gating (adjacency rules, LoS, etc.) is owned upstream by Unit
 Role / Grid Battle and resolved BEFORE the `passive_ambush` tag reaches the

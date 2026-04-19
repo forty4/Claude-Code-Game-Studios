@@ -943,10 +943,8 @@ CR-8c에서 STUN 도입 시 T4에서 자동 WAIT를 명시했으나, STUN이 행
 (T1–T3도 스킵) 아니면 DoT/효과 만료는 정상 실행 후 T4만 스킵하는가? HP/Status GDD와
 동시 설계 필요.
 
-**OQ-3. Formation Bonus ↔ Turn Order Signal Contract**
-Formation Bonus System이 `round_started` signal에서 진형 보너스를 재계산한다고
-가정했으나 (Dependencies, Soft), Formation GDD 미작성. Grid Battle GDD 설계 시
-이 계약 확정 필요.
+**OQ-3. Formation Bonus ↔ Turn Order Signal Contract** — **RESOLVED 2026-04-19**
+Formation Bonus System v1.0 (`design/gdd/formation-bonus.md` CR-FB-5) confirms direct subscription to `round_started(round_number: int)` signal. Snapshot computed once per round at signal receipt; persists for entire round; no mid-round recomputation. No additional Turn Order contract required beyond Contract 4. (Originally assumed; now formalized.)
 
 **OQ-4. Battle Size Scaling**
 현재 사양은 8–10 유닛/side (16–20 total). 대규모 전투(30+ 유닛)를 지원할 경우
