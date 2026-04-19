@@ -24,33 +24,166 @@
 #
 # STATUS VALUES: active | deprecated | superseded-by: TR-[system]-NNN
 
-version: 1
-last_updated: ""
+version: 2
+last_updated: "2026-04-18"
 
-requirements: []
+requirements:
+  - id: TR-gamebus-001
+    system: gamebus
+    adr: docs/architecture/ADR-0001-gamebus-autoload.md
+    requirement: "All cross-system signals must be declared on the GameBus autoload at /root/GameBus. Per-frame events are forbidden. Payloads with ≥2 fields must be typed Resource classes."
+    created: 2026-04-18
+    revised: ""
+    status: active
 
-# --- EXAMPLE ENTRIES (remove when first real entries are added) ---
-#
-# - id: TR-combat-001
-#   system: combat
-#   gdd: design/gdd/combat-system.md
-#   requirement: "Player takes damage from enemies based on attack power minus defence"
-#   created: 2026-03-10
-#   revised: ""
-#   status: active
-#
-# - id: TR-combat-002
-#   system: combat
-#   gdd: design/gdd/combat-system.md
-#   requirement: "Combo window timing is 0.4 seconds between hits"
-#   created: 2026-03-10
-#   revised: "2026-04-01"
-#   status: active
-#
-# - id: TR-combat-003
-#   system: combat
-#   gdd: design/gdd/combat-system.md
-#   requirement: "Old damage formula using raw stats"
-#   created: 2026-03-10
-#   revised: ""
-#   status: superseded-by: TR-combat-001
+  - id: TR-scenario-progression-001
+    system: scenario-progression
+    gdd: design/gdd/scenario-progression.md
+    requirement: "OQ-SP-01: GameBus signal relay pattern must be ratified by ADR before Scenario Progression implementation begins."
+    created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-scenario-progression-002
+    system: scenario-progression
+    gdd: design/gdd/scenario-progression.md
+    requirement: "Five outbound signals (chapter_started, battle_prepare_requested, battle_launch_requested, chapter_completed, scenario_complete) must traverse scene boundaries from overworld to battle scene."
+    created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-scenario-progression-003
+    system: scenario-progression
+    gdd: design/gdd/scenario-progression.md
+    requirement: "EC-SP-5: Duplicate battle-complete emissions must be guarded by ScenarioRunner; runner ignores duplicates outside IN_BATTLE state."
+    created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-grid-battle-001
+    system: grid-battle
+    gdd: design/gdd/grid-battle.md
+    requirement: "§CLEANUP: Grid Battle must emit a typed battle-outcome signal to the caller on battle termination. Outcome is tri-state {WIN, DRAW, LOSS} with chapter_id, round count, surviving/defeated unit IDs, abandon flag."
+    created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-turn-order-001
+    system: turn-order
+    gdd: design/gdd/turn-order.md
+    requirement: "Turn Order emits round_started, unit_turn_started, unit_turn_ended signals consumed by Grid Battle, Formation Bonus, AI, and Battle HUD. Battle termination is NOT a Turn Order responsibility (moved to Grid Battle per ADR-0001 single-owner rule)."
+    created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-hp-status-001
+    system: hp-status
+    gdd: design/gdd/hp-status.md
+    requirement: "HP/Status emits unit_died signal when a unit's HP reaches 0. Consumed by Turn Order (queue removal), Grid Battle (victory check), and AI."
+    created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-001
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    requirement: "Input Handling exposes cross-system signals: input_action_fired (with typed InputContext), input_state_changed, input_mode_changed (KEYBOARD_MOUSE ↔ TOUCH)."
+    created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-scene-manager-001
+    system: scene-manager
+    adr: docs/architecture/ADR-0002-scene-manager.md
+    requirement: "SceneManager must be an autoload at /root/SceneManager, second after GameBus. State machine: IDLE, LOADING_BATTLE, IN_BATTLE, RETURNING_FROM_BATTLE, ERROR."
+    created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-scene-manager-002
+    system: scene-manager
+    adr: docs/architecture/ADR-0002-scene-manager.md
+    requirement: "Overworld scene retained during battle via process_mode = PROCESS_MODE_DISABLED + visible = false + set_process_input(false) + root Control recursive mouse-filter ignore. NOT freed."
+    created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-scene-manager-003
+    system: scene-manager
+    adr: docs/architecture/ADR-0002-scene-manager.md
+    requirement: "BattleScene instantiated as /root peer to Overworld using ResourceLoader.load_threaded_request (async). Status polled via Timer node at 100 ms cadence. NOT polled in _process."
+    created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-scene-manager-004
+    system: scene-manager
+    adr: docs/architecture/ADR-0002-scene-manager.md
+    requirement: "On battle_outcome_resolved, BattleScene freed via call_deferred('_free_battle_scene_and_restore_overworld') — defers free one additional frame to preserve co-subscriber deferred-handler node references."
+    created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-scene-manager-005
+    system: scene-manager
+    adr: docs/architecture/ADR-0002-scene-manager.md
+    requirement: "On async-load failure, SceneManager emits scene_transition_failed(context, reason) via GameBus and transitions to ERROR state. Recovery only via re-emit of battle_launch_requested."
+    created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-save-load-001
+    system: save-load
+    adr: docs/architecture/ADR-0003-save-load.md
+    requirement: "SaveManager autoload declared at /root/SaveManager in project.godot, load order 3 (after GameBus and SceneManager)."
+    created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-save-load-002
+    system: save-load
+    adr: docs/architecture/ADR-0003-save-load.md
+    requirement: "All SaveContext fields annotated @export; EchoMark extends Resource with class_name and full @export coverage."
+    created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-save-load-003
+    system: save-load
+    adr: docs/architecture/ADR-0003-save-load.md
+    requirement: "All save writes go through save_checkpoint() which calls duplicate_deep → ResourceSaver.save(tmp) → rename_absolute (atomic)."
+    created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-save-load-004
+    system: save-load
+    adr: docs/architecture/ADR-0003-save-load.md
+    requirement: "All save loads use ResourceLoader.load(path, '', CACHE_MODE_IGNORE)."
+    created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-save-load-005
+    system: save-load
+    adr: docs/architecture/ADR-0003-save-load.md
+    requirement: "BattleOutcome.Result enum is append-only; reordering requires a migration registry entry and schema_version bump."
+    created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-save-load-006
+    system: save-load
+    adr: docs/architecture/ADR-0003-save-load.md
+    requirement: "Save root is user://saves; no code path accepts or constructs an SAF / external-storage save path."
+    created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-save-load-007
+    system: save-load
+    adr: docs/architecture/ADR-0003-save-load.md
+    requirement: "Migration Callables in SaveMigrationRegistry are pure functions; no captured node/singleton/object state permitted."
+    created: 2026-04-18
+    revised: ""
+    status: active

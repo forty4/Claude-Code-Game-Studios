@@ -30,7 +30,16 @@
 #   Superseded entries:     Grep pattern="status: superseded"
 
 version: 1
-last_updated: ""
+last_updated: "2026-04-18"
+# 2026-04-18: ADR-0003 Save/Load — added save_persistence_lifecycle interface,
+# save_serialization / save_atomic_write / save_load_cache API decisions,
+# 4 new forbidden patterns, 2 new state_ownership entries.
+# 2026-04-18: ADR-0004 Map/Grid — added tile_grid_runtime_state + tile_data_schema
+# state_ownership, map_grid_queries (direct_call) + environment_events (signal)
+# interfaces, 4 API decisions (flat-array storage, packed-cache hot-path,
+# custom-Dijkstra pathfinding, .tres→.res authoring pipeline), 3 forbidden
+# patterns (tile_data_external_subresource, astar_grid2d_for_tactical_pathfinding,
+# map_grid_cache_sync_bypass).
 
 # ─── STATE OWNERSHIP ─────────────────────────────────────────────────────────
 # Who is the authoritative owner of each piece of shared game state.
@@ -43,7 +52,77 @@ last_updated: ""
 # interface: how other systems access this state (read-only property, method call,
 #   signal, shared resource, etc.) — this is the contract other ADRs depend on.
 
-state_ownership: []
+state_ownership:
+  - state: scene_lifecycle_state
+    status: active
+    owner_system: scene-manager
+    adr: docs/architecture/ADR-0002-scene-manager.md
+    interface: "SceneManager.state (read-only State enum: IDLE, LOADING_BATTLE, IN_BATTLE, RETURNING_FROM_BATTLE, ERROR). Write access: internal signal handlers only."
+    write_access: scene-manager-only
+    referenced_by:
+      - docs/architecture/ADR-0002-scene-manager.md
+    added: 2026-04-18
+    revised: ""
+
+  - state: scene_loading_progress
+    status: active
+    owner_system: scene-manager
+    adr: docs/architecture/ADR-0002-scene-manager.md
+    interface: "SceneManager.loading_progress (read-only float, [0.0, 1.0]). Valid only when state == LOADING_BATTLE. UI reads via property query per ADR-0001 §5 — NOT via bus traffic."
+    write_access: scene-manager-only
+    referenced_by:
+      - docs/architecture/ADR-0002-scene-manager.md
+    added: 2026-04-18
+    revised: ""
+
+  - state: save_active_slot
+    status: active
+    owner_system: save-manager
+    adr: docs/architecture/ADR-0003-save-load.md
+    interface: "SaveManager.active_slot (read-only int, range [1, SLOT_COUNT]). Mutated only via SaveManager.set_active_slot(slot: int). Determines which slot_X/ directory save_checkpoint writes to and load_latest_checkpoint reads from."
+    write_access: save-manager-only
+    referenced_by:
+      - docs/architecture/ADR-0003-save-load.md
+    added: 2026-04-18
+    revised: ""
+
+  - state: save_context_schema
+    status: active
+    owner_system: save-manager
+    adr: docs/architecture/ADR-0003-save-load.md
+    interface: "SaveContext Resource class (src/core/save_context.gd). All fields @export-annotated. SaveContext.schema_version is authoritative for migration routing. Current schema_version = 1. Changes require a registry entry in SaveMigrationRegistry._migrations keyed on the previous version."
+    write_access: save-manager-only  # SaveContext instances are written by gameplay; schema definition is owned by SaveManager
+    referenced_by:
+      - docs/architecture/ADR-0003-save-load.md
+      - design/gdd/scenario-progression.md  # defines the payload fields
+    added: 2026-04-18
+    revised: ""
+
+  - state: tile_grid_runtime_state
+    status: active
+    owner_system: map-grid
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    interface: "MapGrid Node (battle-scoped child of BattleScene). Holds a duplicate_deep() clone of the disk MapResource as the authoritative source plus parallel PackedInt32Array/PackedByteArray caches for hot-path queries. 9 read-only query methods are public (get_tile, get_movement_range, get_path, get_attack_range, get_attack_direction, get_adjacent_units, get_occupied_tiles, has_line_of_sight, get_map_dimensions). Mutation API (set_occupant, clear_occupant, apply_tile_damage) is convention-scoped to Grid Battle. MapGrid is freed when BattleScene is freed — zero cross-battle state."
+    write_access: grid-battle-only  # convention (no runtime access control in GDScript); enforced in code review
+    referenced_by:
+      - docs/architecture/ADR-0004-map-grid-data-model.md
+      - design/gdd/map-grid.md
+      - design/gdd/grid-battle.md  # consumes mutation API
+      - design/gdd/terrain-effect.md  # consumes terrain_type field
+    added: 2026-04-18
+    revised: ""
+
+  - state: tile_data_schema
+    status: active
+    owner_system: map-grid
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    interface: "TileData Resource class (src/core/tile_data.gd). All fields @export-annotated (coord, terrain_type, elevation, tile_state, is_destructible, destruction_hp, occupant_id, occupant_faction, is_passable_base). MapResource.terrain_version is authoritative for schema evolution; current version = 1. Schema changes follow ADR-0003 migration pattern (version bump + optional migration Callable). TileData MUST remain inline inside MapResource.tres — see forbidden_patterns.tile_data_external_subresource."
+    write_access: map-grid-only  # schema definition; runtime instances written by MapGrid during mutation
+    referenced_by:
+      - docs/architecture/ADR-0004-map-grid-data-model.md
+      - design/gdd/map-grid.md
+    added: 2026-04-18
+    revised: ""
 
 # Example:
 #
@@ -71,7 +150,97 @@ state_ownership: []
 #
 # pattern options: signal | direct_call | event_bus | shared_resource | rpc | none
 
-interfaces: []
+interfaces:
+  - contract: scene_transition_lifecycle
+    status: active
+    pattern: signal
+    producer: scenario-progression  # (via ScenarioRunner, emits battle_launch_requested / consumes battle_outcome_resolved)
+    consumers:
+      - scene-manager  # listens for battle_launch_requested + battle_outcome_resolved; owns lifecycle
+      - input-handling  # listens for ui_input_block_requested / ui_input_unblock_requested
+      - scenario-progression  # listens for scene_transition_failed to surface retry/abort dialog
+    adr: docs/architecture/ADR-0002-scene-manager.md
+    signal_signatures:
+      - "battle_launch_requested(payload: BattlePayload)   # ScenarioRunner → SceneManager (ADR-0001 Scenario domain)"
+      - "battle_outcome_resolved(outcome: BattleOutcome)   # Grid Battle → SceneManager + ScenarioRunner (ADR-0001 Grid Battle domain)"
+      - "ui_input_block_requested(reason: String)          # SceneManager → InputRouter (ADR-0001 UI/Flow domain)"
+      - "ui_input_unblock_requested(reason: String)        # SceneManager → InputRouter (ADR-0001 UI/Flow domain)"
+      - "scene_transition_failed(context: String, reason: String)  # SceneManager → ScenarioRunner (ADR-0001 UI/Flow domain; added 2026-04-18 amendment)"
+    notes: "All cross-scene transitions are signal-driven via GameBus. SceneManager has NO public imperative transition methods. Deferred-free pattern (call_deferred) pushes BattleScene teardown one extra frame to preserve co-subscriber deferred-handler refs."
+    referenced_by:
+      - docs/architecture/ADR-0001-gamebus-autoload.md
+      - docs/architecture/ADR-0002-scene-manager.md
+    added: 2026-04-18
+    revised: ""
+
+  - contract: save_persistence_lifecycle
+    status: active
+    pattern: signal
+    producer: scenario-progression  # emits save_checkpoint_requested at CP-1/CP-3
+    consumers:
+      - save-manager  # primary consumer; performs atomic write
+      - scene-manager  # co-producer: emits save_checkpoint_requested at CP-2 boundary (RETURNING_FROM_BATTLE → IDLE)
+      - ui  # consumes save_persisted (toast) and save_load_failed (error dialog)
+      - scenario-progression  # consumes save_load_failed for player-facing retry/abort dialog
+    adr: docs/architecture/ADR-0003-save-load.md
+    signal_signatures:
+      - "save_checkpoint_requested(source: SaveContext)   # ScenarioRunner + SceneManager → SaveManager (ADR-0001 Persistence domain; ratifies provisional shape)"
+      - "save_persisted(chapter_number: int, cp: int)     # SaveManager → UI (after atomic rename succeeds)"
+      - "save_load_failed(op: String, reason: String)     # SaveManager → UI + ScenarioRunner (any save/load failure path)"
+    notes: "Persistence is exclusively signal-driven. SaveContext passed via signal is a live object; SaveManager MUST duplicate_deep before serialization. Primitive-only payload rule exception documented in ADR-0003."
+    referenced_by:
+      - docs/architecture/ADR-0001-gamebus-autoload.md
+      - docs/architecture/ADR-0003-save-load.md
+    added: 2026-04-18
+    revised: ""
+
+  - contract: map_grid_queries
+    status: active
+    pattern: direct_call
+    producer: map-grid  # MapGrid Node exposes query methods
+    consumers:
+      - grid-battle       # reads tile state for placement, attack resolution
+      - ai                # reads movement range, paths, LoS for decision-making
+      - input-handling    # reads get_tile for tap-to-select routing
+      - terrain-effect    # reads terrain_type via get_tile
+      - formation-bonus   # reads get_adjacent_units for formation evaluation
+      - hp-status         # reads get_tile.occupant_id for positional effects
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    method_signatures:
+      - "get_tile(coord: Vector2i) -> TileData"
+      - "get_movement_range(unit_id: int, move_range: int, unit_type: int) -> PackedVector2Array"
+      - "get_path(from: Vector2i, to: Vector2i, unit_type: int) -> PackedVector2Array"
+      - "get_attack_range(origin: Vector2i, attack_range: int) -> PackedVector2Array"
+      - "get_attack_direction(attacker: Vector2i, defender: Vector2i) -> int"
+      - "get_adjacent_units(coord: Vector2i) -> PackedInt32Array"
+      - "get_occupied_tiles() -> PackedVector2Array"
+      - "has_line_of_sight(from: Vector2i, to: Vector2i) -> bool"
+      - "get_map_dimensions() -> Vector2i"
+    notes: "Queries are read-only and direct-call (NOT signal-driven) — Map/Grid is documented as a query-first spatial service in ADR-0001 non-emitter list. Hot-path queries (get_movement_range, get_path, has_line_of_sight) read only from the packed caches — never dereference TileData in the inner loop. get_tile returns the TileData Resource directly for cold-path callers that need full tile detail."
+    referenced_by:
+      - docs/architecture/ADR-0001-gamebus-autoload.md  # lists Map/Grid in non-emitters + Environment exception
+      - docs/architecture/ADR-0004-map-grid-data-model.md
+      - design/gdd/map-grid.md
+    added: 2026-04-18
+    revised: ""
+
+  - contract: environment_events
+    status: active
+    pattern: signal
+    producer: map-grid  # MapGrid emits from inside apply_tile_damage when destruction_hp reaches 0
+    consumers:
+      - ai               # invalidates cached paths touching the destroyed coord
+      - formation-bonus  # re-checks adjacency for formations touching coord
+      - vfx              # plays destruction effect at coord
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    signal_signatures:
+      - "tile_destroyed(coord: Vector2i)   # MapGrid → AI / Formation Bonus / VFX (ADR-0001 Environment domain #10, added 2026-04-18 amendment)"
+    notes: "Single-primitive payload (Vector2i) is the canonical form for 1-field signals per TR-gamebus-001 (≥2 fields triggers the typed-Resource requirement, not ≥1). Consumers look up post-destruction state via MapGrid.get_tile(coord). No other Map/Grid state change may become a signal without a superseding ADR."
+    referenced_by:
+      - docs/architecture/ADR-0001-gamebus-autoload.md  # §10 Environment domain + non-emitter list exception
+      - docs/architecture/ADR-0004-map-grid-data-model.md
+    added: 2026-04-18
+    revised: ""
 
 # Example:
 #
@@ -131,7 +300,132 @@ performance_budgets: []
 # Register an API decision when the choice is non-obvious and other ADRs might
 # make a different choice for the same purpose without knowing this was decided.
 
-api_decisions: []
+api_decisions:
+  - purpose: scene_async_load
+    status: active
+    api: "ResourceLoader.load_threaded_request(path, 'PackedScene', true) + Timer-polled load_threaded_get_status"
+    not: "SceneTree.change_scene_to_packed (destructive — drops ScenarioRunner state)"
+    not_also: "Synchronous PackedScene.instantiate() (blocks main thread ~500 ms on mid-range Android — exceeds 16.6 ms frame budget)"
+    not_also_2: "Preload all scenes at scenario-select (5 × 80 MB = 400 MB — blows 512 MB mobile ceiling)"
+    adr: docs/architecture/ADR-0002-scene-manager.md
+    reason: "Mobile-primary (iOS/Android), 512 MB ceiling, 60 fps budget. Async threaded load with progress reporting is the only option that preserves Overworld state AND keeps frame-time smooth. Timer-based status polling (100 ms cadence) keeps emits outside _process per ADR-0001 §7."
+    referenced_by:
+      - docs/architecture/ADR-0002-scene-manager.md
+    added: 2026-04-18
+    revised: ""
+
+  - purpose: overworld_pause_during_battle
+    status: active
+    api: "process_mode = PROCESS_MODE_DISABLED + visible = false + set_process_input(false) + set_process_unhandled_input(false) + root Control mouse_filter = MOUSE_FILTER_IGNORE (4.5+ recursive disable)"
+    not: "get_tree().paused = true (global pause is too broad; SceneManager, GameBus, BattleScene must all stay active)"
+    not_also: "queue_free() (would lose ScenarioRunner state and break F-SP-3 Echo retry loop)"
+    adr: docs/architecture/ADR-0002-scene-manager.md
+    reason: "PROCESS_MODE_DISABLED alone does NOT block _input routing in Godot 4.x. Must explicitly suppress all input paths. Recursive Control disable (4.5+) propagates mouse_filter down the Control tree efficiently."
+    referenced_by:
+      - docs/architecture/ADR-0002-scene-manager.md
+    added: 2026-04-18
+    revised: ""
+
+  - purpose: save_serialization
+    status: active
+    api: "ResourceSaver.save(snapshot, tmp_path) on a source.duplicate_deep(Resource.DUPLICATE_DEEP_ALL_BUT_SCRIPTS) snapshot. FLAG_COMPRESS is conditional (only if payload measures >50 KB uncompressed)."
+    not: "FileAccess + JSON.stringify (manual type coercion for StringName/Array[Resource]; no schema validation; no round-trip guarantee for nested Resources)"
+    not_also: "ResourceSaver.save() on the live gameplay SaveContext (torn writes if mutated mid-serialization — duplicate_deep is mandatory)"
+    not_also_2: "SQLite via GDExtension (overkill for <50 KB payloads; adds build/platform-port complexity)"
+    adr: docs/architecture/ADR-0003-save-load.md
+    reason: "ResourceSaver round-trips typed Resources (Array[EchoMark], StringName, PackedStringArray) losslessly. duplicate_deep decouples the serialization snapshot from live gameplay state, preventing torn writes. DUPLICATE_DEEP_ALL_BUT_SCRIPTS avoids duplicating GDScript instances attached to Resources."
+    referenced_by:
+      - docs/architecture/ADR-0003-save-load.md
+    added: 2026-04-18
+    revised: ""
+
+  - purpose: save_atomic_write
+    status: active
+    api: "Write to <final>.tmp via ResourceSaver.save, then DirAccess.rename_absolute(tmp, final). Save root is user:// only."
+    not: "Direct write to final path (OS kill mid-write leaves half-written file; loader sees corruption)"
+    not_also: "External / SAF-backed Android paths (POSIX rename atomicity NOT guaranteed; only user:// = /data/data/<pkg>/files on Android is atomic)"
+    adr: docs/architecture/ADR-0003-save-load.md
+    reason: "POSIX rename(2) is atomic on the same filesystem, guaranteed on user:// for iOS (NSApplicationSupportDirectory) and Android internal storage. Loader never observes a partially-written file. If user-facing save export is added later, it MUST be a COPY after the atomic save — never the primary destination."
+    referenced_by:
+      - docs/architecture/ADR-0003-save-load.md
+    added: 2026-04-18
+    revised: ""
+
+  - purpose: save_file_load
+    status: active
+    api: "ResourceLoader.load(path, '', ResourceLoader.CACHE_MODE_IGNORE) — CACHE_MODE_IGNORE is MANDATORY for every save-file load."
+    not: "ResourceLoader.load(path) default cache mode (returns stale cached object after overwrite in the same session — silent correctness bug)"
+    adr: docs/architecture/ADR-0003-save-load.md
+    reason: "Godot's Resource cache is not invalidated by filesystem writes. After SaveManager writes over slot_1/ch_01_cp_2.res, a cached load returns the pre-write object. Bug only surfaces on second load of same slot — exactly the scenario that looks fine in casual testing."
+    referenced_by:
+      - docs/architecture/ADR-0003-save-load.md
+    added: 2026-04-18
+    revised: ""
+
+  - purpose: save_directory_scan
+    status: active
+    api: "DirAccess.get_files_at(dir_path) — Godot 4.6 idiomatic replacement for legacy list_dir_begin() loop."
+    not: "DirAccess.list_dir_begin() + get_next() / list_dir_end() loop (legacy in 4.6; still functional but verbose and error-prone)"
+    adr: docs/architecture/ADR-0003-save-load.md
+    reason: "get_files_at returns a PackedStringArray directly; simpler, less stateful, no need to manage begin/end lifecycle. Verified idiomatic in engine-reference 4.6 docs."
+    referenced_by:
+      - docs/architecture/ADR-0003-save-load.md
+    added: 2026-04-18
+    revised: ""
+
+  - purpose: map_tile_storage
+    status: active
+    api: "MapResource extends Resource with @export var tiles: Array[TileData]. TileData extends Resource with @export fields. Flat indexing: tiles[coord.y * map_cols + coord.x] (row * cols + col). Authored in .tres text format, shipped as binary .res."
+    not: "TileMapLayer + parallel TileData overlay (two sources of truth requiring sync on every mutation; ink-wash aesthetic is unidiomatic for atlas-tileset authoring)"
+    not_also: "Struct-of-Arrays PackedInt32Array per field as primary storage (not @export-friendly; schema extension requires manual migration of all parallel arrays; violates ADR-0003 typed-Resource convention)"
+    not_also_2: "Dictionary[Vector2i, TileData] keyed by coord (hash overhead per access; breaks row*cols+col indexing mandated by map-grid.md CR-2)"
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    reason: "Aligns with ADR-0003's typed-Resource + @export save convention. .tres inspector authoring works out of the box (resolves map-grid.md Open Question #2). ~77KB per max-size (40×30) map = well under mobile ceiling. map-grid.md CR-2 mandates flat row*cols+col indexing."
+    referenced_by:
+      - docs/architecture/ADR-0004-map-grid-data-model.md
+      - design/gdd/map-grid.md
+    added: 2026-04-18
+    revised: ""
+
+  - purpose: map_hot_path_queries
+    status: active
+    api: "MapGrid builds parallel PackedInt32Array + PackedByteArray caches from Array[TileData] on load_map(). Pathfinding (Dijkstra), attack-range fanout, and LoS (Bresenham) read ONLY from the packed caches. Array[TileData] is authoritative for mutation and serialization; cache is a structural read-optimization. Every mutation writes through to both sides in the same call."
+    not: "Direct TileData dereference in Dijkstra inner loop (GDScript Object virtual dispatch per tile × ~300 tiles frontier at move_range=10 exceeds the 16ms AC-PERF-2 budget on mid-range Android)"
+    not_also: "Dictionary-based visited set in Dijkstra (hash allocation in hot loop; use PackedByteArray flag buffer indexed by row*cols+col instead)"
+    not_also_2: "Class-based priority queue for Dijkstra frontier (GDScript dispatch overhead; at <100-entry peak frontier, sorted PackedInt32Array + bsearch outperforms heapify)"
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    reason: "TileData Resource dereference is the dominant Dijkstra cost, not the algorithm. Parallel packed caches eliminate virtual dispatch in the hot loop while preserving .tres authoring ergonomics. Required to hit map-grid.md AC-PERF-2 (<16ms get_movement_range on 40×30, move_range=10) on mobile. Identified as BLOCKING by godot-specialist review 2026-04-18."
+    referenced_by:
+      - docs/architecture/ADR-0004-map-grid-data-model.md
+    added: 2026-04-18
+    revised: ""
+
+  - purpose: grid_pathfinding
+    status: active
+    api: "Custom Dijkstra inline on MapGrid. 4-directional adjacency. Per-unit-type × per-terrain-type cost lookup (cost matrix owned by ADR-0008 Terrain Effect). Early termination when remaining_budget < min_remaining_cost. Static typing throughout; no is_instance_valid() or typeof() in inner loop. PackedByteArray visited set. Sorted PackedInt32Array frontier with packed (cost<<16|tile_index) entries."
+    not: "AStarGrid2D (explicitly REJECTED by map-grid.md CR-6 — the 4-dir + custom per-unit-type-per-terrain-type cost formula is cheaper and more deterministic than Godot's A* abstraction for this problem size)"
+    not_also: "NavigationServer2D + NavigationRegion2D (mesh-based pathfinding is overkill for a 40×30 grid and does not model the per-unit-type cost matrix natively)"
+    not_also_2: "NavigationAgent2D (continuous-space agent; map-grid.md F-3 requires integer-cost tile-step pathfinding)"
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    reason: "map-grid.md CR-6 is an explicit design-level constraint. Custom Dijkstra with 4-dir + early termination runs under 5ms on mobile at 40×30 / move_range=10, well inside the 16ms AC-PERF-2 budget. Custom implementation is trivially benchmarkable and deterministic — no hidden Godot-internal complexity."
+    referenced_by:
+      - docs/architecture/ADR-0004-map-grid-data-model.md
+      - design/gdd/map-grid.md
+    added: 2026-04-18
+    revised: ""
+
+  - purpose: map_authoring_pipeline
+    status: active
+    api: "Source-of-truth in version control: .tres text format at res://data/maps/[map_id].tres. Authored in Godot inspector on MapResource + TileData sub-resources. Shipped builds: binary .res via Godot's export import settings. ResourceLoader.load(path, '', CACHE_MODE_IGNORE) on battle enter (mirrors ADR-0003 save-load pattern for uniformity)."
+    not: "Custom editor plugin for MVP (deferred — acceptable if inspector scrolling on 40×30 is slow)"
+    not_also: "JSON / YAML external format (loses @export typing; adds parser + round-trip validation surface)"
+    not_also_2: "Binary .res as source-of-truth in VC (unreviewable diffs; must stay text .tres in VC)"
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    reason: "Resolves map-grid.md Open Question #2. .tres preserves reviewable diffs in version control; .res in shipped builds cuts load time roughly in half vs .tres. CACHE_MODE_IGNORE keeps the battle-scoped Resource-load pattern uniform with ADR-0003 save loads and sidesteps stale-asset issues during iteration."
+    referenced_by:
+      - docs/architecture/ADR-0004-map-grid-data-model.md
+    added: 2026-04-18
+    revised: ""
 
 # Example:
 #
@@ -157,7 +451,76 @@ api_decisions: []
 # Register a pattern when an ADR explicitly bans it AND other ADRs might
 # unknowingly use it (i.e., it's a tempting but wrong approach for this project).
 
-forbidden_patterns: []
+forbidden_patterns:
+  - pattern: per_frame_resource_load_polling
+    status: active
+    description: "Polling ResourceLoader.load_threaded_get_status (or any I/O status) from _process or _physics_process is banned. Use a Timer node at ≥100 ms cadence instead."
+    why: "ADR-0001 §Implementation Guidelines §7 forbids emits from _process. Status polling in _process inevitably triggers emits (ui_input_unblock_requested on completion) from within the per-frame context, violating the ADR-0001 contract. Timer-based polling moves the emit out of _process into a discrete handler."
+    adr: docs/architecture/ADR-0002-scene-manager.md
+    added: 2026-04-18
+
+  - pattern: direct_scene_instantiation_across_boundary
+    status: active
+    description: "Systems must not directly call PackedScene.instantiate() or SceneTree.change_scene_to_packed() to cross the Overworld ↔ BattleScene boundary. Only SceneManager is allowed to perform the transition, and transitions are signal-driven (battle_launch_requested / battle_outcome_resolved)."
+    why: "Ad-hoc scene instantiation across feature branches produces inconsistent scene trees, undefined co-subscriber handler ordering, and scene-reload hazards. Single-owner SceneManager ensures the deferred-free pattern is applied uniformly."
+    adr: docs/architecture/ADR-0002-scene-manager.md
+    added: 2026-04-18
+
+  - pattern: queue_free_battle_scene_without_deferral
+    status: active
+    description: "Freeing BattleScene directly (without call_deferred) inside a CONNECT_DEFERRED handler of battle_outcome_resolved is banned. Must use call_deferred('_free_battle_scene_and_restore_overworld') to push the free one additional frame."
+    why: "Co-subscribers (ScenarioRunner) connect DEFERRED to the same signal. Handler execution order within a deferred frame is undefined. A direct queue_free from SceneManager's handler may free BattleScene before ScenarioRunner's same-frame handler completes, leaving ScenarioRunner with dangling node references. The extra-frame defer guarantees all same-frame deferred handlers complete first."
+    adr: docs/architecture/ADR-0002-scene-manager.md
+    added: 2026-04-18
+
+  - pattern: non_exported_save_field
+    status: active
+    description: "Every field on SaveContext, EchoMark, or any Resource reachable from SaveContext that must persist MUST be annotated with @export. Non-exported fields are silently dropped by ResourceSaver with no warning."
+    why: "ADR-0003 defines SaveContext as the persistence contract. A missing @export is a silent data-loss bug that surfaces only when the field is read back and found to be the class default. This is the #1 footgun of the ResourceSaver pipeline. EchoMark in particular extends Resource, declares class_name EchoMark, and every persisted field @export-annotated — no exceptions."
+    adr: docs/architecture/ADR-0003-save-load.md
+    added: 2026-04-18
+
+  - pattern: saf_external_save_path
+    status: active
+    description: "Writing save files anywhere other than user:// (specifically: Android SAF-backed external storage paths, content:// URIs, /sdcard/ paths, or any user-picker-provided destination) is banned for primary saves."
+    why: "DirAccess.rename_absolute() atomicity is guaranteed only on same-filesystem POSIX rename (user:// on iOS NSApplicationSupportDirectory and Android internal /data/data/<pkg>/files). SAF-backed external paths route through a document provider that does NOT guarantee atomic rename — partial writes can survive, producing corrupt saves. Any user-facing 'export save' feature MUST be implemented as a COPY after the atomic primary save completes."
+    adr: docs/architecture/ADR-0003-save-load.md
+    added: 2026-04-18
+
+  - pattern: cached_save_load
+    status: active
+    description: "Loading a save file via ResourceLoader without passing CACHE_MODE_IGNORE is banned. Every call site MUST be: ResourceLoader.load(path, '', ResourceLoader.CACHE_MODE_IGNORE)."
+    why: "Godot's Resource cache is keyed by path. After SaveManager.save_checkpoint overwrites slot_1/ch_01_cp_2.res, a subsequent default-cache load returns the pre-write cached instance. Only surfaces on second load of the same slot in one session, which is why casual testing misses it. CACHE_MODE_IGNORE makes the load always hit disk."
+    adr: docs/architecture/ADR-0003-save-load.md
+    added: 2026-04-18
+
+  - pattern: non_pure_migration_callable
+    status: active
+    description: "Migration functions registered in SaveMigrationRegistry._migrations MUST be pure functions operating only on the SaveContext argument. They MUST NOT close over (capture) any node, autoload, singleton, or object reference from the enclosing scope."
+    why: "The migration registry is a static Dictionary; Callables stored in it are held for the registry's lifetime = process lifetime. Captured references are pinned alive, creating memory leaks and — worse — dangling references into freed scenes when a migration references, e.g., a ScenarioRunner node from a prior session. Purity is the contract."
+    adr: docs/architecture/ADR-0003-save-load.md
+    added: 2026-04-18
+
+  - pattern: tile_data_external_subresource
+    status: active
+    description: "TileData Resources MUST remain inline inside MapResource.tres files. Extracting TileData to shared .tres presets with UIDs (e.g., a shared 'mountain_preset.tres' referenced from many maps) is banned for as long as ADR-0004 stands. A refactor to shared presets requires a superseding ADR."
+    why: "Godot 4.5+ Resource.duplicate_deep() only recursively clones EMBEDDED sub-resources. External UID-referenced sub-resources return the same shared instance. If TileData were extracted to a shared preset and a battle destroys a tile, the destruction state would mutate the shared preset and leak into every other map referencing the same preset. MVP is safe because TileData is inline; the constraint exists to prevent a silent correctness bug when someone 'refactors for reuse' later."
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    added: 2026-04-18
+
+  - pattern: astar_grid2d_for_tactical_pathfinding
+    status: active
+    description: "Godot's AStarGrid2D and NavigationServer2D / NavigationAgent2D MUST NOT be used for unit movement pathfinding on the tactical battle grid. Pathfinding on the tactical grid is custom Dijkstra inline on MapGrid per ADR-0004."
+    why: "map-grid.md CR-6 explicitly rejects AStarGrid2D. Godot's grid-A* does not model the per-unit-type × per-terrain-type cost matrix required by ADR-0008 Terrain Effect; adapting it to this game's cost formula would require either overriding _compute_cost (slower than custom Dijkstra) or flattening the cost matrix into a weight-per-tile approximation (loses unit-type variance). NavigationServer2D is continuous-space mesh pathfinding — not a tile-step grid model. This ban applies ONLY to tactical battle pathfinding; overworld navigation (if ever added) may use any engine API without this constraint."
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    added: 2026-04-18
+
+  - pattern: map_grid_cache_sync_bypass
+    status: active
+    description: "MapGrid's Array[TileData] and parallel packed caches (PackedInt32Array for terrain_type/elevation/occupant_id/tile_state; PackedByteArray for is_passable_base) MUST be kept synchronized. Every mutation to a TileData field that has a cache MUST write through to the cache entry in the same call. No ad-hoc writes to one side are permitted. All mutations route through the three public mutation methods (set_occupant, clear_occupant, apply_tile_damage)."
+    why: "The packed caches are a structural read-optimization for AC-PERF-2. Pathfinding and LoS hot paths read ONLY from the caches — they never dereference TileData. If a mutation updates the Array[TileData] but not the cache (or vice-versa), queries return stale data. This is a silent correctness bug that surfaces only when a query fires between the mutation and the missed cache update — exactly the timing casual testing misses. Single-mutation-entry-point discipline + unit tests on every mutation path is the mitigation."
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    added: 2026-04-18
 
 # Example:
 #
