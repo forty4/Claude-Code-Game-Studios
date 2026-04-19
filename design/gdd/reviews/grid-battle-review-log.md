@@ -408,3 +408,80 @@ User selected [C] STOP per CD recommendation. Pass-9 planning pending.
 | 7 | 2026-04-19 | MAJOR REVISION → STOP for v5.0 | 32 + 17 REC | 0 of 6 pass-6 blockers closed; 5 root causes |
 | v5.0 drafting | 2026-04-19 | (drafting, not review) | — | 12 adjudicated decisions applied across 6 files + 9 seed fixtures |
 | 8 | 2026-04-19 | **MAJOR REVISION → STOP for pass-9** | **25 + 12+ REC** | **RC-1 RESOLVED, RC-4 3/5 RESOLVED, RC-5 NOT RESOLVED (8/10 rewritten defective); CD recommends split pass-9a drafting + 9b design** |
+
+---
+
+## Review — 2026-04-19 (pass-9a + pass-9a.1 + pass-9b) — Verdict: PASS (mechanical drafting + design decisions)
+
+Scope signal: L
+Specialists: qa-lead (pass-9a), systems-designer (pass-9a), ux-designer (pass-9a)
+Blocking items: 0 post-pass-9a.1 | Recommended: 0 | Design-decision: 4 (user-adjudicated)
+Summary: Pass-9 split per CD pass-8 recommendation into 9a (drafting) + 9b (design). Pass-9a applied 27 mechanical fixes (22 grid-battle + 1 damage-calc + 4 battle-hud) addressing 10 RC-5 AC defects + 4 formula defensive guards + cross-doc drift. Pass-9a.1 follow-up applied 2 file-path cleanups after qa-lead flagged RD-1 (AC-GB-21c file path) + MN-1 (AC-GB-10b Test File Locations table). Pass-9b applied 6 edits implementing 4 user-adjudicated design decisions via AskUserQuestion: Q1 Pillar 3 reframed vs END_TURN; Q2 DEFEND=T/timeout-WAIT=T acted_this_turn bookkeeping split; Q3 DEFEND_STANCE_ATK_PENALTY scoped to is_counter=true only (inert in v5.0); Q4 battle-length sensitivity deferred to playtest trigger. qa-lead + systems-designer + ux-designer all PASS 0-residual post-9a.1.
+Prior verdict resolved: Pass-8 MAJOR REVISION (25 blockers) — drafting defects resolved in 9a; design composition gaps resolved in 9b.
+
+## Review — 2026-04-19 (pass-10 full /design-review) — Verdict: MAJOR REVISION NEEDED
+
+Scope signal: L
+Specialists: game-designer, systems-designer, ai-programmer, ux-designer, qa-lead, godot-specialist, creative-director (senior synthesis)
+Blocking items: 11 | Recommended: 7 | Advisory: 5
+Prior verdict resolved: Partial — pass-9 mechanical fixes landed cleanly (pass-9 scope fully addressed), but pass-10 full 6-specialist review uncovered 12 new items that narrow pass-9a/9a.1/9b re-reviews (3 specialists only) did not detect.
+
+### Summary
+
+First full 6-specialist review since v5.0. All 6 specialists returned NEEDS REVISION; CD senior synthesis elevated to MAJOR REVISION NEEDED on Pillar-level exposure. CD identified root cause as **review-composition problem, not design-maturity**: pass-9a/9a.1/9b narrow re-reviews (qa-lead + systems-designer + ux-designer only) did not re-run ai-programmer, game-designer, godot-specialist — those specialists' domains accumulated blind-spot drift.
+
+### CD senior synthesis (extract)
+
+> "MAJOR REVISION NEEDED. 12 blockers, 2 critical: a pass-9a arithmetic regression I introduced + convergent `acted_this_turn` invariant gap across 3 AI-failure paths. Pillar 1 (DEFEND economy) and Pillar 3 (Commander Rally) both have design-level holes that would ship a game failing its own pillar tests. Root cause: review-composition problem, not design-maturity. Pass-9a/9a.1/9b narrow re-reviews (3 specialists only) missed ai-programmer, game-designer, godot-specialist drift. Pass-10 is first full-6-specialist review since v5.0 and was guaranteed to find blind-spot accumulation. Recommendation: [B] Stop. Fresh session for pass-11 with hard rule — no synthesizer fixture edits without re-spawning the originating specialist."
+
+### Blockers (11)
+
+1. [systems-designer] **PASS-9A REGRESSION**: AC-GB-07b case (d) arithmetic wrong. F-DC-3 terrain applies to `eff_def × defense_mul`; with DEF=0 terrain is inert → correct 83 not 58. CD: REMOVE case + replace with purpose-built BASE_CEILING-clamp fixture (non-zero DEF).
+2. [systems-designer] F-GB-1 variable table min 5 wrong; true min 3 (ROAD×0.5).
+3. [qa-lead + ai-programmer, convergent] `acted_this_turn` volitional-vs-AI-failure divergence ZERO formal AC across 3 branches. Add AC-GB-25 assertion 9.
+4. [ai-programmer] AC-GB-25 listener-isolation fails vs GameBus autoload dep.
+5. [ux-designer] battle-hud.md §4.5 render-abort rule creates untestable race in frame-discrete system.
+6. [ux-designer] DEFEND Beat-1 tap-on-valid-move-tile hidden double-action.
+7. [godot-specialist] AC-GB-17 fixture line still says "constructor override parameter" — pass-9a E15 fixed prose only.
+8. [godot-specialist] AC-GB-24 "CanvasItem first-paint" timing claim factually wrong — process_frame fires before rendering in Godot 4.6.
+9. [game-designer] DEFEND economic model unsound — 50% reduction + no-counter + no opportunity cost is Pillar-1 flattener.
+10. [game-designer] Commander undifferentiated — Rally has no Grid Battle CR, no HUD contract (Pillar 3 unverifiable).
+11. [qa-lead] Gate Summary 29 BLOCKING not sub-classified for 6 deferred-fixture ACs.
+
+### Recommended (7)
+
+- [ux-designer] accessibility-requirements.md path drift (at `design/` not `design/ux/`)
+- [ux-designer] hp-status.md line 479 raw Korean string → i18n key reference
+- [qa-lead] AC-GB-15 Skill System sprint dependency gate
+- [qa-lead] `.github/workflows/tests.yml` must set `SKIP_PERF_BUDGETS=1`
+- [systems-designer] Rename `pinned_max_roll_rng` at one call site
+- [game-designer] HUD surface "why Ambush fired" when 5/6 classes can't see WAIT state
+- [game-designer] DEFEND_STANCE_ATK_PENALTY=40% value flagged as unsubstantiated speculation
+
+### Advisory (5)
+
+- Watchdog floor 0.01→0.05s
+- Prefer StringName `&"ai_action_ready"` over String
+- Playtest operationalization in playtest-plan.md
+- TWO_TAP_TIMEOUT_S=15s may be too long for DEFEND (consider 8s)
+- Open Questions 3+4 interact with DEFEND spam
+
+### Pass-11 scope (CD proposal)
+
+Revise all 11 blockers + 7 recommended in fresh session. Hard rule: no synthesizer fixture edits without re-spawning the originating specialist. Two blockers require user design adjudication via AskUserQuestion: (B-9) DEFEND opportunity-cost mechanism (e.g., cannot DEFEND 2 consecutive turns, or DEFEND consumes stamina-equivalent); (B-10) Commander Rally Grid Battle CR + HUD contract (may cascade into unit-role.md CR-2 revision). Estimated ~2-3h including specialist re-review.
+
+### 10-Pass History Snapshot (Grid Battle System)
+
+| Pass | Date | Verdict | Blockers | Notes |
+|------|------|---------|----------|-------|
+| 1 | 2026-04-17 | NEEDS REVISION | 16 | First review; 3 pillar defects |
+| 2 | 2026-04-17 | MAJOR REVISION | 18 | Evasion inversion, damage ceiling |
+| 3 | 2026-04-18 | NEEDS REVISION | 15 | Godot 4.5+ deprecations, CR-5 off-by-one |
+| 4 | 2026-04-18 | NEEDS REVISION (light) | 3 + 3 ADV | Thin residual tier |
+| 5 | 2026-04-18 | MAJOR REVISION | 8 + 5 ADV | CR-3b + UI-GB-04 convergence |
+| 6 | 2026-04-18 | MAJOR REVISION (close-out) | 22 + 13 REC | v4.0 structural split did NOT converge |
+| 7 | 2026-04-19 | MAJOR REVISION → STOP for v5.0 | 32 + 17 REC | 5 root causes |
+| v5.0 drafting | 2026-04-19 | (drafting, not review) | — | 12 adjudicated decisions |
+| 8 | 2026-04-19 | MAJOR REVISION → STOP for pass-9 | 25 + 12+ REC | RC-5 NOT RESOLVED |
+| 9a + 9a.1 + 9b | 2026-04-19 | PASS (narrow re-review) | 0 residual | 27 mechanical + 2 cleanup + 6 design-decision = 35 edits |
+| **10** | **2026-04-19** | **MAJOR REVISION NEEDED → STOP for pass-11** | **11 + 7 REC + 5 ADV** | **6-specialist full review first since v5.0; CD root-cause = review-composition problem, pass-9 blind-spot accumulation** |
