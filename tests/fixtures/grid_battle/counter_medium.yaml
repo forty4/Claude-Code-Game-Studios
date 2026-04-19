@@ -1,0 +1,41 @@
+# Counter-attack fixture — median case (typical Infantry vs Infantry)
+# Used by: AC-GB-10 case 2
+# Seed authored: 2026-04-19 (v5.0 session)
+#
+# Exercises: damage_calc.resolve(is_counter=true) for a non-boundary value.
+# Demonstrates that Grid Battle does NOT halve the damage a second time —
+# the 0.5 counter modifier lives inside damage-calc.md F-DC-7 only.
+
+scenario:
+  primary_resolved_damage: 30         # primary attack ATK-side value (not input to counter resolve)
+  defender_at_counter:
+    atk: 55
+    def: 40
+    max_hp: 100
+    current_hp: 70
+    facing: EAST
+    class_id: INFANTRY
+    status_effects: []
+    acted_this_turn: false
+  attacker_at_counter:
+    max_hp: 100
+    current_hp: 70
+    class_id: INFANTRY
+  modifiers:
+    attack_type: PHYSICAL
+    direction_rel: FRONT
+    is_counter: true
+    skill_id: ""
+    rng_seed: 54321
+    terrain_def: 0
+    terrain_evasion: 0
+
+expected:
+  counter_result_variant: HIT
+  # Post-F-DC-3 base = max(1, 55 - 40) = 15; D_mult FRONT = 1.00; P_mult = 1.00.
+  # Post-F-DC-6 raw = clamp(floori(15 * 1.00 * 1.00), 1, DAMAGE_CEILING=180) = 15.
+  # Post-F-DC-7 counter = max(1, floori(15 * 0.5)) = 7.
+  counter_resolved_damage: 7
+  counter_attack_triggered_emit_count: 1
+  grid_battle_applied_counter_multiplier_twice: false    # negative assertion — MUST remain false
+  action_token_consumed_by_counter: false

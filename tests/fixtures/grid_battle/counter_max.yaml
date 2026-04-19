@@ -1,0 +1,42 @@
+# Counter-attack fixture — DAMAGE_CEILING=180 boundary case
+# Used by: AC-GB-10 case 3
+# Seed authored: 2026-04-19 (v5.0 session)
+#
+# Exercises: damage_calc.resolve(is_counter=true) at the ceiling boundary.
+# Primary resolve(...) saturates to DAMAGE_CEILING=180; counter reduces to 90.
+
+scenario:
+  primary_resolved_damage: 180        # DAMAGE_CEILING (registry: damage_ceiling)
+  defender_at_counter:
+    atk: 200                          # ATK_CAP (registry: atk_cap)
+    def: 15
+    max_hp: 300                       # HP_CAP (registry: hp_cap)
+    current_hp: 120                   # took 180 dmg from primary
+    facing: SOUTH
+    class_id: CAVALRY
+    charge_active: false              # charge does not apply on counters (CR-8 / EC-DC-8)
+    status_effects: []
+    acted_this_turn: true             # defender at counter time has acted (primary target)
+  attacker_at_counter:
+    max_hp: 300
+    current_hp: 200
+    class_id: INFANTRY
+  modifiers:
+    attack_type: PHYSICAL
+    direction_rel: REAR               # reversed from primary's FRONT
+    is_counter: true
+    skill_id: ""
+    rng_seed: 99999
+    terrain_def: 0
+    terrain_evasion: 0
+
+expected:
+  counter_result_variant: HIT
+  # base = max(1, 200 - 15) = 185; F-DC-3 BASE_CEILING clamp = 83.
+  # D_mult REAR for CAVALRY = 1.50 * 1.20 = 1.80 (quantized).
+  # P_mult = 1.00 (no charge, no ambush on counter per CR-8).
+  # raw = clamp(floori(83 * 1.80 * 1.00), 1, 180) = clamp(149, 1, 180) = 149.
+  # counter = max(1, floori(149 * 0.5)) = 74.
+  counter_resolved_damage: 74
+  counter_attack_triggered_emit_count: 1
+  charge_bonus_applied_in_counter: false     # AC-DC-16 parity — charge MUST NOT apply on counters

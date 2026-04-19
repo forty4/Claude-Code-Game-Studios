@@ -1,0 +1,39 @@
+# END_TURN batch contract fixture (CR-3a)
+# Used by: AC-GB-21b
+# Seed authored: 2026-04-19 (v5.0 session)
+#
+# Exercises: player-level END_TURN iterates unacted player units in initiative
+# order, emits unit_waited per unit, skips AI entries entirely, and does NOT
+# increment ai_soft_lock_counter.
+
+scenario:
+  initiative_queue:
+    # In initiative order — player and AI interleaved:
+    - {unit_id: 1, faction: player, acted_this_turn: false, has_move_token: true,  has_action_token: true}
+    - {unit_id: 2, faction: ai,     acted_this_turn: true,  has_move_token: false, has_action_token: false}
+    - {unit_id: 3, faction: player, acted_this_turn: false, has_move_token: true,  has_action_token: false}
+    - {unit_id: 4, faction: ai,     acted_this_turn: true,  has_move_token: false, has_action_token: false}
+    - {unit_id: 5, faction: player, acted_this_turn: false, has_move_token: true,  has_action_token: true}
+
+  ai_soft_lock_counter_before: 0
+
+action:
+  type: END_TURN
+  initiator: player
+
+expected:
+  # Emit sequence per CR-3a v5.0, in order — one unit_waited per unacted player unit:
+  emitted_signals_in_order:
+    - {name: unit_waited, args: [1]}
+    - {name: unit_waited, args: [3]}
+    - {name: unit_waited, args: [5]}
+    # Then phase advance:
+    - {name: player_phase_ended, args: []}
+  # Negative assertions:
+  ai_units_processed: []                      # AI units completely skipped
+  ai_action_requested_emit_count: 0
+  ai_soft_lock_counter_after: 0               # NOT incremented by END_TURN
+  # Per-unit bookkeeping:
+  unit_1_acted_this_turn_after: false         # WAIT semantics — unacted preserved
+  unit_3_acted_this_turn_after: false
+  unit_5_acted_this_turn_after: false

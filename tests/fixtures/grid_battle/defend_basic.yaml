@@ -1,0 +1,47 @@
+# DEFEND action contract fixture (CR-13 v5.0)
+# Used by: AC-GB-21c
+# Seed authored: 2026-04-19 (v5.0 session)
+#
+# Exercises: the player-initiated DEFEND action path. Exact ordered signal
+# set, both tokens spent, acted_this_turn = true (v5.0 — Scout Ambush
+# immunity), DEFEND_STANCE applied with remaining_turns = 1, counter
+# suppression on next-turn attack.
+
+scenario:
+  acting_unit:
+    unit_id: 3
+    class_id: INFANTRY
+    facing: NORTH
+    max_hp: 100
+    current_hp: 85
+    atk: 50
+    def: 35
+    status_effects_before: []
+    move_token_before: true
+    action_token_before: true
+    acted_this_turn_before: false
+
+action:
+  type: DEFEND
+
+expected:
+  # Closed signal set in exact order:
+  emitted_signals:
+    - {name: unit_defended, args: [3]}
+    - {name: status_applied, args: [3, DEFEND_STANCE, 1]}
+    - {name: unit_turn_ended, args: [3]}
+  # No other signals during this action — explicit negative list:
+  not_emitted_signals:
+    - counter_attack_triggered
+    - animation_complete
+    - battle_ended
+  # Token bookkeeping:
+  move_token_after: false
+  action_token_after: false
+  # Status & acted_this_turn bookkeeping (v5.0):
+  status_effects_after:
+    - {type: DEFEND_STANCE, remaining_turns: 1, stacks: 1}
+  acted_this_turn_after: true          # v5.0 — distinguishes DEFEND from WAIT
+  facing_after: NORTH                  # unchanged
+  undo_after_defend_rejected: true
+  defend_stance_clears_on_next_unit_turn_started: true

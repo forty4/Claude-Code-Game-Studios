@@ -1,0 +1,44 @@
+# WAIT action contract fixture (CR-10 v5.0 — Scout reframe)
+# Used by: AC-GB-21
+# Seed authored: 2026-04-19 (v5.0 session)
+#
+# Exercises: Scout's per-unit WAIT — the primary justification for WAIT
+# post-v5.0. Both tokens forfeited, acted_this_turn = false (preserves
+# Ambush eligibility next round AND makes the Scout Ambush-bait this turn).
+
+scenario:
+  acting_unit:
+    unit_id: 7
+    class_id: SCOUT
+    facing: EAST
+    col: 2
+    row: 3
+    max_hp: 60
+    current_hp: 60
+    atk: 45
+    def: 20
+    status_effects_before: []
+    move_token_before: true
+    action_token_before: true
+    acted_this_turn_before: false
+
+action:
+  type: WAIT
+
+expected:
+  emitted_signals:
+    - {name: unit_waited, args: [7]}
+    - {name: unit_turn_ended, args: [7]}
+  not_emitted_signals:
+    - unit_defended
+    - attack_target_hovered
+    - counter_attack_triggered
+    - ai_action_requested
+  move_token_after: false
+  action_token_after: false
+  acted_this_turn_after: false         # distinguishes WAIT from DEFEND (v5.0)
+  facing_after: EAST                   # unchanged
+  status_effects_after: []             # no stance applied
+  queue_head_advanced: true
+  action_menu_visibility_for_non_scout: hidden    # CR-10 v5.0 menu-visibility rule
+  action_menu_visibility_for_scout: visible       # Scout always sees WAIT

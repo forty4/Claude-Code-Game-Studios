@@ -1,0 +1,67 @@
+# Mobile DEFEND two-tap confirm fixture (battle-hud.md §5.2 v1.1)
+# Used by: AC-UX-HUD-09
+# Seed authored: 2026-04-19 (v5.0 session)
+#
+# Exercises: the two-tap same-target flow for DEFEND, the v5.0 replacement
+# for the retired long-press + Korean modal model. Anti-pattern guard:
+# long-press detection MUST NOT be wired to DEFEND.
+
+scenario:
+  viewport:
+    width_pt: 390
+    height_pt: 844
+    input: touch
+  acting_unit:
+    unit_id: 4
+    class_id: INFANTRY
+    has_move_token: true
+    has_action_token: true
+    acted_this_turn: false
+  action_menu_state:
+    visible: true
+    rows_visible: [MOVE, ATTACK, USE_SKILL, DEFEND, WAIT_hidden_non_scout, END_TURN]
+    defend_row_rect_pt: {x: 20, y: 600, w: 350, h: 56}   # ≥ 44pt tall
+
+timeline:
+  t_ms_0:
+    event: tap
+    location_pt: {x: 200, y: 625}       # DEFEND row center
+    expected:
+      defend_button_modulate_a_trajectory: [1.0, 0.6, 1.0]   # pulse over 150ms ±20
+      pulse_duration_ms: 150
+      two_tap_timeout_timer_started: true
+      surrounding_rows_alpha_after_desaturate: 0.5
+      emitted_signals: []              # NO grid-battle signal yet
+  t_ms_1500:
+    event: tap
+    location_pt: {x: 200, y: 625}       # second tap on DEFEND row, within 15s window
+    expected:
+      emitted_signals_in_order:
+        - {name: unit_defended, args: [4]}
+        - {name: unit_turn_ended, args: [4]}
+      action_menu_dismiss_fade_ms: 80
+
+expected_negative_assertions:
+  # v5.0 — no long-press:
+  long_press_gesture_registered_for_defend: false
+  input_event_screen_touch_with_pressed_gt_500ms_as_defend_gate: false
+  # v5.0 — no modal:
+  modal_dialog_shown_during_defend_flow: false
+  korean_modal_text_present: false    # "정말 방어하시겠습니까?" must not appear
+
+cancel_variants:
+  # Variant A: tap empty tile during Beat-1 pending
+  variant_a:
+    tap_at_ms: 2000
+    location_pt: {x: 100, y: 300}      # empty tile outside menu
+    expected:
+      emitted_signals: []              # NO unit_defended
+      defend_button_pulse_cleared: true
+      action_menu_visible_after: true  # menu stays open
+  # Variant B: timeout without Beat 2
+  variant_b:
+    wait_ms: 15100                     # TWO_TAP_TIMEOUT_S + 100ms
+    expected:
+      emitted_signals: []              # NO unit_defended
+      defend_button_pulse_cleared: true
+      action_menu_visible_after: true

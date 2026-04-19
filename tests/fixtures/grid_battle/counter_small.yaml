@@ -1,0 +1,37 @@
+# Counter-attack fixture — small / MIN_DAMAGE floor case
+# Used by: AC-GB-10 case 1
+# Seed authored: 2026-04-19 (v5.0 session)
+#
+# Exercises: damage_calc.resolve(is_counter=true) with F-DC-7 applying
+# counter_attack_modifier = 0.5 internally; MIN_DAMAGE floor guarantees
+# resolved_damage >= 1 even when post-modifier value would round to 0.
+
+scenario:
+  primary_resolved_damage: 1          # primary attack caused 1 HP (MIN_DAMAGE floor from F-DC-3)
+  defender_at_counter:
+    atk: 1
+    def: 1
+    max_hp: 50
+    current_hp: 49                    # took the 1 dmg primary
+    facing: NORTH
+    class_id: INFANTRY
+    status_effects: []
+    acted_this_turn: false
+  attacker_at_counter:
+    max_hp: 50
+    current_hp: 45
+    class_id: INFANTRY
+  modifiers:
+    attack_type: PHYSICAL
+    direction_rel: FRONT              # reversed from primary's direction
+    is_counter: true
+    skill_id: ""
+    rng_seed: 12345                   # RNG_A default — determinism pin
+    terrain_def: 0
+    terrain_evasion: 0
+
+expected:
+  counter_result_variant: HIT         # no evasion bonus → always hits
+  counter_resolved_damage: 1          # MIN_DAMAGE floor; 0.5 multiplier internal to damage_resolve
+  counter_attack_triggered_emit_count: 1
+  action_token_consumed_by_counter: false

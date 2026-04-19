@@ -1,0 +1,37 @@
+# DEFEND_STANCE damage reduction fixture — MIN_DAMAGE floor case
+# Used by: AC-GB-10b case (3)
+# Seed authored: 2026-04-19 (v5.0 session)
+#
+# Exercises: hp-status.md F-4 MIN_DAMAGE=1 floor even when DEFEND_STANCE
+# would round resolved_damage to 0. Registry: min_damage = 1.
+
+scenario:
+  attacker:
+    atk: 20
+    class_id: INFANTRY
+  defender:
+    atk: 30
+    def: 19
+    max_hp: 50
+    current_hp: 50
+    class_id: INFANTRY
+    status_effects:
+      - type: DEFEND_STANCE
+        remaining_turns: 1
+        stacks: 1
+    acted_this_turn: true
+  modifiers:
+    attack_type: PHYSICAL
+    direction_rel: FRONT
+    is_counter: false
+    rng_seed: 11111
+    terrain_def: 0
+    terrain_evasion: 0
+
+expected:
+  damage_resolve_returns_hit: true
+  damage_resolve_resolved_damage: 1    # F-DC-3 MIN_DAMAGE floor on the base pipeline
+  # HP/Status apply_damage: floor(1 * 0.5) = 0 → MIN_DAMAGE floor restores to 1.
+  hp_delta: 1
+  defender_current_hp_after: 49
+  counter_attack_triggered_emit_count: 0
