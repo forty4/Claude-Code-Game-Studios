@@ -460,8 +460,9 @@ Foundation 시스템 — 직접적 UI 없음.
 
    > **Partially resolved 2026-04-18** — `design/gdd/damage-calc.md` v1.0
    > Phase 5 added 2 new constants (`CHARGE_BONUS=1.20`, `AMBUSH_BONUS=1.15`)
-   > and transferred ownership of 3 existing constants (`BASE_CEILING=100`,
-   > `DAMAGE_CEILING=150`, `COUNTER_ATTACK_MODIFIER=0.5`) from grid-battle.md
+   > and transferred ownership of 3 existing constants (`BASE_CEILING=83` — pass-11a:
+   > was 100 pre-rev-2.4 2026-04-19; `DAMAGE_CEILING=180` — pass-11a: was 150 pre-rev-2
+   > 2026-04-18; `COUNTER_ATTACK_MODIFIER=0.5`) from grid-battle.md to damage-calc.md
    > to damage-calc.md in `design/registry/entities.yaml` v2. All 5 live in
    > `balance_constants.json` (NOT hardcoded — AC-DC-48 enforces via grep).
    > Unit Role + Formation Bonus constants still pending their respective

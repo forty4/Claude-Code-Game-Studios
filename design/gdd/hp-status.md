@@ -172,7 +172,7 @@ MODIFIER_FLOOR: -50%, MODIFIER_CEILING: +50%. 어떤 스탯도 1 미만 불가.
 
 **SE-3. 방어태세 (DEFEND_STANCE)**
 - 유형: Buff | 지속: ACTION_LOCKED (이동/공격 시 해제); `grid-battle.md` CR-13 기준 1턴(다음 `unit_turn_started`에 해제)
-- 효과: 모든 수신 피해 -50% (rev 2026-04-19 — 기존 30%에서 상향; `defend_stance_reduction` 레지스트리 참조), ATK -40% (trade-off, `defend_stance_atk_penalty`)
+- 효과: 모든 수신 피해 -50% (rev 2026-04-19 — 기존 30%에서 상향; `defend_stance_reduction` 레지스트리 참조), ATK -40% (`defend_stance_atk_penalty`) — **v5.0 pass-9b Q3: 현재 INERT** (reachable only on `is_counter=true` path; CR-13 rule 4 suppresses counters from DEFEND_STANCE 유닛이며 mid-turn DEFEND 스킬은 아직 설계되지 않음). 레지스트리 값은 speculative forward declaration으로 유지. 상세: `design/gdd/grid-battle.md` Tuning Knobs `DEFEND_STANCE_ATK_PENALTY` 행 참조.
 - 반격: DEFEND_STANCE 유닛은 반격하지 않는다 (grid-battle.md CR-13 rule 4). CR-6 억제 조건에 포함 — 순수 방어 commitment. 공격 행동 선언 시점 해제 모델(구 v3.2 / 폐기된 EC-14·AC-20)은 v5.0에서 제거됨.
 - 적용: 모든 병종이 "방어" 행동(범용 행동, 스킬 슬롯 아님)으로 자발적 진입. DEFEND 선언 시 `acted_this_turn = true`(grid-battle CR-13 v5.0) — Scout Ambush 대상에서 제외됨.
 - 해제: (a) 유닛이 이동 또는 공격 행동을 취함, (b) 다음 턴 시작, (c) 사망, (d) CR-7 배타 규칙으로 EXHAUSTED 적용 시 강제 해제 (EC-13).
@@ -279,7 +279,7 @@ DEFEND_STANCE와 EXHAUSTED는 공존할 수 없다:
   routing through Damage Calc. Illegal `attack_type` (e.g., "POISON") passed
   to `resolve()` triggers `push_error` + `MISS()` sentinel (defense-in-depth
   against accidental DoT routing). `resolved_damage` is clamped to
-  `[1, DAMAGE_CEILING=150]` by Damage Calc §F-DC-6; HP/Status can trust the
+  `[1, DAMAGE_CEILING=180]` by Damage Calc §F-DC-6 (pass-11a: value corrected 150→180 per registry `damage_ceiling` rev 2 2026-04-18); HP/Status can trust the
   upper bound. MIN_DAMAGE enforcement is dual: Damage Calc enforces at every
   floori() boundary (F-DC-3 / F-DC-6 / F-DC-7); HP/Status enforces again at
   apply_damage intake per this contract.
@@ -476,7 +476,7 @@ modified_stat  = max(1, floor(base_stat × (1 + total_modifier / 100)))
 - **If 적이 DEFEND_STANCE 유닛에 EXHAUSTED 부여 스킬 사용**: CR-7에 따라 DEFEND_STANCE 강제 해제 → EXHAUSTED 적용. 방어자가 행동하지 않았어도 태세 소실. 배타성 규칙의 의도된 결과.
 
 **EC-14. DEFEND_STANCE 유닛의 피격 (반격 없음)**
-- **If DEFEND_STANCE 유닛이 피격됨**: CR-13 rule 4에 따라 DEFEND_STANCE 유닛은 반격하지 않는다. 수신 피해는 -50% 감소(SE-3) 적용, 태세는 해소 후에도 유지되며 다음 `unit_turn_started` 또는 CR-7/EC-13 배타 규칙에 의해서만 해제. 전투 예측(UI-GB-04) 사유: "반격 없음 — 방어 중". (rev 2026-04-19: v3.2/v4.0의 "반격 시 태세 해제" 모델 폐기, `grid-battle.md` CR-13 v5.0 pure-defensive commitment 정책으로 통일.)
+- **If DEFEND_STANCE 유닛이 피격됨**: CR-13 rule 4에 따라 DEFEND_STANCE 유닛은 반격하지 않는다. 수신 피해는 -50% 감소(SE-3) 적용, 태세는 해소 후에도 유지되며 다음 `unit_turn_started` 또는 CR-7/EC-13 배타 규칙에 의해서만 해제. 전투 예측(UI-GB-04) 사유: localization key `"forecast.no_counter.defend_stance"` (pass-11a — previously hardcoded Korean "반격 없음 — 방어 중"; key owned by `design/gdd/grid-battle.md` CR-13 rule 4; defaults KO: 반격 없음 — 방어 중 / EN: No counter — defending). (rev 2026-04-19: v3.2/v4.0의 "반격 시 태세 해제" 모델 폐기, `grid-battle.md` CR-13 v5.0 pure-defensive commitment 정책으로 통일.)
 
 ---
 

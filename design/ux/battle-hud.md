@@ -307,7 +307,7 @@ counter_result = damage_calc.resolve(
         direction_rel  = reverse(primary_direction_rel),
         is_counter     = true,                  # F-DC-7 applies counter_attack_modifier internally
         skill_id       = "",
-        rng            = pinned_max_roll_rng,   # max-roll per Pillar 1
+        rng            = pinned_worst_case_rng,  # pass-11a rename (was pinned_max_roll_rng; see grid-battle.md F-GB-3). Counter-path: worst-case damage against the original attacker (defender-favourable pin).
     },
 )
 counter_max_damage = counter_result.resolved_damage  # 0 if MISS
