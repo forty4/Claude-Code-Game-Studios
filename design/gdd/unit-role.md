@@ -100,7 +100,7 @@ trigger condition unless stated). They are tags read by Damage/Combat Calc.
 | INFANTRY | Shield Wall (방패진) | `passive_shield_wall` | When attacked by PHYSICAL damage, reduce incoming damage by flat 5 (after percentage reductions). Does not apply to MAGICAL attacks. |
 | ARCHER | High Ground Shot (원사) | `passive_high_ground_shot` | Ignores the elevation attack penalty when at lower elevation than the target (delta_elevation < 0). Still benefits from positive elevation bonuses. Does not bypass evasion. |
 | STRATEGIST | Tactical Read (전술안) | `passive_tactical_read` | **Combat facet** (this GDD): skills used by this unit ignore the target's terrain evasion bonus (terrain evasion treated as 0); agility-derived evasion is unaffected. **UI facet** (`design/gdd/grid-battle.md` CR-14 v5.0): combat-forecast visibility extends by `tactical_read_extension_tiles = 1` beyond natural attack range — the Strategist sees counter-forecast for targets one tile outside its current attack range. Both facets belong to the same class-level passive; the registry constant `tactical_read_extension_tiles` is owned here. Commander no longer shares either facet post-grid-battle.md v5.0. |
-| COMMANDER | Rally (독전) | `passive_rally` | Adjacent allied units (Manhattan distance ≤ 1) receive +5% ATK bonus (orthogonal adjacency only — 4 cardinal directions; diagonals excluded). Continuous while the Commander is alive and on the grid (no action cost). Stacks additively from multiple Commanders: `rally_bonus = min(0.15, N_adjacent_alive_commanders × 0.05)`. Cap: +15% (3 Commanders adjacent). Full mechanical specification: `design/gdd/grid-battle.md` CR-15 (v5.0 pass-11b). *(v5.0 pass-11b upgrade: Rally promoted from shorthand passive prose to fully specified Grid Battle CR. The v5.1 upgrade gate for Rally is removed — CR-15 is the v5.0 canonical spec. This row now summarises; CR-15 governs in all conflict cases.)* |
+| COMMANDER | Rally (독전) | `passive_rally` | Adjacent allied units (Manhattan distance ≤ 1) receive +5% ATK bonus (orthogonal adjacency only — 4 cardinal directions; diagonals excluded). Continuous while the Commander is alive and on the grid (no action cost). Stacks additively from multiple Commanders: `rally_bonus = min(0.10, N_adjacent_alive_commanders × 0.05)`. Cap: +10% (2 Commanders adjacent — rev 2.8 reduced from +15%/3 Commanders per damage-calc rev 2.8 ceiling-collision fix). Full mechanical specification: `design/gdd/grid-battle.md` CR-15 (v5.0 pass-11b + rev 2.8 cap update). *(v5.0 pass-11b upgrade: Rally promoted from shorthand passive prose to fully specified Grid Battle CR. The v5.1 upgrade gate for Rally is removed — CR-15 is the v5.0 canonical spec. This row now summarises; CR-15 governs in all conflict cases.)* |
 | SCOUT | Ambush (기습) | `passive_ambush` | When attacking a unit that has not yet acted this turn: +15% bonus damage AND target cannot counter-attack. Does not apply on turn 1. |
 
 **Rule CR-2a.** Scout's ambush is resolved by checking Turn Order's
@@ -540,12 +540,15 @@ Do not apply 0; do not apply a partial amount — skip the Shield Wall check. Th
 MAGICAL attack targets `mag_def` (Infantry's weakest defense by design). This is
 the explicit Strategist counter-synergy described in CR-3.
 
-**EC-12. Rally Stacking Cap with 3+ Commanders**
-Rally bonus = `min(15, N_adjacent_commanders × 5)%` where `N_adjacent_commanders`
+**EC-12. Rally Stacking Cap with 2+ Commanders (rev 2.8 — damage-calc Rally-ceiling fix)**
+Rally bonus = `min(10, N_adjacent_commanders × 5)%` where `N_adjacent_commanders`
 is the count of living Commanders within Manhattan distance ≤ 1 of the **affected
-unit** (not relative to each other). Three adjacent Commanders = 15% (cap hit).
-Four = still 15%. A Commander at distance 2 from the affected unit does not
-contribute, even if adjacent to another Commander.
+unit** (not relative to each other). **Two** adjacent Commanders = 10% (cap hit).
+Three+ Commanders = still 10%. A Commander at distance 2 from the affected unit does not
+contribute, even if adjacent to another Commander. Cap reduced from prior +15% per
+damage-calc.md eighth-pass review BLK-8-1 (at +15% Rally, Cavalry REAR+Charge max ATK
+hit DAMAGE_CEILING=180 collapsing Pillar-1+3 hierarchies; +10% cap preserves them).
+Authoritative cross-ref: `design/gdd/grid-battle.md` CR-15 rule 4.
 
 ---
 
@@ -711,7 +714,7 @@ of hero seed, removing per-hero differentiation.
 | Charge bonus | +20% | 10%–30% | Cavalry alpha strike reward |
 | Shield Wall flat reduction | 5 | 3–8 | Infantry physical tankiness |
 | Rally ATK bonus | +5% per Commander | 3%–8% | Commander force multiplication |
-| Rally cap | 15% | 10%–20% | Maximum stacking benefit |
+| Rally cap | 10% (rev 2.8 — was 15%) | 5%–15% | Maximum stacking benefit; lowered to keep Cavalry REAR+Charge+Rally apex < DAMAGE_CEILING=180 per damage-calc rev 2.8 |
 | Ambush bonus | +15% | 10%–25% | Scout first-strike reward |
 
 **Tuning guideline:** Shield Wall's flat reduction is most impactful against
@@ -919,7 +922,7 @@ to enemies (CR-4a).
 ### Attack Direction
 
 **AC-16.** Base direction multipliers are FRONT ×1.0, FLANK ×1.2, REAR ×1.5.
-Class modifiers multiply on top. Cavalry REAR + Charge = ×2.16 (EC-7).
+Class modifiers multiply on top. Cavalry REAR + Charge = ×1.97 (rev 2.8 — was ×2.16 pre rev 2.8; CLASS_DIRECTION_MULT[CAVALRY][REAR] reduced 1.20 → 1.09 per damage-calc rev 2.8 Rally-ceiling fix; EC-7).
 
 **AC-17.** Scout REAR + Ambush = `1.5 × 1.1 × 1.15 = 1.897×` (CR-6b). All
 multipliers are multiplicative, not additive.

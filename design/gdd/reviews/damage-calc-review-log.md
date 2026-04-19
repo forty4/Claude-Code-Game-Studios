@@ -411,3 +411,105 @@ Scope: clean-session revision pass following the 2026-04-19 seventh-pass review'
 - Cross-file coordination (damage-calc.md ↔ unit-role.md) landed atomically to avoid the partial-propagation pattern that caused BLK-6-2 and BLK-7-1.
 - Fabricated-API recursion trap remains confirmed BROKEN — rev 2.6 introduced only test-only RefCounted subclasses (AC-DC-21/28) and direct-call bypass seams (AC-DC-51), both of which are standard Godot 4.6 patterns, not fabricated surfaces.
 - BLK-7-1 stale Cross-System-Patches entry closed proactively (was not caught by sixth-pass review even though it has been stale since rev 2.3) — future implementer-trap eliminated.
+
+---
+
+## Review — 2026-04-19 — Verdict: NEEDS REVISION (eighth pass) → Resolved in-session (rev 2.7 + rev 2.8)
+
+Scope signal: M (rev 2.7 single-edit + rev 2.8 multi-doc Rally-ceiling fix sweep)
+Specialists: qa-lead, godot-specialist, ux-designer, game-designer, systems-designer (5-spec lean + systems-designer added because rev 2.7 just landed)
+Blocking items: 1 CRITICAL (game-designer + systems-designer convergent) + 4 supporting | Recommended: 5+ (carry from seventh-pass)
+Prior verdict resolved: Yes — rev 2.7 named obligation closed (F-DC-5 rally_bonus extension); however rev 2.7 introduced new Pillar-1+3 regression that eighth-pass caught.
+
+### Pass arc
+Eighth-pass began as scheduled re-review of rev 2.6 + verification of rev 2.7 (F-DC-5 rally_bonus extension applied 2026-04-19 from Grid Battle pass-11c CR-15 named obligation). Five specialists in parallel returned: 1 APPROVED (godot-specialist — engine APIs all real), 3 CONCERNS (qa-lead header staleness + missing test; ux-designer V-3 ghost value 800ms vs 600ms; systems-designer convergent on Rally-ceiling regression), 1 NEEDS REVISION (game-designer convergent on Rally-ceiling regression).
+
+**CRITICAL convergent finding (game-designer + systems-designer, computed independently):**
+- Cavalry REAR+Charge+Rally(+15%) at max ATK: `floori(83 × 1.80 × 1.20 × 1.15) = 206` → DAMAGE_CEILING=180 fires
+- Archer FLANK+Ambush+Rally(+15%): `floori(83 × 1.65 × 1.15 × 1.15) = 181` → ceiling fires
+- Scout REAR+Ambush+Rally(+15%): identical 181 → ceiling fires
+- All three apex damages collapse to 180 = ceiling under full Rally
+- Pillar-1 Cavalry apex differentiation: 30pt (no Rally) → 9pt (Rally) — degraded
+- Pillar-3 hierarchy collapse: Cavalry = Archer = Scout = 180
+- Rev 2.4's claim "ceiling never fires in normal play" became false the moment rev 2.7 landed
+- This re-introduced exactly the ceiling-opacity Pillar-1 violation that BLK-5-3/rev 2.2 was designed to eliminate
+
+### User design adjudication (B-8-1)
+User selected "cap Rally + reduce Cavalry REAR multiplier" path. Systems-designer derived precise tuple via constraint optimization:
+- Binding constraint: Archer FLANK+Ambush at max Rally must stay <180 → Rally cap ≤ +14% (chose +10% for clean integer)
+- Cavalry REAR+Charge at +10% Rally must stay <180 → CLASS_DIRECTION_MULT[CAVALRY][REAR] = 1.09 (D_mult=1.64)
+- Verification: all 12 apex cells (4 classes × Rally 0/+5%/+10%) <180; Cavalry leads by ≥5pt at all states; Pillar-1 differentiation 27-30pt across all states
+
+### Apex damage table (rev 2.8 — verified pre-close)
+
+| Class + optimal combo | R=0% | R=+5% | R=+10% (cap) |
+|---|---|---|---|
+| **Cavalry REAR+Charge** | **163** | **171** | **179** |
+| **Archer FLANK+Ambush** | **157** | **165** | **174** |
+| **Scout REAR+Ambush** | **157** | **165** | **174** |
+| **Infantry REAR (no passive)** | **136** | **143** | **150** |
+
+All <180. Cavalry leads at all states. Pillar 1+3 preserved.
+
+### Fixes applied (rev 2.8 — atomic cross-file sweep)
+
+**damage-calc.md (~9 edits)**:
+- F-DC-4 CLASS_DIRECTION_MULT table: CAVALRY REAR 1.20 → 1.09
+- F-DC-4 derived D_mult grid: CAVALRY REAR 1.80 → 1.64
+- F-DC-4 Pillar-3 peak hierarchy note rewritten with rev 2.8 12-cell table values
+- CR-6 rationale sentence updated with rev 2.8 arithmetic
+- CR-9 ceiling rationale updated (180 ceiling unreachable under +10% Rally cap)
+- F-DC-6 expected-range stanza updated (raw ∈ [1, 179] holds under all Rally states)
+- D-3 worked example updated (D_mult 1.80→1.64; result 64→59; "from positioning alone" replaced with explicit D_mult × P_mult breakdown — addresses seventh-pass deferred R-8-3)
+- D-4 worked example updated (max ATK + Rally cap; result still 179)
+- AC-DC-04 updated with rev 2.8 arithmetic
+- Player Fantasy section: 2.16× references → 1.97× (no-Rally) with note that Rally cap restores 2.16× via D_mult × P_mult composition
+- V-2 canonical examples: × 2.16 → × 1.97 (Cavalry REAR+Charge no-Rally), × 1.80 → × 1.64 (pure Cavalry REAR)
+- Header bumped rev 2.6 → rev 2.8 with full eighth-pass + rev 2.8 summary
+
+**grid-battle.md (~5 edits)**:
+- CR-15 rule 4 stacking: cap +15% → +10%, formula min(0.15,…) → min(0.10,…), Two Commanders cap (was Three)
+- CR-15 rule 7 AI awareness: rally_bonus_active range 0.0-0.15 → 0.0-0.10
+- CR-15 Purpose (Pillar 3): 3-Commander cap (15%) → 2-Commander cap (10%)
+- CR-14 strategist-affordance ref: ±15% cap → +10% cap
+- AC-GB-27 sub-cases (b) and (c): 0.10/0.15 → 0.10/0.10 (cap reached at 2 commanders)
+
+**unit-role.md (~3 edits)**:
+- CR-2 Commander Rally row: min(0.15,…) → min(0.10,…); cap +15%/3 commanders → +10%/2 commanders
+- EC-12 Rally Stacking Cap title + body: "3+ Commanders" → "2+ Commanders"; min(15,…) → min(10,…); cap 15 → 10
+- Tuning Knobs Rally cap row: 15% → 10% (rev 2.8) with safe range adjustment 5%-15%
+- §CR-2a (or equivalent) "Cavalry REAR + Charge = ×2.16" → "×1.97 (rev 2.8)"
+
+### Verification
+
+Specialist arithmetic (game-designer + systems-designer convergent, independently computed) verified pre-close per "compute, don't read" discipline established in sixth pass.
+
+### Carry-forward
+
+- **rev 2.8 narrow re-review still recommended** to verify cross-doc atomicity of grid-battle.md + unit-role.md cap reductions vs damage-calc.md D_mult reduction. Same-session-revision-after-CRITICAL pattern is high-risk per CD precedent (0-for-4 prior runs); this rev 2.8 sweep was authored by systems-designer specialist with explicit constraint-derivation arithmetic, NOT by synthesizer guessing — different risk profile.
+- **Seventh-pass 11 recommended revisions** still mostly carry: push_error export-build log-location text, WCAG SC 2.3.3 AAA-vs-Intermediate-tier, V-3 600ms-vs-800ms (DEFERRED — convergent ux concern); TalkBack AoE throttle policy; "Skill unavailable" CJK width TTS overflow; text scaling 200% clamp; a11y §2 "Reduced motion" scope; AC-DC-45 CI-lint scope; Scout/Infantry REAR=1.65 Section B overlap note; Player Fantasy 2.16× vs 2.13 ratio conflation (PARTIALLY ADDRESSED in rev 2.8 via D-3 rewrite + Player Fantasy 2.16x→1.97x); D-3 "2.13x from positioning alone" wrong (CLOSED in rev 2.8 D-3 rewrite).
+- **OQ-AUD-05** (logged rev 2.1): still deferred to Alpha audition; rev 2.8 cap reduction does not change urgency (max P_mult composition unchanged at 1.32 vs prior 1.38).
+- **OQ-VIS-03** (logged rev 2.3, moot since rev 2.4): unchanged.
+
+### Files touched (rev 2.8 sweep)
+
+- `design/gdd/damage-calc.md` (~11 edits)
+- `design/gdd/grid-battle.md` (~5 edits)
+- `design/gdd/unit-role.md` (~3 edits)
+- `design/gdd/reviews/damage-calc-review-log.md` (this entry)
+- `design/gdd/systems-index.md` (row 11 + Last Updated header)
+
+### Status transition
+
+- Damage Calc #11: In Review (rev 2.7) → **Designed (APPROVED post-eighth-pass + rev 2.8 close-out)**
+
+### Pass history (8 review passes)
+
+- pass-1 → MAJOR REVISION → rev 2.0 (in-session)
+- pass-2 → NEEDS REVISION (minor) → rev 2.1 (in-session)
+- pass-3 (clean session) → NEEDS REVISION (minor) → rev 2.2 (in-session)
+- pass-4 (clean session) → NEEDS REVISION → rev 2.3 (in-session)
+- pass-5 (fresh clean session) → NEEDS REVISION (CRITICAL fabricated-API recursion) → rev 2.4
+- pass-6 → 11 BLK resolved → rev 2.5
+- pass-7 → 11 deferred recommendeds + 6 nice-to-haves
+- **pass-8 (eighth-pass, fresh session)** → NEEDS REVISION (CRITICAL Rally-ceiling regression from rev 2.7) → rev 2.7 + **rev 2.8 close-out (in-session, systems-designer-derived constraint-optimized fix)**
