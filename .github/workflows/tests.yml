@@ -20,6 +20,12 @@ jobs:
 
       - name: Run GdUnit4 tests
         uses: MikeSchulze/gdUnit4-action@v1
+        env:
+          # Pass-11a.1 (grid-battle.md AC-GB-24): skip the 120ms UI-GB-04
+          # render-budget assertion on headless CI without reference GPU.
+          # Reference-hardware perf runs move to .github/workflows/perf-nightly.yml
+          # (NOT YET AUTHORED; see grid-battle.md AC-GB-24 for spec).
+          SKIP_PERF_BUDGETS: "1"
         with:
           godot-version: '4.6'
           godot-status: 'stable'
