@@ -79,9 +79,9 @@ branch_key = chapter.branch_table.lookup({
 
 Unmatched WIN/LOSS is blocked by the authoring validator. DRAW in a non-DRAW-designated chapter triggers the `draw_fallback` tag on the WIN branch's revelation cue.
 
-**CR-6. Echo-gated branch rule.** Echo-gated branches require `outcome == DRAW AND echo_count ≥ chapter.echo_threshold`. A clean (echo=0) first-try DRAW does NOT unlock echo-gated branches — it receives the default DRAW branch. Echo-gated branches reward the cost of struggle, not DRAW alone.
+**CR-6. Echo-gated branch rule.** Echo-gated branches require `outcome == DRAW AND echo_count ≥ chapter.echo_threshold AND NOT state.first_attempt_resolved`. A clean (echo=0) first-try DRAW does NOT unlock echo-gated branches — it receives the default DRAW branch. A DRAW achieved on the first attempt (even if `echo_count` was inflated by prior LOSS→DRAW farming) likewise does NOT unlock echo-gated branches — `first_attempt_resolved = true` closes the gate. Echo-gated branches reward the sustained cost of struggle across multiple genuine attempts. Full predicate formalized in F-SP-2.
 
-**CR-7. Echo accumulation (per-chapter).** Echo count increments by 1 on every player-confirmed retry (Beat 6 LOSS/DRAW → "Retry" → Beat 4 re-entry). Echo resets to 0 at Beat 9 (chapter transition). Echo is NOT carried across chapters for branch evaluation. The memory carried across chapters is the branch taken (via `ChapterResult` + `SaveContext`), not the retry count.
+**CR-7. Echo accumulation (per-chapter).** Echo count increments by 1 on every player-confirmed retry (Beat 6 LOSS/DRAW → "Retry" → Beat 4 re-entry). Echo resets to 0 at Beat 9 (chapter transition). Echo is NOT carried across chapters for branch evaluation. The memory carried across chapters is the branch taken (via `ChapterResult` + `SaveContext`), not the retry count. Companion boolean `state.first_attempt_resolved` is initialized to `false` at CHAPTER_START and sealed to `true` at BEAT_7_JUDGMENT entry iff `echo_count == 0` at that moment; it resets to `false` at BEAT_9_TRANSITION. Full lifecycle in F-SP-3.
 
 **CR-8. Retry semantics.**
 - Offered only on `outcome ∈ {LOSS, DRAW}`. WIN does NOT offer retry.
@@ -102,6 +102,7 @@ Unmatched WIN/LOSS is blocked by the authoring validator. DRAW in a non-DRAW-des
 - No branch menu; no selection UI; player cannot see locked/alternate branches.
 - Non-default branches receive reserved-color treatment (주홍 #C0392B + 금색 #D4A017 per art bible) to distinguish the moment.
 - `destiny_branch_chosen(DestinyBranchChoice)` fires at END of Beat 7 (after player advances), not at start. Downstream systems MUST NOT read branch state before Beat 7 completes.
+- **Dramatic logic (v2.2 — narrative-director B-ND-2):** the outcome was settled at Beat 6; Beat 7's revelation is not WHAT happened but WHAT IT MEANS — the branch is the interpretation of the outcome, not the outcome itself. The player witnesses how the world re-narrates their result. This re-narration is the dramatic payoff that justifies Beat 7's existence after the outcome is already known: judgment without meaning would be redundant; meaning without witnessing would be invisible. The 1.5s dwell lockout enforces witnessing; the reserved-color treatment marks the meaning's weight.
 
 **CR-11. Beat 8 Revelation content contract.**
 - Each chapter authors ONE Beat 8 revelation per branch (3-branch chapter → 3 Beat 8 entries).
@@ -146,7 +147,7 @@ Unmatched WIN/LOSS is blocked by the authoring validator. DRAW in a non-DRAW-des
 
 ### States and Transitions
 
-12 states (10 chapter beats + LOADING + BATTLE_LOADING sub-state + SCENARIO_END). The only backward transition is BEAT_6_RESULT → BEAT_4_PREP (retry loop). All other transitions are forward-only; no API exposes arbitrary-beat jumps.
+13 states (9 chapter beats + CHAPTER_START + LOADING + BATTLE_LOADING sub-state + SCENARIO_END). The only backward transition is BEAT_6_RESULT → BEAT_4_PREP (retry loop). All other transitions are forward-only; no API exposes arbitrary-beat jumps.
 
 | State | Entry action | Exit trigger | Target state |
 |-------|--------------|--------------|--------------|
@@ -219,73 +220,114 @@ All formulas are deterministic. Scenario Progression has no RNG and no probabili
 Resolves the authored branch for a given chapter outcome and retry state.
 
 ```
-resolve_branch(chapter, outcome, echo_count) → {branch_key, is_draw_fallback, cue_tag}:
+resolve_branch(chapter, outcome, echo_count, first_attempt_resolved) → {branch_key, is_draw_fallback, cue_tag}:
 
   if outcome == DRAW AND NOT chapter.author_draw_branch:
     # DRAW fallback: reuse WIN branch with distinct cue tag
+    let fallback_key = chapter.branch_table.match({outcome: WIN, echo_count: 0})
+    if fallback_key == null:
+      # WIN branch absent during DRAW fallback — authoring error not caught by validator.
+      # Log error and return a synthetic terminal branch; do NOT recurse.
+      push_error("EC-SP-8: DRAW fallback WIN branch missing for chapter '%s'. Emitting scenario_fault." % chapter.chapter_id)
+      return {
+        branch_key        : "__FALLBACK_ERROR__",
+        is_draw_fallback  : true,
+        cue_tag           : "branch_error"
+      }
+      # Caller (BEAT_7_JUDGMENT handler) MUST check branch_key == "__FALLBACK_ERROR__"
+      # and emit scenario_fault(chapter_id, fault: "branch_table_incomplete") per EC-SP-8.
     return {
-      branch_key        : chapter.branch_table.match({outcome: WIN, echo_count: 0}),
+      branch_key        : fallback_key,
       is_draw_fallback  : true,
       cue_tag           : "draw_fallback"
     }
 
-  # Normal path — exact match on (outcome, echo_count bucket)
-  let key = chapter.branch_table.match({
-    outcome    : outcome,
-    echo_count : echo_count      # table lists echo_count rows as ranges (e.g., 0, ≥1)
-  })
+  if outcome == WIN:
+    # WIN routes to default WIN branch always; no echo unlock on WIN
+    let key = chapter.branch_table.match({outcome: WIN, echo_count: 0})
+    let tag = "win_after_persistence" if (echo_count >= chapter.echo_threshold) else null
+    return {branch_key: key, is_draw_fallback: false, cue_tag: tag}
+
+  if outcome == DRAW:
+    # Echo-gate: requires accumulated retries AND first attempt must NOT have resolved the chapter
+    if is_echo_gate_open(outcome, echo_count, chapter.echo_threshold, first_attempt_resolved):
+      let key = chapter.branch_table.match({outcome: DRAW, echo_count: echo_count})  # ≥threshold row
+      return {branch_key: key, is_draw_fallback: false, cue_tag: null}
+    else:
+      let key = chapter.branch_table.match({outcome: DRAW, echo_count: 0})           # default row
+      # Sub-threshold persistence acknowledgment (v2.2 — narrative-director B-ND-1):
+      # DRAW achieved with retries that did not cross the threshold, but were not first-attempt.
+      # Mirror the WIN+persistence cue_tag model — same branch, presentation tint only.
+      let tag = "draw_after_persistence" if (echo_count > 0 AND NOT first_attempt_resolved) else null
+      return {branch_key: key, is_draw_fallback: false, cue_tag: tag}
+
+  # LOSS — normal path
+  let key = chapter.branch_table.match({outcome: outcome, echo_count: echo_count})
   return {branch_key: key, is_draw_fallback: false, cue_tag: null}
 ```
 
 **Variables:**
 - `outcome`: `Result ∈ {WIN, DRAW, LOSS}`
 - `echo_count`: `int` in `[0, ∞)`; practical bound ~10 (no mechanical effect beyond `echo_threshold`).
+- `first_attempt_resolved`: `bool`; `true` when the current chapter was resolved on the first attempt (no retries). Passed from `state.first_attempt_resolved`. Prevents LOSS→DRAW farming of the echo gate.
 - `chapter.author_draw_branch`: `bool`
 - `chapter.branch_table`: authored lookup table; MUST include one entry per `outcome ∈ {WIN, LOSS}` at minimum; DRAW entries required iff `author_draw_branch == true`; echo-gated rows expressed as `echo_count ≥ threshold`.
+- `cue_tag "win_after_persistence"`: presentation hint only; does NOT alter `branch_key` or branch content. Beat 8 reveal text and audio cue MAY tint for this tag. No new branch authoring required.
+- `cue_tag "draw_after_persistence"` (v2.2 — narrative-director B-ND-1): presentation hint only for DRAW outcomes where the player retried (echo_count > 0) but did NOT cross `echo_threshold`. Mirrors the WIN+persistence model — same `branch_key`, presentation tint only. Beat 8 reveal MAY render alternate tinted overlay (i18n key `beat_8.cue.draw_after_persistence`). Closes the sub-threshold DRAW persistence acknowledgment gap so that effort is visible regardless of whether the gate opens.
 
 **Example** (Ch3 [유비 백하 전투], `author_draw_branch=true`, `echo_threshold=1`):
 
-| Input | Output `branch_key` | `is_draw_fallback` | `cue_tag` |
-|-------|---------------------|--------------------|-----------|
-| `(WIN, 0)` | `WIN_baixia_default` | false | null |
-| `(WIN, 3)` | `WIN_baixia_default` | false | null (echo ignored on WIN) |
-| `(DRAW, 0)` | `DRAW_baixia_default` | false | null (clean DRAW, echo-gate closed) |
-| `(DRAW, 1)` | `DRAW_baixia_echo` | false | null (**Section B anchor moment path**) |
-| `(DRAW, 5)` | `DRAW_baixia_echo` | false | null (threshold saturated) |
-| `(LOSS, 0)` | `LOSS_baixia_default` | false | null |
+| Input `(outcome, echo_count, first_attempt_resolved)` | Output `branch_key` | `is_draw_fallback` | `cue_tag` |
+|-------------------------------------------------------|---------------------|--------------------|-----------|
+| `(WIN, 0, true)` | `WIN_baixia_default` | false | null |
+| `(WIN, 3, false)` | `WIN_baixia_default` | false | `"win_after_persistence"` (echo_count ≥ threshold; WIN branch unchanged) |
+| `(DRAW, 0, true)` | `DRAW_baixia_default` | false | null (clean first-attempt DRAW; gate closed) |
+| `(DRAW, 1, false)` | `DRAW_baixia_echo` | false | null (**Section B anchor moment — defiance rewarded**) |
+| `(DRAW, 1, true)` | `DRAW_baixia_default` | false | null (anti-farm: first_attempt_resolved blocks gate despite echo_count ≥ 1) |
+| `(DRAW, 5, false)` | `DRAW_baixia_echo` | false | null (threshold saturated; gate open) |
+| (Hypothetical: `echo_threshold=2`) `(DRAW, 1, false)` | `DRAW_chN_default` | false | `"draw_after_persistence"` (v2.2 — sub-threshold persistence acknowledged; gate not open but effort visible) |
+| `(LOSS, 0, true)` | `LOSS_baixia_default` | false | null |
 
 **Example** (Ch2 hypothetical, `author_draw_branch=false`):
 
-| Input | Output `branch_key` | `is_draw_fallback` | `cue_tag` |
-|-------|---------------------|--------------------|-----------|
-| `(DRAW, 0)` | `WIN_ch2_default` | true | `"draw_fallback"` |
-| `(DRAW, 2)` | `WIN_ch2_default` | true | `"draw_fallback"` (echo-gate inert when `author_draw_branch=false`) |
+| Input `(outcome, echo_count, first_attempt_resolved)` | Output `branch_key` | `is_draw_fallback` | `cue_tag` |
+|-------------------------------------------------------|---------------------|--------------------|-----------|
+| `(DRAW, 0, true)` | `WIN_ch2_default` | true | `"draw_fallback"` |
+| `(DRAW, 2, false)` | `WIN_ch2_default` | true | `"draw_fallback"` (echo-gate inert when `author_draw_branch=false`) |
 
 ### F-SP-2. Echo-gate predicate (CR-6 formalized)
 
 Determines whether an echo-gated branch is available for a given DRAW outcome.
 
 ```
-is_echo_gate_open(outcome, echo_count, echo_threshold) → bool:
-  return (outcome == DRAW) AND (echo_count ≥ echo_threshold)
+is_echo_gate_open(outcome, echo_count, echo_threshold, first_attempt_resolved) → bool:
+  return (outcome == DRAW)
+     AND (echo_count >= echo_threshold)
+     AND (NOT first_attempt_resolved)
 ```
 
 **Variables:**
 - `echo_threshold`: `int` in `[1, ∞)`. Value `0` is design-invalid (would open echo-gate on every DRAW, collapsing the clean-DRAW-excluded rule CR-6). Ch1 rejects any `echo_threshold` field (CR-13).
+- `first_attempt_resolved`: `bool`; supplied from `state.first_attempt_resolved`. When `true`, the chapter was cleared on the first attempt — the player did not earn the echo-gate even if echo_count has been artificially inflated by LOSS→DRAW farming. This closes the dominant degenerate strategy identified in pass-2 review.
 - Typical MVP range: `echo_threshold ∈ {1, 2}`; Ch3 anchor-moment chapter targets `echo_threshold = 1`.
 
 **Example:**
 
-| Input `(outcome, echo_count, echo_threshold)` | Output |
-|------------------------------------------------|--------|
-| `(DRAW, 0, 1)` | false (clean DRAW blocked) |
-| `(DRAW, 1, 1)` | true (gate opens at minimum retry cost) |
-| `(WIN, 5, 1)` | false (echo-gate requires DRAW) |
-| `(LOSS, 3, 1)` | false (echo-gate requires DRAW) |
+| Input `(outcome, echo_count, echo_threshold, first_attempt_resolved)` | Output |
+|-----------------------------------------------------------------------|--------|
+| `(DRAW, 0, 1, true)` | false (clean first-attempt DRAW; threshold not met) |
+| `(DRAW, 1, 1, false)` | true (gate open: DRAW + cost paid + not first attempt) |
+| `(DRAW, 1, 1, true)` | false (anti-farm: first_attempt_resolved blocks gate) |
+| `(WIN, 5, 1, false)` | false (echo-gate requires DRAW) |
+| `(LOSS, 3, 1, false)` | false (echo-gate requires DRAW) |
 
 ### F-SP-3. Echo accumulation / reset (CR-7 formalized)
 
 ```
+on_chapter_start(state):
+  state.echo_count = 0
+  state.first_attempt_resolved = false          # cleared at each chapter start
+
 on_player_retry(state):
   state.echo_count += 1
   emit scenario_beat_retried(EchoMark{
@@ -295,15 +337,27 @@ on_player_retry(state):
     timestamp_unix : Time.get_unix_time_from_system()
   })
 
+on_beat_7_judgment_entry(state):
+  # Seal first_attempt_resolved. True iff no retries occurred this chapter.
+  if state.echo_count == 0:
+    state.first_attempt_resolved = true
+  # If echo_count > 0, first_attempt_resolved remains false (player paid retry cost)
+
 on_chapter_transition(state):
   state.echo_count = 0
+  state.first_attempt_resolved = false
   # EchoMarks remain archived in Destiny State for telemetry (NOT read by branch gates)
 ```
 
 **Variables:**
 - `state.echo_count`: `int`; initialized to `0` at CHAPTER_START; incremented at Beat 6 "Retry" confirmation; reset at BEAT_9_TRANSITION entry.
+- `state.first_attempt_resolved`: `bool`; initialized to `false` at CHAPTER_START; set to `true` at BEAT_7_JUDGMENT entry if and only if `echo_count == 0` at that moment. Persists in chapter state through Beat 8 reveal. Reset to `false` at BEAT_9_TRANSITION. Passed as the fourth argument to `is_echo_gate_open` (F-SP-2) and `resolve_branch` (F-SP-1).
 
-**Invariant:** at BEAT_7_JUDGMENT entry, `state.echo_count == count(scenario_beat_retried emissions during current chapter)`. This value is the `echo_count` input to F-SP-1 and F-SP-2.
+**Invariant:** at BEAT_7_JUDGMENT entry, `state.echo_count == count(scenario_beat_retried emissions during current chapter)`, AND `state.first_attempt_resolved == (state.echo_count == 0)`. Both values are the inputs to F-SP-1 and F-SP-2. No modification of either field occurs between BEAT_7_JUDGMENT entry and the `resolve_branch` call.
+
+**Echo cap (systems clarification — coordinates with systems-designer F-SP-3 review):** With `state.first_attempt_resolved` gate, the practical upper bound on `echo_count` per chapter is the player's retry budget (finite, session-bounded). No formula produces unbounded behavior under normal play. Engine-side hard cap: `echo_count` MUST NOT exceed `100` per chapter (enforced in BEAT_6_RESULT retry handler); if cap is reached, the retry UI is suppressed and the player is forced to accept outcome. This prevents integer overflow in pathological edge cases (e.g., automated input injection). Cap value `100` is not a design target — it is an overflow fence.
+
+**Seal timing (v2.2 — systems-designer B-1):** BEAT_7_JUDGMENT entry is an immediate (non-deferred) state transition; `on_beat_7_judgment_entry` is called synchronously from the BEAT_6_RESULT accept-path handler before any deferred callbacks are processed. This guarantees the `first_attempt_resolved` seal occurs after `echo_count` is fully committed and before `resolve_branch` reads either field. No `call_deferred` or `CONNECT_DEFERRED` sits between `on_player_retry` increments and the seal point. Implementation must NOT route this transition through GameBus or any deferred dispatch path.
 
 ### F-SP-4. `scenario_path_key` composition (CR-16 formalized)
 
@@ -311,7 +365,7 @@ on_chapter_transition(state):
 scenario_path_key(chapter_outcomes) → String:
   return chapter_outcomes
     .map(c => c.branch_path_id)
-    .join("-")
+    .join("::")
 ```
 
 **Variables:**
@@ -320,9 +374,13 @@ scenario_path_key(chapter_outcomes) → String:
 
 **Example** (3-chapter MVP playthrough hitting the anchor moment):
 - Chapters resolved: `[WIN_ch1_default, DRAW_ch2_fallback, DRAW_ch3_echo]`
-- `scenario_path_key` → `"WIN_ch1_default-DRAW_ch2_fallback-DRAW_ch3_echo"`
+- `scenario_path_key` → `"WIN_ch1_default::DRAW_ch2_fallback::DRAW_ch3_echo"`
+
+**Delimiter constraint:** `branch_path_id` values MUST match the regex `^[A-Za-z0-9_]+$` (alphanumerics + underscore only). The `"::"` separator is therefore unambiguous and collision-free. The authoring validator (EC-SP-8) rejects any `branch_path_id` containing `":"` or `"-"`.
 
 Used by `scenario_complete(ScenarioResult)` to select the authored epilogue variant.
+
+> **Cross-doc downstream obligation (Save/Load #17):** The `scenario_path_key` field in `SaveContext` and `ScenarioResult` must be documented in `design/gdd/save-load.md` (VS) as a `"::"`-delimited String; old `"-"` delimiter in any serialized save data requires a migration note.
 
 ### F-SP-5. Epilogue authoring count (scope check)
 
@@ -345,6 +403,10 @@ epilogue_count(chapters) → int:
 | 3 chapters × 2 branches | 8 | MVP floor (acceptable) |
 | 3 chapters × 3 branches | 27 | MVP ceiling (producer-approve required) |
 | 5 chapters × 3 branches | 243 | Out-of-scope for MVP; defer to VS |
+
+**MVP producer-locked cap:** `epilogue_count` MUST NOT exceed **27** for MVP (3 chapters × 3 branches per chapter, where the 3rd branch per DRAW-designated chapter is the echo-revealed DRAW variant). Any scenario authoring that would produce `epilogue_count > 27` requires explicit producer override documented in `production/` before branch counts are locked. This cap is enforced by the authoring validator at scenario load.
+
+With v2.1 echo-as-flavor (cue_tag-tinted WIN + DRAW echo, no new standalone branch for WIN), the exact MVP ceiling recomputes as: 3 chapters × (WIN branch + LOSS branch + DRAW/draw_fallback branch) = 3 × 3 = **27 combinations**. The `5 chapters × 3 branches = 243` figure in the table above is VS-scope only and is OUT OF SCOPE for MVP without producer approval.
 
 **Constraint:** `branch_count_per_chapter` is bounded in practice by this product. Producer approves `epilogue_count` before Tuning Knobs locks per-chapter branch count.
 
@@ -442,11 +504,12 @@ Rationale: CP-1 recovery re-plays the chapter up to the suspension point. For 9-
 
 ### EC-SP-8. Branch table missing a required entry
 
-**Condition**: `chapter.branch_table` missing a WIN or LOSS entry, OR `author_draw_branch: true` without a DRAW entry.
+**Condition**: `chapter.branch_table` missing a WIN or LOSS entry, OR `author_draw_branch: true` without a DRAW entry. Sub-case: DRAW fallback path (F-SP-1) triggered on a chapter with `author_draw_branch: false` but also missing its WIN branch.
 
 **Behavior**:
 - **Build-time**: authoring validator blocks the build (error, not warning).
 - **Run-time** (if validator bypassed): at BEAT_7_JUDGMENT, emit `scenario_fault(chapter_id, fault: "branch_table_incomplete")`, pause ScenarioRunner. Do NOT synthesize fallback branch.
+- **DRAW-fallback sub-case** (WIN branch absent during DRAW fallback, run-time only): F-SP-1 returns sentinel `branch_key == "__FALLBACK_ERROR__"` with NO recursive lookup. BEAT_7_JUDGMENT handler detects sentinel, emits `scenario_fault(chapter_id, fault: "branch_table_incomplete")`, and pauses ScenarioRunner. This is an explicit guard against infinite recursion — the fallback path terminates unconditionally on missing WIN row.
 
 ### EC-SP-9. Echo-gated branch declared in Ch1 data
 
@@ -484,6 +547,30 @@ Rationale: CP-1 recovery re-plays the chapter up to the suspension point. For 9-
 - SCENARIO_END has no internal dwell lockout in MVP (unlike Beat 7). Tap-to-dismiss is active immediately.
 - On dismiss, ScenarioRunner transitions out of SCENARIO_END; SceneManager returns to main menu.
 - No GameBus signal emitted on dismiss — it is a scene transition, not a scenario-domain event.
+
+### EC-SP-13. Branch table lookup returns null on a non-required echo-gated bucket (v2.1 — ux-designer)
+
+**Condition**: At BEAT_7_JUDGMENT, `chapter.branch_table.match({outcome, echo_count})` returns `null` for a specific `(outcome, echo_count)` input where the entry is non-required (i.e., the chapter is not missing a WIN/LOSS required entry — EC-SP-8 covers that case). This occurs when an echo-gated row is absent for a specific `echo_count` bucket that the player has reached.
+
+**Behavior**:
+- ScenarioRunner does NOT fault and does NOT halt. The runner falls back to the chapter's default branch for the given `outcome` (i.e., `echo_count = 0` row for the same outcome).
+- **A non-blocking toast notification is displayed** to the player: `"시나리오 분기 데이터 없음 — 기본 경로로 진행합니다"` (EN: `"Branch data unavailable — using default path"`). Toast displays for 3.0s at the top of the screen, above ceremony content, non-interactable (does not interrupt dwell lockouts or beat progression). In release builds, this toast is player-visible; in debug builds, the toast may additionally surface the specific missing `(outcome, echo_count)` key for authoring triage.
+- A WARNING-level log entry is emitted: `"EC-SP-13: branch_table null for (outcome=%s, echo_count=%d) in chapter %s — falling back to default branch"`.
+- The fallback branch is the same branch that `resolve_branch(chapter, outcome, 0, true)` would return — the echo=0 default for that outcome. `is_draw_fallback` is set to `false` (the outcome is not DRAW-fallback; it is a missing-bucket fallback). A new field `is_bucket_fallback: bool` is set to `true` in the returned struct to allow downstream consumers to distinguish this case.
+- Rationale: silent fall-through to the default branch is invisible to players and authoring teams, producing a trust deficit ("the game is broken — I earned the echo-gated branch but didn't get it") and delaying authoring-error discovery. A visible toast preserves the scenario's forward momentum while making the data gap immediately discoverable at first encounter. The toast does not compete with the Beat 7 reserved-color moment — it appears before Beat 7's branch-reveal content settles.
+
+### EC-SP-14. WIN + persistence cue_tag — presentation tint without content mutation (v2.1 — narrative-director)
+
+**Condition**: `resolve_branch()` returns `cue_tag = "win_after_persistence"` (WIN outcome after at least one retry; `echo_count >= echo_threshold`).
+
+**Behavior**:
+- `branch_key` is identical to the standard WIN branch key for this chapter. No distinct authored branch is required or permitted.
+- Beat 8 reveal text node and Beat 8 audio cue MAY apply a presentation tint keyed on `cue_tag == "win_after_persistence"` (e.g., alternate reveal subtitle, alternate audio stem). These are presentation-layer decisions owned by the art-director and audio-director.
+- The `DestinyBranchChoice` payload MUST carry the unmodified `branch_key`; the `cue_tag` value is carried in a separate field alongside it.
+- If no Beat 8 tint asset is authored for this tag, ScenarioRunner proceeds with the standard WIN reveal with no error and no warning. The missing tint is an advisory QA item, not a fault.
+- `is_draw_fallback` MUST be `false` for this path (WIN branch is the true WIN branch, not a fallback).
+
+**Invariant**: `cue_tag == "win_after_persistence"` NEVER alters `branch_key`. Any implementation that returns a different `branch_key` based solely on this `cue_tag` is a defect.
 
 ## Dependencies
 
@@ -547,7 +634,18 @@ Per `.claude/rules/design-docs.md` ("Dependencies must be bidirectional — if s
 | Knob | Type | Safe Range | Default | Affects | Invalid Values |
 |------|------|-----------|---------|---------|----------------|
 | **TK-SP-4** `chapter_count` | int | `[3, 5]` MVP | `5` | MVP scenario length. Higher = more Pillar-4 historical span. Beyond MVP this is a production contract, not a tuning knob. | `<3` insufficient for echo accumulation to matter; `>5` blows MVP authoring budget. |
-| **TK-SP-5** `beat_2_envelope` | `[float, float]` seconds | `[3.0, 7.0]` | `[4.0, 6.0]` | Beat 2 Prior-State Echo duration envelope (visual glyph fade + audio cue tail). Mobile touch/attention budget. | `<3.0s` inaudible cue tail on mobile speakers; `>7.0s` breaks pacing per ux-designer convergent verdict. |
+
+### MVP Authoring Budget (Producer-Locked) — v2.1
+
+| Constraint | MVP Value | Override path |
+|------------|-----------|---------------|
+| Max chapters | 3 (TK-SP-4 safe range floor) | Producer approval + GDD revision required for 4–5 |
+| Max branches per chapter | 3 (TK-SP-2 ceiling), including echo-revealed DRAW variant | Producer approval required per F-SP-5 cap |
+| Max epilogue variants | 27 (3 × 3 — see F-SP-5) | Producer approval; VS phase only |
+
+These are **production contracts disguised as knobs**. They cannot be changed by a config edit — they require producer sign-off documented in `production/` and a GDD revision bump. The authoring validator enforces the 27-variant cap at scenario load (EC-SP-8). Any scenario data file that would produce `epilogue_count > 27` is a build-blocking error.
+
+> **VS note**: expansion to 5 chapters × 3 branches (243 variants) is pre-scoped in F-SP-5 but MUST NOT be authored without producer override. The 243 figure is illustrative scope projection, not an approved budget.
 
 ### Safety Timeout Knobs (engine-side, `ProjectSettings` → `scenario/*`)
 
@@ -561,9 +659,10 @@ Per `.claude/rules/design-docs.md` ("Dependencies must be bidirectional — if s
 The following values are written in the GDD/ADR and are **not user-tunable**. Changing them requires a GDD revision, not a config edit:
 
 - **9-beat chapter rhythm** (CR-2) — altering beat count invalidates Sections B, C, H.
-- **12-state machine + BATTLE_LOADING sub-state** (CR-2, Section C transition table) — structural; bound by ADR-0001 signal set.
+- **13-state machine** (CR-2, Section C transition table: 9 chapter beats + CHAPTER_START + LOADING + BATTLE_LOADING + SCENARIO_END) — structural; bound by ADR-0001 signal set.
 - **3-checkpoint save policy** (CR-15) — CP-1 Beat-1-entry, CP-2 post-Beat-7, CP-3 Beat-9-entry. Contract with Save/Load #17.
 - **Beat 7 dwell lockout = 1.5s** (CR-11) — witness-gate invariant per narrative-director + ux-designer convergence. Not a pacing knob.
+- **Beat 2 envelope = [4.0, 6.0]s** (F-SP-6, CR-9) — authored-fixed per user adjudication 2026-04-19 (F-SP-6 hard-constraint wins over former TK-SP-5). Changing the envelope invalidates the multi-modal audio-visual contract with audio-director (LUFS target, cue-tail budget) and ux-designer (attention pacing). Requires GDD revision + both specialist sign-offs.
 - **Beat 2 audio target −18 to −12 LUFS** (CR-9) — mobile-audibility floor; replaces v1.0 `≤−24 LUFS` defect. Below −18 LUFS reintroduces the original review failure.
 - **Reserved colors 주홍 `#C0392B` + 금색 `#D4A017`** — Art Bible lock; only Destiny Branch may use.
 - **1 chapter = 1 battle** (CR-1) — atomic progression contract with Grid Battle; multi-battle chapters require a Pillar 2 redesign gate.
@@ -573,7 +672,7 @@ The following values are written in the GDD/ADR and are **not user-tunable**. Ch
 
 ### Tuning Governance
 
-- Per-chapter and scenario-scope knobs (TK-SP-1 through TK-SP-5) live in authored JSON and are validated at scenario load per EC-SP-8 (branch-table validator).
+- Per-chapter and scenario-scope knobs (TK-SP-1 through TK-SP-4) live in authored JSON and are validated at scenario load per EC-SP-8 (branch-table validator).
 - Safety timeout knobs (TK-SP-6, TK-SP-7) live in `ProjectSettings` under `scenario/*` keys and apply to all scenarios.
 - Any knob edit that exits the **Safe Range** column MUST cite a design rationale in the commit message or be rejected in code review.
 
@@ -664,6 +763,14 @@ Per Art Bible § 4 "Destiny Bleeds Once" principle:
 
 > **Flagged as `OQ-AV-3`** — shader vs. pre-baked decisions delegated to technical-artist + godot-shader-specialist.
 
+**ShaderMaterial ownership contract (Godot 4.6 requirement — v2.1 godot-specialist)**. Beat 7 주홍 vignette `ColorRect` and Beat 6 desaturation `ColorRect` each carry a `ShaderMaterial`. These MUST be pre-assigned in the scene file (`.tscn`) as `@export var` properties — **never** instantiated at runtime via `ShaderMaterial.new()`. In Godot 4.6, `ShaderMaterial` is a `Resource` that holds a compiled GPU program; runtime instantiation without explicit cleanup leaks GPU memory across chapter loads. Required pattern:
+
+```gdscript
+@export var vignette_material: ShaderMaterial  # assigned in .tscn; shared reference
+```
+
+The `ColorRect.material` property points to this shared resource. Parameter updates (e.g., `set_shader_parameter("intensity", v)`) are safe on the shared resource within a single scene lifecycle. If per-instance parameter isolation is required (two simultaneous vignette panels), use `material.duplicate()` at scene entry and explicitly null the duplicate on `_exit_tree()`. Resolving OQ-AV-3 (shader vs. pre-baked path) does not change this contract — both paths must follow it.
+
 **Art Bible § 7.4 prohibition**: no ambient particle effects in Beats 1, 2, 3, 6, 8, 9. Beat 7 is the sole context for any particle use, and even there restraint is required.
 
 #### V.5 Asset Inventory (5-chapter MVP upper bound)
@@ -723,6 +830,14 @@ The 2.0s minimum dwell guarantees peak is heard. Cue MUST complete (phrase ended
 **True-peak ceiling `−1.0 dBTP`** (prevents inter-sample clipping in AAC 128kbps streaming / OGG quality-4 on-device). Godot's Vorbis import can produce inter-sample peaks beyond 0 dBFS → margin non-negotiable. Every Beat 2 asset must pass `ebur128` true-peak scan before delivery.
 
 **Ch1 silent-visual variant — `beat_audio_cue_fired` MUST NOT emit.** BeatConductor branches on `BeatCue.variant == "silent_visual"` and suppresses the signal entirely. Any null-asset or placeholder emission is a contract violation. AC-SP-6 explicitly tests for signal absence on Ch1. Authoring validators must reject any `beat_2_fragment.audio_asset` field in Ch1 scenario data (per CR-13).
+
+**Ch1 WCAG 1.1.1 text alternative contract (v2.1 — ux-designer; WCAG 2.1 SC 1.1.1).** Because Ch1 Beat 2 has no audio component, the glyph is the sole non-text content carrier for this beat. A text alternative node MUST be present in the `Beat2Echo` scene tree for Ch1 renders:
+- A `Label` node named `Beat2AccessibilityLabel` is added as a child of `Beat2Echo`, with `visible = false` (does not render visually). Its text is set at beat entry from the i18n key `ch1.beat2.silent_visual_alt_text`.
+- Default EN value: `"A faint visual stirs — the chapter is just beginning; no echo yet."`
+- Default KO value: `"희미한 빛이 깜박인다 — 이야기의 시작이다. 아직 메아리가 없다."`
+- The node's `accessibility_name` property (Godot 4.5+ AccessKit bridge, `OQ-UI-7` scope) is set to the same i18n string so that when AccessKit is implemented, the screen reader announces this text on beat entry without any additional plumbing.
+- For Ch2+ beats, this node is present but its text is set to `""` (empty) — the audio cue carries the non-text content's equivalent purpose; no redundant text alternative is needed.
+- This contract is an Intermediate-tier forward-compatibility measure. The `Beat2AccessibilityLabel` node must NOT be omitted even if AccessKit is out of scope — omitting it requires a later scene-tree refactor at Full Vision tier.
 
 **Mono authoring.** Phone internal speakers are effectively mono; stereo imaging is lost on speaker playback and unreliable on budget BT earbuds. Mono centered on stereo bus is phase-coherent, survives BT mono downmix, loses nothing on iOS/Android internal speakers. Reverb's stereo wet signal must sum to mono without phase cancellation — verify with DAW mono-sum test before delivery.
 
@@ -864,7 +979,7 @@ All three dialogs (EC-SP-1 scenario load fault, EC-SP-2 sync timeout, EC-SP-5 BA
 
 The 12px citation at 30% opacity (Beat 2 ambient echo-label) is explicit ambient atmosphere and is exempt from minimum text size — it must still scale proportionally so it doesn't appear vanishingly small against scaled base text. Implementation feasibility flagged as `OQ-UI-5`.
 
-**Reduced-motion alternatives** (OS detection via Godot 4.5+ AccessKit + in-game setting fallback):
+**Reduced-motion alternatives** (in-game setting primary; OS-level detection provisional — see below):
 
 | Motion | Standard | Reduced-motion fallback |
 |--------|----------|-------------------------|
@@ -872,7 +987,13 @@ The 12px citation at 30% opacity (Beat 2 ambient echo-label) is explicit ambient
 | Beat 6 LOSS desaturation | Shader-animated desat progression | Cut immediately to desaturated end state on entry |
 | Beat 7 묵 베일 | 400ms top-to-bottom wipe | 400ms cross-dissolve, no directional motion |
 
-AccessKit API for reduced-motion detection flagged as `OQ-UI-7` (verify against Godot 4.6 engine-reference).
+**`OQ-UI-7` (ADVISORY — needs runtime verification before implementation, v2.1 godot-specialist)**: AccessKit was introduced in Godot 4.5 (HIGH RISK per `docs/engine-reference/godot/VERSION.md`). The engine-reference files (`docs/engine-reference/godot/modules/ui.md`, `current-best-practices.md`) document AccessKit only as screen-reader integration for Control nodes — **no OS-level reduced-motion preference query API is confirmed for Godot 4.6 in the pinned reference docs**. The implementation strategy is therefore:
+
+1. **Primary detection**: in-game accessibility settings toggle (always available; no OS API dependency). This MUST be implemented regardless of OS detection availability.
+2. **Secondary detection (provisional)**: `DisplayServer` may expose a platform query for reduced-motion preference (e.g., via Windows `SPI_GETCLIENTAREAANIMATION`, macOS `NSAccessibilityReduceMotionEnabled`, Android `ANIMATOR_DURATION_SCALE`). The exact GDScript call is **unverified** — do not cite a specific method here until godot-specialist confirms against the live 4.6 API at implementation sprint. Coordinate with ux-designer: if OS detection is unavailable at runtime, the in-game toggle is the sole mechanism and must be prominent in accessibility settings.
+3. **Fallback**: If neither is available at build time, reduced-motion spec rows (Beat 2, Beat 6, Beat 7) apply only when the in-game toggle is set. This is acceptable for MVP.
+
+**Cross-reference for ux-designer**: reduced-motion behavior table above (Beat 2 / Beat 6 / Beat 7) is unaffected — only the detection mechanism is provisional. UX spec for accessibility settings screen must expose the in-game toggle as a first-class setting, not buried, given OS detection is unconfirmed.
 
 **Color-blind considerations** (Beat 7 reserved colors). 주홍 `#C0392B` is red; `#D4A017` is yellow-gold. Deuteranopia/protanopia (~8% of males) may not distinguish 주홍 vignette from default dark 묵.
 
@@ -894,6 +1015,22 @@ Assessment: the 삼중선 border provides shape-based differentiation sufficient
 | Dialogs | Two-button rows | Side-by-side narrow-screen risk | Stack vertically on mobile |
 
 **Closed captions**. No dialogue in scenario ceremony (all audio is non-verbal). Visual channel is the primary carrier for Beat 2 (glyph is the beat, not the audio). Beat 9 chapter-transition music gets an optional ambient audio-description caption (`[다음 장으로의 여정 음악]`) — flagged as `OQ-UI-8`; VS scope unless accessibility target requires at MVP.
+
+#### UX.7 Beat 8 cue_tag Consumption Contract (v2.1 — ux-designer)
+
+When `resolve_branch()` returns a non-null `cue_tag` in the `DestinyBranchChoice` payload, Beat 8's `Beat8Revelation` panel must consume it. Currently only one `cue_tag` value is specified for the UX layer:
+
+**`cue_tag == "win_after_persistence"`** (WIN outcome after ≥1 retry, per F-SP-1 v2.1 adjudication):
+- **Tinted text overlay**: Beat 8's revelation text panel adds a secondary text node displaying the i18n key `beat_8.cue.win_after_persistence`. Default EN: `"Your persistence shaped this end."` Default KO: `"당신의 버팀이 이 결말을 만들었습니다."` The overlay renders at 80% opacity in 보조 텍스트 `#8B5A2B` (same color as citation labels — §V.1 Beat 1). It appears beneath the main revelation text and above the canonical-history contrast band. It does NOT use reserved colors (주홍/금색 are Beat 7-only per §V.3).
+- **Slower reveal animation**: the `Beat8Revelation` panel's `enter` animation uses a duration of **1.5s** instead of the standard 1.0s. The slower fade communicates without words that this outcome carries more weight. The animation curve is unchanged (Ease Out Cubic). No new draw calls are added — only the `AnimationPlayer` duration float changes.
+- **No cue_tag on first-attempt WIN**: when `cue_tag == null` (standard WIN, echo_count == 0), Beat 8 renders in its standard 1.0s enter animation with no overlay text. The absence of overlay is the affirmative signal for a clean WIN.
+- **No cue_tag on draw_fallback**: `cue_tag == "draw_fallback"` is consumed by Beat 8's revelation tone register (lower-stakes per CR-14), not by this overlay system. `draw_fallback` does not add an overlay node.
+
+**`cue_tag == "draw_after_persistence"`** (DRAW outcome with echo_count > 0 but echo gate not open; v2.2 — narrative-director B-ND-1):
+- **Tinted text overlay**: identical render contract to `win_after_persistence` — secondary text node displays i18n key `beat_8.cue.draw_after_persistence`. Default EN: `"You stood your ground."` Default KO: `"당신은 자리를 지켰습니다."` Renders at 80% opacity in 보조 텍스트 `#8B5A2B`.
+- **Slower reveal animation**: same 1.5s enter animation as `win_after_persistence` — sub-threshold persistence carries comparable narrative weight to a persistent WIN.
+- **Branch_key invariant**: same as EC-SP-14 — cue_tag NEVER alters `branch_key`. Routes to the chapter's default DRAW branch (`echo_count = 0` row). Implementation must verify this.
+- **Future extensibility**: `Beat8Revelation` must read `cue_tag` as a `StringName` and dispatch via `match` — not as boolean flags. Additional cue_tags may be authored by the narrative-director in future chapters. An unrecognized `cue_tag` value MUST be treated as `null` (standard render) and logged at WARNING level. This ensures forward compatibility without a code change for each new tag.
 
 #### UX.6 Accessibility Checklist — Ceremony Beats
 
@@ -930,6 +1067,10 @@ ScenarioRunner (Node)
 ```gdscript
 current_panel.animation_player.play("exit")
 await current_panel.animation_player.animation_finished
+# Godot 4.6 safety: panel may have been freed if ScenarioRunner received a
+# GameBus signal (e.g. battle_outcome_resolved) while exit animation was running.
+if not is_instance_valid(current_panel):
+    return  # coroutine aborts; caller must handle panel-swap state cleanup
 current_panel.visible = false
 next_panel.visible = true
 next_panel.animation_player.play("enter")
@@ -959,9 +1100,10 @@ func _gui_input(event: InputEvent) -> void:
 
 #### UI-3 Signal Wiring
 
-- **ScenarioRunner → GameBus**: direct emission of the 5 owned signals + 2 PROVISIONAL per ADR-0001. ScenarioRunner never calls methods on UI nodes directly.
+- **ScenarioRunner → GameBus (emit-only signals)**: ScenarioRunner emits the 5 confirmed signals (`chapter_started`, `battle_prepare_requested`, `battle_launch_requested`, `destiny_branch_chosen`, `chapter_completed`) + 2 PROVISIONAL (`scenario_beat_retried`, `save_checkpoint_requested`) per ADR-0001. For these ScenarioRunner is the **emitter only** — it does not connect to its own emissions. No disconnect needed for emit-only direction.
+- **ScenarioRunner → GameBus (inbound subscription, v2.1 godot-specialist)**: ScenarioRunner connects to exactly **1 inbound signal**: `battle_outcome_resolved(BattleOutcome)`. Connection pattern: `GameBus.battle_outcome_resolved.connect(_on_battle_outcome_resolved)` in `_ready()`; **disconnect in `_exit_tree()`**: `GameBus.battle_outcome_resolved.disconnect(_on_battle_outcome_resolved)`. This is mandatory in Godot 4.6 — autoloads (GameBus) outlive scene nodes; if ScenarioRunner is freed without disconnecting, the autoload retains a stale callable reference that fires on the next emission, causing an "attempt to call function on a freed object" error. This is the only GameBus inbound connection ScenarioRunner holds; no others are permitted without an explicit ADR-0001 amendment.
 - **Panel → BeatConductor**: each panel emits internal `advance_requested`; BeatConductor connects in `_ready()`, validates against current beat state (lockout check, dwell timer), then calls `ScenarioRunner._on_beat_advance_confirmed()` or drops.
-- **UI panel → GameBus subscriptions**: via `CONNECT_DEFERRED` in panel `_ready()`; disconnect in `_exit_tree()` (fires only on scenario scene unload — correct lifecycle).
+- **UI panel → GameBus subscriptions**: via `CONNECT_DEFERRED` in panel `_ready()`; disconnect in `_exit_tree()` (fires only on scenario scene unload — correct lifecycle). Same pattern as ScenarioRunner inbound disconnect above.
 - **Cinematic input block**: BeatConductor emits `ui_input_block_requested` / `ui_input_unblock_requested` on GameBus at Beats 1, 2, 7 entry/exit (the only BeatConductor → GameBus emissions permitted).
 
 #### UI-4 Safe-Area Handling (Mobile)
@@ -999,7 +1141,14 @@ Well within the Beat 7 ≤30 ceiling and the <500 mobile 2D budget. Portrait 금
 
 #### UI-6 Godot 4.6 Gotchas (verify against engine-reference before implementation)
 
-- **Dual-focus system (4.6, HIGH RISK)** — mouse/touch focus is separate from keyboard/gamepad focus. Tap-to-advance uses `_gui_input` (bypasses this), but Beat 6 `Button` nodes need explicit testing on both paths. Set `Button.focus_mode = FOCUS_NONE` on touch-only ceremony buttons if gamepad support is deferred.
+- **Dual-focus system (4.6, HIGH RISK)** — mouse/touch focus is separate from keyboard/gamepad focus. Tap-to-advance uses `_gui_input` (bypasses this), but Beat 6 `Button` nodes require an explicit touch-input behavioral contract:
+
+  **Touch variant — Beat 6 "다시 시도" / "계속" buttons (v2.1 — ux-designer)**:
+  - Single tap activates the button. There is no double-tap-to-confirm. The 2.0s gate delay (F-SP-6 `beat_6_gate_delay`) provides the dwell window before buttons become interactive; no additional tap ceremony required.
+  - `Button.focus_mode` must be set to `FOCUS_ALL` (not `FOCUS_NONE`) so keyboard/gamepad can also reach the buttons — Beat 6 is the one ceremony point where gamepad navigation must reach discrete labeled actions ("Retry" vs "Accept"). Setting `FOCUS_NONE` here would block gamepad access to this gate.
+  - Touch activation path: `InputEventScreenTouch` → Godot `Button._gui_input` → `pressed` signal. Do NOT also handle touch in `_gui_input` on the parent panel for Beat 6 — double-handling fires the gate twice. Beat 6 panel `_gui_input` must check for `Button` hit-test and return early.
+  - Minimum touch target: `custom_minimum_size = Vector2(44, 44)` enforced per §UI-2. On narrow phones (<375pt width), buttons stack vertically (per §UX.3 layout rule) — stacking preserves 44px height while preventing mis-taps on adjacent buttons (Fitts's Law: adjacent 44px targets on a narrow layout create a ~50% miss zone on the seam).
+  - Verify on Godot 4.6 that `InputEventScreenTouch` does NOT also generate a synthetic `InputEventMouseButton` on mobile. If it does, Beat 6 panel's parent `_gui_input` will see both events — the mouse-button guard in §UI-2 must be conditioned on `not OS.has_feature("mobile")` or the touch path and mouse path must share a de-duplicate guard. Flag for godot-specialist verification (`OQ-UI-2` scope extension).
 - **Recursive Control disable (4.5+)** — setting `mouse_filter = MOUSE_FILTER_IGNORE` on a parent recursively suppresses children's input. Preferred mechanism for panel-level lockout, but verify: if a child has `MOUSE_FILTER_STOP`, that child may still fire `_gui_input`. Test on 4.6 specifically.
 - **`screen_get_safe_area()` on Android edge-to-edge (4.5+)** — on Android 15+, returns system gesture insets. If export preset disables edge-to-edge, may return zeros on notched devices. Verify export preset consistency.
 - **Glow rework (4.6)** — glow processes before tonemapping. LOW risk for 2D CanvasLayer rendering (3D WorldEnvironment post-process does not affect 2D CanvasLayer draws).
@@ -1027,7 +1176,13 @@ Well within the Beat 7 ≤30 ceiling and the <500 mobile 2D budget. Portrait 금
 
 ## Acceptance Criteria
 
-**Coverage summary.** All 16 Core Rules (CR-1 through CR-16), all 6 Formulas (F-SP-1 through F-SP-6), and all 12 Edge Cases (EC-SP-1 through EC-SP-12) are covered by at least one AC below. Each pillar decision locked 2026-04-18 is covered by a dedicated Pillar-Fidelity AC. **AC-SP-6** replaces v1.0 `AC-SP-20` (not-independently-testable defect). **AC-SP-37** replaces v1.0 `≤−24 LUFS` with the instrumentation-verified `−18 to −12 LUFS` target.
+**Coverage summary (v2.1 update — pass-3).** All 16 Core Rules (CR-1 through CR-16), all 6 Formulas (F-SP-1 through F-SP-6), and all 14 Edge Cases (EC-SP-1 through EC-SP-14 — EC-SP-13 added v2.1 ux-designer for visible toast, EC-SP-14 added v2.1 narrative-director for WIN+persistence cue_tag) are covered by at least one AC below. Each pillar decision locked 2026-04-18 is covered by a dedicated Pillar-Fidelity AC. **AC-SP-6** replaces v1.0 `AC-SP-20` (not-independently-testable defect). **AC-SP-37** replaces v1.0 `≤−24 LUFS` with the instrumentation-verified `−18 to −12 LUFS` target. v2.1 additions: AC-SP-38 (Ch1 silent-visual dedicated coverage), AC-SP-39 (EC-SP-13 toast), AC-SP-40 (UX.7 Beat 8 cue_tag).
+
+**Gate Summary (v2.2 — qa-lead).** **41 ACs total** (AC-SP-1 through AC-SP-41). Sub-classification:
+- **Fixture-independent (~10, testable as soon as `ScenarioRunner` is implemented)**: AC-SP-3, AC-SP-5, AC-SP-13, AC-SP-16, AC-SP-18, AC-SP-19, AC-SP-21, AC-SP-25, AC-SP-32, AC-SP-33.
+- **Deferred-fixture (~31, depend on `tests/fixtures/scenarios/*.json` and/or authored scene files not yet on disk)**: AC-SP-1, AC-SP-2, AC-SP-4, AC-SP-6, AC-SP-9, AC-SP-10, AC-SP-11, AC-SP-12, AC-SP-14, AC-SP-17, AC-SP-20, AC-SP-22, AC-SP-23, AC-SP-24, AC-SP-26, AC-SP-28, AC-SP-29, AC-SP-30, AC-SP-31, AC-SP-35, AC-SP-36, AC-SP-37, AC-SP-38, AC-SP-39, AC-SP-40, AC-SP-41.
+- **ADVISORY ACs (8 total — gate level Visual/Feel or UI; promotion conditions noted per AC)**: AC-SP-7 (Visual/Feel — art-director + qa-lead), AC-SP-8 (Visual/Feel — QA manual), AC-SP-15(c) (Integration — ADVISORY pending ADR-0002 ratification), AC-SP-34 (Integration — screenshot evidence required), AC-SP-38(c) (v2.2 — Visual/Feel hold-duration), AC-SP-39(c) (v2.2 — UI toast widget), AC-SP-40 (v2.2 — UI scene inspection), AC-SP-41 (v2.2 — UI scene inspection).
+- **Test framework instrumentation contracts (v2.1)**: BeatConductor must expose `BeatTimingProbe` injection point (used by AC-SP-6, AC-SP-31) AND `set_elapsed_ms(beat, ms)` injection (AC-SP-27). These are implementation-story Definition-of-Done items, not retrofits.
 
 ### H.1 Core Rules ACs
 
@@ -1058,10 +1213,13 @@ Well within the Beat 7 ≤30 ceiling and the <500 mobile 2D budget. Portrait 금
 
 - **AC-SP-6 (replaces v1.0 AC-SP-20)**: Given a Ch2+ chapter (not Ch1), when ScenarioRunner enters BEAT_2_ECHO, then (a) `beat_visual_cue_fired` is emitted on GameBus within 100ms of BEAT_2_ECHO entry, (b) `beat_audio_cue_fired` is emitted on GameBus within 100ms of BEAT_2_ECHO entry, and (c) the state does not advance to BEAT_3_BRIEF until at least 2000ms have elapsed since BEAT_2_ECHO entry. For Ch1, only (a) fires and (b) must NOT be emitted.
   - **Method**: integration
-  - **Evidence**: GdUnit4 integration test with GameBus signal spy; assert signal presence/absence and minimum elapsed time measured via `Time.get_ticks_msec()` before and after; cite ADR-0001 for GameBus routing requirement
+  - **Evidence**: GdUnit4 integration test with GameBus signal spy. **Instrumentation requirement (v2.1 — qa-lead)**: test must inject a `BeatTimingProbe` mock (or equivalent clock-injection point in BeatConductor) that records `Time.get_ticks_msec()` at BEAT_2_ECHO entry and at each signal emission; assert (a) and (b) recorded within 100 engine-tick-milliseconds of entry timestamp; assert (c) by verifying BEAT_3_BRIEF entry timestamp ≥ BEAT_2_ECHO entry timestamp + 2000ms in the probe record. Do NOT assert wall-clock elapsed time from outside the process — use the recorded probe timestamps only. For the Ch1 variant: signal spy confirms zero `beat_audio_cue_fired` emissions on GameBus. Cite ADR-0001 for GameBus routing requirement.
   - **Covers**: CR-9, F-SP-6
 
-- **AC-SP-7**: Given Beat 7 is entered with a non-default branch (any branch other than the WIN default), when the state is rendered, then the branch text node applies color `#C0392B` (주홍) or `#D4A017` (금색) per the Art Bible treatment. Given a default-WIN branch, neither reserved color is applied.
+- **AC-SP-7** [ADVISORY — Visual/Feel; v2.1 qa-lead]: Given Beat 7 is entered with a non-default branch (any branch other than the WIN default), when the state is rendered, then the branch text node applies color `#C0392B` (주홍) or `#D4A017` (금색) per the Art Bible treatment. Given a default-WIN branch, neither reserved color is applied. Pass criterion: sampled hex value from digital color picker is within ±8% luminance and ±10° hue of the specified values (per the tolerance defined in §V.3 Reserved Color Protocol).
+  - **Gate level**: ADVISORY
+  - **Owner**: art-director (asset sign-off) + qa-lead (evidence filing)
+  - **Promotion condition**: if an automated color-validation shader or CI pixel-diff tool is added to the pipeline, promote to automated with the ±8% luminance / ±10° hue tolerance as the machine assertion. Until then, manual evidence is sufficient for Done.
   - **Method**: manual playtest
   - **Evidence**: Screenshot of Beat 7 screen in `production/qa/evidence/` for both default and non-default branch; QA tester annotates observed color hex from color picker; lead sign-off required
   - **Covers**: CR-10
@@ -1093,7 +1251,10 @@ Well within the Beat 7 ≤30 ceiling and the <500 mobile 2D budget. Portrait 금
 
 ### H.2 State Machine ACs
 
-- **AC-SP-13**: Given ScenarioRunner is in any state other than BEAT_6_RESULT, when any state transition is requested, then the resulting state has a higher ordinal than the current state (forward-only invariant). The only permitted backward transition is BEAT_6_RESULT → BEAT_4_PREP. An attempt to jump to an arbitrary beat via any public API must be rejected.
+- **AC-SP-13 (v2.1 — qa-lead split into testable sub-assertions)**: Given ScenarioRunner is in any state other than BEAT_6_RESULT, when any state transition is requested, then the resulting state has a higher ordinal than the current state (forward-only invariant). The only permitted backward transition is BEAT_6_RESULT → BEAT_4_PREP. Sub-assertions: (a) state-machine forward-only invariant; (b) no public arbitrary-jump API exists in the implementation.
+  - **Method**: unit (a) + unit static analysis (b)
+  - **Evidence (a)**: GdUnit4 state machine test iterates all 12 non-BEAT_6_RESULT states; for each state calls every public state-transition method; asserts resulting state ordinal is strictly greater than input state ordinal; asserts BEAT_6_RESULT → BEAT_4_PREP is the sole permitted decrease.
+  - **Evidence (b)**: Grep of `src/gameplay/scenario_runner.gd` for `func go_to_beat` or any method accepting a raw beat ordinal as parameter; zero matches required. If a `go_to_beat` method exists and is `@export` or has no `@private` annotation, the test fails. This is a static analysis check — run as a CI lint step, not a GdUnit4 runtime test.
   - **Method**: unit
   - **Evidence**: GdUnit4 state machine test iterates all 12 states; asserts no backward transition outside the defined retry arc; asserts no public `go_to_beat(n)` method is callable externally
   - **Covers**: CR-2, CR-8
@@ -1103,7 +1264,11 @@ Well within the Beat 7 ≤30 ceiling and the <500 mobile 2D budget. Portrait 금
   - **Evidence**: GdUnit4 integration test with mock Grid Battle (never fires readiness); assert UI string, state after retry action, echo_count invariant, signal-spy confirms no `scenario_beat_retried` emission; cite ADR-0001
   - **Covers**: EC-SP-5, CR-8
 
-- **AC-SP-15**: Given ScenarioRunner is in SCENARIO_END displaying the authored epilogue, when the player taps to dismiss, then ScenarioRunner exits SCENARIO_END, SceneManager receives a scene-transition request to the main menu, and no GameBus signal is emitted at dismiss time.
+- **AC-SP-15 (v2.1 — qa-lead split for ADR-0002 dependency)**: Given ScenarioRunner is in SCENARIO_END displaying the authored epilogue, when the player taps to dismiss, then (a) ScenarioRunner exits SCENARIO_END state, (b) no GameBus signal is emitted at dismiss time, and (c) ScenarioRunner emits a scene-transition request targeting the main menu scene (method TBD pending ADR-0002).
+  - **Method (a+b)**: unit — **BLOCKING gate**
+  - **Method (c)**: integration — **ADVISORY pending ADR-0002 ratification**
+  - **Evidence (a+b)**: GdUnit4 test injects tap event in SCENARIO_END; assert state transitions out of SCENARIO_END; GameBus signal spy confirms zero emissions post-dismiss; cite ADR-0001. This sub-assertion is testable now.
+  - **Evidence (c)**: ADVISORY — test cannot be written until ADR-0002 ratifies SceneManager interface. **Promotion condition**: when ADR-0002 is Accepted and `SceneManager` has a documented `request_scene_transition(target: StringName)` (or equivalent) API, promote (c) to BLOCKING integration test using a mock SceneManager injected into ScenarioRunner. Owner: qa-lead. Target gate: before Beat 9 implementation story.
   - **Method**: integration
   - **Evidence**: GameBus signal spy confirms zero emissions after dismiss; scene transition log confirms return to main menu scene; cite ADR-0001
   - **Covers**: CR-16, EC-SP-12
@@ -1142,22 +1307,25 @@ Well within the Beat 7 ≤30 ceiling and the <500 mobile 2D budget. Portrait 금
 
 ### H.4 Formula ACs
 
-- **AC-SP-22**: Given the F-SP-1 branch-resolution function and all 6 input rows from the Ch3 example table in Section D, when `resolve_branch()` is called with each row, then each output `{branch_key, is_draw_fallback, cue_tag}` matches the documented expected value exactly.
+- **AC-SP-22**: Given the F-SP-1 branch-resolution function and all 9 input rows from the F-SP-1 example tables (7 Ch3 rows + 2 Ch2 rows), when `resolve_branch()` is called with each row's `(outcome, echo_count, first_attempt_resolved)` triple, then each output `{branch_key, is_draw_fallback, cue_tag}` matches the documented expected value exactly. Required coverage includes: (a) `(WIN, 3, false)` returns `WIN_baixia_default` with `cue_tag = "win_after_persistence"` and `is_draw_fallback = false`; (b) `(DRAW, 1, true)` returns `DRAW_baixia_default` (anti-farm gate fires, echo-unlock blocked); (c) `(DRAW, 1, false)` returns `DRAW_baixia_echo` (defiance-reward path).
   - **Method**: unit
-  - **Evidence**: GdUnit4 parametric test with 6 fixture rows; assert all three output fields per row
+  - **Evidence**: GdUnit4 parametric test with 9 fixture rows; assert all three output fields per row; `cue_tag` equality uses string `==` (no approx needed); null cue_tag rows assert `cue_tag == null`
   - **Covers**: F-SP-1, CR-4, CR-5
 
-- **AC-SP-23**: Given the F-SP-2 echo-gate predicate and the 4 example rows in Section D, when `is_echo_gate_open()` is called with each input triple `(outcome, echo_count, echo_threshold)`, then each boolean output matches the documented expected value. Specifically: `(DRAW, 0, 1) = false`, `(DRAW, 1, 1) = true`, `(WIN, 5, 1) = false`, `(LOSS, 3, 1) = false`.
+- **AC-SP-23**: Given the F-SP-2 echo-gate predicate and all 5 example rows in Section D, when `is_echo_gate_open()` is called with each input 4-tuple `(outcome, echo_count, echo_threshold, first_attempt_resolved)`, then each boolean output matches the documented expected value. Specifically: `(DRAW, 0, 1, true) = false`; `(DRAW, 1, 1, false) = true`; `(DRAW, 1, 1, true) = false` (anti-farm gate); `(WIN, 5, 1, false) = false`; `(LOSS, 3, 1, false) = false`.
   - **Method**: unit
-  - **Evidence**: GdUnit4 parametric test asserts all 4 cases; 100% coverage required per coding-standards balance formula rule
+  - **Evidence**: GdUnit4 parametric test asserts all 5 cases; 100% coverage required per coding-standards balance formula rule; the anti-farm case `(DRAW, 1, 1, true) = false` is a BLOCKING fixture — must be present or test suite is incomplete
   - **Covers**: F-SP-2, CR-6
 
-- **AC-SP-24**: Given the F-SP-3 echo accumulation/reset contract, when `on_player_retry()` is called N times followed by `on_chapter_transition()`, then (a) `state.echo_count == N` immediately before transition, (b) `state.echo_count == 0` immediately after transition, (c) exactly N `scenario_beat_retried` emissions occurred, each with `retry_count == i` for the i-th call.
+- **AC-SP-24**: Given the F-SP-3 echo accumulation/reset contract:
+  - Sub-case (a) — Zero-retry path: `on_chapter_start()` sets `echo_count == 0` and `first_attempt_resolved == false`; `on_beat_7_judgment_entry()` with `echo_count == 0` sets `first_attempt_resolved == true`. Assert both fields.
+  - Sub-case (b) — Retry path: `on_chapter_start()` initializes both fields; `on_player_retry()` called N=3 times increments `echo_count` to 3, leaves `first_attempt_resolved == false`; `on_beat_7_judgment_entry()` with `echo_count == 3` leaves `first_attempt_resolved == false`; `on_chapter_transition()` resets both `echo_count == 0` and `first_attempt_resolved == false`.
+  - Sub-case (c) — Signal contract: exactly N `scenario_beat_retried` emissions occurred during sub-case (b), each with `retry_count == i` for the i-th call.
   - **Method**: unit
-  - **Evidence**: GdUnit4 test with N=3; assert all three conditions; signal spy confirms emission count and payload values
+  - **Evidence**: GdUnit4 tests for sub-cases (a), (b), (c); signal spy confirms emission count and payload values for (c); assert `first_attempt_resolved` field at each lifecycle boundary in (a) and (b)
   - **Covers**: F-SP-3, CR-7
 
-- **AC-SP-25**: Given the F-SP-4 `scenario_path_key` composition function and a 3-chapter `chapter_outcomes` array `["WIN_ch1_default", "DRAW_ch2_fallback", "DRAW_ch3_echo"]`, when `scenario_path_key()` is called, then the returned string equals `"WIN_ch1_default-DRAW_ch2_fallback-DRAW_ch3_echo"` exactly (delimiter `-`, no trailing dash, ordered by chapter index).
+- **AC-SP-25**: Given the F-SP-4 `scenario_path_key` composition function and a 3-chapter `chapter_outcomes` array `["WIN_ch1_default", "DRAW_ch2_fallback", "DRAW_ch3_echo"]`, when `scenario_path_key()` is called, then the returned string equals `"WIN_ch1_default::DRAW_ch2_fallback::DRAW_ch3_echo"` exactly (delimiter `::` per pass-11b/v2.1 systems-designer fix; ordered by chapter index; no trailing delimiter).
   - **Method**: unit
   - **Evidence**: GdUnit4 test asserts string equality
   - **Covers**: F-SP-4, CR-16
@@ -1167,7 +1335,10 @@ Well within the Beat 7 ≤30 ceiling and the <500 mobile 2D budget. Portrait 금
   - **Evidence**: GdUnit4 parametric test asserts all 3 cases
   - **Covers**: F-SP-5, CR-16
 
-- **AC-SP-27**: Given the F-SP-6 timing constants, when ScenarioRunner enters BEAT_1_ANCHOR and the player taps at t=0ms, the tap is dropped and the state remains BEAT_1_ANCHOR. When the player taps at t=1001ms, the state advances to BEAT_2_ECHO. Perform the same test for Beat 2 (min dwell 2000ms), Beat 6 (gate delay 2000ms), and Beat 7 (dwell lockout 1500ms).
+- **AC-SP-27 (v2.1 — qa-lead clock-injection mandate)**: Given the F-SP-6 timing constants, when the dwell-elapsed counter inside BeatConductor reads (min_dwell − 1ms), an advance-input event is dropped and the state is unchanged. When the counter reads (min_dwell + 1ms), the same event causes a state advance. Apply this to: Beat 1 (min_dwell = 1000ms → BEAT_2_ECHO), Beat 2 (2000ms → BEAT_3_BRIEF), Beat 6 gate delay (2000ms — gate must be inactive), Beat 7 dwell lockout (1500ms — continue must be inactive).
+  - **Method**: unit
+  - **Instrumentation requirement**: BeatConductor must expose a `set_elapsed_ms(beat: int, ms: int)` injection point (or equivalent mock-clock interface) for testing. Tests must NOT use real `OS.delay_msec()` or `await get_tree().create_timer()` — these are non-deterministic under headless CI. Each test seeds the elapsed counter directly then fires a synthetic `InputEventAction` advance event.
+  - **Evidence**: 4 GdUnit4 parametric tests (one per beat); each seeds elapsed to (threshold − 1ms), fires advance event, asserts state unchanged; then seeds to (threshold + 1ms), fires same event, asserts state advanced. Signal spy confirms no state-change signal at the under-threshold invocation.
   - **Method**: unit
   - **Evidence**: GdUnit4 tests for each of the 4 beats; each test asserts state unchanged at (min_dwell − 1ms) tap and state advanced at (min_dwell + 1ms) tap
   - **Covers**: F-SP-6, CR-2, CR-7, CR-15, EC-SP-7
@@ -1189,7 +1360,8 @@ Well within the Beat 7 ≤30 ceiling and the <500 mobile 2D budget. Portrait 금
   - **Evidence**: Integration test with save-file inspection; assert resume state == CHAPTER_START; assert `echo_count == 0`; assert deployment matches pre-retry default
   - **Covers**: EC-SP-4, EC-SP-10
 
-- **AC-SP-31**: Given Beat 2 for a Ch2+ chapter where `beat_2_fragment.audio_asset` cannot be resolved at runtime, when BeatConductor enters BEAT_2_ECHO, then (a) `beat_audio_cue_fired` is NOT emitted, (b) `beat_visual_cue_fired` IS emitted, (c) the 4–6s envelope still completes, (d) a WARNING-level log is recorded, (e) ScenarioRunner does NOT fault and proceeds to BEAT_3_BRIEF. Separately: if `beat_2_fragment.visual_asset` cannot be resolved, ScenarioRunner emits `scenario_fault` and halts.
+- **AC-SP-31 (v2.1 — qa-lead BeatTimingProbe instrumentation)**: Given Beat 2 for a Ch2+ chapter where `beat_2_fragment.audio_asset` cannot be resolved at runtime, when BeatConductor enters BEAT_2_ECHO, then (a) `beat_audio_cue_fired` is NOT emitted, (b) `beat_visual_cue_fired` IS emitted, (c) the dwell-elapsed counter still reaches ≥ 4000ms before BEAT_3_BRIEF entry (envelope minimum is honored even without audio), (d) a WARNING-level log is recorded, (e) ScenarioRunner does NOT fault and proceeds to BEAT_3_BRIEF. Separately: if `beat_2_fragment.visual_asset` cannot be resolved, ScenarioRunner emits `scenario_fault` and halts.
+  - **Instrumentation requirement**: Use the same `BeatTimingProbe` injection point required by AC-SP-6. Seed the probe at BEAT_2_ECHO entry; read BEAT_3_BRIEF entry timestamp from probe; assert delta ≥ 4000ms in probe-recorded ticks. Do NOT assert wall-clock elapsed time.
   - **Method**: integration
   - **Evidence**: Two integration tests with injected missing-asset conditions; signal spy confirms audio-absent/visual-present for audio failure; signal spy confirms `scenario_fault` for visual failure; log assertion for WARNING; timing assertion for envelope completion
   - **Covers**: EC-SP-6, CR-9
@@ -1221,10 +1393,49 @@ Well within the Beat 7 ≤30 ceiling and the <500 mobile 2D budget. Portrait 금
   - **Evidence**: GdUnit4 test loads Ch3 fixture (`author_draw_branch=true`); calls `resolve_branch(DRAW, 0)`; assert returned `branch_key` is not present in WIN or LOSS rows of the same `branch_table`
   - **Covers**: DRAW-as-distinct-outcome pillar decision
 
-- **AC-SP-37 (Beat 2 multi-modal audibility — replaces v1.0 `≤−24 LUFS` defect)**: Given a Ch2+ chapter whose `beat_2_fragment.audio_asset` is an authored audio cue, when the audio cue is played during BEAT_2_ECHO on a reference mobile device (or via software loudness analyzer targeting the mobile-primary audio profile), then the integrated loudness of the cue measures between −18.0 LUFS and −12.0 LUFS. A measurement below −18.0 LUFS or above −12.0 LUFS is a test failure. The v1.0 value of `≤−24 LUFS` is explicitly out of spec and any asset measuring below −18.0 LUFS must be re-authored.
-  - **Method**: instrumentation (loudness analysis — e.g., ffmpeg `ebur128` filter or equivalent)
-  - **Evidence**: Loudness measurement report per cue asset stored in `production/qa/evidence/`; report shows integrated LUFS value for each Beat 2 audio asset; any out-of-range measurement is a blocking defect
+- **AC-SP-37 (Beat 2 multi-modal audibility — replaces v1.0 `≤−24 LUFS` defect; v2.1 LUFS dual-mode)**: Given a Ch2+ chapter whose `beat_2_fragment.audio_asset` is an authored audio cue, when the cue is analyzed via EBU R128 integrated loudness measurement (full-file gate measurement), then the **integrated LUFS** of the complete cue file measures between −18.0 LUFS and −12.0 LUFS. A measurement below −18.0 LUFS or above −12.0 LUFS is a **blocking defect**. The v1.0 value of `≤−24 LUFS` is explicitly out of spec; any asset measuring below −18.0 LUFS must be re-authored.
+
+  **Measurement protocol (official gate — integrated LUFS)**: Run `ffmpeg -i {asset} -filter:a ebur128=framelog=verbose -f null - 2>&1 | grep "Integrated loudness"` and read the `I:` value. This is the sole accepted measurement for the AC gate. Sample length must span the full cue file (not a truncated excerpt). Measurement is performed per asset, not per playback session. Results stored in `production/qa/evidence/lufs-report-{date}.md` with one row per asset: `{asset_path, integrated_LUFS, pass/fail}`.
+
+  **Informal playtest probe (short-term LUFS — NOT the gate)**: During manual playtest sessions where full `ebur128` analysis is impractical, a **short-term LUFS** reading (EBU R128 3-second rolling window) of ≥ −20.0 LUFS at the cue's loudest passage provides a quick-check signal that the asset is likely in range. A short-term reading below −20.0 LUFS is a flag to prioritize the formal integrated measurement — it is **not itself a pass/fail gate**. Short-term readings are not stored as official evidence.
+
+  **Rationale for dual-mode approach**: Integrated LUFS is the engineering-correct metric for a bounded authored file (audio-director authority); short-term LUFS at a looser threshold (−20 vs. −18) gives playtest sessions a fast triage path without waiting for full analysis. The two thresholds are intentionally offset so a short-term near-miss triggers follow-up, not automatic failure.
+
+  - **Method**: instrumentation — EBU R128 `ffmpeg ebur128` filter (integrated, full-file)
+  - **Gate level**: BLOCKING (instrumentation evidence required before audio asset is merged to main)
+  - **Owner**: audio-director (asset delivery) + qa-lead (measurement report)
+  - **Evidence**: `production/qa/evidence/lufs-report-{date}.md` with integrated LUFS value per Beat 2 audio asset; any out-of-range measurement is a blocking defect before the asset is accepted into the build
   - **Covers**: Beat 2 multi-modal audibility pillar decision, CR-9, F-SP-6
+
+- **AC-SP-38 (Ch1 silent-visual variant — dedicated coverage; v2.1 ux-designer + v2.2 qa-lead classification)**: Given ScenarioRunner enters BEAT_2_ECHO for Chapter 1 (the first chapter in the scenario sequence), then ALL of the following hold: (a) `beat_audio_cue_fired` is NOT emitted at any time during BEAT_2_ECHO (AC-SP-6 signal-contract clause; confirmed here as an independent assertion), (b) the `Beat2Echo` panel's `Beat2AccessibilityLabel` node has `visible == false` AND its `text` property equals the localized string for i18n key `ch1.beat2.silent_visual_alt_text` (non-empty; any empty or null string is a test failure), (c) **[ADVISORY — Visual/Feel; deferred-fixture]** the `Beat2Echo` panel's glyph animation holds at peak opacity for ≥ 60% of the authored envelope duration — e.g., for a 4.0s envelope, peak hold ≥ 2.4s; for a 6.0s envelope, peak hold ≥ 3.6s (contrast: Ch2+ target is ~40% hold). Any hold duration below 60% of the authored envelope is a test failure.
+  - **Method**: unit (a, b — BLOCKING); visual QA with screenshot evidence (c — ADVISORY)
+  - **Gate level**: Sub-assertions (a)+(b) BLOCKING; sub-assertion (c) ADVISORY (depends on authored `Beat2Echo` scene + AnimationPlayer timeline on disk)
+  - **Owner**: ux-designer (sub-assertion (c) sign-off) + qa-lead (sub-assertions (a)+(b) evidence)
+  - **Promotion condition for (c)**: when `Beat2Echo.tscn` is on disk with AnimationPlayer timeline authored, promote (c) to BLOCKING integration test asserting AnimationPlayer.get_animation("glyph_envelope").length and peak-frame timestamp via headless test.
+  - **Evidence**: GdUnit4 test with signal spy asserts (a) audio signal absent; asserts (b) `Beat2AccessibilityLabel.text` non-empty and matches i18n lookup; screenshot in `production/qa/evidence/` with annotated hold-duration timestamps for (c) until promotion; lead sign-off on (c)
+  - **Covers**: CR-9 (Ch1 silent-visual contract), WCAG 1.1.1 text-alternative contract (§A.2), V.2 Ch1 glyph hold-duration spec
+  - **Note**: AC-SP-6 Ch1 clause remains the authoritative signal-contract test. This AC is additive and tests Ch1-specific behaviors not present in AC-SP-6.
+
+- **AC-SP-39 (EC-SP-13 visible toast — branch-table null on non-required bucket; v2.1 ux-designer + v2.2 qa-lead classification)**: Given a chapter whose `branch_table.match({outcome, echo_count})` returns `null` for a non-required `(outcome, echo_count)` input where the required entries (WIN/LOSS) are present, when ScenarioRunner enters BEAT_7_JUDGMENT, then (a) ScenarioRunner does NOT emit `scenario_fault` and does NOT halt; (b) the returned struct has `is_bucket_fallback == true` and `branch_key` equals the `echo_count = 0` row for the same outcome; (c) **[ADVISORY — UI; deferred-fixture]** a non-blocking toast notification with i18n key `forecast.fallback.bucket_missing` (default EN: "Branch data unavailable — using default path"; default KO: "시나리오 분기 데이터 없음 — 기본 경로로 진행합니다") displays at top-of-screen for 3.0s, non-interactable; (d) a WARNING-level log entry contains the substring `"EC-SP-13: branch_table null for (outcome=…)"`.
+  - **Method**: integration (a, b, d — BLOCKING); UI scene-tree inspection (c — ADVISORY)
+  - **Gate level**: Sub-assertions (a)+(b)+(d) BLOCKING; sub-assertion (c) ADVISORY (toast widget duration/position not testable headless without authored scene)
+  - **Promotion condition for (c)**: when toast widget scene + duration controller are authored, promote to BLOCKING integration test via scene-tree inspection asserting widget instantiation and duration property.
+  - **Evidence**: GdUnit4 integration test loads Ch3 fixture with deliberately omitted echo-gated DRAW row; calls `resolve_branch(DRAW, 1, false)`; assert (a) no scenario_fault signal via signal spy; assert (b) returned struct fields; assert (d) log capture matches WARNING substring; manual screenshot evidence for (c) until promotion
+  - **Covers**: EC-SP-13
+
+- **AC-SP-40 [ADVISORY — UI; deferred-fixture] (UX.7 Beat 8 cue_tag rendering; v2.1 ux-designer + narrative-director + v2.2 qa-lead classification)**: Given a `DestinyBranchChoice` payload arrives at `Beat8Revelation` with `cue_tag = "win_after_persistence"`, when Beat 8 enters its render lifecycle, then (a) the secondary text node displaying i18n key `beat_8.cue.win_after_persistence` is rendered at 80% opacity in `#8B5A2B`, beneath the main revelation text and above the canonical-history contrast band; (b) the `Beat8Revelation.AnimationPlayer` `enter` animation duration is set to 1.5s (vs. the standard 1.0s); (c) the rendered overlay does NOT use reserved colors `#C0392B` or `#D4A017`; (d) when `cue_tag == null`, the secondary text node is NOT instantiated and the enter animation duration is 1.0s. Pillar-2 fidelity assertion: this AC verifies that the persistence journey is honored at the reveal without altering branch content.
+  - **Method**: integration with scene-tree inspection (all sub-assertions depend on `Beat8Revelation.tscn` being on disk)
+  - **Gate level**: ADVISORY (deferred-fixture: depends on `Beat8Revelation.tscn` + AnimationPlayer timeline). Sub-assertion (c) additionally depends on art-director sign-off for color sampling.
+  - **Promotion condition**: when `Beat8Revelation.tscn` is authored with the secondary text node and AnimationPlayer timeline, promote sub-assertions (a)+(b)+(d) to BLOCKING integration tests; sub-assertion (c) remains ADVISORY (manual visual verification with art-director sign-off).
+  - **Evidence**: GdUnit4 integration test with mock `DestinyBranchChoice` injects `cue_tag = "win_after_persistence"`; asserts (a) Beat8Revelation child text node visible with correct i18n key + opacity 0.8 + color hex `#8B5A2B`; asserts (b) `AnimationPlayer.get_animation("enter").length == 1.5`; asserts (d) null cue_tag path with no secondary text node and animation length 1.0; screenshot in `production/qa/evidence/` annotated with sampled hex value for (c); art-director sign-off
+  - **Covers**: UX.7 cue_tag consumption contract, EC-SP-14, F-SP-1 (cue_tag tinting), Pillar 2 fidelity
+
+- **AC-SP-41 (UX.7 Beat 8 draw_after_persistence rendering; v2.2 narrative-director B-ND-1)** [ADVISORY — UI; deferred-fixture]: Given a `DestinyBranchChoice` payload arrives at `Beat8Revelation` with `cue_tag = "draw_after_persistence"`, when Beat 8 enters its render lifecycle, then (a) the secondary text node displaying i18n key `beat_8.cue.draw_after_persistence` is rendered at 80% opacity in `#8B5A2B`, beneath the main revelation text; (b) the `Beat8Revelation.AnimationPlayer` `enter` animation duration is set to 1.5s; (c) the rendered overlay does NOT use reserved colors `#C0392B` or `#D4A017`; (d) `branch_key` equals the chapter's default DRAW branch (sub-threshold cue_tag does NOT alter branch routing — symmetry with EC-SP-14 invariant). Pillar 2 fidelity assertion: sub-threshold persistence is acknowledged at the reveal even when the echo gate did not open.
+  - **Method**: integration with scene-tree inspection
+  - **Gate level**: ADVISORY (deferred-fixture: depends on `Beat8Revelation.tscn`)
+  - **Promotion condition**: same as AC-SP-40 — promote (a)+(b)+(d) to BLOCKING when scene authored; (c) stays ADVISORY.
+  - **Evidence**: GdUnit4 integration test mock injects `cue_tag = "draw_after_persistence"`; asserts (a) Beat8Revelation child text node with correct i18n key + opacity 0.8 + color hex `#8B5A2B`; asserts (b) AnimationPlayer.get_animation("enter").length == 1.5; asserts (d) returned struct branch_key matches the chapter's `branch_table.match({outcome: DRAW, echo_count: 0})` value; screenshot for (c)
+  - **Covers**: F-SP-1 (sub-threshold DRAW cue_tag), CR-7, UX.7 cue_tag consumption contract, Pillar 2 fidelity (sub-threshold acknowledgment)
 
 ## Cross-References
 

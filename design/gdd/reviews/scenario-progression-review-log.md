@@ -99,3 +99,29 @@ Next action: creative-director arbitration on Pillar 2 echo mechanic
 (selection vs flavor) in a fresh session, then batch the ~30 mechanical
 blockers with the re-derived formulas in one revision pass. Estimated
 v2.1 scope: M leaning L, 12–16 hours.
+
+---
+
+## Review — 2026-04-19 — Verdict: CONCERNS → APPROVED (v2.1 + v2.2 close-out)
+Scope signal: M
+Specialists: narrative-director, systems-designer, game-designer, ux-designer, audio-director, qa-lead, godot-specialist
+Blocking items: 5 (v2.1) → 0 (v2.2) | Recommended: ~10 (advisory deferred)
+Prior verdict resolved: Yes — pass-2 MAJOR REVISION NEEDED with pillar-integrity Echo regression resolved across v2.1 + v2.2.
+
+Summary: User adjudicated 4 design decisions (Echo SELECTION + first_attempt_resolved anti-farm; WIN+echo cue_tag tinting; F-SP-6 hard-constraint wins; sub-threshold DRAW persistence acknowledgment via draw_after_persistence). v2.1 spawned 5 specialists in parallel for fix authoring (~30 mechanical edits across narrative + systems + godot + ux + qa domains). v2.1 full 7-specialist re-review returned 3 APPROVED + 4 CONCERNS with 5 mechanical blockers all specialist-authored. v2.2 applied: F-SP-1 sub-threshold DRAW persistence cue_tag (B-ND-1), CR-10 dramatic doctrine sentence (B-ND-2), F-SP-3 seal timing prose (systems B-1), AC-SP-38(c)/39(c)/40 ADVISORY tags (qa 3-of-3), AC-SP-41 NEW for draw_after_persistence rendering, UX.7 draw_after_persistence section, Gate Summary v2.2 with 41 ACs explicit enumeration. Narrow v2.2 re-review (narrative-director + systems-designer + qa-lead) all APPROVED.
+
+3 pass-2 pillar-level Echo defects all CLOSED:
+- F-SP-1 echo discarded on WIN → cue_tag tinting ("win_after_persistence"); branch unchanged; no new authoring
+- F-SP-2 LOSS→DRAW farming → first_attempt_resolved gate; predicate adds NOT first_attempt_resolved
+- F-SP-6 vs TK-SP-5 contradiction → TK-SP-5 deleted; hard-constraint sealed in "Explicitly NOT Tuning Knobs" list
+
+3 pass-2 specialist disagreements all resolved:
+- Beat 2 Ch1 variant scope (narrative vs main) → AC-SP-38 dedicated coverage (additive to AC-SP-6)
+- AC-SP-37 LUFS measurement (audio vs qa) → integrated EBU R128 official gate + short-term informal probe
+- EC-SP-1 empty-branch (ux vs main) → EC-SP-13 visible toast + AC-SP-39 (delineated from EC-SP-8 fault path)
+
+Final state: 41 BLOCKING/ADVISORY ACs (10 fixture-independent + 26 deferred-fixture + 8 ADVISORY); 14 Edge Cases (added EC-SP-13 toast, EC-SP-14 WIN+persistence cue_tag); 16 Core Rules; 6 Formulas (all rewritten or extended); 4 user-adjudicated design decisions integrated.
+
+Status: MAJOR REVISION NEEDED → Designed (APPROVED).
+
+Pass history: pass-1 (v1.0 — 30 BLOCKING) → pass-2 (v2.0 — 34 BLOCKING + Echo regression) → v2.1 drafting + 7-spec re-review (CONCERNS) → v2.2 mechanical close-out + narrow re-review (APPROVED).
