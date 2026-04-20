@@ -1,11 +1,11 @@
 # Story 001: Non-provisional payload Resource classes
 
 > **Epic**: gamebus
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Platform
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
-> **Estimate**: 2.5 hours (S)
+> **Estimate**: 2.5 hours (S) — actual ~1.5h (specialist single-pass)
 
 ## Context
 
@@ -116,3 +116,36 @@
 
 - **Depends on**: Story 000 (project.godot + addons/gdUnit4/ prerequisite — first code authored in this project)
 - **Unlocks**: Story 002 (game_bus.gd signal declarations reference these classes), Story 004 (payload_serialization_test uses these classes), all downstream epics' signal-consumer stories
+
+## Completion Notes
+
+**Completed**: 2026-04-20
+**Criteria**: 8/8 passing (all COVERED in traceability table; tests 7/7 PASSED in 41ms)
+**Verdict**: COMPLETE WITH NOTES
+
+**Test Evidence**: `tests/unit/core/payload_classes_test.gd` — 7 GdUnit4 test functions, Logic gate BLOCKING satisfied
+
+**Code Review**: Complete — `/code-review` verdict **APPROVED WITH SUGGESTIONS** (0 BLOCKING, 2 WARNING from gdscript-specialist, 5 ADVISORY suggestions total)
+
+**Files delivered** (all in-scope):
+- `src/core/payloads/battle_outcome.gd` (+ `.uid` sidecar)
+- `src/core/payloads/battle_payload.gd` (+ `.uid`)
+- `src/core/payloads/chapter_result.gd` (+ `.uid`)
+- `src/core/payloads/input_context.gd` (+ `.uid`)
+- `src/core/payloads/victory_conditions.gd` (+ `.uid`)
+- `src/core/payloads/battle_start_effect.gd` (+ `.uid`)
+- `tests/unit/core/payload_classes_test.gd` (+ `.uid`)
+
+**Design decisions locked** (flagged during /dev-story, user-approved):
+- `InputContext.target_unit_id = -1` (sentinel "no unit"; `0` rejected as potential valid unit ID)
+- `BattlePayload.victory_conditions = null` default (avoids constructor-time Resource instantiation per story Constraint #7)
+- `deployment_positions: Dictionary` is the sole permitted untyped container (int→Vector2i, documented in class docstring + AC-6 test exemption)
+
+**Deviations**: None (8/8 ACs on-spec; no out-of-scope changes).
+
+**Advisory follow-ups** (from `/code-review` — logged to `docs/tech-debt-register.md` as TD-004):
+1. Add default-state assertions (`bp.map_id == ""`, `bp.victory_conditions == null`, `cr.outcome == BattleOutcome.Result.LOSS` on fresh instances)
+2. Round-trip `target_unit_id = -1` sentinel in AC-4 test
+3. AC-6 regex tightening (or defer to Story 003 CI lint — likely the right call)
+
+**Gates skipped** (review-mode=lean): QL-TEST-COVERAGE, LP-CODE-REVIEW phase-gates. Note: standalone `/code-review` skill ran independently with full gdscript-specialist + qa-tester review — those findings are captured above.
