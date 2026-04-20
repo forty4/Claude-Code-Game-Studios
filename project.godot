@@ -1,0 +1,28 @@
+; Engine configuration file.
+; Generated for Godot 4.6 — do NOT edit while the editor is open.
+; Property paths verified against 4.6 godot-demo-projects.
+
+config_version=5
+
+[application]
+
+config/name="천명역전"
+config/description="Defying Destiny — Turn-based grid strategy RPG."
+config/features=PackedStringArray("4.6")
+
+[autoload]
+
+; Empty — Story 002 will append the GameBus singleton entry here.
+; Do not add entries here manually; Story 002 owns this section.
+
+[physics]
+
+; Jolt is the Godot 4.6 default for 3D — explicit per story AC.
+; This is a 2D game; 3D physics engine selection has no runtime effect.
+3d/physics_engine="Jolt Physics"
+
+[rendering]
+
+; Mobile renderer — per .claude/docs/technical-preferences.md.
+; Do NOT override rendering backend per-platform here (trust engine defaults).
+renderer/rendering_method="mobile"
