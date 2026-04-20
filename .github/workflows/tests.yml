@@ -12,6 +12,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    # Required by dorny/test-reporter@v3 inside MikeSchulze/gdUnit4-action@v1
+    # to publish check-run results. Without checks:write, the action fails
+    # with "Resource not accessible by integration" even when tests pass.
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -1,0 +1,13 @@
+v6.1.2
+
+Vendored from: https://github.com/MikeSchulze/gdUnit4/releases/tag/v6.1.2
+Compatible with: Godot 4.6.x
+Pinned on: 2026-04-20 (Story 000 bootstrap)
+
+To upgrade:
+1. Download new release tarball from https://github.com/MikeSchulze/gdUnit4/releases
+2. Extract the `addons/gdUnit4/` subdirectory
+3. Replace contents of this project's `addons/gdUnit4/` with the new version
+4. Update this VERSION.txt tag + date
+5. Run `godot --headless --script tests/gdunit4_runner.gd` — must exit 0
+6. Commit with message: `chore(addons): bump gdUnit4 to v<new-version>`

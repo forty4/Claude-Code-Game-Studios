@@ -5,6 +5,7 @@
 > **Layer**: Platform
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
+> **Estimate**: 2.5 hours (S)
 
 ## Context
 
@@ -113,5 +114,5 @@
 
 ## Dependencies
 
-- **Depends on**: None (first code authored in this project)
+- **Depends on**: Story 000 (project.godot + addons/gdUnit4/ prerequisite — first code authored in this project)
 - **Unlocks**: Story 002 (game_bus.gd signal declarations reference these classes), Story 004 (payload_serialization_test uses these classes), all downstream epics' signal-consumer stories

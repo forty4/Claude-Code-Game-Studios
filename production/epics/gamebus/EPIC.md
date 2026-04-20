@@ -5,7 +5,7 @@
 > **Architecture Module**: GameBus (docs/architecture/architecture.md §Platform layer)
 > **Status**: Ready
 > **Manifest Version**: 2026-04-20
-> **Stories**: 8 created (2026-04-20) — see Stories table below
+> **Stories**: 9 created (2026-04-20; +Story 000 bootstrap added post-review) — see Stories table below
 
 ## Overview
 
@@ -35,6 +35,7 @@ GameBus is the single autoload signal-relay surface at `/root/GameBus` that owns
 ## Scope
 
 **Implements**:
+- `project.godot` — Godot 4.6 project bootstrap (rendering method, physics engine, empty autoload block) + `addons/gdUnit4/` test harness install + `src/` subdirectory scaffolding (Story 000, prerequisite for all subsequent `.gd` authoring across every epic)
 - `src/core/game_bus.gd` — autoload declaring 27 signals in 10 banner-comment domains
 - `src/core/payloads/` — typed Resource classes for multi-field payloads (`BattleOutcome`, `BattlePayload`, `ChapterResult`, `InputContext`, `SaveContext`, `EchoMark`, `DestinyBranchChoice`, `BeatCue`, `VictoryConditions`, `BattleStartEffect`)
 - `project.godot` — autoload registration (`GameBus` as load order 1, before any system that subscribes in `_ready`)
@@ -74,6 +75,7 @@ This epic is complete when:
 
 | # | Story | Type | Status | ADR | Validation |
 |---|-------|------|--------|-----|------------|
+| 000 | Godot 4.6 project + GdUnit4 test harness bootstrap | Config/Data | Ready | ADR-0001..0004 | Prerequisite: `.gd` parse + test runner |
 | 001 | Non-provisional payload Resource classes | Logic | Ready | ADR-0001 | TR-gamebus-001 §3 |
 | 002 | GameBus autoload declaration + registration | Logic | Ready | ADR-0001 | V-1, V-9 |
 | 003 | signal_contract_test — ADR table → code drift gate | Integration | Ready | ADR-0001 | V-2 |
@@ -89,12 +91,13 @@ This epic is complete when:
 
 ## Implementation Order
 
-1. **Story 001** — payload classes (foundation for signal signatures)
-2. **Story 002** — GameBus autoload (depends on Story 001's class_names)
-3. **Stories 003 / 004 / 005 / 006 in parallel** — all test/tooling layered on the autoload
-4. **Story 007** — cross-scene integration test (depends on Story 001 + 002; recommended to use Story 006 stub)
-5. **Story 008** — CI lint (depends on Story 002 for real GameBus reference)
+1. **Story 000** — project bootstrap (prerequisite for all `.gd` parse + GdUnit4 test runs)
+2. **Story 001** — payload classes (foundation for signal signatures)
+3. **Story 002** — GameBus autoload (depends on Story 001's class_names)
+4. **Stories 003 / 004 / 005 / 006 in parallel** — all test/tooling layered on the autoload
+5. **Story 007** — cross-scene integration test (depends on Story 001 + 002; recommended to use Story 006 stub)
+6. **Story 008** — CI lint (depends on Story 002 for real GameBus reference)
 
 ## Next Step
 
-Run `/story-readiness production/epics/gamebus/story-001-payload-resource-classes.md` to validate the first story, then `/dev-story` to begin implementation.
+Run `/story-readiness production/epics/gamebus/story-000-project-bootstrap.md` to validate the bootstrap story, then `/dev-story` to begin implementation.
