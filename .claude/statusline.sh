@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
 # Claude Code Game Studios — Status Line
-# Receives JSON on stdin, outputs a single-line status.
-#
-# Segments: ctx% | model | production stage [| Epic > Feature > Task]
+# Receives JSON on stdin. Wraps claude-hud (model/context/usage/MCPs)
+# and appends a project line: stage [| Epic > Feature > Task].
+# Falls back to single-line ctx%|model|stage when claude-hud is unavailable.
 
 input=$(cat)
+
+# --- claude-hud passthrough (user plugin) ---
+hud_out=""
+plugin_dir=$(ls -d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null \
+  | awk -F/ '{ print $(NF-1) "\t" $(0) }' \
+  | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1 | cut -f2-)
+if [ -n "$plugin_dir" ] && [ -x "/opt/homebrew/bin/node" ] && [ -f "${plugin_dir}dist/index.js" ]; then
+  hud_out=$(printf '%s' "$input" | /opt/homebrew/bin/node "${plugin_dir}dist/index.js" 2>/dev/null)
+fi
 
 # --- Parse JSON (jq with grep fallback) ---
 if command -v jq &>/dev/null; then
@@ -118,4 +127,10 @@ if [ "$stage" = "Production" ] || [ "$stage" = "Polish" ] || [ "$stage" = "Relea
 fi
 
 # --- Assemble ---
-printf "%s" "${ctx_label} | ${model} | ${stage}${breadcrumb}"
+if [ -n "$hud_out" ]; then
+  # claude-hud provides model/context/usage; project line carries stage + breadcrumb
+  printf '%s\n%s' "$hud_out" "${stage}${breadcrumb# | }"
+else
+  # Fallback: original single-line format
+  printf "%s | %s | %s%s" "${ctx_label}" "${model}" "${stage}" "${breadcrumb}"
+fi
