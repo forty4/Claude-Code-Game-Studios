@@ -11,15 +11,15 @@
 
 | Field | Value |
 |---|---|
-| Version | 0.1 (stub) |
-| Last Updated | 2026-04-18 |
+| Version | 0.2 |
+| Last Updated | 2026-04-20 |
 | Source — architecture: | `docs/architecture/architecture.md` v0.1 |
-| Source — TR registry: | `docs/architecture/tr-registry.yaml` v2 |
-| Source — /architecture-review: | `docs/architecture/architecture-review-2026-04-18.md` (PASS) |
-| GDDs scanned | 10 of 14 MVP (2026-04-18) |
+| Source — TR registry: | `docs/architecture/tr-registry.yaml` v3 |
+| Source — /architecture-review: | `docs/architecture/architecture-review-2026-04-18.md` (PASS) + `architecture-review-2026-04-20.md` (PASS delta, ADR-0004 accepted) |
+| GDDs scanned | 10 of 14 MVP (2026-04-18) + map-grid.md re-scan (2026-04-20) |
 | TRs extracted (this session) | 102 |
-| TRs registered (permanent IDs) | 20 |
-| ADR coverage: | 4 ADRs (3 Accepted, 1 Proposed) |
+| TRs registered (permanent IDs) | 30 |
+| ADR coverage: | 4 ADRs (all Accepted) |
 
 ---
 
@@ -28,13 +28,13 @@
 | Layer | TRs (est.) | ADRs existing | ADRs required | Status |
 |---|---|---|---|---|
 | Platform | — (infra) | 3 (ADR-0001..0003 Accepted) | 0 more | ✅ Complete |
-| Foundation | ~35 | 1 (ADR-0004 Proposed) | 3 more (Input, Balance/Data, Hero DB) | ⚠️ 1/4 |
+| Foundation | ~35 | 2 (ADR-0004 Accepted) | 3 more (Input, Balance/Data, Hero DB) | ⚠️ 2/5 |
 | Core | ~30 | 0 | 2+ (Turn Order signal, Save/Load schema) | ❌ 0/2 |
 | Feature | ~25 | 0 | 3+ (Damage Calc, AI, Destiny Branch) | ❌ 0/3 |
 | Presentation | ~10 | 0 | 1+ (Dual-focus UI pattern) | ❌ 0/1 |
 | Polish | ~2 | 0 | 1 (Accessibility, if tier committed) | ❌ 0/1 |
 
-**Net-new ADRs required before Pre-Production → Production gate**: 8–12.
+**Net-new ADRs required before Pre-Production → Production gate**: 7–11 (ADR-0004 landed this pass).
 
 ---
 
@@ -64,8 +64,18 @@ These 20 requirements have permanent IDs and are already covered by an Accepted 
 | TR-save-load-005 | save-load | ADR-0003 | Accepted | BattleOutcome.Result enum append-only; schema_version bump on reorder |
 | TR-save-load-006 | save-load | ADR-0003 | Accepted | Save root `user://saves` — no SAF / external-storage paths |
 | TR-save-load-007 | save-load | ADR-0003 | Accepted | Migration Callables pure — no captured state |
+| TR-map-grid-001 | map-grid | ADR-0004 | Accepted | CR-2 flat array `tiles[row*cols+col]` authoritative; packed caches read-optimization only |
+| TR-map-grid-002 | map-grid | ADR-0004 | Accepted | CR-6 custom Dijkstra only; AStarGrid2D/NavServer2D forbidden (per-cell scalar cannot carry unit×terrain matrix) |
+| TR-map-grid-003 | map-grid | ADR-0004 | Accepted | 9 public read-only query methods (get_tile, get_movement_range, get_path, get_attack_range, get_attack_direction, get_adjacent_units, get_occupied_tiles, has_line_of_sight, get_map_dimensions) |
+| TR-map-grid-004 | map-grid | ADR-0004 | Accepted | Mutation API (set_occupant, clear_occupant, apply_tile_damage) — Grid Battle only by convention; write-through to packed caches |
+| TR-map-grid-005 | map-grid | ADR-0004 | Accepted | `tile_destroyed(coord: Vector2i)` single-primitive GameBus signal; Environment domain amendment to ADR-0001 (27 signals / 8 domains) |
+| TR-map-grid-006 | map-grid | ADR-0004 | Accepted | AC-PERF-2 <16ms get_movement_range on 40×30 move_range=10; packed caches + early-termination Dijkstra |
+| TR-map-grid-007 | map-grid | ADR-0004 | Accepted | Battle-scoped Node; freed with BattleScene; zero cross-battle state |
+| TR-map-grid-008 | map-grid | ADR-0004 | Accepted | Elevation 0/1/2 + integer Bresenham LoS; destroyed walls unblock; endpoints never self-block |
+| TR-map-grid-009 | map-grid | ADR-0004 | Accepted | `.tres` authoring at `res://data/maps/[map_id].tres`; CACHE_MODE_IGNORE load; OQ#2 resolved |
+| TR-map-grid-010 | map-grid | ADR-0004 | Accepted | TileData inline-only (no external UID) — hard constraint from duplicate_deep() edge case; superseding ADR required for shared presets |
 
-**Gap**: ADR-0004 (Map/Grid) has TR requirements flowing in the ADR body but no tr-registry entries yet. Next `/architecture-review` pass will append `TR-map-grid-*` entries.
+All Foundation-layer ADRs (ADR-0001..0004) now have permanent TR IDs registered.
 
 ---
 
@@ -125,9 +135,9 @@ _Full rows deferred to next Phase 0 writeup. Seed: damage intake pipeline, heali
 
 _Full rows deferred. Seed: 22-action vocabulary, auto-detect mode (KB/mouse vs touch), 7 input states, 2-beat confirmation, Touch Tap Preview Protocol, Magnifier disambiguation, pan-vs-tap classification, per-unit undo, JSON bindings at res path, camera_zoom_min=0.70, HUD mode hints. Target ADR: ⏳ ADR-0005 Input Handling (HIGH engine risk: dual-focus 4.6, SDL3, Android edge-to-edge)._
 
-### design/gdd/map-grid.md (10 candidate TRs)
+### design/gdd/map-grid.md (10 TRs — REGISTERED 2026-04-20)
 
-_Covered by ADR-0004 (Proposed). Registration pending `/architecture-review` re-run. Seed: 15–40×15–30 bounds, flat-array index, tile data schema, 8 terrain types, tile state machine, Dijkstra contract, LoS via Bresenham, 4-cardinal facing, tile_destroyed signal, elevation↔terrain validation. Target ADR: ADR-0004._
+Registered as TR-map-grid-001..010 in tr-registry.yaml v3. See "Registered TR-to-ADR map" section above for the full table.
 
 ### design/gdd/scenario-progression.md (5 candidate TRs — v2.0 re-review pending)
 
@@ -149,9 +159,9 @@ _Full rows deferred. Seed: 6 classes with ATK/DEF profiles, formulas F-1..F-5, t
 
 ## Next registry writes (when /architecture-review next runs)
 
-1. Register ~20 new permanent TR IDs for ADR-0004 Map/Grid coverage (tile schema, pathfinding contract, duplicate_deep constraint, cache-sync rules)
-2. Assign permanent IDs for the net-new ~40–60 TRs once their covering ADRs exist
-3. Flip ADR-0004 from Proposed → Accepted and re-version `tr-registry.yaml` (2 → 3)
+1. ~~Register ~20 new permanent TR IDs for ADR-0004 Map/Grid coverage~~ ✅ **Done 2026-04-20** — 10 TRs registered (TR-map-grid-001..010)
+2. ~~Flip ADR-0004 from Proposed → Accepted and re-version `tr-registry.yaml` (2 → 3)~~ ✅ **Done 2026-04-20**
+3. Assign permanent IDs for the net-new ~40–60 TRs once their covering ADRs exist (Input Handling, Balance/Data, Hero DB, Terrain Effect, Formation Bonus, Destiny Branch, Destiny State, Unit Role formulas)
 
 ---
 
@@ -160,3 +170,4 @@ _Full rows deferred. Seed: 6 classes with ATK/DEF profiles, formulas F-1..F-5, t
 | Date | Version | Change |
 |---|---|---|
 | 2026-04-18 | 0.1 | Stub created during `/create-architecture` Phase 0. 20 registered TRs carried forward; 102-TR baseline previewed per-GDD. Full registration deferred to next `/architecture-review`. |
+| 2026-04-20 | 0.2 | Delta review: ADR-0004 escalated Proposed → Accepted. 10 new TR-map-grid-* entries registered (registry v2→v3). Foundation layer 1/4 → 2/5 complete. Source: `docs/architecture/architecture-review-2026-04-20.md`. |

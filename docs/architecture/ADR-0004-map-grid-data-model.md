@@ -1,13 +1,18 @@
 # ADR-0004: Map/Grid Data Model
 
 ## Status
-Proposed (2026-04-18)
+Accepted (2026-04-20, via `/architecture-review`)
 
 ## Date
 2026-04-18
 
-## User Approval
-pending
+## Last Verified
+2026-04-20
+
+## Decision Makers
+- Technical Director (architecture owner)
+- User (final approval, 2026-04-20)
+- godot-specialist (engine validation, 2026-04-20)
 
 ## Engine Compatibility
 
@@ -566,3 +571,4 @@ post-MVP follows ADR-0003's migration registry pattern
 | Date | Change |
 |------|--------|
 | 2026-04-18 | Initial draft. Proposed status. Resolves map-grid.md Open Question #2. Carries concurrent amendment to ADR-0001 (Environment domain banner + `tile_destroyed` signal). |
+| 2026-04-20 | Status flipped Proposed → Accepted via `/architecture-review` (context-isolated godot-specialist validation: 8/8 engine checks APPROVED). All R-1..R-5 mitigations verified consistent with Godot 4.6. CR-6 custom-Dijkstra rejection of AStarGrid2D re-confirmed (4.6 `set_point_weight_scale` is per-cell scalar, cannot carry per-unit-type × per-terrain-type cost matrix). TR-map-grid-001..010 registered in tr-registry.yaml v3. Advisory carried (non-blocking): `get_movement_range()` return type `PackedVector2Array` vs `Array[Vector2i]` — defer to GDScript specialist at implementation time per /dev-story. |

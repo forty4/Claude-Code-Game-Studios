@@ -24,8 +24,8 @@
 #
 # STATUS VALUES: active | deprecated | superseded-by: TR-[system]-NNN
 
-version: 2
-last_updated: "2026-04-18"
+version: 3
+last_updated: "2026-04-20"
 
 requirements:
   - id: TR-gamebus-001
@@ -185,5 +185,91 @@ requirements:
     adr: docs/architecture/ADR-0003-save-load.md
     requirement: "Migration Callables in SaveMigrationRegistry are pure functions; no captured node/singleton/object state permitted."
     created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-map-grid-001
+    system: map-grid
+    gdd: design/gdd/map-grid.md
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    requirement: "CR-2: Flat-array tile storage indexed as tiles[row * map_cols + col]. Authoritative source-of-truth is Array[TileData] inside MapResource; packed caches are a read-optimization layer only."
+    created: 2026-04-20
+    revised: ""
+    status: active
+
+  - id: TR-map-grid-002
+    system: map-grid
+    gdd: design/gdd/map-grid.md
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    requirement: "CR-6: Pathfinding uses custom Dijkstra only. Godot's AStarGrid2D and NavigationServer2D are forbidden — per-unit-type × per-terrain-type cost matrix is incompatible with AStarGrid2D's per-cell scalar weight model."
+    created: 2026-04-20
+    revised: ""
+    status: active
+
+  - id: TR-map-grid-003
+    system: map-grid
+    gdd: design/gdd/map-grid.md
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    requirement: "MapGrid exposes 9 public read-only query methods: get_tile, get_movement_range, get_path, get_attack_range, get_attack_direction, get_adjacent_units, get_occupied_tiles, has_line_of_sight, get_map_dimensions."
+    created: 2026-04-20
+    revised: ""
+    status: active
+
+  - id: TR-map-grid-004
+    system: map-grid
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    requirement: "Mutation API (set_occupant, clear_occupant, apply_tile_damage) is called only by GridBattleController by convention. Every mutation writes through to both Array[TileData] (authoritative) and matching packed cache in the same call."
+    created: 2026-04-20
+    revised: ""
+    status: active
+
+  - id: TR-map-grid-005
+    system: map-grid
+    gdd: design/gdd/map-grid.md
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    requirement: "MapGrid emits exactly one GameBus signal: tile_destroyed(coord: Vector2i). Single-primitive payload (canonical form per TR-gamebus-001). Consumed by AI (path cache invalidation), Formation Bonus (adjacency re-check), VFX. Added to ADR-0001 Environment domain via concurrent amendment (signal count 26→27, domain count 7→8)."
+    created: 2026-04-20
+    revised: ""
+    status: active
+
+  - id: TR-map-grid-006
+    system: map-grid
+    gdd: design/gdd/map-grid.md
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    requirement: "AC-PERF-2: get_movement_range() completes in <16ms on 40×30 map with move_range=10 on mid-range Android target. Achieved via packed-cache hot-path layer + early termination Dijkstra + typed locals throughout inner loop. Verification benchmark required pre-implementation."
+    created: 2026-04-20
+    revised: ""
+    status: active
+
+  - id: TR-map-grid-007
+    system: map-grid
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    requirement: "MapGrid is a battle-scoped Node (not Node2D, not autoload). Freed with BattleScene on return to overworld; zero cross-battle state leak. Aligns with ADR-0002 IDLE → LOADING_BATTLE → IN_BATTLE → free lifecycle."
+    created: 2026-04-20
+    revised: ""
+    status: active
+
+  - id: TR-map-grid-008
+    system: map-grid
+    gdd: design/gdd/map-grid.md
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    requirement: "Elevation values 0/1/2 supported per tile. LoS uses integer Bresenham rasterization + rule: intermediate tile blocks LoS iff elevation > max(from.elev, to.elev). Destroyed walls no longer block LoS; endpoints never self-block."
+    created: 2026-04-20
+    revised: ""
+    status: active
+
+  - id: TR-map-grid-009
+    system: map-grid
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    requirement: "Map authoring format is Godot native Resource text (.tres) at res://data/maps/[map_id].tres, edited via Godot inspector. Shipped builds convert to binary .res via export pipeline. Load uses ResourceLoader.load(path, '', CACHE_MODE_IGNORE) mirroring ADR-0003. Resolves map-grid.md OQ#2."
+    created: 2026-04-20
+    revised: ""
+    status: active
+
+  - id: TR-map-grid-010
+    system: map-grid
+    adr: docs/architecture/ADR-0004-map-grid-data-model.md
+    requirement: "TileData must remain inline inside MapResource.tres with no external UID references. Resource.duplicate_deep() returns shared instances for UID-referenced sub-resources, which would leak destruction state between maps. Shared-preset refactor requires superseding ADR (R-3 hard constraint)."
+    created: 2026-04-20
     revised: ""
     status: active
