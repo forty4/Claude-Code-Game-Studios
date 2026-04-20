@@ -16,20 +16,22 @@ This directory holds all automated test suites. Per `.claude/docs/technical-pref
 ### Local (one-shot)
 
 ```bash
-godot --headless --script tests/gdunit4_runner.gd
+# One-time prerequisite — builds .godot/ class cache so gdUnit4 class_name globals resolve in headless mode.
+# Re-run only after pulling changes that add new class_name declarations or addons.
+godot --headless --import
+
+# Test run
+godot --headless --path . -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
+  --ignoreHeadlessMode -a res://tests/unit -a res://tests/integration -c
 ```
 
-This wrapper invokes GdUnit4's CLI runner over `tests/unit/` and `tests/integration/`. Prerequisite: GdUnit4 installed via the Godot Asset Library (search "gdUnit4") or as a git submodule at `addons/gdUnit4/`.
+Prerequisite: gdUnit4 vendored at `addons/gdUnit4/` — see `addons/gdUnit4/VERSION.txt` for pinned version. To upgrade, follow the instructions in that file.
 
-### Local (GdUnit4 direct)
-
-```bash
-godot --headless --path . -s addons/gdUnit4/bin/GdUnit4CliRunner.gd --add tests/unit --add tests/integration --continue
-```
+The `--ignoreHeadlessMode` flag is required because gdUnit4 v6.x refuses headless mode by default (it warns that UI-interaction tests won't work in headless). Our test suite is pure logic/integration — no UI InputEvent simulation — so ignoring the warning is safe.
 
 ### CI
 
-GitHub Actions runs `.github/workflows/tests.yml` on every push to `main` and every PR. Uses `MikeSchulze/gdUnit4-action@v1` which provisions Godot + GdUnit4 automatically.
+GitHub Actions runs `.github/workflows/tests.yml` on every push to `main` and every PR. Uses `MikeSchulze/gdUnit4-action@v1` which provisions Godot + gdUnit4 automatically — the vendored `addons/gdUnit4/` copy is for local dev, not CI.
 
 ## Conventions
 
@@ -51,8 +53,8 @@ Per coding standards:
 
 ## First-run checklist
 
-- [ ] Install GdUnit4 via Godot Asset Library (Editor → AssetLib → search "gdUnit4")
-- [ ] Verify `addons/gdUnit4/` exists
-- [ ] Run `godot --headless --script tests/gdunit4_runner.gd` — should pass `tests/unit/example_test.gd`
-- [ ] Commit `addons/gdUnit4/` (or add as submodule) so CI can install it
+- [ ] Install Godot 4.6 (macOS: `brew install --cask godot`)
+- [ ] Verify `addons/gdUnit4/` exists (vendored at project-root; see `VERSION.txt`)
+- [ ] Run `godot --headless --import` — populates `.godot/` class cache
+- [ ] Run the test command shown in "Running tests → Local" — should pass `tests/unit/example_test.gd` (3 test cases)
 - [ ] Push to a branch and confirm `.github/workflows/tests.yml` runs green
