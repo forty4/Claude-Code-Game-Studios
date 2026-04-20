@@ -1,11 +1,11 @@
 # Story 000: Godot 4.6 project + GdUnit4 test harness bootstrap
 
 > **Epic**: gamebus
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Platform (prerequisite infrastructure)
 > **Type**: Config/Data
 > **Manifest Version**: 2026-04-20
-> **Estimate**: 2 hours (S)
+> **Estimate**: 2 hours (S) — actual ~3.5h (scope discoveries; see Completion Notes)
 
 ## Context
 
@@ -82,3 +82,27 @@
 
 - **Depends on**: None (bootstrap story)
 - **Unlocks**: Story 001 (payload classes cannot parse without project.godot), Story 002 (autoload registration), all subsequent `.gd` authoring across every epic
+
+## Completion Notes
+
+**Completed**: 2026-04-20
+**Criteria**: 7/7 passing (all COVERED in traceability table; AC-7 GUI screenshot optional, headless proxy PASS)
+**Verdict**: COMPLETE WITH NOTES
+
+**Test Evidence**: `production/qa/smoke-2026-04-20.md` (Config/Data smoke check, ADVISORY gate — PASS)
+
+**PR**: [#1 on forty4/Claude-Code-Game-Studios](https://github.com/forty4/Claude-Code-Game-Studios/pull/1) — merged to main
+**Green CI run**: [`24661419984`](https://github.com/forty4/Claude-Code-Game-Studios/actions/runs/24661419984) (success, 51s, 3/3 tests)
+
+**Deviations** (5 ADVISORY, all user-approved in-session; details in smoke doc §Deviations):
+1. `config/features` corrected (`PackedStringArray("4.6")` — no renderer string per Godot 4.6 demo-project verification)
+2. Install method pivoted submodule → vendored v6.1.2 (nested repo path incompatible with flat plugin discovery)
+3. Legacy `tests/gdunit4_runner.gd` deleted (gdUnit4 v6.x rename + SceneTree delegation impossible)
+4. `--ignoreHeadlessMode` flag required for gdUnit4 v6.x headless runs
+5. CI workflow `permissions:` block added (pre-existing bug blocked AC-6)
+
+**Out-of-scope files touched** (all justified): `.github/workflows/tests.yml` (Deviation #5), `tests/gdunit4_runner.gd` (deleted, Deviation #3), `tests/README.md` (updated for v6.x), `tests/unit/example_test.gd.uid` (Godot 4.4+ auto-generated UID sidecar).
+
+**Gates skipped** (review-mode=lean): QL-TEST-COVERAGE, LP-CODE-REVIEW. Not applicable regardless — this is Config/Data with no `.gd` implementation files to review.
+
+**Tech debt logged**: Deviations #2, #3, #5 to `docs/tech-debt-register.md` (process/infra debt). Deviations #1 + #4 are correctness fixes, not debt.
