@@ -104,3 +104,47 @@ Remediation:
 - If float, bump the payload schema version OR add a migration note to ADR-0003 save/load migration registry
 
 **Next review**: when the Grid Battle ADR enters /architecture-decision drafting.
+
+---
+
+## TD-006 — ADR-0001 §Key Interfaces code-block is stale (7 banners vs 10)
+
+**Origin**: story-002 /code-review WARNING W-1 (gdscript-specialist)
+**Category**: docs
+**Severity**: low
+**Status**: open
+
+The `docs/architecture/ADR-0001-gamebus-autoload.md` §Key Interfaces section contains an embedded code-block of `game_bus.gd` showing the autoload file structure. That code-block still uses 7 grouped domain banners (Grid Battle / Turn Order / HP-Status lumped under one banner, etc.) — the pre-amendment form.
+
+The post-amendment Signal Contract Schema tables in the same ADR define 10 separate domains, and `/architecture-review` advisory M-2 (2026-04-18) recommended implementing with 10 split banners. Story 002's `src/core/game_bus.gd` correctly implements 10 banners per the schema — but a programmer referencing only the ADR's §Key Interfaces code-block will see the old 7-banner form and may produce inconsistent derivative work.
+
+Remediation:
+- Update the §Key Interfaces code-block in ADR-0001 to show 10 banners matching the implemented `game_bus.gd`
+- Keep the ADR's Status: Accepted (no supersession needed — this is a documentation sync, not a contract change)
+- Add a dated changelog line: `2026-04-20 — §Key Interfaces code-block updated to match 10-banner implementation per advisory M-2`
+- Do NOT add inline guidance to §Evolution Rule about keeping the code-block in sync (it's already stated)
+
+**Next review**: before Stories 003/004/005 begin — those stories will likely reference §Key Interfaces and should see the current form.
+
+---
+
+## TD-007 — AC-4 lint regex doesn't cover static/enum/@tool (deferred to Story 008)
+
+**Origin**: story-002 /code-review qa-tester Gap 2 (advisory)
+**Category**: code
+**Severity**: low
+**Status**: deferred (planned resolver: Story 008 CI lint)
+
+`tests/unit/core/game_bus_declaration_test.gd::test_gamebus_script_has_no_var_func_const_class_declarations` uses regex `^(var|func|const|class|@onready|@export)\s`. Three patterns are NOT covered:
+- `static var` and `static func` — `static` prefix means `^var`/`^func` don't match
+- `enum` — declares a named constant set (effectively state)
+- `@tool` — would run the autoload in-editor, a meaningful semantic change
+
+The story's AC-4 spec text mirrors the regex exactly, so this is a spec gap, not just a test gap. A developer could introduce a `static var` cache in `game_bus.gd` without failing the current test — subverting the zero-state rule.
+
+Remediation path:
+- Story 008 (CI lint) is the authoritative owner of this lint and will tighten the regex. Defer the fix there.
+- When Story 008 lands: update both the Story 002 test AND the story-002 AC-4 text to match.
+- Alternative (if Story 008 slips): add the 3 missing patterns to the existing test regex as a point fix — 1-line change.
+
+**Next review**: when Story 008 enters /dev-story.
