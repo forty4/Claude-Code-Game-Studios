@@ -5,7 +5,7 @@
 > **Architecture Module**: GameBus (docs/architecture/architecture.md §Platform layer)
 > **Status**: Ready
 > **Manifest Version**: 2026-04-20
-> **Stories**: Not yet created — run `/create-stories gamebus`
+> **Stories**: 8 created (2026-04-20) — see Stories table below
 
 ## Overview
 
@@ -70,6 +70,31 @@ This epic is complete when:
 - Cross-scene emit integration test passes (V-4): BattleController emits, ScenarioRunner receives after battle scene freed
 - Frame-time profile on target Android shows <0.5 ms bus dispatch attribution (V-8)
 
+## Stories
+
+| # | Story | Type | Status | ADR | Validation |
+|---|-------|------|--------|-----|------------|
+| 001 | Non-provisional payload Resource classes | Logic | Ready | ADR-0001 | TR-gamebus-001 §3 |
+| 002 | GameBus autoload declaration + registration | Logic | Ready | ADR-0001 | V-1, V-9 |
+| 003 | signal_contract_test — ADR table → code drift gate | Integration | Ready | ADR-0001 | V-2 |
+| 004 | payload_serialization_test — ResourceSaver round-trip | Integration | Ready | ADR-0001 | V-3 |
+| 005 | GameBusDiagnostics — debug-only 50-emit/frame soft cap | Logic | Ready | ADR-0001 | V-5 |
+| 006 | GameBus stub pattern for GdUnit4 | Integration | Ready | ADR-0001 | V-6 |
+| 007 | Cross-scene emit integration test | Integration | Ready | ADR-0001 | V-4 |
+| 008 | CI lint — per-frame emit ban | Config/Data | Ready | ADR-0001 | V-7 |
+
+**Deferred to Polish phase (consumer-system-dependent)**:
+- V-8: Frame-time profile on target Android showing <0.5 ms bus dispatch — requires running battle with real consumers
+- V-10: Scenario Progression integration milestone — belongs to Scenario Progression epic's Vertical Slice exit criterion
+
+## Implementation Order
+
+1. **Story 001** — payload classes (foundation for signal signatures)
+2. **Story 002** — GameBus autoload (depends on Story 001's class_names)
+3. **Stories 003 / 004 / 005 / 006 in parallel** — all test/tooling layered on the autoload
+4. **Story 007** — cross-scene integration test (depends on Story 001 + 002; recommended to use Story 006 stub)
+5. **Story 008** — CI lint (depends on Story 002 for real GameBus reference)
+
 ## Next Step
 
-Run `/create-stories gamebus` to break this epic into implementable stories.
+Run `/story-readiness production/epics/gamebus/story-001-payload-resource-classes.md` to validate the first story, then `/dev-story` to begin implementation.
