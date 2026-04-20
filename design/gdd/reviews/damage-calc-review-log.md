@@ -630,6 +630,161 @@ Blocking items: 6 stale "179" sites + Player Fantasy 2.16x | New design call: Pi
 - 10 of seventh-pass 11 deferred recommendeds remain (push_error export-build log, V-3 600ms-vs-800ms ghost, etc.).
 - `design/gdd/balance-data.md` formations.json schema + `design/registry/entities.yaml` constant registration (P_MULT_COMBINED_CAP + FORMATION_ATK_BONUS_CAP + FORMATION_DEF_BONUS_CAP) — Phase 5 work.
 
-### Status (final)
+### Status (final — superseded by ninth pass 2026-04-20)
 
-Damage Calc #11: **Designed (APPROVED post-rev-2.9.1 close-out)** — eighth pass + rev 2.7 + rev 2.8 + rev 2.8.1 + rev 2.9 + rev 2.9.1 all closed.
+Damage Calc #11: Designed (APPROVED post-rev-2.9.1 close-out) — eighth pass + rev 2.7 + rev 2.8 + rev 2.8.1 + rev 2.9 + rev 2.9.1 all closed. **Verdict did not hold under ninth-pass adversarial review — see below.**
+
+---
+
+## Review — 2026-04-20 (ninth pass, fresh clean session) — Verdict: NEEDS REVISION → Revised in-session (rev 2.9.2)
+
+Scope signal: **M** (2 user design decisions + 13 blockers + cross-file coordination across damage-calc.md + unit-role.md + battle-hud.md; ~20 edits)
+Specialists: game-designer, systems-designer, qa-lead, ux-designer, godot-gdscript-specialist + creative-director (senior synthesis) — full mode per skill default
+Blocking items: 13 (across 6 clusters, 3-way convergent on 2) | Recommended: 15 | Nice-to-have: 2
+Prior verdict resolved: **Partially** — rev 2.9.1 close-out stated "APPROVED" but ninth-pass adversarial review surfaced 13 new blockers. Not a regression from rev 2.9.1 — a legitimate surfacing of issues prior passes missed, most notably the Vignette-1-analogous Pillar-1 honesty gap closed on Formation Bonus v1.1 side but left open on damage-calc.
+
+### Summary
+
+First formal `/design-review` pass since rev 2.9 + 2.9.1 + Formation Bonus v1.1 all landed. Prior verdict "APPROVED post-rev-2.9.1 close-out" was close-out of narrow rev 2.9.1 work, not a full adversarial review. Ninth pass spawned 5 specialists in parallel + creative-director synthesis. Flagged-MISS redesign (rev 2.4) remains sound; no new fabricated APIs introduced. Rev 2.9 Formation integration arithmetic verified correct per specialist independent computation (83×1.64×1.31=178; 83×1.65×1.31=179; P_mult path clamps correctly).
+
+**Three 3-way convergent blocker clusters**:
+
+1. **Cluster A — Pillar-1 Apex Honesty (game + ux BLK-U-1 + ux BLK-U-2)**: Cavalry+Charge+Rally pre-cap P_mult=1.32 already triggers P_MULT_COMBINED_CAP=1.31 clamp → 178. Adding Formation(+5%) produces identical 178. Player's Formation investment silently discarded at apex — direct analogue of the Vignette-1 honesty gap formation-bonus.md v1.1 closed. UI-2 tooltip, V-2 annotation, UI-4 TalkBack all inherit the blindness.
+
+2. **Cluster B — Cross-Doc LIVE DESYNC (game-designer BLK-G-2)**: unit-role.md §CR-6a Cavalry REAR ×1.2; damage-calc F-DC-4 ×1.09. Rev 2.8 change never propagated to owning document. Implementer trap (ships D_mult=1.80 breaking every apex cell). Third consecutive pass surfacing cross-doc desync — creative-director names new pattern **"change the cell, forget the citer."**
+
+3. **Cluster C — Missing Damage-Calc-Owned Consumer ACs (systems BLK-S-4 + qa Gap 1 + game REC-3)**: F-DC-5 Formation block + F-DC-3 formation_def_bonus paths have no AC-DC-* in damage-calc's own test file. AC-FB-23/24 in formation-bonus.md do not substitute (different file, different owner) per 100% balance formula coverage. Becomes BLOCKING when Formation Bonus implementation sprint starts.
+
+**Remaining 3 clusters** (non-convergent but ≥2-BLK impact):
+- **Cluster D — Numeric/Spec Drift**: BLK-S-1 Infantry Pillar-3 peak 157 (correct 158); BLK-S-2 eff_def documented range [1,100] violated (reaches 105); BLK-S-3 F-DC-5 expected range stale.
+- **Cluster E — Godot Implementation Viability**: BLK-GD-1 subclass field-shadowing unverified; BLK-GD-2 @onready on unspecified test class base.
+- **Cluster F — UX Accessibility**: BLK-U-3 UI-4 TalkBack missing Formation; BLK-U-4 UI-GB-14 Reduce Motion gap.
+
+### User design adjudications (binding — captured up-front per skill discipline)
+
+1. **eff_def range resolution (Disagreement #1)**: Update documented range [1, 100] → [1, 105]. Preserves Formation DEF visibility at apex. No second clamp applied. Accepted cost: eff_def ceiling drift +5 at DEF_CAP.
+2. **Pillar-1 apex honesty fix (Disagreement #2)**: Option (a) text amendments. Player Fantasy acknowledges Formation as non-apex modifier; UI-2 tooltip itemizes Formation with "absorbed by combined cap" annotation; V-2 reintroduces CAPPED affordance (▲ glyph); UI-4 TalkBack Formation provenance + R-2 cross-ref. Lower-risk than cap restructure. Preserves formula correctness.
+3. **formation_def_bonus trust boundary**: Keep upstream-only enforcement. Add EC-DC-26 documenting F-DC-3 trusts F-FB-3 cap. Matches existing Rally trust pattern. Avoids duplicating cap logic.
+4. **Cross-doc audit discipline**: Adopt "change the cell, forget the citer" process fix. Rev 2.9.2 forward: any numeric change triggers grep-level cross-doc audit before revision closure. Standing rule for damage-calc re-reviews.
+
+### Blocker → fix summary (rev 2.9.2)
+
+| # | Cluster | Fix applied | Files touched |
+|---|---|---|---|
+| Cluster B | BLK-G-2 unit-role.md CR-6a desync | Cavalry REAR ×1.2 → ×1.09 with full rev 2.8 attribution; Tuning Knobs row safe range narrowed to ×1.0–×1.15; Tuning guideline rewritten (1.5 × 1.09 × 1.20 = 1.96×; warning note against raising above ×1.15) | unit-role.md (3 sites) |
+| Cluster D | BLK-S-1 Infantry Pillar-3 peak 157→158 | F-DC-4 Pillar-3 peak hierarchy table updated with arithmetic verification (`floori(83 × 1.65 × 1.16) = 158`; prior 157 conflated Infantry D_mult=1.65 with Cavalry REAR D_mult=1.64) | damage-calc.md (F-DC-4) |
+| Cluster D | BLK-S-2 eff_def range [1,100] violated | Updated documented range to [1, 105] per user adjudication; Formation DEF preserved at apex; eff_def drift +5 accepted as cost of Formation visibility | damage-calc.md (F-DC-3 Expected ranges) |
+| Cluster D | BLK-S-3 F-DC-5 expected range stale | Rewritten from `{1.00, 1.15, 1.20, 1.38}` to full rev 2.9 spec: [1.00, 1.31] continuous post-cap with base + Rally + Formation composition tables and P_MULT_COMBINED_CAP firing boundary | damage-calc.md (F-DC-5) |
+| Cluster D | REC-S-1 TK-DC-3 stale D_mult 1.80 | Rationale rewritten with current Cavalry REAR D_mult=1.64 (rev 2.8) + full rev 2.9 P_MULT_COMBINED_CAP=1.31 composition | damage-calc.md (TK-DC-3) |
+| Cluster C | BLK-S-4 / qa Gap 1 Missing consumer ACs | Authored AC-DC-52 (D-7 Formation ATK sub-apex, Cavalry+Charge+Formation no-Rally = 171 vs 163 delta +8) + AC-DC-53 (D-8 Formation DEF consumer, DEF=50 + formation_def_bonus=0.04 → eff_def=52 → base=30); Coverage Matrix FORMULA 10→12; TOTAL 51→53; VS sub-blockers 35→37 | damage-calc.md (§AC + Coverage Matrix + Release stage summary) |
+| Cluster A | BLK-G-1 Pillar-1 apex honesty | Player Fantasy Formation-as-non-apex-modifier block added (sub-apex 163→171 is Formation's promise) | damage-calc.md (§2 Player Fantasy) |
+| Cluster A | BLK-U-1 UI-2 Formation line + P_MULT_COMBINED_CAP disclosure | UI-2 tooltip content rewritten with Formation line + "▲ absorbed by combined cap" annotation when cap fires; disclosed multi-pattern summed scalar; reframed DAMAGE_CEILING (silent backstop) vs P_MULT_COMBINED_CAP (disclosed player-facing clamp) | damage-calc.md (UI-2) |
+| Cluster A | BLK-U-2 V-2 CAPPED affordance | `▲` shape glyph annotation added before `×` sign when P_MULT_COMBINED_CAP fires; hover/tap tooltip `"P_mult pre-cap 1.39 → cap 1.31 (Formation absorbed)"`; tri-modal disclosure (visual + tooltip + TalkBack) | damage-calc.md (V-2) |
+| Cluster F | BLK-U-3 UI-4 TalkBack Formation provenance | Provenance string extended with `Form+X` / `Form-X` / `Form capped` tokens; R-2 cross-ref added to accessibility-requirements.md §4 | damage-calc.md (UI-4 Screen reader) |
+| Cluster F | BLK-U-4 UI-GB-14 Reduce Motion override | battle-hud.md §3.1 Accessibility block: 1.2 Hz pulse suppressed under Reduce Motion; falls back to MVP static tint + 陣 glyph; 청록/청회 palette conflict check added for movement-range overlap | battle-hud.md (§3.1 Accessibility) |
+| Cluster E | BLK-GD-1 subclass field-shadowing unverified | AC-DC-21 pass criteria extended with Phase-5 engine-ref verification requirement + fallback strategy (Object.set() + @warning_ignore) if shadowing raises parse error; push_error log location clarified for export/headless builds | damage-calc.md (AC-DC-21) |
+| Cluster E | BLK-GD-2 @onready on unspecified test class | AC-DC-51(b) test class base clarified as `GdUnitTestSuite extends Node` (required for @onready decorator); fallback pattern (lazy init in test method) for non-Node test bases | damage-calc.md (AC-DC-51) |
+| EC-DC-26 | User adjudication #3 formation_def trust boundary | New EC-DC-26 ADVISORY added (Category J Formation Bonus Trust Boundary); documents F-DC-3 trusts F-FB-3 upstream cap; mitigation note pointing at Formation Bonus v1.2 AC-FB-09b DEF cap test | damage-calc.md (§5 EC section intro count 25→26, category 9→10) |
+
+### Arithmetic verification (rev 2.9.2 sanity check — computed pre-close per "compute, don't read" discipline)
+
+- **Cavalry apex** REAR+Charge+Rally+Formation: `floori(83 × 1.64 × 1.31) = 178` ✓ (P_MULT_COMBINED_CAP clamps; unchanged from rev 2.9)
+- **Cavalry sub-apex** REAR+Charge+Formation no-Rally: `P_mult = snappedf(1.20 × 1.05, 0.01) = 1.26`; cap does NOT fire (1.26 < 1.31); `floori(83 × 1.64 × 1.26) = 171` ✓ (+8 vs no-Formation 163; Formation live at sub-apex)
+- **Archer/Scout cap-pinned apex**: `floori(83 × 1.65 × 1.31) = 179` ✓ (user-ratified 1pt inversion preserved)
+- **Infantry REAR+Rally+Formation** (rev 2.9.2 corrected): `floori(83 × 1.65 × 1.16) = floori(158.862) = 158` ✓ (was 157 pre-fix)
+- **Infantry REAR no passive**: `floori(83 × 1.65) = 136` ✓ (Pillar-3 tank baseline unchanged)
+- **AC-DC-52 sub-apex formation ATK**: `floori(83 × 1.64 × 1.26) = 171` ✓; delta vs no-Formation: `floori(83 × 1.64 × 1.20) = 163`; +8 damage ✓
+- **AC-DC-53 formation DEF consumer**: eff_def `50 + floori(50 × 0.04) = 52`; base `min(83, max(1, 82−52)) = 30` ✓
+- **eff_def range extended**: DEF=100 + formation_def_bonus=0.05 → `floori(100 × 0.05) = 5`; eff_def = 105 ✓ (within new documented [1, 105] range)
+- **P_mult cap firing boundary**: Cavalry+Charge+Rally pre-cap `1.20 × 1.10 = 1.32` > 1.31; cap fires BEFORE Formation added ✓ (Pillar-1 honesty disclosure warranted)
+
+### Cross-doc audit (new rev 2.9.2 discipline — "change the cell, forget the citer")
+
+Changes made this sweep with cross-doc propagation verification:
+- CLASS_DIRECTION_MULT[CAVALRY][REAR]=1.09: updated in unit-role.md §CR-6a (owner) + verified consistent with damage-calc.md F-DC-4 (consumer) — desync closed
+- eff_def documented range [1, 105]: damage-calc.md only (F-DC-3) — no external citers
+- AC-DC-52/53 new: damage-calc.md §AC only — no external citers; Formation Bonus v1.1 AC-FB-23/24 cross-ref updated via comment in ACs
+- UI-2 Formation line + P_MULT_COMBINED_CAP disclosure: damage-calc.md only — battle-hud.md §3.1 UI-GB-14 is Formation Aura (state indicator), damage popup is event — distinct surfaces, no propagation required
+- UI-4 TalkBack Formation provenance: damage-calc.md + cross-ref added to `design/ux/accessibility-requirements.md` §4 R-2 Formation State Token subsection (existing; no new edit required)
+- battle-hud.md §3.1 Reduce Motion override: battle-hud.md only — damage-calc.md UI-4 already covers damage-popup Reduce Motion independently; the two specs now both reference the same in-game Settings toggle
+
+Remaining cross-doc propagation owed (Phase 5 implementation work):
+- `design/registry/entities.yaml`: register P_MULT_COMBINED_CAP + FORMATION_ATK_BONUS_CAP + FORMATION_DEF_BONUS_CAP constants (Formation Bonus v1.1 §6 pending)
+- `design/gdd/balance-data.md`: formations.json schema update (Formation Bonus v1.1 §6 pending)
+- `design/gdd/hero-database.md`: confirm 4 MVP effect_tag values (Formation Bonus v1.1 §6 pending)
+
+### Specialist disagreements (both captured in user adjudications above)
+
+- Disagreement #1 BLK-S-2: systems-designer offered (a) second clamp or (b) update range; game-designer Cluster A pressure favored (b); no specialist advocated (a). User selected (b).
+- Disagreement #2 BLK-G-1: game-designer preferred option (a) text amendments; ux-designer implicit preference for option (b) cap restructure. User selected (a) as lower-risk formula-preserving fix.
+
+### Carry-forward (post rev-2.9.2)
+
+- **AC-DC-21/28 Phase-5 engine-reference verification**: godot-gdscript-specialist must confirm GDScript 4.6 typed-field shadowing behavior in subclass before AC-DC-21/28 are authored as tests. Fallback strategy documented inline.
+- **Phase 5 cross-system patches**: (a) entities.yaml register 3 rev 2.9 constants; (b) balance-data.md formations.json schema; (c) hero-database.md effect_tag confirmation; (d) ADR-0005 authoring; (e) grid-battle.md typed-signature migration; (f) grid-battle.md F-GB-PROV removal; (g) back-references on turn-order / hp-status / terrain-effect / balance-data; (h) DevOps story (CI matrix + headed UI job); (i) engine-programmer story (build-mode sentinel); (j) user action (gdUnit4 addon commit).
+- **REC items deferred from ninth pass** (~10 items): floori dead-zone documentation (REC-S-2); snappedf engine-reference pin (REC-GD-1); push_error export-build log location prose clarification (REC-GD-2); ResolveModifiers.new() prohibition note (REC-GD-3); ADR-0005 status (REC-GD-4); D-4 title/commentary mismatch (REC-G-1); Pillar-3 inversion frequency-in-practice stress test (REC-G-2); Player Fantasy 2.15× narrative completeness (REC-G-4); AC-DC-43 AoE per-target formation_def isolation (qa Gap 3); V-3 600/800ms ghost value (REC-U-1); Formation audio provenance overlay (REC-U-2); WCAG SC 2.3.3 AAA-vs-Intermediate tier citation (REC-U-3). Eligible for rev 2.9.3 bandwidth if tenth-pass surfaces them as BLOCKER-tier.
+- **OQ-AUD-05** (rev 2.1): still deferred to Alpha audition; rev 2.9 tier band thresholds unchanged at 130.
+- **OQ-VIS-03** (rev 2.3, moot since rev 2.4): unchanged.
+
+### Files touched this pass
+
+- `design/gdd/damage-calc.md` (~14 edits): F-DC-3 Expected ranges (1); F-DC-4 Pillar-3 peak hierarchy (1); F-DC-5 expected range (1); TK-DC-3 rationale (1); §2 Player Fantasy (1); UI-2 tooltip content (1); V-2 multiplier annotation (1); UI-4 TalkBack (1); AC-DC-21 engine-ref note (1); AC-DC-51 test class base (1); AC-DC-52 + AC-DC-53 new (2); Coverage Matrix FORMULA row + TOTAL + Release stage summary (3); §5 EC intro count (1); EC-DC-26 new (1); header Last Updated (1)
+- `design/gdd/unit-role.md` (3 edits): §CR-6a Cavalry row; Tuning Knobs Cavalry class REAR row; Tuning guideline
+- `design/ux/battle-hud.md` (1 edit): §3.1 Accessibility block (Reduce Motion + palette conflict)
+- `design/gdd/reviews/damage-calc-review-log.md` (this entry)
+- `design/gdd/systems-index.md` (row #11 + header Last Updated — next)
+- `production/session-state/active.md` (state reconciliation — next)
+
+### Status transition (final)
+
+Damage Calc #11: NEEDS REVISION (ninth-pass) → **Designed (APPROVED post-rev-2.9.2 close-out)** pending narrow re-review verification (3-spec: systems + game + qa recommended per established pattern).
+
+### Process insight (rev 2.9.2)
+
+Creative-director's **"change the cell, forget the citer"** pattern surfaced during ninth-pass (third consecutive pass to find cross-doc desync as blocker). Adopted as standing discipline: any numeric change in damage-calc.md must trigger grep-level cross-doc audit in unit-role.md + entities.yaml + accessibility-requirements.md + battle-hud.md before revision closure. Applied this sweep and captured in Cross-doc audit section above.
+
+The pattern completes the triad:
+- Pass 5: **"recursive fabrication trap"** (fabricated helper → fabricated engine API) — broken in rev 2.4 flagged-MISS redesign
+- Pass 6: **"compute, don't read"** (numerical invariants stated in prose not held under arithmetic) — adopted in rev 2.5/2.6 pre-close verification
+- Pass 9: **"change the cell, forget the citer"** (numeric changes not propagated to citing documents) — adopted in rev 2.9.2 cross-doc audit
+
+All three are process insights, not revision-quality defects. Damage Calc has now surfaced 13 blocker findings across 3 recurring failure-mode categories; each category has an identified discipline remediation. Rev 2.9.2 is the first sweep to apply all three disciplines (flagged-MISS clean, arithmetic computed pre-close, cross-doc audited).
+
+---
+
+## Ninth-pass narrow re-review — rev 2.9.2 verification (2026-04-20)
+
+Context-isolated subagent re-review of rev 2.9.2 sweep per rev 2.8.1 precedent (narrow 3-spec verification after same-session sweep).
+
+### Specialists
+
+- **game-designer**: APPROVED — BLK-G-1 (Pillar-1 apex honesty 4-touchpoint) / BLK-G-2 (Cavalry ×1.09 cross-doc) / REC-3 (AC-DC-52/53) all resolved; 4-pillar integrity pass. Minor hygiene: unit-role.md EC-7 worked example carried pre-rev-2.8 numbers (advisory — superseded in-place by registry note below it).
+- **systems-designer**: NEEDS REVISION — BLK-S-1/2/3/4 all arithmetically resolved (Infantry Pillar-3 peak verified 158 via floori(83×1.65×1.16)=158.862→158; eff_def [1,105] worst-case exact; F-DC-5 [1.00, 1.31] min/max verified; AC-DC-52/53 bound to F-DC-5/F-DC-3 with delta proofs). **2 blocking stale citations + 1 advisory** ("change the cell, forget the citer" residuals that sweep missed):
+  - damage-calc.md:1252 TK-DC-1 gameplay impact `(D_mult=1.80)` — pre-rev-2.8 Cavalry REAR value; current 1.64.
+  - damage-calc.md:1342 V-1 HIT_DEVASTATING `(Cavalry REAR=1.80, Scout REAR=1.65)` — Cavalry 1.80 stale; Scout 1.65 correct.
+  - damage-calc.md:978 EC-DC-9 synthetic fixture D_mult=1.80 — intentional ceiling-probe value but lacks "not a real-path" qualifier (advisory).
+- **qa-lead**: APPROVED — Gap 1 (AC-DC-52/53) testable with deterministic arithmetic + concrete fixtures + test-function names + test-evidence paths; Coverage Matrix 12/53 arithmetic correct; AC-DC-21/28 Phase-5 engine-ref concrete (not hand-wave); AC-DC-51(b) extends Node clear; EC-DC-26 ADVISORY gate appropriate; no stale count residuals.
+
+### Aggregate verdict: NEEDS REVISION (systems-designer blocking)
+
+Rev 2.8.1 precedent re-confirmed — narrow re-review caught 2 stale-value residuals the same-session sweep missed. "Change the cell, forget the citer" process insight validated for a fourth time.
+
+### Rev 2.9.3 fixes
+
+- `damage-calc.md:1252` TK-DC-1 → `D_mult=1.64 post rev 2.8` + base≥70→base≥80 (matches new D_mult saturation threshold)
+- `damage-calc.md:1342` V-1 HIT_DEVASTATING → Cavalry REAR=1.64
+- `damage-calc.md:978` EC-DC-9 → added "D_mult=1.80 is a synthetic ceiling-probe value; real-path Cavalry REAR D_mult is 1.64 post rev 2.8" qualifier
+- `unit-role.md:506` EC-7 worked example → `×1.5 × 1.09 × 1.2 ≈ ×1.96` (rev 2.8 values); additive counter-case updated to `×1.79` with 17% divergence callout
+- Header Last Updated bump 2.9.2 → 2.9.3
+
+### Status transition (final)
+
+Damage Calc #11: NEEDS REVISION (ninth-pass) → **Designed (APPROVED post-rev-2.9.3 close-out)** — narrow 3-spec re-review complete; 2 blockers fixed + 2 advisories cleaned same-session.
+
+### Process insight reinforcement
+
+Pass-9 "change the cell, forget the citer" discipline is now doubly validated:
+1. Rev 2.9.2 sweep applied it proactively and caught extensive cross-doc drift at ninth-pass blocker resolution.
+2. Rev 2.9.3 narrow re-review found 2 residual stale citations the sweep's first pass missed, confirming that discipline must be applied **both** during sweep AND narrow re-review. The pattern is symmetric with rev 2.8.1 (which also caught 5 residuals the rev 2.8 sweep missed).
+
+**Standing discipline**: every sweep that changes a numeric constant must be followed by a narrow 3-spec re-review before commit, regardless of same-session sweep confidence. Sweep-plus-re-review is the minimum safe unit for numeric changes touching 2+ documents.

@@ -185,7 +185,7 @@ Base direction multipliers (applied before terrain defense):
 
 | Class | FRONT | FLANK | REAR | Notes |
 |---|---|---|---|---|
-| CAVALRY | ×1.0 | ×1.1 | ×1.2 | Charge passive is separate from direction |
+| CAVALRY | ×1.0 | ×1.1 | ×1.09 | Charge passive is separate from direction. REAR reduced ×1.20 → ×1.09 per `damage-calc.md` rev 2.8 Rally-ceiling fix: at prior ×1.20 with CHARGE_BONUS=1.20 and Rally cap +15%, Cavalry REAR+Charge+Rally max = `floori(83 × 1.80 × 1.38) = 206` → DAMAGE_CEILING=180 fires, collapsing Pillar-1+3 hierarchies. Reduced to ×1.09 (D_mult=1.64) in coordination with Rally cap 15%→10% keeps all 12 apex cells <180 with Pillar-1 differentiation 27-30pt preserved. (Ratified 2026-04-20 ninth-pass cross-doc desync audit — BLK-G-2.) |
 | INFANTRY | ×0.9 | ×1.0 | ×1.1 | Shield Wall applies on defense, all directions. Mild gradient preserves tank identity while keeping Pillar 1 positional payoff legible per `damage-calc.md` §F-DC-4 Infantry asymmetry rationale. |
 | ARCHER | ×1.0 | ×1.375 | ×0.9 | Role-identity asymmetry (ratified 2026-04-19 per `damage-calc.md` rev 2.6 BLK-7-9/10; prior rev 2.5 value 1.15 was arithmetically-true-but-experientially-inert at base=83, producing a 2-point FLANK-vs-REAR spread that was indistinguishable from combat noise, and also locked Archer out of the HIT_DEVASTATING tier entirely). Drawn-bow release window is most stable at mid-range flank arcs (+37.5% FLANK is the largest class-mod bonus in the matrix, expressing Archer's identity as the **FLANK-dedicated damage specialist**); close-quarters rear shots face weapon-handling disadvantage as the drawn bow cannot pivot fast (−10% REAR). FLANK class-mod of 1.375 combined with BASE_DIRECTION_MULT[FLANK]=1.20 yields FLANK `D_mult=1.65` — matches Scout REAR / Infantry REAR numerical anchor but via distinct spatial position, reaches HIT_DEVASTATING tier (D_mult > 1.50), and at max ATK=200/DEF=10/BASE=83 produces Archer FLANK+Ambush=157 (vs Infantry REAR no-passive=136, satisfying Pillar-3 dedicated-damage-role > tank-role promise). No Terrain Effect LoS field consulted — pure role expression. |
 | STRATEGIST | ×1.0 | ×1.0 | ×1.0 | — |
@@ -502,11 +502,11 @@ Counter-attacks never trigger Charge (CR-2 explicitly requires initiated combat)
 
 **EC-7. Cavalry Charge + Direction — Multiplication Order**
 All damage multipliers are multiplicative, consistent with CR-6b's Scout example.
-Cavalry REAR attack with Charge active:
-`base_atk × 1.5 (base REAR) × 1.2 (class REAR) × 1.2 (Charge) = base_atk × 2.16`
+Cavalry REAR attack with Charge active (rev 2.8 values):
+`base_atk × 1.5 (base REAR) × 1.09 (class REAR) × 1.2 (Charge) ≈ base_atk × 1.96`
 Charge is **not** additive on the final value. If it were additive, the result
-would be `base_atk × 2.0` — a meaningfully different number. The multiplicative
-interpretation is authoritative.
+would be `base_atk × 1.79` — a meaningfully different number (17% divergence).
+The multiplicative interpretation is authoritative.
 
 > **Ratified 2026-04-18** by `design/gdd/damage-calc.md` §D F-DC-5 + F-DC-6:
 > `P_mult = snappedf(charge_factor × ambush_factor, 0.01)` then
@@ -742,12 +742,18 @@ identity entirely.
 |---|---|---|---|
 | Base FLANK | ×1.2 | ×1.1–×1.3 | Positioning reward for flanking |
 | Base REAR | ×1.5 | ×1.3–×1.7 | Positioning reward for backstabbing |
-| Cavalry class REAR | ×1.2 | ×1.0–×1.3 | Cavalry flanking specialization |
+| Cavalry class REAR | ×1.09 (rev 2.8 — was ×1.2) | ×1.0–×1.15 | Cavalry flanking specialization. Safe range narrowed per rev 2.8 Rally-ceiling fix: above ×1.15, Cavalry REAR+Charge+Rally(cap +10%) at max ATK activates DAMAGE_CEILING=180. |
 | Scout class REAR | ×1.1 | ×1.0–×1.2 | Scout backstab bonus |
 
-**Tuning guideline:** Base REAR × Cavalry class REAR × Charge = 1.5 × 1.2 × 1.2
-= 2.16× at defaults. Above 2.5× total, a single Cavalry Charge can one-shot
-Strategists, which may be intended but must be validated against HP ranges.
+**Tuning guideline:** Base REAR × Cavalry class REAR × Charge = 1.5 × 1.09 × 1.20
+= 1.96× at rev 2.8 defaults (was 2.16× at rev 2.7 pre Rally-ceiling fix;
+`snappedf(1.5 × 1.09, 0.01) = 1.64` is the Cavalry REAR D_mult before passive).
+Under rev 2.8 Rally cap +10% and rev 2.9 P_MULT_COMBINED_CAP=1.31, max combined
+multiplier = 1.64 × 1.31 = 2.15× (annotated in V-2 damage popup). Above ×2.5 total,
+a single Cavalry Charge can one-shot Strategists, which may be intended but must
+be validated against HP ranges. **Do NOT raise Cavalry class REAR above ×1.15**
+without re-running the apex arithmetic — doing so re-introduces the pre-rev-2.8
+DAMAGE_CEILING activation bug.
 
 ### Summary: Tuning Priority Order
 

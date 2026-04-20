@@ -1,8 +1,8 @@
 # Damage / Combat Calculation
 
-> **Status**: Designed (APPROVED post-eighth-pass + rev 2.8 close-out 2026-04-19)
+> **Status**: Designed (APPROVED post-ninth-pass + rev 2.9.3 narrow re-review close-out 2026-04-20)
 > **Author**: systems-designer + user
-> **Last Updated**: 2026-04-19 (**rev 2.9 — Formation Bonus #3 v1.0 cross-doc obligation**: ResolveModifiers gains `formation_atk_bonus: float` (range [0.0, 0.05]) + `formation_def_bonus: float` (range [0.0, 0.05]) fields, plus `make()` factory signature update. F-DC-5 adds Formation block (after Rally, before final cap) with counter guard mirroring Charge/Ambush/Rally pattern. F-DC-3 adds formation_def_bonus to eff_def calculation (mirrors terrain DEF pattern). New constant `P_MULT_COMBINED_CAP = 1.31` enforced in F-DC-5 AFTER all multiplicative composition; absorbs Formation+Rally+Charge stack into a damage-ceiling-safe envelope. Apex arithmetic verification: Cavalry REAR+Charge+Rally(+10%)+Formation(+5%) = pre-cap P_mult 1.39 → clamped to 1.31 → raw 178 (was 179 pre rev 2.9; 1pt regression on pure-Cavalry-apex no-Formation case = user-adjudicated trade-off for Formation visibility on non-apex units). Pillar-1 differentiation 30pt → 29pt. Cross-doc references: design/gdd/formation-bonus.md F-FB-5, CR-FB-3 rule 5. Prior: **rev 2.8 — eighth-pass BLK-8-1 Rally ceiling fix**: rev 2.7 (F-DC-5 rally_bonus extension) introduced Pillar-1+3 regression at max Rally; eighth-pass review (5 specialists) caught it via convergent game-designer + systems-designer arithmetic verification. Fix: CLASS_DIRECTION_MULT[CAVALRY][REAR] 1.20→1.09 (D_mult 1.80→1.64) AND Rally cap (Grid Battle CR-15 rule 4) +15%/3 commanders → +10%/2 commanders. All 12 apex cells (4 classes × 3 Rally states) preserved <180; Cavalry leads by ≥5pt at all states; ceiling never fires on primary path. Cross-doc: grid-battle.md CR-15 rule 4 + AC-GB-27 + UI-GB-12 strategist-affordance ref + Pillar-3 purpose updated; unit-role.md CR-2 + EC-12 + Tuning Knob row + Charge×REAR multiplier annotation updated. Prior: rev 2.7 — F-DC-5 passive_multiplier extended to accept rally_bonus via ResolveModifiers.rally_bonus per Grid Battle pass-11c CR-15 named obligation. Prior: rev 2.6 — seventh-pass BLK-7-1..10 resolution: direction_rel canonical type StringName per BLK-7-2; Archer FLANK class-mod 1.15→1.375 for Pillar-3 parity with Infantry REAR + HIT_DEVASTATING tier reach per BLK-7-9/10; Cross-System Patches #2 Archer row updated to current rev 2.6 endpoint per BLK-7-1; V-2 multiplier annotation extended to HIT_DIRECTIONAL per BLK-7-8; V-3 queue rule Reduce-Motion exception per BLK-7-7; AC-DC-46 frame-count→wall-clock deltas per BLK-7-3; AC-DC-47 opacity threshold 15%→10% with non-monotonic rationale per BLK-7-6; AC-DC-51(b) direct-call bypass-seam per BLK-7-4; AC-DC-21/28 bypass-seam via test-only RefCounted subclass per BLK-7-5)
+> **Last Updated**: 2026-04-20 (**rev 2.9.3 — narrow re-review close-out**: 3-spec context-isolated re-review of rev 2.9.2 (game-designer APPROVED / systems-designer NEEDS REVISION / qa-lead APPROVED) caught 2 stale-value residuals + 2 advisories that rev 2.9.2 sweep missed ("change the cell, forget the citer" pattern — same as rev 2.8.1 precedent). Fixes: TK-DC-1 gameplay impact D_mult 1.80→1.64 + base saturation threshold 70→80; V-1 HIT_DEVASTATING Cavalry REAR 1.80→1.64; EC-DC-9 synthetic-ceiling-probe qualifier added ("D_mult=1.80 is synthetic; real-path Cavalry REAR D_mult is 1.64 post rev 2.8"); unit-role.md EC-7 worked example refreshed to rev 2.8 values (×1.5 × 1.09 × 1.2 ≈ ×1.96; additive counter-case ×1.79). Standing discipline reinforced: sweep + narrow re-review is the minimum safe unit for numeric changes touching 2+ documents. Prior: **rev 2.9.2 — ninth-pass close-out**: 5-spec adversarial review of rev 2.9.1 returned NEEDS REVISION (13 blockers across 6 clusters, 3-way convergent on Pillar-1 apex honesty + D-7/D-8 missing consumer ACs). 4 user design decisions applied up-front: (1) eff_def documented range [1,100]→[1,105]; (2) Pillar-1 apex honesty via Option (a) text amendments (Player Fantasy Formation-as-non-apex-modifier + UI-2 "absorbed by combined cap" annotation + V-2 `▲` CAPPED affordance + UI-4 TalkBack Formation provenance); (3) formation_def trust boundary kept upstream-only with new EC-DC-26; (4) cross-doc audit discipline added ("change the cell, forget the citer" process fix). Cluster B: unit-role.md §CR-6a Cavalry REAR ×1.2→×1.09 LIVE DESYNC resolved + Tuning Knobs guideline updated. Cluster C: AC-DC-52 + AC-DC-53 authored (F-DC-5 Formation block consumer + F-DC-3 formation_def_bonus consumer; Coverage Matrix 51→53). Cluster D: BLK-S-1 Infantry Pillar-3 peak 157→158 arithmetic fix; BLK-S-3 F-DC-5 expected range rewrite [1.00, 1.31] continuous post-cap; TK-DC-3 rationale stale D_mult 1.80→1.64. Cluster E: AC-DC-21/28 engine-ref verification note + AC-DC-51(b) GdUnitTestSuite extends Node clarification. Cluster F: battle-hud.md UI-GB-14 Reduce Motion override + 청록/청회 palette conflict check. Prior: **rev 2.9.1 close-out** + **rev 2.9 — Formation Bonus #3 v1.0 cross-doc obligation**: ResolveModifiers gains `formation_atk_bonus: float` (range [0.0, 0.05]) + `formation_def_bonus: float` (range [0.0, 0.05]) fields, plus `make()` factory signature update. F-DC-5 adds Formation block (after Rally, before final cap) with counter guard mirroring Charge/Ambush/Rally pattern. F-DC-3 adds formation_def_bonus to eff_def calculation (mirrors terrain DEF pattern). New constant `P_MULT_COMBINED_CAP = 1.31` enforced in F-DC-5 AFTER all multiplicative composition; absorbs Formation+Rally+Charge stack into a damage-ceiling-safe envelope. Apex arithmetic verification: Cavalry REAR+Charge+Rally(+10%)+Formation(+5%) = pre-cap P_mult 1.39 → clamped to 1.31 → raw 178 (was 179 pre rev 2.9; 1pt regression on pure-Cavalry-apex no-Formation case = user-adjudicated trade-off for Formation visibility on non-apex units). Pillar-1 differentiation 30pt → 29pt. Cross-doc references: design/gdd/formation-bonus.md F-FB-5, CR-FB-3 rule 5. Prior: **rev 2.8 — eighth-pass BLK-8-1 Rally ceiling fix**: rev 2.7 (F-DC-5 rally_bonus extension) introduced Pillar-1+3 regression at max Rally; eighth-pass review (5 specialists) caught it via convergent game-designer + systems-designer arithmetic verification. Fix: CLASS_DIRECTION_MULT[CAVALRY][REAR] 1.20→1.09 (D_mult 1.80→1.64) AND Rally cap (Grid Battle CR-15 rule 4) +15%/3 commanders → +10%/2 commanders. All 12 apex cells (4 classes × 3 Rally states) preserved <180; Cavalry leads by ≥5pt at all states; ceiling never fires on primary path. Cross-doc: grid-battle.md CR-15 rule 4 + AC-GB-27 + UI-GB-12 strategist-affordance ref + Pillar-3 purpose updated; unit-role.md CR-2 + EC-12 + Tuning Knob row + Charge×REAR multiplier annotation updated. Prior: rev 2.7 — F-DC-5 passive_multiplier extended to accept rally_bonus via ResolveModifiers.rally_bonus per Grid Battle pass-11c CR-15 named obligation. Prior: rev 2.6 — seventh-pass BLK-7-1..10 resolution: direction_rel canonical type StringName per BLK-7-2; Archer FLANK class-mod 1.15→1.375 for Pillar-3 parity with Infantry REAR + HIT_DEVASTATING tier reach per BLK-7-9/10; Cross-System Patches #2 Archer row updated to current rev 2.6 endpoint per BLK-7-1; V-2 multiplier annotation extended to HIT_DIRECTIONAL per BLK-7-8; V-3 queue rule Reduce-Motion exception per BLK-7-7; AC-DC-46 frame-count→wall-clock deltas per BLK-7-3; AC-DC-47 opacity threshold 15%→10% with non-monotonic rationale per BLK-7-6; AC-DC-51(b) direct-call bypass-seam per BLK-7-4; AC-DC-21/28 bypass-seam via test-only RefCounted subclass per BLK-7-5)
 > **Implements Pillar**: Pillar 1 (형세의 전술), Pillar 3 (Every Hero Has a Role)
 > **Source Brief**: design/gdd/damage-calc-design-brief.md
 
@@ -55,6 +55,7 @@ moment of resolution, the integer that confirms what the previous turns earned.
   visible in the popup or its hover tooltip so the player can connect `1.97×`
   (rev 2.8 — Cavalry REAR+Charge no-Rally; rises to `2.15×` at Rally cap +10%+Formation cap via P_MULT_COMBINED_CAP=1.31 — rev 2.9 update from prior 2.16× pre-cap)
   back to the four turns of work that earned it.
+- **Formation Bonus as non-apex modifier (rev 2.9.2 — Pillar-1 honesty)**: Formation ATK bonus is architecturally a *mid-range* modifier, not an apex multiplier. At the Cavalry+Charge+Rally stack, the pre-cap P_mult already reaches 1.32 and is clamped to P_MULT_COMBINED_CAP=1.31 — adding Formation(+5%) produces an identical 178 post-clamp. The Formation promise is honored at the **sub-apex path**: Cavalry+Charge+Formation (no Rally) raises damage from 163 → 171 (+8 points, visibly felt). The player who builds 형세 around a non-Rally Cavalry push sees Formation contribute; the player who simultaneously maxes Rally accepts Formation absorption as the cost of apex safety. UI-2 discloses this explicitly via the "absorbed by combined cap" annotation when P_MULT_COMBINED_CAP fires (§UI-2 rev 2.9.2) — Formation's contribution is never silently discarded from the player's awareness, only from the numerical output at the specific apex stack.
 - Avoid JRPG crit-fest visual language. Damage popups inherit the ink-wash
   restraint: clean integers, restrained color, weighted typography.
   주홍/금색 are reserved for destiny branches and MUST NOT be used for
@@ -488,7 +489,13 @@ stage_1_base_damage(attacker, defender, modifiers) -> int:
 ```
 
 **Expected ranges**:
-- `eff_atk ∈ [1, 200]`; `eff_def ∈ [1, 100]`
+- `eff_atk ∈ [1, 200]`; `eff_def ∈ [1, 105]` (rev 2.9.2 — expanded from [1, 100]
+  per user adjudication Disagreement #1: `formation_def_bonus` addition executes
+  AFTER `clampi(eff_def, 1, 100)` and can raise eff_def by up to
+  `floori(100 × FORMATION_DEF_BONUS_CAP=0.05) = 5` at apex. No second clamp is
+  applied — Formation DEF is preserved at apex; eff_def ceiling drift of +5 is
+  accepted as the cost of Formation visibility on the DEF path. Below DEF_CAP,
+  floori truncation caps the practical increase at `floori(eff_def × 0.05)`.)
 - `defense_mul ∈ [0.70, 1.30]` (since `T_def ∈ [-30, +30]`)
 - `base ∈ [1, 83]` — capped at `BASE_CEILING = 83` (rev 2.4, lowered from
   100) so the hardest primary-path hit stays 1 under DAMAGE_CEILING and
@@ -576,7 +583,7 @@ HIT_DEVASTATING boundary) without rewriting Pillar-3 Archer identity.
 **Pillar-3 peak hierarchy (rev 2.9 — Formation Bonus integration):** Cavalry REAR+Charge no-Rally=163, at Rally cap+Formation cap=178 (apex; was 179 pre-cap rev 2.8.1);
 Scout REAR+Ambush no-Rally=157, at Rally cap=173, at Rally+Formation cap=179 (cap fires);
 Archer FLANK+Ambush no-Rally=157, at Rally cap=173, at Rally+Formation cap=179 (cap fires);
-Infantry REAR no-Rally=136, at Rally cap=150, at Rally+Formation=157.
+Infantry REAR no-Rally=136, at Rally cap=150, at Rally+Formation=158 (rev 2.9.2 — was 157 pre-fix; correct arithmetic `floori(83 × 1.65 × 1.16) = floori(158.862) = 158`; prior 157 figure conflated Infantry D_mult=1.65 with Cavalry REAR D_mult=1.64. Pillar-3 hierarchy unaffected — Infantry 158 well below Cavalry 178 apex).
 Cavalry leads by ≥5pt at all states EXCEPT the simultaneous-max-everything case
 (Cavalry+Charge+Rally+Formation cap 178 vs Archer/Scout+Ambush+Rally+Formation cap 179 — 1pt inversion).
 **Inversion rationale (rev 2.9 user-ratified)**: caused by P_MULT_COMBINED_CAP=1.31 clamping both classes to the same P_mult; Archer's higher D_mult (1.65) edges Cavalry's (1.64) by 1pt at the cap. Manifests ONLY when ALL FOUR conditions co-occur (max ATK + max Rally + max Formation + simultaneously Cavalry+Charge AND Archer+Ambush firing). In all typical play states, Cavalry > Archer/Scout holds by 5-6pt. User-adjudicated as acceptable design trade-off (Pillar-3 hierarchy preserved in 23 of 24 cells).
@@ -722,10 +729,13 @@ Role / Grid Battle and resolved BEFORE the `passive_ambush` tag reaches the
 `attacker.passives` array. Damage Calc trusts the tag's presence as
 authoritative.
 
-**Expected range**: `P_mult ∈ {1.00, 1.15, 1.20, 1.38}` — the four possible
-states (no passive, Ambush only, Charge only, both stacked). Stacked value
-is `snappedf(1.20 × 1.15, 0.01) = snappedf(1.379999…, 0.01) = 1.38` —
-quantized at the boundary so platform IEEE-754 residue cannot leak.
+**Expected range (rev 2.9.2 — updated for Formation Bonus integration)**: `P_mult ∈ [1.00, 1.31]` continuous post-cap.
+
+- **Base passive states** (no Rally, no Formation): `{1.00, 1.15, 1.20}` — no passive / Ambush only (1.15) / Charge only (1.20). Dual-passive {1.38} is unreachable per class-guard mutex (CR-8, EC-DC-9, AC-DC-27) and is preserved as a contract-violation guard sentinel only.
+- **With Rally (0–0.10)**: adds `(1.0 + rally_bonus)` multiplicative factor. Cavalry+Charge+Rally cap: pre-cap `snappedf(1.20 × 1.10, 0.01) = 1.32` → post-cap clamped to `P_MULT_COMBINED_CAP=1.31`. Scout/Archer+Ambush+Rally cap: pre-cap `snappedf(1.15 × 1.10, 0.01) = 1.27` (no clamp).
+- **With Formation (0–0.05)**: adds `(1.0 + formation_atk_bonus)` multiplicative factor for non-counter attacks. Sub-apex case Cavalry+Charge+Formation (no Rally): pre-cap `snappedf(1.20 × 1.05, 0.01) = 1.26` (no clamp — visible +5% contribution). Apex case Cavalry+Charge+Rally+Formation: pre-cap `snappedf(1.20 × 1.10 × 1.05, 0.01) = 1.39` → post-cap clamped to 1.31 (Formation silently absorbed — see §2 Player Fantasy "Formation as non-apex modifier" note).
+- **P_MULT_COMBINED_CAP=1.31 firing boundary**: cap fires for any combined pre-cap product ≥ 1.32 (Cavalry+Charge+Rally alone reaches 1.32 pre-Formation). The cap is the architectural safety guard that keeps `floori(83 × 1.64 × 1.31) = 178 < DAMAGE_CEILING=180` on all Cavalry apex paths.
+- **Final snappedf quantization**: applied at function return via `snappedf(P_mult, 0.01)` to quantize all intermediate IEEE-754 residue at the boundary so cross-platform floating-point divergence cannot leak into `floori` at CR-9.
 
 ### F-DC-6 — `stage_2_raw_damage` (CR-9)
 
@@ -891,13 +901,13 @@ committed here.
 
 ## Edge Cases
 
-25 edge cases organized in 9 categories (rev 2.4 removed EC-DC-26 —
-Scout/Archer REAR+Ambush ceiling clamp — because BASE_CEILING=83 makes
-the clamp scenario unreachable in MVP; see review log). BLOCKER cases
-MUST have a unit-test fixture in `tests/unit/damage_calc_test.gd`
-before shipping; IMPORTANT cases SHOULD have one; MINOR cases document
+26 edge cases organized in 10 categories (rev 2.9.2 — added EC-DC-26 Formation Bonus
+trust boundary to new category J; prior rev 2.4 removed a different EC-DC-26 Scout/Archer
+REAR+Ambush ceiling clamp that BASE_CEILING=83 made unreachable; see review log).
+BLOCKER cases MUST have a unit-test fixture in `tests/unit/damage_calc_test.gd`
+before shipping; IMPORTANT cases SHOULD have one; MINOR/ADVISORY cases document
 ownership/intent without requiring a Damage Calc test. Severity counts:
-15 BLOCKER, 7 IMPORTANT, 3 MINOR.
+15 BLOCKER, 7 IMPORTANT, 3 MINOR, 1 ADVISORY (EC-DC-26 rev 2.9.2).
 
 **Carry-over decisions resolved during edge-case analysis (2026-04-18):**
 - **OQ-DC-9 → CR-12 amended**: the `skill_id != ""` stub path returns
@@ -965,9 +975,10 @@ CAVALRY, Ambush requires SCOUT/ARCHER) make `P_mult = 1.20 × 1.15 = 1.38`
 **impossible by design** — see AC-DC-27. This edge case is retained as a
 *defense-in-depth* invariant: if a future bug ever removes a class guard,
 the DAMAGE_CEILING=180 must still absorb the overflow. Synthetic fixture
-(class guards bypassed via test seam): D_mult=1.80, P_mult=1.38, base=83
-→ floori(83×1.80×1.38) = 206 → clamped to **180**. Two-stage cap is the
-second wall behind the class mutex.
+(class guards bypassed via test seam; D_mult=1.80 is a synthetic ceiling-probe
+value — the real-path Cavalry REAR D_mult is 1.64 post rev 2.8): D_mult=1.80,
+P_mult=1.38, base=83 → floori(83×1.80×1.38) = 206 → clamped to **180**.
+Two-stage cap is the second wall behind the class mutex.
 *Fixture*: bypass-guards test mode, REAR, eff_atk=200, eff_def=10,
 charge+ambush both forced → raw=180.
 
@@ -1121,6 +1132,14 @@ and asserts the resulting `P_mult` equals `1.00` (NOT `1.20`), proving
 the StringName literal prevents the silent-wrong-answer regression even
 if the type boundary is circumvented. See AC-DC-51.
 
+### J. Formation Bonus Trust Boundary (rev 2.9.2)
+
+**EC-DC-26** (ADVISORY — rev 2.9.2) — `formation_def_bonus` caller contract trust boundary. F-DC-3 internally guards against negative formation_def_bonus via `if modifiers.formation_def_bonus > 0.0:` (negative values short-circuit the branch and produce no eff_def change). However, F-DC-3 does NOT clamp against the upper bound `FORMATION_DEF_BONUS_CAP = 0.05`. The upper-bound enforcement is upstream in Formation Bonus `F-FB-3.aggregate_formation_bonuses` which applies `minf(raw_def, FORMATION_DEF_BONUS_CAP)` before handoff to `ResolveModifiers`. If a caller bypasses F-FB-3 (direct `ResolveModifiers.make(..., formation_def_bonus=0.10)`) the oversized value will execute F-DC-3's `floori(eff_def × formation_def_bonus)` unclamped. At DEF=100 × 0.10 = floori(10.0) = +10, pushing eff_def to 110.
+
+This mirrors the existing Grid Battle `rally_bonus` trust pattern (Damage Calc trusts upstream CR-15 cap enforcement; does not re-cap Rally). Per user adjudication (ninth-pass Disagreement #3 — 2026-04-20), the upstream-only enforcement pattern is retained for Formation DEF: (1) avoids duplicating cap logic across F-FB-3 and F-DC-3; (2) matches the established Rally pattern; (3) the trust boundary is explicit — Damage Calc is a consumer, not a policeman. A future `rally_bonus` refactor could adopt an internal belt-and-suspenders clamp and this pattern would follow, but unilateral divergence between Rally and Formation trust contracts is not warranted.
+
+**Mitigation**: Formation Bonus F-FB-3 is the single upstream authority for both `FORMATION_ATK_BONUS_CAP` and `FORMATION_DEF_BONUS_CAP` enforcement. Test coverage for the trust boundary lives in Formation Bonus AC-FB-09 (ATK cap) and a new AC-FB-09b (DEF cap) should be added to Formation Bonus v1.2 to ensure the upstream cap fires before handoff.
+
 ### Verify-against-engine items (forwarded to Acceptance Criteria)
 
 - Godot 4.6 `randi_range(from, to)` is documented inclusive on both ends in
@@ -1231,7 +1250,7 @@ knob lives in `entities.yaml` per Dependency invariant #5 — never hardcode.
 |---|---|
 | Current | 1.20 |
 | Safe range | [1.05, 1.30] |
-| Gameplay impact | Cavalry Charge passive multiplier (primary attacks only). Below 1.05 the passive becomes invisible to playtesters; above 1.30 a Cavalry REAR Charge (D_mult=1.80) saturates DAMAGE_CEILING from base ≥ 70, eroding Pillar 1's "earn the big number" feedback (D_mult differentiation flattens). |
+| Gameplay impact | Cavalry Charge passive multiplier (primary attacks only). Below 1.05 the passive becomes invisible to playtesters; above 1.30 a Cavalry REAR Charge (D_mult=1.64 post rev 2.8) saturates DAMAGE_CEILING from base ≥ 80, eroding Pillar 1's "earn the big number" feedback (D_mult differentiation flattens). |
 | Owner | Damage Calc (this GDD) |
 | Blast radius | Re-run D-3, D-4, D-9, EC-DC-9; re-balance Cavalry early-game tutorials. |
 | Registry status | Phase 5 candidate. |
@@ -1254,7 +1273,7 @@ changes require coordinated registry update + re-run of D-1 through D-10.
 
 | ID | Constant | Value | Safe range | Owner | Damage Calc gameplay impact |
 |---|---|---|---|---|---|
-| TK-DC-3 | `BASE_CEILING` | 83 (rev 2.4 — lowered from 100) | [70, 83] | Balance/Data | Tuned to keep max Cavalry REAR+Charge = `floori(BASE_CEILING × 1.80 × 1.20) = 179` one under DAMAGE_CEILING=180, preserving 30-pt peak differentiation at max ATK. Below 70 → all high-ATK heroes saturate the Stage-1 cap and lose ATK-stat differentiation pre-direction. **Upper bound is exactly 83** (rev 2.5 — BLK-6-3 correction; prior rev 2.4 range `[70, 90]` was arithmetically wrong): at `BASE_CEILING=84`, `floori(84 × 1.80 × 1.20) = floori(181.44) = 181` — already clamped by `DAMAGE_CEILING=180`, which CR-9 and A-8 spec as "unreachable in MVP primary paths." Values 84-90 silently activate the ceiling and break that invariant. Safe range is narrow by design. |
+| TK-DC-3 | `BASE_CEILING` | 83 (rev 2.4 — lowered from 100) | [70, 83] | Balance/Data | Tuned per rev 2.8 D_mult reduction + rev 2.9 P_MULT_COMBINED_CAP=1.31 so all 12 apex cells stay < DAMAGE_CEILING=180. Current Cavalry apex with Formation: `floori(83 × 1.64 × 1.31) = 178` (P_MULT_COMBINED_CAP clamps; D_mult=1.64 from CLASS_DIRECTION_MULT[CAVALRY][REAR]=1.09 per rev 2.8). Pillar-1 differentiation: REAR-only+Rally=149 vs max-everything-cap=178 = 29pt. Below 70 → all high-ATK heroes saturate the Stage-1 cap and lose ATK-stat differentiation pre-direction. **Upper bound is exactly 83** (rev 2.5 — BLK-6-3 correction; prior rev 2.4 range `[70, 90]` was arithmetically wrong): at `BASE_CEILING=84`, Infantry REAR+Rally+Formation `floori(84 × 1.65 × 1.16) = floori(160.73) = 160` and Archer FLANK+Ambush+Rally+Formation cap `floori(84 × 1.65 × 1.31) = floori(181.57) = 181` — already clamped by `DAMAGE_CEILING=180`. Values 84-90 silently activate the ceiling and break the "unreachable in MVP primary paths" invariant. Safe range is narrow by design. (rev 2.9.2 — rationale updated: prior `BASE_CEILING × 1.80 × 1.20 = 179` used stale pre-rev-2.8 D_mult=1.80; current D_mult for Cavalry REAR is 1.64. Fix per ninth-pass REC-S-1.) |
 | TK-DC-4 | `DAMAGE_CEILING` | 180 (rev 2: 150→180 raise; rev 2.4: repositioned as silent defense-in-depth wall, unreachable in MVP primary paths) | [160, 220] | Balance/Data | Pillar 1 upper bound: "no single attack > 60% of HP_CAP=300" — 180/300 = 60.0% exact. Rev 2.4: BASE_CEILING=83 tuning makes max primary-path raw = 179; DAMAGE_CEILING activates only under synthetic class-guard-bypass (EC-DC-9) or future forward-compat buffs. Lowering to <160 would start clamping real Cavalry REAR+Charge hits. Tied to HP_CAP=300; coordinated retune required if HP_CAP moves. |
 | TK-DC-5 | `COUNTER_ATTACK_MODIFIER` | 0.5 | [0.25, 0.75] | Balance/Data | Below 0.25 counters become decoration; above 0.75 DEFEND_STANCE counter becomes a positive-EV exchange and players spam-defend. |
 | TK-DC-6 | `MAX_EVASION` | 30 | [10, 40] | Balance/Data | Hard ceiling on evasion% from terrain. Above 40% feels slot-machine; below 10% terrain evasion becomes invisible. |
@@ -1321,7 +1340,7 @@ forbidden — destiny-branch reservation, see V-6.
 |---|---|---|---|---|
 | HIT_NORMAL | D_mult ≤ 1.20 | 묵 `#1C1A17` | 지백 `#F2E8D4` @ 55%, 2px blur | Ink on parchment — quietest moment |
 | HIT_DIRECTIONAL | 1.20 < D_mult ≤ 1.50 | 청회 `#5C7A8A` | 묵 `#1C1A17` @ 45%, 2px blur | Cool tactical confidence; matches "player control" UI register |
-| HIT_DEVASTATING | D_mult > 1.50 (Cavalry REAR=1.80, Scout REAR=1.65) | 지백 `#F2E8D4` | 묵 `#1C1A17` @ 80%, 4px blur | Inverse contrast — severity in backing weight, no new hue |
+| HIT_DEVASTATING | D_mult > 1.50 (Cavalry REAR=1.64, Scout REAR=1.65) | 지백 `#F2E8D4` | 묵 `#1C1A17` @ 80%, 4px blur | Inverse contrast — severity in backing weight, no new hue |
 | MISS | `ResolveResult.MISS()` | 소록-desat `#8A9A82` | none | Visually silent; not reward, not punishment |
 
 #### V-2. Typography
@@ -1335,7 +1354,7 @@ forbidden — destiny-branch reservation, see V-6.
 - Letter-spacing 0; tracking spread reads as weakness.
 - **Multiplier annotation (HIT_DEVASTATING + HIT_DIRECTIONAL; rev 2.5
   intro — BLK-6-5; rev 2.6 tier-extended — BLK-7-8 sub-DEVASTATING
-  legibility)**: 16sp / Regular weight, `× combined` form, 청회
+  legibility; rev 2.9.2 — CAPPED affordance for P_MULT_COMBINED_CAP per BLK-U-2)**: 16sp / Regular weight, `× combined` form, 청회
   `#5C7A8A`, 4px below the integer. The annotation shows the
   **combined** multiplier `snappedf(D_mult × P_mult, 0.01)` whenever
   that combined value > `1.00` (i.e., the hit has direction and/or
@@ -1357,6 +1376,7 @@ forbidden — destiny-branch reservation, see V-6.
   `× 1.32`; Archer REAR = `× 1.35`; dual-passive synthetic bypass
   (EC-DC-9) = `× 2.48`. The full breakdown (Direction × Class × Passive
   decomposition) remains available in the on-demand UI-2 tooltip.
+- **CAPPED affordance for P_MULT_COMBINED_CAP (rev 2.9.2 — Pillar-1 honesty)**: When `P_MULT_COMBINED_CAP=1.31` fires (pre-cap P_mult ≥ 1.32 → clamped), the annotation appends a small `▲` glyph in 청회 immediately before the `×` sign: `▲ × 2.15` (Cavalry REAR+Charge+Rally apex post-clamp). The `▲` is a shape-based indicator (colorblind-safe; complements the 청회 hue) that silently discloses the cap fired. Hover/tap the `▲` glyph surfaces a compact tooltip: `"P_mult pre-cap 1.39 → cap 1.31 (Formation absorbed)"`. This replaces the rev 2.4 stripped CAPPED chip: DAMAGE_CEILING=180 remains silent (unreachable on primary paths); P_MULT_COMBINED_CAP=1.31 becomes disclosed (routinely reachable on Cavalry+Charge+Rally+Formation stacks). The tri-modal disclosure (visual `▲` + tooltip text + UI-4 TalkBack "combined cap applied") satisfies Pillar-1's "never silently discard player investment" contract.
 
 #### V-3. Animation Envelope
 
@@ -1651,33 +1671,29 @@ breakdown. The full breakdown tooltip is the on-demand companion.
   breakdown of the most recent attack on that tile.
 - PC: hover the defender tile (also keyboard-focusable via Tab).
 
-**Content** (no hand-waving — exact fields):
+**Content** (no hand-waving — exact fields; rev 2.9.2 — Formation line + P_MULT_COMBINED_CAP disclosure added):
 
 ```
 Attack Resolution
 ─────────────────
 ATK 80 → eff_atk 80
-DEF 50 → eff_def 50  (terrain_def +20 → defense_mul 0.80)
-base = 80 − (50 × 0.80) = 40
+DEF 50 → eff_def 52   (terrain_def +20 → defense_mul 0.80; formation_def +2 from 방진)
+base = 80 − (52 × 0.80) = 38
 
-Direction: REAR  × 1.50 (base) × 1.20 (Cavalry) = 1.80
+Direction: REAR  × 1.50 (base) × 1.09 (Cavalry rev 2.8) = 1.64
 Passive:   Charge × 1.20
+Rally:     +10% → × 1.10
+Formation: +5% → × 1.05  (어진형 anchor bonus)
+                 ▲ absorbed by combined cap (P_MULT_COMBINED_CAP=1.31)
 
-raw = floori(40 × 1.80 × 1.20) = 86 → 86
+P_mult pre-cap = 1.20 × 1.10 × 1.05 = 1.386 → clamped to 1.31
+raw = floori(38 × 1.64 × 1.31) = 81 → 81
 ```
 
 - Numbers MUST mirror the exact integers from F-DC-3..F-DC-7.
   Discrepancy = bug.
-- **Invariant clamp note (rev 2.4 + rev 2.8 Rally cap)**: DAMAGE_CEILING=180 is a silent
-  safety wall, unreachable in MVP primary paths (max Cavalry REAR+Charge+Rally(+10%)
-  = `floori(83 × 1.64 × 1.31) = 178` (rev 2.9 — P_MULT_COMBINED_CAP=1.31 fires; was 179 pre-rev-2.9), two under the ceiling by design
-  per F-DC-3 BASE_CEILING=83 + rev 2.8 CLASS_DIRECTION_MULT[CAVALRY][REAR]=1.09 +
-  Rally cap +10% + rev 2.9 P_MULT_COMBINED_CAP=1.31 tuning). No player-facing "CAPPED" chip — the Pillar-1
-  differentiation is delivered by the 29-point gap between REAR-only+Rally (149)
-  and REAR+Charge+Rally+Formation (178) at max ATK, not by clamp disclosure. Forward-compat:
-  if a future hero ability or destiny branch
-  pushes `raw_uncapped > 180`, this rule revisits and the tri-modal
-  disclosure returns (see rev 2.2 history in review log).
+- **Formation line disclosure (rev 2.9.2 — Pillar-1 honesty)**: When a unit has non-zero `formation_atk_bonus` or `formation_def_bonus` in the round's snapshot, the tooltip MUST show a Formation line itemizing the contribution. When P_MULT_COMBINED_CAP=1.31 fires and clamps the composed P_mult, the tooltip MUST append "▲ absorbed by combined cap (P_MULT_COMBINED_CAP=1.31)" to the Formation line (or the Rally line if Rally was the excess contributor — whichever was added LAST to cross the cap, per pre-cap composition order Charge → Rally → Formation). The absorption annotation is the player's confirmation that their Formation investment was recognized by the system even when the numerical output does not change — closes the Pillar-1 honesty gap for apex stacks. Multi-pattern Formation case: single summed `formation_atk_bonus` scalar shown as one line (the snapshot publishes per-unit scalar per CR-FB-6; per-pattern itemization not available at MVP).
+- **Invariant clamp note (rev 2.4 + rev 2.8 Rally cap + rev 2.9 P_MULT_COMBINED_CAP)**: DAMAGE_CEILING=180 is a silent safety wall, unreachable in MVP primary paths (max Cavalry REAR+Charge+Rally(+10%)+Formation(+5%) `floori(83 × 1.64 × 1.31) = 178` post P_MULT_COMBINED_CAP; two under the ceiling by design per BASE_CEILING=83 + CLASS_DIRECTION_MULT[CAVALRY][REAR]=1.09 + Rally cap 10% + P_MULT_COMBINED_CAP=1.31 composition). DAMAGE_CEILING gets no tooltip disclosure — it is silent defense-in-depth. P_MULT_COMBINED_CAP=1.31 however IS disclosed via the Formation/Rally line annotation above, because it fires routinely on primary buff stacks (Cavalry+Charge+Rally alone pre-cap = 1.32 → clamp fires even without Formation). This is the rev 2.9.2 Pillar-1 honesty fix: P_MULT_COMBINED_CAP is a PLAYER-FACING clamp that must be visible; DAMAGE_CEILING remains a BACKSTOP that stays silent. Forward-compat: if a future hero ability or destiny branch pushes `raw_uncapped > 180`, DAMAGE_CEILING tri-modal disclosure returns (see rev 2.2 history in review log).
 - MISS path tooltip shows: `Evasion roll: 25 ≤ T_eva 30 → MISS` — the
   inclusive boundary is visible.
 - `skill_unresolved` path: NO tooltip (consistent with no popup, no audio).
@@ -1747,11 +1763,11 @@ Per `.claude/docs/technical-preferences.md` Mixed Input policy:
   timing — matches UI-6 rev 2.3 lifecycle). Drift distance remains reduced
   from 28px to 8px. Tier swell audio still plays. Player can still inspect
   via UI-2.
-- **Screen reader / TalkBack**: each HIT emits an announcement
+- **Screen reader / TalkBack (rev 2.9.2 — Formation provenance + R-2 cross-ref per BLK-U-3)**: each HIT emits an announcement
   `"<defender> hit for <raw>, <provenance>"` (e.g., `"Lu Bu hit for 64,
   REAR Charge"`). Throttled to one announcement per 500ms to avoid spam
   during AoE. MISS announces `"<defender> evaded"`. `skill_unresolved`
-  → no announcement.
+  → no announcement. **Formation provenance**: when the attacker has non-zero `formation_atk_bonus` or the defender has non-zero `formation_def_bonus` in the current snapshot, the provenance string appends a Formation token: `"<defender> hit for <raw>, REAR Charge Form+3"` (ATK side) or `"<defender> hit for <raw>, REAR Charge Form-2"` (DEF side, where the negative is damage absorbed). When `P_MULT_COMBINED_CAP=1.31` fires, append `"Form capped"` instead of the numerical contribution: `"Lu Bu hit for 178, REAR Charge Rally+10 Form capped"` — the "capped" token is the screen-reader equivalent of the V-2 `▲` visual glyph and UI-2 "absorbed by combined cap" text. Cross-ref: tile-info panel Formation state tokens are specified in `design/ux/accessibility-requirements.md` §4 R-2 (FORMATION / BOND tokens for persistent board state) — the damage popup provenance is distinct from the tile-info panel (event vs state), but the two announcements share the Formation token vocabulary (`Form+X`, `Form-X`, `Form capped`).
 - **Captions for audio cues — MVP minimum (revision 2):** the provenance
   overlays (counter / charge / ambush) MUST have text caption equivalents
   by Beta. Damage Calc commits to providing the `vfx_tags` array as the
@@ -1897,6 +1913,18 @@ Every worked example is a mandatory test fixture in `tests/unit/damage_calc/dama
 - Pass criteria: `roll=25 <= T_eva=30` → `ResolveResult.MISS()`; mock hp_status.apply_damage call count = 0
 - Blocker for: Vertical Slice
 
+**AC-DC-52** [FORMULA] — D-7 Formation ATK bonus visible in F-DC-5 passive_multiplier output (rev 2.9.2 — closes ninth-pass BLK-S-4 / qa-lead Gap 1 / Cluster C). Sub-apex case: P_MULT_COMBINED_CAP does NOT fire.
+- Test: `tests/unit/damage_calc/damage_calc_test.gd::test_d7_formation_atk_sub_apex`
+- Method: automated unit
+- Pass criteria: Given `AttackerContext.make(unit_class=CAVALRY, passives=[&"passive_charge"], charge_active=true, unit_id=&"t1")`; `DefenderContext.make(hp=300, def=10, unit_id=&"t2")`; `ResolveModifiers.make(attack_type=PHYSICAL, direction_rel=&"REAR", is_counter=false, skill_id="", rng=rng_hit_guaranteed, rally_bonus=0.0, formation_atk_bonus=0.05, formation_def_bonus=0.0)`; ATK=200; when `resolve()` fires; then `P_mult = snappedf(1.20 × 1.05, 0.01) = 1.26` (P_MULT_COMBINED_CAP=1.31 does NOT fire, 1.26 < 1.31); `raw = floori(83 × 1.64 × 1.26) = floori(171.5) = 171`. Supplementary assertion: same inputs with `formation_atk_bonus=0.0` resolve to 163 → delta of +8 damage proves Formation ATK is live and visible at sub-apex. Fixture: inline `ResolveModifiers.make()` (boundary-value test — exact integers ARE the assertion).
+- Blocker for: Vertical Slice (BLOCKING per 100% balance formula coverage; activates at Formation Bonus #3 implementation sprint start)
+
+**AC-DC-53** [FORMULA] — D-8 Formation DEF bonus visible in F-DC-3 eff_def consumer path (rev 2.9.2 — closes ninth-pass BLK-S-4 / qa-lead Gap 1 / Cluster C). Tests the new rev 2.9 F-DC-3 addition.
+- Test: `tests/unit/damage_calc/damage_calc_test.gd::test_d8_formation_def_consumer`
+- Method: automated unit
+- Pass criteria: Given `AttackerContext.make(unit_class=INFANTRY, passives=[], charge_active=false, unit_id=&"t3")`; `DefenderContext.make(hp=300, def=50, unit_id=&"t4")`; `ResolveModifiers.make(attack_type=PHYSICAL, direction_rel=&"FRONT", is_counter=false, skill_id="", rng=rng_hit_guaranteed, rally_bonus=0.0, formation_atk_bonus=0.0, formation_def_bonus=0.04)`; ATK=82; T_def=0; when `resolve()` fires; then F-DC-3 computes `eff_def = clampi(50, 1, 100) + floori(50 × 0.04) = 50 + 2 = 52`; `defense_mul = snappedf(1.0 - 0/100, 0.01) = 1.00`; `base = mini(83, max(1, floori(82 − 52 × 1.00))) = 30`; `D_mult = 0.9 × 1.0 = 0.90` (Infantry FRONT); `P_mult = 1.00`; `raw = floori(30 × 0.90 × 1.00) = 27`; `HIT(resolved_damage=27)`. Supplementary assertion: same inputs with `formation_def_bonus=0.0` resolve to 29 → delta of −2 damage proves Formation DEF bonus absorbs 2 points via eff_def increase. Fixture: inline `ResolveModifiers.make()` (boundary-value test).
+- Blocker for: Vertical Slice (BLOCKING per 100% balance formula coverage; activates at Formation Bonus #3 implementation sprint start)
+
 ---
 
 ### EDGE_CASE — BLOCKER Edge Cases (must have unit-test fixture; 15 total)
@@ -1964,7 +1992,7 @@ Every worked example is a mandatory test fixture in `tests/unit/damage_calc/dama
 **AC-DC-21** [EDGE_CASE] — EC-DC-15: attacker.unit_class not in CLASS_DIRECTION_MULT (future GUARDIAN enum value) → push_error, returns MISS with `&"invariant_violation:unknown_class"` in source_flags (rev 2.4 flagged-MISS redesign).
 - Test: `tests/unit/damage_calc/damage_calc_test.gd::test_ec15_unknown_class_guard`
 - Method: automated unit
-- Pass criteria (rev 2.4 — flagged-MISS redesign; rev 2.6 — BLK-7-5 bypass-seam mechanism citation): construct an AttackerContext via a **test-only RefCounted subclass** `class_name TestAttackerContextBypass extends AttackerContext` that redeclares `unit_class` as `var unit_class: int = 0` (untyped int shadowing the parent's `UnitRole.Class` enum field) — this is the engine-version-stable bypass mechanism for Godot 4.6, not `Object.set()` on a typed property which is version-sensitive and has observably inconsistent behavior across 4.5/4.6. Set `unit_class = 99` (outside any enum member) via the subclass, pass the subclass instance to `resolve()` (which accepts `AttackerContext` base class — subclass binds correctly per Godot 4.6 polymorphism contract). Expected: `resolve()` returns MISS with `result.source_flags.has(&"invariant_violation:unknown_class") == true`; NOT silently treated as Infantry. `push_error()` fires in the log (visual verification by developer; no test-level assertion on error-count). Error-log throttle behavior (same bad key triggers at most one push_error per session) is a **nice-to-have** — no longer a blocker assertion since the flag-based test is deterministic and does not depend on log-count side effects. Note: the bypass subclass lives in `tests/helpers/test_attacker_context_bypass.gd` and is used only from test code — production code must never instantiate it (grep-based CI lint: `TestAttackerContextBypass` must appear in 0 files under `src/`, 1+ files under `tests/`).
+- Pass criteria (rev 2.4 — flagged-MISS redesign; rev 2.6 — BLK-7-5 bypass-seam mechanism citation; rev 2.9.2 — BLK-GD-1 engine-ref verification note): construct an AttackerContext via a **test-only RefCounted subclass** `class_name TestAttackerContextBypass extends AttackerContext` that redeclares `unit_class` as `var unit_class: int = 0` (untyped int shadowing the parent's `UnitRole.Class` enum field) — this is the proposed engine-version-stable bypass mechanism for Godot 4.6, not `Object.set()` on a typed property which is version-sensitive and has observably inconsistent behavior across 4.5/4.6. Set `unit_class = 99` (outside any enum member) via the subclass, pass the subclass instance to `resolve()` (which accepts `AttackerContext` base class — subclass binds correctly per Godot 4.6 polymorphism contract). Expected: `resolve()` returns MISS with `result.source_flags.has(&"invariant_violation:unknown_class") == true`; NOT silently treated as Infantry. `push_error()` fires; in export/headless builds this writes to `user://logs/godot.log` (not editor Output panel — CI runner grep assertion path). Error-log throttle behavior (same bad key triggers at most one push_error per session) is a **nice-to-have** — no longer a blocker assertion since the flag-based test is deterministic and does not depend on log-count side effects. Note: the bypass subclass lives in `tests/helpers/test_attacker_context_bypass.gd` and is used only from test code — production code must never instantiate it (grep-based CI lint: `TestAttackerContextBypass` must appear in 0 files under `src/`, 1+ files under `tests/`). **Engine-reference verification required before implementation sprint** (rev 2.9.2 Phase-5 item): confirm GDScript 4.6 permits typed-field shadowing in subclass via direct test; if shadowing raises parse error or silently uses parent field, fall back to `Object.set()` pattern with per-version `@warning_ignore` guard. Verification task owned by godot-gdscript-specialist + documented in `docs/engine-reference/godot/` before AC-DC-21/28 are authored as tests.
 - Blocker for: Vertical Slice
 
 **AC-DC-22** [EDGE_CASE] — EC-DC-16: direction_rel null or unrecognized (`&"DIAGONAL"`) → push_error, returns MISS with `&"invariant_violation:unknown_direction"` flag.
@@ -2179,7 +2207,7 @@ Every worked example is a mandatory test fixture in `tests/unit/damage_calc/dama
 **AC-DC-51** [CONTRACT] — EC-DC-25: `attacker.passives` must be `Array[StringName]`; `Array[String]` is a silent-wrong-answer correctness hole. F-DC-5 contracts the input type via `attacker: AttackerContext` (RefCounted with typed `passives: Array[StringName]` field); GDScript 4.6 enforces the inner type at parameter binding, so the defect is caught at the Grid Battle call boundary. Release-build safety is additionally guaranteed by `StringName` literal (`&"passive_charge"`, `&"passive_ambush"`) comparisons inside F-DC-5 — so even if a test harness bypasses the type boundary with a hand-built wrong-typed array, the comparison returns `false` and `P_mult` stays `1.00`.
 - Test: `tests/unit/damage_calc/damage_calc_test.gd::test_ec25_stringname_comparison_correctness` (bypass-seam semantic) + `test_ec25_positive_charge_fires` (positive path)
 - Method: automated unit
-- Pass criteria (rev 2.4 — simplified from rev 2.2's 3-part pattern; dropped (a) type-error-assertion pattern because GDScript 4.6 type errors raised at parameter binding / field assignment are NOT catchable by `Callable` wrappers at runtime — the type-boundary enforcement is verified manually by a developer who attempts the invalid assignment in the editor and observes the parse/bind error, not via automated assertion. Rev 2.6 — BLK-7-4 redesign: Variant-coercion bypass of `Array[StringName]` at field assignment is also not a reliable path in GDScript 4.6 — the inner-type check fires on assignment too, so the rev 2.4 "test-only factory that skips type-checking" was fictitious. The rev 2.6 redesign instead exercises the StringName-literal defense by calling `passive_multiplier()` **directly** with a locally-constructed, deliberately-untyped `Array` — bypassing `AttackerContext.passives` type enforcement by bypassing AttackerContext construction entirely): (b) **direct-call bypass-seam (rev 2.6)** — the test module declares a local helper `func _wrong_typed_passives() -> Array: return ["passive_charge"]` (return type is untyped `Array`, inner elements are plain `String`). Construct a Cavalry AttackerContext via `.make()` with an empty `passives` field, then call `passive_multiplier(attacker, defender, modifiers)` through a test-exposed `@onready var _passive_mul := Callable(DamageCalc, "_passive_multiplier_for_test")` that accepts an external passives Array parameter overriding the attacker's own. Inside the callable, the body still uses `if PASSIVE_CHARGE in passives_arg` where `PASSIVE_CHARGE: StringName = &"passive_charge"`. Assert `P_mult == 1.00` — because `&"passive_charge" in ["passive_charge"]` returns `false` under GDScript's `in` operator (StringName vs String mismatch), so the Charge branch does not fire even with the "tag present" from String perspective. Rationale: the StringName literal is the runtime correctness guard; this test exercises the guard without relying on any GDScript type-system defect. (c) **positive case** — `AttackerContext.make(passives=[&"passive_charge"], …)` on a Cavalry with charge_active=true returns `P_mult == 1.20` through the normal `resolve()` entry point. Together (b) and (c) prove the defense works at both the correct-type entry and the String-array test-harness bypass — the production defense is the StringName literal, not the type system.
+- Pass criteria (rev 2.4 — simplified from rev 2.2's 3-part pattern; dropped (a) type-error-assertion pattern because GDScript 4.6 type errors raised at parameter binding / field assignment are NOT catchable by `Callable` wrappers at runtime — the type-boundary enforcement is verified manually by a developer who attempts the invalid assignment in the editor and observes the parse/bind error, not via automated assertion. Rev 2.6 — BLK-7-4 redesign: Variant-coercion bypass of `Array[StringName]` at field assignment is also not a reliable path in GDScript 4.6 — the inner-type check fires on assignment too, so the rev 2.4 "test-only factory that skips type-checking" was fictitious. The rev 2.6 redesign instead exercises the StringName-literal defense by calling `passive_multiplier()` **directly** with a locally-constructed, deliberately-untyped `Array` — bypassing `AttackerContext.passives` type enforcement by bypassing AttackerContext construction entirely): (b) **direct-call bypass-seam (rev 2.6 — rev 2.9.2 test-class base clarification per BLK-GD-2)** — the test class MUST extend `GdUnitTestSuite` (which inherits from `Node`) — `@onready` is a Godot decorator valid on `Node` subclasses only, not `RefCounted`. The test module declares a local helper `func _wrong_typed_passives() -> Array: return ["passive_charge"]` (return type is untyped `Array`, inner elements are plain `String`). Construct a Cavalry AttackerContext via `.make()` with an empty `passives` field, then call `passive_multiplier(attacker, defender, modifiers)` through a test-exposed `@onready var _passive_mul := Callable(DamageCalc, "_passive_multiplier_for_test")` that accepts an external passives Array parameter overriding the attacker's own. (If a future test uses a non-Node test base, `@onready` must be replaced with lazy `_passive_mul` initialization in the test method body.) Inside the callable, the body still uses `if PASSIVE_CHARGE in passives_arg` where `PASSIVE_CHARGE: StringName = &"passive_charge"`. Assert `P_mult == 1.00` — because `&"passive_charge" in ["passive_charge"]` returns `false` under GDScript's `in` operator (StringName vs String mismatch), so the Charge branch does not fire even with the "tag present" from String perspective. Rationale: the StringName literal is the runtime correctness guard; this test exercises the guard without relying on any GDScript type-system defect. (c) **positive case** — `AttackerContext.make(passives=[&"passive_charge"], …)` on a Cavalry with charge_active=true returns `P_mult == 1.20` through the normal `resolve()` entry point. Together (b) and (c) prove the defense works at both the correct-type entry and the String-array test-harness bypass — the production defense is the StringName literal, not the type system.
 - Blocker for: Vertical Slice
 
 ---
@@ -2188,7 +2216,7 @@ Every worked example is a mandatory test fixture in `tests/unit/damage_calc/dama
 
 | Category | AC Count | Required Coverage (from coding-standards.md) | Notes |
 |---|---|---|---|
-| FORMULA | 10 (AC-DC-01–10) | **100%** — balance formulas | All 10 worked examples (D-1 through D-10) have fixtures. All 7 sub-formulas (F-DC-1 through F-DC-7) exercised across these 10. |
+| FORMULA | 12 (AC-DC-01–10, 52, 53) | **100%** — balance formulas | All 10 worked examples (D-1 through D-10) + rev 2.9.2 AC-DC-52 (D-7 Formation ATK sub-apex) + AC-DC-53 (D-8 Formation DEF consumer). All 7 sub-formulas (F-DC-1 through F-DC-7) exercised, plus rev 2.9 F-DC-3 formation_def_bonus path + F-DC-5 Formation block. |
 | EDGE_CASE (BLOCKER) | 15 (AC-DC-11–25) | **100%** — gameplay systems | All 15 BLOCKER edge cases (EC-DC-1,2,3,4,7,8,10,11,13,14,15,16,20,23,24) have unit-test ACs. |
 | EDGE_CASE (IMPORTANT) | 7 (AC-DC-26–32) | **80%** — gameplay systems | All 7 IMPORTANT edge cases (EC-DC-5,9,12,17,21,22,6) have ACs. 5 automated, 2 integration. |
 | CONTRACT | 4 (AC-DC-33–36) | **100%** — blocking system contracts | Sole entry point, zero signals, no HP/Status calls, vfx_tags population. |
@@ -2199,13 +2227,13 @@ Every worked example is a mandatory test fixture in `tests/unit/damage_calc/dama
 | TUNING | 1 (AC-DC-48) | Advisory (Config/Data = smoke check) | Both TK-DC-1 and TK-DC-2 in single AC; registry read confirmed via mock substitution. |
 | VERIFY-AGAINST-ENGINE | 2 (AC-DC-49–50) | **100%** — engine contracts are non-negotiable | randi_range inclusivity, snappedf round-half-away-from-zero. Both cite `docs/engine-reference/godot/`. |
 | CONTRACT (rev 2.2 / 2.4) | 1 (AC-DC-51) | **100%** — silent-wrong-answer guard | EC-DC-25 StringName type boundary: rev 2.4 keeps (b) bypass-seam + (c) positive case; rev 2.2 (a) type-error-assertion pattern dropped (not catchable by GDScript Callable wrappers). |
-| **TOTAL** | **51** | — | 25 items cover the mandatory 10+15 floor (worked examples + BLOCKER edge cases); 1 rev 2.2 item (AC-DC-51) covers the StringName silent-fail. Rev 2.4 removed AC-DC-52/53 (ceiling disclosure) since BASE_CEILING=83 makes the ceiling unreachable in MVP — see review-log rev 2.4 entry for history. AC-DC-40 is a two-tier AC (sub-blockers VS + Beta) but counted once in this total. |
+| **TOTAL** | **53** (rev 2.9.2 — was 51 pre-ninth-pass) | — | 27 items cover the mandatory 10+15+2 floor (worked examples + BLOCKER edge cases + rev 2.9.2 Formation Bonus consumer ACs 52/53); 1 rev 2.2 item (AC-DC-51) covers the StringName silent-fail. Rev 2.4 removed a prior AC-DC-52/53 pair (ceiling disclosure — stripped because BASE_CEILING=83 made the ceiling unreachable); rev 2.9.2 re-uses the AC-DC-52/53 IDs for Formation Bonus consumer paths (different content entirely — see review-log rev 2.4 + rev 2.9.2 entries for history). AC-DC-40 is a two-tier AC (sub-blockers VS + Beta) but counted once in this total. |
 
-**Release stage summary (rev 2.4 — post-body-vs-matrix reconciliation):**
-- Vertical Slice sub-blockers: AC-DC-01–10, 11–25, 33–35, 38–39, 40(a) CI throughput, 41, 49–50, 51 (35 sub-blockers: 10 + 15 + 3 + 2 + 1 + 1 + 2 + 1)
+**Release stage summary (rev 2.9.2 — post-ninth-pass Cluster C resolution):**
+- Vertical Slice sub-blockers: AC-DC-01–10, 11–25, 33–35, 38–39, 40(a) CI throughput, 41, 49–50, 51, 52, 53 (37 sub-blockers: 10 + 15 + 3 + 2 + 1 + 1 + 2 + 1 + 2)
 - MVP blockers: AC-DC-26–30, 36, 42–44, 48 (10 items: 5 + 1 + 3 + 1)
 - Beta blockers: AC-DC-31–32, 37, 40(b) mobile gate, 45–47 (7 items: 2 + 1 + 1 + 3)
-- Ship: all **51 unique ACs** must be green (AC-DC-40 is a two-tier AC with (a) VS + (b) Beta; counted once in the unique total, twice in sub-blocker tallies); no open BLOCKER or IMPORTANT EDGE_CASE failures permitted.
+- Ship: all **53 unique ACs** must be green (AC-DC-40 is a two-tier AC with (a) VS + (b) Beta; counted once in the unique total, twice in sub-blocker tallies); no open BLOCKER or IMPORTANT EDGE_CASE failures permitted. Formation Bonus consumer ACs 52/53 activate as BLOCKING at Formation Bonus #3 implementation sprint start.
 
 **CI commands:**
 ```
