@@ -1,10 +1,11 @@
 # Story 002: GameBus autoload declaration + registration
 
 > **Epic**: gamebus
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Platform
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
+> **Estimate**: 3h (M) — actual ~1.5h (specialist single-pass + code-review fix-up round)
 
 ## Context
 
@@ -126,3 +127,40 @@
 
 - **Depends on**: Story 001 (payload Resource class_names must exist for signal signatures to parse)
 - **Unlocks**: Stories 003, 004, 005, 006 (all other gamebus stories require the autoload to exist)
+
+## Completion Notes
+
+**Completed**: 2026-04-20
+**Criteria**: 7/7 passing (all COVERED; tests 18/18 PASSED across full tests/unit suite in ~151ms)
+**Verdict**: COMPLETE WITH NOTES
+
+**Test Evidence**: `tests/unit/core/game_bus_declaration_test.gd` — 8 GdUnit4 test functions, Logic gate BLOCKING satisfied
+
+**Code Review**: Complete — `/code-review` initial verdict **CHANGES REQUIRED** (1 BLOCKING qa-tester finding: AC-3 Edge untested). Option B fix applied: added `test_gamebus_resource_signal_args_have_exact_class_name` covering 11 Resource-typed signals via `arg["class_name"]` equality check + 2 ADVISORY fixes (typed `Array[Dictionary]`, FileAccess null-safety). Final verdict: **APPROVED**.
+
+**Files delivered** (all in-scope):
+- `src/core/game_bus.gd` (+ `.uid` sidecar) — autoload, 64 lines, 27 signals × 10 banners, zero state
+- `src/core/payloads/echo_mark.gd` (+ `.uid`) — PROVISIONAL stub
+- `src/core/payloads/destiny_branch_choice.gd` (+ `.uid`) — PROVISIONAL stub
+- `src/core/payloads/beat_cue.gd` (+ `.uid`) — PROVISIONAL stub
+- `src/core/payloads/save_context.gd` (+ `.uid`) — PROVISIONAL stub w/ save-manager coord note
+- `tests/unit/core/game_bus_declaration_test.gd` (+ `.uid`) — 8 test functions
+- `project.godot` — `[autoload]` block populated with `GameBus="*res://src/core/game_bus.gd"` + ORDER-SENSITIVE comment
+
+**Mid-flight corrections** (in-session, user-approved):
+1. **Godot 4.6.2 Node signal-count drift** — pre-cutoff baseline listed 9 inherited Node signals; actual is 13 (adds `editor_description_changed`, `editor_state_changed`, `property_list_changed`, `script_changed`). Refactored test from hardcoded constant → dynamic `Node.new().get_signal_list()` baseline via `_get_node_inherited_signal_names()` helper. Future-proof against 4.x signal additions.
+2. **AC-3 Edge upgrade** — initial `type != TYPE_NIL` check accepted any Resource subclass. Upgraded to `arg["class_name"]` equality map for 11 Resource-typed signals, correctly enforcing the AC-3 Edge requirement that `battle_outcome_resolved` arg is specifically `BattleOutcome`.
+3. **Test robustness hardening** — typed `Array[Dictionary]` for signal introspection loops; `if file == null: return` early-return guards on 4 FileAccess tests.
+
+**Deviations**: None (7/7 ACs on-spec; no out-of-scope changes; manifest version match).
+
+**Advisory follow-ups** (logged to `docs/tech-debt-register.md`):
+- **TD-006** — ADR-0001 §Key Interfaces code-block is stale (shows 7 grouped banners; post-amendment schema has 10 split domains). Minor ADR refresh needed before more consumer stories reference it.
+- **TD-007** — AC-4 lint regex doesn't cover `static var`, `static func`, `enum`, `@tool`. Deferred to Story 008 CI lint (authoritative lint-rules owner).
+
+**Deferred in-situ** (not logged as tech debt):
+- S-1 (cache `_get_node_inherited_signal_names()` in `before_test`) — negligible cost, test-only
+- S-2 (stub docstring style consistency) — low priority
+- qa-tester Gap 3 (live-tree autoload existence test) — covered indirectly via `--import` + AC-5 syntax test; explicit scene-runner test requires different harness, acceptable
+
+**Gates skipped** (review-mode=lean): QL-TEST-COVERAGE, LP-CODE-REVIEW phase-gates. Note: standalone `/code-review` ran independently with full gdscript-specialist + qa-tester review — findings captured above and Option B fix cycle applied.
