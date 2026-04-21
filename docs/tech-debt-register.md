@@ -323,7 +323,15 @@ Recommended: Option B — standalone file, well-cross-referenced. ~200 lines tot
 
 **Update 2026-04-21 (story-006)**: 6th gotcha discovered — GdUnit4 orphan detection fires between test body exit and `after_test`. Detached Nodes held in static vars are flagged as orphans; exit code 101 when any orphan found (CI failure gate). Fix: explicit cleanup at end of test body that creates/detaches Nodes; `after_test` serves only as crash-safety net. Add this item when creating the rule file.
 
-**Next review**: before onboarding a new contributor, OR when a 7th gotcha is discovered. Trigger threshold reached (6 items).
+**Update 2026-04-21 (story-007)**: 3 more gotchas discovered in a single story (total now 9; rule file creation is overdue):
+
+7. **GdUnit4 silently treats parse-failed scripts as "no tests"** — a script with a parse error is reported as "no tests in file"; Overall Summary passes with exit 0 if other suites pass. Must check Overall Summary count matches expected, not just exit code. `grep "Parse Error\|Failed to load"` on the test log to diagnose silent skips.
+
+8. **`Signal.get_connections()` returns untyped `Array`**, not `Array[Dictionary]` — same class as gotcha #2 (`Array[T].duplicate()` demotion). Cannot assign to `Array[Dictionary]` typed variable (runtime type-boundary error). Declare outer as untyped `Array` and use `for x: Dictionary in connections:` loop-var narrowing, OR use `.assign()` to preserve typed-outer annotation.
+
+9. **`%` operator binds to immediate left operand** — `"a" + "b" % args` parses as `"a" + ("b" % args)`, NOT `("a" + "b") % args`. Multi-line string concatenations feeding into `%` always need explicit parentheses around the concat. Common pattern: `override_failure_message(("line 1 %d " + "line 2.") % arg)`. Broken version produces "String formatting error: not all arguments converted" — non-failing runtime warning, but pollutes CI stdout. This bit the same story 5 times in a single hardening pass.
+
+**Next review**: **CREATE THE RULE FILE NOW.** 9 gotchas × ~30-60 min rediscovery cost each = ~4.5-9 hours of future contributor friction if we don't codify. Recommended: `/Users/forty4/Works/forty4/my-game/.claude/rules/godot-4x-gotchas.md` with one-paragraph explanation + correct-vs-broken code example for each gotcha. Cross-references from `test-standards.md` and `engine-code.md`. Est. 1h to author. Candidate for a devops-engineer or tools-programmer agent in the next planning session.
 
 ---
 
@@ -364,3 +372,32 @@ Assertion (c) is the most structurally interesting part of AC-7: it verifies tha
 Recommended: Option B (standalone test) — most robust, independent of autoload configuration, catches Godot version regressions immediately.
 
 **Next review**: when a CI log from any gamebus epic PR confirms whether "[AC-7] GameBusDiagnostics not active" appears. Quick inspection task (<5 min) — can be closed immediately after verification.
+
+---
+
+## TD-015 — MockScenarioRunner `_consumed_once` semantic drift vs real ScenarioRunner
+
+**Origin**: story-007 /code-review qa-tester Mock-vs-Real Equivalence Risk
+**Category**: code
+**Severity**: medium (test may prove property the real implementation does not preserve)
+**Status**: open
+
+`tests/integration/core/mock_scenario_runner.gd::MockScenarioRunner._consumed_once` is a flat boolean that locks after the first valid emission. The real `ScenarioRunner` (owned by Scenario Progression epic, not yet implemented) will per TR-scenario-progression-003 / EC-SP-5 use an IN_BATTLE state machine — the duplicate-guard fires only when state is outside IN_BATTLE.
+
+**Divergence scenarios**:
+1. **Re-entry**: Real ScenarioRunner transitions OVERWORLD → IN_BATTLE → OVERWORLD → IN_BATTLE across a multi-chapter session. On each IN_BATTLE entry, the state-machine guard resets (a fresh battle can produce a fresh outcome). Mock's `_consumed_once` is NEVER reset after construction — it locks permanently.
+2. **Multi-guard interaction**: Real ScenarioRunner may guard multiple signals (battle_outcome_resolved, scenario_complete, others) via the same state check. Mock only guards one signal. Interactions between guards are not tested.
+
+**Risk**: Story 007 AC-4 (`test_cross_scene_emit_duplicate_emission_ignored_per_ec_sp5`) asserts the EC-SP-5 duplicate-guard works via `_consumed_once == true after first emit`. If the real ScenarioRunner resets its IN_BATTLE state machine on battle entry, a second battle would NOT be blocked by the guard — but the test would still pass on the mock. The test proves a property the real system does not preserve.
+
+**Remediation path** (choose when real ScenarioRunner is implemented):
+
+1. **Option A (minimal)**: Add a `reset_for_new_battle()` method to MockScenarioRunner; downstream multi-battle integration tests call it to simulate re-entry. Does NOT match real behavior but closes the test coverage gap.
+
+2. **Option B (preferred)**: Replace MockScenarioRunner's `_consumed_once` with a state enum (IDLE / IN_BATTLE / RETURNING) matching the real state machine. State transitions are test-injectable. AC-4 then proves the correct invariant (guard fires when state != IN_BATTLE) which matches the real implementation.
+
+3. **Option C**: Delete MockScenarioRunner when real ScenarioRunner lands and rewrite Story 007's integration tests against the real implementation. Purest but highest cost.
+
+**Recommended**: Option B when the Scenario Progression epic's ScenarioRunner story is authored. Add this to that story's Dependencies / Migration Notes section so the equivalent state machine is tested.
+
+**Next review**: when Scenario Progression epic's ScenarioRunner implementation story enters `/story-readiness`. At that point, either upgrade MockScenarioRunner (Option B) or delete it in favor of real-implementation tests (Option C).
