@@ -209,3 +209,49 @@ func test_gamebus_autoload_mounts_at_runtime() -> void:
 Assign to qa-lead for story targeting (likely a sub-story under the gamebus epic or a dedicated infrastructure story). This is not urgent — Godot's own boot-path failure messages are fairly clear — but it closes the last remaining silent-failure mode in the GameBus gate.
 
 **Next review**: next time `project.godot` `[autoload]` section gains a new entry (e.g., SceneManager registration lands — story from scene-manager epic). That's the natural opportunity to add live-tree smoke tests covering all registered autoloads at once.
+
+---
+
+## TD-010 — payload_serialization_test.gd after_test silent-failure drop
+
+**Origin**: story-004 /code-review GAP-1 (qa-tester) + S-3 (gdscript-specialist)
+**Category**: code
+**Severity**: low (CI runners are ephemeral; local repeated runs could slowly leak)
+**Status**: open
+
+`tests/unit/core/payload_serialization_test.gd::after_test` iterates `_tmp_paths` and calls `DirAccess.remove_absolute(ProjectSettings.globalize_path(path))` without checking the return value. If a removal silently fails (file locked, permissions, path typo), the tmp file stays in `user://tmp/` and accumulates across runs.
+
+Current impact:
+- CI: near-zero — GitHub Actions runners are ephemeral; `user://` never survives past the job
+- Local dev: low but real — repeated `godot --headless --path . -s .../GdUnitCmdTool.gd ...` invocations could leave dozens of `payload_test_*.tres` files over a week of work
+
+Remediation options:
+1. `push_warning` on non-OK return — observable without test failure (recommended)
+2. `assert_int(DirAccess.remove_absolute(...)).is_equal(OK)` — upgrade to test failure (too strict; cleanup is not the test's subject under study)
+3. One-line before_test guard that clears stale `payload_test_*.tres` files unconditionally (cleanup-on-start pattern — handles any leftover from a crashed prior run)
+
+Recommended resolver: combine (1) push_warning + (3) before_test stale-file sweep. Small LoC cost (~5 lines).
+
+**Next review**: when the save-manager epic's own serialization test lands (same cleanup pattern will be copy-pasted — fix the source of truth here first to avoid propagating the gap).
+
+---
+
+## TD-011 — payload_serialization_test.gd factory functions lack field-count guard
+
+**Origin**: story-004 /code-review GAP-3 (qa-tester)
+**Category**: code
+**Severity**: low (maintenance hazard — only triggers when a payload class gains a new @export field)
+**Status**: open
+
+Each `_make_populated_*` factory in `payload_serialization_test.gd` populates every `@export` field of its target class with a non-default value. This is correct today, but there is no mechanical guard against future drift.
+
+Failure mode: A developer adds a new `@export` field to an existing payload class (e.g., `BattleOutcome.mvp_unit_id: int`) but forgets to update `_make_populated_battle_outcome()`. The new field carries its type-default (`0`) through save → load → assertion. The assertion `lo.mvp_unit_id == original.mvp_unit_id` passes vacuously because both are `0`. The field appears covered but is actually untested.
+
+Mitigation options:
+1. **Per-factory field-count comments** — e.g., `# 6 fields — update this factory if BattleOutcome adds a field` above each factory. Visual reminder during code review; zero runtime cost; relies on reviewer discipline.
+2. **Factory assertion** — assert `original.get_property_list().filter(...)` returns exactly N where N is the declared field count. Runtime check; catches the drift automatically but requires per-factory N constant + property filter plumbing (~8 LoC/factory).
+3. **Separate field-count test** — `test_battle_outcome_has_exactly_N_export_fields` using `get_property_list()` to count `PROPERTY_USAGE_STORAGE` fields. Auxiliary-test pattern; couples test count to story 001 payload shape; fails loudly when class gains a field without the story owner noticing.
+
+Recommended resolver: option 1 (comments) as a cheap-and-cheerful maintenance prompt. Upgrade to option 3 if/when the codebase grows enough that payload shape churn becomes a hot spot (e.g., after save-manager epic locks SaveContext's shape and 1-2 other payloads see meaningful field additions).
+
+**Next review**: when any payload class gains a new `@export` field — check whether the corresponding factory was updated in the same PR. If yes, close this as resolved-by-discipline. If no, escalate to option 2 or 3.
