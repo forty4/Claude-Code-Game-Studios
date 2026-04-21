@@ -1,10 +1,11 @@
 # Story 007: Cross-scene emit integration test
 
 > **Epic**: gamebus
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Platform
 > **Type**: Integration
 > **Manifest Version**: 2026-04-20
+> **Estimate**: medium (~3-4h) — actual ~5h across 6 implementation rounds (most iterative story to date; 3 new engine gotchas discovered + 1 real bug's worth of hardening applied)
 
 ## Context
 
@@ -157,3 +158,64 @@
 
 - **Depends on**: Story 001 (BattleOutcome payload class); Story 002 (GameBus autoload); Story 006 (stub pattern optional but recommended for test isolation)
 - **Unlocks**: SceneManager epic's `scene_handoff_timing_test.gd` (can reuse fixture patterns); proves the core ADR-0001 scene-boundary-survival contract works in practice
+
+## Completion Notes
+
+**Completed**: 2026-04-21
+**Criteria**: 8/8 testable ACs PASS + 1 BONUS test; 57/57 full unit+integration suite green in ~550ms, 0 orphans, GODOT EXIT 0, stdout clean
+**Verdict**: COMPLETE WITH NOTES
+
+**Test Evidence**: 3 artifacts in `tests/integration/core/` (new directory for the project):
+- `mock_scenario_runner.gd` (~67 LoC) — class_name MockScenarioRunner with CONNECT_DEFERRED connect in _ready + is_connected-guarded disconnect in _exit_tree + is_instance_valid guard + EC-SP-5 _consumed_once duplicate guard
+- `mock_battle_controller.gd` (~18 LoC) — class_name MockBattleController.emit_outcome(payload) helper
+- `cross_scene_emit_test.gd` (~580 LoC post-hardening) — 9 test functions (8 AC-driven + 1 bonus null-payload automation of AC-3 partial false-path)
+
+**Code Review**: Complete — `/code-review` initial verdict **APPROVED WITH SUGGESTIONS** (0 BLOCKING, 0 WARNING, 6 SUGGESTIONS + 4 ADVISORY gaps). Option C accepted: full hardening (9 changes) + new null-payload test + AC-6 explicit state assertion. Post-hardening round: 5 format-string concat sites fixed (`%` binding gotcha). Final verdict: **APPROVED**.
+
+**Files delivered** (all in `tests/integration/core/`, new directory):
+- 3 files listed above
+- Zero src/ or project.godot changes
+- CI workflow (`.github/workflows/tests.yml`) already covered `tests/integration` path from earlier work — no workflow changes needed
+
+**Actual effort**: ~5h across 6 implementation rounds — most iterative story to date. Reasons: first integration test (new directory + patterns), first async test usage (`await get_tree().process_frame`), 3 new GDScript 4.x gotchas discovered during implementation (session total: 9).
+
+**Implementation rounds**:
+1. Initial write → 3 compile errors (autoload API collision from prior sessions, GdUnit4 `assert_signal_emit_count()` doesn't exist, loop variable scoping)
+2. Fix compile → 56 tests run, 1 runtime error: typed-Array demotion in `Signal.get_connections()`
+3. Fix runtime → 56/56 PASS, exit 0
+4. Post-/code-review Option C plan → 9 hardening changes + 1 new null-payload test
+5. Option C applied → 57/57 PASS but 8 format-string warnings in stdout (5 broken `"a" + "b" % args` concat sites)
+6. Format-string fixes → 57/57 PASS, 0 orphans, exit 0, stdout clean
+
+**Mid-flight corrections applied** (documented in commit messages):
+- **Signal API (round 2)**: `.get_signal_connection_list()` doesn't exist on Signal in Godot 4.6 — correct API is `Signal.get_connections()` (Signal method) or `Object.get_signal_connection_list("sig_name")` (Object method). Chose Signal method for type safety.
+- **Typed-Array demotion (round 2)**: `Signal.get_connections()` returns untyped `Array`, not `Array[Dictionary]` — declared outer as untyped `Array`, typed `for conn: Dictionary in ...` loop variable narrows element type. Same gotcha class as story-003 W-1 (`Array[T].duplicate()` demotion).
+- **GdUnit4 parse-failure silence (round 1→2)**: parse error in test file silently reported as "no tests" with exit 0 — Overall Summary showed 48/48 unit tests only, masking that integration file never loaded. Critical CI-verification lesson: must check Overall Summary count matches expected, not just exit code.
+- **Option C hardening (round 4)**: 9 items covering AC-1 comment accuracy (two-frame reasoning), AC-6 tautology → explicit dangling-count assertion, AC-8 `_spawn_at_root` deviation rationale, AC-3 docstring Resource-vs-Object distinction, `_consumed_once` limitation note in mock, `round` → `round_num` param rename (GDScript builtin shadowing), null-payload test (partial AC-3 automation), GdUnit4 `skip()` investigation.
+- **Format-string concat (round 6)**: 5 sites broken `"a" + "b" % args` pattern. `%` binds only to immediate left operand — multi-line concats need explicit parens `("a" + "b") % args`. Non-failing but pollutes CI stdout.
+
+**3 new GDScript 4.x / GdUnit4 gotchas discovered** (to be codified in TD-013):
+7. **GdUnit4 silently treats parse-failed scripts as "no tests"** — exit 0 misleading, must verify Overall Summary count
+8. **`Signal.get_connections()` returns untyped `Array`** — cannot assign to `Array[Dictionary]`; declare untyped outer or use `.assign()`
+9. **`%` operator binds to immediate left operand** — `"a" + "b" % args` parses as `"a" + ("b" % args)`; multi-line concats need explicit parens before `%`
+
+Session gotcha total: 9 (6 from stories 002-006, 3 from this story).
+
+**Design decisions codified** (for downstream integration tests):
+- Programmatic scene construction (not `.tscn` fixture files) — easier to diff, no fixture drift
+- `_spawned: Array[Node]` cleanup pattern with `free()` (synchronous) in `after_test`
+- Real `/root/GameBus` (not stub) for integration-level V-4 verification
+- `await get_tree().process_frame` × 2 for deferred-handler + call_deferred-free sequence; × 1 otherwise
+- `Signal.get_connections()` API preferred over `Object.get_signal_connection_list(name)`
+- Mock `class_name` is free when real implementation hasn't landed; will coexist with `Mock*` prefix when real lands
+
+**Advisory items logged as tech debt**:
+- **TD-015** — Mock-vs-real `_consumed_once` semantic drift risk. MockScenarioRunner uses flat boolean; real ScenarioRunner per TR-scenario-progression-003 will use IN_BATTLE state machine. Divergence on re-entry scenarios means Story 007 AC-4 proves a property the real implementation may not preserve after state resets. Mitigation deferred to Scenario Progression epic's ScenarioRunner implementation story.
+
+**Advisory items resolved in-situ during Option C** (not logged):
+- All 6 engine-specialist SUGGESTIONs (S-1 through S-6 applied)
+- qa-tester ADVISORY Gap 1 (null-payload untested) → new `test_cross_scene_emit_null_payload_is_guarded` covers it
+- qa-tester ADVISORY Gap 2 (AC-8 orphan leak on mid-iteration failure) → documented in AC-8 comment with trade-off rationale
+- AC-3 Resource-refcount false-path deferred to manual verification (Godot engine semantic, not code gap — docstring explains the distinction)
+
+**Gates skipped** (review-mode=lean): QL-TEST-COVERAGE, LP-CODE-REVIEW phase-gates. Standalone `/code-review` ran with 2 specialists.
