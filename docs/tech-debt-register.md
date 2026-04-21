@@ -148,3 +148,64 @@ Remediation path:
 - Alternative (if Story 008 slips): add the 3 missing patterns to the existing test regex as a point fix — 1-line change.
 
 **Next review**: when Story 008 enters /dev-story.
+
+---
+
+## TD-008 — EXPECTED_SIGNALS transcription risk (process gap, not code gap)
+
+**Origin**: story-003 /code-review qa-tester ADVISORY Gap #1
+**Category**: process
+**Severity**: medium (silent divergence possible; only caught at human PR review)
+**Status**: open
+
+`tests/unit/core/signal_contract_test.gd` uses a hardcoded `EXPECTED_SIGNALS` reference list of 27 signal entries (per ADR-0001 Implementation Note §3, which explicitly rejected parsing the ADR markdown at test time). This design creates a subtle failure mode:
+
+If an implementer transcribes a signal incorrectly into EXPECTED_SIGNALS AND the same error propagates to `src/core/game_bus.gd`, all 6 tests pass while BOTH files silently diverge from the ADR-0001 §Signal Contract Schema table.
+
+Scenarios:
+- Wrong `class_name` for a TYPE_OBJECT arg (e.g., `"BattleOutcom"` typo in both places)
+- Wrong arg order (both files have same wrong order; ADR has correct order)
+- Wrong arg type (both files have TYPE_INT; ADR specifies TYPE_VECTOR2I)
+
+The test cannot self-mitigate without parsing the ADR markdown (explicitly rejected). Mitigation must therefore be a process control, not a code addition:
+
+1. Add PR checklist item to `.github/PULL_REQUEST_TEMPLATE.md`:
+   > "Signal contract changes: have you verified correspondence between (a) `docs/architecture/ADR-0001-gamebus-autoload.md` §Signal Contract Schema, (b) `tests/unit/core/signal_contract_test.gd` EXPECTED_SIGNALS, and (c) `src/core/game_bus.gd` signal declarations?"
+2. CODEOWNERS entry: require review on `src/core/game_bus.gd` OR `tests/unit/core/signal_contract_test.gd` changes from an architecture owner.
+3. Consider dual-review gate: if any PR touches EITHER of the two files AND the ADR, at least two reviewers must sign off on three-way correspondence.
+
+**Next review**: before first ADR-0001 amendment lands (whichever story introduces the next signal or modifies an existing one).
+
+---
+
+## TD-009 — Autoload boot path not exercised by existing tests
+
+**Origin**: story-003 /code-review qa-tester ADVISORY Gap #2 (shared with story-002)
+**Category**: code
+**Severity**: low (catches typos/wrong-path autoload registration that `--import` alone may not)
+**Status**: open
+
+Both `tests/unit/core/game_bus_declaration_test.gd` (story 002) and `tests/unit/core/signal_contract_test.gd` (story 003) use the pattern:
+```gdscript
+var script: GDScript = load(GAME_BUS_PATH)
+var instance: Node = auto_free(script.new())
+```
+
+This tests the script's declared signals at parse time, which is correct and sufficient for the drift-gate purpose. However, it does NOT exercise the project.godot autoload boot path:
+
+- If someone edits project.godot and changes `GameBus="*res://src/core/game_bus.gd"` to a wrong path (typo, moved file not updated), `load(GAME_BUS_PATH)` still succeeds via the hardcoded test const, but `/root/GameBus` never mounts at game runtime
+- `godot --headless --import` partially catches this (fails on unresolvable autoload path at import), but may not catch autoload-registered-but-name-wrong scenarios
+- Result: game crashes on first scene load with `Cannot access "GameBus" — autoload not mounted` — caught by humans, not CI
+
+Recommendation: add a minimal live-tree smoke test in a future story (~20 LoC):
+```gdscript
+func test_gamebus_autoload_mounts_at_runtime() -> void:
+    var gamebus_node: Node = get_tree().root.get_node_or_null("GameBus")
+    assert_bool(gamebus_node != null).override_failure_message(
+        "GameBus autoload not mounted at /root/GameBus — check project.godot [autoload] registration."
+    ).is_true()
+```
+
+Assign to qa-lead for story targeting (likely a sub-story under the gamebus epic or a dedicated infrastructure story). This is not urgent — Godot's own boot-path failure messages are fairly clear — but it closes the last remaining silent-failure mode in the GameBus gate.
+
+**Next review**: next time `project.godot` `[autoload]` section gains a new entry (e.g., SceneManager registration lands — story from scene-manager epic). That's the natural opportunity to add live-tree smoke tests covering all registered autoloads at once.
