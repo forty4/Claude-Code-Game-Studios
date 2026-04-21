@@ -1,10 +1,11 @@
 # Story 004: payload_serialization_test — ResourceSaver round-trip
 
 > **Epic**: gamebus
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Platform
 > **Type**: Integration
 > **Manifest Version**: 2026-04-20
+> **Estimate**: 2-3h — actual ~2h (specialist single-pass with upfront spec deviation flag)
 
 ## Context
 
@@ -94,9 +95,9 @@
   - Edge: assert loaded.result is still an enum value (identity check)
 
 - **AC-2** (BattlePayload with Dictionary + Array[Resource]):
-  - Given: BattlePayload with `deployment_positions: Dictionary` containing 3 Vector2i keys → int values; `battle_start_effects: Array[BattleStartEffect]` with 2 populated elements
+  - Given: BattlePayload with `deployment_positions: Dictionary` containing 3 `int (unit_id)` keys → `Vector2i (grid coord)` values (corrected 2026-04-21 to match BattlePayload class docstring + ADR-0001 §Signal Contract Schema §1); `battle_start_effects: Array[BattleStartEffect]` with 2 populated elements
   - When: round-trip
-  - Then: `loaded.deployment_positions.size() == 3`; each Vector2i key preserved; each int value preserved; `loaded.battle_start_effects.size() == 2`; each element is `BattleStartEffect`; each element's fields round-trip
+  - Then: `loaded.deployment_positions.size() == 3`; each int key preserved; each Vector2i value preserved; `loaded.battle_start_effects.size() == 2`; each element is `BattleStartEffect`; each element's fields round-trip
 
 - **AC-3** (ChapterResult with enum):
   - Given: ChapterResult with `outcome = BattleOutcome.Result.DRAW`, `flags_to_set = ["saved_liu_bei", "met_zhang_fei"]`
@@ -139,3 +140,42 @@
 
 - **Depends on**: Story 001 (payload classes must exist)
 - **Unlocks**: Save/Load implementation (ADR-0003 depends on this contract); SaveManager Story 001 + 002 (reuses the pattern for SaveContext + EchoMark)
+
+## Completion Notes
+
+**Completed**: 2026-04-21
+**Criteria**: 8/8 story ACs passing (6 explicit test functions + 2 structural disciplines); 32/32 full unit suite green in ~289ms
+**Verdict**: COMPLETE WITH NOTES
+
+**Test Evidence**: `tests/unit/core/payload_serialization_test.gd` — 8 GdUnit4 test functions, 522 LOC, Integration gate BLOCKING satisfied
+
+**Code Review**: Complete — `/code-review` initial verdict **APPROVED WITH SUGGESTIONS** (0 BLOCKING, 0 WARNING, 5 SUGGESTIONS). Option A accepted as-is: top 2 suggestions logged as tech debt, remainder as style/speculative. No code changes.
+
+**Files delivered** (all in-scope, zero src/ changes):
+- `tests/unit/core/payload_serialization_test.gd` (+ `.uid` sidecar) — 8 test functions + 6 `_make_populated_*` factory functions + `_save_and_load` helper + `before_test`/`after_test` cleanup discipline + `_tmp_paths` registry
+- Korean Unicode coverage on `BattleOutcome.chapter_id` (`"ch_03_리푸쉬"`) + `ChapterResult.chapter_id` (`"ch_02_관도"`)
+- AC-5 enum ordering regression test explicitly pins WIN=0/DRAW=1/LOSS=2 per TR-save-load-005 append-only invariant
+- AC-6 empty boundary test explicitly asserts non-null + type-preserved + size-0 for empty PackedInt64Array, empty String
+
+**Deviations**:
+- **Story AC-2 spec-wording correction applied in-place**: story originally said `deployment_positions: "Vector2i keys → int values"`. Correct direction per `BattlePayload` class docstring + ADR-0001 §Signal Contract Schema §1 is `int (unit_id) → Vector2i (grid coord)`. Test implementation uses correct direction; story text corrected during this closure.
+- No other deviations. Manifest version match. ADR-0001 §Implementation Guidelines §4 + §Validation Criteria V-3 satisfied. ADR-0003 TR-save-load-004 (CACHE_MODE_IGNORE) + TR-save-load-005 (append-only enum ordering) mirrored.
+
+**Engine-API notes codified** (relevant for future serialization tests — save-manager epic):
+1. `PackedInt64Array` element-wise equality via `a == b`; no `.is_equal()` GdUnit4 idiom for packed arrays — use `assert_bool(a == b).is_true()`
+2. `Array[BattleStartEffect]` may lose typed-array wrapper on round-trip — always verify elements via `is BattleStartEffect` at element level, not outer Array typing
+3. Dictionary with `int → Vector2i` round-trips correctly in Godot 4.6 `.tres` format
+4. `DirAccess.remove_absolute` on macOS/iOS accepts either `user://` paths directly or globalized paths — globalize call is redundant but harmless
+5. `_save_and_load` helper pattern (centralise save+assert+load, return null on failure, caller early-returns) prevents cascading null-deref noise
+
+**Advisory follow-ups** (logged to `docs/tech-debt-register.md`):
+- **TD-010** — `after_test` discards `DirAccess.remove_absolute` return value; silent cleanup failures accumulate in `user://tmp/` across repeated local runs. Recommend `push_warning` on non-OK.
+- **TD-011** — Per-factory field-count maintenance guard missing. If a developer adds an `@export` field to a payload class but forgets to update the corresponding `_make_populated_*` factory, the new field carries type-default through round-trip and passes vacuously.
+
+**Deferred in-situ** (not logged as tech debt):
+- S-1 style nit (`== false).is_true()` → `.is_false()`) — 1 LoC
+- S-2 unnecessary `ProjectSettings.globalize_path()` calls — 3 locations, style noise
+- S-4 parallel-execution collision proofing — speculative future concern (GdUnit4 v6.1.2 is serial-only)
+- qa-tester test-naming convention query (`test_[class]_roundtrip` vs `test_[system]_[scenario]_[expected]`) — defer to qa-lead if project enforces strict naming
+
+**Gates skipped** (review-mode=lean): QL-TEST-COVERAGE, LP-CODE-REVIEW phase-gates. Standalone `/code-review` ran with full gdscript-specialist + qa-tester — findings captured above.
