@@ -1,10 +1,12 @@
 # Story 008: CI lint — per-frame emit ban
 
 > **Epic**: gamebus
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Platform
 > **Type**: Config/Data
 > **Manifest Version**: 2026-04-20
+> **Estimate**: small (~1-2h) — actual ~2.5h across 3 implementation rounds (initial + `|| true` fix + Option B hardening)
+> **🎉 Epic closure story**: merging this wraps the entire gamebus epic (8/8 Complete)
 
 ## Context
 
@@ -166,3 +168,82 @@
 
 - **Depends on**: Story 002 (GameBus must exist so that emits reference a real symbol — otherwise lint passes trivially on a project with no GameBus references)
 - **Unlocks**: ongoing enforcement of ADR-0001 §7 per-frame ban for the life of the project; reusable pattern for future CI lints (V-9 pure-relay, V-10 Save path, etc.)
+
+## Completion Notes
+
+**Completed**: 2026-04-21
+**Criteria**: 8/8 ACs PASS; 6 smoke tests pass (4 exit-code assertions + 1 timing + 1 deferred CI-observation); regression suite **57/57 PASSED**, 0 orphans, GODOT EXIT 0
+**Verdict**: COMPLETE
+
+**Test Evidence**: `production/qa/smoke-gamebus-v7-lint.md` — 6-test smoke check documenting actual outputs + SHA + sign-off. Config/Data ADVISORY gate satisfied.
+
+**Files delivered** (4 artifacts, zero src/ or test changes):
+- `tools/ci/lint_per_frame_emit.sh` (~58 LoC post-hardening) — Ruby-based indentation-aware parser with exit-code triage (0=clean, 1=violations, 2+=Ruby crash with diagnostic to stderr)
+- `tools/ci/README.md` (~72 LoC) — documents purpose, local-debug, tab-only indent assumption, and future-lint pattern template for V-9/V-10
+- `production/qa/smoke-gamebus-v7-lint.md` (~195 LoC) — 6-test smoke check evidence
+- `.github/workflows/tests.yml` — modified (+3 lines) — lint step added BEFORE GdUnit4 runner (fail-fast: saves ~90s on violation PRs)
+
+**Code Review**: Complete — `/code-review` initial verdict **CHANGES REQUIRED** (1 real BLOCKING from security-engineer + 4 ADVISORY). Option B hardening applied: B-2 fix + W-1 README note + S-1 DEFERRED marker + qa-tester Gap 1 new Test 4b → final verdict **APPROVED**.
+
+**Actual effort**: ~2.5h across 3 implementation rounds.
+
+**Implementation rounds** (clean 3-round delivery):
+1. Initial write → 4 files, 5/6 tests pass, tests 2/3 silently exit 1 without message (`set -e` + `$(ruby...)` exit 1 aborts bash before `if [ -n "$violations" ]` block)
+2. Fix round 1 — `|| true` on Ruby substitution → 6/6 tests pass, BUT `|| true` silently swallows ALL non-zero Ruby exits including crashes (identified by security-engineer as B-2 BLOCKING during /code-review)
+3. Option B fix + 3 hardening → `set -uo pipefail` + `if ! ruby_stdout=$(...); then ruby_exit=$?; fi` pattern distinguishes exit 1 (violations) from exit 2+ (crash with stderr diagnostic) + README tab-only note + Test 6 DEFERRED marker + new Test 4b for tests/ exclusion → all 4 changes verified, 57/57 regression green
+
+**BLOCKING caught and fixed during Option B** (security-engineer B-2):
+`set -euo pipefail` + `violations=$(ruby -e '...' || true)` antipattern. If Ruby crashes mid-scan (syntax error, missing binary, corrupted file), `|| true` swallows the non-zero exit + `$violations` is empty + script exits 0 = **false clean pass**. A broken linter that always reports clean is worse than no linter. Fix: refactor to `if ! ruby_stdout=$(...); then ruby_exit=$?; fi` pattern + explicit `[ "$ruby_exit" -gt 1 ]` check for crash exit codes (exit 2 with diagnostic to stderr). Distinguishes domain failures (violations found, exit 1) from tool failures (Ruby crashed, exit 2+).
+
+**Design decisions codified** (for future V-9 pure-relay lint + V-10 save-path lint):
+- `tools/ci/` directory established as CI pipeline helper scripts home
+- Ruby-based indentation-aware parser pattern (handles GDScript's indent-scoping vs ripgrep's brace-scoping)
+- Fail-fast CI ordering (lint BEFORE test runner — saves ~90s on violation PRs)
+- Smoke check doc pattern at `production/qa/smoke-*.md` with structured test cases + SHA + sign-off
+- **Exit-code triage pattern for lint scripts**: 0=clean, 1=domain failure, 2+=tool failure — distinguished via `if ! cmd; then exit_code=$?; fi` + explicit gt-1 check (NEVER use `|| true` to silence substitution exits — swallows real crashes)
+
+**Shell-scripting gotcha** (worth codifying alongside TD-013 when rule file is created):
+> `set -euo pipefail` + `var=$(cmd)` antipattern — when `cmd` exits non-zero, `set -e` aborts bash BEFORE the following `if [ -n "$var" ]` check. `|| true` masks ALL non-zero exits including legitimate errors. Correct pattern: `set -uo pipefail` (drop -e) + `if ! var=$(cmd 2>&1); then exit_code=$?; fi` + `[ "$exit_code" -gt 1 ]` for tool-failure handling.
+
+Not GDScript-specific, so doesn't belong in TD-013. Could live in a dedicated bash-scripting rule file when more lint scripts accumulate (V-9, V-10). Noted for future.
+
+**Deferred (not logged as tech debt — low priority or resolved)**:
+- W-2 `emit.call_deferred` intentional-flag inline comment (already present in script)
+- S-2 README `|| true` rationale (N/A — no longer uses `|| true` after Option B)
+- qa-tester Gap 3 (story §5 vs impl on commented-out emit) — practical outcome correct; minor doc-drift between story narrative and implementation comment
+
+**Security-engineer B-1 (file not committed)** — FALSE ALARM. Files existed on disk but not yet committed because /code-review runs BEFORE R1. Specialist didn't have workflow context; files committed in subsequent R1 cycle.
+
+**Gates skipped** (review-mode=lean): QL-TEST-COVERAGE, LP-CODE-REVIEW phase-gates. Standalone `/code-review` ran with 2 specialists (security-engineer + qa-tester).
+
+---
+
+## 🎉 Gamebus Epic Closure
+
+**8 of 8 stories COMPLETE** with the merge of this story:
+
+| Story | Title | PR | Status |
+|-------|-------|-----|--------|
+| 001 | Payload Resource classes | #2 | ✅ |
+| 002 | GameBus autoload + provisional stubs | #3 | ✅ |
+| 003 | signal_contract_test (ADR drift gate) | #4 | ✅ |
+| 004 | payload_serialization_test | #5 | ✅ |
+| 005 | GameBusDiagnostics (50/frame soft cap) | #6 | ✅ |
+| 006 | GameBus stub for GdUnit4 isolation | #7 | ✅ |
+| 007 | Cross-scene emit integration test | #8 | ✅ |
+| 008 | CI lint per-frame emit ban | #9 (this) | ✅ |
+
+**Entire signal-bus infrastructure delivered**: 27 typed signals × 10 domains, autoload with zero-state discipline, 4 provisional stub payloads ready for supersession by future epics, payload serialization round-trip guarantees, debug-only per-frame soft-cap diagnostics, test isolation via stub pattern, cross-scene signal lifecycle verified, and CI enforcement of the per-frame emit ban.
+
+**Downstream unlocks**:
+- Save/Load epic (ADR-0003 depends on payload serialization contract from story 004)
+- SceneManager epic (scene_handoff_timing_test reuses cross-scene emit patterns from story 007)
+- All Platform/Feature epic stories can now use `GameBusStub.swap_in()` for unit test isolation
+- Ongoing ADR-0001 §7 enforcement via CI lint (story 008)
+- Pattern template for V-9 pure-relay lint + V-10 save-path lint (reuses `tools/ci/` + Ruby parser + exit-code triage)
+
+**Session totals across the epic**:
+- **9 GDScript/GdUnit4 gotchas** codified for TD-013 (rule file creation overdue)
+- **17 tech-debt register entries** (3 resolved, 14 open) — TD-001 through TD-015 + TD-010/011/014
+- **57 automated tests** across 48 unit + 9 integration, 100% passing, 0 orphans
+- **8 PRs merged**, zero reverted, zero rollbacks
