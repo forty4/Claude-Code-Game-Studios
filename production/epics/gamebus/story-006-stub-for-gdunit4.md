@@ -1,10 +1,11 @@
 # Story 006: GameBus stub pattern for GdUnit4
 
 > **Epic**: gamebus
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Platform
 > **Type**: Integration
 > **Manifest Version**: 2026-04-20
+> **Estimate**: small (~2-3h) — actual ~3h across 4 implementation rounds (initial + queue_free→free + explicit swap_out + Option B hardening)
 
 ## Context
 
@@ -131,3 +132,64 @@
 
 - **Depends on**: Story 002 (GameBus must exist to be swappable)
 - **Unlocks**: test infrastructure for ALL downstream Platform + Foundation epics — SceneManager Story tests, SaveManager Story tests, Map/Grid Story tests all require the ability to isolate GameBus signals. This story is the critical-path enabler for every other epic's test coverage.
+
+## Completion Notes
+
+**Completed**: 2026-04-21
+**Criteria**: 7/7 testable ACs passing (AC-6 README code-block lint deferred per story advisory note); 48/48 full unit suite green, 0 orphans, exit 0
+**Verdict**: COMPLETE WITH NOTES
+
+**Test Evidence**: 3 artifacts in `tests/unit/core/`:
+- `game_bus_stub.gd` (~140 LoC) — `GameBusStub.swap_in()` / `swap_out()` static helpers with hardened state machine
+- `game_bus_stub_self_test.gd` (~417 LoC) — 7 self-tests covering AC-1..AC-5 + AC-7
+- `README.md` (~152 LoC) — usage pattern + documented limitations
+
+Plus 1 new shared helper file: `tests/unit/core/test_helpers.gd` (~34 LoC) — `class_name TestHelpers` with `get_user_signals(node)` static method, extracted from 3 test files where the dynamic-baseline inherited-signal filter was duplicated (W-3 hardening from /code-review).
+
+**Code Review**: Complete — `/code-review` initial verdict **CHANGES REQUIRED** (1 BLOCKING `is_instance_valid` guard missing + 5 ADVISORY hardening). Option B accepted: all 6 changes applied → final verdict **APPROVED**. 48/48 tests still pass after hardening.
+
+**Files delivered** (all in `tests/unit/core/`; zero src/ or project.godot changes):
+- `game_bus_stub.gd` (new, ~140 LoC)
+- `game_bus_stub_self_test.gd` (new, ~417 LoC)
+- `README.md` (new, ~152 LoC)
+- `test_helpers.gd` (new, ~34 LoC — shared helper extracted during Option B)
+- `signal_contract_test.gd` (modified, -11 LoC — delegates to TestHelpers)
+- `game_bus_diagnostics_test.gd` (modified, -5 LoC — delegates to TestHelpers)
+- `game_bus_declaration_test.gd` (modified — delegates to TestHelpers)
+
+**Implementation rounds** (4-round progressive debugging):
+1. Initial write: 7/7 PASS but 2 orphan nodes from `queue_free()` deferred deletion
+2. Round 1: `queue_free()` → `free()` + `is_queued_for_deletion()` → `is_instance_valid(stub) == false` check + AC-7 format string error fixed → 1 orphan remaining
+3. Round 2: added explicit `GameBusStub.swap_out()` at end of AC-1 test body (GdUnit4 scans orphans between test body exit and after_test; after_test cleanup is too late; exit code 101 when any orphan found) → 0 orphans, 48/48 pass, exit 0
+4. Option B hardening (post-/code-review): 6 changes across 6 files — 1 BLOCKING fix + 5 advisory → still 48/48 pass, exit 0
+
+**BLOCKING fix applied** (Option B Change 1):
+`_cached_production` dereferenced without `is_instance_valid()` check at both restoration sites in `swap_out()`. Would crash with use-after-free if anything freed the cached production Node between swap_in and swap_out (SceneTree teardown, rogue test calling queue_free, engine shutdown). Critical because downstream stories would copy the pattern and inherit the bug. Now guarded with `is_instance_valid()` + `push_warning` diagnostic on broken-cache cases.
+
+**Advisory hardening applied** (Option B Changes 2-6):
+- **W-1**: `Engine.get_main_loop().root` hardened via `_get_root()` helper with SceneTree cast + null guard (swap_in may now return null in non-SceneTree contexts — defensive)
+- **W-2**: Case D (foreign-node at /root/GameBus corruption path) emits `push_warning` instead of silent cache clear
+- **W-3**: `_get_user_signals` extracted to `tests/unit/core/test_helpers.gd` (3rd-copy extraction threshold)
+- **AC-4 comment staleness** ("freed/queued" → "freed synchronously via free()")
+- **README usage example** updated to show in-body `swap_out()` pattern so future authors don't rely solely on after_test (which is too late to prevent GdUnit4 orphan detection)
+
+**Design decisions codified**:
+- First story to touch `/root/` directly via `add_child`/`remove_child` during tests (all prior tests used `load()+.new()` isolated instances)
+- `Engine.get_main_loop()` + SceneTree cast for static-function root access (not `get_tree().root` which requires Node method)
+- `class_name GameBusStub` + `extends RefCounted` — OK because stub is NOT an autoload (no `/root/GameBusStub` mount, no name collision)
+- `free()` (not `queue_free()`) for test-owned Nodes with no external Callable references — immediate deletion avoids GdUnit4 orphan detection
+- **Explicit `swap_out()` at end of every test body** that calls `swap_in()` — `after_test` is crash-safety net, not primary cleanup
+- `is_instance_valid()` guards before dereferencing cached Node references — critical-path defensive pattern
+- `_active_stub` state var distinguishes stub-active from stub-absent states — prevents paranoia-path swap_out from misidentifying production as the stub
+
+**6th GDScript 4.x / GdUnit4 gotcha this session** (additional to TD-013 items):
+GdUnit4 orphan detection fires between test body exit and `after_test`. Detached Nodes held in static vars are flagged. Fix: explicit cleanup at end of test body that creates/detaches Nodes; after_test serves only as crash-safety net. Exit code 101 when any orphan found. Worth adding to TD-013's gotcha list when that rule-file is created.
+
+**Advisory follow-ups** (logged to `docs/tech-debt-register.md`):
+- **TD-014** — Verify CI config actually registers `GameBusDiagnostics` as autoload so AC-7 assertion (c) — "diagnostic re-engages with production after swap_out via signal-persistence through detach/reattach" — is actually exercised in CI. Locally it runs; CI should inherit project.godot [autoload] block but worth confirmation.
+
+**Deferred** (not logged as tech debt):
+- qa-tester Gap 1 (AC-4 detached-production-silence) — architecturally guaranteed by Godot's signal model (emit on object A cannot fire handler on object B without explicit connection); documented in README
+- Engine-specialist W-4 (standalone signal-persistence test independent of diagnostics) — low value given architectural guarantee + existing AC-7 coverage in debug builds
+
+**Gates skipped** (review-mode=lean): QL-TEST-COVERAGE, LP-CODE-REVIEW phase-gates. Standalone `/code-review` ran with 2 specialists — findings captured above, Option B fix cycle applied.

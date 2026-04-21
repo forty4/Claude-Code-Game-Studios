@@ -315,10 +315,52 @@ Across the first 5 gamebus stories, the following GDScript 4.x / Godot 4.6 behav
    Example: `battle_prepare_requested` starts with `battle_` but is emitted by ScenarioRunner (Scenario Progression domain), not BattleController. A naive prefix-match routes it wrong. Pattern: explicit name-match guards MUST precede prefix rules for conflicting cases, and a full-coverage regression test (iterate every signal, compare routing result to ADR-authoritative domain) is the enforcement mechanism. (Source: story-005 /code-review bug caught during test drafting.)
 
 **Remediation path**:
-- Option A (minimal): Append a "GDScript 4.6 gotchas" section to `.claude/rules/test-standards.md` listing the 5 items with one-line examples.
+- Option A (minimal): Append a "GDScript 4.6 gotchas" section to `.claude/rules/test-standards.md` listing the items with one-line examples.
 - Option B (organized): Create `.claude/rules/godot-4x-gotchas.md` as a standalone rule file, add cross-references from `test-standards.md` and `engine-code.md`.
 - Option C (thorough): Add to `docs/engine-reference/godot/` as a dedicated gotchas page with cross-references to version-specific changelog entries.
 
 Recommended: Option B — standalone file, well-cross-referenced. ~200 lines total. Saves ~30-60 min per gotcha-triggered test-cycle delay for every future contributor.
 
-**Next review**: when a 6th gotcha is discovered, OR before onboarding a new contributor, whichever comes first. This task could also be assigned to a devops-engineer or tools-programmer agent in a future sprint.
+**Update 2026-04-21 (story-006)**: 6th gotcha discovered — GdUnit4 orphan detection fires between test body exit and `after_test`. Detached Nodes held in static vars are flagged as orphans; exit code 101 when any orphan found (CI failure gate). Fix: explicit cleanup at end of test body that creates/detaches Nodes; `after_test` serves only as crash-safety net. Add this item when creating the rule file.
+
+**Next review**: before onboarding a new contributor, OR when a 7th gotcha is discovered. Trigger threshold reached (6 items).
+
+---
+
+## TD-014 — Verify CI registers GameBusDiagnostics autoload for AC-7 coverage
+
+**Origin**: story-006 /code-review qa-tester ADVISORY Gap 2
+**Category**: build
+**Severity**: low (local tests pass; only CI coverage of one assertion path is in question)
+**Status**: open
+
+`tests/unit/core/game_bus_stub_self_test.gd::test_stub_coexists_with_gamebus_diagnostics` (AC-7) has a conditional assertion (c) that only runs when `GameBusDiagnostics` is actively mounted at `/root/GameBusDiagnostics`:
+
+```gdscript
+var diagnostics: Node = get_tree().root.get_node_or_null("GameBusDiagnostics")
+if diagnostics == null or diagnostics.is_queued_for_deletion():
+    print("[AC-7] GameBusDiagnostics not active — running without diagnostic coexistence check")
+    diagnostics = null
+...
+if diagnostics != null:
+    # Assertion (c) — signal-connection-persistence through detach/reattach
+    ...
+```
+
+Assertion (c) is the most structurally interesting part of AC-7: it verifies that Godot signal connections persist through `remove_child` / `add_child` cycles, enabling GameBusDiagnostics to re-engage with production after swap_out. If this invariant ever breaks in a future Godot version, AC-7 must catch it.
+
+**Risk**: if CI runs in release-build mode (or if GdUnit4 somehow bypasses project.godot autoload registration), `GameBusDiagnostics` is absent and assertion (c) becomes dead code. The CI log would print "[AC-7] GameBusDiagnostics not active" and silently skip the check.
+
+**Investigation needed**:
+1. Inspect CI logs from PR #5 (story-005) and PR #6 (story-006) — search for "[AC-7] GameBusDiagnostics not active" print. If present, CI is skipping assertion (c). If absent, assertion (c) IS running in CI (good).
+2. Verify `.github/workflows/tests.yml` uses `godot --headless` in debug build mode (default is debug; release requires explicit flag).
+3. Confirm `project.godot` `[autoload]` block is honored by `MikeSchulze/gdUnit4-action@v1` (GitHub Action for Godot test runs).
+
+**Remediation** (if investigation finds assertion (c) is skipped in CI):
+- Option A: remove the `if diagnostics == null` conditional — require diagnostics to be present for AC-7 to run. If absent, fail loudly. This is the "strictest" path.
+- Option B: add a standalone signal-persistence test (no diagnostic dependency) per engine-specialist W-4 from /code-review. ~2 LoC: `var n := Node.new(); var h: Callable = func(): counter += 1; n.ready.connect(h); root.remove_child(n); root.add_child(n); n.ready.emit(); assert(counter == 1)`. Independent of diagnostics presence.
+- Option C: accept the conditional skip as-is; note in CI dashboard that assertion (c) is only verified in debug builds.
+
+Recommended: Option B (standalone test) — most robust, independent of autoload configuration, catches Godot version regressions immediately.
+
+**Next review**: when a CI log from any gamebus epic PR confirms whether "[AC-7] GameBusDiagnostics not active" appears. Quick inspection task (<5 min) — can be closed immediately after verification.

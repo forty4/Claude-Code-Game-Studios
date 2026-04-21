@@ -490,16 +490,9 @@ func test_diagnostics_route_to_domain_covers_all_27_signals() -> void:
 	# Also verify coverage: get all user-declared signals on a fresh bus and confirm
 	# every one appears in our expected map (catches new signals added without updating here).
 	var bus: Node = _make_bus()
-	var baseline: Node = auto_free(Node.new())
-	var inherited: Array[String] = []
-	for sig: Dictionary in baseline.get_signal_list():
-		inherited.append(sig["name"] as String)
-
 	var actual_signal_names: Array[String] = []
-	for sig: Dictionary in bus.get_signal_list():
-		var sname: String = sig["name"] as String
-		if not sname in inherited:
-			actual_signal_names.append(sname)
+	for sig: Dictionary in TestHelpers.get_user_signals(bus):
+		actual_signal_names.append(sig["name"] as String)
 
 	# Assert — no signal on GameBus is missing from the expected map
 	var missing_from_expected: Array[String] = []

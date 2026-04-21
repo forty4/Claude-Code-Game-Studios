@@ -241,27 +241,10 @@ const EXPECTED_SIGNALS: Array[Dictionary] = [
 # ── Helpers ───────────────────────────────────────────────────────────────────────
 
 
-## Returns all signal names declared on a bare Node instance.
-## Dynamic baseline — never hardcoded — so Godot version upgrades that add new
-## built-in Node signals do not require a manual update here.
-## Replicates the pattern from game_bus_declaration_test.gd.
-func _get_node_inherited_signal_names() -> Array[String]:
-	var baseline: Node = auto_free(Node.new())
-	var names: Array[String] = []
-	for sig: Dictionary in baseline.get_signal_list():
-		names.append(sig["name"] as String)
-	return names
-
-
-## Returns only user-declared signals on a GameBus instance (inherited Node signals
-## filtered out via the dynamic baseline).
+## Thin delegation to the shared TestHelpers module.
+## Kept as a local wrapper so callers within this file are unchanged.
 func _get_user_signals(instance: Node) -> Array[Dictionary]:
-	var inherited: Array[String] = _get_node_inherited_signal_names()
-	var user_signals: Array[Dictionary] = []
-	for sig: Dictionary in instance.get_signal_list():
-		if not (sig["name"] as String) in inherited:
-			user_signals.append(sig)
-	return user_signals
+	return TestHelpers.get_user_signals(instance)
 
 
 # ── Tests ─────────────────────────────────────────────────────────────────────────
