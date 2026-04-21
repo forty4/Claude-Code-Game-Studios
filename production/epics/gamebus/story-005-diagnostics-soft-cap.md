@@ -1,10 +1,11 @@
 # Story 005: GameBusDiagnostics — debug-only 50-emit/frame soft cap
 
 > **Epic**: gamebus
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Platform
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
+> **Estimate**: medium (~3-4h) — actual ~3.5h across 4 implementation rounds + 1 real-bug fix
 
 ## Context
 
@@ -52,22 +53,28 @@
    }
    var _emits_this_frame: int = 0
    ```
-2. **Signal name → domain routing** — use prefix match:
+2. **Signal name → domain routing** — ADR-0001 §Signal Contract Schema is authoritative for the signal→domain mapping. The prefix-match pattern is a compact implementation strategy BUT **prefix alone is insufficient** when a signal's name prefix was chosen for semantic clarity rather than domain ownership (e.g., `battle_prepare_requested` and `battle_launch_requested` start with `battle_` but belong to Scenario Progression §1 because ScenarioRunner emits them — NOT Grid Battle).
+
+   Implementation pattern:
    ```gdscript
-   func _route_to_domain(signal_name: String) -> String:
-       if signal_name.begins_with("scenario_") or signal_name.begins_with("chapter_"): return "scenario"
-       if signal_name.begins_with("battle_"): return "battle"
-       if signal_name.begins_with("round_") or signal_name.begins_with("unit_turn_"): return "turn"
-       if signal_name.begins_with("unit_"): return "unit"
-       if signal_name.begins_with("destiny_"): return "destiny"
-       if signal_name.begins_with("beat_"): return "beat"
-       if signal_name.begins_with("input_"): return "input"
-       if signal_name.begins_with("ui_"): return "ui"
-       if signal_name.begins_with("save_"): return "save"
-       if signal_name.begins_with("tile_"): return "environment"
+   func _route_to_domain(sig_name: String) -> String:
+       # Explicit name-match guards MUST precede prefix rules where the prefix
+       # conflicts with the ADR-authoritative domain ownership.
+       if sig_name == "battle_prepare_requested" or sig_name == "battle_launch_requested":
+           return "scenario"
+       if sig_name.begins_with("scenario_") or sig_name.begins_with("chapter_"): return "scenario"
+       if sig_name.begins_with("battle_"): return "battle"
+       if sig_name.begins_with("round_") or sig_name.begins_with("unit_turn_"): return "turn"
+       if sig_name.begins_with("unit_"): return "unit"
+       if sig_name.begins_with("destiny_"): return "destiny"
+       if sig_name.begins_with("beat_"): return "beat"
+       if sig_name.begins_with("input_"): return "input"
+       if sig_name.begins_with("ui_") or sig_name.begins_with("scene_"): return "ui"   # scene_transition_failed
+       if sig_name.begins_with("save_"): return "save"
+       if sig_name.begins_with("tile_"): return "environment"
        return "unknown"
    ```
-   Compute at connect time, not per-emit. Store a `Dictionary[signal_name -> domain_key]` lookup.
+   Compute at connect time, not per-emit. Store a `Dictionary[signal_name -> domain_key]` lookup. A dedicated 27-signal regression test (`test_diagnostics_route_to_domain_covers_all_27_signals`) enforces the ADR schema against the routing function — failing if rule ordering is broken or a new signal is added without updating both the ADR table and this function.
 3. **Connect once per signal** — iterate `GameBus.get_signal_list()` filtering out inherited Node signals. For each user signal, `GameBus.[signal].connect(Callable(self, "_on_any_emit").bind(signal_name))`.
 4. **Binding** — use `Callable.bind(signal_name)` so the handler knows which signal fired without receiving the actual payload. Avoids payload access (and the Variadic-arg complexity for signals with different arg counts).
 5. **Counter reset at end of `_process`** — after the warning check. This means a burst at frame N is counted in frame N's report, not split across frames.
@@ -148,3 +155,47 @@
 
 - **Depends on**: Story 002 (GameBus must exist to connect to)
 - **Unlocks**: proactive per-frame emission hygiene; smell detection during Vertical Slice
+
+## Completion Notes
+
+**Completed**: 2026-04-21
+**Criteria**: 7/7 ACs passing + 1 bonus regression test added during review; 41/41 full unit suite green, exit 0
+**Verdict**: COMPLETE WITH NOTES
+
+**Test Evidence**: `tests/unit/core/game_bus_diagnostics_test.gd` — 9 GdUnit4 test functions (8 AC-driven + 1 `_route_to_domain` regression), ~460 LoC, Logic gate BLOCKING satisfied
+
+**Code Review**: Complete — `/code-review` initial verdict **CHANGES REQUIRED** (1 BLOCKING hot-path allocation, 4 ADVISORY items). Option C accepted: BLOCKING documented as trade-off (TD-012), all 4 ADVISORY items applied, **plus 1 real bug caught during regression-test drafting and fixed in-situ**. Final verdict: **APPROVED**.
+
+**Files delivered**:
+- `src/core/game_bus_diagnostics.gd` (~170 LoC) — **first real source-code file in the project**. Autoload Node with `_ready`/`_process` lifecycle, 27-signal connect loop via `Callable.bind(name).unbind(arg_count)`, 10-domain routing, debug-build strip via `queue_free()`, 4 documented test seams (`_debug_build_override` static, `_soft_cap_warning_fired` signal, `set_cap(n)`, `_connect_to_bus(bus)`)
+- `tests/unit/core/game_bus_diagnostics_test.gd` (~460 LoC) — 9 test functions covering AC-1..AC-7 + domain routing regression
+- `project.godot` — `GameBusDiagnostics` autoload registered as 2nd entry after `GameBus`, preserving ORDER-SENSITIVE comment
+
+**Bug caught and fixed in-situ** (during /code-review Option C application):
+`_route_to_domain("battle_prepare_requested")` incorrectly returned `"battle"` because the `begins_with("battle_")` prefix rule fired before any scenario-domain check. Per ADR-0001 §Signal Contract Schema §1, both `battle_prepare_requested` and `battle_launch_requested` are emitted by ScenarioRunner and belong to Scenario Progression. Without the new 27-signal regression test drafted during code-review, this would have silently shipped and produced incorrect warning messages (counting scenario emits under "battle" domain). Fix: explicit name-match guards added before the `battle_` prefix rule. Story Implementation Notes §2 updated above to reflect the correct pattern and document the prefix-vs-domain conflict as a general lesson.
+
+**Implementation rounds** (documentation of specialist iteration discipline):
+1. Initial write → 3 BLOCKING compile errors: autoload name collision with `class_name GameBusDiagnostics`, `assert_signal_emit_count()` doesn't exist in GdUnit4 v6.1.2, loop variable `i` scoping in GDScript 4.x
+2. Fix round 1 → 1 runtime failure: GDScript lambda primitive-capture semantics (AC-3 test tried to reassign outer String/int/Dictionary from inside a lambda — doesn't propagate; only Array.append / Dictionary[k]=v method calls work)
+3. Fix round 2 → 40/40 green
+4. Post-review Option C → real `_route_to_domain` bug caught during regression-test drafting → fixed + 4 advisory changes applied → 41/41 green
+
+**Advisory items applied** (not tech-debt):
+- AC-5 expanded to track `chapter_started` (6 signals covering 6 of 10 domains — smell-check rationale documented)
+- AC-7 iterations raised from 2 → 10 to match story spec ("10 consecutive runs")
+- New `test_diagnostics_route_to_domain_covers_all_27_signals` — bidirectional coverage check + per-signal routing assertion against ADR-authoritative expected map
+- Story Implementation Notes §2 corrected in-place: ADR-0001 §Signal Contract Schema declared authoritative; explicit name-match pattern documented for prefix-vs-domain conflicts
+
+**Advisory item accepted with documentation** (logged as TD-012):
+- Hot-path Dictionary allocations in `_on_any_emit` (2 Dictionary read/writes per emission) violate the letter of engine-code.md ZERO-alloc rule. Accepted because: (a) diagnostic is debug-only, queue_free'd in release; (b) measured 0.53µs/emit = 0.016ms/frame, 6× under <0.1ms/frame budget; (c) 10 fixed keys → predictable. Revisit trigger documented in code + TD-012.
+
+**5 GDScript 4.x gotchas codified this session** (logged as TD-013 for future rule-file creation):
+1. Godot 4.6.2 Node has 13 inherited signals (not 9 from training) — use dynamic baseline filter
+2. `Array[T].duplicate()` demotes typed → untyped — use `.assign()` instead
+3. Autoload-registered scripts must NOT declare `class_name X` matching the autoload name
+4. GDScript lambdas cannot reassign outer primitive locals — use `Array.append({...})` pattern
+5. Prefix-based signal routing is fragile when prefix ≠ ADR domain ownership — enforce via ADR-authoritative regression tests
+
+**Deviations**: None from scope. Spec-wording correction applied in-situ to §2 (above). No other files touched outside the 3 listed deliverables.
+
+**Gates skipped** (review-mode=lean): QL-TEST-COVERAGE, LP-CODE-REVIEW phase-gates. Standalone `/code-review` ran with 2 specialists — findings captured, Option C fix cycle applied, real bug caught during fix application.

@@ -255,3 +255,70 @@ Mitigation options:
 Recommended resolver: option 1 (comments) as a cheap-and-cheerful maintenance prompt. Upgrade to option 3 if/when the codebase grows enough that payload shape churn becomes a hot spot (e.g., after save-manager epic locks SaveContext's shape and 1-2 other payloads see meaningful field additions).
 
 **Next review**: when any payload class gains a new `@export` field — check whether the corresponding factory was updated in the same PR. If yes, close this as resolved-by-discipline. If no, escalate to option 2 or 3.
+
+---
+
+## TD-012 — GameBusDiagnostics `_on_any_emit` hot-path Dictionary allocations (accepted trade-off)
+
+**Origin**: story-005 /code-review BLOCKING (godot-gdscript-specialist); resolved via Option C accept-with-documentation
+**Category**: code
+**Severity**: low (measured 6× under budget; debug-only path)
+**Status**: accepted (revisit trigger documented inline)
+
+`src/core/game_bus_diagnostics.gd::_on_any_emit` fires on every GameBus emission and performs 2 Dictionary operations per call:
+```gdscript
+var domain: String = _signal_to_domain.get(sig_name, "unknown") as String
+_domain_counts[domain] = (_domain_counts.get(domain, 0) as int) + 1
+```
+
+GDScript Dictionary read/write involves Variant boxing — technically a violation of `.claude/rules/engine-code.md` "ZERO allocations in hot paths" rule. A strict zero-alloc alternative would replace `_domain_counts: Dictionary` with 10 individual `var _count_<domain>: int` members + a `match` statement.
+
+**Why accepted as-is** (documented in the handler docstring):
+- (a) Diagnostic is **debug-only** — `queue_free()`'d in release builds at `_ready()`
+- (b) **Measured overhead**: 0.53 µs/emission = ~0.016 ms/frame at 30 emits/frame, which is **6× under the <0.1 ms/frame budget** per ADR-0001 §Implementation Guidelines §8
+- (c) 10 fixed keys → predictable 10 writes/frame, no unbounded growth
+- (d) Dictionary form is more maintainable — new domains added by inserting one entry vs. adding a new int member + match arm + reset line
+
+**Revisit trigger** (documented in code):
+- Measured overhead approaches the 0.1 ms/frame budget on any supported platform (macOS, Windows, Linux, Android, iOS)
+- OR the diagnostic is ever retained in release builds for telemetry (ADR change required)
+- Either would invalidate the debug-only justification; rewrite `_on_any_emit` to use individual int members + match at that point.
+
+**Measurement provenance**: `test_diagnostics_overhead_under_advisory_budget` (AC-6 test) logs per-run overhead. 0.962ms total for 1800 emissions (60 frames × 30 emits) on the current dev machine, 2026-04-21. Future regression would show as overhead growth in CI stdout (AC-6 prints the result).
+
+**Next review**: if the diagnostic's AC-6 perf log shows any single emission approaching 5 µs (current: 0.53 µs), investigate. Or if a future story proposes retaining diagnostics in release builds.
+
+---
+
+## TD-013 — Codify 5 GDScript 4.x gotchas into project rule file
+
+**Origin**: stories 002, 003, 004, 005 discovered 5 distinct GDScript 4.x behaviors that cost test-cycle time to rediscover
+**Category**: docs
+**Severity**: medium (each undiscovered gotcha costs ~30-60 min of test-debugging cycle)
+**Status**: open
+
+Across the first 5 gamebus stories, the following GDScript 4.x / Godot 4.6 behaviors bit us during implementation or testing. Each is worth documenting in a dedicated rule file (suggested: `.claude/rules/godot-4x-gotchas.md` or appending to existing `.claude/rules/test-standards.md`):
+
+1. **Godot 4.6.2 Node has 13 inherited signals, not 9**
+   Pre-cutoff LLM training knew ~9 (`ready`, `tree_*`, etc.). Godot 4.4+ added 4 more: `editor_description_changed`, `editor_state_changed`, `property_list_changed`, `script_changed`. Pattern: use dynamic `Node.new().get_signal_list()` baseline at test time — never hardcode the inherited signal list. (Source: story-002 game_bus_declaration_test.)
+
+2. **`Array[T].duplicate()` silently demotes typed arrays to untyped `Array`**
+   In Godot 4.6, calling `.duplicate()` on an `Array[String]` (or any typed array) returns an untyped `Array`. The static type annotation is lost at the call boundary. Pattern: use `.assign(source)` instead, which preserves the typed-array annotation. (Source: story-003 signal_contract_test W-1.)
+
+3. **Autoload-registered scripts MUST NOT declare `class_name` matching the autoload name**
+   Godot throws "Class X hides an autoload singleton" parse error at project load. Pattern: autoload scripts use `extends Node` with NO `class_name`. Tests access the script via `load(PATH).new()` rather than `ClassName.new()`. Static vars accessed via `(load(PATH) as GDScript).set("_var", value)`. (Source: story-005 round 1.)
+
+4. **GDScript lambdas CAN mutate captured reference types but CANNOT reassign captured primitive locals**
+   Lambdas can call `.append()` on captured Arrays or write `dict[k] = v` on captured Dictionaries (both are method calls on reference-type pointers). Lambdas CANNOT reassign outer `String`, `int`, `bool`, `float` locals — the assignment stays scoped to the lambda. Pattern: always use `var captures: Array = []` + `captures.append({...})` for signal captures in tests. (Source: story-005 AC-3 fix round 2.)
+
+5. **Prefix-based signal routing is fragile when the prefix is chosen for semantic clarity rather than domain ownership**
+   Example: `battle_prepare_requested` starts with `battle_` but is emitted by ScenarioRunner (Scenario Progression domain), not BattleController. A naive prefix-match routes it wrong. Pattern: explicit name-match guards MUST precede prefix rules for conflicting cases, and a full-coverage regression test (iterate every signal, compare routing result to ADR-authoritative domain) is the enforcement mechanism. (Source: story-005 /code-review bug caught during test drafting.)
+
+**Remediation path**:
+- Option A (minimal): Append a "GDScript 4.6 gotchas" section to `.claude/rules/test-standards.md` listing the 5 items with one-line examples.
+- Option B (organized): Create `.claude/rules/godot-4x-gotchas.md` as a standalone rule file, add cross-references from `test-standards.md` and `engine-code.md`.
+- Option C (thorough): Add to `docs/engine-reference/godot/` as a dedicated gotchas page with cross-references to version-specific changelog entries.
+
+Recommended: Option B — standalone file, well-cross-referenced. ~200 lines total. Saves ~30-60 min per gotcha-triggered test-cycle delay for every future contributor.
+
+**Next review**: when a 6th gotcha is discovered, OR before onboarding a new contributor, whichever comes first. This task could also be assigned to a devops-engineer or tools-programmer agent in a future sprint.
