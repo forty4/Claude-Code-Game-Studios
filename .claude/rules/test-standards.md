@@ -13,6 +13,7 @@ paths:
 - Test data must be defined in the test or in dedicated fixtures, never shared mutable state
 - Mock external dependencies — tests should be fast and deterministic
 - Every bug fix must have a regression test that would have caught the original bug
+- **Godot/GdUnit4 gotchas**: when writing GDScript tests, consult `.claude/rules/godot-4x-gotchas.md` first — 9 session-discovered pitfalls that each cost ~30-60 min to rediscover
 
 ## Examples
 

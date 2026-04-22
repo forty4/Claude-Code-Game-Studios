@@ -14,6 +14,7 @@ paths:
 - Use RAII / deterministic cleanup for all resources
 - All engine systems must support graceful degradation
 - Before writing engine API code, consult `docs/engine-reference/` for the current engine version and verify APIs against the reference docs
+- **Godot 4.x specific**: when writing or editing GDScript autoloads, consult `.claude/rules/godot-4x-gotchas.md` (G-1 through G-9) — covers inherited signal drift, typed-array demotion, autoload/class_name collision, lambda primitive-capture, and other session-discovered pitfalls
 
 ## Examples
 

@@ -290,12 +290,12 @@ GDScript Dictionary read/write involves Variant boxing — technically a violati
 
 ---
 
-## TD-013 — Codify 5 GDScript 4.x gotchas into project rule file
+## TD-013 — Codify 9 GDScript 4.x / GdUnit4 gotchas into project rule file
 
-**Origin**: stories 002, 003, 004, 005 discovered 5 distinct GDScript 4.x behaviors that cost test-cycle time to rediscover
+**Origin**: stories 002-007 discovered 9 distinct Godot 4.x / GdUnit4 behaviors that each cost ~30-60 min of debug-cycle time to rediscover
 **Category**: docs
-**Severity**: medium (each undiscovered gotcha costs ~30-60 min of test-debugging cycle)
-**Status**: open
+**Severity**: medium (cumulative friction across ~9 gotchas × 30-60min each = 4.5-9h per contributor onboarding)
+**Status**: **resolved 2026-04-22** — `.claude/rules/godot-4x-gotchas.md` (see commit on branch `feature/td-013-godot-4x-gotchas-rulefile`)
 
 Across the first 5 gamebus stories, the following GDScript 4.x / Godot 4.6 behaviors bit us during implementation or testing. Each is worth documenting in a dedicated rule file (suggested: `.claude/rules/godot-4x-gotchas.md` or appending to existing `.claude/rules/test-standards.md`):
 
@@ -331,7 +331,11 @@ Recommended: Option B — standalone file, well-cross-referenced. ~200 lines tot
 
 9. **`%` operator binds to immediate left operand** — `"a" + "b" % args` parses as `"a" + ("b" % args)`, NOT `("a" + "b") % args`. Multi-line string concatenations feeding into `%` always need explicit parentheses around the concat. Common pattern: `override_failure_message(("line 1 %d " + "line 2.") % arg)`. Broken version produces "String formatting error: not all arguments converted" — non-failing runtime warning, but pollutes CI stdout. This bit the same story 5 times in a single hardening pass.
 
-**Next review**: **CREATE THE RULE FILE NOW.** 9 gotchas × ~30-60 min rediscovery cost each = ~4.5-9 hours of future contributor friction if we don't codify. Recommended: `/Users/forty4/Works/forty4/my-game/.claude/rules/godot-4x-gotchas.md` with one-paragraph explanation + correct-vs-broken code example for each gotcha. Cross-references from `test-standards.md` and `engine-code.md`. Est. 1h to author. Candidate for a devops-engineer or tools-programmer agent in the next planning session.
+**Next review**: N/A — resolved. `.claude/rules/godot-4x-gotchas.md` created 2026-04-22 with all 9 gotchas in Context → Broken → Correct → Discovered format, plus verification pattern summary, "Adding a new gotcha" contributor guide, and cross-references from `test-standards.md` and `engine-code.md`. The file is path-scoped (`src/**` + `tests/**` + `tools/**`) and will be surfaced automatically by the rule system when any GDScript work begins.
+
+**Resolution evidence**: commit on branch `feature/td-013-godot-4x-gotchas-rulefile` adds `.claude/rules/godot-4x-gotchas.md` + one-line cross-reference additions to `.claude/rules/test-standards.md` and `.claude/rules/engine-code.md`.
+
+**Future maintenance**: when a 10th gotcha is discovered, append a G-10 entry using the established format. Update this TD-013 entry only if the structure/scope changes materially.
 
 ---
 
