@@ -261,6 +261,81 @@ Common footgun in long failure messages. Broke story-007 5× in a single hardeni
 
 ---
 
+## G-10 — Autoload global identifier binds at engine init, not dynamically to /root/Name
+
+**Context**: stub-pattern tests that swap `/root/<Autoload>` with a fresh instance mid-test, then expect subscribers instantiated AFTER the swap to receive signals emitted on the stub.
+
+**Broken**: assuming `GameBus.signal.connect(...)` inside a subscriber's `_ready()` resolves the `GameBus` identifier to whatever is currently at `/root/GameBus`. It does NOT. The autoload identifier (`GameBus`, `SceneManager`, etc.) is bound at engine registration time to the ORIGINALLY-REGISTERED node. When `GameBusStub.swap_in()` removes production and mounts a stub at `/root/GameBus`, pre-existing references to `GameBus` still point at the detached production instance. A new subscriber's `_ready()` connects to that detached production — emits on the stub never fire the subscriber's handler.
+
+Symptom: handler never fires; state assertions fail with the initial value (e.g., state stays 0=IDLE when the test expected 1=LOADING_BATTLE after emit). Can masquerade as a `CONNECT_DEFERRED` timing issue; adding `await get_tree().process_frame` does NOT fix it because the handler is connected to the wrong signal source.
+
+```gdscript
+# BROKEN — handler never fires because sm subscribes to detached production GameBus
+var bus_stub: Node = GameBusStub.swap_in()   # /root/GameBus now = stub
+var sm: Node = SceneManagerStub.swap_in()    # sm._ready connects to GameBus autoload identifier
+                                              # = detached production GameBus (NOT bus_stub)
+bus_stub.battle_launch_requested.emit(payload)
+await get_tree().process_frame
+assert_int(sm.state as int).is_equal(sm.State.LOADING_BATTLE as int)   # FAILS: state still IDLE
+
+# CORRECT — emit on the real GameBus autoload that sm is actually subscribed to
+var sm: Node = SceneManagerStub.swap_in()    # sm._ready connects to GameBus (production autoload)
+GameBus.battle_launch_requested.emit(payload)
+await get_tree().process_frame
+assert_int(sm.state as int).is_equal(sm.State.LOADING_BATTLE as int)   # PASSES
+```
+
+**Correct**: for tests that require a subscriber's handler to actually fire in response to an emit, DO NOT use GameBusStub.swap_in() in combination with SceneManagerStub.swap_in() (or any analogous autoload-stub + subscriber-stub pair). Emit on the REAL autoload identifier. Use the subscriber stub alone for fresh-state isolation.
+
+GameBusStub remains useful for:
+- Testing GameBus itself (signal declarations, connection tracking)
+- Connecting test-only observers via `bus_stub.signal.connect(my_test_handler)` BEFORE swap_in-ing dependent subscribers
+- Tests where NO live subscriber needs to fire (just that emit doesn't crash or leak)
+
+**False positive trap**: if a test forces `_state` to a specific value before emit and asserts the state is UNCHANGED after emit, both "handler ran and was rejected by guard" and "handler never fired" produce the same assertion pass. Such tests can be false positives for guard coverage. Instead, force state to a distinct value AND observe a SECONDARY side effect (e.g., a signal that would fire IF the guard had been bypassed) to distinguish.
+
+**Discovered**: story-004 round 3 (3 failing tests: AC-1 integration, AC-3 e2e integration, AC-7 retry unit all failed with handler-never-fired symptom. AC-2 guard test was passing as a false positive).
+
+---
+
+## G-11 — `as Node` cast on freed Object crashes even when declared Variant
+
+**Context**: cleanup helpers that accept a possibly-freed Object reference (typical: `_battle_scene_ref` was `queue_free()`'d by another system; defensive test cleanup wants to free it again).
+
+**Broken**: declaring the parameter type as `Variant` does NOT defer the freed-object check. The `as Node` cast inside the function body throws `"Trying to cast a freed object."` — the script runtime checks the object's liveness AT cast time, regardless of the declared static type of the holding variable.
+
+```gdscript
+# BROKEN — crashes at line 2 with "Trying to cast a freed object."
+func _cleanup_battle_ref(battle_ref: Variant) -> void:
+    var node: Node = battle_ref as Node   # ← throws even if Variant param
+    if is_instance_valid(node) and node.is_inside_tree():
+        # never reached
+        get_tree().root.remove_child(node)
+```
+
+**Correct**: `is_instance_valid()` MUST precede any `as Node` cast. The Variant param is fine — but the liveness check must happen before the cast binds.
+
+```gdscript
+# CORRECT — guard before cast
+func _cleanup_battle_ref(battle_ref: Variant) -> void:
+    if not is_instance_valid(battle_ref):
+        return
+    var node: Node = battle_ref as Node   # ← safe now, object is live
+    if node.is_inside_tree():
+        get_tree().root.remove_child(node)
+    node.free()
+```
+
+**Symptom**: `SCRIPT ERROR: Trying to cast a freed object.` in the test log, with exit code 100 and a GdUnit4 "1 errors" (NOT "1 failures") classification — errors are thrown exceptions, failures are assertion violations. The distinction matters: if GdUnit4 reports `errors: 1`, grep for this phrase before debugging test logic.
+
+**Also applies to**: `as Control`, `as Node2D`, `as CanvasItem`, `as Resource`, `as RefCounted`, any `as T` where T is an Object subtype. `is_instance_valid(Variant)` is the universal guard.
+
+**Test seam note**: this pattern is common in multi-cycle teardown tests where the same helper is called across iterations — early cycles pass valid refs, later cycles may pass freed refs from prior `queue_free()`. Centralize cleanup in a guarded helper; do not inline the cast in each call site.
+
+**Discovered**: story-006 round 2 (AC-5 retry test `test_scene_manager_loss_retry_preserves_overworld_ref` crashed at cleanup; `_cleanup_battle_ref(battle_ref: Variant)` helper cast a freed BattleScene ref).
+
+---
+
 ## Verification Pattern Summary
 
 When testing changes that touch any of the above areas, always:
@@ -285,5 +360,5 @@ When a new Godot/GdUnit4 pattern bites the team:
 - `.claude/rules/test-standards.md` — general test naming, structure, isolation
 - `.claude/rules/engine-code.md` — engine-code hot-path rules (Godot-agnostic)
 - `docs/engine-reference/godot/VERSION.md` — pinned engine version + API verification
-- `docs/tech-debt-register.md` TD-013 — original accumulation tracking entry
+- `docs/tech-debt-register.md` TD-013 (original accumulation), TD-019 (G-10 discovery — story-004), TD-021 (G-11 discovery — story-006)
 - `tools/ci/lint_per_frame_emit.sh` — template for Godot-specific CI lint scripts

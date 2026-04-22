@@ -1,9 +1,10 @@
 # Story 003: Overworld pause/restore discipline
 
 > **Epic**: scene-manager
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Platform
 > **Type**: Logic
+> **Estimate**: small (~2-3h) — 2 symmetric methods (pause + restore) + 6 unit tests appended to existing `scene_manager_test.gd` (no new test file); recursive Control disable already de-risked via ADR-0002 fallback path
 > **Manifest Version**: 2026-04-20
 
 ## Context
@@ -114,3 +115,22 @@
 
 - **Depends on**: Story 001 (SceneManager skeleton — `_overworld_ref` var exists); Story 002 (SceneManagerStub for test isolation)
 - **Unlocks**: Story 004 (async load calls `_pause_overworld` on LOADING_BATTLE entry); stories 005/006 (call `_restore_overworld` on exit paths)
+
+## Completion Notes
+
+**Completed**: 2026-04-22
+**Criteria**: 7/7 passing, all 6 QA test cases mapped to test functions
+**Test Evidence**: `tests/unit/core/scene_manager_test.gd` — 6 new test functions appended (AC-1..AC-6), 15 total tests in file. Full suite 79/79, 0 orphans, exit 0.
+**Code Review**: Complete — APPROVED WITH SUGGESTIONS (/code-review 2026-04-22, lean). F-1 fix applied in-cycle; F-2/T-1 logged as tech debt.
+**Deviations**: None blocking.
+- **OUT OF SCOPE (justified)**: Widened `_overworld_ref: Node` → `_overworld_ref: CanvasItem` at `scene_manager.gd:56` (originally declared in story-001). Latent type-safety bug caught empirically this cycle: `_pause_overworld` mutates `.visible` which is CanvasItem-only; bare `Node.new()` test mock crashed at runtime. Widening the declared type makes the implicit contract explicit and lets the compiler verify it. Story-001 tests still 9/9 pass (AC-6 via `.set()` bypass remains valid).
+- **ADVISORY (deferred)**: F-2 nit — 5 tests use `sm.set("_overworld_ref", x)` where direct assignment would be more idiomatic; T-1 edge — no test for "UIRoot exists but isn't a Control" silent-skip case.
+**Manifest Version compliance**: 2026-04-20 matches current control-manifest.
+**Files changed**:
+- `src/core/scene_manager.gd` — 2 new private methods (lines 104-137) + 1 declaration widened (line 56) with explanatory doc comment
+- `tests/unit/core/scene_manager_test.gd` — 6 new test functions appended (lines 344-end, ~200 lines)
+
+**Implementation notes for future stories**:
+- Story-004 will populate `_overworld_ref` via `get_tree().current_scene as CanvasItem` (cast needed because `current_scene` returns Node) — see scene_manager.gd:56 doc comment
+- `_pause_overworld` / `_restore_overworld` are idempotent no-ops on null or freed refs (by design, tested AC-5/AC-6)
+- Recursive Control disable used the ADR-0002 conservative fallback path (explicit MOUSE_FILTER_IGNORE on root only; no recursive walk). Target-device verification of actual touch-event blocking is story-007's responsibility (V-7).

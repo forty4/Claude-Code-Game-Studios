@@ -1,9 +1,10 @@
 # Story 005: Outcome-driven teardown + co-subscriber-safe free
 
 > **Epic**: scene-manager
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Platform
 > **Type**: Integration
+> **Estimate**: small-medium (~3-4h) — 2 methods matching ADR snippet + 6 unit tests + 1 G-10-compliant integration test for V-5 invariant
 > **Manifest Version**: 2026-04-20
 
 ## Context
@@ -141,3 +142,32 @@
 
 - **Depends on**: Story 001 (skeleton + signal subscription), Story 002 (stub for isolation), Story 003 (`_restore_overworld` available), Story 004 (IN_BATTLE state reachable + `_battle_scene_ref` populated)
 - **Unlocks**: Story 006 (error-recovery path reuses restoration logic from this story); Story 007 (target-device co-subscriber race test)
+
+## Completion Notes
+
+**Completed**: 2026-04-22
+**Criteria**: 7/7 passing
+**Test Evidence**: `tests/unit/core/scene_manager_test.gd` (6 new tests: AC-1, AC-2, AC-4, AC-5, AC-6, AC-7 — all use direct handler call pattern) + `tests/integration/core/scene_handoff_timing_test.gd` (1 new test: AC-3 V-5 co-subscriber ref-safety — G-10 compliant). Full suite 94/94, 0 orphans, exit 0 on first run.
+**Code Review**: Complete — APPROVED WITH SUGGESTIONS (/code-review 2026-04-22, lean). T-1/T-2/T-3 advisory items logged as TD-020.
+**Deviations**: None blocking.
+- **Minor deviation from ADR snippet (approved by Control Manifest)**: `_free_battle_scene_and_restore_overworld` calls `_restore_overworld()` (DRY reuse of story-003 method) instead of inlining the 4 property resets. Story's Control Manifest explicitly requires `_restore_overworld()` reuse; ADR Key Interfaces snippet was reference-only. Single source of truth for restoration logic.
+- **Advisory (logged TD-020)**: 3 untested edge cases for future stories:
+  - T-1 double-invocation of `_free_battle_scene_and_restore_overworld` (relevant to story-006 retry paths)
+  - T-2 freed `_overworld_ref` during deferred teardown integration path (implicit via story-003 delegation, flag at story-007)
+  - T-3 AC-5 loop splitting nit (optional)
+**Manifest Version compliance**: 2026-04-20 matches current control-manifest.
+
+**Key observations this cycle**:
+- **First-run suite pass** — 94/94 clean on first run with zero iterations. Significant improvement over story-004's 3-round debug cycle. G-10 codification is paying dividends: the specialist avoided the pitfall preemptively.
+- **Triple-capture lambda** in AC-3 integration test records `state_during_handler`, `ref_valid`, AND invocation count — distinguishes three failure modes from one test run. Model pattern for future ordering-invariant tests.
+- **DRY via `_restore_overworld()` reuse** — validates the value of the story-003 abstraction. Any future refinement of restoration logic (e.g., story-007 Android recursive Control disable) now cascades automatically through story-005's teardown path.
+
+**Files changed**:
+- `src/core/scene_manager.gd` — `_on_battle_outcome_resolved` stub replaced (lines 119-139) + new `_free_battle_scene_and_restore_overworld` helper (lines 199-216) in new `# ── Battle exit helpers` section
+- `tests/unit/core/scene_manager_test.gd` — 6 new tests appended in `# ── Story 005` section (21 → 27 tests in file)
+- `tests/integration/core/scene_handoff_timing_test.gd` — 1 new test appended in `# ── Story 005: AC-3` section (2 → 3 tests in file)
+- `docs/tech-debt-register.md` — TD-020 appended
+
+**Implementation notes for future stories**:
+- Story-006 (error recovery): `_transition_to_error` currently sets state=ERROR + resets progress + push_error (minimal per story-004). Story-006 extends it to emit `GameBus.scene_transition_failed` + `ui_input_unblock_requested` + restore Overworld. Also: if retry flow re-invokes teardown, check T-1 (double-invocation safety).
+- Story-007 (Android target-device): verify the 1-frame defer invariant holds on Android. The integration test proves it in headless CI; real-device verification is the V-7/V-8 gate. Also address T-2 (freed overworld during teardown) opportunistically.

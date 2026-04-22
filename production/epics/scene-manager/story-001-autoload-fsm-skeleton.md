@@ -1,9 +1,10 @@
 # Story 001: SceneManager autoload + 5-state FSM skeleton
 
 > **Epic**: scene-manager
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Platform
 > **Type**: Logic
+> **Estimate**: 4-6 hours (skeleton: script body + Timer child + stub handlers + project.godot entry + test file)
 > **Manifest Version**: 2026-04-20
 
 ## Context
@@ -76,6 +77,8 @@
 
 6. **Signal declaration confirmation** — `scene_transition_failed(context: String, reason: String)` already exists on GameBus as of story-002. Verify via `grep "scene_transition_failed" src/core/game_bus.gd` — no amendment needed in this PR.
 
+7. **Performance**: Skeleton story — no per-frame loops, no emits, no game logic. No performance impact expected. Full ADR-0002 performance budgets (<0.1 ms/frame IDLE, <0.05 ms/tick × 10 Hz during LOADING) apply to stories 003-006 which populate the handlers.
+
 ## Out of Scope
 
 - Stub for tests — story 002
@@ -139,3 +142,17 @@
 
 - **Depends on**: None (gamebus epic Complete on main; `scene_transition_failed` signal already declared)
 - **Unlocks**: Stories 002-006 (all depend on the skeleton) + Story 007 (target-device verification)
+
+## Completion Notes
+
+**Completed**: 2026-04-22
+**Criteria**: 8/8 passing (plus 1 bonus: `loading_progress` initial value test)
+**Test Evidence**: `tests/unit/core/scene_manager_test.gd` — 9/9 tests pass, 0 orphans, exit 0. Full unit suite 57/57 passing, no upstream regressions.
+**AC-1 gate**: `godot --headless --import` exit 0, no parse errors, no autoload collision.
+**Deviations**: None blocking. In-flight test refinement: Timer child located via `get_children()` type iteration rather than `get_node_or_null("Timer")` (Godot 4.6.2 auto-names programmatic children with a prefix; story AC-7 explicitly permits "whatever name specialist picks").
+**Manifest Version compliance**: Story version 2026-04-20 matches current control-manifest (no staleness).
+**Code Review**: Complete (/code-review run 2026-04-22 — APPROVED after 2 blocking gaps + 1 is_equal_approx fix applied)
+**Files changed**:
+- `src/core/scene_manager.gd` (new, 102 lines)
+- `tests/unit/core/scene_manager_test.gd` (new, 330 lines, 9 tests)
+- `project.godot` (autoload block: SceneManager inserted 2nd between GameBus and GameBusDiagnostics; ORDER-SENSITIVE comment preserved)

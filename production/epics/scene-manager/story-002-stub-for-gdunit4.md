@@ -1,9 +1,10 @@
 # Story 002: SceneManager stub for GdUnit4 test isolation
 
 > **Epic**: scene-manager
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Platform
 > **Type**: Integration
+> **Estimate**: small (~2-3h) — pattern copy of gamebus story-006; G-6 orphan hardening + `free()`/`queue_free()` discipline already internalized from precedent
 > **Manifest Version**: 2026-04-20
 
 ## Context
@@ -133,3 +134,17 @@
 
 - **Depends on**: Story 001 (SceneManager autoload must exist to be swappable)
 - **Unlocks**: Stories 003-006 unit tests (can use `SceneManagerStub.swap_in()` for isolation)
+
+## Completion Notes
+
+**Completed**: 2026-04-22
+**Criteria**: 8/8 passing, all 7 pre-specified QA Test Cases mapped to test functions
+**Test Evidence**: `tests/unit/core/scene_manager_stub.gd` + `tests/unit/core/scene_manager_stub_self_test.gd` (7 tests pass) + `tests/unit/core/README.md` (`## SceneManagerStub` section appended). Full unit suite 64/64, 0 orphans, 0 regressions.
+**Deviations**: None blocking. Advisory (matches GameBusStub precedent): 3 defensive-branch paths untested — production-missing-at-swap_in (swap_in:108), cached-production-freed-externally (swap_out:160-161, 178-179), foreign-node-at-root (swap_out:169-170). Not required by story ACs.
+**Code Review**: Complete (/code-review 2026-04-22 — APPROVED after F-1 `_cached_production` direct-assert + F-2 `GameBus.round_started.emit` during swap window added to AC-1 and AC-7 tests).
+**Manifest Version compliance**: 2026-04-20 matches current control-manifest (no staleness).
+**Pattern parity**: Faithful copy of `game_bus_stub.gd` (gamebus story-006) with domain-appropriate divergences — state-isolation replaces signal-isolation in AC-4; AC-7 drops `_emits_this_frame` assertion (SceneManager stub doesn't emit on GameBus); Timer child inherited from production script.
+**Files changed**:
+- `tests/unit/core/scene_manager_stub.gd` (new, 181 lines — static swap_in/swap_out RefCounted helper)
+- `tests/unit/core/scene_manager_stub_self_test.gd` (new, 386 lines, 7 test functions after F-1/F-2 fixes)
+- `tests/unit/core/README.md` (+135 lines — `## SceneManagerStub` section appended after `## GameBusStub`)

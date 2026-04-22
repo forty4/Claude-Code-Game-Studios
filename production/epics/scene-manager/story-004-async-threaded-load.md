@@ -1,9 +1,10 @@
 # Story 004: Async threaded BattleScene loading + progress
 
 > **Epic**: scene-manager
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Platform
 > **Type**: Integration
+> **Estimate**: medium (~4-6h) — threaded ResourceLoader API + Timer polling + PackedScene fixture scaffolding + state machine unit tests + real async integration test (happy-path + error). ADR Path Resolution contract straightforward; retry from ERROR state explicitly supported.
 > **Manifest Version**: 2026-04-20
 
 ## Context
@@ -138,3 +139,33 @@
 
 - **Depends on**: Story 001 (skeleton), Story 002 (stub for isolation), Story 003 (`_pause_overworld` called during LOADING_BATTLE entry)
 - **Unlocks**: Story 005 (teardown needs IN_BATTLE to be reachable); Story 006 (error path uses `_transition_to_error` which this story calls but doesn't implement)
+
+## Completion Notes
+
+**Completed**: 2026-04-22
+**Criteria**: 7/7 passing
+**Test Evidence**: `tests/unit/core/scene_manager_test.gd` (6 new tests: AC-2, AC-3 unit, AC-4, AC-5, AC-7, path helper) + `tests/integration/core/scene_handoff_timing_test.gd` (2 new tests: AC-1 happy path, AC-3 e2e). AC-6 enforced by CI lint (story-008). Full suite 87/87, 0 orphans, exit 0.
+**Code Review**: Complete — APPROVED WITH SUGGESTIONS (/code-review 2026-04-22, lean). All 6 advisory findings (F-1..F-4 + T-1..T-3) batched into TD-018 for future cleanup sweep.
+**Deviations**: None blocking.
+- **OUT OF SCOPE (justified)**: `.claude/rules/godot-4x-gotchas.md` — new G-10 entry codifying the autoload-identifier-binding discovery (prevents regression across all future stories using GameBus subscriptions). Also touched `docs/tech-debt-register.md` with TD-018 + TD-019.
+- **Test isolation fix (documented in G-10)**: GameBusStub removed from 4 handler-firing tests because GDScript autoload identifiers bind at engine registration, NOT dynamically to /root/Name. Tests now emit on real GameBus autoload. AC-2 guard test hardened to observe `ui_input_block_requested` NOT firing (secondary side effect) — the previous "state unchanged" assertion was a false positive.
+**Manifest Version compliance**: 2026-04-20 matches current control-manifest.
+
+**Key findings this cycle**:
+- **G-10 autoload identifier binding** — discovered empirically via 3 failing tests. Codified in gotchas file + TD-019. Pre-emptive audit of gamebus story-005/006/007 tests recommended during story-005 to flag false-positive patterns.
+- **Dual AC-3 coverage** (unit + integration) — good pattern for future async-behavior stories.
+- **ResourceLoader fixture strategy** — static `.tscn` checked in at `scenes/battle/test_ac4_map.tscn` (with README-test-fixtures.md export-exclusion note) chosen over programmatic `user://` generation. Simpler, works with `load_threaded_request` which requires `res://` paths.
+
+**Files changed**:
+- `src/core/scene_manager.gd` — 2 TODO stubs replaced (`_on_battle_launch_requested`, `_on_load_tick`) + 3 new helpers appended (`_instantiate_and_enter_battle`, `_resolve_battle_scene_path`, `_transition_to_error`). `_on_battle_outcome_resolved` stub preserved for story-005.
+- `tests/unit/core/scene_manager_test.gd` — 6 new test functions in `# ── Story 004` section (line 545+)
+- `tests/integration/core/scene_handoff_timing_test.gd` — NEW file, 2 integration tests with `AUTOLOAD BINDING — CRITICAL` header documenting G-10
+- `scenes/battle/test_ac4_map.tscn` — NEW minimal Node2D test fixture (with `;` prefix comment marking test-only status)
+- `scenes/battle/README-test-fixtures.md` — NEW export-exclusion guidance
+- `.claude/rules/godot-4x-gotchas.md` — G-10 appended
+- `docs/tech-debt-register.md` — TD-018 (6 batched polish items) + TD-019 (G-10 discovery)
+
+**Implementation notes for future stories**:
+- Story-005 (outcome teardown): `_on_battle_outcome_resolved` stub is preserved; consumes `_battle_scene_ref` (set by `_instantiate_and_enter_battle`), calls `_restore_overworld` (story-003), uses `call_deferred` per ADR §Risks "co-subscriber-safe free"
+- Story-006 (error recovery): extends `_transition_to_error` to emit `GameBus.scene_transition_failed` + restore Overworld. F-3 nit (defensive `_load_timer.stop()`) should be addressed there.
+- **G-10 audit required** in story-005: scan any tests in gamebus epic that use `GameBusStub.swap_in()` together with subscriber-receives-emit patterns. Flag false positives.
