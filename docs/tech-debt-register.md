@@ -405,3 +405,148 @@ Recommended: Option B (standalone test) — most robust, independent of autoload
 **Recommended**: Option B when the Scenario Progression epic's ScenarioRunner story is authored. Add this to that story's Dependencies / Migration Notes section so the equivalent state machine is tested.
 
 **Next review**: when Scenario Progression epic's ScenarioRunner implementation story enters `/story-readiness`. At that point, either upgrade MockScenarioRunner (Option B) or delete it in favor of real-implementation tests (Option C).
+
+---
+
+## TD-016 — scene_manager_test.gd uses sm.set() where direct assignment would be more idiomatic
+
+**Origin**: story-003 /code-review F-2 (nit)
+**Category**: code
+**Severity**: low
+**Status**: open
+
+Five test functions in `tests/unit/core/scene_manager_test.gd` (lines ~358, 397, 439, 472, 528) use `sm.set("_overworld_ref", fake_overworld)` to inject the fake Overworld reference. Since `_overworld_ref` is a plain typed var with no custom setter, direct assignment `sm._overworld_ref = fake_overworld` would be more idiomatic, statically type-checked, and clearer in intent.
+
+Noted during story-003 review as a nit — no functional issue (all tests pass, 79/79). The `.set()` form bypasses static type checking, which is actually useful in `test_scene_manager_pause_restore_overworld_freed_ref_is_noop` (AC-6) where a bare `Node.new()` is assigned to a `CanvasItem`-typed field to exercise the freed-ref guard. That specific test needs `.set()`; the other 4 tests do not.
+
+**Remediation**: swap 4 call sites to direct assignment (leave AC-6 test as-is with `.set()`). ~4 one-line edits. Cleanup candidate for a future "test polish" sweep.
+
+**Next review**: next time `scene_manager_test.gd` gets touched for new ACs.
+
+---
+
+## TD-017 — Overworld `UIRoot` non-Control silent-skip path has no test
+
+**Origin**: story-003 /code-review T-1 (qa-tester advisory)
+**Category**: code
+**Severity**: low
+**Status**: open
+
+`_pause_overworld` / `_restore_overworld` in `src/core/scene_manager.gd` perform `_overworld_ref.get_node_or_null("UIRoot") as Control`. If an Overworld scene has a node named "UIRoot" that is NOT a Control (e.g., a plain Node), the `as Control` cast returns null, and the mouse_filter line is silently skipped.
+
+This is the designed runtime behavior — the implementation correctly no-ops rather than crashing — but the silent-skip path has no test coverage. A test asserting no-crash with a bare Node named "UIRoot" would document the intended contract explicitly.
+
+Impact: if a future Overworld scene accidentally has a non-Control "UIRoot" node, pause-time mouse_filter suppression will silently not fire, with no log or warning. This could cause subtle touch-event bleed-through in IN_BATTLE state on mobile. Story-007 target-device verification would likely catch it, but earlier detection via a unit test is cheaper.
+
+**Remediation**: add a 7th test function to `scene_manager_test.gd`:
+```
+func test_scene_manager_pause_overworld_ui_root_not_control_is_safe()
+```
+Arrange fake Overworld with Node (not Control) named "UIRoot" → `_pause_overworld()` → assert no crash + 4 primary properties still toggle. ~20 lines. Consider adding a `push_warning` in `_pause_overworld` when UIRoot exists but fails the Control cast, to surface the misconfiguration.
+
+**Next review**: before story-007 target-device verification, or when any future Overworld scene ships with a UIRoot child.
+
+---
+
+## TD-018 — story-004 test polish items (batched)
+
+**Origin**: story-004 /code-review (6 advisory findings batched)
+**Category**: code
+**Severity**: low
+**Status**: open
+
+Six minor advisory/nit findings surfaced during story-004 code review. None block function (87/87 tests pass, 0 orphans). Batched here as a single cleanup sweep:
+
+**F-1** — Integration test AC-1 (`scene_handoff_timing_test.gd:173-176`): redundant `is_inside_tree()` guard before `remove_child`. `_instantiate_and_enter_battle` always adds to root, so `is_instance_valid(battle_ref)` alone is sufficient. Cleanup noise.
+
+**F-2** — `scene_manager.gd` `_on_load_tick` line 134: `var progress: Array = []` is untyped. Could be `Array[float]` for tighter typing. Engine API accepts untyped; cosmetic tightening.
+
+**F-3** — `scene_manager.gd` `_transition_to_error`: does not call `_load_timer.stop()` defensively. Not a bug in story-004 (both `_on_load_tick` callers stop before calling; `_on_battle_launch_requested` calls before `timer.start()`). Risk: when story-006 extends the helper to be called from additional in-flight paths, a missing `stop()` could leave the timer running. Revisit at story-006 close-out.
+
+**F-4** — AC-7 unit test (`scene_manager_test.gd:740`) inlines the fixture path `res://scenes/battle/test_ac4_map.tscn` instead of reusing the integration file's `FIXTURE_SCENE_PATH` constant. Consider hoisting to a shared constant or `tests/unit/core/test_fixtures.gd` module.
+
+**T-1** — `_overworld_ref` null-cast path (`scene_manager.gd:112` via `as CanvasItem`) not unit-tested. If `current_scene` is a plain Node (e.g., CI headless setups), cast yields null and `_pause_overworld` no-ops via `is_instance_valid`. Guard is correct; a test would prevent silent regression if the guard is ever refactored.
+
+**T-2** — `_instantiate_and_enter_battle` null-packed guard (line after `load_threaded_get`) not directly tested. Engine-internal race condition between LOADED status and get returning null is low-risk in practice; advisory only.
+
+**T-3** — `_on_load_tick` early-exit branch (state != LOADING_BATTLE → `_load_timer.stop() + return`) not directly unit-tested. Implicitly covered by AC-2/AC-7 (state forced, emit processed). A direct test would pin the timer-stop sub-contract.
+
+**Remediation**: single cleanup PR during a quiet cycle. Estimated ~30-45 min for all six. F-3 should be addressed at story-006 close regardless (dependent on how story-006 extends the helper).
+
+**Next review**: at story-006 close (F-3 definitely; others opportunistically). If any finding surfaces again in subsequent stories, elevate severity.
+
+---
+
+## TD-019 — G-10 (autoload identifier binding) empirically discovered
+
+**Origin**: story-004 round 3 (3 failing tests traced to misunderstanding of GDScript autoload identifier resolution)
+**Category**: process
+**Severity**: medium
+**Status**: resolved (documented in `.claude/rules/godot-4x-gotchas.md` as G-10)
+
+During story-004 unit/integration test development, 3 tests consistently failed with the symptom "handler never fires; state stays at initial value." The team initially diagnosed this as a `CONNECT_DEFERRED` timing issue and added extra `await get_tree().process_frame` calls with no effect. Root cause: the `GameBus` autoload identifier in GDScript binds at engine registration to the ORIGINALLY-REGISTERED node — it does NOT dynamically resolve to `/root/GameBus`. Tests using `GameBusStub.swap_in()` together with `SceneManagerStub.swap_in()` had the stub SM subscribing to the DETACHED PRODUCTION GameBus during _ready(), not to the stub. Emits on the stub never fired the SM handler.
+
+**Additional finding**: AC-2 guard test was a **false positive** for the same reason. Forcing state to LOADING_BATTLE and asserting state stays at LOADING_BATTLE after emit passes whether the handler was guard-rejected OR never fired at all.
+
+**Remediation applied (story-004)**:
+- G-10 entry added to `.claude/rules/godot-4x-gotchas.md`
+- All 5 handler-firing tests in story-004 refactored to drop GameBusStub and emit on real GameBus autoload
+- AC-2 test hardened: force state to IN_BATTLE (unambiguous guard trigger), observe `ui_input_block_requested` NOT firing via Callable + CONNECT_ONE_SHOT (secondary side effect proving handler ran and was rejected, not "handler never fired")
+- Test file headers updated with `AUTOLOAD BINDING — CRITICAL` cross-reference
+
+**Scope creep risk**: similar patterns exist in gamebus story-005/006/007 tests that use GameBusStub. Need to audit whether any of them rely on "fresh subscriber receives stub emits" (which would be broken per G-10). If so, add to tech debt follow-up.
+
+**Follow-up**: pre-emptive audit pass during story-005 (next cycle) — scan all tests that use GameBusStub for subscriber-receives-emit patterns. Flag any false-positive risks.
+
+**Next review**: during story-005 implementation; before each future story using GameBusStub.
+
+---
+
+## TD-020 — story-005 advisory test coverage items
+
+**Origin**: story-005 /code-review (3 advisory items from qa-tester edge-case analysis)
+**Category**: code
+**Severity**: low
+**Status**: open
+
+Three advisory coverage items surfaced during story-005 code review. Implementation is sound (94/94 tests pass first-run) — these are defensive additions that protect against future changes.
+
+**T-1** — `_free_battle_scene_and_restore_overworld` called with `_battle_scene_ref == null` (double-invocation) has no direct test. The `is_instance_valid` guard handles it correctly by design, but no regression test pins the contract. **Relevance to story-006**: error-recovery retry paths may re-enter the teardown path; if retry handling accidentally triggers double-invocation, the silent guard behavior could mask a bug. Consider adding a test during story-006 implementation.
+
+**T-2** — `_restore_overworld()` called from within `_free_battle_scene_and_restore_overworld` when `_overworld_ref` has been freed between teardown initiation and `call_deferred` execution. Story-003 tests cover the null/freed `_overworld_ref` guard on `_restore_overworld()` in isolation, but the integration path through teardown is untested with a freed overworld. Low priority — behavior is implicitly correct via delegation. Flag at story-007 target-device verification pass.
+
+**T-3 (nit)** — AC-5 state guard test uses a single function looping through 4 non-IN_BATTLE states. Failure locality is acceptable (message carries the failing state value), but splitting into 4 functions would give cleaner per-state failure isolation. Optional cleanup in a future test polish sweep.
+
+**Remediation**: opportunistic — address during story-006 (T-1 most relevant there) or story-007 (T-2 natural fit). T-3 can be deferred indefinitely; not worth a dedicated PR.
+
+**Next review**: at story-006 close (T-1 check) + story-007 close (T-2 check).
+
+---
+
+## TD-021 — story-006 advisory items (nits + edge cases) + G-11 discovery
+
+**Origin**: story-006 /code-review (engine specialist nits + qa-tester advisory coverage)
+**Category**: code + process
+**Severity**: low
+**Status**: partially resolved (G-11 codified; F-3/F-4/T-1/edge cases deferred)
+
+**Resolved this cycle**:
+- **G-11 codified** in `.claude/rules/godot-4x-gotchas.md` — `as Node` cast on freed Object crashes even when declared `Variant`. Discovered when AC-5 retry test crashed with "Trying to cast a freed object" at `_cleanup_battle_ref` helper. Fix: `is_instance_valid()` MUST precede any `as T` cast regardless of parameter declared type.
+- **F-1 resolved** — AC-4 cleanup now uses `_cleanup_battle_ref(sm.get("_battle_scene_ref"))` for pattern consistency with AC-5/AC-7 (previously did the direct `as Node` cast that motivated the helper).
+- **F-2 resolved** — AC-5 and AC-7 now have unconditional post-retry `assert_int(sm.state)...is_equal(IN_BATTLE)` after the `if sm.state == LOADING_BATTLE: poll` block, guarding against silent-pass on fast fixture loads where state may have already advanced past LOADING_BATTLE before the guard ran.
+
+**Deferred to future cycles**:
+
+**F-3** — `tests/integration/core/mock_scenario_runner.gd:1` header comment says "Story 007" only. Story-006 extended the class (added retry surface). Add Story-006 to class-level summary for discoverability. Nit-level; address opportunistically.
+
+**F-4** — `src/core/scene_manager.gd` inline comment `# DRY — story-003` at the `_restore_overworld()` call inside `_transition_to_error` is misleading: `_restore_overworld` was defined in story-003 but THIS call is story-006's addition. A `git blame` reader might follow the line ref to the wrong story. Suggest: `# DRY — _restore_overworld defined story-003; 4 props + UIRoot mouse_filter`. Nit-level.
+
+**T-1** — AC-6 partial coverage: combined test exercises ERROR state rejection path, not a genuine WIN outcome teardown with `scene_transition_failed` non-emission monitor. Story-005's `test_scene_manager_outcome_teardown_restores_overworld_properties` is the natural home for this 8-line addition. Covers AC-6 WIN path completely. Address at story-005 polish pass or as part of TD-018 batch.
+
+**T-edge-1** — `_transition_to_error` called with `_overworld_ref == null` (e.g., error fires during very first launch before Overworld was captured). `_restore_overworld` guards this via `is_instance_valid`, but no test exercises the path. Address at story-007 with target-device edge-case verification.
+
+**T-edge-2** — `_transition_to_error` called twice in succession (re-entry while already in ERROR). Both signal emits would fire twice. ERROR is spec'd as exit-only via `battle_launch_requested`, but no test verifies non-double-emit. Address at story-007 or whenever a retry flow could trigger re-entry.
+
+**Remediation order**: F-3/F-4 can be batched with any other test polish PR. T-1 belongs in story-005 cleanup. T-edge-1/T-edge-2 fit story-007's target-device verification scope.
+
+**Next review**: at story-007 close.

@@ -149,3 +149,139 @@ that this README summarises.
 
 ADR reference: ADR-0001 §Implementation Guidelines §9, §Validation Criteria V-6
 (`docs/architecture/ADR-0001-gamebus-autoload.md`).
+
+---
+
+## SceneManagerStub — Test Isolation for /root/SceneManager
+
+`scene_manager_stub.gd` provides two static methods that swap the production
+`/root/SceneManager` autoload out for a fresh instance during a test, then restore
+it afterward. The stub runs the same script as the production node, so its FSM
+state machine, signal subscriptions, and all internal variables are
+identical — no duplication, no drift risk.
+
+### Why this exists
+
+GdUnit4 mounts all project autoloads in the test tree, including `/root/SceneManager`.
+A test that drives the FSM through transitions would leave the manager in a
+non-IDLE state for the next test, leaking state across test functions. The stub
+pattern solves this by replacing the shared autoload with a brand-new instance
+that starts in `State.IDLE` with zero transition history — each test function
+starts with a clean FSM.
+
+### Usage
+
+```gdscript
+extends GdUnitTestSuite
+var _stub: Node
+
+func before_test() -> void:
+    _stub = SceneManagerStub.swap_in()
+
+func after_test() -> void:
+    SceneManagerStub.swap_out()
+    _stub = null
+
+func test_my_scenario() -> void:
+    # fresh stub always starts in State.IDLE
+    assert_bool(_stub.state == _stub.State.IDLE).is_true()
+    # drive the FSM, make assertions...
+
+    # Explicit in-body cleanup prevents GdUnit4's orphan detector from flagging
+    # the detached production node between test body end and after_test.
+    # after_test's swap_out() is a safety net for crashes, not the primary path.
+    SceneManagerStub.swap_out()
+```
+
+`swap_in()` returns the stub Node for optional direct manipulation (e.g., reading
+`stub.state` or replacing `stub._load_timer` for Timer control in load-path tests).
+`swap_out()` is idempotent — safe to call from `after_test()` even if `swap_in()`
+was never called or the test called `swap_out()` itself.
+
+### How it works internally
+
+1. `swap_in()` calls `root.get_node_or_null("SceneManager")` via
+   `Engine.get_main_loop().root` (static functions cannot use `get_tree()`).
+2. If the production node exists, it is removed from the tree with
+   `remove_child()` and cached in a static var.
+3. A fresh stub is instantiated: `(load(SCENE_MANAGER_PATH) as GDScript).new()`.
+   Its `name` is set to `"SceneManager"` before `add_child()` to avoid the sibling
+   name-collision error Godot enforces.
+4. The stub's `_ready()` fires on `add_child()` — it creates its own Timer child
+   and connects to GameBus signals exactly as production does. This is the
+   isolation property: fresh instance = fresh subscriptions + fresh FSM starting
+   at `State.IDLE`.
+5. `swap_out()` reverses this: removes the stub with `remove_child()`, then
+   calls `free()` on it for immediate synchronous deletion, then re-adds the
+   cached production node.
+6. All three steps are synchronous — `get_node("SceneManager")` returns the
+   production instance immediately after `swap_out()` returns and the stub is
+   fully destroyed. `free()` is used rather than `queue_free()` to avoid
+   GdUnit4's orphan detector flagging the deferred-but-not-yet-freed stub.
+
+---
+
+## Known Limitations (SceneManagerStub)
+
+### Fresh stub starts in State.IDLE with its own Timer child
+
+The stub creates its own `_load_timer` in `_ready()`. If a test needs to
+control Timer behavior (e.g., simulate a load-poll tick), replace
+`stub._load_timer` after `swap_in()` returns with a test-owned Timer.
+
+### Production GameBus subscribers are unaffected
+
+The stub's `_ready()` connects to `GameBus.battle_launch_requested` and
+`GameBus.battle_outcome_resolved` with `CONNECT_DEFERRED`. These are the
+stub's own subscriptions on the production GameBus autoload. When `swap_out()`
+frees the stub, these connections are automatically removed.
+
+Tests that need to verify how other systems react to SceneManager's state
+changes should use full integration tests rather than this stub.
+
+### Combining with GameBusStub
+
+Tests may use both `GameBusStub.swap_in()` and `SceneManagerStub.swap_in()`
+in the same test for full autoload isolation. Each stub maintains its own
+independent static-var cache — they do not interfere.
+
+```gdscript
+func before_test() -> void:
+    _game_bus_stub = GameBusStub.swap_in()
+    _scene_manager_stub = SceneManagerStub.swap_in()
+
+func after_test() -> void:
+    SceneManagerStub.swap_out()
+    GameBusStub.swap_out()
+```
+
+### Serial execution only
+
+The static-var cache in `SceneManagerStub` is safe only when test functions
+within a suite execute serially. GdUnit4 v6.1.2 runs test functions serially
+per suite by default. Parallel execution within a suite would break this pattern.
+
+---
+
+## Related Files (SceneManagerStub)
+
+| File | Purpose |
+|------|---------|
+| `scene_manager_stub.gd` | The stub utility — `SceneManagerStub.swap_in()` / `swap_out()` |
+| `scene_manager_stub_self_test.gd` | Regression tests for the stub itself (AC-1..AC-5, AC-7) |
+
+---
+
+## Design Rationale (SceneManagerStub)
+
+See Story 002 (`production/epics/scene-manager/story-002-stub-for-gdunit4.md`) for
+full design rationale, implementation notes, and the QA test case specifications
+that this README summarises.
+
+ADR reference: ADR-0002 §Validation Criteria V-10
+(`docs/architecture/ADR-0002-scene-manager.md`).
+
+See also `.claude/rules/godot-4x-gotchas.md` G-6 (orphan detection fires between
+test body and `after_test` — explicit `swap_out()` in test body is required) and
+G-3 (autoload scripts must not declare `class_name` — `SceneManagerStub` can use
+`class_name` because it is a `RefCounted` helper, not an autoload).

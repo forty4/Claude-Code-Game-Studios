@@ -1,9 +1,10 @@
 # Story 006: Error recovery + retry loop
 
 > **Epic**: scene-manager
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Platform
 > **Type**: Integration
+> **Estimate**: medium (~3-5h) — `_transition_to_error` body (one method, ~6 lines) is straightforward (calls existing `_restore_overworld` per story-003 DRY pattern); bulk of work is MockScenarioRunner retry extension + AC-5/AC-7 5-cycle retry integration test + AC-3/AC-4/AC-6 ERROR-path coverage + 3 unit tests for AC-1/AC-2. Per-cycle memory profiling deferred to story-007.
 > **Manifest Version**: 2026-04-20
 
 ## Context
@@ -161,3 +162,36 @@
 
 - **Depends on**: Story 001 (skeleton), Story 002 (stub), Story 003 (`_restore_overworld`), Story 004 (error-path hooks already call `_transition_to_error`; ERROR retry entry via `_on_battle_launch_requested` state guard), Story 005 (teardown path + MockScenarioRunner pattern for retry test)
 - **Unlocks**: Story 007 (target-device error-path + retry memory profile verification); completes the core epic scope — remaining V-7 + V-8 are target-device checks in story 007
+
+## Completion Notes
+
+**Completed**: 2026-04-22
+**Criteria**: 7/7 passing
+**Test Evidence**: `tests/unit/core/scene_manager_test.gd` (3 new tests: AC-1, AC-2, AC-3+AC-6 combined) + `tests/integration/core/scene_manager_retry_test.gd` (NEW, 3 tests: AC-4 single ERROR→retry, AC-5 LOSS→retry ref equality, AC-7 5-cycle determinism) + extended `tests/integration/core/mock_scenario_runner.gd`. Full suite 100/100, 0 orphans, exit 0 (after round-2 fix + F-1/F-2 polish).
+**Code Review**: Complete — APPROVED WITH SUGGESTIONS (/code-review 2026-04-22, lean). F-1 + F-2 applied in-cycle; F-3/F-4/T-1 + 2 edge-case advisories logged as TD-021.
+**Deviations**: None blocking.
+- **Minor deviation from ADR snippet (approved by story-005 precedent)**: `_transition_to_error` calls `_restore_overworld()` (DRY) instead of inlining 3-4 property resets. 3rd story to leverage this abstraction (story-005 teardown, story-006 error, story-003 origin).
+- **Removed `push_error`** from `_transition_to_error` — replaced by canonical `GameBus.scene_transition_failed` emit per Control Manifest ("Forbidden: silent failure — every failure path MUST emit scene_transition_failed"). Also cleaned up stale comment in story-004's direct unit test.
+- **OUT OF SCOPE (justified, tracked in TD-021)**: `.claude/rules/godot-4x-gotchas.md` G-11 added (as Node cast on freed Variant crashes even with is_instance_valid not yet called). Touched `docs/tech-debt-register.md` with TD-021.
+- **MockScenarioRunner Option A extension**: added `_retry_count`, `auto_retry_on_loss: bool`, `_retry_payload: BattlePayload`, `reset_for_new_battle()`, `set_retry_payload()`, `_emit_retry()` via call_deferred. Preserves gamebus story-007 contract (LIMITATION note at lines 30-35 anticipated this exact need).
+**Manifest Version compliance**: 2026-04-20 matches current control-manifest.
+
+**Key observations this cycle**:
+- **Two major discoveries** worth codifying:
+  - **G-11**: `as Node` cast on freed Object crashes even when declared `Variant`. `is_instance_valid()` MUST precede ANY `as T` cast. Distinct from G-3/G-10. Real crash with misleading error location (cast line, not caller). Centralize cleanup in guarded helper; do not inline cast at each call site. Codified with full Context/Broken/Correct/Discovered format.
+  - **`get_tree().current_scene = mock` test seam**: clean production-mirror pattern for overriding what `_on_battle_launch_requested` captures as the Overworld ref. No production behavior hidden. Codified as test-seam note (inline, not standalone gotcha).
+- **3-frame deferred queue ordering** for cross-system retry flows: Frame N (CONNECT_DEFERRED handlers) → Frame N+1 (call_deferred from SM + from MockScenarioRunner) → Frame N+2 (retry's CONNECT_DEFERRED handler). Documented in MockScenarioRunner + test file headers to prevent re-derivation.
+- **Fast-load silent-pass risk** (F-2): conditional `if sm.state == LOADING_BATTLE: _poll_until_state_changes` can silently skip IN_BATTLE assertion on very fast loads. Unconditional post-poll state check added as regression guard (AC-5 + AC-7).
+
+**Files changed**:
+- `src/core/scene_manager.gd` — `_transition_to_error` extended from minimal (story-004 stub) to full ADR-0002 implementation
+- `tests/unit/core/scene_manager_test.gd` — 3 new tests in `# ── Story 006` section (27 → 30 tests in file); comment update on story-004's `_transition_to_error` direct unit test (push_error expectation removed)
+- `tests/integration/core/mock_scenario_runner.gd` — Option A direct extension (added retry surface, preserved gamebus story-007 contract)
+- `tests/integration/core/scene_manager_retry_test.gd` — NEW file, 3 integration tests
+- `.claude/rules/godot-4x-gotchas.md` — G-11 appended
+- `docs/tech-debt-register.md` — TD-021 appended
+
+**Implementation notes for story-007 (final story)**:
+- Story-007 scope: target-device (Android) verification of V-7 (recursive Control disable) + V-8 (memory stability across many retry loops). Per-cycle memory profiling is the final gap.
+- TD-021 T-edge-1/T-edge-2 naturally fit story-007 scope: `_transition_to_error` with null `_overworld_ref` + double-invocation.
+- G-11 is now codified; future Android test cleanup in story-007 should follow the `is_instance_valid`-before-cast pattern.

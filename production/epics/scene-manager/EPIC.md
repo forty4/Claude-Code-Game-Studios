@@ -80,12 +80,12 @@ This epic is complete when:
 
 | # | Story | Type | Status | ADR | Covers |
 |---|-------|------|--------|-----|--------|
-| 001 | SceneManager autoload + 5-state FSM skeleton | Logic | Ready | ADR-0002 | TR-001, V-1, V-2 |
-| 002 | SceneManager stub for GdUnit4 test isolation | Integration | Ready | ADR-0002 | V-10 |
-| 003 | Overworld pause/restore discipline | Logic | Ready | ADR-0002 | TR-002, V-6 |
-| 004 | Async threaded BattleScene loading + progress | Integration | Ready | ADR-0002 | TR-003, V-3, V-4 partial, V-12 |
-| 005 | Outcome-driven teardown + co-subscriber-safe free | Integration | Ready | ADR-0002 | TR-004, V-5 |
-| 006 | Error recovery + retry loop | Integration | Ready | ADR-0002 | TR-005, V-4 full, V-11 |
+| 001 | SceneManager autoload + 5-state FSM skeleton | Logic | Complete | ADR-0002 | TR-001, V-1, V-2 |
+| 002 | SceneManager stub for GdUnit4 test isolation | Integration | Complete | ADR-0002 | V-10 |
+| 003 | Overworld pause/restore discipline | Logic | Complete | ADR-0002 | TR-002, V-6 |
+| 004 | Async threaded BattleScene loading + progress | Integration | Complete | ADR-0002 | TR-003, V-3, V-4 partial, V-12 |
+| 005 | Outcome-driven teardown + co-subscriber-safe free | Integration | Complete | ADR-0002 | TR-004, V-5 |
+| 006 | Error recovery + retry loop | Integration | Complete | ADR-0002 | TR-005, V-4 full, V-11 |
 | 007 | Target-device verification (Android recursive Control disable + memory profile) | Integration | Ready | ADR-0002 | V-7, V-8 |
 
 **Dependency chain**: 001 → 002 (stub) → 003 (pause) → 004 (load) → 005 (teardown) → 006 (error/retry) → 007 (target-device)

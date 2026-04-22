@@ -1,0 +1,8 @@
+; TEST FIXTURE — Story 004 only. Exclude from release builds.
+; This scene is a minimal Node2D used by tests/integration/core/scene_handoff_timing_test.gd
+; to exercise the async ResourceLoader.load_threaded_request happy path (AC-1).
+; It has no gameplay content and must NOT ship in production exports.
+; See scenes/battle/README-test-fixtures.md for export-exclusion guidance.
+[gd_scene load_steps=1 format=3]
+
+[node name="TestBattleScene" type="Node2D"]

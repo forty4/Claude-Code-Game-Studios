@@ -14,6 +14,7 @@ config/features=PackedStringArray("4.6")
 
 ; ORDER-SENSITIVE: GameBus must be first — all other autoloads may reference it in _ready
 GameBus="*res://src/core/game_bus.gd"
+SceneManager="*res://src/core/scene_manager.gd"
 GameBusDiagnostics="*res://src/core/game_bus_diagnostics.gd"
 
 [physics]
