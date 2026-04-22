@@ -26,6 +26,9 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Lint per-frame emit ban (ADR-0001 §Implementation Guidelines §7)
+        run: bash tools/ci/lint_per_frame_emit.sh
+
       - name: Run GdUnit4 tests
         uses: MikeSchulze/gdUnit4-action@v1
         env:
