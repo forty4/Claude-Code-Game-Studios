@@ -285,3 +285,149 @@ See also `.claude/rules/godot-4x-gotchas.md` G-6 (orphan detection fires between
 test body and `after_test` — explicit `swap_out()` in test body is required) and
 G-3 (autoload scripts must not declare `class_name` — `SceneManagerStub` can use
 `class_name` because it is a `RefCounted` helper, not an autoload).
+
+---
+
+## SaveManagerStub — Test Isolation for /root/SaveManager
+
+`save_manager_stub.gd` provides two static methods that swap the production
+`/root/SaveManager` autoload out for a fresh instance during a test, redirect
+its save root to a temp directory under `user://test_saves/`, then restore the
+production instance and remove the temp directory on cleanup. The stub runs the
+same script as the production node, so its full API surface is identical — no
+duplication, no drift risk.
+
+### Why this exists
+
+GdUnit4 mounts all project autoloads in the test tree, including `/root/SaveManager`.
+Any test that calls `save_checkpoint` or `load_latest_checkpoint` would read and
+write the production `user://saves/` directory — polluting real save data across
+test runs and introducing test-order-dependent state. The stub pattern solves this
+by replacing the shared autoload with a brand-new instance whose save root is
+redirected to an isolated temp directory. Each test function starts with a clean,
+empty save hierarchy under `user://test_saves/[unique]/`.
+
+### Usage
+
+```gdscript
+extends GdUnitTestSuite
+var _stub: Node
+
+func before_test() -> void:
+    _stub = SaveManagerStub.swap_in()
+
+func after_test() -> void:
+    SaveManagerStub.swap_out()
+    _stub = null
+
+func test_my_scenario() -> void:
+    # stub API is identical to production — same methods, redirected save root
+    _stub.set_active_slot(2)
+    assert_int(_stub.active_slot).is_equal(2)
+
+    # Explicit in-body cleanup prevents GdUnit4's orphan detector from flagging
+    # the detached production node between test body end and after_test.
+    # after_test's swap_out() is a safety net for crashes, not the primary path.
+    SaveManagerStub.swap_out()
+```
+
+To control the temp root path explicitly (e.g., for path-assertion tests):
+
+```gdscript
+var _stub: Node = SaveManagerStub.swap_in("user://test_saves/my_deterministic_test/")
+```
+
+`swap_in()` returns the stub Node for direct method calls. `swap_out()` is
+idempotent — safe to call from `after_test()` even if `swap_in()` was never
+called or the test called `swap_out()` itself.
+
+### How it works internally
+
+1. `swap_in(temp_root)` generates a unique path under `user://test_saves/` when
+   `temp_root` is empty, using `OS.get_unique_id() + "_" + Time.get_ticks_msec()`.
+2. The temp root and three slot subdirs are created via
+   `DirAccess.make_dir_recursive_absolute` before `add_child`.
+3. The production node is removed with `remove_child()` and cached in a static var.
+4. A fresh stub is instantiated: `(load(SAVE_MANAGER_PATH) as GDScript).new()`.
+   `stub._save_root_override = temp_root` is set BEFORE `add_child()` — this is
+   critical because `_ready()` calls `_ensure_save_root()`, which uses
+   `_effective_save_root()` to resolve the path. The override must be in place
+   before `_ready()` fires or `_ensure_save_root()` would create dirs at the
+   production path.
+5. `swap_out()` reverses this: removes the stub with `remove_child()`, calls
+   `free()` for immediate synchronous deletion, re-adds the cached production
+   node, then recursively removes the temp directory via `_remove_dir_recursive()`.
+6. All steps are synchronous. `get_node("SaveManager")` returns the production
+   instance immediately after `swap_out()` returns.
+
+---
+
+## Known Limitations (SaveManagerStub)
+
+### G-10: autoload identifier still resolves to production
+
+The global identifier `SaveManager` binds at engine init to the production node.
+After `swap_in()`, `get_tree().root.get_node("SaveManager")` IS the stub, but
+`SaveManager` (the identifier) still resolves to the original production instance.
+
+Consequence: do **not** assert `SaveManager == stub` — this always compares
+against production. Use path-based access: `get_tree().root.get_node("SaveManager")`.
+
+Also: tests that need to verify SaveManager's `_on_save_checkpoint_requested`
+handler fires after a GameBus emit must use the REAL `GameBus.save_checkpoint_requested`
+emit on the REAL production `SaveManager`. The stub is for tests that exercise
+direct-method paths (e.g., `set_active_slot`, `_path_for`, stub save/load) without
+a GameBus signal roundtrip.
+
+### Orphan dirs on test crash
+
+`swap_out()` removes the temp dir. If a test crashes before `swap_out()` runs,
+orphan dirs remain under `user://test_saves/`. Safe to delete manually:
+
+```
+rm -rf <project_data_dir>/test_saves/
+```
+
+On macOS the project data dir is typically:
+`~/Library/Application Support/Godot/app_userdata/<project_name>/`
+
+### _save_root_override is a test seam, not a public API
+
+`_save_root_override` on the SaveManager script is a package-private field
+(leading underscore is convention-only in GDScript). Production code MUST NOT
+set it. It exists solely to redirect the save root for test isolation.
+
+### Serial execution only
+
+The static-var cache in `SaveManagerStub` is safe only when test functions within
+a suite execute serially. GdUnit4 v6.1.2 runs test functions serially per suite
+by default. Parallel execution within a suite would break this pattern.
+
+---
+
+## Related Files (SaveManagerStub)
+
+| File | Purpose |
+|------|---------|
+| `save_manager_stub.gd` | The stub utility — `SaveManagerStub.swap_in()` / `swap_out()` |
+| `save_manager_stub_self_test.gd` | Regression tests for the stub itself (AC-1..AC-7) |
+| `save_manager_test.gd` | Story 002 — SaveManager skeleton + project.godot registration |
+
+---
+
+## Design Rationale (SaveManagerStub)
+
+See Story 003 (`production/epics/save-manager/story-003-stub-for-gdunit4.md`) for
+full design rationale, implementation notes, and the QA test case specifications
+that this README summarises.
+
+ADR reference: ADR-0003 §Constraints (testing: "SaveManager stub must be injectable
+for tests, swap `user://` root to a temp path in `before_test`, cleanup in `after_test`")
+(`docs/architecture/ADR-0003-save-load.md`).
+
+See also `.claude/rules/godot-4x-gotchas.md` G-6 (orphan detection fires between
+test body and `after_test` — explicit `swap_out()` in test body is required), G-3
+(autoload scripts must not declare `class_name` — `SaveManagerStub` can use
+`class_name` because it is a `RefCounted` helper, not an autoload), and G-10
+(autoload global identifier binds at engine init — verify stub mount via path-based
+`get_node()`, not the `SaveManager` global identifier).

@@ -46,6 +46,12 @@ var active_slot: int = 1:
 
 var _active_slot: int = 1
 
+## Test-only seam set by SaveManagerStub.swap_in(). Production code MUST NOT set
+## this. When empty, _effective_save_root() falls back to the SAVE_ROOT constant.
+## Setting this before add_child ensures _ready() → _ensure_save_root() creates
+## directories at the override path rather than at the production user://saves root.
+var _save_root_override: String = ""
+
 # ── Built-in virtual methods ──────────────────────────────────────────────────
 
 func _ready() -> void:
@@ -105,20 +111,31 @@ func list_slots() -> Array[Dictionary]:
 
 # ── Private methods ───────────────────────────────────────────────────────────
 
-## Creates user://saves and the three slot subdirectories if they do not exist.
+## Returns the effective save root directory for this instance.
+## Returns _save_root_override when non-empty (test seam injected by SaveManagerStub),
+## otherwise falls back to the SAVE_ROOT constant (production path).
+## All internal path construction MUST use this helper — never reference SAVE_ROOT directly.
+func _effective_save_root() -> String:
+	return _save_root_override if not _save_root_override.is_empty() else SAVE_ROOT
+
+
+## Creates the save root and the three slot subdirectories if they do not exist.
+## Uses _effective_save_root() so SaveManagerStub can redirect to a temp path.
 ## Idempotent — subsequent calls are no-ops on an already-created hierarchy.
 ## Uses DirAccess.make_dir_recursive_absolute per ADR-0003 §Key Interfaces.
 func _ensure_save_root() -> void:
-	DirAccess.make_dir_recursive_absolute(SAVE_ROOT)
+	var root: String = _effective_save_root()
+	DirAccess.make_dir_recursive_absolute(root)
 	for i: int in range(1, SLOT_COUNT + 1):
-		DirAccess.make_dir_recursive_absolute("%s/slot_%d" % [SAVE_ROOT, i])
+		DirAccess.make_dir_recursive_absolute("%s/slot_%d" % [root, i])
 
 
 ## Returns the canonical file path for a given slot, chapter, and checkpoint index.
-## Format: user://saves/slot_{slot}/ch_{MM}_cp_{cp}.res  (MM is zero-padded to 2 digits).
-## Example: _path_for(2, 3, 1) → "user://saves/slot_2/ch_03_cp_1.res"
+## Uses _effective_save_root() so SaveManagerStub can redirect to a temp path.
+## Format: <save_root>/slot_{slot}/ch_{MM}_cp_{cp}.res  (MM is zero-padded to 2 digits).
+## Example (production): _path_for(2, 3, 1) → "user://saves/slot_2/ch_03_cp_1.res"
 func _path_for(slot: int, chapter_number: int, cp: int) -> String:
-	return "%s/slot_%d/ch_%02d_cp_%d.res" % [SAVE_ROOT, slot, chapter_number, cp]
+	return "%s/slot_%d/ch_%02d_cp_%d.res" % [_effective_save_root(), slot, chapter_number, cp]
 
 
 ## Scans the given slot directory and returns the path to the newest checkpoint file,
