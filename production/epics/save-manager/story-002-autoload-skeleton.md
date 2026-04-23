@@ -1,10 +1,11 @@
 # Story 002: SaveManager autoload skeleton + project.godot registration
 
 > **Epic**: save-manager
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Platform
 > **Type**: Logic
 > **Estimate**: 2-3 hours (skeleton + registration + test file; pipeline bodies deferred to stories 004-006)
+> **Actual**: ~3h (specialist clean first run + code-review Option A fixes including 4 stub-contract guard tests)
 > **Manifest Version**: 2026-04-20
 
 ## Context
@@ -165,3 +166,26 @@
 
 - **Depends on**: story-001 (SaveContext + EchoMark types referenced in handler stubs)
 - **Unlocks**: Stories 003-008
+
+## Completion Notes
+
+**Completed**: 2026-04-23
+**Criteria**: 11/11 story-header ACs + 10/10 QA test cases passing
+**Test Evidence**: `tests/unit/core/save_manager_test.gd` (~450 LoC, 17 test functions — 12 AC coverage + 1 AC-4 min-boundary + 4 stub-contract guards) — **124/124 suite pass**, 0 errors, 0 failures, 0 orphans, exit 0
+**Files delivered**:
+- `src/core/save_manager.gd` (NEW, 143 LoC after code-review cleanup)
+- `project.godot` (MODIFIED, +1 autoload line between SceneManager and GameBusDiagnostics)
+- `tests/unit/core/save_manager_test.gd` (NEW, ~450 LoC, 17 tests)
+
+**Deviations (all ADVISORY)**:
+1. **ADR-0003 documentation error**: ADR-0003 §Key Interfaces code listing (line 242) declares `class_name SaveManager` — contradicts G-3 (autoload class_name collision → "Class hides autoload singleton" parse error). Implementation correctly omits `class_name`. Worth ADR errata pass eventually.
+2. **AC-8 effective coverage gap**: `_ensure_save_root()` test cannot redirect to a temp root (SAVE_ROOT is const; no seam until story-003 SaveManagerStub). Current test validates manually-created temp dirs exist + idempotency no-crash on existing prod dirs. Full isolation pending story-003. Inline TODO comment at line 290 of test file.
+3. **AC-4 out-of-range limitation**: Story §AC-4 edge case names `set_active_slot(0)` and `set_active_slot(4)` as "triggers assert failure" — untestable in GdUnit4 v6.1.2 (no `assert_throws`/`expect_abort`; assert aborts crash runner). Documented as inline limitation block in test file header of AC-4 section. Manually-enforced runtime contract.
+
+**Code Review**: Complete (standalone `/code-review` 2026-04-23 — APPROVED WITH SUGGESTIONS → APPROVED after Option A fixes: B-1/B-2 `DirAccess.remove_absolute()` cleanup fix, S-1 5× `pass` removal, Gap 1 min-boundary test, Gap 2 AC-4 doc block, Gap 3 4× stub-contract guard tests, 2 advisory TODO comments)
+
+**Gates skipped** (lean mode): QL-TEST-COVERAGE, LP-CODE-REVIEW phase-gates (standalone `/code-review` already ran with 2 specialists — godot-gdscript-specialist + qa-tester)
+
+**Manifest Version compliance**: 2026-04-20 matches current — no staleness
+
+**Specialist note**: godot-gdscript-specialist called this file "the clearest gotcha annotation seen on any file in this codebase" — G-3/G-6/G-8/G-10 disciplined throughout.
