@@ -1,10 +1,11 @@
 # Story 003: SaveManagerStub for GdUnit4 test isolation
 
 > **Epic**: save-manager
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Platform
 > **Type**: Logic
 > **Estimate**: 3-4 hours (stub helper + self-test + temp-dir cleanup discipline; mirrors GameBusStub + SceneManagerStub patterns)
+> **Actual**: ~3.5h (specialist architecture-review-then-write pattern + code-review Option A fixes with Gap 1+2+3 regression coverage)
 > **Manifest Version**: 2026-04-20
 
 ## Context
@@ -141,3 +142,30 @@
 
 - **Depends on**: story-002 (SaveManager autoload must exist to be swapped)
 - **Unlocks**: Stories 004, 005, 006 (all rely on stub for filesystem isolation)
+
+## Completion Notes
+
+**Completed**: 2026-04-23
+**Criteria**: 7/7 primary ACs + 1 bonus multi-cycle regression test = 8 test functions passing
+**Test Evidence**: `tests/unit/core/save_manager_stub_self_test.gd` (~472 LoC, 8 tests) — **132/132 suite pass**, 0 errors, 0 failures, 0 orphans, exit 0; no residual temp dirs post-run
+**Files delivered**:
+- `src/core/save_manager.gd` (MODIFIED, +15 LoC — Option A `_save_root_override` override hook + `_effective_save_root()` helper; behavior-preserving for existing 17 tests)
+- `tests/unit/core/save_manager_stub.gd` (NEW, ~287 LoC — `class_name SaveManagerStub extends RefCounted` with `swap_in`/`swap_out`/`_remove_dir_recursive` + 4-case swap_out logic mirroring SceneManagerStub)
+- `tests/unit/core/save_manager_stub_self_test.gd` (NEW, ~472 LoC, 8 tests: 7 AC + 1 multi-cycle+idempotent regression)
+- `tests/unit/core/README.md` (MODIFIED, +121 LoC `## SaveManagerStub` section + S-4 path typo fix)
+
+**Deviations (all ADVISORY)**:
+1. **Out-of-scope SaveManager modification**: Story §Out of Scope excluded `SaveManager autoload skeleton — story 002`, but implementing AC-3/AC-4/AC-5 required adding the `_save_root_override` test seam to save_manager.gd. Scope correction identified at /story-readiness (Observation 1) + applied via Clarification 1. Justified as test-infrastructure (not new production feature); existing 17 save_manager_test tests all pass unchanged (behavior-preserving default).
+2. **Code-review Option A fixes applied**: Specialist APPROVED with 4 advisory; qa-tester GAPS with 2 blocking (Gap 1 idempotent, Gap 3 AC-6 temp-dir assertions) + 1 advisory (Gap 2 multi-cycle). Combined Gap 1+2 into single 3-cycle regression test. Applied Gap 3 assertions to AC-6. Added S-2 SLOT_COUNT comment + S-4 README path fix. Deferred S-1 to tools/ci story-008 scope. Accepted S-3 as-is.
+
+**Code Review**: Complete (standalone `/code-review` 2026-04-23 — CHANGES REQUIRED → APPROVED after Option A fixes)
+
+**Gates skipped** (lean mode): QL-TEST-COVERAGE, LP-CODE-REVIEW (standalone `/code-review` with 2 specialists — godot-gdscript-specialist + qa-tester)
+
+**Manifest Version compliance**: 2026-04-20 matches current — no staleness
+
+**Key regression pattern**: The `test_stub_three_cycles_leave_no_orphans_and_swap_out_is_idempotent` test provides pre-emptive coverage for story-007's 100-iteration perf loop. Catches temp-dir-leak class of bugs at the stub infrastructure level rather than deferring discovery to perf validation.
+
+**Specialist commendations**:
+- godot-gdscript-specialist: "Precedent parity is excellent" + "`_save_root_override` seam is minimal and correct (Option A over Option B was the right call)"
+- qa-tester: Regression test provides story-007 pre-coverage + closes defect-detection gap vs SceneManagerStub precedent
