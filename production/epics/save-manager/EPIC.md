@@ -92,7 +92,7 @@ This epic is complete when:
 | # | Story | Type | Status | ADR | Covers |
 |---|-------|------|--------|-----|--------|
 | 001 | SaveContext + EchoMark Resource classes | Logic | Complete | ADR-0003 | TR-save-load-002, V-3 |
-| 002 | SaveManager autoload skeleton + project.godot registration | Logic | Ready | ADR-0003 | TR-save-load-001 |
+| 002 | SaveManager autoload skeleton + project.godot registration | Logic | Complete | ADR-0003 | TR-save-load-001 |
 | 003 | SaveManagerStub for GdUnit4 test isolation | Logic | Ready | ADR-0003 | V-4/V-5/V-7/V-8/V-9 prereq |
 | 004 | Save pipeline — duplicate_deep → ResourceSaver → atomic rename | Logic | Ready | ADR-0003 | TR-save-load-003, V-1, V-4, V-5 |
 | 005 | Load pipeline — list_slots + load_latest_checkpoint + crash-recovery scan | Logic | Ready | ADR-0003 | TR-save-load-004, V-2, V-7, V-8, V-9, V-12 |

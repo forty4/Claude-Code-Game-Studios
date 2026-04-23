@@ -601,3 +601,41 @@ When creating a new class with `class_name`:
 3. Cross-reference from TD-022 → resolved
 
 **Next review**: at save-manager epic close, or on next class_name-related bug.
+
+---
+
+## TD-023 — ADR-0003 §Key Interfaces code listing incorrectly shows `class_name SaveManager`
+
+**Origin**: save-manager story-002 implementation (godot-gdscript-specialist flagged)
+**Category**: docs (ADR errata)
+**Severity**: low (caught at implementation time; implementation is correct)
+**Status**: open — ADR errata pending
+
+ADR-0003 §Key Interfaces at approximately line 242 of `docs/architecture/ADR-0003-save-load.md` contains a code listing that declares:
+
+```gdscript
+class_name SaveManager
+extends Node
+```
+
+This contradicts G-3 (Godot 4.6 autoload `class_name` collision rule — declaring `class_name X` on a script registered as autoload `X` causes the parse error "Class 'X' hides an autoload singleton"). The SaveManager script registered at `/root/SaveManager` MUST NOT declare `class_name SaveManager`.
+
+### Why this happened
+
+The ADR was authored before G-3 was codified in `.claude/rules/godot-4x-gotchas.md` (G-3 was discovered in gamebus story-005). The code listing was likely copied from a non-autoload Resource example.
+
+### Implementation correctness
+
+Story-002 §Implementation Notes §1 explicitly identifies this discrepancy and mandates the correct form. `src/core/save_manager.gd` uses `extends Node` with no `class_name` — correct.
+
+### Resolution path
+
+1. Edit `docs/architecture/ADR-0003-save-load.md` §Key Interfaces — remove `class_name SaveManager` from the SaveManager code listing
+2. Add a one-line comment near the listing: `# NOTE: autoload scripts must NOT declare class_name (G-3 — see .claude/rules/godot-4x-gotchas.md)`
+3. Add changelog entry: `2026-MM-DD: Errata — removed erroneous class_name SaveManager from §Key Interfaces code listing (G-3 compliance).`
+
+### Scope of errata pass
+
+Worth checking ADR-0003 other code listings (SaveContext, EchoMark, SaveMigrationRegistry) for similar drift. SaveContext and EchoMark SHOULD declare `class_name` (they are Resource subtypes, not autoloads). SaveMigrationRegistry extends RefCounted — also correctly declares `class_name`. Only SaveManager section needs correction.
+
+**Next review**: at save-manager epic close (batch ADR errata pass across all Foundation ADRs if similar drift found in ADR-0001/0002/0004).
