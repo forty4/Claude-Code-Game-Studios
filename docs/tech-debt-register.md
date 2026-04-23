@@ -550,3 +550,54 @@ Three advisory coverage items surfaced during story-005 code review. Implementat
 **Remediation order**: F-3/F-4 can be batched with any other test polish PR. T-1 belongs in story-005 cleanup. T-edge-1/T-edge-2 fit story-007's target-device verification scope.
 
 **Next review**: at story-007 close.
+
+---
+
+## TD-022 — Godot 4.6 silent class_name collision resolution (G-12 candidate)
+
+**Origin**: save-manager story-001 /code-review + round-2 path correction
+**Category**: docs (gotcha rule file candidate)
+**Severity**: low (one occurrence; ~15min diagnosis cost)
+**Status**: open — tracking pending recurrence
+
+When two `.gd` files declare the same `class_name X`, Godot 4.6 resolves the collision SILENTLY via first-registered-wins. No parse error, no warning. Only detected via combined `resource_path` + field-content assertions (i.e., assertion on where the class_name globally resolved AND on what fields that class actually has).
+
+### Concrete pattern observed (save-manager story-001)
+
+- Gamebus story-002 shipped PROVISIONAL stubs at `src/core/payloads/save_context.gd` + `src/core/payloads/echo_mark.gd`, each declaring `class_name SaveContext` / `class_name EchoMark`
+- Save-manager story-001 specialist wrote NEW files at `src/core/save_context.gd` + `src/core/echo_mark.gd` with the full schema, also declaring `class_name SaveContext` / `class_name EchoMark`
+- `godot --headless --import` returned exit 0 (NO collision error)
+- Tests checking field defaults (AC-2) + field counts (AC-3/AC-5) passed — because class_name resolved to the FULL-schema file at `src/core/`
+- But tests checking `resource_path` (AC-4) FAILED only after the B-1 code-review fix exposed the mismatch: AC-4 asserted `res://src/core/echo_mark.gd` but resolution picked `res://src/core/payloads/echo_mark.gd` (the stub)
+
+### Why first-registered-wins is dangerous
+
+- Newer code with full schema can be SILENTLY OVERRIDDEN by an older stub at a different path
+- Test coverage that only checks fields can give false-positive PASS while actual production code uses the stub
+- Developer has zero diagnostic signal — no warning, no parse error, no compile-time failure
+
+### Mitigations applied for save-manager story-001
+
+1. Stubs overwritten in-place at the canonical path (`src/core/payloads/*.gd`)
+2. Duplicate files at `src/core/*.gd` deleted
+3. Test resource_path assertions updated
+
+### Promotion criteria (to G-12 in `.claude/rules/godot-4x-gotchas.md`)
+
+- Codify when this pattern recurs (threshold: 2 occurrences)
+- OR codify preemptively if any new contributor hits this same failure mode
+
+### Interim defensive practice
+
+When creating a new class with `class_name`:
+1. `Grep` for existing `class_name [NewName]` before writing: `grep -r "class_name [Name]" src/`
+2. If found, decide: replace-in-place OR rename-new-class
+3. Never create a second file with the same `class_name` at a different path
+
+### Remediation path
+
+1. Observe 1+ recurrence
+2. Codify as G-12 in godot-4x-gotchas.md with Context → Broken → Correct → Discovered format
+3. Cross-reference from TD-022 → resolved
+
+**Next review**: at save-manager epic close, or on next class_name-related bug.

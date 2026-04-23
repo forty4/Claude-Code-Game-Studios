@@ -5,7 +5,7 @@
 > **Architecture Module**: SaveManager (docs/architecture/architecture.md §Platform layer)
 > **Status**: Ready
 > **Manifest Version**: 2026-04-20
-> **Stories**: Not yet created — run `/create-stories save-manager`
+> **Stories**: 8 decomposed (2026-04-22) — see table in §Stories
 
 ## Overview
 
@@ -38,8 +38,8 @@ SaveManager is the single autoload at `/root/SaveManager` (load order 3, after G
 ## Scope
 
 **Implements**:
-- `src/core/save_context.gd` — typed `SaveContext` Resource with all fields `@export`
-- `src/core/echo_mark.gd` — typed `EchoMark` Resource with `class_name` + full `@export` coverage (blocking schema invariant)
+- `src/core/payloads/save_context.gd` — typed `SaveContext` Resource with all fields `@export` (REPLACES gamebus story-002 PROVISIONAL stub at same path)
+- `src/core/payloads/echo_mark.gd` — typed `EchoMark` Resource with `class_name` + full `@export` coverage (blocking schema invariant) (REPLACES stub)
 - `src/core/save_manager.gd` — autoload with `save_checkpoint()`, `load_latest_checkpoint()`, `list_slots()`, `set_active_slot()`, `_find_latest_cp_file()` using `DirAccess.get_files_at`
 - `src/core/save_migration_registry.gd` — static migration registry (initially empty Dictionary; first entry lands on schema v2)
 - `project.godot` — autoload registration at load order 3
@@ -87,6 +87,28 @@ This epic is complete when:
 - V-12: `load_latest_checkpoint` returns newest CP by chapter×cp ordering
 - V-13: no per-frame GameBus emits in save_manager.gd
 
+## Stories
+
+| # | Story | Type | Status | ADR | Covers |
+|---|-------|------|--------|-----|--------|
+| 001 | SaveContext + EchoMark Resource classes | Logic | Complete | ADR-0003 | TR-save-load-002, V-3 |
+| 002 | SaveManager autoload skeleton + project.godot registration | Logic | Ready | ADR-0003 | TR-save-load-001 |
+| 003 | SaveManagerStub for GdUnit4 test isolation | Logic | Ready | ADR-0003 | V-4/V-5/V-7/V-8/V-9 prereq |
+| 004 | Save pipeline — duplicate_deep → ResourceSaver → atomic rename | Logic | Ready | ADR-0003 | TR-save-load-003, V-1, V-4, V-5 |
+| 005 | Load pipeline — list_slots + load_latest_checkpoint + crash-recovery scan | Logic | Ready | ADR-0003 | TR-save-load-004, V-2, V-7, V-8, V-9, V-12 |
+| 006 | SaveMigrationRegistry + schema version chain | Logic | Ready | ADR-0003 | TR-save-load-007, V-6 |
+| 007 | Perf baseline + target-device verification (V-11 <50ms) | Integration | Ready | ADR-0003 | V-11 |
+| 008 | CI lint — user://-only + no-per-frame-emit + BattleOutcome append-only | Config/Data | Ready | ADR-0003 | TR-save-load-005, TR-save-load-006 (V-10), V-13 |
+
+**Implementation order**: 001 → 002 → 003 → 004 → {005, 006 parallel} → {007, 008 parallel}
+
+**Engine risk (highest)**: MEDIUM (`duplicate_deep` 4.5+, `rename_absolute` platform-scoped, `DirAccess.get_files_at` 4.6 idiom)
+
+**Test evidence targets**:
+- Logic: `tests/unit/core/save_[feature]_test.gd` (stories 001-006)
+- Integration: `tests/integration/core/save_perf_test.gd` (story 007)
+- Config/Data: `production/qa/smoke-save-v10-v13-lint.md` (story 008)
+
 ## Next Step
 
-Run `/create-stories save-manager` to break this epic into implementable stories.
+Run `/story-readiness production/epics/save-manager/story-001-save-context-echo-mark-classes.md` to validate story-001 readiness, then `/dev-story` to begin implementation. Stories 002-008 unlock progressively per the implementation order above.
