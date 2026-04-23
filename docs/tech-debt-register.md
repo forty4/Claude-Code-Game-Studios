@@ -639,3 +639,131 @@ Story-002 §Implementation Notes §1 explicitly identifies this discrepancy and 
 Worth checking ADR-0003 other code listings (SaveContext, EchoMark, SaveMigrationRegistry) for similar drift. SaveContext and EchoMark SHOULD declare `class_name` (they are Resource subtypes, not autoloads). SaveMigrationRegistry extends RefCounted — also correctly declares `class_name`. Only SaveManager section needs correction.
 
 **Next review**: at save-manager epic close (batch ADR errata pass across all Foundation ADRs if similar drift found in ADR-0001/0002/0004).
+
+---
+
+## TD-025 — G-14: Godot `user://` path APIs have asymmetric double-slash tolerance
+
+- **Discovered**: 2026-04-23, save-manager story-004 /dev-story (7 failing tests, root cause: `//` in temp paths)
+- **Origin**: save-manager story-004
+- **Category**: code + docs (gotcha rule file candidate)
+- **Severity**: low (latent until first ResourceSaver.save call in story-004; DirAccess APIs silently tolerated the bad paths in stories 001-003)
+- **Status**: resolved in-situ (story-004 `_path_for` + `_ensure_save_root` both apply `.rstrip("/")`)
+
+**Root cause**: `SaveManagerStub.swap_in()` sets `_save_root_override` WITH a guaranteed trailing slash (enforced by stub line 141-143 for path-concatenation safety). `_path_for` appended `/slot_N/...` directly, producing `user://test_saves/ID//slot_1/ch_01_cp_1.res` — double-slash between the temp root and `slot_X`.
+
+**Asymmetric API behavior**:
+- `DirAccess.make_dir_recursive_absolute("path//to//dir")` — tolerates `//` silently (creates dir correctly)
+- `DirAccess.dir_exists_absolute("path//to//dir")` — tolerates `//` silently (returns correct result)
+- `ResourceSaver.save(resource, "path//to//file.res")` — **REJECTS with `ERR_FILE_CANT_WRITE` (15)**
+- `ResourceLoader.load("path//to//file.res")` — **load failure**
+
+This asymmetry was latent through stories 001-003 (only used DirAccess APIs). Story-004 was the first to call `ResourceSaver.save`, exposing the bug. The failure symptom was all save-pipeline tests returning `"resource_saver_error:15"` regardless of what error path they were testing.
+
+**Fix applied**: `.rstrip("/")` at the start of both `_path_for` and `_ensure_save_root`. Constructor normalizes; caller discipline not required.
+
+**G-14 candidate**: "Godot `user://` path APIs have asymmetric double-slash tolerance. `DirAccess` static helpers (`make_dir_recursive_absolute`, `dir_exists_absolute`, `remove_absolute`) silently tolerate `//`; `ResourceSaver.save` and `ResourceLoader.load` reject double-slash paths with `ERR_FILE_CANT_WRITE (15)` / load error. Always `.rstrip("/")` user-supplied roots in path constructors — do not assume caller-side discipline."
+
+**Resolution path**: codify as G-14 in `.claude/rules/godot-4x-gotchas.md` when the rule file is next updated (batch with G-13 from TD-024).
+
+**Next review**: at save-manager epic close (batch G-13 + G-14 rule-file update).
+
+---
+
+## TD-024 — ADR-0003 errata: `DUPLICATE_DEEP_ALL_BUT_SCRIPTS` does not exist
+
+- **Discovered**: 2026-04-23, save-manager story-004 /dev-story
+- **Origin**: save-manager story-004
+- **Category**: docs (ADR errata)
+- **Severity**: low (text-only — implementation corrected in-situ)
+- **Status**: open — ADR errata pending
+
+**Affected docs**:
+- `docs/architecture/ADR-0003-save-load.md` §Key Interfaces (code listing line ~269)
+- `docs/architecture/ADR-0003-save-load.md` §Engine Compatibility §Post-Cutoff APIs Used
+- `docs/architecture/control-manifest.md` SaveManager Required Patterns
+- `docs/architecture/tr-registry.yaml` TR-save-load-003 requirement text
+- `production/epics/save-manager/story-004-save-pipeline.md` AC-1 step 1 and Engine Notes
+
+**Root cause**: The `DUPLICATE_DEEP_ALL_BUT_SCRIPTS` name was LLM-fabricated during ADR-0003 authoring (2026-04-18). The value does not appear in Godot 4.6's real `Resource.DeepDuplicateMode` enum. Confirmed via `ClassDB.class_get_enum_list("Resource")` introspection — the real enum has exactly three values:
+
+```
+DEEP_DUPLICATE_NONE     = 0
+DEEP_DUPLICATE_INTERNAL = 1
+DEEP_DUPLICATE_ALL      = 2
+```
+
+**Implementation**: story-004 uses `Resource.DEEP_DUPLICATE_ALL` (max-depth mode) with inline ADR-errata comment. Semantic intent is preserved — `DEEP_DUPLICATE_ALL` fully duplicates all embedded sub-resources (EchoMark instances in `echo_marks_archive`), satisfying the R-1 mitigation (live-state decoupling before serialization).
+
+**New gotcha (G-13 candidate)**: "Resource deep-duplication enum values were renamed/restructured in Godot 4.5+. LLM training data and pre-4.5 documentation frequently reference `DUPLICATE_DEEP_ALL_BUT_SCRIPTS` — this name is fabricated and was never a real API. The correct enum is `Resource.DeepDuplicateMode` with values `DEEP_DUPLICATE_NONE | DEEP_DUPLICATE_INTERNAL | DEEP_DUPLICATE_ALL`. Use `ClassDB.class_get_enum_list("Resource")` to enumerate real values at runtime." Add as G-13 when `.claude/rules/godot-4x-gotchas.md` is next updated.
+
+**Resolution path**: Batch with TD-023 (ADR-0003 `class_name SaveManager` errata) into a single ADR-0003 errata pass. Target: after save-manager epic closes, before story-006 (migration registry) begins.
+
+**Next review**: at save-manager epic close.
+
+---
+
+## TD-026 — ADR-0003 errata: tmp-path extension pattern is unimplementable
+
+- **Discovered**: 2026-04-23, save-manager story-004 /dev-story
+- **Origin**: save-manager story-004
+- **Category**: docs (ADR errata)
+- **Severity**: low (text-only — implementation corrected in-situ)
+- **Status**: open — ADR errata pending
+
+**Affected docs**:
+- `docs/architecture/ADR-0003-save-load.md` §Key Interfaces (`var tmp_path: String = final_path + ".tmp"`)
+- `docs/architecture/ADR-0003-save-load.md` §Requirements item 3 ("Atomic write" — specifies `.res.tmp` tmp suffix)
+- `docs/architecture/control-manifest.md` SaveManager Required Patterns (references tmp_path form)
+- `production/epics/save-manager/story-004-save-pipeline.md` AC-1 step 5 verbatim
+
+**Root cause**: ADR-0003 author assumed Godot's ResourceSaver tolerates arbitrary path extensions for tmp files. Empirical test (Godot 4.6): ResourceSaver picks serializer from the path's TRAILING extension; `.res.tmp` yields err=15 (`ERR_FILE_CANT_WRITE`) because `.tmp` isn't a registered format. `.tmp.res` works (trailing `.res` → binary saver).
+
+Confirmed by minimal probe script:
+```
+.res         → err=0  (OK)
+.res.tmp     → err=15 (ERR_FILE_CANT_WRITE)
+.tmp.res     → err=0  (OK)
+.tmp         → err=15 (ERR_FILE_CANT_WRITE)
+```
+
+**Implementation**: story-004 uses `final_path.get_basename() + ".tmp.res"` with inline ADR-errata comment. For `final_path = ".../slot_1/ch_02_cp_1.res"` this yields `".../slot_1/ch_02_cp_1.tmp.res"` — still unambiguously the tmp counterpart, still cleaned up atomically by rename, still guaranteed to collide uniquely with its final-path pair per `(slot, chapter, cp)`.
+
+**G-15 candidate**: "Godot ResourceSaver picks serializer from the TRAILING path extension. `.res.tmp` fails with err=15 (`ERR_FILE_CANT_WRITE`); `.tmp.res` succeeds. When writing atomic-save tmp files, place disambiguation infixes BEFORE the recognised extension: use `<basename>.tmp.res` NOT `<full>.tmp`. Verify with: `ResourceSaver.save(Resource.new(), \"user://test.res.tmp\")` returns err 15."
+
+**Resolution path**: Batch with TD-023 (`class_name SaveManager`) + TD-024 (`DUPLICATE_DEEP_ALL_BUT_SCRIPTS`) + TD-025 (double-slash path normalization) into a single ADR-0003 errata pass. Target: after save-manager epic closes, before story-006 (migration registry) begins. Four errata in one story is a strong signal the ADR needs an engine-specialist re-validation pass.
+
+**Next review**: at save-manager epic close (batch ADR-0003 errata pass).
+
+---
+
+## TD-027 — Story-004 /code-review deferred advisories (batch)
+
+**Origin**: save-manager story-004 /code-review (godot-gdscript-specialist + qa-tester, 2026-04-23)
+**Category**: code + docs
+**Severity**: low
+**Status**: open
+
+Six advisory items surfaced during /code-review of save-manager story-004. None were BLOCKING; story passed both specialist reviews. Deferred via Option A (lean close-out) per user decision; logged here to prevent loss.
+
+### Items
+
+1. **AC-NO-MUTATE field coverage gap (qa-tester ADVISORY #1)** — `test_save_manager_source_not_mutated_during_save` checks only `ctx.schema_version` post-save. Story spec says "post-save field equality check on caller's instance" — adding a `ctx.saved_at_unix == 0` assertion (source sentinel unchanged) closes the gap. 2-line addition. Target: fold into story-006 test sweep, OR address with factory helper below in a dedicated test-hardening pass.
+
+2. **V-4 cleanup branch is a dead branch under Option C seam (qa-tester ADVISORY #2 + specialist ADVISORY)** — the `DirAccess.remove_absolute(tmp_path)` call inside each error-path branch is never executed under the current test seam (seam bypasses real write → tmp never exists). Acceptable per documented "compensating sweep deferred to story-006" policy. Story-006 scope should explicitly call out that the compensating sweep test will land coverage of this branch.
+
+3. **No `_make_filled_save_context()` factory helper (qa-tester ADVISORY #3)** — 6 test bodies independently construct `SaveContext` fixtures. A factory helper would reduce maintenance surface when `SaveContext` schema changes in future stories. Current duplication is manageable; refactor when the test file exceeds ~10 fixture constructions or when SaveContext gains fields.
+
+4. **`_cleanup_tmp` DRY helper (specialist ADVISORY #1)** — 3× ~5-line cleanup blocks in `save_checkpoint` (V-4 policy). Parameterized helper (`step_name: String`, `step_err: Error`) would reduce ~15 lines while preserving per-branch diagnostic specificity. Recommend folding into story-006 when that story touches this file for compensating sweep.
+
+5. **Inline (G-14)/(G-15) citations forward-reference unpublished rule-file entries (specialist ADVISORY #5)** — `save_manager.gd` comments cite `(G-14)` and `(G-15)` but `.claude/rules/godot-4x-gotchas.md` only defines G-1..G-11. Current TD-022 (class_name collision) is provisionally G-12; TD-024/025/026 would be G-13/14/15 in the rule file. Either (a) add G-12..G-15 batch entries to the rule file now, or (b) update inline comments to reference TD IDs only until rule file is published. Resolution: batch with the epic-close rule-file update pass.
+
+6. **`save_checkpoint(null)` crashes (qa-tester ADVISORY #4)** — defensive hardening for ScenarioRunner integration. Not in story-004 ACs, but the public API contract should guard against null input. Recommended guard: `if source == null: GameBus.save_load_failed.emit("save", "null_source"); return false`. Target: address in story-006 (migration registry) when that story adds its own input validation on the public API.
+
+### Resolution path
+
+Items 1, 3, 6 → natural fit for story-006 (migration registry) test sweep since that story will also extend `save_manager.gd` tests.
+Items 2, 4 → batch with story-006's `save_checkpoint` modifications (`_cleanup_tmp` helper + compensating sweep coverage).
+Item 5 → batch with save-manager epic close-out: single rule-file update pass that codifies G-12 through G-15 and refreshes ADR-0003 / control-manifest text (alongside TD-023 / TD-024 / TD-025 / TD-026 errata).
+
+**Next review**: at start of save-manager story-006 (migration registry) implementation.
