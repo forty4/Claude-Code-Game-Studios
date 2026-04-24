@@ -1,7 +1,7 @@
 # Story 006: SaveMigrationRegistry + schema version chain
 
 > **Epic**: save-manager
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Platform
 > **Type**: Logic
 > **Estimate**: 3-4 hours (migration registry shell + chain test + pure-function enforcement + integration with story-005 load path)
@@ -141,3 +141,33 @@
 
 - **Depends on**: story-005 (load pipeline integrates migration at load-time)
 - **Unlocks**: post-MVP schema changes (once v2 arrives, add migration Callable + test)
+
+## Completion Notes
+
+**Completed**: 2026-04-24
+**Verdict**: COMPLETE WITH NOTES
+**Criteria**: 7/7 passing
+**Test Evidence**: Logic — `tests/unit/core/save_migration_registry_test.gd` (5/5 PASS) + `tests/unit/core/save_manager_test.gd` AC-INTEGRATION (1/1 PASS). Full unit suite: **143/143 PASSED**, 0 errors, 0 failures, 0 orphans, exit 0 post-hardening re-run.
+**Code Review**: Complete — godot-gdscript-specialist APPROVED, qa-tester ADEQUATE. Option B hardening pass applied (A-1/A-2/A-3/A-4) with suite re-run green.
+**Deviations**:
+- Approved pre-code: Option C delegate split (public `migrate_to_current` 1-line delegate + private `_migrate_inner(ctx, target_version)`). Enables test-driven chain verification without mutating `SaveManager.CURRENT_SCHEMA_VERSION` const. Delta attributed in inline doc-comment.
+- In-cycle hardening (TD-029): A-1 `_MAX_MIGRATION_STEPS = 1000` infinite-loop guard + save_load_failed emission on breach; A-2 null-return guard + save_load_failed emission; A-3 TD-028 #2 `is_connected` belt-and-suspenders disconnect; A-4 AC-INTEGRATION early-return replaces silent-skip guard.
+- Scope: `docs/tech-debt-register.md` append (TD-029 only). Justified: canonical TD tracking location.
+- **Zero ADR errata discovered** — second consecutive clean story (contrast story-004's 4 errata).
+
+**Files delivered**:
+- `src/core/save_migration_registry.gd` (NEW, 100 LoC post-hardening) — class_name RefCounted, Option C delegate pattern, 3-layer pure-function purity documentation, A-1 iteration guard + A-2 null-return guard with `save_load_failed` emissions
+- `tests/unit/core/save_migration_registry_test.gd` (NEW, 282 LoC) — 5 AC tests (EMPTY, V6-CHAIN, V6-MID-CHAIN, GAP, IDEMPOTENT), inline lambda pattern, static-var seam via `(load(PATH) as GDScript).set(...)`, per-test `_reset_migrations()` at start + end
+- `src/core/save_manager.gd` (MODIFIED line 210) — 4-line TODO-story-006 shim → 1-line `return SaveMigrationRegistry.migrate_to_current(ctx)`
+- `tests/unit/core/save_manager_test.gd` (MODIFIED, +4 tests +~215 LoC) — AC-INTEGRATION-STORY-005 (direct ResourceSaver v0 write proves end-to-end migration invocation) + 3 TD-028 bonuses (saved_at_unix, wrong-type-resource, cross-slot isolation). A-3 + A-4 hardening polish.
+- `docs/tech-debt-register.md` — TD-029 appended
+
+**TD-028 resolution**: 3 of 6 items closed in-cycle (items 1, 2, 3). 3 items remain deferred (factory helper, G-16 rule-file update, negative-chapter guard — all low-pri).
+
+**TD-029 resolution**: 4 of 5 items applied in-cycle (A-1, A-2, A-3, A-4). 1 item (A-5 static lint for migration-callable anti-patterns) deferred to story-008 CI lint scope.
+
+**Implementation rounds**: 2 rounds + 1 hardening cycle. Plan approval → code+test write → green on first try (143/143) → /code-review APPROVED WITH SUGGESTIONS → Option B hardening → 143/143 re-verified. Second consecutive cleanest-cycle story.
+
+**Implementation effort**: ~1h 30min actual vs 3-4h estimate (including hardening pass).
+
+**Next recommended**: commit + branch + PR for story-006 (R1 pattern), then `/story-readiness production/epics/save-manager/story-007-perf-validation.md`.

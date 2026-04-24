@@ -207,10 +207,7 @@ func load_latest_checkpoint() -> SaveContext:
 		GameBus.save_load_failed.emit("load", "invalid_resource:%s" % path)
 		return null
 	var ctx: SaveContext = raw as SaveContext
-	# TODO story-006: replace with `return SaveMigrationRegistry.migrate_to_current(ctx)`
-	# CURRENT_SCHEMA_VERSION == 1 and no migrations exist; returning ctx directly
-	# is behaviorally equivalent to calling an identity migration.
-	return ctx
+	return SaveMigrationRegistry.migrate_to_current(ctx)
 
 
 ## Enumerates all slots with their newest-CP metadata for the Save Slot UI.
