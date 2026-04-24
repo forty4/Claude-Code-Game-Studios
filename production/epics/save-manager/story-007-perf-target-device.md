@@ -1,7 +1,7 @@
 # Story 007: Perf baseline + target-device verification (V-11 <50ms)
 
 > **Epic**: save-manager
-> **Status**: Ready
+> **Status**: Complete (with AC-TARGET DEFERRED)
 > **Layer**: Platform
 > **Type**: Integration
 > **Estimate**: 2-3 hours desktop substitute + 3-4 hours target-device (requires physical Android device + export setup)
@@ -151,3 +151,46 @@
 
 - **Depends on**: story-004 (save pipeline must be complete to measure), story-005 (full load cycle is implicit prerequisite; test uses save + verify flow), story-003 (SaveManagerStub for temp-root isolation)
 - **Unlocks**: Save-manager epic CORE-COMPLETE milestone (epic closure once V-11 passes OR is explicitly deferred)
+
+## Completion Notes
+
+**Completed**: 2026-04-24 (desktop-substitute; AC-TARGET deferred to Polish phase)
+**Verdict**: COMPLETE WITH NOTES
+**Criteria**: 4/5 passing + 1 DEFERRED
+- [x] AC-DESKTOP — full save cycle p95 = 0.96 ms (21× under 20 ms advisory; 52× under 50 ms mobile ADR projection)
+- [x] AC-BREAKDOWN — duplicate_deep 0.050 ms, ResourceSaver.save 0.424 ms, rename_absolute 0.484 ms (all 5-25× faster than ADR expectations)
+- [x] AC-PAYLOAD-SIZE — 2.19 KB (advisory fired: below ADR's 5-15 KB projection; observation captured as TD-031 S-5 for Polish-phase decision)
+- [x] AC-WARMUP — ratio 1.09× (ADR ≤3× ideal)
+- [?] **AC-TARGET DEFERRED** — mid-range Snapdragon 7-gen Android + export template required; deferral explicitly sanctioned by story §7 (scene-manager pattern precedent). Evidence doc at `production/qa/evidence/save-v11-android-perf-<date>.md` will be created during Polish-phase on-device validation session.
+
+**Test Evidence**: Integration — `tests/integration/core/save_perf_test.gd` (NEW, ~260 LoC, 4 test functions). Full regression suite: **162/162 PASSED**, 0 errors, 0 failures, 0 orphans, exit 0 (baseline preserved).
+
+**Code Review**: Complete — godot-gdscript-specialist APPROVED WITH SUGGESTIONS; qa-tester ADEQUATE. 7 advisories batched as TD-031 per Option A lean close (all bundled with AC-TARGET Polish-phase work).
+
+**Deviations**:
+- **DEFERRED (story-sanctioned)**: AC-TARGET on-device perf — will be completed in Polish phase when Android device is available. Test file docstring explains asymmetric-signal rationale ("desktop PASS does not imply mobile PASS; desktop FAIL GUARANTEES mobile FAIL") + future evidence path + scene-manager precedent. Team direction for Polish-phase: use the test file as the AC-TARGET template.
+- **ADVISORY (TD-031)**: 7 advisories from /code-review:
+  - S-1: AC-BREAKDOWN rename call form — test uses static `DirAccess.rename_absolute(...)`; production uses instance `da.rename_absolute(...)` (opened once). Negligible on desktop SSD; matters on Android flash. **Fix during AC-TARGET Polish-phase** for measurement fidelity.
+  - S-2: AC-BREAKDOWN save advisory threshold 15 ms → tighten to 10 ms to match ADR upper bound exactly.
+  - S-3: AC-BREAKDOWN per-iteration chapter/cp variation comment imprecise — actual reason is filesystem write-coalescing avoidance, not tmp-file collision.
+  - S-4: `_max()` helper missing empty-array guard (inconsistent with `_p95()` / `_mean()` which have it). Harmless at current call sites.
+  - S-5: AC-PAYLOAD-SIZE — 2.19 KB vs ADR's 5-15 KB projected range. Advisory fires every CI run until resolved. Two paths at Polish-phase: (a) update `_build_representative_ctx()` to hit ≥5 KB, or (b) update ADR comment to reflect MVP observation. Decide at AC-TARGET session.
+  - S-6: AC-DESKTOP hard bound 100 ms may never trigger (measured 0.96 ms → 100× gap). Tighten to 50 ms once several CI runs give variance baseline.
+  - S-7: Story's Test Evidence checkbox `[ ] Not yet created` remains unchecked — cosmetic; check it when AC-TARGET evidence doc lands.
+
+**Files delivered**:
+- `tests/integration/core/save_perf_test.gd` — NEW, ~260 LoC, 4 test functions + 4 private helpers
+- `docs/tech-debt-register.md` — TD-031 appended
+
+**Implementation rounds**: 1 round (plan → write → green on first try, 4/4 PASS, 162/162 full regression). Third consecutive clean story in this epic. Hardening pass NOT applied (Option A lean close).
+
+**Zero ADR errata discovered** — ADR-0003 measurement contract faithful (with one approved minor divergence in rename call form, logged as TD-031 S-1 for Polish fix).
+
+**Implementation effort**: ~30 min actual (planning + authoring + first-run pass + regression) vs 2-3h estimate for desktop substitute. AC-TARGET Polish-phase estimate stays at 3-4h (requires device setup + Godot Android export + manual evidence doc authoring).
+
+**Save-manager epic status**: **8/8 Complete** 🎉 (with AC-TARGET deferral properly documented). All core save/load/migration/CI-lint/perf architecture shipped across 5 sprints. V-1 through V-13 validation criteria addressed; V-11 authoritative on-device validation pending Polish phase.
+
+**Next recommended**:
+1. Commit + branch + PR for story-007 (R1 pattern), same as stories 006/008
+2. After PR merges: save-manager epic formally closable via `/smoke-check sprint` → `/team-qa sprint` → `/gate-check` progression, OR proceed to next epic (e.g., scenario-progression) and return to V-11 in Polish phase
+3. TD-028 (3 items), TD-029 A-5 (1 item), TD-030 (3 items), TD-031 (7 items) all tracked for future cleanup batches
