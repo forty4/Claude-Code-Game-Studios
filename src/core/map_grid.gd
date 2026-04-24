@@ -61,13 +61,31 @@ const ELEVATION_RANGES: Array = [
 	[0],      # 7 ROAD: elevation must be 0
 ]
 
-## TileState enum assumed values (to be formalised by ADR-0008 in story-005/006):
-##   EMPTY=0, ALLY_OCCUPIED=1, ENEMY_OCCUPIED=2, DESTROYED=3
-## Assumption documented for TD-032 batch.
-const TILE_STATE_EMPTY: int        = 0
+## TileState enum assumed values (locked by story-004 / GDD §ST-1; formalised by ADR-0008):
+##   EMPTY=0, ALLY_OCCUPIED=1, ENEMY_OCCUPIED=2,
+##   IMPASSABLE=3 (added story-004), DESTRUCTIBLE=4 (added story-004),
+##   DESTROYED=5 (renumbered from 3 by story-004 to make room for IMPASSABLE/DESTRUCTIBLE)
+##
+## NOTE (story-004 deviation): spec §Implementation Notes used STATE_* prefix for brevity.
+## We preserve the TILE_STATE_* prefix from stories-002/003 to avoid breaking the 19
+## existing tests that reference MapGrid.TILE_STATE_ALLY_OCCUPIED / ENEMY_OCCUPIED.
+const TILE_STATE_EMPTY: int          = 0
 const TILE_STATE_ALLY_OCCUPIED: int  = 1
 const TILE_STATE_ENEMY_OCCUPIED: int = 2
-const TILE_STATE_DESTROYED: int    = 3
+const TILE_STATE_IMPASSABLE: int     = 3  ## Added story-004 (GDD §ST-1). Terrain that cannot be occupied or passed.
+const TILE_STATE_DESTRUCTIBLE: int   = 4  ## Added story-004 (GDD §ST-1). Destructible terrain with remaining HP.
+const TILE_STATE_DESTROYED: int      = 5  ## Renumbered story-004 (was 3). Terrain destroyed; passable but gone.
+
+## Faction constants (added story-004, GDD §ST-1).
+## GridBattleController passes these to set_occupant().
+const FACTION_NONE: int  = 0  ## No occupant faction.
+const FACTION_ALLY: int  = 1  ## Player-controlled unit.
+const FACTION_ENEMY: int = 2  ## AI-controlled unit.
+
+## Illegal state-transition error code (story-004 AC-ST-3 / AC-ST-4).
+## Emitted via push_error when set_occupant or apply_tile_damage is called on a
+## tile whose current state forbids the requested transition.
+const ERR_ILLEGAL_STATE_TRANSITION := "ERR_ILLEGAL_STATE_TRANSITION"
 
 ## Valid map dimension bounds (GDD §EC-1 / §EC-7).
 const MAP_COLS_MIN: int = 15
@@ -355,3 +373,221 @@ func _apply_load_time_clamps(map: MapResource) -> void:
 					+ " tile_state set to DESTROYED (GDD §EC-7)"
 				)
 				warned_zero_hp_destructible = true
+
+
+# ─── Mutation API (GridBattleController-only by convention — ADR-0004 §Decision 6) ──
+#
+# WARNING: These methods are NOT private (GDScript has no access control) but
+# MUST only be called from GridBattleController per ADR-0004 §Decision 6. Any
+# other caller is an architecture violation caught in code review, not at runtime.
+
+## Place [param unit_id] with [param faction] on the tile at [param coord].
+##
+## State-machine transition rules (GDD §ST-1, AC-ST-1, AC-ST-3, §EC-6):
+##   - EMPTY → ALLY_OCCUPIED (faction=FACTION_ALLY) or ENEMY_OCCUPIED (faction=FACTION_ENEMY)
+##   - IMPASSABLE → rejected with [constant ERR_ILLEGAL_STATE_TRANSITION] (AC-ST-4)
+##   - ALLY_OCCUPIED → ENEMY_OCCUPIED (or any cross-faction): rejected (AC-ST-3)
+##   - ALLY_OCCUPIED → ALLY_OCCUPIED (same faction, different unit): rejected (§EC-6 strict-sync)
+##   - ENEMY_OCCUPIED → ALLY_OCCUPIED (or any cross-faction): rejected (AC-ST-3)
+##   - DESTROYED: allowed (unit can stand on rubble). State → ALLY_OCCUPIED / ENEMY_OCCUPIED.
+##
+## Writes through to [code]_map.tiles[idx][/code] AND all 6 packed caches in the same call (TR-map-grid-004).
+## Coord out-of-bounds or null map → push_error + no-op.
+##
+## Example:
+##   grid.set_occupant(Vector2i(3, 5), 42, MapGrid.FACTION_ALLY)
+func set_occupant(coord: Vector2i, unit_id: int, faction: int) -> void:
+	if _map == null:
+		push_error("%s: set_occupant called before load_map — coord %s" % [ERR_UNIT_COORD_OUT_OF_BOUNDS, str(coord)])
+		return
+	if coord.x < 0 or coord.x >= _map.map_cols \
+			or coord.y < 0 or coord.y >= _map.map_rows:
+		push_error("%s: set_occupant coord %s out of bounds (%dx%d)" % [ERR_UNIT_COORD_OUT_OF_BOUNDS, str(coord), _map.map_cols, _map.map_rows])
+		return
+
+	var idx: int = coord.y * _map.map_cols + coord.x
+	var td: MapTileData = _map.tiles[idx]
+	var current_state: int = td.tile_state
+
+	# AC-ST-4: IMPASSABLE tiles reject all occupancy.
+	if current_state == TILE_STATE_IMPASSABLE:
+		push_error(
+			("%s: set_occupant on IMPASSABLE tile at %s —" \
+			+ " caller must not place units on impassable terrain") % [ERR_ILLEGAL_STATE_TRANSITION, str(coord)]
+		)
+		return
+
+	# AC-ST-3 / §EC-6: reject cross-faction transitions AND same-faction overwrites.
+	# Occupied tiles (ALLY or ENEMY) must be cleared before a new occupant is placed.
+	if current_state == TILE_STATE_ALLY_OCCUPIED or current_state == TILE_STATE_ENEMY_OCCUPIED:
+		push_error(
+			("%s: set_occupant on already-occupied tile at %s" \
+			+ " — caller must clear_occupant first (§EC-6 strict-sync)") % [ERR_ILLEGAL_STATE_TRANSITION, str(coord)]
+		)
+		return
+
+	# Determine new tile_state from faction.
+	var new_state: int
+	if faction == FACTION_ALLY:
+		new_state = TILE_STATE_ALLY_OCCUPIED
+	else:
+		new_state = TILE_STATE_ENEMY_OCCUPIED
+
+	# Mutate TileData, then sync caches (R-4 write-through choke-point).
+	td.occupant_id      = unit_id
+	td.occupant_faction = faction
+	td.tile_state       = new_state
+	_write_tile(idx, td)
+
+
+## Remove the current occupant from the tile at [param coord].
+##
+## Post-state rules (GDD §ST-1, AC-2):
+##   - If tile was ALLY_OCCUPIED or ENEMY_OCCUPIED → tile_state → EMPTY; occupant fields → 0.
+##   - If tile was DESTROYED with occupant → tile_state → DESTROYED (terrain state preserved).
+##   - Already-EMPTY tile → no-op (idempotent, no error).
+##   - IMPASSABLE → no-op (idempotent, no error).
+##
+## Writes through to [code]_map.tiles[idx][/code] AND all 6 packed caches (TR-map-grid-004).
+## Coord out-of-bounds or null map → push_error + no-op.
+##
+## Example:
+##   grid.clear_occupant(Vector2i(3, 5))
+func clear_occupant(coord: Vector2i) -> void:
+	if _map == null:
+		push_error("%s: clear_occupant called before load_map — coord %s" % [ERR_UNIT_COORD_OUT_OF_BOUNDS, str(coord)])
+		return
+	if coord.x < 0 or coord.x >= _map.map_cols \
+			or coord.y < 0 or coord.y >= _map.map_rows:
+		push_error("%s: clear_occupant coord %s out of bounds (%dx%d)" % [ERR_UNIT_COORD_OUT_OF_BOUNDS, str(coord), _map.map_cols, _map.map_rows])
+		return
+
+	var idx: int = coord.y * _map.map_cols + coord.x
+	var td: MapTileData = _map.tiles[idx]
+	var current_state: int = td.tile_state
+
+	# Idempotent no-op cases.
+	if current_state == TILE_STATE_EMPTY or current_state == TILE_STATE_IMPASSABLE \
+			or current_state == TILE_STATE_DESTRUCTIBLE:
+		return
+
+	# Clear occupant fields.
+	td.occupant_id      = 0
+	td.occupant_faction = 0
+
+	# Preserve DESTROYED state if the tile was destroyed while occupied.
+	# Otherwise, return tile to EMPTY (occupant gone; terrain normal).
+	if current_state != TILE_STATE_DESTROYED:
+		td.tile_state = TILE_STATE_EMPTY
+
+	_write_tile(idx, td)
+
+
+## Apply [param damage] to the destructible tile at [param coord].
+##
+## Returns [code]true[/code] if this call destroyed the tile (destruction_hp dropped to 0
+## for the first time). Returns [code]false[/code] in all other cases (non-destructible,
+## partial damage, already-destroyed, or out-of-bounds).
+##
+## Destruction rules (AC-ST-2, AC-EDGE-4, V-6, GDD §ST-1):
+##   - Non-destructible ([code]is_destructible == false[/code]) → push_warning + return false. No state change.
+##   - IMPASSABLE + non-destructible → push_warning + return false (AC-ST-4).
+##   - IMPASSABLE + is_destructible → allowed; on hp→0 transitions to DESTROYED with signal.
+##   - Already DESTROYED ([code]tile_state == TILE_STATE_DESTROYED[/code] or
+##     [code]destruction_hp == 0[/code] post-clamp) → idempotent; return false; no signal.
+##   - Partial damage (hp > 0 after subtraction) → update hp + caches; return false; no signal.
+##   - Destroying damage: hp → 0. Set is_passable_base=true. Set tile_state to DESTROYED
+##     UNLESS the tile had an occupant (AC-EDGE-4) — in that case preserve ALLY/ENEMY_OCCUPIED.
+##     Emit [code]GameBus.tile_destroyed(coord)[/code] exactly once (V-6). Return true.
+##
+## Writes through to [code]_map.tiles[idx][/code] AND all 6 packed caches (TR-map-grid-004).
+## Coord out-of-bounds or null map → push_error + return false.
+##
+## Example:
+##   var destroyed: bool = grid.apply_tile_damage(Vector2i(3, 5), 10)
+##   if destroyed:
+##       print("tile at (3,5) is gone!")
+func apply_tile_damage(coord: Vector2i, damage: int) -> bool:
+	if _map == null:
+		push_error("%s: apply_tile_damage called before load_map — coord %s" % [ERR_UNIT_COORD_OUT_OF_BOUNDS, str(coord)])
+		return false
+	if coord.x < 0 or coord.x >= _map.map_cols \
+			or coord.y < 0 or coord.y >= _map.map_rows:
+		push_error("%s: apply_tile_damage coord %s out of bounds (%dx%d)" % [ERR_UNIT_COORD_OUT_OF_BOUNDS, str(coord), _map.map_cols, _map.map_rows])
+		return false
+
+	var idx: int = coord.y * _map.map_cols + coord.x
+	var td: MapTileData = _map.tiles[idx]
+
+	# Guard: non-destructible tiles reject damage (AC-8 / AC-ST-4 non-destructible branch).
+	if not td.is_destructible:
+		push_warning(
+			"MapGrid: apply_tile_damage — damage on non-destructible tile at %s (is_destructible=false)" % str(coord)
+		)
+		return false
+
+	# AC-ST-4: IMPASSABLE + non-destructible was caught above. Execution here means
+	# is_destructible == true, so apply_tile_damage on IMPASSABLE is ALLOWED.
+
+	# V-6 idempotence: already-destroyed tile returns false with no emit.
+	if td.tile_state == TILE_STATE_DESTROYED or td.destruction_hp == 0:
+		return false
+
+	# Capture occupant state BEFORE mutation (AC-EDGE-4 — occupant survives destruction).
+	var prior_state: int = td.tile_state
+	var occupant_was_present: bool = (prior_state == TILE_STATE_ALLY_OCCUPIED \
+			or prior_state == TILE_STATE_ENEMY_OCCUPIED)
+
+	# Apply damage.
+	var new_hp: int = max(0, td.destruction_hp - damage)
+	td.destruction_hp = new_hp
+
+	if new_hp > 0:
+		# Partial damage — no destruction. Sync caches and return false.
+		_write_tile(idx, td)
+		return false
+
+	# ── Tile destroyed this call ──────────────────────────────────────────────────
+	# terrain is now rubble → always passable from here on.
+	td.is_passable_base = true
+
+	if occupant_was_present:
+		# AC-EDGE-4: occupant outlives the tile. Preserve ALLY/ENEMY_OCCUPIED state.
+		# tile_state already equals prior_state (ALLY or ENEMY_OCCUPIED); leave it.
+		# occupant_id / occupant_faction already in td; leave them.
+		pass
+	else:
+		td.tile_state = TILE_STATE_DESTROYED
+
+	# Write through to TileData AND all 6 caches (R-4 choke-point).
+	_write_tile(idx, td)
+
+	# Emit exactly once per destruction event (V-6 contract — ADR-0004 §Decision 9).
+	# Direct emit per ADR-0001 §Implementation Guidelines: emitter calls .emit() directly;
+	# consumers use CONNECT_DEFERRED. Forbidden in _process/_physics_process (GameBus per-frame ban).
+	GameBus.tile_destroyed.emit(coord)
+
+	return true
+
+
+## Single write-through helper: sync all 6 packed caches from [param td] (the
+## already-mutated [code]_map.tiles[idx][/code] reference).
+##
+## This is the single choke-point that ADR-0004 R-4 defends against cache-sync drift.
+## ALL mutation methods (set_occupant, clear_occupant, apply_tile_damage) MUST call
+## this helper after mutating [param td] fields — never write cache entries ad-hoc.
+##
+## [param idx] is the flat-array index ([code]coord.y * map_cols + coord.x[/code]).
+## [param td] must equal [code]_map.tiles[idx][/code] — passing any other reference
+## is a contract violation.
+##
+## NOTE (story-004 / Option A per spec): caller passes [param td] explicitly to make
+## data-flow visible at call sites. td MUST equal _map.tiles[idx]; the constraint is
+## documented, not runtime-checked (no extra dereference in the hot path).
+func _write_tile(idx: int, td: MapTileData) -> void:
+	_terrain_type_cache[idx]     = td.terrain_type
+	_elevation_cache[idx]        = td.elevation
+	_passable_base_cache[idx]    = 1 if td.is_passable_base else 0
+	_occupant_id_cache[idx]      = td.occupant_id
+	_occupant_faction_cache[idx] = td.occupant_faction
+	_tile_state_cache[idx]       = td.tile_state
