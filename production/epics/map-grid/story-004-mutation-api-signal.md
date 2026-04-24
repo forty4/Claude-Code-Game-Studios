@@ -1,7 +1,7 @@
 # Story 004: Mutation API + packed cache write-through + tile_destroyed signal
 
 > **Epic**: map-grid
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Integration
 > **Manifest Version**: 2026-04-20
@@ -156,3 +156,40 @@
 
 - Depends on: Story 002 (MapGrid skeleton + caches; `_write_tile` helper attaches to this structure), Story 003 (validator ensures tests start from a known-valid map)
 - Unlocks: Story 005 (Dijkstra reads `_tile_state_cache` + `_passable_base_cache` set by this story's mutations), Story 006 (LoS reads `_passable_base_cache`)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-25
+**Actual effort**: ~2.5h (under 4-5h estimate; benefited from story-002/003 test-infra precedent + convergent `/code-review` findings resolved inline without re-spin)
+**Criteria**: 10/10 passing — all automated
+
+**Test Evidence**:
+- `tests/integration/core/map_grid_mutation_test.gd` (881 LoC, 10 test functions): AC-1..AC-9 + AC-10 (inline close-out null-map + OOB guard coverage)
+- Story suite: 10/10 PASSED
+- Full regression: **196/196 PASSED** across 3 consecutive runs — 0 errors, 0 failures, 0 orphans, 0 flaky
+
+**Deviations** (all ADVISORY; 3 pre-approved before implementation; 2 resolved inline during close-out):
+
+- **DEP-1 (pre-approved)**: `TILE_STATE_*` prefix retained (vs story's `STATE_*`). Renaming would break 19 story-002/003 tests. Documented in constant-block comment.
+- **DEP-2 (pre-approved)**: GameBusStub prescription (story §Implementation Notes line 69) abandoned for real-bus observer pattern. G-10 forces this: autoload identifier binds at engine init; stub swap cannot intercept emits from production code using `GameBus.tile_destroyed.emit(coord)`. Real-bus observer uses `_tile_destroyed_captures: Array` + `CONNECT_DEFERRED` connect in `before_test`, explicit disconnect in `after_test`. V-6 verified just as rigorously. Documented in test file header.
+- **DEP-3 (pre-approved)**: Out-of-bounds coord → `push_error(ERR_UNIT_COORD_OUT_OF_BOUNDS)` + no-op. Activates the reserved constant at map_grid.gd line 42 (its documented reserved use site). Now exercised by AC-10.
+- **DEP-4**: `apply_tile_damage` ~60 LoC body exceeds 40-line method standard. gdscript-specialist ruled acceptable (cold-path single-state-machine with 7 guard/outcome branches; splitting obscures the transition decision). Matches story-003 `_validate_map` 75-LoC precedent.
+- **DEP-5**: TILE_STATE_DESTROYED renumbered 3 → 5. Required by spec (§Implementation Notes lines 54-60). Callers reference by constant name, not literal — transparent to `_apply_load_time_clamps` and story-003 validator. TerrainType + TileState enum assumptions continue (TD-032 A-1/A-3 continuation).
+
+**Resolved inline during close-out** (NOT deferred):
+- **Q9 (gdscript-specialist)**: G-6 CI-101 orphan risk — added `_current_grid: MapGrid` tracker + defensive `after_test` free for assertion-failure safety net.
+- **Gaps 7+8 (qa-tester)**: `ERR_UNIT_COORD_OUT_OF_BOUNDS` path + null-map pre-load mutations. New AC-10 test (`test_..._null_map_and_out_of_bounds_guards_are_noop`) exercises all 6 previously-untested guards in one function (3 null-map + 3 OOB × multiple coord variants).
+
+**Deferred to TD-032 batch** (not blocking):
+- A-13: 3 `assert_bool(vec == ...)` → `assert_that(...).is_equal(...)` test lines 302, 374, 416
+- Extended A-8: 3 new redundant `as int` casts at test lines 284, 397, 746
+- A-14: promote `_assert_all_caches_match_tiledata` to `tests/unit/core/test_helpers.gd` (story-005 pre-work)
+- A-15: 4 advisory edge-case tests from qa-tester gaps 3a/3b/6a/6b (damage=0 on DESTROYED, damage-after-clear on AC-EDGE-4 tile, IMPASSABLE+destructible partial, IMPASSABLE+destructible repeat)
+
+**Code Review**: Complete (standalone `/code-review` returned APPROVED WITH SUGGESTIONS — godot-gdscript-specialist: SUGGESTIONS with 3 items; qa-tester: TESTABLE with 6 advisory gaps. Q9 + gaps 7+8 resolved inline; remaining items queued to TD-032).
+
+**Gates skipped (lean mode)**: QL-TEST-COVERAGE + LP-CODE-REVIEW. Standalone `/code-review` already covered both tracks.
+
+**Map-grid epic progress**: **4/8 Complete**. Story-005 (Dijkstra — critical-path tentpole, highest engine-risk validation) + story-006 (LoS + attack queries) + story-007 (perf benchmark) now unlocked. Story-008 (inspector authoring) was already unlocked.

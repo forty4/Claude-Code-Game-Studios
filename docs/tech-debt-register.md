@@ -1138,3 +1138,91 @@ Implementation follow-up with the explicit `DEEP_DUPLICATE_ALL_BUT_SCRIPTS` flag
 - **Convergent finding RESOLVED INLINE** during close-out: `_map = null` reset at `load_map` top + `test_..._valid_then_invalid_load_resets_to_inert` regression test. NOT deferred.
 - Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-003)
 
+### A-13 — (Story-004 test polish) `assert_bool(vec == ...)` → `assert_that(vec).is_equal(...)`
+
+**Source**: map-grid story-004 `/code-review` gdscript-specialist Q11 (2026-04-25). Same anti-pattern as A-7 (originally logged for story-002 Vector2i comparisons).
+
+**File**: `tests/integration/core/map_grid_mutation_test.gd`
+
+**Call sites** (3 occurrences): `assert_bool(_tile_destroyed_captures[0] == Vector2i(...))` — grep `_tile_destroyed_captures\[0\] ==` to find. AC-4 destroying test, AC-5 occupant-survives test (ALLY + ENEMY branches).
+
+**Fix**: Replace each with `assert_that(_tile_destroyed_captures[0]).is_equal(Vector2i(...))`.
+
+**Impact**: None at runtime — tests correctly fail when coord is wrong. Pure diagnostic-quality improvement; `assert_that` surfaces actual-vs-expected values; `assert_bool(vec == ...)` prints "expected true, got false" without the coord. Existing `override_failure_message` partially mitigates but is redundant with the better assertion form.
+
+**Estimated effort**: ~3 min (3 one-line replacements).
+
+### A-8 (extension) — Redundant `as int` casts on `PackedByteArray` element access
+
+**Source**: map-grid story-004 `/code-review` gdscript-specialist Q12 (2026-04-25). Same anti-pattern as original A-8 (logged for story-002 lines 202, 242, 245 in `map_grid_test.gd`).
+
+**File**: `tests/integration/core/map_grid_mutation_test.gd` — 3 new call sites: `grid._passable_base_cache[idx] as int`.
+
+**Fix**: Remove `as int` — `PackedByteArray` element access in Godot 4.x returns `int` already.
+
+**Impact**: None at runtime (redundant cast is no-op on value already int). Pure style polish.
+
+**Estimated effort**: ~2 min.
+
+### A-14 — Promote `_assert_all_caches_match_tiledata` to shared test-helpers
+
+**Source**: map-grid story-004 `/code-review` qa-tester Gap 11 (2026-04-25). Pre-story-005 refactor recommendation.
+
+**File**: move from `tests/integration/core/map_grid_mutation_test.gd` (current location) to `tests/unit/core/test_helpers.gd` (existing home of `TestHelpers.get_user_signals` per G-1).
+
+**Context**: Story-005 (Dijkstra) and story-006 (LoS) will read the same 6 packed caches and benefit from a consistent cache-integrity assertion. Keeping this helper local forces duplication or cross-file `load()` — both poor patterns.
+
+**Proposal**:
+```gdscript
+# In tests/unit/core/test_helpers.gd (append)
+static func assert_all_caches_match_tiledata(
+        test_suite: GdUnitTestSuite,
+        grid: MapGrid,
+        coords: Array[Vector2i],
+        step: int) -> void:
+    # body moved from map_grid_mutation_test.gd unchanged
+```
+
+Call sites become: `TestHelpers.assert_all_caches_match_tiledata(self, grid, check_coords, step_count)`.
+
+**Estimated effort**: ~20 min (extract method + update 10 call sites in `map_grid_mutation_test.gd` + smoke-test re-run).
+
+**Suggested trigger**: first task of story-005 (before writing any Dijkstra test). Avoids a second extraction pass later.
+
+### A-15 — (Story-004 test hardening) 4 advisory edge-case tests
+
+**Source**: map-grid story-004 `/code-review` qa-tester Gaps 3a/3b/6a/6b (2026-04-25). All ADVISORY; primary ACs covered by existing 10 tests (including AC-10 inline close-out).
+
+**File**: `tests/integration/core/map_grid_mutation_test.gd`
+
+**Tests to add**:
+
+| # | AC | Function name | Setup |
+|---|---|---|---|
+| 1 | AC-4 edge | `test_map_grid_mutation_apply_zero_damage_on_destroyed_tile_no_op` | Destroy a tile, then call `apply_tile_damage(coord, 0)`; assert returns false, 0 new emits, state unchanged |
+| 2 | AC-5 edge | `test_map_grid_mutation_apply_damage_after_clear_on_ac_edge_4_tile_no_emit` | AC-EDGE-4 scenario (destroyed with occupant), then `clear_occupant`, then `apply_tile_damage` again; assert 0 new emits |
+| 3 | AC-7 edge | `test_map_grid_mutation_impassable_destructible_partial_damage_no_destroy` | IMPASSABLE+destructible hp=10; `apply_tile_damage(5)`; assert returns false, tile_state still IMPASSABLE, hp=5, 0 emits |
+| 4 | AC-7 edge | `test_map_grid_mutation_impassable_destructible_repeat_damage_no_emit` | After IMPASSABLE+destructible destruction (existing AC-7 edge), apply damage again; assert 0 new emits |
+
+**Estimated effort**: ~45 min (4 small tests using existing `_make_valid_map_for_mutation` factory + established observer pattern).
+
+**Not blocking**: corner-case state transitions mathematically covered by guard composition but not exercised in isolation.
+
+**Suggested trigger**: same pass as A-11 (story-003 advisory edge tests), OR batch with A-14 extract before story-005.
+
+---
+
+**Updated estimated remediation effort (revised — includes A-13..A-15)**: 3.5-4.5 hours total
+
+**Suggested trigger (revised)**: Two-batch plan:
+- **Before story-005**: A-1..A-10 + A-12 + A-13 + A-8 extension + A-14 (ADR errata + docs polish + warnings hook + style polish + helper promotion). Combined ~1-1.5h. Clean foundation before Dijkstra.
+- **After story-004 or before story-005**: A-11 + A-15 (advisory edge tests). Combined ~2-2.75h. Amortize against story-005's new tests which re-exercise both validator (A-11 targets) and mutation paths (A-15 targets).
+
+**Story-004 specific links**:
+- Story: `production/epics/map-grid/story-004-mutation-api-signal.md`
+- Review: standalone `/code-review` ran 2026-04-25 (godot-gdscript-specialist SUGGESTIONS + qa-tester TESTABLE with advisory gaps)
+- **Convergent findings RESOLVED INLINE** during close-out (NOT deferred):
+  1. **Q9 (gdscript-specialist)**: G-6 CI-101 orphan risk — added `_current_grid: MapGrid` tracker + defensive `after_test` free for assertion-failure safety net.
+  2. **Gaps 7+8 (qa-tester)**: `ERR_UNIT_COORD_OUT_OF_BOUNDS` path + null-map pre-load mutations — new AC-10 test (`test_..._null_map_and_out_of_bounds_guards_are_noop`) exercises all 6 previously-untested guards (3 null-map + 3 OOB × multiple coord variants).
+- Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-004)
+
