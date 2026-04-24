@@ -993,3 +993,86 @@ Seven advisory items surfaced during /code-review of save-manager story-007. Non
 - Review: standalone `/code-review` ran 2026-04-25 (godot-gdscript-specialist APPROVED + qa-tester TESTABLE)
 - Session extract: `production/session-state/active.md` §Session Extract 2026-04-25
 
+---
+
+### A-7 — (Optional test polish) `assert_bool(vec == ...)` loses diff quality
+
+**Source**: map-grid story-002 `/code-review` godot-gdscript-specialist SUGGESTION #6 (2026-04-25)
+**File**: `tests/unit/core/map_grid_test.gd`
+**Call sites**: lines 55–57, 90–92, 315–317, 331–333 (4 total)
+
+**Current pattern** (loses diff):
+```gdscript
+assert_bool(dims == Vector2i.ZERO).override_failure_message("...").is_true()
+```
+
+**Preferred pattern** (shows expected vs actual on failure):
+```gdscript
+assert_that(dims).override_failure_message("...").is_equal(Vector2i.ZERO)
+```
+
+**Rationale**: on failure, the first form can only print "expected true, got false" — the actual `dims` value is never surfaced. The second form gives "expected Vector2i(0,0) but got Vector2i(4,2)" diffs that make cols/rows-swap bugs immediately diagnosable. Matters most when story-004/005 extend this test file.
+
+**No correctness impact** — tests catch regressions either way. ~4 line edits.
+
+### A-8 — (Optional test polish) Redundant `as int` casts on PackedByteArray access
+
+**Source**: map-grid story-002 `/code-review` godot-gdscript-specialist SUGGESTION #9 (2026-04-25)
+**File**: `tests/unit/core/map_grid_test.gd`
+**Call sites**: lines 202, 242, 245 (3 total)
+
+**Current pattern**:
+```gdscript
+assert_int(grid._passable_base_cache[i] as int)
+```
+
+**Preferred pattern**:
+```gdscript
+assert_int(grid._passable_base_cache[i])
+```
+
+**Rationale**: `PackedByteArray` element access returns `int` natively in Godot 4.6. The `as int` cast is a no-op. `assert_int()` in GdUnit4 v6.1.2 accepts an `int` directly — no benefit from the explicit cast. Visual noise only.
+
+**No correctness impact**. ~3 line edits.
+
+### A-9 — ADR-0004 §Decision 4 `DEEP_DUPLICATE_ALL_BUT_SCRIPTS` errata
+
+**Source**: map-grid story-002 `/dev-story` + `/story-done` DEP-1 (2026-04-25)
+**File**: `docs/architecture/ADR-0004-map-grid-data-model.md`
+
+**Root cause**: ADR-0004 §Decision 4 prescribes:
+> 1. `_map = res.duplicate_deep()` — clones so destruction state does not pollute the disk asset
+
+Implementation follow-up with the explicit `DEEP_DUPLICATE_ALL_BUT_SCRIPTS` flag constant (prose in original drafts) is incorrect: Godot 4.6's `Resource.DeepDuplicateMode` enum has exactly three values — `NONE`, `INTERNAL`, `ALL`. No `ALL_BUT_SCRIPTS` variant exists. Same issue hit save_manager.gd (TD-024 precedent).
+
+**Files to update**:
+- ADR-0004 §Decision 4 — clarify the flag is `Resource.DEEP_DUPLICATE_ALL` (not `ALL_BUT_SCRIPTS`)
+- ADR-0004 §Engine Compatibility Post-Cutoff APIs Used — amend to name the correct enum value
+- §Changelog — add errata entry noting the enum is 3-valued in 4.6
+
+**No code change** — implementation already uses `DEEP_DUPLICATE_ALL` (map_grid.gd:63, save_manager.gd equivalent). Doc-only.
+
+### A-10 — Story-002 §QA Test Cases AC-7 path mismatch
+
+**Source**: map-grid story-002 `/code-review` qa-tester ADVISORY (2026-04-25)
+**File**: `production/epics/map-grid/story-002-mapgrid-skeleton-caches.md`
+
+**Action**: Update §QA Test Cases AC-7 Given line: `user://test_map_v2.tres` → `user://map_grid_test_v2_round_trip.tres` (match the actual test file at line 7 + 356 of `map_grid_test.gd`). Keeps the story doc as accurate audit-trail documentation.
+
+**No code change**. ~1 line edit.
+
+---
+
+**Updated estimated remediation effort**: 45-60 min total (original 30-45 + 15 min for A-7..A-10)
+- A-1 + A-2 + A-9 together: ~25 min (single ADR-0004 edit pass with careful §Changelog entry covering all three errata)
+- A-3: ~5 min (G-12 entry — already drafted verbatim above)
+- A-4 + A-10: ~2 min (story-file edits)
+- A-5 + A-6 + A-7 + A-8: ~10 min (inline test file edits — consolidate into one commit touching map_resource_test.gd + map_grid_test.gd)
+
+**Suggested trigger** (revised): Batch at story-003 close-out — by then validator errata may add further ADR-0004 items (e.g., ADR §Decision covers validation contracts only implicitly). If no further ADR-0004 deviations land in story-003, execute the batch then.
+
+**Story-002 specific links**:
+- Story: `production/epics/map-grid/story-002-mapgrid-skeleton-caches.md`
+- Review: standalone `/code-review` ran 2026-04-25 (godot-gdscript-specialist SUGGESTIONS + qa-tester TESTABLE)
+- Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-002)
+
