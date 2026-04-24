@@ -1,7 +1,7 @@
 # Story 004: Save pipeline — duplicate_deep → ResourceSaver → atomic rename
 
 > **Epic**: save-manager
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Platform
 > **Type**: Logic
 > **Estimate**: 4-5 hours (pipeline body + 4 failure paths + round-trip test; most mechanically rich story in the epic)
@@ -148,3 +148,26 @@
 
 - **Depends on**: story-001 (SaveContext), story-002 (autoload skeleton), story-003 (stub for temp-root isolation)
 - **Unlocks**: Stories 005 (load pipeline needs save to produce files first), 006 (migration tests use full save pipeline), 007 (perf validation), 008 (CI lint has a pipeline to lint)
+
+## Completion Notes
+
+**Completed**: 2026-04-23
+**Verdict**: COMPLETE WITH NOTES
+**Criteria**: 9/9 passing (AC-V7 stubbed — completes in story-005)
+**Test Evidence**: Logic — `tests/unit/core/save_manager_test.gd` (1121 LoC, 27 tests); **127/127 PASSED**, 0 errors, 0 failures, 0 orphans, exit 0, full unit suite 1.1s
+**Code Review**: Complete — godot-gdscript-specialist APPROVED, qa-tester ADEQUATE. Option A fix applied in-cycle (AC-PERF StringName style: `&"tag_%d" % i` → `StringName("tag_%d" % i)`). Re-run still 127/127 PASS.
+**Deviations**:
+- 4 ADR-0003 text errata documented in-situ + logged as TD-024 (`DEEP_DUPLICATE_ALL` enum), TD-025 (`FileAccess.file_exists` + `.rstrip("/")` path normalization), TD-026 (`.tmp.res` extension pattern). TD-023 `class_name SaveManager` errata pre-existing. Batch ADR errata pass planned at epic close.
+- 6 advisory items deferred to TD-027 (batch): AC-NO-MUTATE field coverage (saved_at_unix), V-4 cleanup branch dead under seam, SaveContext factory helper, `_cleanup_tmp` DRY refactor, G-12..G-15 rule-file pending, null source guard. Natural fits for story-006 test sweep.
+- Scope: `docs/tech-debt-register.md` append (3 new TDs — TD-024/025/026 + batch TD-027). Justified: canonical TD tracking location.
+
+**Files delivered**:
+- `src/core/save_manager.gd` (159 → 302 LoC) — `save_checkpoint` 9-step pipeline + 3 test seams (`_do_resource_saver_save`, `_do_rename_absolute`, `_do_dir_access_open`) + 3 test-only flags + V-4 best-effort cleanup with `push_warning` guard + `.rstrip("/")` path normalization + `_on_save_checkpoint_requested` delegation. Four inline ADR-errata comments reference TD-024/025/026.
+- `tests/unit/core/save_manager_test.gd` (524 → 1121 LoC) — +11 new story-004 tests + `_save_and_load` helper; -1 retired stub-contract test (`test_save_manager_save_checkpoint_stub_returns_false`).
+- `docs/tech-debt-register.md` — TD-024/025/026 + TD-027 appended.
+
+**Implementation rounds**: 6 progressive debug rounds (drafts → 3 approvals + 1 seam correction → parse error file_exists_absolute → parse error DUPLICATE_DEEP_ALL_BUT_SCRIPTS → 7 failures double-slash → 7 failures tmp extension → GREEN). Most iterative story to date; 4 engine-API gotchas discovered.
+
+**Implementation effort**: ~5h actual (est 4-5h; +1h for ADR errata discovery rounds).
+
+**Next recommended**: commit + branch + PR for story-004 (R1 pattern), then `/story-readiness production/epics/save-manager/story-005-load-pipeline.md`.

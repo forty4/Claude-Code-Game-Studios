@@ -52,6 +52,21 @@ var _active_slot: int = 1
 ## directories at the override path rather than at the production user://saves root.
 var _save_root_override: String = ""
 
+## TEST-ONLY — forces _do_resource_saver_save() to return this error code instead of
+## calling ResourceSaver.save(). Production code MUST NOT set this.
+## Set to a non-OK Error value in tests to simulate ResourceSaver failure (AC-V4).
+var _test_force_save_error: Error = OK
+
+## TEST-ONLY — forces _do_rename_absolute() to return this error code instead of
+## calling DirAccess.rename_absolute(). Production code MUST NOT set this.
+## Set to a non-OK Error value in tests to simulate atomic-rename failure (AC-V5).
+var _test_force_rename_error: Error = OK
+
+## TEST-ONLY — forces _do_dir_access_open() to return null instead of calling
+## DirAccess.open(). Production code MUST NOT set this.
+## Set to true in tests to simulate DirAccess.open() returning null (AC-DIRACCESS-FAIL).
+var _test_force_dir_open_null: bool = false
+
 # ── Built-in virtual methods ──────────────────────────────────────────────────
 
 func _ready() -> void:
@@ -81,12 +96,95 @@ func set_active_slot(slot: int) -> void:
 
 
 ## Persists the given SaveContext at the appropriate checkpoint path in the active slot.
-## Returns true on success, false on failure (failure also emits save_load_failed on GameBus).
-## STUB — body implemented in story-004.
-## TODO story-004: duplicate_deep(DUPLICATE_DEEP_ALL_BUT_SCRIPTS) → ResourceSaver.save(tmp) → rename_absolute
+## Returns true on success, false on any failure (failure also emits save_load_failed
+## on GameBus so callers can observe the result via signals).
+##
+## Pipeline (ADR-0003 §Key Interfaces, TR-save-load-003):
+##   1. duplicate_deep(DEEP_DUPLICATE_ALL) — snapshot decoupled from live state (ADR errata: TD-024)
+##   2. Stamp schema_version and saved_at_unix on the snapshot
+##   3. Compute final_path and tmp_path via _path_for
+##   4. ResourceSaver.save(snapshot, tmp_path) — routed through _do_resource_saver_save seam
+##   5. DirAccess.open(_effective_save_root()) — routed through _do_dir_access_open seam
+##   6. DirAccess.rename_absolute(tmp, final) — atomic on user://; routed through _do_rename_absolute seam
+##   7. Emit GameBus.save_persisted on success
+##
+## V-4 tmp-cleanup policy (story-004):
+##   On resource_saver_error: tmp may have been partially written. Attempt best-effort
+##   DirAccess.remove_absolute(tmp_path) before returning false. If the cleanup call
+##   itself returns non-OK AND the file still exists, emit push_warning and accept
+##   silently — a compensating sweep at story-006 will clear any lingering .tmp files.
+##   On atomic_rename_failed: tmp definitely exists (ResourceSaver succeeded). Same
+##   best-effort cleanup policy applies.
+##   On dir_access_open_failed: tmp definitely exists (ResourceSaver succeeded). Same
+##   best-effort cleanup policy applies.
 func save_checkpoint(source: SaveContext) -> bool:
-	# TODO story-004: implement atomic save pipeline
-	return false
+	# Deep-duplicate the source so serialization is fully decoupled from live state (R-1).
+	# ADR-0003 §Key Interfaces cites `Resource.DUPLICATE_DEEP_ALL_BUT_SCRIPTS`, but that enum
+	# value does not exist in the Godot 4.6 DeepDuplicateMode enum (NONE/INTERNAL/ALL only).
+	# DEEP_DUPLICATE_ALL is the correct max-depth mode: it duplicates embedded sub-resources
+	# (EchoMark instances) including non-local-to-scene references. ADR errata tracked as TD-024.
+	var snapshot: SaveContext = source.duplicate_deep(
+		Resource.DEEP_DUPLICATE_ALL
+	) as SaveContext
+
+	# Steps 2a + 2b — stamp canonical values on the snapshot, never on the source.
+	snapshot.schema_version = CURRENT_SCHEMA_VERSION
+	snapshot.saved_at_unix = int(Time.get_unix_time_from_system())
+
+	# Steps 3a + 3b — derive paths from the snapshot's chapter/cp values.
+	var final_path: String = _path_for(_active_slot, snapshot.chapter_number, snapshot.last_cp)
+	# ADR-0003 §Key Interfaces specifies `final_path + ".tmp"` but Godot 4.6's
+	# ResourceSaver picks its serializer from the TRAILING extension — `.res.tmp`
+	# yields err=15 (ERR_FILE_CANT_WRITE) because `.tmp` isn't a registered format.
+	# Use `.tmp.res` so the trailing extension is `.res` (binary saver recognized).
+	# ADR errata tracked as TD-026. (G-15)
+	var tmp_path: String = final_path.get_basename() + ".tmp.res"
+
+	# Step 4 — write to tmp via seam (enables V-4/V-5 test injection).
+	var err: Error = _do_resource_saver_save(snapshot, tmp_path)
+	if err != OK:
+		# Best-effort cleanup: tmp may be partially written; attempt removal.
+		var cleanup_err: Error = DirAccess.remove_absolute(tmp_path)
+		if cleanup_err != OK and FileAccess.file_exists(tmp_path):
+			push_warning(
+				("SaveManager.save_checkpoint: ResourceSaver failed (err=%d) and tmp cleanup"
+				+ " also failed (err=%d). Tmp file may linger at '%s'."
+				+ " Compensating sweep deferred to story-006.") % [err, cleanup_err, tmp_path]
+			)
+		GameBus.save_load_failed.emit("save", "resource_saver_error:%d" % err)
+		return false
+
+	# Step 5 — open the save root directory via seam (enables DIRACCESS-FAIL test injection).
+	var da: DirAccess = _do_dir_access_open(_effective_save_root())
+	if da == null:
+		# tmp exists (ResourceSaver succeeded); best-effort cleanup before returning.
+		var cleanup_err: Error = DirAccess.remove_absolute(tmp_path)
+		if cleanup_err != OK and FileAccess.file_exists(tmp_path):
+			push_warning(
+				("SaveManager.save_checkpoint: DirAccess.open failed and tmp cleanup"
+				+ " also failed (err=%d). Tmp file may linger at '%s'."
+				+ " Compensating sweep deferred to story-006.") % [cleanup_err, tmp_path]
+			)
+		GameBus.save_load_failed.emit("save", "dir_access_open_failed")
+		return false
+
+	# Step 6 — atomic rename via seam (enables V-5 test injection).
+	err = _do_rename_absolute(da, tmp_path, final_path)
+	if err != OK:
+		# tmp exists; best-effort cleanup to avoid leaving orphan tmp files.
+		var cleanup_err: Error = DirAccess.remove_absolute(tmp_path)
+		if cleanup_err != OK and FileAccess.file_exists(tmp_path):
+			push_warning(
+				("SaveManager.save_checkpoint: rename_absolute failed (err=%d) and tmp cleanup"
+				+ " also failed (err=%d). Tmp file may linger at '%s'."
+				+ " Compensating sweep deferred to story-006.") % [err, cleanup_err, tmp_path]
+			)
+		GameBus.save_load_failed.emit("save", "atomic_rename_failed:%d" % err)
+		return false
+
+	# Step 7 — success path: notify listeners via GameBus.
+	GameBus.save_persisted.emit(snapshot.chapter_number, snapshot.last_cp)
+	return true
 
 
 ## Loads the newest checkpoint in the active slot.
@@ -124,7 +222,12 @@ func _effective_save_root() -> String:
 ## Idempotent — subsequent calls are no-ops on an already-created hierarchy.
 ## Uses DirAccess.make_dir_recursive_absolute per ADR-0003 §Key Interfaces.
 func _ensure_save_root() -> void:
-	var root: String = _effective_save_root()
+	# .rstrip("/") defends against _save_root_override containing a trailing slash
+	# (SaveManagerStub convention); prevents double-slash paths that ResourceSaver
+	# rejects with ERR_FILE_CANT_WRITE. DirAccess.make_dir_recursive_absolute
+	# tolerates // silently; ResourceSaver does not. Fix consistently here and in
+	# _path_for so all path construction shares the same normalization. (G-14)
+	var root: String = _effective_save_root().rstrip("/")
 	DirAccess.make_dir_recursive_absolute(root)
 	for i: int in range(1, SLOT_COUNT + 1):
 		DirAccess.make_dir_recursive_absolute("%s/slot_%d" % [root, i])
@@ -135,7 +238,10 @@ func _ensure_save_root() -> void:
 ## Format: <save_root>/slot_{slot}/ch_{MM}_cp_{cp}.res  (MM is zero-padded to 2 digits).
 ## Example (production): _path_for(2, 3, 1) → "user://saves/slot_2/ch_03_cp_1.res"
 func _path_for(slot: int, chapter_number: int, cp: int) -> String:
-	return "%s/slot_%d/ch_%02d_cp_%d.res" % [_effective_save_root(), slot, chapter_number, cp]
+	# .rstrip("/") defends against _save_root_override containing a trailing slash
+	# (SaveManagerStub convention); prevents double-slash paths that ResourceSaver
+	# rejects with ERR_FILE_CANT_WRITE. See G-14 / TD-025. (G-14)
+	return "%s/slot_%d/ch_%02d_cp_%d.res" % [_effective_save_root().rstrip("/"), slot, chapter_number, cp]
 
 
 ## Scans the given slot directory and returns the path to the newest checkpoint file,
@@ -147,12 +253,49 @@ func _find_latest_cp_file(slot: int) -> String:
 	# TODO story-005: implement newest-CP file discovery
 	return ""
 
+
+## TEST-ONLY seam — wraps ResourceSaver.save() to allow injection of save errors in tests.
+## In production, simply delegates to ResourceSaver.save(). In tests, returns
+## _test_force_save_error if it is non-OK (bypasses the real ResourceSaver call entirely).
+##
+## Option C seam per story-004 §ADR-0003 deltas. Production code MUST NOT set
+## _test_force_save_error — that flag is exclusively for V-4 / V-5 test scenarios.
+func _do_resource_saver_save(snapshot: Resource, tmp_path: String) -> Error:
+	if _test_force_save_error != OK:
+		return _test_force_save_error
+	return ResourceSaver.save(snapshot, tmp_path)
+
+
+## TEST-ONLY seam — wraps DirAccess.rename_absolute() to allow injection of rename errors.
+## In production, simply delegates to da.rename_absolute(). In tests, returns
+## _test_force_rename_error if it is non-OK (bypasses the real rename call entirely).
+##
+## Option C seam per story-004 §ADR-0003 deltas. Production code MUST NOT set
+## _test_force_rename_error — that flag is exclusively for V-5 test scenarios.
+func _do_rename_absolute(da: DirAccess, tmp_path: String, final_path: String) -> Error:
+	if _test_force_rename_error != OK:
+		return _test_force_rename_error
+	return da.rename_absolute(tmp_path, final_path)
+
+
+## TEST-ONLY seam — wraps DirAccess.open() to allow injection of null returns in tests.
+## In production, simply delegates to DirAccess.open(path). In tests, returns null
+## when _test_force_dir_open_null is true (bypasses the real DirAccess.open call).
+##
+## Option C seam per story-004 §ADR-0003 deltas (AC-DIRACCESS-FAIL correction).
+## Production code MUST NOT set _test_force_dir_open_null.
+## Note: the pipeline passes _effective_save_root() — NOT SAVE_ROOT directly —
+## so the seam is transparent to SaveManagerStub's temp-root redirect.
+func _do_dir_access_open(path: String) -> DirAccess:
+	if _test_force_dir_open_null:
+		return null
+	return DirAccess.open(path)
+
 # ── Signal callbacks ──────────────────────────────────────────────────────────
 
 ## Handles save_checkpoint_requested from GameBus.
 ## Delegates to save_checkpoint for the actual persistence pipeline.
-## STUB — body delegates to save_checkpoint; guard logic in story-004.
-## TODO story-004: add is_instance_valid guard on source before delegating
+## Return value is intentionally ignored — result is observable via GameBus.save_persisted
+## (success) or GameBus.save_load_failed (failure).
 func _on_save_checkpoint_requested(source: SaveContext) -> void:
-	# TODO story-004: implement handler body (guard + save_checkpoint delegation)
-	return
+	save_checkpoint(source)
