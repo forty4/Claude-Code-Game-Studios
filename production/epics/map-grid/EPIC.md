@@ -5,7 +5,7 @@
 > **Architecture Module**: MapGrid (docs/architecture/architecture.md §Foundation layer)
 > **Status**: Ready
 > **Manifest Version**: 2026-04-20
-> **Stories**: Not yet created — run `/create-stories map-grid`
+> **Stories**: 8 — see table below
 
 ## Overview
 
@@ -106,6 +106,21 @@ This epic is complete when:
 - V-7 inspector: 40×30 `MapResource.tres` loads without editor hang (manual verification documented)
 - Placeholder TerrainCost table acceptable; final values land when ADR-0008 Terrain Effect is Accepted
 
+## Stories
+
+| # | Story | Type | Status | ADR | Covers |
+|---|-------|------|--------|-----|--------|
+| 001 | MapResource + MapTileData Resource classes | Logic | Complete | ADR-0004 | TR-001, TR-010 |
+| 002 | MapGrid skeleton + load_map + 6 packed caches + trivial queries | Logic | Ready | ADR-0004 | TR-001, TR-007, TR-009 (partial), V-2 partial |
+| 003 | Map loading validation + error collection | Logic | Ready | ADR-0004 | TR-009, AC-CR-4, AC-EDGE-1, §EC-7 |
+| 004 | Mutation API + packed cache write-through + tile_destroyed signal | Integration | Ready | ADR-0004 + ADR-0001 | TR-004, TR-005, V-5, V-6, AC-ST-1..4, AC-EDGE-4 |
+| 005 | Custom Dijkstra — get_movement_range + get_path | Logic | Ready | ADR-0004 | TR-002, TR-003 (2/9), TR-006, V-4, AC-CR-6, AC-F-1..3 |
+| 006 | LoS + attack queries + adjacency (remaining 7 queries) | Logic | Ready | ADR-0004 | TR-003 (7/9), TR-008, V-3, AC-CR-5, AC-CR-7, AC-F-4, AC-F-5, AC-EDGE-3 |
+| 007 | Performance baseline (desktop substitute) | Integration | Ready | ADR-0004 | TR-006, AC-PERF-1, AC-PERF-2, V-1 (desktop; mobile deferred) |
+| 008 | Inspector authoring + 40×30 fixture manual QA | UI | Ready | ADR-0004 | TR-009 (authoring), V-7 |
+
+**Dependency chain**: 001 → 002 → {003, 004 sequential} → 005 → 006 → 007 → 008. Story 008 may be moved earlier (after 001) since it only needs the Resource schema. Story 005 resolves ADR-0004 ADV-1 (`get_movement_range` return type decision). Story 007 AC-TARGET mobile on-device deferred to Polish phase per save-manager/story-007 precedent.
+
 ## Next Step
 
-Run `/create-stories map-grid` to break this epic into implementable stories.
+Run `/story-readiness production/epics/map-grid/story-001-resource-classes.md` to validate the first story, then `/dev-story` to implement.

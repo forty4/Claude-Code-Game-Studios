@@ -911,3 +911,85 @@ Seven advisory items surfaced during /code-review of save-manager story-007. Non
 8. Close TD-031
 
 **Secondary**: Any unrelated perf-test touch can apply S-2/S-3/S-4 opportunistically.
+
+---
+
+## TD-032 — Story-001 /code-review advisories + G-12 new gotcha + ADR-0004 errata batch
+
+**Source**: map-grid story-001 `/dev-story` + `/code-review` + `/story-done` (2026-04-25)
+**Priority**: Low (advisory / doc-level; zero impact on runtime correctness)
+**Status**: Open
+
+**Context**: Story-001 closed COMPLETE WITH NOTES. All 5 ACs pass (4 automated + 1 doc-level); 166/166 full regression green. Two documented ADR-0004 deviations (class rename + field ordering) and a newly-discovered Godot 4.6 gotcha (G-12) need batched correction. Two optional test-polish items surfaced by /code-review are also bundled here.
+
+**Items** (6 total, all advisory):
+
+### A-1 — ADR-0004 §Decision 1 class rename: `TileData` → `MapTileData`
+
+**Root cause**: `TileData` is a Godot 4.6 built-in class (TileSet/TileMapLayer API). User `class_name TileData` collides silently — cache registers both, but parser cannot resolve user-class members (e.g., `m.tiles` fails with "Could not resolve external class member").
+
+**Files to update in ADR-0004**:
+- §Decision 1 code block — `class_name TileData extends Resource` → `class_name MapTileData extends Resource`
+- §Decision 1 prose — all "TileData" mentions (several)
+- §Key Interfaces code block — `func get_tile(coord: Vector2i) -> TileData` → `-> MapTileData`
+- §Risks R-3 — mentions of "TileData presets" → "MapTileData presets"
+- §Risks R-5 — "TileData" references in inspector ergonomics discussion
+- §Consequences §Negative — "~1200 TileData Resource allocations" wording
+- GDD Requirements Addressed table — `TileData.terrain_type` references
+
+**No code change required** — implementation already uses `MapTileData`. This is doc-only.
+
+### A-2 — ADR-0004 §Decision 1 field ordering: `terrain_version` first
+
+**Rationale**: Implementation places `terrain_version` first in MapResource (mirrors `save_context.gd::schema_version` loader-first convention). ADR code block lists it last. Non-blocking; document the convention.
+
+**Files to update**:
+- ADR-0004 §Decision 1 code block — reorder fields to match `map_resource.gd` (terrain_version first)
+- §Changelog — add errata entry
+
+### A-3 — `.claude/rules/godot-4x-gotchas.md` — G-12 new entry
+
+**Title**: G-12 — User `class_name` must not collide with Godot built-in classes
+
+**Content** (following G-N format):
+
+> **Context**: declaring a user `class_name` for a Resource / Node / etc.
+>
+> **Broken**: Godot 4.6 silently registers user `class_name` in `.godot/global_script_class_cache.cfg` even when the name collides with a built-in (e.g., `TileData`, `Tween`, `Material`). The engine built-in wins at parse-time resolution; user-class member access fails with the misleading error: `Parser Error: Could not resolve external class member "foo"`. Even a minimal probe `var m: MyClass = MyClass.new(); print(m.field)` fails. `.uid` files are generated correctly, so the error is entirely parse-time, not import-time.
+>
+> **Correct**: Choose a `class_name` that doesn't collide. Prefix with project/domain scope (`MapTileData` instead of `TileData`, `GameTween` instead of `Tween`). Before declaring any new `class_name`, search Godot docs for built-in class list and verify no collision.
+>
+> **Collision-prone names to avoid** (non-exhaustive): `TileData`, `TileMap`, `TileSet`, `Tween`, `Material`, `Curve`, `Shape2D`, `Shape3D`, `Timer`, `Animation`, `Node`, `Resource`, etc. When in doubt, prefix.
+>
+> **Discovered**: map-grid story-001 round-2 (parse error blocked ALL map_resource_test discovery; diagnosed after the cache-refresh editor pass didn't help).
+
+### A-4 — Story 001 §QA Test Cases AC-2 text staleness
+
+**File**: `production/epics/map-grid/story-001-resource-classes.md`
+**Action**: Update AC-2 QA Test Case text: `var t := TileData.new()` → `var t := MapTileData.new()` (1 line). Same for AC-3 fixture descriptions mentioning `TileData`.
+
+### A-5 — (Optional test polish) AC-2 default-value coverage gap
+
+**File**: `tests/unit/core/map_resource_test.gd`
+**Action**: In `test_tile_data_class_declaration_fields_and_defaults`, extend the fresh-`MapTileData.new()` block to also assert `coord = Vector2i.ZERO` and `is_destructible = false`. Current block covers 3 of 5 zero-defaults via value; extending makes regressions on field default changes immediately visible. ~4 lines.
+
+### A-6 — (Optional test polish) AC-4 intent comment
+
+**File**: `tests/unit/core/map_resource_test.gd`
+**Action**: Add 1-line comment to `test_map_resource_round_trip_preserves_field_types` explaining that its save path is intentionally independent from AC-3's fixture (two separate round-trip saves in the file). ~1 line.
+
+---
+
+**Estimated remediation effort**: 30-45 min total
+- A-1 + A-2 together: ~20 min (single ADR edit pass with careful §Changelog entry)
+- A-3: ~5 min (append G-12 entry to existing rule file)
+- A-4: ~1 min (single edit)
+- A-5 + A-6: ~5 min (inline test file edits)
+
+**Suggested trigger**: Batch with map-grid story-002 close-out (avoid repeated ADR-0004 edits across stories) OR at epic close if story-002+ don't surface additional errata.
+
+**Links**:
+- Story: `production/epics/map-grid/story-001-resource-classes.md`
+- Review: standalone `/code-review` ran 2026-04-25 (godot-gdscript-specialist APPROVED + qa-tester TESTABLE)
+- Session extract: `production/session-state/active.md` §Session Extract 2026-04-25
+
