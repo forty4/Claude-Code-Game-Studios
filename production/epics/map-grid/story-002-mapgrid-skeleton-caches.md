@@ -1,7 +1,7 @@
 # Story 002: MapGrid skeleton + load_map + 6 packed caches + trivial queries
 
 > **Epic**: map-grid
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
@@ -133,3 +133,28 @@
 
 - Depends on: Story 001 (MapResource + TileData classes) must be Complete
 - Unlocks: Story 003 (validator hooks into load_map), Story 004 (mutation API builds on cache structure), Story 005/006 (queries read from caches)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-25
+**Actual effort**: ~1h (within 3-4h estimate; benefited from story-001 establishing `MapResource` + `MapTileData` + test precedent patterns)
+**Criteria**: 8/8 passing — all automated via `tests/unit/core/map_grid_test.gd`
+
+**Test Evidence**:
+- `tests/unit/core/map_grid_test.gd` — NEW, 391 LoC, 11 test functions (AC edge splits)
+- Story suite: **11/11 PASSED** (100 ms)
+- Full regression: **158/158 PASSED** — 0 errors, 0 failures, 0 orphans
+
+**Deviations** (all ADVISORY; zero runtime impact — logged to TD-032 batch):
+- **DEP-1 (ADR-0004 §Decision 4)**: `duplicate_deep(Resource.DEEP_DUPLICATE_ALL)` used instead of ADR-prescribed `DEEP_DUPLICATE_ALL_BUT_SCRIPTS`. The prescribed enum value does not exist in Godot 4.6's `DeepDuplicateMode` (only NONE/INTERNAL/ALL). Documented in-code (map_grid.gd:58–62); matches save_manager.gd TD-024 precedent. TD-032 A-9.
+- **DEP-2 (story-002 QA cases)**: AC-7 test file path is `user://map_grid_test_v2_round_trip.tres`; story-authored path was `user://test_map_v2.tres`. Impl choice is better (self-documenting, matches map_resource_test.gd naming). Story-doc audit-trail update deferred. TD-032 A-10.
+- **DEP-3 (story-003 scope)**: `load_map(null)` has no null-guard and no test. Validator story-003 is the intended gating point per story §Implementation Notes; cheap defensive null-guard deferred to that story. Not added as errata — normal scope handoff.
+- **Code-review SUGGESTIONS (optional test polish)**: 4× `assert_bool(vec == ...)` could be `assert_that(vec).is_equal(...)` for better failure diffs; 3× redundant `as int` casts on `PackedByteArray` access. Both low-priority. TD-032 A-7 + A-8.
+
+**Code Review**: Complete (standalone `/code-review` returned APPROVED WITH SUGGESTIONS; godot-gdscript-specialist: CLEAN with 4 low-priority suggestions; qa-tester: TESTABLE with 2 advisories).
+
+**Gates skipped (lean mode)**: QL-TEST-COVERAGE, LP-CODE-REVIEW — standalone `/code-review` already covered both tracks.
+
+**Map-grid epic progress**: **2/8 Complete**. Story-003 (validator + error collection) now unlocked.

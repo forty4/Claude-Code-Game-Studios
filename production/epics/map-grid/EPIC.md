@@ -111,7 +111,7 @@ This epic is complete when:
 | # | Story | Type | Status | ADR | Covers |
 |---|-------|------|--------|-----|--------|
 | 001 | MapResource + MapTileData Resource classes | Logic | Complete | ADR-0004 | TR-001, TR-010 |
-| 002 | MapGrid skeleton + load_map + 6 packed caches + trivial queries | Logic | Ready | ADR-0004 | TR-001, TR-007, TR-009 (partial), V-2 partial |
+| 002 | MapGrid skeleton + load_map + 6 packed caches + trivial queries | Logic | Complete | ADR-0004 | TR-001, TR-007, TR-009 (partial), V-2 partial |
 | 003 | Map loading validation + error collection | Logic | Ready | ADR-0004 | TR-009, AC-CR-4, AC-EDGE-1, §EC-7 |
 | 004 | Mutation API + packed cache write-through + tile_destroyed signal | Integration | Ready | ADR-0004 + ADR-0001 | TR-004, TR-005, V-5, V-6, AC-ST-1..4, AC-EDGE-4 |
 | 005 | Custom Dijkstra — get_movement_range + get_path | Logic | Ready | ADR-0004 | TR-002, TR-003 (2/9), TR-006, V-4, AC-CR-6, AC-F-1..3 |
