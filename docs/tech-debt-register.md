@@ -804,3 +804,33 @@ Item 5 → batch with G-12..G-15 rule-file update at save-manager epic close.
 Item 6 → nice-to-have; revisit if any story-006/007 scenario introduces a path where negative chapter numbers could come from an external source (e.g., imported saves).
 
 **Next review**: at start of save-manager story-006 (migration registry) implementation.
+
+---
+
+## TD-029 — Story-006 /code-review advisories (A-5 deferred to story-008)
+
+**Origin**: save-manager story-006 /code-review (godot-gdscript-specialist + qa-tester, 2026-04-24)
+**Category**: code + CI lint
+**Severity**: low
+**Status**: open (deferred to story-008)
+
+Five advisory items surfaced during /code-review of save-manager story-006. None BLOCKING; both reviewers verdict APPROVED/ADEQUATE. Four were applied in-cycle (Option B hardening pass); one deferred.
+
+### Applied in-cycle (not deferred)
+
+- **A-1 (BOTH reviewers)**: `_migrate_inner` infinite-loop guard — `_MAX_MIGRATION_STEPS = 1000` class const + iteration counter + push_error + `save_load_failed.emit("load", "migration_loop_exceeded_at_v%d")` on breach. Prevents hung test runner from a Callable that forgets to increment `ctx.schema_version`.
+- **A-2 (qa ADVISORY #1)**: `_migrate_inner` null-return guard — if a migration Callable returns null (bug), `push_error` + `save_load_failed.emit("load", "migration_returned_null_from_v%d")` + return null. Load pipeline treats null identically to the invalid_resource branch. Avoids null-deref on next iteration's `ctx.schema_version`.
+- **A-3 (specialist A-2)**: TD-028 #2 signal disconnect belt-and-suspenders — `if GameBus.save_load_failed.is_connected(cb_fail):` guard before disconnect. Matches AC-GAP style in save_migration_registry_test.gd.
+- **A-4 (qa ADVISORY #2)**: AC-INTEGRATION-STORY-005 — replaced `if loaded != null:` silent-skip guard with early-return after null check. Cleaner failure semantics when load_latest_checkpoint returns null (GdUnit4 `is_not_null` soft-assert is reported, then test exits cleanly instead of continuing to null-deref).
+
+Re-run: 143/143 PASS, 0 orphans, exit 0. No regressions.
+
+### Deferred
+
+- **A-5 (qa ADVISORY #3)**: static lint for migration Callable patterns — detect "migration Callable that does not assign `ctx.schema_version`" AND "migration Callable that skips a version step" (fn1→v3 directly, bypassing v2). Code-review gate is currently the only guard. Scope evaluation belongs to story-008 (CI lint — covers per-frame-emit lint and user://-only lint; migration Callable patterns fit the same scope). Low production risk (empty MVP registry) but worth evaluating when CI lint infrastructure is being built.
+
+### Resolution path
+
+Story-008 CI lint scope will evaluate whether static analysis can catch migration-callable anti-patterns. If feasible, add to the lint battery alongside the per-frame-emit and user://-only linters. If not feasible, document as a code-review checklist entry in the control manifest.
+
+**Next review**: at start of save-manager story-008 (CI lint) implementation.

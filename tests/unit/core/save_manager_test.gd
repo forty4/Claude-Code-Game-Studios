@@ -1592,3 +1592,227 @@ func test_save_manager_list_slots_returns_array_in_slot_id_order() -> void:
 
 	# Explicit cleanup (G-6)
 	SaveManagerStub.swap_out()
+
+
+# ── Story-006: Migration registry integration + TD-028 bonus ─────────────────
+##
+## MIGRATION REGISTRY RESET DISCIPLINE:
+##   Tests in this section that inject test migrations into SaveMigrationRegistry
+##   call _reset_registry() at both the START and END of the test body. This
+##   prevents leaked state from contaminating other save_manager_test.gd tests,
+##   which assume an effectively empty (identity) registry now that the TODO shim
+##   has been replaced by the real SaveMigrationRegistry.migrate_to_current call.
+##
+## SEAM: (load(MIGRATION_REGISTRY_PATH) as GDScript).set("_migrations", ...)
+##   per the established static-var injection pattern (story-006 §Implementation Notes #6).
+
+
+const MIGRATION_REGISTRY_PATH: String = "res://src/core/save_migration_registry.gd"
+
+
+## Clears SaveMigrationRegistry._migrations to {} via static-var seam.
+## Called at start + end of any test that injects test migrations.
+func _reset_registry() -> void:
+	(load(MIGRATION_REGISTRY_PATH) as GDScript).set("_migrations", {})
+
+
+## AC-INTEGRATION-STORY-005 — load_latest_checkpoint invokes SaveMigrationRegistry.
+##
+## Registers a test migration v0→v1 that increments an order Array. Writes a v0
+## SaveContext directly via ResourceSaver (bypassing save_checkpoint, which would
+## unconditionally stamp schema_version = CURRENT_SCHEMA_VERSION = 1). Calls
+## load_latest_checkpoint and asserts: (a) returned ctx has schema_version == 1
+## (migration ran), and (b) order == [0] (migration invoked exactly once).
+##
+## Direct ResourceSaver.save is the ONLY feasible path here: save_checkpoint stamps
+## schema_version to CURRENT_SCHEMA_VERSION=1 on every call, making it impossible
+## to produce a v0 file through the normal pipeline (Option C per story-006 §7).
+func test_save_manager_load_calls_migrate_to_current() -> void:
+	# Arrange — reset registry at start (belt-and-suspenders)
+	_reset_registry()
+
+	var stub: Node = SaveManagerStub.swap_in()
+
+	# Register test migration v0→v1 via static-var seam (G-4: Array.append capture)
+	var order: Array[int] = []
+	var fn0_to_1 := func(c: SaveContext) -> SaveContext:
+		order.append(0)
+		c.schema_version = 1
+		return c
+	(load(MIGRATION_REGISTRY_PATH) as GDScript).set("_migrations", {0: fn0_to_1})
+
+	# Write a v0 SaveContext directly at the expected slot path — bypass save_checkpoint
+	# so the schema_version stamp (CURRENT_SCHEMA_VERSION=1) does NOT overwrite our v0 value.
+	var v0_ctx: SaveContext = SaveContext.new()
+	v0_ctx.schema_version = 0
+	v0_ctx.chapter_number = 1
+	v0_ctx.last_cp = 1
+	var save_path: String = stub._path_for(1, 1, 1)
+	var write_err: Error = ResourceSaver.save(v0_ctx, save_path)
+	assert_int(write_err as int).override_failure_message(
+		("AC-INTEGRATION-STORY-005: ResourceSaver.save must succeed writing v0 ctx;"
+		+ " got err=%d") % write_err
+	).is_equal(OK as int)
+
+	# Act
+	var loaded: SaveContext = stub.load_latest_checkpoint()
+
+	# Assert — load succeeded
+	assert_object(loaded).override_failure_message(
+		"AC-INTEGRATION-STORY-005: load_latest_checkpoint must return non-null SaveContext"
+	).is_not_null()
+
+	# A-4: GdUnit4 assertions do not halt execution on failure. If loaded is null,
+	# clean up and return early — otherwise the migration assertions null-deref
+	# (masking the real failure under a crash rather than the clean is_not_null report).
+	if loaded == null:
+		_reset_registry()
+		SaveManagerStub.swap_out()
+		return
+
+	# Assert — migration ran: schema_version advanced from 0 to 1
+	assert_int(loaded.schema_version).override_failure_message(
+		("AC-INTEGRATION-STORY-005: schema_version must be 1 after v0→v1 migration;"
+		+ " got %d — migration may not have been called") % loaded.schema_version
+	).is_equal(1)
+
+	# Assert — migration ran exactly once
+	assert_int(order.size()).override_failure_message(
+		("AC-INTEGRATION-STORY-005: migration fn0_to_1 must be invoked exactly once;"
+		+ " got %d invocations (order=%s)") % [order.size(), str(order)]
+	).is_equal(1)
+	assert_int(order[0]).override_failure_message(
+		"AC-INTEGRATION-STORY-005: order[0] must be 0 (fn0_to_1 sentinel); got %d" % order[0]
+	).is_equal(0)
+
+	# Cleanup — reset registry before swap_out so other tests see empty migrations (G-6)
+	_reset_registry()
+	SaveManagerStub.swap_out()
+
+
+## TD-028 #1 — list_slots non-empty entry includes saved_at_unix with a non-zero value.
+## Closes the dict-shape contract gap from story-005 /code-review: AC-V8 verified
+## chapter_number + last_cp but not saved_at_unix presence or value.
+func test_save_manager_list_slots_includes_saved_at_unix() -> void:
+	# Arrange
+	var stub: Node = SaveManagerStub.swap_in()
+	stub.set_active_slot(1)
+
+	var ctx: SaveContext = SaveContext.new()
+	ctx.chapter_number = 2
+	ctx.last_cp = 1
+	var ok: bool = stub.save_checkpoint(ctx)
+	assert_bool(ok).override_failure_message(
+		"TD-028-1: save_checkpoint must succeed"
+	).is_true()
+
+	# Act
+	var slots: Array[Dictionary] = stub.list_slots()
+
+	# Assert — slot 1 is non-empty
+	assert_int(slots.size()).override_failure_message(
+		"TD-028-1: list_slots must return 3 entries; got %d" % slots.size()
+	).is_equal(3)
+	var s1: Dictionary = slots[0]
+	assert_bool(s1.get("empty", true) as bool).override_failure_message(
+		"TD-028-1: slot 1 must be non-empty; got %s" % s1
+	).is_false()
+
+	# Assert — saved_at_unix key is present
+	assert_bool(s1.has("saved_at_unix")).override_failure_message(
+		"TD-028-1: slot 1 dict must contain 'saved_at_unix' key; got %s" % s1
+	).is_true()
+
+	# Assert — saved_at_unix is non-zero (stamped at save time)
+	var unix_val: int = s1.get("saved_at_unix", 0) as int
+	assert_bool(unix_val > 0).override_failure_message(
+		"TD-028-1: saved_at_unix must be > 0 (stamped by save_checkpoint); got %d" % unix_val
+	).is_true()
+
+	# Explicit cleanup (G-6)
+	SaveManagerStub.swap_out()
+
+
+## TD-028 #2 — non-null wrong-type resource at slot path causes load_latest_checkpoint
+## to return null and emit save_load_failed with reason starting "invalid_resource:".
+## This covers the `not raw is SaveContext` branch (non-null, wrong Resource subtype),
+## which was untested — distinct from the byte-garbage case (raw == null) in AC-V9.
+func test_save_manager_load_latest_checkpoint_wrong_type_resource_returns_null() -> void:
+	# Arrange — write a plain Resource.new() (not a SaveContext) to the slot path
+	var stub: Node = SaveManagerStub.swap_in()
+	stub.set_active_slot(1)
+
+	var wrong_res: Resource = Resource.new()
+	var slot_path: String = stub._path_for(1, 1, 1)
+	var write_err: Error = ResourceSaver.save(wrong_res, slot_path)
+	assert_int(write_err as int).override_failure_message(
+		("TD-028-2: ResourceSaver.save of generic Resource must succeed;"
+		+ " got err=%d") % write_err
+	).is_equal(OK as int)
+
+	# Capture save_load_failed (G-4: Array + append pattern)
+	var captured_fails: Array = []
+	var cb_fail := func(op: String, reason: String) -> void:
+		captured_fails.append([op, reason])
+	GameBus.save_load_failed.connect(cb_fail)
+
+	# Act
+	var loaded: SaveContext = stub.load_latest_checkpoint()
+
+	# Assert — returns null (wrong type is not a valid SaveContext)
+	assert_object(loaded).override_failure_message(
+		"TD-028-2: load_latest_checkpoint must return null for a wrong-type resource"
+	).is_null()
+
+	# Assert — save_load_failed emitted exactly once
+	assert_int(captured_fails.size()).override_failure_message(
+		"TD-028-2: save_load_failed must be emitted once for wrong-type resource; got %d" % captured_fails.size()
+	).is_equal(1)
+
+	# Assert — op == "load"
+	assert_str(captured_fails[0][0] as String).override_failure_message(
+		"TD-028-2: save_load_failed op must be 'load'; got '%s'" % (captured_fails[0][0] as String)
+	).is_equal("load")
+
+	# Assert — reason starts with "invalid_resource:"
+	var reason: String = captured_fails[0][1] as String
+	assert_bool(reason.begins_with("invalid_resource:")).override_failure_message(
+		"TD-028-2: reason must begin with 'invalid_resource:'; got '%s'" % reason
+	).is_true()
+
+	# Cleanup — A-3 belt-and-suspenders disconnect (matches AC-GAP style)
+	if GameBus.save_load_failed.is_connected(cb_fail):
+		GameBus.save_load_failed.disconnect(cb_fail)
+	SaveManagerStub.swap_out()
+
+
+## TD-028 #3 — load_latest_checkpoint respects active_slot: saving to slot 1 then
+## switching to slot 2 (empty) returns null, not slot 1's content.
+func test_save_manager_load_latest_checkpoint_respects_active_slot() -> void:
+	# Arrange — save to slot 1
+	var stub: Node = SaveManagerStub.swap_in()
+	stub.set_active_slot(1)
+
+	var ctx: SaveContext = SaveContext.new()
+	ctx.chapter_number = 1
+	ctx.last_cp = 1
+	ctx.play_time_seconds = 42
+	var ok: bool = stub.save_checkpoint(ctx)
+	assert_bool(ok).override_failure_message(
+		"TD-028-3: slot 1 save must succeed"
+	).is_true()
+
+	# Switch active slot to 2 (empty — no save written there)
+	stub.set_active_slot(2)
+
+	# Act — load from slot 2
+	var loaded: SaveContext = stub.load_latest_checkpoint()
+
+	# Assert — slot 2 is empty; must return null (not slot 1's content)
+	assert_object(loaded).override_failure_message(
+		("TD-028-3: load_latest_checkpoint must return null for empty slot 2;"
+		+ " got a SaveContext — active_slot isolation may be broken")
+	).is_null()
+
+	# Explicit cleanup (G-6)
+	SaveManagerStub.swap_out()
