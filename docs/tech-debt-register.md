@@ -1076,3 +1076,65 @@ Implementation follow-up with the explicit `DEEP_DUPLICATE_ALL_BUT_SCRIPTS` flag
 - Review: standalone `/code-review` ran 2026-04-25 (godot-gdscript-specialist SUGGESTIONS + qa-tester TESTABLE)
 - Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-002)
 
+### A-11 — (Story-003 test hardening) 8 advisory edge-case tests
+
+**Source**: map-grid story-003 `/code-review` qa-tester ADVISORY (2026-04-25) — 8 `Edge cases:` variants from story §QA Test Cases lines not currently exercised.
+
+**File**: `tests/unit/core/map_grid_test.gd`
+
+**Tests to add** (all ADVISORY; primary ACs already COVERED by existing 8 story-003 tests + 1 convergent regression):
+
+| # | AC | Suggested function name | Setup |
+|---|---|---|---|
+| 1 | AC-2 | `test_map_grid_validate_dimension_bounds_all_invalid_variants` | Five fixtures (41×30, 40×31, 15×14, 0×15, 15×0); each returns `false` with `ERR_MAP_DIMENSIONS_INVALID` |
+| 2 | AC-3 | `test_map_grid_validate_tile_array_size_over_limit_fails` | 15×15 resource with 226 tiles (over-size); asserts `ERR_TILE_ARRAY_SIZE_MISMATCH` |
+| 3 | AC-4 | `test_map_grid_validate_forest_elev_two_fails` | 15×15 map, tile 0 terrain=FOREST(1), elevation=2; exercises multi-valued allowed-range inner loop |
+| 4 | AC-4 | `test_map_grid_validate_mountain_elev_zero_fails` | 15×15 map, tile 0 terrain=MOUNTAIN(3), elevation=0; single-valued range boundary |
+| 5 | AC-5 | `test_map_grid_validate_impassable_enemy_occupied_fails` | 15×15 map, tile 0 `is_passable_base=false`, `tile_state=ENEMY_OCCUPIED(2)`; exercises both state-guard branches |
+| 6 | AC-5 | `test_map_grid_validate_impassable_empty_is_valid` | 15×15 map, tile 0 `is_passable_base=false`, `tile_state=EMPTY(0)`; must pass — confirms guard is exclusive not overbroad |
+| 7 | AC-6 | `test_map_grid_validate_swapped_adjacent_tiles_produce_two_errors` | Swap `tiles[78].coord` and `tiles[79].coord`; asserts ≥2 `ERR_TILE_ARRAY_POSITION_MISMATCH` entries |
+| 8 | AC-7 | `test_map_grid_validate_destructible_zero_hp_sets_destroyed_state` | Valid 15×15 map, tile 0 `is_destructible=true, destruction_hp=0`; asserts load returns `true` AND `_map.tiles[0].tile_state == TILE_STATE_DESTROYED` |
+| 9 | AC-8 | `test_map_grid_validate_collect_all_50_elevation_errors_produces_50_entries` | 40×30 map with 50 PLAINS tiles at `elevation=2`; asserts `errors.size() == 50` (cardinality) |
+
+**Estimated effort**: ~1.5-2h (9 small tests using existing `_make_map` factory + bespoke-fixture pattern established by story-003).
+
+**Not blocking**: story-003 primary ACs all COVERED by existing 8 tests + 1 convergent regression. These advisory tests cover `Edge cases:` variants that increase regression value for story-004/005/006 consumers.
+
+**Suggested trigger**: batch with story-004 close-out — by then the validator will be stress-exercised by mutation API tests. Or pick up standalone before story-005 (Dijkstra) which reads packed caches heavily and benefits from validator hardening.
+
+### A-12 — `_last_load_warnings` public query for `push_warning` verification
+
+**Source**: map-grid story-003 `/code-review` qa-tester Q5 (2026-04-25)
+
+**File**: `src/core/map_grid.gd`
+
+**Context**: AC-7 test asserts `grid._map.tiles[5].destruction_hp == 0` after clamp, but cannot assert that `push_warning` was actually emitted. Clamp could silently succeed without warning and the test would still pass. Debugging-hazard gap: the V-2 invariant narrative is "we clamped but we told you" — silent clamps violate it.
+
+**Proposal**: Add `_last_load_warnings: PackedStringArray` symmetric to `_last_load_errors`; populate inside `_apply_load_time_clamps` with entries like `"WARN_NEGATIVE_DESTRUCTION_HP(5)"` and `"WARN_DESTRUCTIBLE_ZERO_HP_SET_DESTROYED"`. Expose via `get_last_load_warnings() -> PackedStringArray`. Tests assert entries and prefixes.
+
+**Estimated effort**: ~30 min (new field + new public method + warning-string constants + 2 test assertions in AC-7 and new DESTROYED-standalone test).
+
+**Alternative considered and rejected**: GdUnit4 mock-logger for `push_warning` capture — too complex, not worth maintenance cost.
+
+**Suggested trigger**: Batch with A-11 hardening, OR execute in story-004 (more mutation warnings will benefit from the same query surface).
+
+---
+
+**Updated estimated remediation effort (revised)**: 2.5-3.5 hours total
+- A-1 + A-2 + A-9 together: ~25 min ADR-0004 edit pass
+- A-3: ~5 min (G-12 entry drafted verbatim)
+- A-4 + A-10: ~2 min story-file edits
+- A-5 + A-6 + A-7 + A-8: ~10 min inline test polish
+- **A-11: ~1.5-2h (9 advisory edge tests)**
+- **A-12: ~30 min (warnings query + 2 test assertions)**
+
+**Suggested trigger (revised)**: Two-batch plan:
+- **Before story-005**: A-1..A-10 + A-12 (ADR errata + docs polish + warnings hook) — unblocks story-005 with clean foundation.
+- **After story-004 or before story-005**: A-11 (advisory edge tests) — amortize against story-004's new mutation tests which will re-exercise the validator.
+
+**Story-003 specific links**:
+- Story: `production/epics/map-grid/story-003-map-load-validation.md`
+- Review: standalone `/code-review` ran 2026-04-25 (godot-gdscript-specialist SUGGESTIONS + qa-tester GAPS)
+- **Convergent finding RESOLVED INLINE** during close-out: `_map = null` reset at `load_map` top + `test_..._valid_then_invalid_load_resets_to_inert` regression test. NOT deferred.
+- Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-003)
+

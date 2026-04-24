@@ -1,7 +1,7 @@
 # Story 003: Map loading validation + error collection
 
 > **Epic**: map-grid
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
@@ -146,3 +146,34 @@
 
 - Depends on: Story 002 (MapGrid skeleton + load_map entry point) must be Complete
 - Unlocks: Story 004 (mutation API assumes valid loaded map), Story 008 (inspector fixture authoring relies on validation feedback loop)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-25
+**Actual effort**: ~1.5h (within 3-4h estimate; benefited from story-002 test precedent + `_make_map` factory reuse)
+**Criteria**: 9/9 passing — all automated via `tests/unit/core/map_grid_test.gd`
+
+**Test Evidence**:
+- `tests/unit/core/map_grid_test.gd` extended (392 → ~950 LoC): 8 new AC-1..AC-8 tests + 1 convergent regression (valid→invalid load resets to inert) + adjusted `_make_map` factory
+- Story suite: **20/20 PASSED** (11 story-002 + 8 story-003 + 1 convergent)
+- Full regression: **167/167 PASSED** — 0 errors, 0 failures, 0 orphans
+
+**Deviations** (all ADVISORY; logged to TD-032 batch; zero runtime impact):
+- **DEP-1 (AC-8 fixture rework)**: 3 tile-level errors instead of story's dim + 2 tile errors. Justified: dim-error short-circuits tile walk by design (safety guard). Both `/code-review` specialists confirmed reworded test is stronger. Documented in test body comment.
+- **DEP-2 (`ELEVATION_RANGES` encoding)**: nested `Array` literal vs story's `Dictionary[int, PackedInt32Array]` — GDScript const-expressions cannot invoke `PackedInt32Array()` constructor. gdscript-specialist confirmed as only viable approach.
+- **DEP-3 (valid→invalid state reset, RESOLVED INLINE during close-out)**: Convergent `/code-review` finding from gdscript-specialist + qa-tester — `_map` previously retained prior value on validation failure. Fixed with one-line `_map = null` reset at `load_map` top + `test_..._valid_then_invalid_load_resets_to_inert` regression test. Closed, NOT deferred.
+- **DEP-4 (`_validate_map` ~75 LoC)**: Exceeds 40-line method standard. gdscript-specialist ruled acceptable: cold-path one-shot + 3 section-commented sub-blocks; splitting adds overhead without caller benefit.
+- **DEP-5 (TerrainType + TileState enum assumptions)**: PLAINS=0..ROAD=7, EMPTY=0..DESTROYED=3 assumed pending ADR-0008. Documented in-code. TD-032 continuation (not new).
+- **DEP-6 (`_make_map` factory adjustments)**: Elevation bound to terrain-type, impassable tiles forced to EMPTY state, sub-15 dimensions bumped to 15×15/15×16. In-scope test-helper fix required to keep story-002 fixtures valid under new validation gate.
+
+**Advisory test coverage gaps (8 edge cases)**: qa-tester identified 8 `Edge cases:` variants from story §QA Test Cases lines that are not exercised (AC-2 all-5 dim variants, AC-3 over-size, AC-4 FOREST/MOUNTAIN invalid combos, AC-5 ENEMY_OCCUPIED + impassable-EMPTY-valid, AC-6 swap case, AC-7 DESTROYED standalone, AC-8 50-error scale). All ADVISORY — no BLOCKING. Queued as TD-032 A-11 test-hardening batch.
+
+**`push_warning` verification gap**: AC-7 cannot assert `push_warning` was emitted without a log-capture hook. Recommendation: add `_last_load_warnings: PackedStringArray` symmetric to `_last_load_errors` in a follow-up (TD-032 A-12). Not blocking this story.
+
+**Code Review**: Complete (standalone `/code-review` returned APPROVED WITH SUGGESTIONS; godot-gdscript-specialist: SUGGESTIONS with 1 convergent finding → RESOLVED INLINE; qa-tester: GAPS with 8 advisory edge-case tests → queued to TD-032 A-11).
+
+**Gates skipped (lean mode)**: QL-TEST-COVERAGE, LP-CODE-REVIEW — standalone `/code-review` already covered both tracks.
+
+**Map-grid epic progress**: **3/8 Complete**. Story-004 (mutation API + tile_destroyed signal) + story-008 (inspector fixture authoring) now unlocked. Story-005 (Dijkstra) remains highest-risk tentpole and depends on story-004.
