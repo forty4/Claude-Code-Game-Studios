@@ -834,3 +834,30 @@ Re-run: 143/143 PASS, 0 orphans, exit 0. No regressions.
 Story-008 CI lint scope will evaluate whether static analysis can catch migration-callable anti-patterns. If feasible, add to the lint battery alongside the per-frame-emit and user://-only linters. If not feasible, document as a code-review checklist entry in the control manifest.
 
 **Next review**: at start of save-manager story-008 (CI lint) implementation.
+
+---
+
+## TD-030 — CI lint-script template hardening (from story-008 /code-review)
+
+**Origin**: save-manager story-008 /code-review (2026-04-24)
+**Category**: CI infrastructure polish
+**Severity**: low (both items are cosmetic / defensive — neither affects production lint behavior)
+**Status**: open (batched refactor candidate)
+
+Three advisory items surfaced during /code-review; story-008 verdict was APPROVED WITH SUGGESTIONS, Option A selected (lean close; batch these as TD-030).
+
+### Items
+
+- **A-1** — `tools/ci/lint_save_paths.sh` docstring on line 28-29 claims the comment-stripping regex `(^|\s)#.*$` "keeps '#' inside string literals untouched". This is imprecise — the regex strips any `#` preceded by whitespace, including a `#` inside a string like `"foo #bar"`. Real-world impact: negligible (save code contains no such strings today). Fix: either (a) tighten the doc comment to describe the actual behavior, OR (b) replace the regex with a state-machine parser that tracks string-literal context. Recommend (a) now; (b) if an actual false-negative ever surfaces.
+
+- **A-2** — `tools/ci/lint_per_frame_emit.sh` legacy template uses `if ! ruby_stdout=$(...); then ruby_exit=$?; fi`. The `$?` after `if !` captures the negated test result (always 0), not Ruby's actual exit code. The crash-triage branch (`if [ "$ruby_exit" -gt 1 ]`) is effectively dead code. Production unaffected because violation detection uses the stdout-non-empty check (`[ -n "$violations" ]`). Fix: replace with direct capture `ruby_stdout=$(...); ruby_exit=$?` (the pattern used in the new story-008 scripts). One-line mechanical change.
+
+- **A-3** — batch A-1 + A-2 into a single refactor commit touching both `lint_per_frame_emit.sh` (fix bug) and `lint_save_paths.sh` (tighten doc). Scope: ~5 lines edited across 2 files.
+
+### Estimated effort
+
+15-30 minutes (including smoke re-verification).
+
+### Resolution trigger
+
+Any future CI lint work OR a dedicated "CI infra polish" sprint.
