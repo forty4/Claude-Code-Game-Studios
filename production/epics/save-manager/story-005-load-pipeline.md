@@ -1,7 +1,7 @@
 # Story 005: Load pipeline — list_slots + load_latest_checkpoint + crash-recovery scan
 
 > **Epic**: save-manager
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Platform
 > **Type**: Logic
 > **Estimate**: 4-5 hours (3 methods + newest-CP ordering + corrupt-file handling + slot isolation + CACHE_MODE_IGNORE verification)
@@ -149,3 +149,29 @@
 
 - **Depends on**: story-004 (save pipeline must work to produce files to load)
 - **Unlocks**: story-006 (migration chain integrates with load_latest_checkpoint), story-007 (perf validates load side too), story-008 (CI lint covers load path)
+
+## Completion Notes
+
+**Completed**: 2026-04-24
+**Verdict**: COMPLETE WITH NOTES
+**Criteria**: 8/8 passing
+**Test Evidence**: Logic — `tests/unit/core/save_manager_test.gd` (1594 LoC, 34 tests); **134/134 PASSED** in full unit suite, 0 errors, 0 failures, 0 orphans, exit 0, 1.1s total; save_manager_test.gd 252ms
+**Code Review**: Complete — godot-gdscript-specialist APPROVED, qa-tester ADEQUATE. 2 advisory doc-comments applied in-cycle (list_slots UI contract + signal asymmetry). Re-run still 134/134 PASS.
+**Deviations**:
+- 1 approved design delta: SaveMigrationRegistry TODO-story-006 shim in `load_latest_checkpoint` (behaviorally identical to identity migration at CURRENT_SCHEMA_VERSION=1; exact replacement expression in inline comment)
+- 8 /code-review advisories batched to TD-028 (6 deferred to story-006, 2 applied in-cycle)
+- Scope: `docs/tech-debt-register.md` append (TD-028 only). Justified: canonical TD tracking location.
+- **Zero ADR errata discovered** (contrast story-004: 4 errata in TD-024/025/026 + pre-existing TD-023)
+
+**Files delivered**:
+- `src/core/save_manager.gd` (302 → 356 LoC) — 3 stub bodies replaced: `load_latest_checkpoint` 6-step pipeline with CACHE_MODE_IGNORE + SaveMigrationRegistry TODO shim; `list_slots` SLOT_COUNT enumeration with corrupt-file guard + inline UI contract / signal asymmetry notes; `_find_latest_cp_file` DirAccess.get_files_at + 4-part parser with `is_valid_int()` robustness guards (G-15 residue protection)
+- `tests/unit/core/save_manager_test.gd` (1121 → 1594 LoC) — 3 stub-contract tests retired (load_latest_checkpoint, list_slots, _find_latest_cp_file — mirroring story-004 pattern); AC-V7 no-op body replaced with real CACHE_MODE_IGNORE assertion (save v1 echo_count=5 → overwrite v2 echo_count=99 → load returns 99); 10 new story-005 test functions added; GOTCHA AWARENESS header updated with G-14 entry
+- `docs/tech-debt-register.md` — TD-028 appended (6 advisory items deferred; 2 applied in-cycle)
+
+**Implementation rounds**: 2 (plan approval → code write → test write → **green on first try**). Cleanest dev cycle in the epic. Story-004's 4 ADR errata pass (TD-024/025/026 + G-14/G-15) effectively pre-paid story-005's engine-API cost.
+
+**Implementation effort**: ~1h 10min actual vs 4-5h estimate. Contrast story-004's ~5h (6 rounds of ADR errata + parse errors + path bugs + tmp extension bug).
+
+**Engine gotchas discovered**: One new candidate — G-16 (`DirAccess.get_files_at` returns empty `PackedStringArray` on missing directory, NOT null/error — asymmetric with `DirAccess.open()`). Tracked in TD-028.
+
+**Next recommended**: commit + branch + PR for story-005 (R1 pattern), then `/story-readiness production/epics/save-manager/story-006-migration-registry.md`.

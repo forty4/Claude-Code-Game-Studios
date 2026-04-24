@@ -190,22 +190,65 @@ func save_checkpoint(source: SaveContext) -> bool:
 ## Loads the newest checkpoint in the active slot.
 ## Returns the SaveContext Resource after applying any needed schema migrations,
 ## or null if the slot is empty or the file cannot be loaded.
-## STUB — body implemented in story-005.
-## TODO story-005: _find_latest_cp_file → ResourceLoader.load(CACHE_MODE_IGNORE) → SaveMigrationRegistry.migrate_to_current
+##
+## Pipeline (ADR-0003 §Key Interfaces, TR-save-load-004):
+##   1. _find_latest_cp_file(_active_slot) — newest-CP path discovery
+##   2. If path empty: return null (empty slot is not a failure)
+##   3. ResourceLoader.load(path, "", CACHE_MODE_IGNORE) — cache bypass (BLOCKING)
+##   4. If null or not SaveContext: emit save_load_failed("load", "invalid_resource:…"); return null
+##   5. Cast to SaveContext
+##   6. Return ctx (migration shim — see TODO below)
 func load_latest_checkpoint() -> SaveContext:
-	# TODO story-005: implement load pipeline with cache bypass and migration
-	return null
+	var path: String = _find_latest_cp_file(_active_slot)
+	if path.is_empty():
+		return null
+	var raw: Resource = ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE)
+	if raw == null or not raw is SaveContext:
+		GameBus.save_load_failed.emit("load", "invalid_resource:%s" % path)
+		return null
+	var ctx: SaveContext = raw as SaveContext
+	# TODO story-006: replace with `return SaveMigrationRegistry.migrate_to_current(ctx)`
+	# CURRENT_SCHEMA_VERSION == 1 and no migrations exist; returning ctx directly
+	# is behaviorally equivalent to calling an identity migration.
+	return ctx
 
 
 ## Enumerates all slots with their newest-CP metadata for the Save Slot UI.
 ## Returns an Array of length SLOT_COUNT; each Dictionary contains at minimum
 ## { slot_id: int, empty: bool }. Non-empty slots also include chapter_number,
-## last_cp, and saved_at_unix.
-## STUB — body implemented in story-005.
-## TODO story-005: iterate slots, call _find_latest_cp_file per slot, load metadata
+## last_cp, and saved_at_unix. Corrupt files yield { slot_id, empty: true, corrupt: true }.
+##
+## All loads use CACHE_MODE_IGNORE per TR-save-load-004. Never crashes on corrupt files.
+##
+## UI contract note: the corrupt-file shape uses `"empty": true` so UI consumers that
+## only check `empty` skip the entry (treating corrupt identically to empty). If a future
+## Save Slot UI story wants differentiated display ("Corrupted Save" vs blank), change
+## to `"empty": false, "corrupt": true` and update all consumers.
+##
+## Signal contract note: unlike load_latest_checkpoint, list_slots does NOT emit
+## save_load_failed on corrupt entries. Bulk enumeration across 3 slots would be noisy;
+## the `corrupt: true` marker is the observable signal. Callers needing per-slot failure
+## semantics should call load_latest_checkpoint per slot instead.
 func list_slots() -> Array[Dictionary]:
-	# TODO story-005: implement slot enumeration
-	return []
+	var out: Array[Dictionary] = []
+	for i: int in range(1, SLOT_COUNT + 1):
+		var path: String = _find_latest_cp_file(i)
+		if path.is_empty():
+			out.append({"slot_id": i, "empty": true})
+			continue
+		var raw: Resource = ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE)
+		if raw == null or not raw is SaveContext:
+			out.append({"slot_id": i, "empty": true, "corrupt": true})
+			continue
+		var ctx: SaveContext = raw as SaveContext
+		out.append({
+			"slot_id": i,
+			"empty": false,
+			"chapter_number": ctx.chapter_number,
+			"last_cp": ctx.last_cp,
+			"saved_at_unix": ctx.saved_at_unix,
+		})
+	return out
 
 # ── Private methods ───────────────────────────────────────────────────────────
 
@@ -246,12 +289,33 @@ func _path_for(slot: int, chapter_number: int, cp: int) -> String:
 
 ## Scans the given slot directory and returns the path to the newest checkpoint file,
 ## or an empty String if no valid checkpoint files are found.
-## Newest = highest chapter_number, then highest cp index.
-## STUB — body implemented in story-005.
-## TODO story-005: use DirAccess.get_files_at (4.6-idiomatic) + sort by ch/cp key
+## Newest = highest chapter_number, then highest cp index (key = MM*10 + N).
+##
+## Uses DirAccess.get_files_at (4.6-idiomatic, NOT legacy list_dir_begin loop).
+## Returns empty string when the slot dir is absent or empty — not an error.
+## .rstrip("/") on the root guards against SaveManagerStub's trailing slash (G-14 / TD-025).
 func _find_latest_cp_file(slot: int) -> String:
-	# TODO story-005: implement newest-CP file discovery
-	return ""
+	var dir: String = "%s/slot_%d" % [_effective_save_root().rstrip("/"), slot]
+	var files: PackedStringArray = DirAccess.get_files_at(dir)
+	var best_path: String = ""
+	var best_key: int = -1
+	for f: String in files:
+		if not f.ends_with(".res"):
+			continue
+		var parts: PackedStringArray = f.trim_suffix(".res").split("_")
+		# parts[1]/[3].is_valid_int() rejects .tmp.res leftovers (G-15 residue):
+		# split on "_" yields ["ch","02","cp","1.tmp"] → int("1.tmp")==0 silent coerce.
+		if (parts.size() != 4
+				or parts[0] != "ch"
+				or parts[2] != "cp"
+				or not parts[1].is_valid_int()
+				or not parts[3].is_valid_int()):
+			continue
+		var key: int = int(parts[1]) * 10 + int(parts[3])
+		if key > best_key:
+			best_key = key
+			best_path = "%s/%s" % [dir, f]
+	return best_path
 
 
 ## TEST-ONLY seam — wraps ResourceSaver.save() to allow injection of save errors in tests.
