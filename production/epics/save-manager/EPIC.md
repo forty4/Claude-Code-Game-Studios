@@ -97,7 +97,7 @@ This epic is complete when:
 | 004 | Save pipeline — duplicate_deep → ResourceSaver → atomic rename | Logic | Complete | ADR-0003 | TR-save-load-003, V-1, V-4, V-5 |
 | 005 | Load pipeline — list_slots + load_latest_checkpoint + crash-recovery scan | Logic | Complete | ADR-0003 | TR-save-load-004, V-2, V-7, V-8, V-9, V-12 |
 | 006 | SaveMigrationRegistry + schema version chain | Logic | Complete | ADR-0003 | TR-save-load-007, V-6 |
-| 007 | Perf baseline + target-device verification (V-11 <50ms) | Integration | Ready | ADR-0003 | V-11 |
+| 007 | Perf baseline + target-device verification (V-11 <50ms) | Integration | Complete (AC-TARGET deferred) | ADR-0003 | V-11 |
 | 008 | CI lint — user://-only + no-per-frame-emit + BattleOutcome append-only | Config/Data | Complete | ADR-0003 | TR-save-load-005, TR-save-load-006 (V-10), V-13 |
 
 **Implementation order**: 001 → 002 → 003 → 004 → {005, 006 parallel} → {007, 008 parallel}

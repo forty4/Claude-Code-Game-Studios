@@ -861,3 +861,53 @@ Three advisory items surfaced during /code-review; story-008 verdict was APPROVE
 ### Resolution trigger
 
 Any future CI lint work OR a dedicated "CI infra polish" sprint.
+
+---
+
+## TD-031 — Story-007 AC-TARGET + perf-test polish (Polish-phase scope)
+
+**Origin**: save-manager story-007 /code-review (godot-gdscript-specialist + qa-tester, 2026-04-24)
+**Category**: perf test polish + Polish-phase AC-TARGET preparation
+**Severity**: low (all items are polish, AC-TARGET fidelity, or advisory-tuning)
+**Status**: open (bundled with AC-TARGET Polish-phase implementation)
+
+Seven advisory items surfaced during /code-review of save-manager story-007. None BLOCKING; both reviewers verdict APPROVED WITH SUGGESTIONS / ADEQUATE. Story-007 was closed with Option A (lean close; 4 of 5 ACs + AC-TARGET explicitly deferred per story §7). These items naturally bundle with the AC-TARGET Polish-phase work.
+
+### Items
+
+- **S-1** — `save_perf_test.gd` AC-BREAKDOWN rename call form divergence. Test uses `DirAccess.rename_absolute(tmp, final)` static; production `save_manager.gd:172` uses `_do_rename_absolute(da, tmp, final)` → instance `da.rename_absolute(tmp, final)`. On desktop SSD the difference is immeasurable; on Android eMMC flash the static form pays extra `open()` per call. **Fix for AC-TARGET Polish-phase**: open DirAccess once outside the measurement loop, call instance method. ~3-line change.
+
+- **S-2** — AC-BREAKDOWN save advisory threshold fires at `save_p95 > 15000` μs; ADR-0003 §Performance Implications states expected upper bound is 10ms. Tighten to `> 10_000` to match ADR wording exactly. ~1 line.
+
+- **S-3** — AC-BREAKDOWN per-iteration chapter/cp variation comment imprecise: says "tmp-file collision" as rationale; actual reason is filesystem write-coalescing / page-cache shortcutting that would skew times downward without the variation. Clarify comment. ~2 lines.
+
+- **S-4** — `_max()` helper missing empty-array guard (lines 118-123 of save_perf_test.gd). Inconsistent with `_p95()` and `_mean()` which guard the empty case. Harmless at current call sites (always passed 100-element array). ~2 lines.
+
+- **S-5** — AC-PAYLOAD-SIZE: representative ctx builder produces 2.19 KB vs ADR's projected 5-15 KB range. The `push_warning()` advisory fires correctly (every CI run until resolved). Two remediation paths:
+  - (a) Update `_build_representative_ctx()` to hit ≥5 KB (longer StringName tags, more EchoMarks, longer flag strings)
+  - (b) Accept as accurate MVP observation and update ADR §Performance Implications comment to "MVP schema: 2-5 KB observed; post-MVP scenario-progression epic may grow to 5-15 KB as EchoMark schema evolves"
+  Both are valid. (b) is honest; (a) preserves ADR invariant. AC-TARGET Polish-phase session is the natural decision point.
+
+- **S-6** — AC-DESKTOP hard bound at 100ms may never trigger (measured 0.96ms → 100× gap). Consider tightening to 50ms once several CI runs provide baseline data. Defer to post-baseline collection.
+
+- **S-7** — Story-007 file's Test Evidence checkbox `[ ] Not yet created` remains unchecked after desktop-substitute landing. Cosmetic; not operationally misleading given deferral prose directly below. AC-TARGET Polish-phase session can check it when authoring the on-device evidence doc.
+
+### Estimated effort
+
+- S-2, S-3, S-4 alone: ~5 min mechanical edit (can fold into any future perf-test touch commit)
+- S-1 + S-5 + AC-TARGET evidence doc: ~3-4 hours during Polish-phase Android device session
+- S-6: ~2 min after 5-10 CI runs provide variance data
+
+### Resolution trigger
+
+**Primary**: AC-TARGET Polish-phase session (mid-range Android device available). At that time:
+1. Open AC-TARGET session
+2. Apply S-1 (rename fidelity) to AC-BREAKDOWN
+3. Decide S-5 remediation path
+4. Apply S-2, S-3, S-4 as in-cycle polish
+5. Run perf test on Android device
+6. Author `production/qa/evidence/save-v11-android-perf-<date>.md`
+7. Check S-7 checkbox
+8. Close TD-031
+
+**Secondary**: Any unrelated perf-test touch can apply S-2/S-3/S-4 opportunistically.
