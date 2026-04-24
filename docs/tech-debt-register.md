@@ -767,3 +767,40 @@ Items 2, 4 → batch with story-006's `save_checkpoint` modifications (`_cleanup
 Item 5 → batch with save-manager epic close-out: single rule-file update pass that codifies G-12 through G-15 and refreshes ADR-0003 / control-manifest text (alongside TD-023 / TD-024 / TD-025 / TD-026 errata).
 
 **Next review**: at start of save-manager story-006 (migration registry) implementation.
+
+---
+
+## TD-028 — Story-005 /code-review deferred advisories (batch)
+
+**Origin**: save-manager story-005 /code-review (godot-gdscript-specialist + qa-tester, 2026-04-24)
+**Category**: code + docs
+**Severity**: low
+**Status**: open
+
+Six advisory items surfaced during /code-review of save-manager story-005. None BLOCKING; story passed both reviews (APPROVED + ADEQUATE). Deferred via Option A (lean close-out). Two adjacent advisories (#4 + #5, list_slots UI contract + signal asymmetry) were applied in-cycle as inline doc-comments.
+
+### Items deferred
+
+1. **AC-V8 `saved_at_unix` assertion gap (qa ADVISORY)** — `test_save_manager_list_slots_slot_isolation` verifies `chapter_number` + `last_cp` but not `saved_at_unix` presence in the non-empty dict. 2-line addition closes the dict-shape contract verification. Fold into story-006 migration test sweep when story-006 extends save_manager_test.gd.
+
+2. **`not raw is SaveContext` branch untested (qa ADVISORY)** — corrupt-file test covers `raw == null`; the non-null-wrong-type branch (e.g., `Resource.new()` saved as `ch_01_cp_1.res`) has no test. Low production probability but branch is reachable. Add in story-006 when migration introduces more type-discrimination tests.
+
+3. **`set_active_slot` cross-slot load isolation untested (qa ADVISORY)** — scenario: save to slot 1 → `set_active_slot(2)` → `load_latest_checkpoint()` should return null (slot 2 empty). Not independently confirmed. Fold into story-006 test sweep.
+
+4. **TD-027 factory helper advisory now more pressing (qa ADVISORY)** — 6 story-005 test bodies construct `SaveContext` fixtures inline (on top of story-004's 6 sites). Total fixture duplication: 12 sites. `_make_filled_save_context()` with baseline values + override params would meaningfully reduce maintenance surface. Elevate TD-027 priority. Target: story-006 refactor pass (migration will add more fixture sites).
+
+5. **G-16 gotcha candidate (specialist NEW)** — `DirAccess.get_files_at(path)` returns empty `PackedStringArray` (not null/error) when the directory does not exist. Asymmetric with `DirAccess.open(path)` which returns null on missing directory. Safe in `_find_latest_cp_file` (empty files array → empty best_path → empty-slot contract preserved), but subtle enough that a future consumer of `get_files_at` may wrongly expect null-error signal. Batch with G-12..G-15 rule-file update.
+
+6. **Negative-chapter filename silent ignore (both reviewers, low-pri robustness)** — `ch_-1_cp_1.res` passes all current guards (`is_valid_int("-1")` is true) but produces negative key → never selected as newest. No crash. Option: reject negatives explicitly via `int(parts[1]) >= 0 and int(parts[3]) >= 0` guard. Nice-to-have; no test currently documents expected outcome.
+
+### Items applied in-cycle (not deferred)
+
+- **#4 + #5 (list_slots UI contract + signal asymmetry)** — applied as inline doc-comment additions to `list_slots` in `src/core/save_manager.gd` lines 222-241. No code behavior change. Full unit suite re-verified 134/134 PASS.
+
+### Resolution path
+
+Items 1, 2, 3, 4 → natural fit for story-006 (migration registry) test sweep since that story will extend `save_manager_test.gd` and add migration-specific fixtures.
+Item 5 → batch with G-12..G-15 rule-file update at save-manager epic close.
+Item 6 → nice-to-have; revisit if any story-006/007 scenario introduces a path where negative chapter numbers could come from an external source (e.g., imported saves).
+
+**Next review**: at start of save-manager story-006 (migration registry) implementation.

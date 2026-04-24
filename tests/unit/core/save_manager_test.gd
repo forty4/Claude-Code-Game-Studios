@@ -50,6 +50,7 @@ extends GdUnitTestSuite
 ##   G-9 — % operator binds to immediate left operand; wrap multi-line concat in parens
 ##   G-10 — autoload identifier binds at engine init; story-004 tests use the stub
 ##           directly (not via GameBus roundtrip) to sidestep the binding trap
+##   G-14 — path normalization via _effective_save_root().rstrip("/") — story-005 load tests rely on this
 
 const SAVE_MANAGER_PATH: String = "res://src/core/save_manager.gd"
 
@@ -478,66 +479,14 @@ func test_save_manager_project_godot_autoload_order_is_correct() -> void:
 	).is_true()
 
 
-# ── Stub-contract guards (story-005) ─────────────────────────────────────────
+# ── Stub-contract guards ──────────────────────────────────────────────────────
 ##
-## These tests pin the default-return contract of the 3 remaining stubs in save_manager.gd.
-## Purpose: catch accidental behavior drift before story-005 replaces the bodies.
-## REMOVE each test when the implementing story lands:
-##   load_latest_checkpoint + list_slots + _find_latest_cp_file → story-005.
+## All three stub-contract tests (load_latest_checkpoint, list_slots,
+## _find_latest_cp_file) were removed in story-005 — all three bodies are now
+## fully implemented (no longer stubs).
 ##
 ## NOTE: test_save_manager_save_checkpoint_stub_returns_false was removed in
 ## story-004 — save_checkpoint is now fully implemented (no longer a stub).
-
-
-## Stub contract: load_latest_checkpoint returns null until story-005 implements the pipeline.
-func test_save_manager_load_latest_checkpoint_stub_returns_null() -> void:
-	# Arrange
-	var sm: Node = (load(SAVE_MANAGER_PATH) as GDScript).new()
-
-	# Act
-	var got: SaveContext = sm.load_latest_checkpoint()
-
-	# Assert — stub default-return per story-002 scope (story-005 replaces)
-	assert_object(got).override_failure_message(
-		"load_latest_checkpoint stub must return null until story-005 implements the pipeline"
-	).is_null()
-
-	# Cleanup (G-6)
-	sm.free()
-
-
-## Stub contract: list_slots returns empty array until story-005 implements enumeration.
-func test_save_manager_list_slots_stub_returns_empty_array() -> void:
-	# Arrange
-	var sm: Node = (load(SAVE_MANAGER_PATH) as GDScript).new()
-
-	# Act
-	var got: Array[Dictionary] = sm.list_slots()
-
-	# Assert — stub default-return per story-002 scope (story-005 replaces)
-	assert_int(got.size()).override_failure_message(
-		"list_slots stub must return empty array until story-005 implements enumeration; got size %d" % got.size()
-	).is_equal(0)
-
-	# Cleanup (G-6)
-	sm.free()
-
-
-## Stub contract: _find_latest_cp_file returns empty string until story-005 implements discovery.
-func test_save_manager_find_latest_cp_file_stub_returns_empty_string() -> void:
-	# Arrange
-	var sm: Node = (load(SAVE_MANAGER_PATH) as GDScript).new()
-
-	# Act
-	var got: String = sm._find_latest_cp_file(1)
-
-	# Assert — stub default-return per story-002 scope (story-005 replaces)
-	assert_str(got).override_failure_message(
-		"_find_latest_cp_file stub must return empty string until story-005 implements discovery; got '%s'" % got
-	).is_equal("")
-
-	# Cleanup (G-6)
-	sm.free()
 
 
 # ── Story-004: Save pipeline ──────────────────────────────────────────────────
@@ -841,19 +790,53 @@ func test_save_manager_crash_during_save_leaves_old_file_intact() -> void:
 	SaveManagerStub.swap_out()
 
 
-## AC-V7 STUBBED — load pipeline cache-mode enforcement test deferred to story-005.
-## GdUnit4 v6.1.2 does not expose a per-test skip() callable from within a test body
-## (skip is a suite-level __is_skipped var, not a public function). Form chosen:
-## no-op assert_bool(true).is_true() so the test counts as PASSED without asserting
-## any real behavior. Story-005 will replace this body with the real assertion.
+## AC-V7 — CACHE_MODE_IGNORE enforced by load_latest_checkpoint.
+## Saves ctx_v1 (echo_count=5) then ctx_v2 (echo_count=99) to the same
+## (slot=1, ch=1, cp=1) path, overwriting the file. Calls load_latest_checkpoint
+## and asserts the loaded value reflects v2 (echo_count==99), not the cached v1.
+## Without CACHE_MODE_IGNORE, ResourceLoader's in-memory cache would return v1's
+## echo_count=5 — the test proves the bypass is active.
 func test_save_manager_cache_mode_ignore_enforced() -> void:
-	# STUBBED — authored in story-005 (load pipeline).
-	# Real assertion: ResourceLoader.load(path, "", CACHE_MODE_IGNORE) is used for
-	# all loads, confirmed by verifying load_latest_checkpoint uses the three-argument
-	# form. Story-005 will replace this body.
-	assert_bool(true).override_failure_message(
-		"AC-V7 STUBBED: placeholder passes; real assertion authored in story-005"
+	# Arrange
+	var stub: Node = SaveManagerStub.swap_in()
+	stub.set_active_slot(1)
+
+	var ctx_v1: SaveContext = SaveContext.new()
+	ctx_v1.chapter_number = 1
+	ctx_v1.last_cp = 1
+	ctx_v1.echo_count = 5
+
+	var ctx_v2: SaveContext = SaveContext.new()
+	ctx_v2.chapter_number = 1
+	ctx_v2.last_cp = 1
+	ctx_v2.echo_count = 99
+
+	# Act — save v1, then overwrite with v2 at the same path
+	var ok_v1: bool = stub.save_checkpoint(ctx_v1)
+	assert_bool(ok_v1).override_failure_message(
+		"AC-V7: v1 save must succeed"
 	).is_true()
+
+	var ok_v2: bool = stub.save_checkpoint(ctx_v2)
+	assert_bool(ok_v2).override_failure_message(
+		"AC-V7: v2 save must succeed"
+	).is_true()
+
+	var loaded: SaveContext = stub.load_latest_checkpoint()
+
+	# Assert — must reflect v2 content (echo_count=99), not the cached v1 (echo_count=5)
+	assert_object(loaded).override_failure_message(
+		"AC-V7: load_latest_checkpoint must return a non-null SaveContext after v2 save"
+	).is_not_null()
+
+	if loaded != null:
+		assert_int(loaded.echo_count).override_failure_message(
+			("AC-V7: loaded echo_count must be 99 (v2), not 5 (v1 cache);"
+			+ " got %d — CACHE_MODE_IGNORE may be missing") % loaded.echo_count
+		).is_equal(99)
+
+	# Explicit cleanup (G-6)
+	SaveManagerStub.swap_out()
 
 
 ## AC-NO-MUTATE — source SaveContext is never mutated during save.
@@ -1115,6 +1098,497 @@ func test_save_manager_performance_full_save_under_50ms() -> void:
 		("AC-PERF: save_checkpoint must complete in <50,000 µs (50 ms);"
 		+ " got %d µs") % elapsed_us
 	).is_true()
+
+	# Explicit cleanup (G-6)
+	SaveManagerStub.swap_out()
+
+
+# ── Story-005: Load pipeline ──────────────────────────────────────────────────
+##
+## All story-005 tests use SaveManagerStub.swap_in() for temp-root isolation,
+## per the same per-test scoping discipline established in story-004.
+## Each test creates its own local stub and calls SaveManagerStub.swap_out()
+## explicitly at the end of the test body (G-6).
+##
+## G-10 sidestep: load_latest_checkpoint and list_slots are called directly on
+## the stub instance, not via a GameBus roundtrip.
+## G-14: _effective_save_root().rstrip("/") guards all path construction against
+## the trailing slash that SaveManagerStub sets on _save_root_override.
+
+
+## AC-V2 — Array[EchoMark] round-trip: 10 EchoMarks with unique fields survive
+## save via story-004 pipeline + load via load_latest_checkpoint element-wise.
+func test_save_manager_load_array_echomark_round_trip() -> void:
+	# Arrange
+	var stub: Node = SaveManagerStub.swap_in()
+	stub.set_active_slot(1)
+
+	var ctx: SaveContext = SaveContext.new()
+	ctx.chapter_number = 1
+	ctx.last_cp = 1
+	ctx.echo_count = 10
+
+	for i: int in range(10):
+		var em: EchoMark = EchoMark.new()
+		em.beat_index = i + 1
+		em.outcome = StringName("outcome_%d" % i)
+		em.tag = StringName("tag_%d" % i)
+		ctx.echo_marks_archive.append(em)
+
+	# Act
+	var ok: bool = stub.save_checkpoint(ctx)
+	assert_bool(ok).override_failure_message(
+		"AC-V2: save_checkpoint must succeed"
+	).is_true()
+
+	var loaded: SaveContext = stub.load_latest_checkpoint()
+
+	# Assert — load succeeded
+	assert_object(loaded).override_failure_message(
+		"AC-V2: load_latest_checkpoint must return a non-null SaveContext"
+	).is_not_null()
+
+	if loaded == null:
+		SaveManagerStub.swap_out()
+		return
+
+	assert_int(loaded.echo_marks_archive.size()).override_failure_message(
+		"AC-V2: echo_marks_archive must have 10 elements; got %d" % loaded.echo_marks_archive.size()
+	).is_equal(10)
+
+	# Element-wise field check
+	for i: int in range(10):
+		var em: EchoMark = loaded.echo_marks_archive[i] as EchoMark
+		assert_object(em).override_failure_message(
+			"AC-V2: echo_marks_archive[%d] must be an EchoMark instance" % i
+		).is_not_null()
+		if em == null:
+			continue
+		assert_int(em.beat_index).override_failure_message(
+			"AC-V2: echo_marks_archive[%d].beat_index must be %d; got %d" % [i, i + 1, em.beat_index]
+		).is_equal(i + 1)
+		assert_str(em.outcome as String).override_failure_message(
+			("AC-V2: echo_marks_archive[%d].outcome must be 'outcome_%d';"
+			+ " got '%s'") % [i, i, em.outcome as String]
+		).is_equal("outcome_%d" % i)
+		assert_str(em.tag as String).override_failure_message(
+			("AC-V2: echo_marks_archive[%d].tag must be 'tag_%d';"
+			+ " got '%s'") % [i, i, em.tag as String]
+		).is_equal("tag_%d" % i)
+
+	# Explicit cleanup (G-6)
+	SaveManagerStub.swap_out()
+
+
+## AC-EMPTY-SLOT — load_latest_checkpoint on a fresh slot with no save files
+## returns null silently (empty is not a failure; save_load_failed must NOT fire).
+func test_save_manager_load_latest_checkpoint_empty_slot_returns_null() -> void:
+	# Arrange — fresh stub with no saves written
+	var stub: Node = SaveManagerStub.swap_in()
+	stub.set_active_slot(1)
+
+	# Capture any spurious save_load_failed emissions (G-4: Array + append pattern)
+	var captured_fails: Array = []
+	var cb_fail := func(op: String, reason: String) -> void:
+		captured_fails.append([op, reason])
+	GameBus.save_load_failed.connect(cb_fail)
+
+	# Act
+	var loaded: SaveContext = stub.load_latest_checkpoint()
+
+	# Assert — returns null (empty slot, not a failure)
+	assert_object(loaded).override_failure_message(
+		"AC-EMPTY-SLOT: load_latest_checkpoint must return null for an empty slot"
+	).is_null()
+
+	# Assert — no signal emitted (empty slot is silent)
+	assert_int(captured_fails.size()).override_failure_message(
+		("AC-EMPTY-SLOT: save_load_failed must NOT be emitted for an empty slot;"
+		+ " got %d emissions") % captured_fails.size()
+	).is_equal(0)
+
+	# Cleanup
+	GameBus.save_load_failed.disconnect(cb_fail)
+	SaveManagerStub.swap_out()
+
+
+## AC-V12a — newest CP within same chapter: cp_2 wins over cp_1.
+## Saves ch_01_cp_1 then ch_01_cp_2 to the active slot. load_latest_checkpoint
+## must return the cp_2 content (play_time_seconds=200, not 100).
+func test_save_manager_load_latest_checkpoint_newest_cp_within_chapter() -> void:
+	# Arrange
+	var stub: Node = SaveManagerStub.swap_in()
+	stub.set_active_slot(1)
+
+	var ctx_cp1: SaveContext = SaveContext.new()
+	ctx_cp1.chapter_number = 1
+	ctx_cp1.last_cp = 1
+	ctx_cp1.play_time_seconds = 100
+
+	var ctx_cp2: SaveContext = SaveContext.new()
+	ctx_cp2.chapter_number = 1
+	ctx_cp2.last_cp = 2
+	ctx_cp2.play_time_seconds = 200
+
+	# Act — save both; cp_2 has key=12, cp_1 has key=11; cp_2 must win
+	var ok1: bool = stub.save_checkpoint(ctx_cp1)
+	assert_bool(ok1).override_failure_message("AC-V12a: cp_1 save must succeed").is_true()
+
+	var ok2: bool = stub.save_checkpoint(ctx_cp2)
+	assert_bool(ok2).override_failure_message("AC-V12a: cp_2 save must succeed").is_true()
+
+	var loaded: SaveContext = stub.load_latest_checkpoint()
+
+	# Assert — cp_2 content returned (play_time_seconds=200)
+	assert_object(loaded).override_failure_message(
+		"AC-V12a: load_latest_checkpoint must return non-null SaveContext"
+	).is_not_null()
+	if loaded != null:
+		assert_int(loaded.last_cp).override_failure_message(
+			"AC-V12a: loaded last_cp must be 2 (cp_2 wins); got %d" % loaded.last_cp
+		).is_equal(2)
+		assert_int(loaded.play_time_seconds).override_failure_message(
+			("AC-V12a: loaded play_time_seconds must be 200 (cp_2);"
+			+ " got %d") % loaded.play_time_seconds
+		).is_equal(200)
+
+	# Explicit cleanup (G-6)
+	SaveManagerStub.swap_out()
+
+
+## AC-V12b — chapter wins over CP: ch_02_cp_1 (key=21) beats ch_01_cp_2 (key=12).
+## Saves ch_01_cp_2 then ch_02_cp_1. load_latest_checkpoint must return the
+## ch_02_cp_1 content (chapter_number=2), proving chapter-major ordering.
+func test_save_manager_load_latest_checkpoint_chapter_wins_over_cp() -> void:
+	# Arrange
+	var stub: Node = SaveManagerStub.swap_in()
+	stub.set_active_slot(1)
+
+	var ctx_ch1_cp2: SaveContext = SaveContext.new()
+	ctx_ch1_cp2.chapter_number = 1
+	ctx_ch1_cp2.last_cp = 2
+	ctx_ch1_cp2.play_time_seconds = 500
+
+	var ctx_ch2_cp1: SaveContext = SaveContext.new()
+	ctx_ch2_cp1.chapter_number = 2
+	ctx_ch2_cp1.last_cp = 1
+	ctx_ch2_cp1.play_time_seconds = 999
+
+	# Act — ch_01_cp_2 has key=12; ch_02_cp_1 has key=21; ch_02_cp_1 must win
+	var ok1: bool = stub.save_checkpoint(ctx_ch1_cp2)
+	assert_bool(ok1).override_failure_message("AC-V12b: ch_01_cp_2 save must succeed").is_true()
+
+	var ok2: bool = stub.save_checkpoint(ctx_ch2_cp1)
+	assert_bool(ok2).override_failure_message("AC-V12b: ch_02_cp_1 save must succeed").is_true()
+
+	var loaded: SaveContext = stub.load_latest_checkpoint()
+
+	# Assert — ch_02_cp_1 content returned (chapter_number=2, play_time_seconds=999)
+	assert_object(loaded).override_failure_message(
+		"AC-V12b: load_latest_checkpoint must return non-null SaveContext"
+	).is_not_null()
+	if loaded != null:
+		assert_int(loaded.chapter_number).override_failure_message(
+			"AC-V12b: loaded chapter_number must be 2 (chapter wins over cp); got %d" % loaded.chapter_number
+		).is_equal(2)
+		assert_int(loaded.play_time_seconds).override_failure_message(
+			("AC-V12b: loaded play_time_seconds must be 999 (ch_02_cp_1);"
+			+ " got %d") % loaded.play_time_seconds
+		).is_equal(999)
+
+	# Explicit cleanup (G-6)
+	SaveManagerStub.swap_out()
+
+
+## AC-V12c — 4-part filename parser rejects non-matching filenames.
+## Saves ch_01_cp_1 (valid), then writes a rogue file "slot_1/unknown.res" via
+## FileAccess (bypassing the save pipeline). load_latest_checkpoint must return
+## the valid ch_01_cp_1 content — the rogue file is silently ignored.
+func test_save_manager_load_latest_checkpoint_skips_non_matching_filenames() -> void:
+	# Arrange
+	var stub: Node = SaveManagerStub.swap_in()
+	stub.set_active_slot(1)
+
+	var ctx: SaveContext = SaveContext.new()
+	ctx.chapter_number = 1
+	ctx.last_cp = 1
+	ctx.play_time_seconds = 42
+
+	var ok: bool = stub.save_checkpoint(ctx)
+	assert_bool(ok).override_failure_message("AC-V12c: ch_01_cp_1 save must succeed").is_true()
+
+	# Write a rogue file directly — bypasses save pipeline, has non-matching name.
+	# "unknown.res" → split("_") = ["unknown"] → parts.size()!=4 → rejected by parser.
+	var slot_dir: String = stub._path_for(1, 1, 1).get_base_dir()
+	var rogue_path: String = slot_dir + "/unknown.res"
+	var rogue_file: FileAccess = FileAccess.open(rogue_path, FileAccess.WRITE)
+	assert_object(rogue_file).override_failure_message(
+		"AC-V12c: must be able to write rogue file at '%s'" % rogue_path
+	).is_not_null()
+	if rogue_file != null:
+		rogue_file.store_string("rogue content — not a valid resource")
+		rogue_file.close()
+
+	# Act
+	var loaded: SaveContext = stub.load_latest_checkpoint()
+
+	# Assert — ch_01_cp_1 returned (rogue file ignored)
+	assert_object(loaded).override_failure_message(
+		"AC-V12c: load_latest_checkpoint must return non-null SaveContext (rogue file rejected)"
+	).is_not_null()
+	if loaded != null:
+		assert_int(loaded.play_time_seconds).override_failure_message(
+			("AC-V12c: loaded play_time_seconds must be 42 (ch_01_cp_1 content);"
+			+ " got %d — rogue file may have been selected") % loaded.play_time_seconds
+		).is_equal(42)
+
+	# Explicit cleanup (G-6)
+	SaveManagerStub.swap_out()
+
+
+## AC-V9 (load edge) — byte-garbage file causes load_latest_checkpoint to return
+## null and emit save_load_failed with reason starting "invalid_resource:".
+## ResourceLoader.load returns null for non-resource binary content; the engine
+## logs "ERROR: Failed loading resource" to stderr — that is expected engine-level
+## logging, not a test failure.
+func test_save_manager_load_latest_checkpoint_corrupt_file_emits_invalid_resource() -> void:
+	# Arrange — write byte-garbage directly to the slot path (bypassing save pipeline)
+	var stub: Node = SaveManagerStub.swap_in()
+	stub.set_active_slot(1)
+
+	var corrupt_path: String = stub._path_for(1, 1, 1)
+	var corrupt_file: FileAccess = FileAccess.open(corrupt_path, FileAccess.WRITE)
+	assert_object(corrupt_file).override_failure_message(
+		"AC-V9: must be able to write corrupt file at '%s'" % corrupt_path
+	).is_not_null()
+	if corrupt_file != null:
+		corrupt_file.store_string("this is not a resource")
+		corrupt_file.close()
+
+	# Capture save_load_failed (G-4: Array + append pattern)
+	var captured_fails: Array = []
+	var cb_fail := func(op: String, reason: String) -> void:
+		captured_fails.append([op, reason])
+	GameBus.save_load_failed.connect(cb_fail)
+
+	# Act
+	var loaded: SaveContext = stub.load_latest_checkpoint()
+
+	# Assert — returns null (corrupt file is not a valid SaveContext)
+	assert_object(loaded).override_failure_message(
+		"AC-V9: load_latest_checkpoint must return null for a corrupt file"
+	).is_null()
+
+	# Assert — save_load_failed emitted exactly once
+	assert_int(captured_fails.size()).override_failure_message(
+		"AC-V9: save_load_failed must be emitted once for corrupt file; got %d" % captured_fails.size()
+	).is_equal(1)
+
+	# Assert — op == "load"
+	assert_str(captured_fails[0][0] as String).override_failure_message(
+		"AC-V9: save_load_failed op must be 'load'; got '%s'" % (captured_fails[0][0] as String)
+	).is_equal("load")
+
+	# Assert — reason starts with "invalid_resource:"
+	var reason: String = captured_fails[0][1] as String
+	assert_bool(reason.begins_with("invalid_resource:")).override_failure_message(
+		"AC-V9: reason must begin with 'invalid_resource:'; got '%s'" % reason
+	).is_true()
+
+	# Cleanup
+	GameBus.save_load_failed.disconnect(cb_fail)
+	SaveManagerStub.swap_out()
+
+
+## AC-EMPTY-SLOT (list variant) — list_slots on a fresh stub returns exactly
+## SLOT_COUNT dicts, all with empty: true and no corrupt key.
+func test_save_manager_list_slots_empty_dirs_all_empty() -> void:
+	# Arrange — fresh stub, no saves written
+	var stub: Node = SaveManagerStub.swap_in()
+
+	# Act
+	var slots: Array[Dictionary] = stub.list_slots()
+
+	# Assert — exactly SLOT_COUNT entries
+	assert_int(slots.size()).override_failure_message(
+		"AC-EMPTY-SLOT list: list_slots must return exactly 3 dicts; got %d" % slots.size()
+	).is_equal(3)
+
+	# Assert — all three are empty, no corrupt key
+	for i: int in range(slots.size()):
+		var d: Dictionary = slots[i]
+		assert_bool(d.get("empty", false) as bool).override_failure_message(
+			"AC-EMPTY-SLOT list: slots[%d].empty must be true; got %s" % [i, d]
+		).is_true()
+		assert_bool(d.has("corrupt")).override_failure_message(
+			"AC-EMPTY-SLOT list: slots[%d] must not have 'corrupt' key for an empty slot; got %s" % [i, d]
+		).is_false()
+
+	# Explicit cleanup (G-6)
+	SaveManagerStub.swap_out()
+
+
+## AC-V8 — slot isolation: saves to slots 1 and 2 appear in list_slots with
+## distinct metadata; slot 3 reports empty: true.
+func test_save_manager_list_slots_slot_isolation() -> void:
+	# Arrange
+	var stub: Node = SaveManagerStub.swap_in()
+
+	# Save to slot 1
+	stub.set_active_slot(1)
+	var ctx1: SaveContext = SaveContext.new()
+	ctx1.chapter_number = 3
+	ctx1.last_cp = 2
+	ctx1.play_time_seconds = 111
+	var ok1: bool = stub.save_checkpoint(ctx1)
+	assert_bool(ok1).override_failure_message("AC-V8: slot 1 save must succeed").is_true()
+
+	# Save to slot 2
+	stub.set_active_slot(2)
+	var ctx2: SaveContext = SaveContext.new()
+	ctx2.chapter_number = 5
+	ctx2.last_cp = 1
+	ctx2.play_time_seconds = 222
+	var ok2: bool = stub.save_checkpoint(ctx2)
+	assert_bool(ok2).override_failure_message("AC-V8: slot 2 save must succeed").is_true()
+
+	# Act
+	var slots: Array[Dictionary] = stub.list_slots()
+
+	# Assert — exactly 3 entries
+	assert_int(slots.size()).override_failure_message(
+		"AC-V8: list_slots must return exactly 3 dicts; got %d" % slots.size()
+	).is_equal(3)
+
+	# Assert slot 1 — non-empty, chapter_number=3, last_cp=2
+	var s1: Dictionary = slots[0]
+	assert_bool(s1.get("empty", true) as bool).override_failure_message(
+		"AC-V8: slot 1 must not be empty; got %s" % s1
+	).is_false()
+	assert_int(s1.get("chapter_number", -1) as int).override_failure_message(
+		"AC-V8: slot 1 chapter_number must be 3; got %d" % (s1.get("chapter_number", -1) as int)
+	).is_equal(3)
+	assert_int(s1.get("last_cp", -1) as int).override_failure_message(
+		"AC-V8: slot 1 last_cp must be 2; got %d" % (s1.get("last_cp", -1) as int)
+	).is_equal(2)
+
+	# Assert slot 2 — non-empty, chapter_number=5, last_cp=1
+	var s2: Dictionary = slots[1]
+	assert_bool(s2.get("empty", true) as bool).override_failure_message(
+		"AC-V8: slot 2 must not be empty; got %s" % s2
+	).is_false()
+	assert_int(s2.get("chapter_number", -1) as int).override_failure_message(
+		"AC-V8: slot 2 chapter_number must be 5; got %d" % (s2.get("chapter_number", -1) as int)
+	).is_equal(5)
+	assert_int(s2.get("last_cp", -1) as int).override_failure_message(
+		"AC-V8: slot 2 last_cp must be 1; got %d" % (s2.get("last_cp", -1) as int)
+	).is_equal(1)
+
+	# Assert slot 3 — empty
+	var s3: Dictionary = slots[2]
+	assert_bool(s3.get("empty", false) as bool).override_failure_message(
+		"AC-V8: slot 3 must be empty; got %s" % s3
+	).is_true()
+
+	# Explicit cleanup (G-6)
+	SaveManagerStub.swap_out()
+
+
+## AC-V9 (list_slots variant) — byte-garbage file in slot_1 causes list_slots to
+## mark that slot as {empty: true, corrupt: true} without crashing.
+## Engine may log "ERROR: Failed loading resource" to stderr — expected, not a failure.
+func test_save_manager_list_slots_corrupt_file_marks_corrupt_true() -> void:
+	# Arrange — write byte-garbage directly to slot_1/ch_01_cp_1.res
+	var stub: Node = SaveManagerStub.swap_in()
+
+	var corrupt_path: String = stub._path_for(1, 1, 1)
+	var corrupt_file: FileAccess = FileAccess.open(corrupt_path, FileAccess.WRITE)
+	assert_object(corrupt_file).override_failure_message(
+		"AC-V9 list: must be able to write corrupt file at '%s'" % corrupt_path
+	).is_not_null()
+	if corrupt_file != null:
+		corrupt_file.store_string("this is not a resource")
+		corrupt_file.close()
+
+	# Act
+	var slots: Array[Dictionary] = stub.list_slots()
+
+	# Assert — list_slots did not crash; returned 3 entries
+	assert_int(slots.size()).override_failure_message(
+		"AC-V9 list: list_slots must return exactly 3 dicts; got %d" % slots.size()
+	).is_equal(3)
+
+	# Assert slot 1 — empty: true AND corrupt: true
+	var s1: Dictionary = slots[0]
+	assert_bool(s1.get("empty", false) as bool).override_failure_message(
+		"AC-V9 list: slot 1 must report empty:true for corrupt file; got %s" % s1
+	).is_true()
+	assert_bool(s1.get("corrupt", false) as bool).override_failure_message(
+		"AC-V9 list: slot 1 must report corrupt:true for corrupt file; got %s" % s1
+	).is_true()
+
+	# Assert slots 2 and 3 — unaffected
+	assert_bool(slots[1].get("empty", false) as bool).override_failure_message(
+		"AC-V9 list: slot 2 must be empty (no save written); got %s" % slots[1]
+	).is_true()
+	assert_bool(slots[2].get("empty", false) as bool).override_failure_message(
+		"AC-V9 list: slot 3 must be empty (no save written); got %s" % slots[2]
+	).is_true()
+
+	# Explicit cleanup (G-6)
+	SaveManagerStub.swap_out()
+
+
+## AC-list_slots-ordering — list_slots returns entries in ascending slot_id order
+## regardless of which slots have data. Saves to slots 2 and 3 (not 1); verifies
+## out[0].slot_id==1, out[1].slot_id==2, out[2].slot_id==3.
+func test_save_manager_list_slots_returns_array_in_slot_id_order() -> void:
+	# Arrange — save to slots 2 and 3 only; slot 1 stays empty
+	var stub: Node = SaveManagerStub.swap_in()
+
+	stub.set_active_slot(2)
+	var ctx2: SaveContext = SaveContext.new()
+	ctx2.chapter_number = 1
+	ctx2.last_cp = 1
+	var ok2: bool = stub.save_checkpoint(ctx2)
+	assert_bool(ok2).override_failure_message("AC-list_slots-ordering: slot 2 save must succeed").is_true()
+
+	stub.set_active_slot(3)
+	var ctx3: SaveContext = SaveContext.new()
+	ctx3.chapter_number = 2
+	ctx3.last_cp = 1
+	var ok3: bool = stub.save_checkpoint(ctx3)
+	assert_bool(ok3).override_failure_message("AC-list_slots-ordering: slot 3 save must succeed").is_true()
+
+	# Act
+	var slots: Array[Dictionary] = stub.list_slots()
+
+	# Assert — exactly 3 entries
+	assert_int(slots.size()).override_failure_message(
+		"AC-list_slots-ordering: list_slots must return exactly 3 dicts; got %d" % slots.size()
+	).is_equal(3)
+
+	# Assert ascending slot_id order
+	assert_int(slots[0].get("slot_id", -1) as int).override_failure_message(
+		"AC-list_slots-ordering: slots[0].slot_id must be 1; got %d" % (slots[0].get("slot_id", -1) as int)
+	).is_equal(1)
+	assert_int(slots[1].get("slot_id", -1) as int).override_failure_message(
+		"AC-list_slots-ordering: slots[1].slot_id must be 2; got %d" % (slots[1].get("slot_id", -1) as int)
+	).is_equal(2)
+	assert_int(slots[2].get("slot_id", -1) as int).override_failure_message(
+		"AC-list_slots-ordering: slots[2].slot_id must be 3; got %d" % (slots[2].get("slot_id", -1) as int)
+	).is_equal(3)
+
+	# Assert slot 1 is empty, slots 2 and 3 are non-empty
+	assert_bool(slots[0].get("empty", false) as bool).override_failure_message(
+		"AC-list_slots-ordering: slot 1 must be empty (no save written); got %s" % slots[0]
+	).is_true()
+	assert_bool(slots[1].get("empty", true) as bool).override_failure_message(
+		"AC-list_slots-ordering: slot 2 must be non-empty; got %s" % slots[1]
+	).is_false()
+	assert_bool(slots[2].get("empty", true) as bool).override_failure_message(
+		"AC-list_slots-ordering: slot 3 must be non-empty; got %s" % slots[2]
+	).is_false()
 
 	# Explicit cleanup (G-6)
 	SaveManagerStub.swap_out()
