@@ -1,7 +1,7 @@
 # Story 001: TerrainModifiers + CombatModifiers Resource classes
 
 > **Epic**: terrain-effect
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
@@ -31,12 +31,12 @@
 
 *From ADR-0008 §Decision 6 + §Key Interfaces, scoped to Resource schema only (no runtime query behaviour):*
 
-- [ ] `src/core/terrain_modifiers.gd` declares `class_name TerrainModifiers extends Resource` with `@export` fields: `defense_bonus: int = 0`, `evasion_bonus: int = 0`, `special_rules: Array[StringName] = []`
-- [ ] `src/core/combat_modifiers.gd` declares `class_name CombatModifiers extends Resource` with `@export` fields: `defender_terrain_def: int = 0`, `defender_terrain_eva: int = 0`, `elevation_atk_mod: int = 0`, `elevation_def_mod: int = 0`, `bridge_no_flank: bool = false`, `special_rules: Array[StringName] = []`
-- [ ] Default construction of both classes yields all-zero / empty / false defaults exactly as documented
-- [ ] `TerrainModifiers` instance round-trips via `ResourceSaver.save(path)` → `ResourceLoader.load(path, "", CACHE_MODE_IGNORE)` with identical field values, including the `Array[StringName]` content
-- [ ] `CombatModifiers` instance round-trips identically (covers all 6 fields including `bridge_no_flank: bool` and `Array[StringName]`)
-- [ ] Round-trip preserves `int`, `bool`, and `StringName` element types (no silent `Variant` coercion in `Array[StringName]`)
+- [x] `src/core/terrain_modifiers.gd` declares `class_name TerrainModifiers extends Resource` with `@export` fields: `defense_bonus: int = 0`, `evasion_bonus: int = 0`, `special_rules: Array[StringName] = []`
+- [x] `src/core/combat_modifiers.gd` declares `class_name CombatModifiers extends Resource` with `@export` fields: `defender_terrain_def: int = 0`, `defender_terrain_eva: int = 0`, `elevation_atk_mod: int = 0`, `elevation_def_mod: int = 0`, `bridge_no_flank: bool = false`, `special_rules: Array[StringName] = []`
+- [x] Default construction of both classes yields all-zero / empty / false defaults exactly as documented
+- [x] `TerrainModifiers` instance round-trips via `ResourceSaver.save(path)` → `ResourceLoader.load(path, "", CACHE_MODE_IGNORE)` with identical field values, including the `Array[StringName]` content
+- [x] `CombatModifiers` instance round-trips identically (covers all 6 fields including `bridge_no_flank: bool` and `Array[StringName]`)
+- [x] Round-trip preserves `int`, `bool`, and `StringName` element types (no silent `Variant` coercion in `Array[StringName]`)
 
 ---
 
@@ -106,7 +106,7 @@
 **Required evidence**:
 - `tests/unit/core/terrain_resource_classes_test.gd` — must exist and pass (5 tests covering AC-1..5)
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — 5 test functions, 0 failures, 0 orphans (regression 236/236 PASS)
 
 ---
 
@@ -114,3 +114,29 @@
 
 - Depends on: None (greenfield Resource schema; ADR-0008 Accepted; map-grid epic provides the precedent pattern)
 - Unlocks: Story 002 (TerrainEffect skeleton — static vars typed against these Resource classes), Story 004 (queries return TerrainModifiers), Story 005 (queries return CombatModifiers)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-25
+**Criteria**: 6/6 passing (all automated; 0 deferred; 0 untested)
+**Deviations**: None — implementation mirrors ADR-0008 §Decision 6 + §Key Interfaces (lines 470-496) verbatim
+**Test Evidence**: `tests/unit/core/terrain_resource_classes_test.gd` (354 LoC, 5 test functions) — full regression 236/236 PASS, 0 errors / 0 failures / 0 flaky / 0 orphans, Godot exit 0
+**Code Review**: Complete (lean mode standalone) — godot-gdscript-specialist CLEAN WITH SUGGESTIONS + qa-tester TESTABLE WITH GAPS; both convergent on AC-Type-Preservation partial-coverage gap and instance-identity audit. 6 inline assertions added: 4 missing TYPE_INT typeof checks (`evasion_bonus`, `defender_terrain_eva`, `elevation_atk_mod`, `elevation_def_mod`) + 2 instance-identity checks (`assert_bool(loaded != original).is_true()` on AC-Roundtrip-TM/CM) close the residual `CACHE_MODE_REUSE` false-positive vector
+**QA Gates**: QL-TEST-COVERAGE + LP-CODE-REVIEW SKIPPED (lean mode); standalone /code-review covered convergent specialist review
+
+**Files delivered**:
+- `src/core/terrain_modifiers.gd` (NEW, 35 LoC) — `class_name TerrainModifiers extends Resource`; 3 `@export` fields per ADR-0008 §Decision 6; G-2 `.duplicate()` demotion forewarning embedded in header for story-005 implementer
+- `src/core/combat_modifiers.gd` (NEW, 53 LoC) — `class_name CombatModifiers extends Resource`; 6 `@export` fields incl. `bridge_no_flank: bool` (TR-terrain-effect-009 denormalised CR-5 flag); same G-2 forewarning header
+- `tests/unit/core/terrain_resource_classes_test.gd` (NEW, 354 LoC, 5 test functions) — default-construction (AC-1, AC-2) + ResourceSaver round-trip (AC-3, AC-4) + element-type preservation (AC-5); mirrors `payload_serialization_test.gd` cleanup discipline (6/7 pattern fidelity)
+
+**Process insights**:
+- **NEW gotcha candidate G-13**: `class_name` global identifier registration is async to file creation. Tests referencing newly-declared `class_name` parse-fail with "Identifier not declared in current scope" until `.godot/global_script_class_cache.cfg` is refreshed. Safe headless refresh: `godot --headless --import --path .` between file creation and first test invocation. Surfaced this story; worth codifying in `.claude/rules/godot-4x-gotchas.md`.
+- Sub-agent Write-permission block recurred (story-007/008 pattern). Orchestrator-direct write recovery — agent's drafts consumed verbatim, just written by orchestrator.
+- Convergent /code-review pattern (gdscript-specialist + qa-tester parallel) ran in <1.5min combined; 6 actionable improvements applied inline within ~3min — pattern continues to validate as lean-mode minimum-safe-unit.
+- Pre-warning embedded for story-005 (G-2 `.duplicate()` demotion) in BOTH Resource header doc-comments — cross-story handoff documentation.
+
+**Tech debt logged**: None new this story.
+
+**Unlocks**: Story 002 (TerrainEffect skeleton + static state + lazy-init guard + reset_for_tests discipline), Story 004 (get_terrain_modifiers query), Story 005 (get_combat_modifiers query — will exercise the `.duplicate()` G-2 forewarning embedded here).
