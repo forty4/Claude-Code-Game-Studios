@@ -1383,3 +1383,117 @@ The spec example's "35" is internally inconsistent with the standard Dijkstra in
   - Inverted `assert_bool(not has(...)).is_false()` at line 200 (original AC-2a) masked a deeper cost-model divergence between spec and implementation. AC-2a/2b restructured (HILLS/ROAD at (3,0) instead of (1,0)) for the meaningful budget discriminator.
 - Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-005)
 
+### A-21 — Extended query signatures (story-006)
+
+**Source**: map-grid story-006 implementation 2026-04-25.
+
+**Issue**: ADR-0004 §Decision 5 lists minimal MVP signatures; story-006 spec extends both required parameters:
+- `get_attack_range(origin, attack_range, apply_los: bool)` — `apply_los` needed for §CR-7 ranged-vs-melee distinction
+- `get_attack_direction(attacker, defender, defender_facing: int)` — `defender_facing` needed for §F-5 angular formula
+
+Implementation followed story-006 spec signatures (only way to satisfy AC-7 + AC-8).
+
+**Errata required**: ADR-0004 §Decision 5 + tr-registry.yaml TR-map-grid-003 (if signature text appears).
+
+**Estimated effort**: ~15 min.
+
+**Suggested trigger**: ADR-0004 errata batch with A-16, A-17, A-18, A-20, A-22.
+
+### A-22 — get_attack_direction sign convention errata (story-006)
+
+**Source**: map-grid story-006 `/code-review` 2026-04-25 (caught by AC-8 expected-value comparison).
+
+**Issue**: Story-006 spec line 70-73 prescribes "EAST if dc > 0, WEST if dc < 0; SOUTH if dr > 0, NORTH if dr < 0." This contradicts AC-8 expected matrix:
+- attacker N(2,1) of defender(2,2) facing NORTH → AC-8 says FRONT
+- Spec formula gives: dc=0, dr=1 → SOUTH → relative_angle=2 → REAR (wrong)
+
+AC-canonical convention: with `dc = defender.x - attacker.x`, `dc > 0` means attacker is WEST of defender, so attack came from WEST (attack_dir = WEST). Same for `dr > 0` → NORTH.
+
+**Resolution**: Implementation uses inverted (AC-canonical) mapping:
+```
+attack_dir = WEST if dc > 0 else EAST   # spec said EAST/WEST
+attack_dir = NORTH if dr > 0 else SOUTH # spec said SOUTH/NORTH
+```
+
+Inline comment at `src/core/map_grid.gd:1263-1267` documents.
+
+**Errata required (3 documents)**:
+- `production/epics/map-grid/story-006-los-attack-queries.md` line 70-73 — flip sign convention
+- `docs/architecture/ADR-0004-map-grid-data-model.md` §F-5 — verify sign convention matches AC-8
+- `design/gdd/map-grid.md` §F-5 — same verification + cross-check with `damage-calc.md`
+
+**Estimated effort**: ~30 min (3-document edit + cross-check damage-calc.md).
+
+**Suggested trigger**: ADR-0004 errata batch with A-16, A-17, A-18, A-20, A-21.
+
+### A-23 — Destroyed-wall LoS restoration test missing (story-006)
+
+**Source**: map-grid story-006 `/code-review` qa-tester gap 1 (2026-04-25).
+
+**Issue**: Story-006 V-3 matrix spec line 126 lists "2 destroyed-wall cases (mutation via story-004 API to set STATE_DESTROYED → LoS restored)". Implementation V-3 fixture has NONE — the destroyed-wall LoS-restoration branch is unexercised.
+
+**Resolution**: Add test function building a map with FORTRESS_WALL, calling `apply_tile_damage` to destroy it, then asserting `has_line_of_sight` across the former wall returns `true`.
+
+**Estimated effort**: ~20 min.
+
+**Suggested trigger**: advisory test batch with A-24, A-25, A-26.
+
+### A-24 — Defensive guard tests + doc-comment correction (story-006)
+
+**Source**: map-grid story-006 `/code-review` qa-tester edge-case findings (2026-04-25).
+
+**Issue**: 3 untested defensive guards:
+- `has_line_of_sight` with `_map == null` (line 1047)
+- `has_line_of_sight` with out-of-bounds coords (lines 1054-1057)
+- `get_adjacent_units` with out-of-bounds `coord` (lines 1300-1301)
+
+Plus 1 doc accuracy issue: `get_attack_direction` doc comment (line 1239) says "out-of-range `defender_facing` values produce undefined behavior" but actual behavior is well-defined (modulo arithmetic gives `relative_angle ∈ [0,3]` for any integer).
+
+**Resolution**: 2 small test functions + 1 doc-comment correction.
+
+**Estimated effort**: ~30 min.
+
+**Suggested trigger**: advisory test batch with A-23, A-25, A-26.
+
+### A-25 — Attack-direction matrix incomplete (story-006)
+
+**Source**: map-grid story-006 `/code-review` qa-tester gap (2026-04-25).
+
+**Issue**: AC-8 covers `get_attack_direction` for NORTH and EAST `defender_facing` only. Full canonical contract with `damage-calc.md` is the 4×4 cross-product. SOUTH and WEST are deterministic by the same formula but not explicitly verified.
+
+**Resolution**: 2 test functions mirroring AC-8 NORTH/EAST tests for SOUTH and WEST facing.
+
+**Estimated effort**: ~15 min (copy-paste-modify + 8 expected pairs).
+
+**Suggested trigger**: advisory test batch with A-23, A-24, A-26.
+
+### A-26 — Tie-break × non-NORTH facing edge case (story-006)
+
+**Source**: map-grid story-006 `/code-review` qa-tester observation (2026-04-25).
+
+**Issue**: AC-9 verifies horizontal tie-break only against NORTH-facing defender. Tie-break × non-NORTH is tested only implicitly via formula derivation.
+
+**Resolution**: 1 test function with 4 cross-product cases (e.g., SE diagonal vs EAST-facing → FRONT).
+
+**Estimated effort**: ~10 min.
+
+**Suggested trigger**: advisory test batch with A-23, A-24, A-25.
+
+---
+
+**Updated estimated remediation effort (revised — includes A-21..A-26)**: 7-8 hours total
+
+**Suggested trigger (revised, post-story-006)**: Two-batch plan:
+- **ADR-0004 errata pass**: A-16 + A-17 + A-18 + A-20 + A-21 + A-22 (6 deviations across 3 documents). Combined ~2-2.5h. Best done before story-007 close-out so AC-PERF-2 measures the canonical contract and `damage-calc.md` cross-system contract reflects A-22's sign convention correctly.
+- **Advisory test pass**: A-23 + A-24 + A-25 + A-26 (4 follow-up tests + 1 doc fix). Combined ~75 min.
+
+**Story-006 specific links**:
+- Story: `production/epics/map-grid/story-006-los-attack-queries.md`
+- Review: standalone `/code-review` 2026-04-25 (godot-gdscript-specialist CLEAN + qa-tester TESTABLE WITH ADVISORY GAPS)
+- **Real bugs caught and fixed during integration testing** (NOT deferred — validates test rigor):
+  1. Bresenham corner-cut order: D=2 diagonal reached destination in one iteration, skipping corner-cut. Fixed by running corner-cut BEFORE destination guard.
+  2. Diagonal-step intermediate: post-step `(x,y)` was never evaluated. Fixed with unconditional `_tile_blocks_los(x,y)` after destination guard.
+  3. Test fixture: FORTRESS_WALL elev=0 violated CR-3 ELEVATION_RANGES → load_map silent fail → all LoS returned false. Fixed factory to elev=1.
+- **Spec-canonical sign convention divergence (A-22)**: caught by AC-8 expected-value comparison; spec wrong, AC canonical.
+- Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-006)
+
