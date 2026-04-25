@@ -67,10 +67,13 @@
   - Manhattan filter: for each tile within `attack_range` of origin (diamond pattern), add to candidate list. O(attack_range²) candidate count.
   - If `apply_los == true`, filter via `has_line_of_sight(origin, candidate)`. Consumer decides per-call whether to apply (melee skips LoS; ranged applies it per GDD §CR-7 "원거리 유닛에만 적용").
   - EXCLUDE origin from result.
-- `get_attack_direction` formula: `dc = defender.x - attacker.x`, `dr = defender.y - attacker.y`. Determine `attack_dir: int`:
-  - if `abs(dc) >= abs(dr)`: horizontal-axis (EAST if `dc > 0`, WEST if `dc < 0`)
-  - else: vertical-axis (SOUTH if `dr > 0`, NORTH if `dr < 0`)
-  - Note: `>=` not `>` — this encodes the horizontal-tie-break rule (`abs(dc) == abs(dr)` → horizontal wins).
+- `get_attack_direction` formula (TD-032 A-22 errata 2026-04-25 — sign convention corrected to match AC-8 expected matrix; earlier draft had EAST/WEST and SOUTH/NORTH inverted):
+  `dc = defender.x - attacker.x`, `dr = defender.y - attacker.y`. `attack_dir` is the compass direction FROM the defender's perspective of where the attacker is (i.e. the direction the attack came FROM). With these deltas:
+  - `dc > 0` ⇒ `attacker.x < defender.x` ⇒ attacker is WEST of defender ⇒ `attack_dir = WEST`
+  - `dr > 0` ⇒ `attacker.y < defender.y` ⇒ attacker is NORTH of defender ⇒ `attack_dir = NORTH`
+  - if `abs(dc) >= abs(dr)`: horizontal-axis (`WEST if dc > 0 else EAST`)
+  - else: vertical-axis (`NORTH if dr > 0 else SOUTH`)
+  - Note: `>=` not `>` — this encodes §EC-4 horizontal-tie-break (`abs(dc) == abs(dr)` → horizontal wins).
   - Then: `relative_angle = (attack_dir - defender_facing + 4) % 4`; lookup `{0: FRONT, 1: FLANK, 2: REAR, 3: FLANK}`.
 - Same-tile attack (§EC-4): `dc == 0 and dr == 0` → return `FRONT` + `push_warning("ERR_SAME_TILE_ATTACK")`. Deterministic fallback for caller-bug recovery.
 - `get_adjacent_units` implementation:
@@ -90,7 +93,7 @@
 
 *Handled by neighbouring stories — do not implement here:*
 
-- Story 005: `get_movement_range`, `get_path` Dijkstra queries (already complete by the time this story starts)
+- Story 005: `get_movement_range`, `get_movement_path` Dijkstra queries (already complete by the time this story starts)
 - Story 007: Performance benchmark for `get_movement_range` at 40×30 (AC-PERF-2)
 - Grid Battle's actual attack resolution (this story provides the geometry; damage calc lives in its own epic)
 - Fog of war / vision range filtering — GDD §Open Questions #4 (Alpha phase, not MVP)

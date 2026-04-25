@@ -205,14 +205,27 @@ BattleScene (scene root — battle-scoped per ADR-0002)
 ```gdscript
 func get_tile(coord: Vector2i) -> MapTileData
 func get_movement_range(unit_id: int, move_range: int, unit_type: int) -> PackedVector2Array
-func get_path(from: Vector2i, to: Vector2i, unit_type: int) -> PackedVector2Array
-func get_attack_range(origin: Vector2i, attack_range: int) -> PackedVector2Array
-func get_attack_direction(attacker: Vector2i, defender: Vector2i) -> int  # enum
-func get_adjacent_units(coord: Vector2i) -> PackedInt32Array  # unit_ids
-func get_occupied_tiles() -> PackedVector2Array
+func get_movement_path(from: Vector2i, to: Vector2i, unit_type: int) -> PackedVector2Array
+func get_attack_range(origin: Vector2i, attack_range: int, apply_los: bool) -> PackedVector2Array
+func get_attack_direction(attacker: Vector2i, defender: Vector2i, defender_facing: int) -> int  # enum
+func get_adjacent_units(coord: Vector2i, faction: int = -1) -> PackedInt32Array  # unit_ids
+func get_occupied_tiles(faction: int = -1) -> PackedVector2Array
 func has_line_of_sight(from: Vector2i, to: Vector2i) -> bool
 func get_map_dimensions() -> Vector2i
 ```
+
+> **Errata 2026-04-25 (TD-032 A-18, A-21)**: Original signatures were `get_path(...)`,
+> `get_attack_range(origin, range)`, `get_attack_direction(attacker, defender)`,
+> and `get_adjacent_units(coord)` / `get_occupied_tiles()` (no faction filter).
+> Updated to actual implementation per stories 005, 006, 008:
+> - `get_path` renamed to `get_movement_path` to avoid shadowing inherited
+>   `Node.get_path() -> NodePath` (G-13 candidate gotcha).
+> - `get_attack_range` adds `apply_los: bool` parameter for §CR-7 ranged-vs-melee
+>   distinction.
+> - `get_attack_direction` adds `defender_facing: int` parameter for §F-5 angular
+>   formula (FRONT/FLANK/REAR depends on defender orientation).
+> - `get_adjacent_units` and `get_occupied_tiles` add optional `faction` filter
+>   (default `-1` = any faction).
 
 ### 6. Mutation API (called only by Grid Battle)
 
@@ -235,6 +248,17 @@ func apply_tile_damage(coord: Vector2i, damage: int) -> bool
   Effect and consumed here via a constant `TerrainCost` table.
 - **Integer cost** per GDD F-3: `move_budget = move_range × 10`.
   `step_cost = base_terrain_cost(terrain_type) × cost_multiplier(unit_type, terrain_type)`.
+  `step_cost` is the cost of **entering** a tile (origin contributes 0; only non-origin
+  tiles accumulate cost). Standard Dijkstra convention.
+
+  > **Errata 2026-04-25 (TD-032 A-20)**: Earlier draft examples in this ADR and
+  > story-005 used a non-standard "origin-included" cost model
+  > (e.g. "PLAINS→HILLS→PLAINS = 10+15+10 = 35"). The implementation uses
+  > **standard Dijkstra** (origin entry cost = 0), so the same path costs 25
+  > (only 2 transitions; origin contributes 0). All cost-formula examples in
+  > this ADR + GDD §F-3 + story-005 spec are reconciled to the standard model:
+  > a 3-tile horizontal traversal costs `step_cost(tile_2) + step_cost(tile_3)`,
+  > NOT `step_cost(origin) + step_cost(tile_2) + step_cost(tile_3)`.
 - **Early termination**: abort exploration when
   `remaining_budget < min_remaining_cost_to_reach(goal)`. For
   `get_movement_range()` (no goal), simply stop expanding when
@@ -329,13 +353,15 @@ func load_map(map_res: MapResource) -> void
 func get_map_dimensions() -> Vector2i
 
 # ─── Query API (read-only; reads packed caches only) ──────
+# Signatures reflect actual implementation per stories 005-006-008 (see §Decision 5
+# errata for the rename + parameter additions).
 func get_tile(coord: Vector2i) -> MapTileData
 func get_movement_range(unit_id: int, move_range: int, unit_type: int) -> PackedVector2Array
-func get_path(from: Vector2i, to: Vector2i, unit_type: int) -> PackedVector2Array
-func get_attack_range(origin: Vector2i, attack_range: int) -> PackedVector2Array
-func get_attack_direction(attacker: Vector2i, defender: Vector2i) -> int
-func get_adjacent_units(coord: Vector2i) -> PackedInt32Array
-func get_occupied_tiles() -> PackedVector2Array
+func get_movement_path(from: Vector2i, to: Vector2i, unit_type: int) -> PackedVector2Array
+func get_attack_range(origin: Vector2i, attack_range: int, apply_los: bool) -> PackedVector2Array
+func get_attack_direction(attacker: Vector2i, defender: Vector2i, defender_facing: int) -> int
+func get_adjacent_units(coord: Vector2i, faction: int = -1) -> PackedInt32Array
+func get_occupied_tiles(faction: int = -1) -> PackedVector2Array
 func has_line_of_sight(from: Vector2i, to: Vector2i) -> bool
 
 # ─── Mutation API (Grid Battle only by convention) ────────

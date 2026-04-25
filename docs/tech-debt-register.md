@@ -1260,7 +1260,11 @@ Call sites become: `TestHelpers.assert_all_caches_match_tiledata(self, grid, che
   2. **Gaps 7+8 (qa-tester)**: `ERR_UNIT_COORD_OUT_OF_BOUNDS` path + null-map pre-load mutations — new AC-10 test (`test_..._null_map_and_out_of_bounds_guards_are_noop`) exercises all 6 previously-untested guards (3 null-map + 3 OOB × multiple coord variants).
 - Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-004)
 
-### A-16 — TerrainCost integer ordering reconciliation (story-005)
+### A-16 — TerrainCost integer ordering reconciliation (story-005) — **RESOLVED 2026-04-25**
+
+**Resolution**: Story-005 spec line 60 carried the spec-vs-MapGrid ordering note as a documented deviation; MapGrid's already-committed ordering (PLAINS=0, FOREST=1, HILLS=2, MOUNTAIN=3) is canonical and matches `terrain_cost.gd`. No spec edit required — the deviation is permanently captured in the Completion Notes block of story-005 and the inline comment at `terrain_cost.gd:13`. Closing without ADR change.
+
+
 
 **Source**: map-grid story-005 implementation 2026-04-25.
 
@@ -1295,7 +1299,14 @@ Implementation followed `MapGrid`'s committed ordering (the `_terrain_type_cache
 
 **Suggested trigger**: same pass as A-16 if ADR-0004 receives an errata revision.
 
-### A-18 — `get_path` → `get_movement_path` API rename (story-005)
+### A-18 — `get_path` → `get_movement_path` API rename (story-005) — **RESOLVED 2026-04-25**
+
+**Resolution**: Applied 3-document errata in `chore/map-grid-td-032-adr-errata` branch:
+- `docs/architecture/ADR-0004-map-grid-data-model.md` §Decision 5 (signature block) and §Key Interfaces signature mirror — both updated to `get_movement_path` plus errata callout linking to TD-032 A-18/A-21.
+- `docs/architecture/tr-registry.yaml` TR-map-grid-003 — requirement text updated to list `get_movement_path` and the extended signatures; `revised: 2026-04-25`.
+- `design/gdd/map-grid.md` Cross-system contract table — `get_path()` references replaced with `get_movement_path()` (2 occurrences).
+
+
 
 **Source**: map-grid story-005 implementation 2026-04-25; sub-agent self-flagged Node.get_path collision.
 
@@ -1326,7 +1337,14 @@ Story-006 (LoS + remaining 7 queries) is unaffected — it adds `has_line_of_sig
 
 **Suggested trigger**: same pass as A-18 if revising story-005 spec; otherwise no action needed.
 
-### A-20 — Cost-model interpretation: standard Dijkstra vs origin-included (story-005)
+### A-20 — Cost-model interpretation: standard Dijkstra vs origin-included (story-005) — **RESOLVED 2026-04-25**
+
+**Resolution**: Applied 3-document errata in `chore/map-grid-td-032-adr-errata` branch:
+- `docs/architecture/ADR-0004-map-grid-data-model.md` §Decision 7 — added explicit "step_cost is the cost of entering a tile (origin contributes 0)" + errata callout reconciling earlier "10+15+10=35" examples to standard Dijkstra.
+- `design/gdd/map-grid.md` §F-3 — Example block rewritten to show origin-excluded math: `0+10+10+10=30 ≤ 30`, `0+10+10+15=35 > 30`, `0+10+10+7=27 ≤ 30`. Errata note linking to TD-032 A-20.
+- `production/epics/map-grid/story-005-dijkstra-movement-range.md` — AC-F-3 boundary spec text updated to reference HILLS at (3,0) (the actual budget boundary discriminator under standard model); inline TD-032 A-20 errata note.
+
+
 
 **Source**: map-grid story-005 `/code-review` 2026-04-25 (convergent gdscript-specialist + qa-tester finding via inverted assertion).
 
@@ -1383,7 +1401,13 @@ The spec example's "35" is internally inconsistent with the standard Dijkstra in
   - Inverted `assert_bool(not has(...)).is_false()` at line 200 (original AC-2a) masked a deeper cost-model divergence between spec and implementation. AC-2a/2b restructured (HILLS/ROAD at (3,0) instead of (1,0)) for the meaningful budget discriminator.
 - Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-005)
 
-### A-21 — Extended query signatures (story-006)
+### A-21 — Extended query signatures (story-006) — **RESOLVED 2026-04-25**
+
+**Resolution**: Applied in `chore/map-grid-td-032-adr-errata` branch:
+- `docs/architecture/ADR-0004-map-grid-data-model.md` §Decision 5 + §Key Interfaces — signatures updated to include `apply_los: bool` (get_attack_range) and `defender_facing: int` (get_attack_direction); plus optional `faction: int = -1` filter on `get_adjacent_units` and `get_occupied_tiles` for completeness with story-006 implementation.
+- `docs/architecture/tr-registry.yaml` TR-map-grid-003 — requirement text now enumerates the full signature contract (revised 2026-04-25).
+
+
 
 **Source**: map-grid story-006 implementation 2026-04-25.
 
@@ -1399,7 +1423,16 @@ Implementation followed story-006 spec signatures (only way to satisfy AC-7 + AC
 
 **Suggested trigger**: ADR-0004 errata batch with A-16, A-17, A-18, A-20, A-22.
 
-### A-22 — get_attack_direction sign convention errata (story-006)
+### A-22 — get_attack_direction sign convention errata (story-006) — **RESOLVED 2026-04-25**
+
+**Resolution**: Applied 3-document errata in `chore/map-grid-td-032-adr-errata` branch:
+- `production/epics/map-grid/story-006-los-attack-queries.md` line 70-73 — formula block rewritten with the AC-canonical sign convention (`dc > 0 ⇒ WEST`, `dr > 0 ⇒ NORTH`); inline TD-032 A-22 errata callout naming the previous draft's inversion.
+- `design/gdd/map-grid.md` §F-5 — formula block + variable table + Example matrix all rewritten to AC-canonical convention; verification across NORTH/EAST/SOUTH/WEST attacker positions vs NORTH-facing defender; errata callout.
+- `docs/architecture/ADR-0004-map-grid-data-model.md` §Decision 5 — signature update notes the `defender_facing: int` parameter addition (formula content stays in the GDD per ADR/GDD separation of concerns; ADR doesn't restate F-5 internals).
+
+`damage-calc.md` cross-system contract verified: the canonical convention here matches the AC-8 expected matrix referenced as the cross-system contract; no change needed downstream.
+
+
 
 **Source**: map-grid story-006 `/code-review` 2026-04-25 (caught by AC-8 expected-value comparison).
 
@@ -1566,7 +1599,14 @@ Plus 1 doc accuracy issue: `get_attack_direction` doc comment (line 1239) says "
 - **Spec-internal collision resolved at generator time**: Story line 56 listed (20,15) as an enemy_occupied coord; line 80 also fixed (20,15) as the player query origin. Resolution: enemy moved to (25,12); player remains (20,15).
 - Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-007)
 
-### A-31 — Story-008 spec AC-R3-INLINE-ASSERT type= value erratum (story-008)
+### A-31 — Story-008 spec AC-R3-INLINE-ASSERT type= value erratum (story-008) — **RESOLVED 2026-04-25**
+
+**Resolution**: Applied in `chore/map-grid-td-032-adr-errata` branch:
+- `production/epics/map-grid/story-008-inspector-fixture-manual-qa.md` AC-R3-INLINE-ASSERT (line 38 area) + AC-5 in §QA Test Cases — both updated to reference `[sub_resource type="Resource" id="Resource_XXX"]` form with explanatory note about `MapTileData extends Resource` per G-12 collision avoidance with built-in `TileData`.
+
+Evidence doc (`production/qa/evidence/map-grid-inspector-v7.md`) was already correct — no change needed there.
+
+
 
 **Source**: map-grid story-008 `/code-review` qa-tester gap 6 (2026-04-25).
 

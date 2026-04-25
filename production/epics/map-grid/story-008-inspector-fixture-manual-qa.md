@@ -50,7 +50,7 @@
 - `stress_40x30.tres` is the stress case for V-7; may share the same file as story-007's fixture (either hard-copy in `res://data/maps/` or reference `res://tests/fixtures/maps/stress_40x30.tres` from documentation). Decision at impl time — prefer deduplication if possible.
 - Measurement: open Godot editor, navigate to `res://data/maps/stress_40x30.tres` in FileSystem dock, double-click to open in inspector; start stopwatch at double-click, stop at "tiles (Array)" array being scrollable. Record to nearest second.
 - Screenshots: commit PNGs to `production/qa/evidence/map-grid-inspector-v7/` subdirectory if project convention supports it; otherwise inline-reference from the evidence markdown.
-- R-3 inline-only assertion: open the `.tres` in a plain text editor (VS Code / `cat`). Confirm all TileData entries are `[sub_resource type="TileData" id="TileData_XXX"]` blocks WITHIN the same file, referenced as `SubResource("TileData_XXX")` in the `tiles` array. Explicitly confirm NO `ExtResource(...)` references to external `.tres` files for TileData entries.
+- R-3 inline-only assertion (TD-032 A-31 errata 2026-04-25): open the `.tres` in a plain text editor (VS Code / `cat`). Confirm all TileData entries are `[sub_resource type="Resource" id="Resource_XXX"]` blocks WITHIN the same file, referenced as `SubResource("Resource_XXX")` in the `tiles` array. Note: `type="Resource"` (not `type="TileData"`) because `MapTileData extends Resource` per G-12 collision avoidance with Godot's built-in `TileData` class. Explicitly confirm NO `[ext_resource type="Resource" ...]` entries (the only valid `[ext_resource]` lines are `type="Script"` references for `map_resource.gd` and `map_tile_data.gd`).
 - If the inspector hang happens (>30s), DO NOT mark this story Complete — escalate to ADR-0004 R-1 fallback discussion (reduce max map size). This is a LEGITIMATE engine-ergonomics failure mode, not an AC debt.
 - This story completes V-7 with manual evidence. V-8 (memory profile ≤250 MB resident during IN_BATTLE with Overworld retained) is NOT this story's scope — it belongs to SceneManager integration stories (scene-manager story-007 already covers the Android target-device work conceptually).
 
@@ -93,7 +93,7 @@
 
 - **AC-5 (Plain-text inspection)**: R-3 inline-only assertion
   - Setup: `cat res://data/maps/sample_small.tres | head -50` (or open in VS Code)
-  - Verify: TileData entries appear as `[sub_resource type="TileData" id="TileData_XXX"]` blocks within the same file; tiles array entries are `SubResource("TileData_XXX")` references
+  - Verify: TileData entries appear as `[sub_resource type="Resource" id="Resource_XXX"]` blocks within the same file (note: `type="Resource"` since `MapTileData extends Resource` per G-12); tiles array entries are `SubResource("Resource_XXX")` references
   - Pass condition: ZERO `ExtResource(...)` lines for TileData entries; all TileData is inline
 
 - **AC-6 (Observation)**: inspector load-time bound
