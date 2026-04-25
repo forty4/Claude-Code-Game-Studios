@@ -627,3 +627,30 @@ static func get_terrain_score(grid: MapGrid, coord: Vector2i) -> float:
 		load_config()
 	var mods: TerrainModifiers = get_terrain_modifiers(grid, coord)
 	return (mods.defense_bonus + mods.evasion_bonus * _evasion_weight) / _max_possible_score
+
+## Returns the unit-type × terrain-type cost multiplier for Map/Grid Dijkstra.
+## MVP: returns 1 for all (unit_type, terrain_type) pairs (CR-1d uniformity).
+## ADR-0009 Unit Role will populate concrete values; structure already in place.
+##
+## Reference: ADR-0008 §Decision 5 + §Migration Plan; TR-terrain-effect-018.
+## Per CR-1d / TR-002: structure is unit-type × terrain-type, but MVP values
+## are uniform across the entire 5×8 = 40 matrix. ADR-0009 Unit Role will
+## populate concrete per-class values via _cost_matrix lookup; this method's
+## signature is stable and ADR-0009 will replace only the return-value path.
+##
+## Lazy-triggers [method load_config] on first call if [member _config_loaded]
+## is false (independent lazy entry point — same contract as
+## [method get_terrain_modifiers], [method get_combat_modifiers], and
+## [method get_terrain_score]).
+##
+## Usage:
+##   var m: int = TerrainEffect.cost_multiplier(0, 3)   # any (unit, terrain) -> 1 in MVP
+# TODO(ADR-0009): remove @warning_ignore when body uses unit_type + terrain_type
+# (the args become live when ADR-0009 replaces the body with _cost_matrix lookup).
+@warning_ignore("unused_parameter")
+static func cost_multiplier(unit_type: int, terrain_type: int) -> int:
+	if not _config_loaded:
+		load_config()
+	# MVP: uniform multiplier per CR-1d. ADR-0009 will replace this with
+	# _cost_matrix.get(unit_type, {}).get(terrain_type, _cost_default_multiplier).
+	return _cost_default_multiplier
