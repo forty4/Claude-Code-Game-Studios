@@ -488,6 +488,7 @@ When a new Godot/GdUnit4 pattern bites the team:
 
 ## Cross-References
 
+- `.claude/rules/tooling-gotchas.md` — workflow tooling gotchas (gh CLI, git remotes, Godot CLI invocations) — distinct scope from this file
 - `.claude/rules/test-standards.md` — general test naming, structure, isolation
 - `.claude/rules/engine-code.md` — engine-code hot-path rules (Godot-agnostic)
 - `docs/engine-reference/godot/VERSION.md` — pinned engine version + API verification
