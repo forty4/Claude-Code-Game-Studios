@@ -337,6 +337,8 @@ Recommended: Option B — standalone file, well-cross-referenced. ~200 lines tot
 
 **Future maintenance**: when a 10th gotcha is discovered, append a G-10 entry using the established format. Update this TD-013 entry only if the structure/scope changes materially.
 
+**Update 2026-04-25 (terrain-effect story-001)**: G-14 codified — new `class_name` declarations need a class-cache refresh (`godot --headless --import --path .`) before tests can resolve the identifier. Renumbered to G-14 to honor the pre-reserved G-13 slot for "User-defined methods can shadow inherited Node API" (still pending codification — see TD-032 batch G-13 candidate at line 1374).
+
 ---
 
 ## TD-014 — Verify CI registers GameBusDiagnostics autoload for AC-7 coverage
@@ -1383,7 +1385,7 @@ The spec example's "35" is internally inconsistent with the standard Dijkstra in
 
 **Estimated effort**: ~20 min (rule-file authoring + TD-013 register touch + cross-reference).
 
-**Suggested trigger**: next time `.claude/rules/godot-4x-gotchas.md` is touched (G-12 was added at story-001; G-13 is the next entry).
+**Suggested trigger**: next time `.claude/rules/godot-4x-gotchas.md` is touched (G-12 was added at map-grid story-001; G-14 was added at terrain-effect story-001 for class-cache refresh; this Node-API-shadowing entry remains the open G-13 reservation).
 
 ---
 

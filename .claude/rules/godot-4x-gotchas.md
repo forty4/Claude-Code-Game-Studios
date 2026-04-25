@@ -368,6 +368,41 @@ class_name MapTileData extends Resource
 
 ---
 
+## G-14 — New `class_name` declarations need a class-cache refresh before tests can resolve them
+
+**Context**: adding a brand-new `class_name X extends Resource` (or `extends RefCounted`, etc.) and immediately running tests that reference `X` directly (`var foo := X.new()`).
+
+**Broken**: tests fail at parse time with `Identifier "X" not declared in the current scope.` even though the `.gd` file defining `X` exists on disk and looks correct. The `Overall Summary` count holds at the previous baseline (per G-7, the test file is silently treated as "no tests" because it failed to parse). Exit code can still be 0 if the rest of the suite passes — the failure is invisible without inspecting the count or the stderr `Parse Error` lines.
+
+Root cause: the global `class_name` registry lives in `.godot/global_script_class_cache.cfg` and is rebuilt only by an asset/script import pass. Until that pass runs, the new identifier is unknown to the GDScript parser even though the file exists. `.uid` files are auto-generated correctly on file creation, but the class-name registration is not.
+
+**Correct**: between creating the file(s) and running tests for the first time, run a headless import pass to refresh `global_script_class_cache.cfg`. Then run the test suite normally.
+
+```bash
+# CORRECT — refresh the class-name registry before first test run
+godot --headless --import --path .
+
+# Then proceed with the standard test invocation
+godot --headless --path . -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
+    --ignoreHeadlessMode -a res://tests/unit -a res://tests/integration -c
+```
+
+`--headless --import --path .` is the safe, deterministic refresh — it scans assets/scripts, rebuilds caches, and exits. `--quit-after 1` does NOT work as a substitute (it errors with "no main scene defined" on projects without a Main Scene set in `project.godot`).
+
+**Symptom checklist** — if you see any of these, run the import pass first:
+- `Parse Error: Identifier "X" not declared in the current scope.` for a class you just defined
+- `Parse Error: Cannot infer the type of "var" because the value doesn't have a set type.` adjacent to the above (downstream effect)
+- `Parse Error: Could not find type "X" in the current scope.` in test files referencing the new class
+- Test count steady at previous baseline despite added test functions (G-7-style silent skip)
+
+**Test consequence**: in `/dev-story` workflows, the orchestrator should run `--import` immediately after writing any new `class_name`-declaring file, before invoking the test suite for verification. Skipping this step costs ~2 minutes (one failed test run + diagnosis + import pass + retry); doing it pre-emptively costs ~5 seconds.
+
+**Distinct from G-12**: G-12 is about user-name/built-in-name *collision* (which is a real, lasting parse error that can only be fixed by renaming). G-14 is about *registration timing* (a transient parse error fixed by an import pass). Both produce parse errors of the form "Identifier not declared", but the resolutions are different. If `--headless --import --path .` does not resolve the parse error, suspect G-12 instead.
+
+**Discovered**: terrain-effect story-001 (TerrainModifiers + CombatModifiers added; first test run failed with "Identifier TerrainModifiers not declared" parse errors despite both files on disk; resolved by `godot --headless --import --path .` between file creation and the second test run, which then passed clean — 236/236).
+
+---
+
 ## Verification Pattern Summary
 
 When testing changes that touch any of the above areas, always:
