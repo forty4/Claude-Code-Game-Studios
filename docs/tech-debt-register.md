@@ -1759,18 +1759,82 @@ func test_terrain_effect_queries_unknown_terrain_type_returns_zero_fill() -> voi
 
 **Cost**: ~10 minutes. **Benefit**: closes the safety-net coverage gap; protects against silent removal of defensive code.
 
+### G. RIVER and ROAD as defender untested in story-005 (story-005 /code-review qa-tester F8)
+
+`tests/unit/core/terrain_effect_combat_modifiers_test.gd` covers FORTRESS_WALL, FOREST, PLAINS, BRIDGE, HILLS, MOUNTAIN as defender across the 14 ACs. RIVER (terrain_type=4) and ROAD (terrain_type=7) — both with `defense_bonus=0`, `evasion_bonus=0`, `special_rules=[]` — are never the defender tile in any combat-modifiers test.
+
+**Risk**: low — story-004 AC-2's 8-terrain canonical sweep over the shared `_terrain_table` would catch a misimplemented RIVER/ROAD entry. A wrong RIVER/ROAD `defense_bonus` value would propagate to `defender_terrain_def` in `get_combat_modifiers` identically to PLAINS, but would also fail the story-004 sweep first. Coupled coverage, not direct.
+
+**Proposed remediation**: extend AC-12's contract-gate sweep with RIVER and ROAD scenarios:
+```gdscript
+# Scenario (d): RIVER defender (terrain_type=4)
+var grid_d: MapGrid = _make_grid_2tile(TerrainEffect.PLAINS, 0, TerrainEffect.RIVER, 0)
+# ... (assert defender_terrain_def == 0, _eva == 0, gate)
+# Scenario (e): ROAD defender (terrain_type=7)
+var grid_e: MapGrid = _make_grid_2tile(TerrainEffect.PLAINS, 0, TerrainEffect.ROAD, 0)
+# ... (assert defender_terrain_def == 0, _eva == 0, gate)
+```
+
+**Cost**: ~10 minutes. **Benefit**: direct value-assertion for the 2 currently-uncovered terrain types in `get_combat_modifiers`; closes the "transitive coverage only" gap.
+
+### H. `_elevation_table[delta=0]` row untested directly (story-005 /code-review qa-tester F9)
+
+The elevation table's `delta=0` row (both `attack_mod=0` and `defense_mod=0`) is never exercised by any story-005 test. delta=+1, +2, -2 are covered by AC-1/AC-2/AC-3/AC-8. delta=-1 is implicitly used in AC-3 and AC-8 (HILLS scenarios). delta=0 (atk and def at same elevation) requires both attacker and defender at the same elev, which is awkward given ELEVATION_RANGES locks most terrain types to a single elev value.
+
+**Risk**: low — story-003 owns elevation-table population and validates schema completeness; a wrong delta=0 entry would be caught by `_validate_config` if it produced fractional values, but a wrong-but-valid value (e.g. `attack_mod: 5` instead of `0`) would slip past validation.
+
+**Proposed remediation**: a test using `_make_grid_2tile(TerrainEffect.PLAINS, 0, TerrainEffect.PLAINS, 0)` (both at elev=0, delta=0):
+```gdscript
+func test_terrain_effect_combat_modifiers_zero_elevation_delta_yields_zero_modifiers() -> void:
+    var grid: MapGrid = _make_grid_2tile(TerrainEffect.PLAINS, 0, TerrainEffect.PLAINS, 0)
+    var cm: CombatModifiers = TerrainEffect.get_combat_modifiers(grid, Vector2i(0,0), Vector2i(1,0))
+    assert_int(cm.elevation_atk_mod).is_equal(0)
+    assert_int(cm.elevation_def_mod).is_equal(0)
+    grid.free()
+```
+
+**Cost**: ~5 minutes. **Benefit**: direct assertion of the delta=0 row, closing the elevation-table coverage matrix.
+
+### I. `get_terrain_score` redundant lazy-load guard (story-005 /code-review gdscript-specialist OOS-2)
+
+`get_terrain_score` (story-004 code at `terrain_effect.gd:619-625`) calls `get_terrain_modifiers(grid, coord)` which itself has a `if not _config_loaded: load_config()` guard. The guard at the top of `get_terrain_score` is therefore redundant — it fires, then `get_terrain_modifiers` also fires its guard, but the second is a no-op since `_config_loaded` is now true.
+
+**Risk**: zero — purely cosmetic. The redundant guard adds ~1 branch instruction per call (negligible for an AC-21 0.1ms budget with 5-10× headroom).
+
+**Proposed remediation**: delete the redundant guard:
+```gdscript
+# Before:
+static func get_terrain_score(grid: MapGrid, coord: Vector2i) -> float:
+    if not _config_loaded:
+        load_config()
+    var mods: TerrainModifiers = get_terrain_modifiers(grid, coord)
+    return (mods.defense_bonus + mods.evasion_bonus * _evasion_weight) / _max_possible_score
+
+# After:
+static func get_terrain_score(grid: MapGrid, coord: Vector2i) -> float:
+    var mods: TerrainModifiers = get_terrain_modifiers(grid, coord)  # lazy-loads internally
+    return (mods.defense_bonus + mods.evasion_bonus * _evasion_weight) / _max_possible_score
+```
+
+**Cost**: 30 seconds + re-run regression (262 → 262 expected, no behavior change). **Benefit**: removes 2 redundant lines; tightens the public API surface to "lazy-load is owned by `get_terrain_modifiers`, all other queries inherit transitively". Defer to story-004 follow-up or any edit pass that touches this file.
+
 ---
 
-**Total estimated remediation effort**: ~2 hours total (across A-F).
+**Total estimated remediation effort**: ~2 hours 15 minutes total (across A-I).
 
-**Suggested trigger**: at the end of the terrain-effect epic (story-008 perf baseline), bundle A (validator split), B (fixture DRY), C (advisory edge tests), and F (unknown terrain_type safety-net) into a single test infrastructure hardening pass. D (diagnostic labels) and E (cosmetic) stay deferred until a separate trigger.
+**Suggested trigger**: at the end of the terrain-effect epic (story-008 perf baseline), bundle A (validator split), B (fixture DRY), C (advisory edge tests), F (unknown terrain_type safety-net), G (RIVER/ROAD direct), H (delta=0 direct) into a single test infrastructure hardening pass. D (diagnostic labels), E (cosmetic), and I (redundant guard) stay deferred until separate triggers.
 
 **Story-004 carry-over (RESOLVED 2026-04-26)**: qa-tester GAP-4 / R-6 was the carry-over from story-003 — fallback exact-value correctness must be a BLOCKING requirement in story-004's `get_terrain_modifiers()` tests. **CONFIRMED SATISFIED** by story-004 AC-2 (lines 183-224 of `terrain_effect_queries_test.gd`): explicit per-terrain `defense_bonus`, `evasion_bonus`, and `special_rules.size()` assertions for all 8 terrain types. A `_fall_back_to_defaults()` typo of HILLS=10 instead of 15 would fail at line 203.
 
 **Cross-references**:
-- Story: `production/epics/terrain-effect/story-003-config-loading-validation.md`
-- Review: standalone `/code-review` 2026-04-25 (godot-gdscript-specialist APPROVED WITH SUGGESTIONS + qa-tester TESTABLE WITH GAPS — convergent on 14 findings; 7 inline-applied; 7 deferred here)
-- 7 inline improvements applied: RC-1/RC-2a/RC-2b (3 stale `before_each()` doc-comments fixed); S-1 (max_possible_score zero-divide guard added); R-1 (file-not-found test added; AC-9); R-2 (AC-8 mutation-preservation extension); R-3 (config_test header note re: log-assertion framework limitation)
-- New gotcha codified: G-15 (`before_each` phantom hook) in `.claude/rules/godot-4x-gotchas.md`
-- Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-003)
+- Story (origin): `production/epics/terrain-effect/story-003-config-loading-validation.md`
+- Story-004 carry-over (RESOLVED): `production/epics/terrain-effect/story-004-terrain-modifiers-score-queries.md`
+- Story-005 carry-overs (§G/§H/§I): `production/epics/terrain-effect/story-005-combat-modifiers-elevation-clamp-bridge.md`
+- Reviews:
+  - Story-003: standalone `/code-review` 2026-04-25 (gdscript APPROVED WITH SUGGESTIONS + qa-tester TESTABLE WITH GAPS — 14 findings; 7 inline-applied; 7 deferred §A-§E)
+  - Story-004: standalone `/code-review` 2026-04-26 (gdscript APPROVED WITH SUGGESTIONS + qa-tester TESTABLE WITH GAPS — 7 findings; 4 inline-applied; 1 deferred §F; 2 false positives skipped)
+  - Story-005: standalone `/code-review` 2026-04-26 (gdscript APPROVED WITH SUGGESTIONS + qa-tester TESTABLE WITH GAPS — 7 actionable + 4 advisory; 6 inline-applied; 3 deferred §G/§H/§I; 1 false positive skipped)
+- Inline improvements applied across stories: 7 (story-003) + 4 (story-004) + 6 (story-005) = 17 total
+- New gotcha codified: G-15 (`before_each` phantom hook) in `.claude/rules/godot-4x-gotchas.md` (story-003)
+- Completions: session extracts in `production/session-state/active.md` §/story-done 2026-04-25 (story-003), §/story-done 2026-04-26 (story-004), §/story-done 2026-04-26 (story-005)
 

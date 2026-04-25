@@ -508,6 +508,100 @@ static func get_terrain_modifiers(grid: MapGrid, coord: Vector2i) -> TerrainModi
 	copy.special_rules = rules
 	return copy
 
+## Returns clamped combat modifiers for one attacker→defender tile pair.
+##
+## Reads [code]MapGrid.get_tile(attacker_coord)[/code] and
+## [code]MapGrid.get_tile(defender_coord)[/code], computes
+## [code]delta_elevation = atk_tile.elevation - def_tile.elevation[/code],
+## clamps the delta to [-2, +2] per EC-14, looks up the elevation table and
+## the defender's terrain table, applies the F-1 symmetric clamp
+## [code][-_max_defense_reduction, +_max_defense_reduction][/code] to
+## [code]defender_terrain_def[/code] and [code][0, _max_evasion][/code] to
+## [code]defender_terrain_eva[/code], sets [code]bridge_no_flank[/code] if
+## the defender tile is BRIDGE (CR-5b, TR-009), and returns the populated
+## [code]CombatModifiers[/code] instance.
+##
+## Cross-system contract (damage-calc.md §F, ratified 2026-04-18):
+##   [code]defender_terrain_def[/code] is in
+##   [code][-MAX_DEFENSE_REDUCTION, +MAX_DEFENSE_REDUCTION][/code].
+##   [code]defender_terrain_eva[/code] is in [code][0, MAX_EVASION][/code].
+## Damage Calc treats these as opaque pre-clamped values and does NOT re-clamp.
+##
+## Lazy-triggers [method load_config] on first call if [member _config_loaded]
+## is false (independent lazy entry point — same contract as
+## [method get_terrain_modifiers]).
+##
+## Out-of-bounds or null-grid: returns zero-fill [code]CombatModifiers.new()[/code]
+## (same OOB pattern as [method get_terrain_modifiers]).
+##
+## EC-14 / TR-015: if [code]delta_elevation[/code] is outside [-2, +2], the delta
+## is clamped and [code]push_warning[/code] is emitted to flag that the CR-2
+## elevation table needs extension when MapGrid supports a wider range.
+##
+## [b]Bridge flag denormalisation[/b]: when [code]def_tile.terrain_type == BRIDGE[/code],
+## BOTH [code]bridge_no_flank = true[/code] AND [code]&"bridge_no_flank"[/code]
+## in [code]special_rules[/code] are set (ADR-0008 §Decision 6 — Damage Calc may
+## check either; the bool field is O(1) vs array scan).
+##
+## [b]Elevation table storage note[/b]: [code]_elevation_table[/code] entries are
+## raw Dictionaries [code]{"attack_mod": int, "defense_mod": int}[/code] (not typed
+## Resources) — see [method _apply_config] and [method _fall_back_to_defaults].
+## Access via string keys only; [code]elev.attack_mod[/code] would be a parse error.
+##
+## Usage:
+##   var cm: CombatModifiers = TerrainEffect.get_combat_modifiers(
+##       grid, Vector2i(2, 3), Vector2i(3, 3))
+##   print(cm.defender_terrain_def)   # e.g. 7 for HILLS with delta=+1
+##   if cm.bridge_no_flank:
+##       print("Bridge: FLANK treated as FRONT by Damage Calc")
+static func get_combat_modifiers(
+		grid: MapGrid,
+		atk_coord: Vector2i,
+		def_coord: Vector2i
+) -> CombatModifiers:
+	if not _config_loaded:
+		load_config()
+	var atk_tile: MapTileData = grid.get_tile(atk_coord) if grid != null else null
+	var def_tile: MapTileData = grid.get_tile(def_coord) if grid != null else null
+	if atk_tile == null or def_tile == null:
+		return CombatModifiers.new()  # OOB → zero-fill (same pattern as get_terrain_modifiers)
+	var raw_delta: int = atk_tile.elevation - def_tile.elevation
+	var clamped_delta: int = clampi(raw_delta, -2, 2)
+	if clamped_delta != raw_delta:
+		push_warning(
+			"delta_elevation %d clamped to ±2 — update CR-2 table for new elevation range"
+			% raw_delta
+		)
+	# _elevation_table stores raw Dicts: {"attack_mod": int, "defense_mod": int}
+	# (story-003 _apply_config() lines 387-390 + _fall_back_to_defaults() lines 461-465).
+	# Access via string keys, NOT typed Resource properties.
+	# Table-completeness invariant: _validate_config (story-003) rejects any config missing
+	# the 5 elevation deltas (-2..+2) or 8 terrain types (0..7), and _fall_back_to_defaults
+	# repopulates the canonical entries on parse/validation failure. Both paths set
+	# _config_loaded=true only AFTER the tables are fully populated. The lazy-load guard
+	# above plus this contract guarantees both lookups always find their key by the time
+	# this method reads them — no defensive guard needed at the call site.
+	var elev: Dictionary = _elevation_table[clamped_delta] as Dictionary
+	var terrain: TerrainModifiers = _terrain_table[def_tile.terrain_type] as TerrainModifiers
+	# total_def combines terrain base with elevation penalty/bonus for the DEFENDER.
+	# Uses "defense_mod" (defender's elevation perspective), NOT "attack_mod".
+	# E.g. delta=+2 → defense_mod=-15 → PLAINS(0)+(-15)=-15 amplifies damage (CR-3e+EC-1).
+	var total_def: int = terrain.defense_bonus + (elev["defense_mod"] as int)
+	var result := CombatModifiers.new()
+	result.defender_terrain_def = clampi(total_def, -_max_defense_reduction, _max_defense_reduction)
+	result.defender_terrain_eva = clampi(terrain.evasion_bonus, 0, _max_evasion)
+	result.elevation_atk_mod = elev["attack_mod"] as int
+	result.elevation_def_mod = elev["defense_mod"] as int
+	result.bridge_no_flank = (def_tile.terrain_type == BRIDGE)
+	# G-2: .assign() preserves Array[StringName] typing; .duplicate() demotes to untyped Array.
+	# When def_tile is BRIDGE, terrain.special_rules already contains &"bridge_no_flank"
+	# (populated in _fall_back_to_defaults() + _apply_config()), so rules.assign() propagates
+	# that flag automatically — bridge_no_flank bool and special_rules remain consistent.
+	var rules: Array[StringName] = []
+	rules.assign(terrain.special_rules)
+	result.special_rules = rules
+	return result
+
 ## Returns the normalized AI terrain-score for the tile at [param coord].
 ##
 ## Formula F-3 (GDD terrain-effect.md):
