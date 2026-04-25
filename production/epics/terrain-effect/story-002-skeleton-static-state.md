@@ -1,7 +1,7 @@
 # Story 002: TerrainEffect skeleton + static state + lazy-init guard + reset_for_tests + terrain-type int constants
 
 > **Epic**: terrain-effect
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
@@ -34,14 +34,14 @@
 
 *From ADR-0008 §Decision 1 + §Decision 7 + §Key Interfaces (lines 419-468) + §Notes for Implementation §3, scoped to skeleton + static-state + lifecycle (no queries, no validation):*
 
-- [ ] `src/core/terrain_effect.gd` declares `class_name TerrainEffect extends RefCounted`
-- [ ] All 8 terrain-type int constants declared per ADR-0008 §Key Interfaces line 433-440: `PLAINS=0`, `FOREST=1`, `HILLS=2`, `MOUNTAIN=3`, `RIVER=4`, `BRIDGE=5`, `FORTRESS_WALL=6`, `ROAD=7` (canonical MapGrid ordering)
-- [ ] All 4 compile-time defaults declared as `const`: `MAX_DEFENSE_REDUCTION_DEFAULT: int = 30`, `MAX_EVASION_DEFAULT: int = 30`, `EVASION_WEIGHT_DEFAULT: float = 1.2`, `MAX_POSSIBLE_SCORE_DEFAULT: float = 43.0`
-- [ ] Static state vars declared with default values per ADR-0008 §Key Interfaces line 442-450: `_config_loaded: bool = false`, `_terrain_table: Dictionary = {}`, `_elevation_table: Dictionary = {}`, `_max_defense_reduction: int = MAX_DEFENSE_REDUCTION_DEFAULT`, `_max_evasion: int = MAX_EVASION_DEFAULT`, `_evasion_weight: float = EVASION_WEIGHT_DEFAULT`, `_max_possible_score: float = MAX_POSSIBLE_SCORE_DEFAULT`, `_cost_default_multiplier: int = 1`
-- [ ] `static func reset_for_tests() -> void` clears all static state and sets `_config_loaded = false` — every static var returns to its declared default
-- [ ] `static func load_config(path: String = "res://assets/data/terrain/terrain_config.json") -> bool` skeleton declared (returns false; full implementation lands in story-003); idempotent guard: subsequent calls when `_config_loaded == true` return immediately without re-parsing
-- [ ] Multi-suite isolation regression: in the same GdUnit4 run, Suite A loads a (story-003 placeholder) custom-defaults state, Suite B in `before_each()` calls `reset_for_tests()` and observes `_config_loaded == false` and all static vars at compile-time defaults — no state bleed
-- [ ] Source file header doc-comment references ADR-0008 + the `reset_for_tests()` discipline + the G-1 Dictionary typing rationale (ADR-0008 §Notes for Implementation §3)
+- [x] `src/core/terrain_effect.gd` declares `class_name TerrainEffect extends RefCounted`
+- [x] All 8 terrain-type int constants declared per ADR-0008 §Key Interfaces line 433-440: `PLAINS=0`, `FOREST=1`, `HILLS=2`, `MOUNTAIN=3`, `RIVER=4`, `BRIDGE=5`, `FORTRESS_WALL=6`, `ROAD=7` (canonical MapGrid ordering)
+- [x] All 4 compile-time defaults declared as `const`: `MAX_DEFENSE_REDUCTION_DEFAULT: int = 30`, `MAX_EVASION_DEFAULT: int = 30`, `EVASION_WEIGHT_DEFAULT: float = 1.2`, `MAX_POSSIBLE_SCORE_DEFAULT: float = 43.0`
+- [x] Static state vars declared with default values per ADR-0008 §Key Interfaces line 442-450: `_config_loaded: bool = false`, `_terrain_table: Dictionary = {}`, `_elevation_table: Dictionary = {}`, `_max_defense_reduction: int = MAX_DEFENSE_REDUCTION_DEFAULT`, `_max_evasion: int = MAX_EVASION_DEFAULT`, `_evasion_weight: float = EVASION_WEIGHT_DEFAULT`, `_max_possible_score: float = MAX_POSSIBLE_SCORE_DEFAULT`, `_cost_default_multiplier: int = 1`
+- [x] `static func reset_for_tests() -> void` clears all static state and sets `_config_loaded = false` — every static var returns to its declared default
+- [x] `static func load_config(path: String = "res://assets/data/terrain/terrain_config.json") -> bool` skeleton declared (returns false; full implementation lands in story-003); idempotent guard: subsequent calls when `_config_loaded == true` return immediately without re-parsing
+- [x] Multi-suite isolation regression: in the same GdUnit4 run, Suite A loads a (story-003 placeholder) custom-defaults state, Suite B in `before_each()` calls `reset_for_tests()` and observes `_config_loaded == false` and all static vars at compile-time defaults — no state bleed
+- [x] Source file header doc-comment references ADR-0008 + the `reset_for_tests()` discipline + the G-1 Dictionary typing rationale (ADR-0008 §Notes for Implementation §3)
 
 ---
 
@@ -134,7 +134,7 @@
 - `tests/unit/core/terrain_effect_skeleton_test.gd` — must exist and pass (8 tests covering AC-1..7; AC-8 doc-level)
 - The multi-suite isolation regression test in AC-7 may live in a separate file (e.g., `tests/unit/core/terrain_effect_isolation_test.gd`) to make the cross-suite invocation explicit; either pattern is acceptable as long as the discipline is verified
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — 7 test functions across 2 files (NOT 8 as originally specified — AC-8 is doc-level, not a test function), 0 failures, 0 orphans (regression 243/243 PASS)
 
 ---
 
@@ -142,3 +142,49 @@
 
 - Depends on: Story 001 (TerrainModifiers + CombatModifiers Resource classes — needed because future static vars `_terrain_table` will hold these Resource types in their values)
 - Unlocks: Story 003 (load_config full implementation hangs off this skeleton's `_config_loaded` guard + reset_for_tests test seam), Stories 004-007 (all consumer queries depend on the static state initialized here)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-25
+**Criteria**: 8/8 passing (7 automated + 1 doc-level; 0 deferred; 0 untested)
+**Deviations**:
+- ADVISORY (W-2): AC-2 cross-doc MapGrid ordering invariant (TD-032 A-16 reconciliation) undefended by guard test. Out-of-scope per story spec; deferred to story-006 Map/Grid integration. Logged as TD entry below.
+- Documentation discrepancy: story Test Evidence section claims "8 tests" but actual count is 7 (6 skeleton + 1 isolation; AC-8 is doc-level). Story spec wording was based on an early framing where each AC mapped 1:1 to a test function; the AC-8 doc-comment AC was not split into a separate test. No functional impact.
+
+**Test Evidence**:
+- `tests/unit/core/terrain_effect_skeleton_test.gd` (211 LoC, 6 test functions covering AC-1..AC-6) — EXISTS, all PASS
+- `tests/unit/core/terrain_effect_isolation_test.gd` (87 LoC after S-1 inline expansion, 1 test function covering AC-7) — EXISTS, PASS
+- AC-8 verified at doc-level via /code-review (godot-gdscript-specialist: PASS — header lines 1-19 reference ADR-0008 + reset_for_tests §Risks 562 + G-1 untyped-Dictionary rationale + cross-reference to save_migration_registry.gd)
+- Full regression: **243/243 PASS, 0 errors / 0 failures / 0 flaky / 0 orphans, Godot exit 0** (delta 236 → 243, +7 new test functions)
+
+**Code Review**: Complete (lean mode standalone — convergent specialist review covered the LP-CODE-REVIEW + QL-TEST-COVERAGE phase-gates skipped under lean mode):
+- godot-gdscript-specialist: **APPROVED** — pattern fidelity 5/5 vs save_migration_registry_test.gd; static typing PASS; G-1/G-9/G-12/G-14 PASS; doc-comment AC-8 PASS; forbidden-pattern audit PASS (no autoload, no `_ready/_init`, no instance methods); reset_for_tests completeness 8/8; out-of-scope creep NONE
+- qa-tester: **TESTABLE WITH GAPS** — 4 findings (W-1 push_warning unobserved, W-2 cross-doc MapGrid undefended, W-3 false positive on doc-comment, S-1 mutation helper incomplete coverage)
+- 2 inline improvements applied:
+  1. **W-1** (`terrain_effect.gd:120-123`): Demoted `push_warning` doc-comment from "AC-6 contract" to "informational; return-value is the contract" — aligns implementation with what tests actually verify
+  2. **S-1** (`terrain_effect_isolation_test.gd:29-44, 76-90`): Expanded `_simulate_suite_a_mutation()` to dirty all 8 vars + added 3 missing post-reset assertions for `_evasion_weight` / `_max_possible_score` / `_cost_default_multiplier` — closes incomplete canary coverage
+- 2 findings skipped (false positives on review):
+  - **W-3**: Test file's doc-comment already accurate ("Given: reset_for_tests() called by before_each()" at line 113); qa-tester conflated story-spec QA test case framing with the test file
+  - **S-2**: Test file header already accurate (line 7 says "AC-1 through AC-6" — matches reality); the "8 tests" count claim is in the story file's Test Evidence section, not in skeleton_test.gd
+
+**QA Gates**: QL-TEST-COVERAGE + LP-CODE-REVIEW SKIPPED (lean mode); standalone /code-review covered convergent specialist review.
+
+**Files delivered**:
+- `src/core/terrain_effect.gd` (NEW, 121 LoC) — `class_name TerrainEffect extends RefCounted`; 8 terrain-type int constants; 4 compile-time cap defaults; 8 static vars with declared defaults; `reset_for_tests()` + `load_config()` skeleton with idempotent guard; G-1 untyped-Dictionary inline rationale + class header doc; AC-8 doc-comment block (lines 1-19) references ADR-0008 + §Risks 562 + G-1 + save_migration_registry precedent
+- `tests/unit/core/terrain_effect_skeleton_test.gd` (NEW, 211 LoC, 6 test functions) — covers AC-1..AC-6; mirrors save_migration_registry_test.gd seam-access pattern; G-9 paren-wrapped multi-line `%` strings; `before_each()` + reset_for_tests discipline
+- `tests/unit/core/terrain_effect_isolation_test.gd` (NEW, 87 LoC after S-1 expansion, 1 test function) — covers AC-7; the discipline-establishing canary for the entire epic per ADR-0008 §Risks line 562; CI must treat failure as immediate epic-blocker
+
+**Process insights**:
+- **G-14 codification (PR #35) paid off**: pre-emptively running `godot --headless --import --path .` after file creation and before first test run produced clean parse on first try. No "Identifier TerrainEffect not declared" rediscovery cost (saved ~2 min).
+- **Sub-agent Write tool pattern improved**: godot-gdscript-specialist drafted all three files for approval first, then successfully wrote all three after approval via SendMessage — no permission block this story (vs. story-001 + 005-008 where orchestrator-direct write recovery was required). Pattern continues to validate.
+- **Convergent /code-review pattern (gdscript + qa-tester parallel) ran in <2min combined**; identified 4 findings, 2 applicable inline improvements applied within ~3min, 2 false-positive findings correctly identified by careful review (saved unnecessary churn). Pattern continues to validate as lean-mode minimum-safe-unit.
+- **AC-7 isolation canary now covers all 8 vars** post-S-1 expansion. Original was 5/8; expanded to 8/8 to close future-proofing gap when mutation helper is extended.
+- **Forward-looking idempotent guard return semantics confirmed sound**: skeleton primary-path returns `false`, guard-branch returns `true` — pins both branches for story-003 cleanly. Pattern allows story-003 to add `_config_loaded = true; return true` on success without breaking AC-6's second-call assertion.
+
+**Tech debt logged**: 1 new entry — TD-W2-MapGrid-cross-doc-invariant (deferred to story-006).
+
+**Unlocks**: Story 003 (load_config full implementation + JSON parsing + _validate_config + _fall_back_to_defaults), Story 004 (get_terrain_modifiers + get_terrain_score), Story 005 (get_combat_modifiers — will exercise G-2 forewarning embedded in TerrainModifiers/CombatModifiers headers from story-001), Stories 006-008 all queue up.
+
+**Terrain-effect epic status**: **2/8 Complete** 🎉. Story-003 (Config JSON authoring + load_config full + _validate_config + _fall_back_to_defaults) is critical-path next.

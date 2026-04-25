@@ -1643,3 +1643,36 @@ Evidence doc requires NO change — already shows the correct form.
 - 5 evidence-doc improvements applied inline (Click→Double-click, deselect-vs-close-tab, screenshot dir alignment, AC-3 CI re-verification step, authoring-section CI validation note)
 - Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-008)
 
+---
+
+## TD-033 — terrain-effect story-002 /code-review W-2: cross-doc MapGrid ordering invariant undefended
+
+**Origin**: terrain-effect story-002 `/code-review` 2026-04-25 (qa-tester WARNING W-2)
+**Category**: tests / spec-trace
+**Severity**: medium (cross-doc desync risk if MapGrid terrain ordering changes; would only surface as failures in story-004+ consumers)
+**Status**: deferred to story-006 Map/Grid integration
+
+**Summary**: Story-002 AC-2 documents that the 8 terrain-type integer constants (`TerrainEffect.PLAINS=0` .. `ROAD=7`) MUST match `MapGrid.ELEVATION_RANGES` ordering per TD-032 A-16 reconciliation. The skeleton test (`test_terrain_effect_terrain_type_constants_canonical_order`) pins the 8 literal integer values, but does NOT assert any structural cross-reference to `MapGrid` constants. If `MapGrid` reorders or renumbers terrain constants in a future story, the desync would be invisible until story-004+ query consumers fail at runtime with surprising results (e.g., a tile flagged as PLAINS in MapGrid but interpreted as FOREST by TerrainEffect).
+
+**Why deferred**: The story explicitly scopes this as out-of-bounds for story-002 (line 88: "if MapGrid changes ordering, both must update atomically (cross-doc errata — out of scope here)"). Story-006 owns the Map/Grid integration boundary and is the natural place to add the guard test.
+
+**Proposed remediation** (story-006 scope addition):
+1. Add `tests/unit/core/terrain_effect_mapgrid_invariant_test.gd` (or fold into story-006's existing test file).
+2. Test: assert each `TerrainEffect.<TERRAIN>` integer matches the corresponding `MapGrid.ELEVATION_RANGES` entry's terrain-type position.
+3. Failure message must clearly state "TerrainEffect/MapGrid terrain-type ordering desync — update both atomically per TD-032 A-16."
+4. Cost: ~15-20 minutes.
+
+**Codification path**: when story-006 lands, this TD entry should be marked `Status: resolved` with the test file path as evidence.
+
+**Source files referenced**:
+- `src/core/terrain_effect.gd` (lines 43-58: 8 terrain-type constants)
+- `src/core/map_grid.gd` (when story-006 begins, the canonical ELEVATION_RANGES location)
+- `production/epics/terrain-effect/story-002-skeleton-static-state.md` (AC-2 + edge case note)
+- `production/epics/terrain-effect/story-006-cost-multiplier-mapgrid-migration.md` (where the guard test should land)
+- `docs/tech-debt-register.md` TD-032 §A-16 (the reconciliation that established the canonical ordering invariant)
+
+**Cross-references**:
+- Story: `production/epics/terrain-effect/story-002-skeleton-static-state.md`
+- Review: standalone `/code-review` 2026-04-25 (godot-gdscript-specialist APPROVED + qa-tester TESTABLE WITH GAPS — convergent on 4 findings; W-1 + S-1 applied inline; W-3 + S-2 confirmed false positives; W-2 deferred here)
+- Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-002)
+
