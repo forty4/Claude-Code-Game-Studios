@@ -1497,3 +1497,72 @@ Plus 1 doc accuracy issue: `get_attack_direction` doc comment (line 1239) says "
 - **Spec-canonical sign convention divergence (A-22)**: caught by AC-8 expected-value comparison; spec wrong, AC canonical.
 - Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-006)
 
+### A-27 — Increase perf-test warmup from 10 → 20 iterations (story-007)
+
+**Source**: map-grid story-007 `/code-review` qa-tester suggestion 5 (2026-04-25).
+
+**Issue**: 10 warmup iterations is marginal for cold-cache eviction on Linux x86_64 CI runners (L2/L3 cache capacity differs significantly from macOS arm64 unified memory). Observed warmup_ratio=1.08× on the developer machine suggests caches were already warm before warmup began (probable fixture-loader effect during gdunit4 boot). On a fresh headless CI runner with cold cache, 10 warmup iters may not stabilize p50 on x86_64.
+
+**Resolution**: Bump `WARMUP_ITERATIONS` constant from 10 to 20 in `map_grid_perf_test.gd`. Cost: ~1ms additional test time (negligible).
+
+**Estimated effort**: ~5 min.
+
+**Suggested trigger**: same pass as A-28 + A-29 (perf-test polish batch).
+
+### A-28 — Normalize AC-FRAME-TIME warmup to match AC-DESKTOP (story-007)
+
+**Source**: map-grid story-007 `/code-review` qa-tester edge case (2026-04-25).
+
+**Issue**: `test_map_grid_perf_get_movement_range_p95_under_desktop_budget` runs 10 warmup iterations before the measurement loop. `test_map_grid_perf_frame_time_no_three_consecutive_above_16ms` runs only 1 warmup iteration. The asymmetry is unexplained and could cause the first 1-2 samples in the AC-FRAME-TIME measurement array to be cold-cache-inflated, creating false 2-consecutive advisories.
+
+**Resolution**: Increase AC-FRAME-TIME warmup to 10 iterations (or 20 if A-27 lands first); add a brief comment explaining why both tests use the same warmup count.
+
+**Estimated effort**: ~5 min.
+
+**Suggested trigger**: same pass as A-27.
+
+### A-29 — JSON-structured perf artifact for trend-dashboard ingestion (story-007)
+
+**Source**: map-grid story-007 `/code-review` qa-tester suggestion 6 (2026-04-25).
+
+**Issue**: AC-DESKTOP test currently emits stats via plain `print()` to stdout. CI captures the log but downstream consumers (e.g., a future perf-trend dashboard) would need to parse human-readable text. Story-007 unlocks epic DoD item "V-1 performance: get_movement_range() <16 ms on 40×30" — a structured artifact would enable multi-run trend tracking.
+
+**Resolution**: Add a single `print(JSON.stringify({...}))` line emitting `{p50_us, p95_us, max_us, mean_us, warmup_ratio, iterations}` after the existing diagnostic print. A future `tools/ci/parse_perf_log.sh` can grep for the JSON line and POST to whatever consumer exists.
+
+**Estimated effort**: ~10 min.
+
+**Priority**: LOW — defer until a trend-dashboard consumer exists. Premature artifacts decay if no one reads them.
+
+**Suggested trigger**: when a perf-trend dashboard or CI artifact storage is introduced.
+
+### A-30 — Reproducibility AC documented as deferred, not automated (story-007)
+
+**Source**: map-grid story-007 `/code-review` qa-tester reproducibility section (2026-04-25).
+
+**Issue**: Story-007 spec line 41 includes the AC: "10 consecutive full-suite runs produce p95 values within ±10% variance; measurement framework documented in test file header." The header IS extensively documented, but no automated test verifies the ±10% property. The deferral was applied inline during /code-review (test header now mirrors AC-BREAKDOWN/AC-TARGET deferral language with explicit reactivation trigger), but no follow-up infrastructure exists.
+
+**Resolution**: When (and only when) a perf-trend dashboard is introduced (see A-29), add a CI job that runs the perf suite N times and asserts p95 variance is within ±10%. Until then, the AC remains "manually verifiable, CI-impractical" — accepted state.
+
+**Estimated effort**: ~30 min (CI job authoring + dashboard hookup) IF dashboard exists.
+
+**Priority**: LOWEST — depends on A-29 dashboard existing first.
+
+**Suggested trigger**: same pass as A-29.
+
+---
+
+**Updated estimated remediation effort (revised — includes A-23..A-30)**: 8.5-9.5 hours total
+
+**Suggested trigger (revised, post-story-007)**: Three-batch plan:
+- **ADR-0004 errata pass**: A-16 + A-17 + A-18 + A-20 + A-21 + A-22 (6 deviations across 3 documents). Combined ~2-2.5h.
+- **Map-grid advisory test pass**: A-23 + A-24 + A-25 + A-26 (story-006 follow-ups) + A-27 + A-28 (story-007 polish). Combined ~75-80 min.
+- **Perf trend infrastructure (deferred until consumer exists)**: A-29 + A-30. Combined ~40 min.
+
+**Story-007 specific links**:
+- Story: `production/epics/map-grid/story-007-perf-baseline.md`
+- Review: standalone `/code-review` 2026-04-25 (godot-gdscript-specialist CLEAN with suggestions + qa-tester TESTABLE WITH GAPS)
+- **Real drift caught and fixed inline during code-review** (NOT deferred — validates strict-assertion pattern):
+  - Initial fixture-distribution assertion expected PLAINS=720/ROAD=120; actual was 721/119. Caused by enemy-coord override at (8,22) flipping a ROAD tile to PLAINS. Assertion adjusted to reflect the deterministic post-override truth, with comment naming the override-induced count shift. The new strict assertion now functions as a CI-blocking guard against future fixture regeneration drift.
+- **Spec-internal collision resolved at generator time**: Story line 56 listed (20,15) as an enemy_occupied coord; line 80 also fixed (20,15) as the player query origin. Resolution: enemy moved to (25,12); player remains (20,15).
+- Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-007)
+
