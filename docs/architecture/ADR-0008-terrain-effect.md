@@ -1,15 +1,18 @@
 # ADR-0008: Terrain Effect System
 
 ## Status
-Proposed (2026-04-25)
+Accepted (2026-04-25, via `/architecture-review` delta)
 
 ## Date
 2026-04-25
 
+## Last Verified
+2026-04-25
+
 ## Decision Makers
 - Technical Director (architecture owner)
-- User (final approval pending — write-pass approval gate via `/architecture-decision`)
-- godot-specialist (engine validation pending — Step 4.5 of `/architecture-decision` protocol)
+- User (final approval, 2026-04-25)
+- godot-specialist (engine validation, 2026-04-25 — APPROVED WITH SUGGESTIONS, all suggestions applied this pass)
 
 ## Engine Compatibility
 
@@ -20,7 +23,7 @@ Proposed (2026-04-25)
 | **Knowledge Risk** | LOW — no post-cutoff APIs. `Dictionary[K, V]`, `JSON.parse_string`, `FileAccess.get_file_as_string`, `Vector2i`, GameBus signal pattern, typed `Resource` with `@export` are all pre-cutoff and stable. |
 | **References Consulted** | `docs/engine-reference/godot/VERSION.md`, `docs/engine-reference/godot/breaking-changes.md`, `docs/engine-reference/godot/current-best-practices.md`, `design/gdd/terrain-effect.md`, `design/gdd/map-grid.md`, `design/gdd/damage-calc.md`, `design/gdd/formation-bonus.md`, `docs/architecture/ADR-0001-gamebus-autoload.md`, `docs/architecture/ADR-0004-map-grid-data-model.md`, `docs/architecture/architecture.md` §Core layer (line 252) |
 | **Post-Cutoff APIs Used** | None. All APIs in this ADR's Decision section are pre-Godot-4.4 and stable across the project's pinned 4.6 baseline. |
-| **Verification Required** | (1) Benchmark `get_combat_modifiers()` per-call latency: must be <0.1ms (AC-21 of `terrain-effect.md`). (2) Confirm Godot 4.6 `JSON.parse_string()` round-trips integer values without float coercion (terrain modifier values are integer percentages — float drift would corrupt clamping). (3) Verify `class_name TerrainEffect` does not collide with built-in classes per G-12 (no Godot built-in `TerrainEffect` exists; safe). |
+| **Verification Required** | (1) Benchmark `get_combat_modifiers()` per-call latency on mid-range Android target: must be <0.1ms (AC-21 of `terrain-effect.md`). KEEP through implementation. (2) ~~JSON integer/float coercion~~ — **CLOSED 2026-04-25**: confirmed Godot 4.6 `JSON.parse_string` returns all numbers as `float`; `_validate_config()` rejects fractional values via `value != int(value)` guard (Notes §2). (3) ~~`class_name TerrainEffect` collision~~ — **CLOSED 2026-04-25**: no Godot 4.6 built-in by this name; `TerrainModifiers` and `CombatModifiers` also collision-free. (4) Confirm ADR-0004 §5b constants and 3-arg `get_attack_direction` signature match the eventual story-006 implementation; if drift occurs, treat as ADR-0004 follow-up amendment, not ADR-0008 revision. |
 
 ## ADR Dependencies
 
@@ -254,6 +257,8 @@ static func _on_tile_destroyed(coord: Vector2i) -> void:
     # Per CR-1 table, currently only FORTRESS_WALL destruction changes terrain_type.
     GameBus.terrain_changed.emit(coord)
 ```
+
+**ADR-0001 amendment requirement**: When the future-caching implementation lands, adding `terrain_changed(coord: Vector2i)` to GameBus's signal contract requires a formal ADR-0001 amendment (analogous to the Environment domain banner amendment landed concurrently with ADR-0004 for `tile_destroyed`). Do NOT add the signal informally; the amendment is the gate.
 
 ### 5. Public API Surface
 

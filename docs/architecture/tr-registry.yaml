@@ -24,8 +24,8 @@
 #
 # STATUS VALUES: active | deprecated | superseded-by: TR-[system]-NNN
 
-version: 3
-last_updated: "2026-04-20"
+version: 4
+last_updated: "2026-04-25"
 
 requirements:
   - id: TR-gamebus-001
@@ -271,5 +271,166 @@ requirements:
     adr: docs/architecture/ADR-0004-map-grid-data-model.md
     requirement: "TileData must remain inline inside MapResource.tres with no external UID references. Resource.duplicate_deep() returns shared instances for UID-referenced sub-resources, which would leak destruction state between maps. Shared-preset refactor requires superseding ADR (R-3 hard constraint)."
     created: 2026-04-20
+    revised: ""
+    status: active
+
+  - id: TR-terrain-effect-001
+    system: terrain-effect
+    gdd: design/gdd/terrain-effect.md
+    adr: docs/architecture/ADR-0008-terrain-effect.md
+    requirement: "CR-1: 8 terrain types each provide {defense_bonus: int, evasion_bonus: int, special_rules: Array[StringName]} to the defender. Values: PLAINS 0/0, HILLS 15/0, MOUNTAIN 20/5, FOREST 5/15, RIVER 0/0, BRIDGE 5/0+bridge_no_flank, FORTRESS_WALL 25/0, ROAD 0/0."
+    created: 2026-04-25
+    revised: ""
+    status: active
+
+  - id: TR-terrain-effect-002
+    system: terrain-effect
+    gdd: design/gdd/terrain-effect.md
+    adr: docs/architecture/ADR-0008-terrain-effect.md
+    requirement: "CR-1d: Terrain modifiers uniform across unit types for MVP. Class differentiation handled by Map/Grid movement costs (cost_multiplier matrix), not by per-class terrain bonuses."
+    created: 2026-04-25
+    revised: ""
+    status: active
+
+  - id: TR-terrain-effect-003
+    system: terrain-effect
+    gdd: design/gdd/terrain-effect.md
+    adr: docs/architecture/ADR-0008-terrain-effect.md
+    requirement: "CR-2: Asymmetric elevation modifiers (attacker bonus + defender penalty). delta=±1 → ±8% attack, ∓8% defender; delta=±2 → ±15%, ∓15%. Sub-linear (15 < 16) per CR-2c."
+    created: 2026-04-25
+    revised: ""
+    status: active
+
+  - id: TR-terrain-effect-004
+    system: terrain-effect
+    gdd: design/gdd/terrain-effect.md
+    adr: docs/architecture/ADR-0008-terrain-effect.md
+    requirement: "F-1: total_defense clamped to symmetric range [-MAX_DEFENSE_REDUCTION, +MAX_DEFENSE_REDUCTION]. Negative defense allowed (CR-3e + EC-1) and amplifies damage by up to 30%."
+    created: 2026-04-25
+    revised: ""
+    status: active
+
+  - id: TR-terrain-effect-005
+    system: terrain-effect
+    gdd: design/gdd/terrain-effect.md
+    adr: docs/architecture/ADR-0008-terrain-effect.md
+    requirement: "CR-3a + CR-3b: MAX_DEFENSE_REDUCTION = 30, MAX_EVASION = 30. Owned by Terrain Effect system; values live in terrain_config.json. Cap-display rule (CR-3c): UI shows '[MAX]' when stacking exceeds the cap."
+    created: 2026-04-25
+    revised: ""
+    status: active
+
+  - id: TR-terrain-effect-006
+    system: terrain-effect
+    gdd: design/gdd/terrain-effect.md
+    adr: docs/architecture/ADR-0008-terrain-effect.md
+    requirement: "CR-3d: Minimum damage = 1 (defense alone never zeroes attacks). Enforced by Damage Calc per cross-system contract; Terrain Effect supplies modifier only."
+    created: 2026-04-25
+    revised: ""
+    status: active
+
+  - id: TR-terrain-effect-007
+    system: terrain-effect
+    gdd: design/gdd/terrain-effect.md
+    adr: docs/architecture/ADR-0008-terrain-effect.md
+    requirement: "CR-3e + EC-1: F-1's symmetric clamp is authoritative for negative defense. 'Not capped' in CR-3e means not floored to zero — symmetric [-30, +30] still bounds amplification."
+    created: 2026-04-25
+    revised: ""
+    status: active
+
+  - id: TR-terrain-effect-008
+    system: terrain-effect
+    gdd: design/gdd/terrain-effect.md
+    adr: docs/architecture/ADR-0008-terrain-effect.md
+    requirement: "CR-4: Three public query methods — get_terrain_modifiers(coord) -> TerrainModifiers (raw uncapped, for HUD); get_combat_modifiers(atk, def) -> CombatModifiers (clamped, for Damage Calc); get_terrain_score(coord) -> float (0.0-1.0, AI elevation-agnostic per EC-5)."
+    created: 2026-04-25
+    revised: ""
+    status: active
+
+  - id: TR-terrain-effect-009
+    system: terrain-effect
+    gdd: design/gdd/terrain-effect.md
+    adr: docs/architecture/ADR-0008-terrain-effect.md
+    requirement: "CR-5: BRIDGE tiles convert FLANK → FRONT for the defender. Implementation: bridge_no_flank flag in CombatModifiers; Damage Calc orchestrates the FLANK→FRONT collapse using ADR-0004 §5b ATK_DIR_* constants. Map/Grid stays Foundation-pure."
+    created: 2026-04-25
+    revised: ""
+    status: active
+
+  - id: TR-terrain-effect-010
+    system: terrain-effect
+    gdd: design/gdd/terrain-effect.md
+    adr: docs/architecture/ADR-0008-terrain-effect.md
+    requirement: "Stateless / pure query layer. class_name TerrainEffect extends RefCounted with all-static methods; no per-battle state, no Node lifecycle. Lazy-loaded config + idempotent _config_loaded guard. Test seam: reset_for_tests() in before_each() for static-state isolation across GdUnit4 suites."
+    created: 2026-04-25
+    revised: ""
+    status: active
+
+  - id: TR-terrain-effect-011
+    system: terrain-effect
+    gdd: design/gdd/damage-calc.md
+    adr: docs/architecture/ADR-0008-terrain-effect.md
+    requirement: "Cross-system contract (damage-calc.md §F, ratified 2026-04-18): terrain_def is opaque signed int ∈ [-30, +30] already clamped; terrain_evasion is opaque int ∈ [0, 30] already clamped. Damage Calc owns the evasion roll (F-DC-2)."
+    created: 2026-04-25
+    revised: ""
+    status: active
+
+  - id: TR-terrain-effect-012
+    system: terrain-effect
+    gdd: design/gdd/terrain-effect.md
+    adr: docs/architecture/ADR-0008-terrain-effect.md
+    requirement: "Configuration loaded from assets/data/terrain/terrain_config.json (owned by Terrain Effect, GDD line 583). MVP loads via FileAccess.get_file_as_string + JSON.new().parse() (instance form for diagnostics); migrates to ADR-0006 Balance/Data pipeline when written (API-stable migration)."
+    created: 2026-04-25
+    revised: ""
+    status: active
+
+  - id: TR-terrain-effect-013
+    system: terrain-effect
+    gdd: design/gdd/terrain-effect.md
+    adr: docs/architecture/ADR-0008-terrain-effect.md
+    requirement: "AC-21: get_combat_modifiers() <0.1ms per call on mid-range Android target. Budget: 100 calls per frame at 60fps. Achieved via two O(1) Dictionary lookups + arithmetic (no caching MVP)."
+    created: 2026-04-25
+    revised: ""
+    status: active
+
+  - id: TR-terrain-effect-014
+    system: terrain-effect
+    gdd: design/gdd/terrain-effect.md
+    adr: docs/architecture/ADR-0008-terrain-effect.md
+    requirement: "AC-19 + AC-20: Config schema validated on load (schema_version, all 8 terrain types present, all 5 elevation deltas present, integer-fields rejected if fractional via value != int(value), modifier ranges sane). On any validation failure, push_error + fall back to MVP defaults; game must remain playable per Pillar 1."
+    created: 2026-04-25
+    revised: ""
+    status: active
+
+  - id: TR-terrain-effect-015
+    system: terrain-effect
+    gdd: design/gdd/terrain-effect.md
+    adr: docs/architecture/ADR-0008-terrain-effect.md
+    requirement: "EC-14: Elevation delta clamped to [-2, +2] before table lookup. Out-of-range deltas log a warning and use the clamped value. Future elevation level 3+ requires CR-2 table extension."
+    created: 2026-04-25
+    revised: ""
+    status: active
+
+  - id: TR-terrain-effect-016
+    system: terrain-effect
+    gdd: design/gdd/terrain-effect.md
+    adr: docs/architecture/ADR-0008-terrain-effect.md
+    requirement: "AC-14: Out-of-bounds coordinate returns zero modifiers (defense 0, evasion 0, special_rules empty). No error path; quiet zero-fill keeps consumers safe from null."
+    created: 2026-04-25
+    revised: ""
+    status: active
+
+  - id: TR-terrain-effect-017
+    system: terrain-effect
+    adr: docs/architecture/ADR-0008-terrain-effect.md
+    requirement: "Cross-system shared cap accessor: TerrainEffect.max_defense_reduction() and max_evasion() are the single source of truth for Formation Bonus and Damage Calc. Cap value lives in terrain_config.json; consumers never hardcode 30."
+    created: 2026-04-25
+    revised: ""
+    status: active
+
+  - id: TR-terrain-effect-018
+    system: terrain-effect
+    gdd: design/gdd/map-grid.md
+    adr: docs/architecture/ADR-0008-terrain-effect.md
+    requirement: "TerrainEffect.cost_multiplier(unit_type: int, terrain_type: int) -> int defines the unit-type × terrain-type cost matrix structure for Map/Grid Dijkstra. MVP returns 1 for all pairs (CR-1d uniform); ADR-0009 Unit Role populates values. Replaces src/core/terrain_cost.gd:32 placeholder."
+    created: 2026-04-25
     revised: ""
     status: active

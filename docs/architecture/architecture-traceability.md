@@ -11,15 +11,15 @@
 
 | Field | Value |
 |---|---|
-| Version | 0.2 |
-| Last Updated | 2026-04-20 |
+| Version | 0.3 |
+| Last Updated | 2026-04-25 |
 | Source — architecture: | `docs/architecture/architecture.md` v0.1 |
-| Source — TR registry: | `docs/architecture/tr-registry.yaml` v3 |
-| Source — /architecture-review: | `docs/architecture/architecture-review-2026-04-18.md` (PASS) + `architecture-review-2026-04-20.md` (PASS delta, ADR-0004 accepted) |
-| GDDs scanned | 10 of 14 MVP (2026-04-18) + map-grid.md re-scan (2026-04-20) |
-| TRs extracted (this session) | 102 |
-| TRs registered (permanent IDs) | 30 |
-| ADR coverage: | 4 ADRs (all Accepted) |
+| Source — TR registry: | `docs/architecture/tr-registry.yaml` v4 |
+| Source — /architecture-review: | `docs/architecture/architecture-review-2026-04-18.md` (PASS) + `architecture-review-2026-04-20.md` (PASS delta, ADR-0004 accepted) + `architecture-review-2026-04-25.md` (PASS delta, ADR-0008 accepted) |
+| GDDs scanned | 10 of 14 MVP (2026-04-18) + map-grid.md re-scan (2026-04-20) + terrain-effect.md re-scan (2026-04-25) |
+| TRs extracted (this session) | 120 |
+| TRs registered (permanent IDs) | 48 |
+| ADR coverage: | 5 ADRs (all Accepted — 4 Foundation + 1 Core) |
 
 ---
 
@@ -29,7 +29,7 @@
 |---|---|---|---|---|
 | Platform | — (infra) | 3 (ADR-0001..0003 Accepted) | 0 more | ✅ Complete |
 | Foundation | ~35 | 2 (ADR-0004 Accepted) | 3 more (Input, Balance/Data, Hero DB) | ⚠️ 2/5 |
-| Core | ~30 | 0 | 2+ (Turn Order signal, Save/Load schema) | ❌ 0/2 |
+| Core | ~30 | 1 (ADR-0008 Accepted) | 1+ more (Turn Order signal, Damage Calc) | ⚠️ 1/2 |
 | Feature | ~25 | 0 | 3+ (Damage Calc, AI, Destiny Branch) | ❌ 0/3 |
 | Presentation | ~10 | 0 | 1+ (Dual-focus UI pattern) | ❌ 0/1 |
 | Polish | ~2 | 0 | 1 (Accessibility, if tier committed) | ❌ 0/1 |
@@ -74,8 +74,26 @@ These 20 requirements have permanent IDs and are already covered by an Accepted 
 | TR-map-grid-008 | map-grid | ADR-0004 | Accepted | Elevation 0/1/2 + integer Bresenham LoS; destroyed walls unblock; endpoints never self-block |
 | TR-map-grid-009 | map-grid | ADR-0004 | Accepted | `.tres` authoring at `res://data/maps/[map_id].tres`; CACHE_MODE_IGNORE load; OQ#2 resolved |
 | TR-map-grid-010 | map-grid | ADR-0004 | Accepted | TileData inline-only (no external UID) — hard constraint from duplicate_deep() edge case; superseding ADR required for shared presets |
+| TR-terrain-effect-001 | terrain-effect | ADR-0008 | Accepted | CR-1: 8 terrain types × {defense_bonus, evasion_bonus, special_rules} table |
+| TR-terrain-effect-002 | terrain-effect | ADR-0008 | Accepted | CR-1d: Modifiers uniform across unit types for MVP; class differentiation via Map/Grid cost matrix |
+| TR-terrain-effect-003 | terrain-effect | ADR-0008 | Accepted | CR-2: Asymmetric elevation modifiers (delta ±1 → ±8%, ±2 → ±15%, sub-linear) |
+| TR-terrain-effect-004 | terrain-effect | ADR-0008 | Accepted | F-1: Symmetric clamp [-30, +30] for total_defense; negative defense amplifies damage |
+| TR-terrain-effect-005 | terrain-effect | ADR-0008 | Accepted | MAX_DEFENSE_REDUCTION = 30, MAX_EVASION = 30 (CR-3a/b); cap-display [MAX] (CR-3c) |
+| TR-terrain-effect-006 | terrain-effect | ADR-0008 | Accepted | CR-3d: Min damage = 1 — Damage Calc enforces; Terrain Effect supplies modifier only |
+| TR-terrain-effect-007 | terrain-effect | ADR-0008 | Accepted | CR-3e + EC-1: Symmetric clamp authoritative for negative defense |
+| TR-terrain-effect-008 | terrain-effect | ADR-0008 | Accepted | CR-4: 3 query methods — get_terrain_modifiers, get_combat_modifiers, get_terrain_score |
+| TR-terrain-effect-009 | terrain-effect | ADR-0008 | Accepted | CR-5: Bridge FLANK→FRONT via flag; Damage Calc orchestrates with ADR-0004 §5b ATK_DIR_* constants |
+| TR-terrain-effect-010 | terrain-effect | ADR-0008 | Accepted | Stateless RefCounted+static; lazy-init; reset_for_tests() discipline for GdUnit4 isolation |
+| TR-terrain-effect-011 | terrain-effect | ADR-0008 | Accepted | Cross-system contract (damage-calc.md §F): opaque clamped terrain_def [-30,+30] / terrain_evasion [0,30] |
+| TR-terrain-effect-012 | terrain-effect | ADR-0008 | Accepted | Config at assets/data/terrain/terrain_config.json; FileAccess + JSON.new().parse() instance form |
+| TR-terrain-effect-013 | terrain-effect | ADR-0008 | Accepted | AC-21: get_combat_modifiers() <0.1ms per call (mid-range Android, 100 calls/frame budget) |
+| TR-terrain-effect-014 | terrain-effect | ADR-0008 | Accepted | AC-19/20: Schema validation + safe-default fallback; fractional-value rejection via value != int(value) |
+| TR-terrain-effect-015 | terrain-effect | ADR-0008 | Accepted | EC-14: Elevation delta clamped to [-2, +2] before table lookup |
+| TR-terrain-effect-016 | terrain-effect | ADR-0008 | Accepted | AC-14: OOB coord → zero modifiers; no error path |
+| TR-terrain-effect-017 | terrain-effect | ADR-0008 | Accepted | Shared cap accessor max_defense_reduction()/max_evasion() — single source of truth for Formation Bonus + Damage Calc |
+| TR-terrain-effect-018 | terrain-effect | ADR-0008 | Accepted | cost_multiplier(unit_type, terrain_type) matrix structure; MVP=1 uniform; replaces terrain_cost.gd:32 placeholder |
 
-All Foundation-layer ADRs (ADR-0001..0004) now have permanent TR IDs registered.
+All Foundation-layer ADRs (ADR-0001..0004) and the first Core-layer ADR (ADR-0008) now have permanent TR IDs registered.
 
 ---
 
