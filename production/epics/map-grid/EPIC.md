@@ -114,7 +114,7 @@ This epic is complete when:
 | 002 | MapGrid skeleton + load_map + 6 packed caches + trivial queries | Logic | Complete | ADR-0004 | TR-001, TR-007, TR-009 (partial), V-2 partial |
 | 003 | Map loading validation + error collection | Logic | Complete | ADR-0004 | TR-009, AC-CR-4, AC-EDGE-1, §EC-7 |
 | 004 | Mutation API + packed cache write-through + tile_destroyed signal | Integration | Complete | ADR-0004 + ADR-0001 | TR-004, TR-005, V-5, V-6, AC-ST-1..4, AC-EDGE-4 |
-| 005 | Custom Dijkstra — get_movement_range + get_path | Logic | Ready | ADR-0004 | TR-002, TR-003 (2/9), TR-006, V-4, AC-CR-6, AC-F-1..3 |
+| 005 | Custom Dijkstra — get_movement_range + get_movement_path | Logic | **Complete** (2026-04-25) | ADR-0004 | TR-002, TR-003 (2/9), TR-006, V-4, AC-CR-6, AC-F-1..3 |
 | 006 | LoS + attack queries + adjacency (remaining 7 queries) | Logic | Ready | ADR-0004 | TR-003 (7/9), TR-008, V-3, AC-CR-5, AC-CR-7, AC-F-4, AC-F-5, AC-EDGE-3 |
 | 007 | Performance baseline (desktop substitute) | Integration | Ready | ADR-0004 | TR-006, AC-PERF-1, AC-PERF-2, V-1 (desktop; mobile deferred) |
 | 008 | Inspector authoring + 40×30 fixture manual QA | UI | Ready | ADR-0004 | TR-009 (authoring), V-7 |
