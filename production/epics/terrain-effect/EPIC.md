@@ -5,7 +5,7 @@
 > **Architecture Module**: Terrain Effect (docs/architecture/architecture.md §Core layer line 252)
 > **Status**: Ready
 > **Manifest Version**: 2026-04-20 (docs/architecture/control-manifest.md)
-> **Stories**: Not yet created — run `/create-stories terrain-effect`
+> **Stories**: 8 — see table below
 
 ## Overview
 
@@ -119,23 +119,19 @@ This epic is complete when:
 
 ## Stories
 
-Not yet created — run `/create-stories terrain-effect` to generate the story breakdown.
+| # | Story | Type | Status | ADR | Covers |
+|---|-------|------|--------|-----|--------|
+| 001 | [TerrainModifiers + CombatModifiers Resource classes](story-001-resource-classes.md) | Logic | Ready | ADR-0008 | TR-001 (schema), TR-009 (bridge_no_flank flag) |
+| 002 | [TerrainEffect skeleton + class_name + static state + lazy-init guard + reset_for_tests + terrain-type int constants](story-002-skeleton-static-state.md) | Logic | Ready | ADR-0008 | TR-010 (stateless RefCounted+static + isolation discipline; multi-suite regression test included) |
+| 003 | [Config JSON authoring + load_config (instance-form JSON.new().parse) + _validate_config + _fall_back_to_defaults](story-003-config-loading-validation.md) | Logic | Ready | ADR-0008 | TR-012 (config path), TR-014 (AC-19/20 schema validation + safe defaults) |
+| 004 | [get_terrain_modifiers + get_terrain_score (CR-1, CR-1d, F-3, EC-13, AC-14)](story-004-terrain-modifiers-score-queries.md) | Logic | Ready | ADR-0008 | TR-001 (queries), TR-002 (CR-1d uniformity), TR-008 (2/3 query methods), TR-016 (AC-14 OOB) |
+| 005 | [get_combat_modifiers (CR-2 elevation + CR-3a/b symmetric clamp + CR-5 bridge flag + EC-14 delta clamp)](story-005-combat-modifiers-elevation-clamp-bridge.md) | Logic | Ready | ADR-0008 | TR-003, TR-004, TR-005, TR-007, TR-008 (3/3), TR-009, TR-011, TR-015 |
+| 006 | [cost_multiplier + terrain_cost.gd:32 migration + Map/Grid regression](story-006-cost-multiplier-mapgrid-migration.md) | Integration | Ready | ADR-0008 | TR-018, TR-002 (CR-1d MVP=1 uniform) |
+| 007 | [max_defense_reduction + max_evasion shared accessors](story-007-cap-shared-accessors.md) | Logic | Ready | ADR-0008 | TR-017 (single source of truth) |
+| 008 | [Performance baseline (desktop substitute) — AC-21 <0.1ms benchmark](story-008-perf-baseline.md) | Integration | Ready | ADR-0008 | TR-013 (AC-21) |
 
-**Anticipated decomposition** (preview only — final breakdown locked at `/create-stories`):
-
-| # (anticipated) | Story | Type | Covers |
-|---|-------|------|--------|
-| 001 | TerrainModifiers + CombatModifiers Resource classes | Logic | TR-001 (TerrainModifiers schema), CR-5 flag on CombatModifiers |
-| 002 | TerrainEffect skeleton — class_name + static state + lazy-init guard + reset_for_tests | Logic | TR-010 |
-| 003 | Config JSON authoring + load_config (FileAccess + JSON.new().parse instance form) + schema validation + safe-default fallback | Config/Data + Logic | TR-012, TR-014 (AC-19/20) |
-| 004 | get_terrain_modifiers + get_terrain_score (CR-1, F-3) | Logic | TR-001, TR-008 (1/3), TR-016 (AC-14 OOB), CR-1d |
-| 005 | get_combat_modifiers (CR-2 elevation table + CR-3a/b symmetric clamp + CR-5 bridge flag + EC-14 delta clamp) | Logic | TR-003, TR-004, TR-005, TR-007, TR-008 (2/3), TR-009, TR-011, TR-015 |
-| 006 | cost_multiplier + terrain_cost.gd:32 migration + Map/Grid regression | Integration | TR-018, TR-002 (cost_matrix MVP=1 uniform) |
-| 007 | max_defense_reduction + max_evasion shared accessors + multi-suite static-state isolation regression test | Logic | TR-017, TR-010 (isolation discipline) |
-| 008 | Performance baseline (desktop substitute) — AC-21 <0.1ms benchmark | Integration | TR-013 (AC-21) |
-
-Probably 7-9 stories; `/create-stories terrain-effect` will lock the final count.
+**Dependency chain**: 001 → 002 → 003 → {004, 005, 006, 007 parallelizable} → 008. The multi-suite static-state isolation regression test (the discipline-establishing test for the entire epic's GdUnit4 pattern) lands in story-002 AC-7.
 
 ## Next Step
 
-Run `/create-stories terrain-effect` to break this epic into implementable stories.
+Run `/story-readiness production/epics/terrain-effect/story-001-resource-classes.md` to validate the first story, then `/dev-story` to implement.
