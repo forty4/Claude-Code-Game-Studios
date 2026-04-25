@@ -1735,13 +1735,37 @@ Missing blank line at `terrain_effect.gd:390` between `_apply_config` body and `
 
 **Cost**: 30 seconds. **Benefit**: zero (cosmetic only). Bundle into any future edit of this file.
 
+### F. Unknown terrain_type safety-net test (story-004 /code-review qa-tester R-3 / GAP-1)
+
+`terrain_effect.gd` `get_terrain_modifiers()` has a safety-net branch `if entry == null: return TerrainModifiers.new()` (~line 501) that catches the case where `_terrain_table` lacks the queried `terrain_type`. AC-2 of story-004 covers terrain types 0-7, but a query with `terrain_type=99` cannot reach the test path because `_make_grid(0, 0, 99, 0)` would fail `MapGrid.load_map` validation before the query runs. The internal safety net at line 501 is therefore untested in isolation.
+
+**Risk**: a future refactor that removes or short-circuits this branch (e.g., assuming `_terrain_table` is always complete) would not be caught by any current test.
+
+**Proposed remediation**: a test that bypasses the natural production path:
+```gdscript
+func test_terrain_effect_queries_unknown_terrain_type_returns_zero_fill() -> void:
+    var script: GDScript = load(TERRAIN_EFFECT_PATH) as GDScript
+    var grid: MapGrid = _make_grid(0, 0, TerrainEffect.PLAINS, 0)
+    # Force lazy-init via a probe call, then mutate _terrain_table to empty
+    TerrainEffect.get_terrain_modifiers(grid, Vector2i(0, 0))
+    script.set("_terrain_table", {})
+    # Query a coord whose terrain_type is now unknown
+    var m: TerrainModifiers = TerrainEffect.get_terrain_modifiers(grid, Vector2i(0, 0))
+    assert_int(m.defense_bonus).is_equal(0)
+    assert_int(m.evasion_bonus).is_equal(0)
+    assert_int(m.special_rules.size()).is_equal(0)
+    grid.free()
+```
+
+**Cost**: ~10 minutes. **Benefit**: closes the safety-net coverage gap; protects against silent removal of defensive code.
+
 ---
 
-**Total estimated remediation effort**: ~2 hours total (across A-E).
+**Total estimated remediation effort**: ~2 hours total (across A-F).
 
-**Suggested trigger**: when story-004 (`get_terrain_modifiers`) lands, the test infrastructure for terrain-effect will need expansion anyway — fold A (validator split), C (3 advisory tests), and B (fixture DRY) into the same pass. D (diagnostic labels) and E (cosmetic) stay deferred until a separate trigger.
+**Suggested trigger**: at the end of the terrain-effect epic (story-008 perf baseline), bundle A (validator split), B (fixture DRY), C (advisory edge tests), and F (unknown terrain_type safety-net) into a single test infrastructure hardening pass. D (diagnostic labels) and E (cosmetic) stay deferred until a separate trigger.
 
-**Story-004 carry-over (NOT part of TD-034)**: qa-tester GAP-4 / R-6 — fallback exact-value correctness must be a BLOCKING requirement in story-004's `get_terrain_modifiers()` tests. If `_fall_back_to_defaults()` hardcodes HILLS defense_bonus as `10` instead of `15` (a typo), no story-003 test catches it; only story-004's value-assertion tests would. Mark as a discovery surface in the story-004 readiness check.
+**Story-004 carry-over (RESOLVED 2026-04-26)**: qa-tester GAP-4 / R-6 was the carry-over from story-003 — fallback exact-value correctness must be a BLOCKING requirement in story-004's `get_terrain_modifiers()` tests. **CONFIRMED SATISFIED** by story-004 AC-2 (lines 183-224 of `terrain_effect_queries_test.gd`): explicit per-terrain `defense_bonus`, `evasion_bonus`, and `special_rules.size()` assertions for all 8 terrain types. A `_fall_back_to_defaults()` typo of HILLS=10 instead of 15 would fail at line 203.
 
 **Cross-references**:
 - Story: `production/epics/terrain-effect/story-003-config-loading-validation.md`

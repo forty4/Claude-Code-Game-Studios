@@ -124,7 +124,7 @@ This epic is complete when:
 | 001 | [TerrainModifiers + CombatModifiers Resource classes](story-001-resource-classes.md) | Logic | **Complete (2026-04-25)** | ADR-0008 | TR-001 (schema), TR-009 (bridge_no_flank flag) |
 | 002 | [TerrainEffect skeleton + class_name + static state + lazy-init guard + reset_for_tests + terrain-type int constants](story-002-skeleton-static-state.md) | Logic | **Complete (2026-04-25)** | ADR-0008 | TR-010 (stateless RefCounted+static + isolation discipline; multi-suite regression test included) |
 | 003 | [Config JSON authoring + load_config (instance-form JSON.new().parse) + _validate_config + _fall_back_to_defaults](story-003-config-loading-validation.md) | Logic | **Complete (2026-04-26)** | ADR-0008 | TR-012 (config path), TR-014 (AC-19/20 schema validation + safe defaults) |
-| 004 | [get_terrain_modifiers + get_terrain_score (CR-1, CR-1d, F-3, EC-13, AC-14)](story-004-terrain-modifiers-score-queries.md) | Logic | Ready | ADR-0008 | TR-001 (queries), TR-002 (CR-1d uniformity), TR-008 (2/3 query methods), TR-016 (AC-14 OOB) |
+| 004 | [get_terrain_modifiers + get_terrain_score (CR-1, CR-1d, F-3, EC-13, AC-14)](story-004-terrain-modifiers-score-queries.md) | Logic | **Complete (2026-04-26)** | ADR-0008 | TR-001 (queries), TR-002 (CR-1d uniformity), TR-008 (2/3 query methods), TR-016 (AC-14 OOB) |
 | 005 | [get_combat_modifiers (CR-2 elevation + CR-3a/b symmetric clamp + CR-5 bridge flag + EC-14 delta clamp)](story-005-combat-modifiers-elevation-clamp-bridge.md) | Logic | Ready | ADR-0008 | TR-003, TR-004, TR-005, TR-007, TR-008 (3/3), TR-009, TR-011, TR-015 |
 | 006 | [cost_multiplier + terrain_cost.gd:32 migration + Map/Grid regression](story-006-cost-multiplier-mapgrid-migration.md) | Integration | Ready | ADR-0008 | TR-018, TR-002 (CR-1d MVP=1 uniform) |
 | 007 | [max_defense_reduction + max_evasion shared accessors](story-007-cap-shared-accessors.md) | Logic | Ready | ADR-0008 | TR-017 (single source of truth) |
@@ -134,6 +134,8 @@ This epic is complete when:
 
 ## Next Step
 
-Stories 001-003 Complete (001-002: 2026-04-25; 003: 2026-04-26). **3/8 done — config layer fully landed**. Run `/story-readiness production/epics/terrain-effect/story-004-terrain-modifiers-score-queries.md` to validate the next story, then `/dev-story` to implement (`get_terrain_modifiers` + `get_terrain_score` queries — CR-1 + CR-1d + F-3 + EC-13 + AC-14 OOB).
+Stories 001-004 Complete (001-002: 2026-04-25; 003-004: 2026-04-26). **4/8 done — half-way mark crossed; query layer half-landed (raw-modifier + AI-score queries done; combat-modifier query in story-005)**. Stories 005-007 are now parallelizable per the dependency chain. Recommended next story: **story-005** (`get_combat_modifiers` — the heavyweight query with elevation + clamps + bridge flag; reuses the defensive-copy discipline established in story-004).
 
-**Story-004 readiness reminder (carry-over from story-003 /code-review GAP-4)**: fallback exact-value correctness must be a BLOCKING test in story-004. Story-003's tests verify `_terrain_table.size() == 8` after fallback but NOT exact field values. Story-004's `get_terrain_modifiers()` value-assertion tests are the canonical defense against typos like HILLS=10 vs. canonical 15. See TD-034 §Story-004 carry-over for details.
+**Story-003 GAP-4 carry-over: RESOLVED in story-004 AC-2** — the 8-terrain canonical CR-1 matrix exercises every fallback value with explicit `defense_bonus`/`evasion_bonus`/`special_rules` assertions. A `_fall_back_to_defaults()` typo of HILLS=10 vs. canonical 15 would now fail at story-004 AC-2 line 203. TD-034 entry updated to mark RESOLVED.
+
+Run `/story-readiness production/epics/terrain-effect/story-005-combat-modifiers-elevation-clamp-bridge.md` to validate the next story, then `/dev-story` to implement.

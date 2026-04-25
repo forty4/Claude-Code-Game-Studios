@@ -465,3 +465,71 @@ static func _fall_back_to_defaults() -> void:
 	_elevation_table[2]  = {"attack_mod":  15, "defense_mod": -15}
 
 	_config_loaded = true
+
+# ── Public Query Methods (Story-004) ────────────────────────────────────────
+
+## Returns raw (uncapped) terrain modifiers for the tile at [param coord].
+##
+## Reads [code]MapGrid.get_tile(coord).terrain_type[/code], looks up
+## [code]_terrain_table[terrain_type][/code], and returns a NEW defensive-copy
+## [code]TerrainModifiers[/code] instance (ADR-0008 §Notes §5 — prevents caller
+## mutation from poisoning the static table).
+##
+## Lazy-triggers [method load_config] on first call if [member _config_loaded]
+## is false (ADR-0008 §Decision 1 — pay-per-use; tests that never query terrain
+## pay zero load cost).
+##
+## Out-of-bounds or null-grid: returns a zero-fill [code]TerrainModifiers[/code]
+## (AC-14 — no crash, no error). Uses [code]MapGrid.get_tile[/code] as the single
+## source of truth for what counts as OOB.
+##
+## CR-1d / TR-002: signature has NO [code]unit_type[/code] parameter — all unit
+## classes receive the same terrain modifiers (class differentiation is the
+## cost_matrix domain, not the terrain-modifier domain).
+##
+## Usage:
+##   var m: TerrainModifiers = TerrainEffect.get_terrain_modifiers(grid, Vector2i(3, 5))
+##   print(m.defense_bonus)   # 15 for HILLS
+static func get_terrain_modifiers(grid: MapGrid, coord: Vector2i) -> TerrainModifiers:
+	if not _config_loaded:
+		load_config()
+	var tile: MapTileData = grid.get_tile(coord) if grid != null else null
+	if tile == null:
+		return TerrainModifiers.new()  # zero-fill OOB per AC-14
+	var entry: TerrainModifiers = _terrain_table.get(tile.terrain_type, null) as TerrainModifiers
+	if entry == null:
+		return TerrainModifiers.new()  # safety net for unknown terrain_type
+	var copy := TerrainModifiers.new()
+	copy.defense_bonus = entry.defense_bonus
+	copy.evasion_bonus = entry.evasion_bonus
+	# G-2: .assign() preserves Array[StringName] typing; .duplicate() demotes to untyped Array.
+	var rules: Array[StringName] = []
+	rules.assign(entry.special_rules)
+	copy.special_rules = rules
+	return copy
+
+## Returns the normalized AI terrain-score for the tile at [param coord].
+##
+## Formula F-3 (GDD terrain-effect.md):
+##   [code](defense_bonus + evasion_bonus * _evasion_weight) / _max_possible_score[/code]
+##
+## Result is in [0.0, 1.0] for all canonical CR-1 terrain types with default
+## configuration (MAX_POSSIBLE_SCORE = 43.0 = FORTRESS_WALL_DEF(25) + FOREST_EVA(15)*1.2).
+## No terrain in the canonical CR-1 table reaches exactly 1.0 by design.
+##
+## EC-5: elevation-agnostic — this method has no [code]attacker_coord[/code] or
+## elevation parameter. AI consumers that need elevation-aware scoring must call
+## [method get_combat_modifiers] separately and combine results.
+##
+## Lazy-triggers [method load_config] on first call if not yet loaded (same
+## contract as [method get_terrain_modifiers] — the two methods are independent
+## lazy entry points; neither assumes the other was called first).
+##
+## Usage:
+##   var score: float = TerrainEffect.get_terrain_score(grid, Vector2i(3, 5))
+##   # HILLS → (15 + 0) / 43.0 ≈ 0.3488
+static func get_terrain_score(grid: MapGrid, coord: Vector2i) -> float:
+	if not _config_loaded:
+		load_config()
+	var mods: TerrainModifiers = get_terrain_modifiers(grid, coord)
+	return (mods.defense_bonus + mods.evasion_bonus * _evasion_weight) / _max_possible_score

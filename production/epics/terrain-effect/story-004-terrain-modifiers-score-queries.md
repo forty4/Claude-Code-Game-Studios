@@ -1,7 +1,7 @@
 # Story 004: get_terrain_modifiers + get_terrain_score (CR-1, CR-1d, F-3, EC-13, AC-14)
 
 > **Epic**: terrain-effect
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
@@ -32,19 +32,19 @@
 
 *From GDD AC-1, AC-11, AC-13, AC-14, EC-13 + ADR-0008 §Decision 5 + §Notes §5:*
 
-- [ ] `static func get_terrain_modifiers(grid: MapGrid, coord: Vector2i) -> TerrainModifiers` declared on `TerrainEffect`
-- [ ] `static func get_terrain_score(grid: MapGrid, coord: Vector2i) -> float` declared on `TerrainEffect`
-- [ ] If `_config_loaded == false`, both methods lazy-trigger `load_config()` before reading state (idempotent)
-- [ ] `get_terrain_modifiers` reads `MapGrid.get_tile(coord).terrain_type`, looks up `_terrain_table[terrain_type]`, returns a NEW `TerrainModifiers` instance with copied field values (defensive copy)
-- [ ] AC-1: HILLS defender (terrain_type=2) returns `TerrainModifiers` with `defense_bonus == 15`, `evasion_bonus == 0`, `special_rules == []`
-- [ ] AC-11: All 8 terrain types return canonical CR-1 values (PLAINS 0/0/[], FOREST 5/15/[], HILLS 15/0/[], MOUNTAIN 20/5/[], RIVER 0/0/[], BRIDGE 5/0/[&"bridge_no_flank"], FORTRESS_WALL 25/0/[], ROAD 0/0/[])
-- [ ] CR-1d / TR-002 uniformity: the query signature has NO `unit_type` parameter — all unit classes get the same modifiers (class differentiation is Map/Grid's cost_matrix domain, not Terrain Effect's terrain table)
-- [ ] AC-14: out-of-bounds coord returns zero-fill `TerrainModifiers` (defense_bonus=0, evasion_bonus=0, special_rules=[]) — no error path; quiet zero-fill via the `MapGrid.get_tile` returning null guard
-- [ ] EC-13: querying RIVER tile returns valid (0/0/[]) — no special-case error path for impassable terrain; modifier query and movement rule are independent concerns
-- [ ] AC-13: `get_terrain_score(coord)` returns float in [0.0, 1.0] per F-3 formula `(defense_bonus + evasion_bonus * EVASION_WEIGHT) / MAX_POSSIBLE_SCORE`
-- [ ] AC-13 worked examples match: FOREST → `(5 + 15 * 1.2) / 43.0 ≈ 0.5349`; HILLS → `(15 + 0) / 43.0 ≈ 0.3488`; PLAINS → `0.0`; FORTRESS_WALL → `(25 + 0) / 43.0 ≈ 0.5814` (note: NOT the maximum since MOUNTAIN's evasion stacks higher)
-- [ ] EC-5: `get_terrain_score` is elevation-agnostic — same coord returns same score regardless of any "attacker reference"; signature has no `attacker_coord` parameter
-- [ ] Defensive copy verified: mutating a returned `TerrainModifiers.special_rules.append(&"x")` does NOT affect the static `_terrain_table[terrain_type].special_rules` on subsequent calls
+- [x] `static func get_terrain_modifiers(grid: MapGrid, coord: Vector2i) -> TerrainModifiers` declared on `TerrainEffect`
+- [x] `static func get_terrain_score(grid: MapGrid, coord: Vector2i) -> float` declared on `TerrainEffect`
+- [x] If `_config_loaded == false`, both methods lazy-trigger `load_config()` before reading state (idempotent)
+- [x] `get_terrain_modifiers` reads `MapGrid.get_tile(coord).terrain_type`, looks up `_terrain_table[terrain_type]`, returns a NEW `TerrainModifiers` instance with copied field values (defensive copy)
+- [x] AC-1: HILLS defender (terrain_type=2) returns `TerrainModifiers` with `defense_bonus == 15`, `evasion_bonus == 0`, `special_rules == []`
+- [x] AC-11: All 8 terrain types return canonical CR-1 values (PLAINS 0/0/[], FOREST 5/15/[], HILLS 15/0/[], MOUNTAIN 20/5/[], RIVER 0/0/[], BRIDGE 5/0/[&"bridge_no_flank"], FORTRESS_WALL 25/0/[], ROAD 0/0/[])
+- [x] CR-1d / TR-002 uniformity: the query signature has NO `unit_type` parameter — all unit classes get the same modifiers (class differentiation is Map/Grid's cost_matrix domain, not Terrain Effect's terrain table)
+- [x] AC-14: out-of-bounds coord returns zero-fill `TerrainModifiers` (defense_bonus=0, evasion_bonus=0, special_rules=[]) — no error path; quiet zero-fill via the `MapGrid.get_tile` returning null guard
+- [x] EC-13: querying RIVER tile returns valid (0/0/[]) — no special-case error path for impassable terrain; modifier query and movement rule are independent concerns
+- [x] AC-13: `get_terrain_score(coord)` returns float in [0.0, 1.0] per F-3 formula `(defense_bonus + evasion_bonus * EVASION_WEIGHT) / MAX_POSSIBLE_SCORE`
+- [x] AC-13 worked examples match: FOREST → `(5 + 15 * 1.2) / 43.0 ≈ 0.5349`; HILLS → `(15 + 0) / 43.0 ≈ 0.3488`; PLAINS → `0.0`; FORTRESS_WALL → `(25 + 0) / 43.0 ≈ 0.5814` (note: NOT the maximum since MOUNTAIN's evasion stacks higher)
+- [x] EC-5: `get_terrain_score` is elevation-agnostic — same coord returns same score regardless of any "attacker reference"; signature has no `attacker_coord` parameter
+- [x] Defensive copy verified: mutating a returned `TerrainModifiers.special_rules.append(&"x")` does NOT affect the static `_terrain_table[terrain_type].special_rules` on subsequent calls
 
 ---
 
@@ -175,7 +175,7 @@
 - `tests/unit/core/terrain_effect_queries_test.gd` — must exist and pass (10 tests covering AC-1..10)
 - Test fixture: a small programmatic MapGrid + MapResource construction helper for the 8-terrain matrix (in-memory, no `.tres` authoring)
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — 10 test functions covering AC-1..AC-10 (with 3 inline /code-review-driven assertion additions: BRIDGE `typeof == TYPE_STRING_NAME` rigor, AC-3 (99,99) `special_rules.size()` symmetry, `get_terrain_score` OOB path); regression 252 → 262 (+10 new), 0 errors / 0 failures / 0 flaky / 0 orphans, Godot exit 0
 
 ---
 
@@ -183,3 +183,69 @@
 
 - Depends on: Story 003 (`_terrain_table` populated from JSON config), Story 002 (lazy-init guard contract), Story 001 (`TerrainModifiers` Resource class)
 - Unlocks: Story 005 (`get_combat_modifiers` reuses the `_terrain_table` lookup pattern + the defensive-copy discipline established here)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-26
+**Criteria**: 13/13 passing (10 ACs as test functions + 3 sub-ACs verified by inspection-style assertions; 0 deferred; 0 untested) — 100% covered
+**Deviations**:
+- ADVISORY (fixture size): story spec said "1×1 fixture MapGrid" but `MapGrid.load_map` validation requires minimum 15 columns. Tests use 15×15 grids with the tile-of-interest at (0,0) and all other tiles as PLAINS. Behavior under test is identical (only (0,0) is queried); documented in test file headers.
+- ADVISORY (TD-034 §F added): 1 deferred /code-review advisory — qa-tester R-3 (unknown terrain_type safety-net test). Cost ~10 min; suggested trigger is the epic-end test infrastructure hardening pass (story-008).
+- ADVISORY (story-003 carry-over RESOLVED): TD-034 GAP-4 (fallback exact-value correctness — the BLOCKING carry-over from story-003) is now permanently mitigated. AC-2's explicit 8-terrain value matrix on `defense_bonus`, `evasion_bonus`, and `special_rules.size()` per terrain catches any typo in `_fall_back_to_defaults()`. Confirmed by qa-tester convergent review.
+- ADVISORY (out-of-scope cosmetic): `tests/unit/core/terrain_effect_isolation_test.gd` doc-comments updated (3 occurrences of `before_each()` → `before_test()`). Mop-up of G-15 cosmetic finish; necessary for documentation accuracy.
+
+**Test Evidence**:
+- `tests/unit/core/terrain_effect_queries_test.gd` (590 LoC after R-1+R-2+R-4 inline additions, 10 test functions covering AC-1..AC-10) — EXISTS, all PASS
+- Fixture helpers: `_make_grid(row, col, terrain_type, elevation)` (parametric 15×15 grid factory with target terrain at (0,0))
+- Static-var seam: `(load(TERRAIN_EFFECT_PATH) as GDScript).get/set("_var")` per save_migration_registry_test.gd precedent
+- Sentinel-mutation-preservation pattern (AC-9/AC-10): proves idempotent guard short-circuits second `get_terrain_modifiers` / `get_terrain_score` call BEFORE `_apply_config` re-runs (sentinel `_max_defense_reduction = 99` chosen because that field is NOT in F-3 formula — mutation cannot poison score equality assertion)
+- Full regression: **262/262 PASS, 0 errors / 0 failures / 0 flaky / 0 orphans, Godot exit 0** (delta 252 → 262, +10 new test functions)
+
+**Code Review**: Complete (lean mode standalone — convergent specialist review covered the LP-CODE-REVIEW + QL-TEST-COVERAGE phase-gates skipped under lean mode):
+- godot-gdscript-specialist: **APPROVED WITH SUGGESTIONS** — pattern fidelity vs save_migration_registry; static typing PASS; G-1/G-2/G-9/G-12/G-14/G-15 all PASS; ADR-0008 §Decision 1/§Decision 5/§Decision 6/§Notes §5/EC-5/Pillar 1 fully compliant; forbidden-pattern audit PASS. 3 suggestions (1 out-of-scope story-003, 1 cosmetic, 1 false positive — story-003's AC-9 already covers file-not-found).
+- qa-tester: **TESTABLE WITH GAPS** — TD-034 GAP-4 confirmed SATISFIED; 4 advisory gaps (no blocking); 4 recommendations.
+
+**4 inline improvements applied** (3 to test rigor, 1 to documentation):
+1. **R-1** (AC-3 `(99,99)` sub-case): added `special_rules.size()` assertion for coverage symmetry with (-1,-1) and null sub-cases.
+2. **R-2** (AC-2 BRIDGE): added `typeof(bridge_m.special_rules[0]) == TYPE_STRING_NAME` after the existing `has(&"bridge_no_flank")` check. Closes a real type-safety gap: GDScript's `==` and `has()` coerce StringName ↔ String, so without this check a regression returning String "bridge_no_flank" instead of StringName &"bridge_no_flank" would silently pass.
+3. **R-4** (AC-3 score path): added `get_terrain_score(grid, Vector2i(-1, -1)) == 0.0` assertion — proves OOB consistency across both queries (zero-fill modifiers → F-3 == 0).
+4. **Sug 2** (`isolation_test.gd`): scrubbed 3 cosmetic `before_each()` references in doc-comments (lines 8, 51, 69). G-15 mop-up complete.
+
+**1 advisory deferred to TD-034 §F**: qa-tester R-3 — unknown terrain_type safety-net test. The `if entry == null: return TerrainModifiers.new()` branch at terrain_effect.gd:501 catches a future scenario where `_terrain_table` lacks the queried terrain_type. AC-2 covers types 0-7 only; the internal safety net is currently untested in isolation. Test bypasses natural production path via `script.set("_terrain_table", {})` after lazy-init probe. Cost ~10 min.
+
+**2 false positives correctly skipped** during /code-review triage:
+- gdscript Sug 1 (`var err: int` → `var err: Error` typing) — out-of-scope, addresses story-003 code at line 159, not story-004
+- gdscript Sug 3 (file-not-found path coverage) — already covered by story-003 AC-9 (`test_terrain_effect_config_file_not_found_falls_back`); agent missed the inline addition in story-003
+
+**Files delivered** (2 spec'd + 2 out-of-scope, all justifiable):
+- `src/core/terrain_effect.gd` (MODIFY, 466 → ~516 LoC; +47 LoC of impl + ~50 LoC of doc-comments) — 2 new public static methods (`get_terrain_modifiers`, `get_terrain_score`) inserted between `reset_for_tests` and `load_config` in the public-API section. Doc-comments use `[code]` BBCode tags + `@example` blocks per project standards.
+- `tests/unit/core/terrain_effect_queries_test.gd` (NEW, 590 LoC, 10 test functions covering AC-1..AC-10) — `_make_grid()` parametric fixture helper; static-var seam pattern; G-15 awareness in header; `grid.free()` discipline (G-6) verified by 0 orphans
+- `tests/unit/core/terrain_effect_isolation_test.gd` (MODIFY) — 3 cosmetic `before_each()` → `before_test()` doc-comment updates (G-15 mop-up; out-of-scope but necessary for accuracy)
+- `docs/tech-debt-register.md` (MODIFY, +TD-034 §F + carry-over RESOLVED marker) — standard bookkeeping
+
+**Forward-looking design decisions documented in code**:
+- **Lazy-init pattern**: both query methods independently lazy-trigger `load_config()` if `_config_loaded == false`. Neither assumes the other was called first. Idempotent guard from story-003 short-circuits the second call.
+- **Defensive copy via `.assign()`**: `rules.assign(entry.special_rules)` preserves `Array[StringName]` typing per G-2. Story-005 will inherit this discipline for `CombatModifiers`.
+- **Quiet zero-fill OOB**: no `push_error`, no `push_warning` on out-of-bounds queries. Per ADR-0008 §Pillar 1 ("battlefield always readable"), consumers (HUD, AI) must never crash on edge-coord queries. Documented in method doc-comments.
+- **F-3 formula source-of-truth**: `get_terrain_score` uses `_evasion_weight` and `_max_possible_score` from config — no hardcoded `1.2` or `43.0` literals in the formula.
+- **EC-5 elevation-agnostic by signature**: `get_terrain_score(grid, coord)` has only 2 parameters. Verified at the test level via `get_script_method_list()` inspection. Class-specific or elevation-aware terrain bonuses would require an ADR amendment.
+
+**Process insights** (compounding wins):
+- **Convergent /code-review pattern** (gdscript + qa-tester parallel) ran in <3min combined; identified 7 findings (3 gdscript + 4 qa); applied 4 inline within ~5min; deferred 1 to TD-034 §F; correctly skipped 2 false positives. Pattern continues to validate as lean-mode minimum-safe-unit.
+- **Convergent review specialist drift handling**: gdscript-specialist's findings drifted to story-003 code (5 of 6 line refs were story-003 implementation). Orchestrator triaged each finding for scope before applying. This is a healthy pattern — specialist sees the whole file; orchestrator filters for story scope.
+- **G-14 codification (PR #35)** still paying dividends — pre-emptive `--import` pass after writing terrain_effect_queries_test.gd produced clean parse on first try.
+- **G-15 codification (story-003)** still paying dividends — `before_test()` discipline applied correctly in the new test file from the start; no rediscovery cost.
+- **Sub-agent Bash blocking pattern documented**: gdscript-specialist drafted both files for approval, then was BLOCKED on running Bash for the regression. Orchestrator-direct Bash recovery + the inline `assert_not_null` → `assert_object().is_not_null()` fix produced clean 262/262 in 2 iterations.
+- **Inline orchestrator fix discipline**: agent's draft used `assert_not_null(m)` (JUnit/NUnit pattern). Orchestrator caught it during regression and fixed inline to `assert_object(m).is_not_null()` (GdUnit4 v6.1.2 idiom). Lesson: agent drafts may use unfamiliar assertion forms; verify against actual API before approving writes — but if it slips through, regression catches it cleanly.
+- **AC count growth as a coverage signal**: spec was 10 ACs (with 3 sub-ACs). Final has 10 test functions covering 13 ACs total. R-2 type-identity check, R-1 coverage symmetry, and R-4 OOB consistency strengthened existing tests rather than inflating count — this is the right pattern for /code-review polish.
+- **Convergent review test infrastructure dividend**: the convergent pattern (started in story-003) is producing reliable per-story improvement deltas (~3-5 inline fixes + 1-2 carry-overs to TD per story). This compounds: story-005's review will inherit the same pattern + the 3 advisory tests in TD-034 §C.
+
+**Tech debt**: TD-034 extended with §F (1 new sub-item, ~10 min cost) + §Story-004 carry-over marked RESOLVED.
+
+**No new gotcha codified this story** — all gotchas applied correctly from prior work (G-1/G-2/G-9/G-12/G-14/G-15).
+
+**Unlocks**: Story 005 (`get_combat_modifiers` reuses `_terrain_table` lookup pattern + defensive-copy discipline established here; will exercise CR-2 elevation, CR-3a/b symmetric clamp, CR-5 BRIDGE flag, EC-14 delta clamp), Story 006 (`cost_multiplier` for Map/Grid Dijkstra integration), Story 007 (cap accessors `max_defense_reduction()` / `max_evasion()` shared accessors).
+
+**Terrain-effect epic status**: **4/8 Complete** 🎉 — half-way mark crossed. Stories 005-007 are now parallelizable per EPIC dependency chain.
