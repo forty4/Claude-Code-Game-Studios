@@ -121,7 +121,7 @@ This epic is complete when:
 
 | # | Story | Type | Status | ADR | Covers |
 |---|-------|------|--------|-----|--------|
-| 001 | [TerrainModifiers + CombatModifiers Resource classes](story-001-resource-classes.md) | Logic | Ready | ADR-0008 | TR-001 (schema), TR-009 (bridge_no_flank flag) |
+| 001 | [TerrainModifiers + CombatModifiers Resource classes](story-001-resource-classes.md) | Logic | **Complete (2026-04-25)** | ADR-0008 | TR-001 (schema), TR-009 (bridge_no_flank flag) |
 | 002 | [TerrainEffect skeleton + class_name + static state + lazy-init guard + reset_for_tests + terrain-type int constants](story-002-skeleton-static-state.md) | Logic | Ready | ADR-0008 | TR-010 (stateless RefCounted+static + isolation discipline; multi-suite regression test included) |
 | 003 | [Config JSON authoring + load_config (instance-form JSON.new().parse) + _validate_config + _fall_back_to_defaults](story-003-config-loading-validation.md) | Logic | Ready | ADR-0008 | TR-012 (config path), TR-014 (AC-19/20 schema validation + safe defaults) |
 | 004 | [get_terrain_modifiers + get_terrain_score (CR-1, CR-1d, F-3, EC-13, AC-14)](story-004-terrain-modifiers-score-queries.md) | Logic | Ready | ADR-0008 | TR-001 (queries), TR-002 (CR-1d uniformity), TR-008 (2/3 query methods), TR-016 (AC-14 OOB) |
@@ -134,4 +134,4 @@ This epic is complete when:
 
 ## Next Step
 
-Run `/story-readiness production/epics/terrain-effect/story-001-resource-classes.md` to validate the first story, then `/dev-story` to implement.
+Story-001 Complete (2026-04-25). Run `/story-readiness production/epics/terrain-effect/story-002-skeleton-static-state.md` to validate the next story, then `/dev-story` to implement.
