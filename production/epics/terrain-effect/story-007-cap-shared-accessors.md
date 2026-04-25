@@ -1,11 +1,12 @@
 # Story 007: max_defense_reduction + max_evasion shared accessors
 
 > **Epic**: terrain-effect
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
 > **Estimate**: 1-1.5 hours (2 trivial accessors + 4 unit tests covering defaults / config-override / lazy-load / config-driven cap propagation)
+> **Actual**: ~1.5 hours (implementation 30min — first fully clean dev-story in epic, no mid-implementation fixes; /code-review with 4 inline enhancements 30min; /story-done bookkeeping 30min)
 
 ## Context
 
@@ -125,7 +126,7 @@
 - `tests/unit/core/terrain_effect_caps_test.gd` — must exist and pass (6 tests covering AC-1..6; AC-6 doc-level)
 - This story's tests also implicitly re-verify the multi-suite isolation discipline established in story-002 (AC-2 is exactly the kind of state mutation that would fail isolation regression if `before_each()` `reset_for_tests` is not honored)
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/unit/core/terrain_effect_caps_test.gd` (~265 LoC, **7 test functions** — original 6 covering AC-1..AC-6 plus 1 added during /code-review for symmetric `max_evasion` lazy-trigger coverage); full regression 289/289 PASS, 0 errors / 0 failures / 0 orphans, godot exit 0 (was 282 baseline → +7 new = exact expected delta)
 
 ---
 
@@ -133,3 +134,42 @@
 
 - Depends on: Story 003 (`_max_defense_reduction` + `_max_evasion` populated from config), Story 002 (lazy-init guard contract + compile-time const declarations)
 - Unlocks: Formation Bonus Feature epic + Damage Calc Feature epic (consumers of the shared-cap accessors via cross-system contracts in formation-bonus.md §F-FB-1 + damage-calc.md §F)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-26
+**Verdict**: COMPLETE (no deviations, no forced engine constraints, no advisory carry-overs — first fully-clean implementation in this epic)
+**Criteria**: 7/7 PASS (all 7 §AC checkboxes covered by 7 named test functions; 100% test-criterion traceability; 0 deferred; 0 untested)
+**Tests**: 7 test functions in `terrain_effect_caps_test.gd` (~265 LoC after /code-review enhancements). Full regression **289/289 PASS** (was 282 baseline → +7 new = exact expected delta), 0 errors / 0 failures / 0 flaky / 0 orphans, godot exit 0.
+
+**Files delivered** (2 in scope):
+- `src/core/terrain_effect.gd` (MODIFY, 656 → 716 LoC; +60 LoC = +12 LoC header doc-block "## CROSS-SYSTEM SHARED CAP CONTRACT" inserted between G-1 LIMITATION end at original line 21 and `class_name TerrainEffect` at original line 22 + 2 blank-line separators + 46 LoC for 2 static accessors with full BBCode-tagged doc-comments) — `max_defense_reduction()` at lines 685-688 and `max_evasion()` at lines 706-709 are character-for-character verbatim from ADR-0008 §Decision 7 reference impl. Header doc-block names Formation Bonus + Damage Calc as consumers, mandates accessor pattern over hardcoded literal 30, distinguishes compile-time bootstrap vs. runtime authoritative.
+- `tests/unit/core/terrain_effect_caps_test.gd` (NEW, ~265 LoC, 7 test functions) — `before_test()` discipline (G-15) + `reset_for_tests()` + user:// fixture pattern (AC-2) with `_write_caps_fixture(max_def, max_eva)` helper + `(load(PATH) as GDScript).get(...)` static-var inspection (AC-3, AC-3b, AC-4, AC-5) + sentinel-99 mutation pattern (AC-4) + substring-grep header verification (AC-6).
+
+**Code-review verdicts** (lean mode standalone convergent — 2 specialists in parallel):
+- **godot-gdscript-specialist**: APPROVED WITH SUGGESTIONS — verbatim ADR-0008 §Decision 7 reference impl reproduction confirmed character-for-character at lines 685-688 / 706-709; insertion position correct per §Decision 5 ordering; full G-1..G-15 audit completed. 4 SUGGESTIONS + 4 PASS-info + 1 OOS-1 (informational ADR-0008 push_warning behavior in story-002/003 territory).
+- **qa-tester**: TESTABLE WITH GAPS → resolved inline. Per-AC mapping table 6/6 faithful; per-§AC checkbox table 7/7 covered post-fix. 1 GAP (F-1: max_evasion as first lazy-trigger untested) + 3 RECOMMENDATIONs (F-2 explicit `_config_loaded` assertion in AC-4; F-3 AC-1 deviation comment; F-4 AC-6 doc-coupling intent comment) + 2 PASS-info.
+- **4 inline improvements applied**:
+  1. **qa F-1 GAP**: added new `test_terrain_effect_caps_max_evasion_triggers_lazy_load` symmetric to AC-3 — closes the asymmetric coverage hole where only `max_defense_reduction()` was verified as first lazy-trigger caller. The AC-5 §AC checkbox "both accessors must independently trigger" is now provably enforced.
+  2. **qa F-2 RECOMMENDATION**: added explicit `assert_bool(script.get("_config_loaded") as bool).is_true()` at end of AC-4 idempotency test — makes the post-guard state visible rather than implicit via sentinel survival.
+  3. **qa F-3 RECOMMENDATION**: added doc-comment to AC-1 test explaining intentional lazy-load-via-accessor deviation from spec's explicit-load_config Given clause.
+  4. **qa F-4 RECOMMENDATION**: added doc-comment to AC-6 test explaining intentional file-read coupling — instructs future reviewers to update header content (not relax test) on refactor.
+- **2 cosmetic gdscript suggestions skipped** with rationale: 1-A informal paren-intent comment on `_write_caps_fixture` triple-quoted block (pattern self-explanatory after G-9 awareness); 2-A `[member _config_loaded]` BBCode reference (matches sibling style across get_terrain_modifiers / cost_multiplier / etc.; fixing only this story's accessors would be inconsistent).
+- **0 advisories deferred to TD-034** — all findings either applied inline or rationalized as non-actionable.
+- **0 false positives** in either specialist verdict — all 11 findings legitimate.
+
+**Process insights**:
+- **First fully-clean dev-story in this epic** — pattern observation: trivial Logic stories with verbatim ADR reference impls are the lowest-defect-rate story type. Stories 002 (skeleton) and 007 (cap accessors) both fit this mold; 003-006 all required at least one mid-implementation fix or forced deviation.
+- **Existing infrastructure leverage** — story-002 + story-003 had already declared `MAX_DEFENSE_REDUCTION_DEFAULT` / `MAX_EVASION_DEFAULT` consts + `_max_defense_reduction` / `_max_evasion` static vars + `reset_for_tests()` reset logic + `_apply_config` config-population. Story-007 only needed 2 public accessors (~10 LoC of meaningful code) + doc-comment header update. The data-driven cap path (AC-2) works because story-003's `_apply_config` already populates the runtime vars from `caps.max_defense_reduction` / `caps.max_evasion` JSON fields. This is the ADR-0008 §Migration Plan paying off: foundational infrastructure landed in earlier stories enables cheap consumer-facing API additions.
+- **Convergent /code-review pattern (lean mode)** validated 6th time in this epic — minimum-safe-unit confirmed. Both specialists returned in parallel; 4 inline applications took ~5 min; total cycle <10min.
+- **G-6 / G-9 / G-14 / G-15 codifications** continue to pay dividends — clean test lifecycle on first run; G-9 paren-wrapping applied correctly throughout; G-15 `before_test()` from start.
+- **Sub-agent Bash blocking pattern** continues — 6th time in this epic; orchestrator-direct verification chain stable. Pattern is now load-bearing — should be documented as workflow standard.
+- **AC-7 doc-coupling test pattern** is novel and useful — substring-grep on file header for required contract terms is a lightweight way to assert documentation invariants without coupling to exact wording. Applicable to any cross-system contract that must remain prose-discoverable. Worth codifying as a reusable QA pattern in the test-standards.md rule file.
+
+**Tech debt logged**: 0 new (all clean — no carry-overs to TD-034).
+
+**No new gotcha codified this story** — all gotchas applied correctly from prior work (G-1 N/A / G-6 N/A / G-9 / G-14 N/A / G-15).
+
+**Terrain-effect epic status**: **7/8 Complete** 🎉 — only story-008 (perf baseline + epic-end TD-034 §A-K hardening pass) remains. Critical-path unlock for Formation Bonus Feature epic + Damage Calc Feature epic (both consume the new shared-cap accessors via their respective cross-system contracts).
