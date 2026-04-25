@@ -12,8 +12,10 @@ extends GdUnitTestSuite
 ## Related TRs:   TR-terrain-effect-010.
 ##
 ## ISOLATION DISCIPLINE (ADR-0008 §Risks line 562):
-##   before_each() calls TerrainEffect.reset_for_tests() unconditionally.
+##   before_test() calls TerrainEffect.reset_for_tests() unconditionally.
 ##   This ensures each test starts from pristine defaults regardless of prior state.
+##   NOTE: must be `before_test()` (canonical GdUnit4 v6.1.2 hook); `before_each()` is
+##   silently ignored by the runner (gotcha G-15).
 ##
 ## STATIC-VAR INSPECTION PATTERN:
 ##   Static vars are read/written via (load(PATH) as GDScript).get/set("_var")
@@ -23,7 +25,7 @@ extends GdUnitTestSuite
 const TERRAIN_EFFECT_PATH: String = "res://src/core/terrain_effect.gd"
 
 
-func before_each() -> void:
+func before_test() -> void:
 	TerrainEffect.reset_for_tests()
 
 
@@ -209,32 +211,31 @@ func test_terrain_effect_reset_for_tests_clears_state() -> void:
 	).is_equal(0)
 
 
-# ── AC-6: load_config() skeleton + idempotent guard ──────────────────────────
+# ── AC-6: load_config() full implementation + idempotent guard ───────────────
 
 
-## AC-6: load_config() skeleton returns false; idempotent guard skips on second call.
-## Given: TerrainEffect._config_loaded == false (after reset).
+## AC-6: load_config() succeeds on first call; idempotent guard fires on second call.
+## Updated in story-003: the skeleton "return false" body is now a full implementation.
+## Given: TerrainEffect._config_loaded == false (after reset); production fixture exists.
 ## When:  load_config() called with default path.
-## Then:  returns false (skeleton; story-003 changes this); _config_loaded unchanged (false).
-## When (second call): load_config() called again after manually setting _config_loaded=true.
-## Then:  returns true (idempotent guard, config already loaded); push_warning observable.
+## Then:  returns true (full implementation loads production fixture successfully).
+## When (second call): load_config() called again.
+## Then:  returns true (idempotent guard, _config_loaded already true); push_warning observable.
 func test_terrain_effect_load_config_idempotent_guard_short_circuits() -> void:
 	var script: GDScript = load(TERRAIN_EFFECT_PATH) as GDScript
 
-	# First call: skeleton returns false
+	# First call: full implementation loads production fixture, returns true
 	var result_first: bool = TerrainEffect.load_config()
 	assert_bool(result_first).override_failure_message(
-		"load_config() skeleton must return false on first call; got %s" % str(result_first)
-	).is_false()
+		("load_config() must return true on first call (production fixture);"
+		+ " got %s") % str(result_first)
+	).is_true()
 
-	# _config_loaded remains false (skeleton does not set it)
+	# _config_loaded is now true (set by full implementation success path)
 	assert_bool(script.get("_config_loaded") as bool).override_failure_message(
-		"_config_loaded must remain false after skeleton load_config(); got %s"
+		("_config_loaded must be true after successful load_config(); got %s")
 		% str(script.get("_config_loaded"))
-	).is_false()
-
-	# Simulate story-003 setting _config_loaded = true
-	script.set("_config_loaded", true)
+	).is_true()
 
 	# Second call: idempotent guard fires, returns true early
 	var result_second: bool = TerrainEffect.load_config()

@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "terrain_modifiers": {
+    "0": { "name": "PLAINS",        "defense_bonus": 0,  "evasion_bonus": 0,  "special_rules": [] },
+    "1": { "name": "FOREST",        "defense_bonus": 5,  "evasion_bonus": 15, "special_rules": [] },
+    "2": { "name": "HILLS",         "defense_bonus": 15, "evasion_bonus": 0,  "special_rules": [] },
+    "3": { "name": "MOUNTAIN",      "defense_bonus": 20, "evasion_bonus": 5,  "special_rules": [] },
+    "4": { "name": "RIVER",         "defense_bonus": 0,  "evasion_bonus": 0,  "special_rules": [] },
+    "5": { "name": "BRIDGE",        "defense_bonus": 5,  "evasion_bonus": 0,  "special_rules": ["bridge_no_flank"] },
+    "6": { "name": "FORTRESS_WALL", "defense_bonus": 25, "evasion_bonus": 0,  "special_rules": [] },
+    "7": { "name": "ROAD",          "defense_bonus": 0,  "evasion_bonus": 0,  "special_rules": [] }
+  },
+  "elevation_modifiers": {
+    "-2": { "attack_mod": -15, "defense_mod": 15  },
+    "-1": { "attack_mod": -8,  "defense_mod": 8   },
+    "0":  { "attack_mod": 0,   "defense_mod": 0   },
+    "1":  { "attack_mod": 8,   "defense_mod": -8  },
+    "2":  { "attack_mod": 15,  "defense_mod": -15 }
+  },
+  "caps": {
+    "max_defense_reduction": 30,
+    "max_evasion": 30
+  },
+  "ai_scoring": {
+    "evasion_weight": 1.2,
+    "max_possible_score": 43.0
+  },
+  "cost_matrix": {
+    "_comment": "MVP placeholder — uniform 1× multiplier pending ADR-0009 Unit Role.",
+    "default_multiplier": 1
+  }
+}

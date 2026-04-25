@@ -18,8 +18,8 @@ extends GdUnitTestSuite
 const TERRAIN_EFFECT_PATH: String = "res://src/core/terrain_effect.gd"
 
 
-func before_each() -> void:
-	# Suite B discipline: reset_for_tests() in every before_each().
+func before_test() -> void:
+	# Suite B discipline: reset_for_tests() in every before_test().
 	TerrainEffect.reset_for_tests()
 
 

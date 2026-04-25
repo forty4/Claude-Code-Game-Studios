@@ -1676,3 +1676,77 @@ Evidence doc requires NO change — already shows the correct form.
 - Review: standalone `/code-review` 2026-04-25 (godot-gdscript-specialist APPROVED + qa-tester TESTABLE WITH GAPS — convergent on 4 findings; W-1 + S-1 applied inline; W-3 + S-2 confirmed false positives; W-2 deferred here)
 - Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-002)
 
+---
+
+## TD-034 — terrain-effect story-003 /code-review deferred advisories (test infrastructure hardening + advisory edge tests)
+
+**Origin**: terrain-effect story-003 `/code-review` 2026-04-25 (godot-gdscript-specialist APPROVED WITH SUGGESTIONS + qa-tester TESTABLE WITH GAPS — 7 of 14 findings applied inline; 7 deferred here as advisory)
+**Category**: tests / refactor / docs
+**Severity**: low (none affect correctness or production behavior; all are testability/maintainability hardening)
+**Status**: open — defer to a "test infrastructure hardening" pass when convenient
+
+**Summary**: The /code-review surfaced multiple advisory test improvements that would harden the suite against latent regressions but are not required for story-003 correctness. The implementation passes 252/252 with 0 errors / 0 failures and meets all 8 ACs (+ AC-9 file-not-found follow-up). These advisories represent coverage ceiling improvements deferable until they accumulate enough value (or until a related epic touches the same files).
+
+**Deferred items grouped by theme**:
+
+### A. Validator method-length compliance (gdscript-specialist S-2)
+
+`_validate_config()` in `src/core/terrain_effect.gd` is ~120 LoC, exceeding the 40-line per-method standard from `.claude/docs/coding-standards.md` by 3x. The linear flow is currently the readable form (each section maps to a JSON schema section), but a refactor into 5 subsection helpers would improve method-length compliance without sacrificing clarity:
+- `_validate_terrain_modifiers(cfg) -> bool`
+- `_validate_elevation_modifiers(cfg) -> bool`
+- `_validate_caps(cfg) -> bool`
+- `_validate_ai_scoring(cfg) -> bool`
+- `_validate_cost_matrix(cfg) -> bool`
+
+**Cost**: ~30 minutes. **Benefit**: each helper is independently testable in isolation; method-length flag clears.
+
+### B. JSON fixture DRY refactor (qa-tester GAP-5 / R-5)
+
+`tests/unit/core/terrain_effect_config_test.gd` currently has 5 inline JSON heredocs (AC-2, AC-4, AC-5, AC-6, AC-7) — each carries the full 8-terrain × 5-elevation schema. If a schema field is added to the validator, all 5 fixtures need synchronous updates or tests silently start failing the new validator.
+
+Proposed remediation: a `_build_canonical_json(overrides: Dictionary) -> String` helper that loads `terrain_config.json` as text, parses it, applies the per-test override dict, re-serializes via `JSON.stringify()`, and returns the string. Each per-test fixture would then be a 2-line definition with only the specific override that triggers the failure under test.
+
+**Cost**: ~45 minutes. **Benefit**: schema-evolution drift risk eliminated; each test's intent becomes immediately legible; ~60% LoC reduction in fixture sections.
+
+### C. Advisory edge-case tests (qa-tester R-4 + EC-1, EC-2, EC-4, EC-5)
+
+The validator correctly handles several edge cases that aren't directly tested:
+- **EC-1 / R-4**: `TYPE_BOOL` passed to `_validate_int_field` (e.g., `"defense_bonus": true`). Clause 1 (`typeof != TYPE_FLOAT`) rejects correctly. Add `test_terrain_effect_config_boolean_field_falls_back`.
+- **EC-2**: Extra unknown top-level keys (e.g., `"unknown_field": "foo"`). Validator silently ignores — by design (permissive). Add a test documenting this contract.
+- **EC-4**: Multiple sequential loads with different paths after the guard fires. The guard short-circuits and preserves first-load state. Add `test_terrain_effect_config_no_reload_without_reset`.
+- **EC-5**: `schema_version: 1` (TYPE_INT, not TYPE_FLOAT) edge — rejected by current validator. Tests don't cover this because JSON always parses as float. Add only if a non-JSON config-construction path is added in future.
+
+**Cost**: ~20 minutes for the 3 worth-adding tests (EC-1, EC-2, EC-4). EC-5 not worth a test until a non-JSON construction path exists.
+
+### D. Diagnostic message content gaps (qa-tester GAP-1, UP-1, UP-2)
+
+GdUnit4 v6.1.2 provides no hook for `push_error`/`push_warning` capture. The story spec requires diagnostic messages to mention specific keywords ("MOUNTAIN" or "missing terrain_modifiers key 3" for AC-4; "non-integral" or "fractional" for AC-5; "out of range" for AC-6). The current implementation emits "missing terrain_modifiers key '3'" (the integer-string key) — a designer-facing diagnostic that conveys the missing key but does NOT include the human label "MOUNTAIN".
+
+**Resolution paths**:
+- Option A (no change): accept that designer-facing diagnostic messages are out of automated coverage; rely on manual log review.
+- Option B (improvement): in `_validate_config`, build a `KEY_LABELS = {"0": "PLAINS", "1": "FOREST", ...}` lookup so missing-key errors mention both the integer key AND the human label. ~10 LoC. Improves designer experience but does not change correctness.
+- Option C (framework upgrade): contribute a log-capture hook to GdUnit4 upstream. Out of scope.
+
+**Cost (Option B)**: ~15 minutes. **Benefit**: better designer diagnostics for missing-key errors. Defer until a designer reports an actual debugging-friction incident.
+
+### E. Cosmetic style consistency (gdscript-specialist S-4)
+
+Missing blank line at `terrain_effect.gd:390` between `_apply_config` body and `_fall_back_to_defaults` doc comment. Pure cosmetic; no parser impact.
+
+**Cost**: 30 seconds. **Benefit**: zero (cosmetic only). Bundle into any future edit of this file.
+
+---
+
+**Total estimated remediation effort**: ~2 hours total (across A-E).
+
+**Suggested trigger**: when story-004 (`get_terrain_modifiers`) lands, the test infrastructure for terrain-effect will need expansion anyway — fold A (validator split), C (3 advisory tests), and B (fixture DRY) into the same pass. D (diagnostic labels) and E (cosmetic) stay deferred until a separate trigger.
+
+**Story-004 carry-over (NOT part of TD-034)**: qa-tester GAP-4 / R-6 — fallback exact-value correctness must be a BLOCKING requirement in story-004's `get_terrain_modifiers()` tests. If `_fall_back_to_defaults()` hardcodes HILLS defense_bonus as `10` instead of `15` (a typo), no story-003 test catches it; only story-004's value-assertion tests would. Mark as a discovery surface in the story-004 readiness check.
+
+**Cross-references**:
+- Story: `production/epics/terrain-effect/story-003-config-loading-validation.md`
+- Review: standalone `/code-review` 2026-04-25 (godot-gdscript-specialist APPROVED WITH SUGGESTIONS + qa-tester TESTABLE WITH GAPS — convergent on 14 findings; 7 inline-applied; 7 deferred here)
+- 7 inline improvements applied: RC-1/RC-2a/RC-2b (3 stale `before_each()` doc-comments fixed); S-1 (max_possible_score zero-divide guard added); R-1 (file-not-found test added; AC-9); R-2 (AC-8 mutation-preservation extension); R-3 (config_test header note re: log-assertion framework limitation)
+- New gotcha codified: G-15 (`before_each` phantom hook) in `.claude/rules/godot-4x-gotchas.md`
+- Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-003)
+
