@@ -1,7 +1,7 @@
 # Story 008: Inspector authoring + 40×30 fixture manual QA
 
 > **Epic**: map-grid
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: UI
 > **Manifest Version**: 2026-04-20
@@ -120,3 +120,39 @@
 
 - Depends on: Story 001 (MapResource + TileData schema — needed to author the .tres file), Story 003 (validator — confirms the authored fixture is valid), Story 007 (may share the stress_40x30.tres fixture — coordinate on whether to commit once or twice)
 - Unlocks: V-7 epic DoD item ("40×30 MapResource.tres loads without editor hang (manual verification documented)"); enables content-authoring pass for MVP campaign maps
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-25 (programmatic portion); manual sign-off pending in evidence doc
+**Criteria**: 4 auto-verified + 3 pending user manual sign-off
+- ✅ AC-SAMPLE-15x15 — auto-verified by `tests/integration/core/map_grid_inspector_fixtures_test.gd::test_inspector_fixture_sample_small_loads_and_validates`
+- ✅ AC-STRESS-40x30 (runtime portion) — auto-verified by `..._stress_40x30_loads_and_validates`
+- ✅ AC-R3-INLINE-ASSERT — programmatically verified via plain-text grep on both fixtures (0 `[ext_resource type="Resource"` entries on both)
+- ✅ Sample maps committed — `data/maps/sample_small.tres` + `data/maps/stress_40x30.tres` committed; `tests/fixtures/generate_sample_small.gd` generator committed for reproducibility
+- 🟡 AC-EDIT-ROUND-TRIP — Manual AC-3 in `production/qa/evidence/map-grid-inspector-v7.md`; pending user verification in Godot editor
+- 🟡 AC-INSPECTOR-LOAD-TIME — Manual AC-2 in evidence doc; pending stopwatch measurement (target ≤30s)
+- 🟡 AC-AUTHORING-DOC measurements + screenshots — 4 placeholders + 2 screenshots pending user fill-in
+**Test Evidence**: UI (ADVISORY gate)
+- `production/qa/evidence/map-grid-inspector-v7.md` (210+ lines) — workflow + manual checklist + sign-off table; structure complete, manual measurements pending
+- `tests/integration/core/map_grid_inspector_fixtures_test.gd` (96 LoC, 2 tests) — programmatic ResourceLoader + validator smoke; 2/2 PASS
+- `tests/fixtures/generate_sample_small.gd` (92 LoC) — sample fixture generator
+- `data/maps/sample_small.tres` (NEW, 32KB, 225 tiles, 1 destructible FORTRESS_WALL at center)
+- `data/maps/stress_40x30.tres` (NEW, copied from `tests/fixtures/maps/stress_40x30.tres`)
+- Full regression: 231/231 PASS (229 baseline + 2 new), 0 errors / 0 failures / 0 orphans, exit 0
+**Code Review**: Complete — godot-gdscript-specialist CLEAN (5 specific findings, all positive; pattern fidelity 7-of-7 vs story-007 generator) + qa-tester ACHIEVABLE WITH GAPS (5 of 6 improvements applied inline; 1 spec erratum queued to TD-032 A-31)
+**Deviations** (1 ADVISORY; queued to TD-032):
+- A-31: Story-008 spec AC-R3-INLINE-ASSERT text references `[sub_resource type="TileData" ...]` but actual fixture serialization uses `type="Resource"` (since MapTileData extends Resource, not built-in TileData). Spec text needs erratum (~5 min). Evidence doc shows the correct `type="Resource"` form already.
+**5 evidence-doc improvements applied inline during /code-review** (qa-tester suggestions 1-5):
+- Click → Double-click in Manual AC-2 Step 2 (single-click would record zero seconds)
+- "Close inspector tab" → "FileSystem-dock deselect/re-click" in Manual AC-3 Step 6 (.tres files have no closeable inspector tab in Godot 4.6)
+- Screenshot directory path aligned to `map-grid-inspector-v7/` (was `-screens` suffix mismatch with story spec)
+- New AC-3 Step 10: re-run integration smoke after edit-revert to confirm fixture validity before commit
+- "Adding a new map" authoring section: added CI validation command + rationale (catches CR-3 elevation violations at authoring time)
+**Manual sign-off path**:
+1. Open Godot 4.6 editor, perform 3 manual ACs per `production/qa/evidence/map-grid-inspector-v7.md` §Manual Verification
+2. Capture 2 screenshots to `production/qa/evidence/map-grid-inspector-v7/` directory
+3. Fill placeholders in evidence doc + sign-off table
+4. Change evidence doc `Status:` to `COMPLETE — SIGNED OFF`
+5. No re-run of `/story-done` needed; the story is already Complete with the manual portion explicitly tracked.

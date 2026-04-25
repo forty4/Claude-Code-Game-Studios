@@ -1566,3 +1566,38 @@ Plus 1 doc accuracy issue: `get_attack_direction` doc comment (line 1239) says "
 - **Spec-internal collision resolved at generator time**: Story line 56 listed (20,15) as an enemy_occupied coord; line 80 also fixed (20,15) as the player query origin. Resolution: enemy moved to (25,12); player remains (20,15).
 - Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-007)
 
+### A-31 — Story-008 spec AC-R3-INLINE-ASSERT type= value erratum (story-008)
+
+**Source**: map-grid story-008 `/code-review` qa-tester gap 6 (2026-04-25).
+
+**Issue**: Story-008 spec line 38 (AC-R3-INLINE-ASSERT) says verifiers should look for `[sub_resource type="TileData" ...]` blocks in plain-text inspection. Actual fixture serialization uses `type="Resource"` because `MapTileData` is a user `class_name MapTileData extends Resource` declaration, not Godot's built-in `TileData` (which would collide per G-12 — see story-001 / TD-013). The plain-text grep evidence in the evidence doc correctly shows `type="Resource"`, which matches reality. Anyone reading the story spec text and then the evidence doc would see a mismatch.
+
+**Resolution**: Update story-008 spec line 38 + AC-5 (line 96) to read:
+```
+TileData entries appear as [sub_resource type="Resource" id="Resource_XXX"] blocks
+within the same file (note: type="Resource" because MapTileData extends Resource;
+G-12 prohibits class_name "TileData" collision with built-in)
+```
+
+Evidence doc requires NO change — already shows the correct form.
+
+**Estimated effort**: ~5 min (single story-spec edit).
+
+**Suggested trigger**: same pass as A-21 (story-006 spec errata) since both are spec-only edits in the map-grid epic, OR standalone whenever the map-grid epic spec receives any other update.
+
+---
+
+**Updated estimated remediation effort (revised — includes A-21..A-31)**: 8.5-10 hours total
+
+**Suggested trigger (revised, post-story-008)**: Three-batch plan unchanged (A-31 added to errata-pass batch):
+- **ADR-0004 + spec errata pass**: A-16 + A-17 + A-18 + A-20 + A-21 + A-22 + A-31 (7 deviations across 4 documents). Combined ~2.5-3h.
+- **Map-grid advisory test pass**: A-23 + A-24 + A-25 + A-26 + A-27 + A-28 (6 follow-up tests + 1 doc fix). Combined ~75-80 min.
+- **Perf trend infrastructure (deferred until consumer exists)**: A-29 + A-30. Combined ~40 min.
+
+**Story-008 specific links**:
+- Story: `production/epics/map-grid/story-008-inspector-fixture-manual-qa.md`
+- Review: standalone `/code-review` 2026-04-25 (godot-gdscript-specialist CLEAN + qa-tester ACHIEVABLE WITH GAPS — 5 of 6 improvements applied inline)
+- Evidence doc: `production/qa/evidence/map-grid-inspector-v7.md` (programmatic gates passing; 4 manual placeholders pending user sign-off)
+- 5 evidence-doc improvements applied inline (Click→Double-click, deselect-vs-close-tab, screenshot dir alignment, AC-3 CI re-verification step, authoring-section CI validation note)
+- Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-008)
+

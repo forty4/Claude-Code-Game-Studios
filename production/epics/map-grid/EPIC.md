@@ -117,7 +117,7 @@ This epic is complete when:
 | 005 | Custom Dijkstra — get_movement_range + get_movement_path | Logic | **Complete** (2026-04-25) | ADR-0004 | TR-002, TR-003 (2/9), TR-006, V-4, AC-CR-6, AC-F-1..3 |
 | 006 | LoS + attack queries + adjacency (remaining 7 queries) | Logic | **Complete** (2026-04-25) | ADR-0004 | TR-003 (7/9), TR-008, V-3, AC-CR-5, AC-CR-7, AC-F-4, AC-F-5, AC-EDGE-3 |
 | 007 | Performance baseline (desktop substitute) | Integration | **Complete** (2026-04-25) | ADR-0004 | TR-006, AC-PERF-1, AC-PERF-2, V-1 (desktop; mobile deferred) |
-| 008 | Inspector authoring + 40×30 fixture manual QA | UI | Ready | ADR-0004 | TR-009 (authoring), V-7 |
+| 008 | Inspector authoring + 40×30 fixture manual QA | UI | **Complete** (2026-04-25; manual sign-off pending) | ADR-0004 | TR-009 (authoring), V-7 |
 
 **Dependency chain**: 001 → 002 → {003, 004 sequential} → 005 → 006 → 007 → 008. Story 008 may be moved earlier (after 001) since it only needs the Resource schema. Story 005 resolves ADR-0004 ADV-1 (`get_movement_range` return type decision). Story 007 AC-TARGET mobile on-device deferred to Polish phase per save-manager/story-007 precedent.
 
