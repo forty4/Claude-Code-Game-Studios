@@ -3,7 +3,7 @@
 > **Last Updated**: 2026-04-25
 > **Engine**: Godot 4.6
 > **Manifest Version**: 2026-04-20 (docs/architecture/control-manifest.md)
-> **Layer coverage**: Platform (3/3 epics ready) + Foundation (1/4 epics ready — 3 blocked on ADR-0005/0006/0007) + Core (0/5 epics ready — 4 blocked on ADR-0008..0011 + 1 deferred to VS)
+> **Layer coverage**: Platform (3/3 epics ready) + Foundation (1/4 epics ready — 3 blocked on ADR-0005/0006/0007) + Core (1/5 epics ready — 3 blocked on ADR-0009/0010/0011 + 1 deferred to VS)
 
 ## Epics
 
@@ -13,6 +13,7 @@
 | [scene-manager](scene-manager/EPIC.md) | Platform | SceneManager autoload | — (ADR-0002 authoritative) | ADR-0002, ADR-0001 | Not yet created | Ready |
 | [save-manager](save-manager/EPIC.md) | Platform | SaveManager autoload | — (ADR-0003 authoritative) | ADR-0003, ADR-0001, ADR-0002 | Not yet created | Ready |
 | [map-grid](map-grid/EPIC.md) | Foundation | Map/Grid System (#14) | design/gdd/map-grid.md | ADR-0004, ADR-0001, ADR-0002, ADR-0003 | Not yet created | Ready |
+| [terrain-effect](terrain-effect/EPIC.md) | Core | Terrain Effect System (#2) | design/gdd/terrain-effect.md | ADR-0008, ADR-0004 (+§5b), ADR-0001 | Not yet created | Ready |
 
 ## Pending (blocked on ADR)
 
@@ -26,11 +27,10 @@ These systems have approved GDDs but no ADR yet. Epic creation is deferred until
 | balance-data | Foundation | Balance/Data System (#26) | design/gdd/balance-data.md | ADR-0006 | MEDIUM (FileAccess 4.4) |
 | hero-database | Foundation | Hero Database (#25) | design/gdd/hero-database.md | ADR-0007 | LOW |
 
-### Core layer (4 pending — added 2026-04-25 per `/create-epics layer: core` survey)
+### Core layer (3 pending — terrain-effect graduated to Ready 2026-04-25)
 
 | Pending Epic | Layer | System | GDD | Blocked on | TR Registry | Notes |
 |--------------|-------|--------|-----|------------|-------------|-------|
-| terrain-effect | Core | Terrain Effect System (#2) | design/gdd/terrain-effect.md (Designed) | **ADR-0008** + TR registry seed | ❌ no TR-IDs registered | Most-referenced future ADR; consumed by story-005's `cost_multiplier` placeholder + Damage Calc + AI |
 | unit-role | Core | Unit Role System (#5) | design/gdd/unit-role.md (Designed) | **ADR-0009** (class-coefficient schema) + TR registry seed | ❌ no TR-IDs registered | Stateless rules calculator; consumed by HP/Status, Turn Order, Damage Calc |
 | hp-status | Core | HP/Status System (#12) | design/gdd/hp-status.md (Designed) | **ADR-0010** (status-effect stacking contract) | ⚠ partial (TR-hp-status-001 only) | Single authoritative emitter of `unit_died` per ADR-0001; needs TR registry expansion to cover DoT/heal/morale pipelines |
 | turn-order | Core | Turn Order/Action Management (#13) | design/gdd/turn-order.md (**Needs Revision**) | **ADR-0011** (AI-inversion signal contract) + GDD revision | ⚠ partial (TR-turn-order-001 only) | Architecture.md §1 blocker: GDD `turn-order.md:442` direct call into AI (Feature) violates invariant #4 — must invert to GameBus signal pattern |
@@ -43,13 +43,14 @@ These systems have approved GDDs but no ADR yet. Epic creation is deferred until
 
 ## Recommended Implementation Order
 
-Per architecture.md layer invariants (Platform → Foundation → Core → ...), these 4 ready epics can be started in any order within Platform (no cross-dependencies at runtime), but sprint-plan should front-load GameBus since the other 3 Platform epics subscribe to it in tests.
+Per architecture.md layer invariants (Platform → Foundation → Core → ...), the 5 ready epics follow the dependency chain below.
 
 Suggested order:
 
 1. **GameBus** — unblocks stub-injectable test infrastructure for the other 3 Platform epics + all Foundation/Core consumers
 2. **SceneManager** + **SaveManager** in parallel — both depend only on GameBus being stub-able
 3. **Map/Grid** — can parallelize with SceneManager / SaveManager (different test surfaces)
+4. **Terrain Effect** — depends on Map/Grid (`get_tile`, `ATK_DIR_*` constants per ADR-0004 §5b) and GameBus (deferred `terrain_changed` signal)
 
 ## Dependency Snapshot
 
@@ -63,19 +64,25 @@ Suggested order:
   SaveManager (Platform, ADR-0003) ◀─┘
       │
       ▼
-  Map/Grid (Foundation, ADR-0004)
+  Map/Grid (Foundation, ADR-0004 + §5b erratum)
+      │
+      ▼
+  Terrain Effect (Core, ADR-0008)
 ```
 
-All 4 ready epics trace to 1+ Accepted ADR with full TR coverage. No untraced requirements.
+All 5 ready epics trace to 1+ Accepted ADR with full TR coverage. No untraced requirements.
 
 ## Next Steps
 
 - Run `/create-stories gamebus` first (unblocks test infrastructure for all other epics)
 - Run `/create-stories scene-manager` and `/create-stories save-manager` in parallel after GameBus stories are Ready
 - Run `/create-stories map-grid` in parallel with any of the above (independent test surface)
+- Run `/create-stories terrain-effect` after Map/Grid stories 005-006 land (Dijkstra + LoS + ADR-0004 §5b constants)
 - Author ADR-0005 (Input, HIGH engine risk) → `/create-epics input-handling` when Accepted
-- Author ADR-0006 (Balance/Data) → `/create-epics balance-data` when Accepted
+- Author ADR-0006 (Balance/Data) → `/create-epics balance-data` + supports terrain-effect config-loading migration when Accepted
 - Author ADR-0007 (Hero DB) → `/create-epics hero-database` when Accepted
+- Author ADR-0009 (Unit Role) → `/create-epics unit-role` + populates terrain-effect cost_matrix when Accepted
+- Author HP/Status ADR + Turn Order ADR → `/create-epics layer: core` re-run picks them up
 
 ### Core layer ADRs (next session priority — unblocks Pre-Production → Production gate)
 
@@ -92,11 +99,11 @@ Pre-Production → Production gate FAIL (re-checked 2026-04-25 — see `producti
 
 Current gate blockers (post-2026-04-25 update):
 
-- ~~Epics in `production/epics/` (Foundation + Core layer epics present)~~ ✅ **Partial** — 4/7 Foundation+Platform epics present; **0/4 Core MVP epics** (all blocked on ADR-0008..0011)
+- ~~Epics in `production/epics/` (Foundation + Core layer epics present)~~ ✅ **Partial** — 4/7 Foundation+Platform epics present; **1/5 Core-layer epics present (terrain-effect, 2026-04-25)**; 3 Core epics blocked on ADR-0009/0010/0011
 - ❌ Vertical Slice build — does not exist (no main scene wired up; queries are Foundation-only)
 - ❌ ≥3 Vertical Slice playtests — `production/playtests/` directory missing
 - ❌ Sprint plan in `production/sprints/` — directory missing
-- ❌ Core + Feature ADRs — 4 Core ADRs (0008..0011) + Feature ADRs (Grid Battle, Damage Calc, AI, etc.) not yet written
+- ❌ Core + Feature ADRs — 3 Core ADRs (0009..0011) + Feature ADRs (Grid Battle, Damage Calc, AI, etc.) not yet written
 
 ## Changelog
 
@@ -104,3 +111,4 @@ Current gate blockers (post-2026-04-25 update):
 |------|--------|
 | 2026-04-20 | Initial index. 4 epics created: gamebus, scene-manager, save-manager, map-grid. 3 Foundation-layer epics (input-handling, balance-data, hero-database) deferred pending ADR-0005/0006/0007 authoring. |
 | 2026-04-25 | Map-grid epic close-out (8/8 stories Complete; PRs #26-#30 pending merge). 4 Core-layer pending entries added (terrain-effect, unit-role, hp-status, turn-order) — all blocked on ADR-0008..0011 + TR registry expansion (terrain-effect, unit-role have no TR-IDs registered). Save/Load (#17) deferred to VS tier (GDD doesn't exist; save-manager Platform epic already covers infra). Gate readiness re-checked: still FAIL (Vertical Slice + playtest + Core ADRs outstanding). |
+| 2026-04-25 | terrain-effect epic created (Core layer, governed by ADR-0008 Accepted same day via `/architecture-review` delta + concurrent ADR-0004 §5b erratum). 18 TR-terrain-effect-* registered in tr-registry v4. terrain-effect graduates from Pending to Ready; remaining 3 Core-layer Pending entries (unit-role / hp-status / turn-order) still blocked on missing ADRs. |

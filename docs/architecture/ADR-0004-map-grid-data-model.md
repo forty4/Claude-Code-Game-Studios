@@ -7,7 +7,7 @@ Accepted (2026-04-20, via `/architecture-review`)
 2026-04-18
 
 ## Last Verified
-2026-04-20
+2026-04-25
 
 ## Decision Makers
 - Technical Director (architecture owner)
@@ -207,7 +207,9 @@ func get_tile(coord: Vector2i) -> MapTileData
 func get_movement_range(unit_id: int, move_range: int, unit_type: int) -> PackedVector2Array
 func get_movement_path(from: Vector2i, to: Vector2i, unit_type: int) -> PackedVector2Array
 func get_attack_range(origin: Vector2i, attack_range: int, apply_los: bool) -> PackedVector2Array
-func get_attack_direction(attacker: Vector2i, defender: Vector2i, defender_facing: int) -> int  # enum
+func get_attack_direction(attacker: Vector2i, defender: Vector2i, defender_facing: int) -> int
+    # Returns ATK_DIR_FRONT/FLANK/REAR (see §5b Direction Constants).
+    # defender_facing is one of FACING_NORTH/EAST/SOUTH/WEST.
 func get_adjacent_units(coord: Vector2i, faction: int = -1) -> PackedInt32Array  # unit_ids
 func get_occupied_tiles(faction: int = -1) -> PackedVector2Array
 func has_line_of_sight(from: Vector2i, to: Vector2i) -> bool
@@ -226,6 +228,27 @@ func get_map_dimensions() -> Vector2i
 >   formula (FRONT/FLANK/REAR depends on defender orientation).
 > - `get_adjacent_units` and `get_occupied_tiles` add optional `faction` filter
 >   (default `-1` = any faction).
+
+### 5b. Direction Constants (Erratum 2026-04-25)
+
+Return enum for `get_attack_direction()`. The Bridge FLANK→FRONT decoration
+(per ADR-0008 §Decision 3) is owned by Damage Calc; MapGrid returns the
+geometric raw direction without terrain awareness.
+
+```gdscript
+const ATK_DIR_FRONT: int = 0
+const ATK_DIR_FLANK: int = 1
+const ATK_DIR_REAR:  int = 2
+```
+
+Defender-facing input enum (cardinal direction the defender is oriented):
+
+```gdscript
+const FACING_NORTH: int = 0
+const FACING_EAST:  int = 1
+const FACING_SOUTH: int = 2
+const FACING_WEST:  int = 3
+```
 
 ### 6. Mutation API (called only by Grid Battle)
 
@@ -347,6 +370,15 @@ func apply_tile_damage(coord: Vector2i, damage: int) -> bool
 
 ```gdscript
 class_name MapGrid extends Node
+
+# ─── Direction Constants (§5b, Erratum 2026-04-25) ────────
+const ATK_DIR_FRONT: int = 0
+const ATK_DIR_FLANK: int = 1
+const ATK_DIR_REAR:  int = 2
+const FACING_NORTH: int = 0
+const FACING_EAST:  int = 1
+const FACING_SOUTH: int = 2
+const FACING_WEST:  int = 3
 
 # ─── Lifecycle ────────────────────────────────────────────
 func load_map(map_res: MapResource) -> void
@@ -599,3 +631,4 @@ post-MVP follows ADR-0003's migration registry pattern
 | 2026-04-18 | Initial draft. Proposed status. Resolves map-grid.md Open Question #2. Carries concurrent amendment to ADR-0001 (Environment domain banner + `tile_destroyed` signal). |
 | 2026-04-20 | Status flipped Proposed → Accepted via `/architecture-review` (context-isolated godot-specialist validation: 8/8 engine checks APPROVED). All R-1..R-5 mitigations verified consistent with Godot 4.6. CR-6 custom-Dijkstra rejection of AStarGrid2D re-confirmed (4.6 `set_point_weight_scale` is per-cell scalar, cannot carry per-unit-type × per-terrain-type cost matrix). TR-map-grid-001..010 registered in tr-registry.yaml v3. Advisory carried (non-blocking): `get_movement_range()` return type `PackedVector2Array` vs `Array[Vector2i]` — defer to GDScript specialist at implementation time per /dev-story. |
 | 2026-04-25 | **Errata sweep** (TD-032 A-1 + A-2 + A-9, post-story-004 close-out batch): (1) `TileData` → `MapTileData` project-wide rename in Decision §1 + Key Interfaces + Risks + GDD Requirements table. Root cause: Godot 4.4+ built-in `TileData` class (TileSet/TileMapLayer API) silently collides with user `class_name TileData` — see `.claude/rules/godot-4x-gotchas.md` G-12. (2) `MapResource.terrain_version` moved to first field position (loader-first convention mirrors `save_context.gd::schema_version`). (3) `duplicate_deep()` flag clarified as `Resource.DEEP_DUPLICATE_ALL` — `DEEP_DUPLICATE_ALL_BUT_SCRIPTS` (mentioned in earlier drafts) does NOT exist in Godot 4.6's `DeepDuplicateMode` enum (NONE/INTERNAL/ALL only). Implementation already used the correct flag per map_grid.gd:152 inline-errata comment + save_manager.gd precedent (TD-024). |
+| 2026-04-25 (delta) | **Erratum — ADR-0008 Terrain Effect prep** (TD-032 A-21 resolution): `get_attack_direction` extended to 3-arg form `(attacker, defender, defender_facing)`. Exposed `ATK_DIR_FRONT/FLANK/REAR` (return values) and `FACING_NORTH/EAST/SOUTH/WEST` (defender_facing input) as int constants on MapGrid (new §5b). Required by ADR-0008 §Decision 3 Bridge FLANK override orchestration. Validated by godot-specialist 2026-04-25 as part of `/architecture-review` delta on ADR-0008 (concurrent-amendment precedent: ADR-0001 Environment domain banner during ADR-0004 acceptance). |
