@@ -93,6 +93,21 @@ const FACTION_NONE: int  = 0  ## No occupant faction.
 const FACTION_ALLY: int  = 1  ## Player-controlled unit.
 const FACTION_ENEMY: int = 2  ## AI-controlled unit.
 
+## Attack-direction enum (story-006, GDD §F-5).
+## Result of [method get_attack_direction] — angular relationship between attacker
+## and defender's facing.
+const ATK_DIR_FRONT: int = 0  ## Attacker is in defender's front arc.
+const ATK_DIR_FLANK: int = 1  ## Attacker is to defender's flank (left or right).
+const ATK_DIR_REAR:  int = 2  ## Attacker is behind defender.
+
+## Defender facing enum (story-006, GDD §CR-5).
+## NORTH = decreasing row (up); EAST = increasing col (right); etc.
+## Used as input to [method get_attack_direction].
+const FACING_NORTH: int = 0
+const FACING_EAST:  int = 1
+const FACING_SOUTH: int = 2
+const FACING_WEST:  int = 3
+
 ## Illegal state-transition error code (story-004 AC-ST-3 / AC-ST-4).
 ## Emitted via push_error when set_occupant or apply_tile_damage is called on a
 ## tile whose current state forbids the requested transition.
@@ -987,5 +1002,386 @@ func get_movement_path(from: Vector2i, to: Vector2i, unit_type: int) -> PackedVe
 	for i: int in path_len:
 		var tile_idx: int = path_indices[path_len - 1 - i]
 		result.append(Vector2(tile_idx % cols, tile_idx / cols))
+
+	return result
+
+
+# ─── Query API — line of sight (story-006 / ADR-0004 §Decision 8) ────────────
+
+## Return [code]true[/code] if [param from] has unobstructed line of sight to [param to].
+##
+## Uses integer Bresenham rasterization over [member _elevation_cache] and
+## [member _passable_base_cache]. An intermediate tile blocks LoS iff:
+## [br]• its elevation is strictly greater than [code]max(from.elevation, to.elevation)[/code], OR
+## [br]• [member _passable_base_cache] is 0 (impassable wall — destroyed walls have base=1 per
+## [method apply_tile_damage] and are NOT blocking, satisfying §Decision 8 "destroyed walls
+## no longer block").
+##
+## Endpoints never self-block: the [param from] and [param to] tiles themselves are never
+## evaluated as blockers. For Manhattan distance ≤ 1 (adjacent or same tile) this returns
+## immediately without entering the Bresenham loop (AC-EDGE-3, GDD §EC-3).
+##
+## Same-tile case ([code]from == to[/code], D=0): emits
+## [code]push_warning("ERR_SAME_TILE_LOS")[/code] and returns [code]true[/code]
+## (caller bug, deterministic recovery).
+##
+## §EC-3 corner-cut conservatism: when the Bresenham step is diagonal (both axes step in the
+## same iteration), the line passes exactly through the corner shared by four tiles. To prevent
+## the "shoot through wall gap" exploit, BOTH cardinal-adjacent tiles
+## [code](prev_x, y)[/code] and [code](x, prev_y)[/code] are evaluated as intermediates — if
+## either blocks, LoS is blocked.
+##
+## Hot-path discipline: the loop reads only [member _elevation_cache] and
+## [member _passable_base_cache] — no [method get_tile] calls, no [MapTileData] dereference.
+##
+## Returns [code]false[/code] if [member _map] is null or coordinates are out of bounds
+## (defensive — should not occur in normal use as caller is the authoritative GridBattle).
+##
+## Example:
+## [codeblock]
+## # Check if archer at (3,5) can fire at enemy at (8,5) with intervening forest.
+## if grid.has_line_of_sight(Vector2i(3, 5), Vector2i(8, 5)):
+##     # Archer can attack — proceed with damage calc.
+## [/codeblock]
+func has_line_of_sight(from: Vector2i, to: Vector2i) -> bool:
+	if _map == null:
+		return false
+
+	var cols: int = _map.map_cols
+	var rows: int = _map.map_rows
+
+	# Bounds check — defensive guard.
+	if from.x < 0 or from.x >= cols or from.y < 0 or from.y >= rows:
+		return false
+	if to.x < 0 or to.x >= cols or to.y < 0 or to.y >= rows:
+		return false
+
+	# Same-tile guard (D=0): caller bug, warn, return true.
+	if from == to:
+		push_warning("ERR_SAME_TILE_LOS")
+		return true
+
+	# Manhattan distance ≤ 1: adjacent tiles always have LoS (AC-EDGE-3).
+	# No intermediate tiles exist — short-circuit before entering the Bresenham loop.
+	var manhattan: int = absi(to.x - from.x) + absi(to.y - from.y)
+	if manhattan <= 1:
+		return true
+
+	# Cache the elevation max once before the loop.
+	var from_elev: int = _elevation_cache[from.y * cols + from.x]
+	var to_elev:   int = _elevation_cache[to.y * cols + to.x]
+	var elev_max:  int = maxi(from_elev, to_elev)
+
+	# Integer Bresenham — sign-agnostic form. We advance from `from` toward `to`,
+	# checking each intermediate tile. Endpoints are never checked.
+	var x: int  = from.x
+	var y: int  = from.y
+	var dx: int = absi(to.x - from.x)
+	var dy: int = absi(to.y - from.y)
+	var sx: int = 1 if to.x > from.x else -1
+	var sy: int = 1 if to.y > from.y else -1
+	var err: int = dx - dy
+
+	# Loop guarded by step count — Manhattan distance is the upper bound on iterations.
+	# Belt-and-braces: bound at dx+dy+1 to prevent infinite loop on any algorithmic flaw.
+	var max_steps: int = dx + dy + 1
+	var step: int = 0
+
+	while step < max_steps:
+		step += 1
+		var e2: int = 2 * err
+		var prev_x: int = x
+		var prev_y: int = y
+
+		# Determine which axes step this iteration.
+		var step_x: bool = e2 > -dy
+		var step_y: bool = e2 < dx
+
+		if step_x:
+			err -= dy
+			x += sx
+		if step_y:
+			err += dx
+			y += sy
+
+		# Order matters: corner-cut tiles are OFF-LINE cardinal neighbours of the
+		# corner (NOT endpoints) — they must be checked BEFORE the destination guard,
+		# because a D=2 diagonal (e.g. (1,1)→(2,2)) lands on `to` in a single iteration
+		# and would otherwise skip the corner-cut check entirely.
+		if step_x and step_y:
+			# Diagonal step: line passed exactly through the corner shared by
+			# (prev_x, prev_y), (prev_x, y), (x, prev_y), and (x, y). Per §EC-3
+			# conservative rule, check the two OFF-LINE cardinal-adjacent tiles —
+			# if either blocks, LoS blocked.
+			if _tile_blocks_los(prev_x, y, elev_max, cols):
+				return false
+			if _tile_blocks_los(x, prev_y, elev_max, cols):
+				return false
+
+		# Reached destination — endpoint never self-blocks.
+		if x == to.x and y == to.y:
+			return true
+
+		# Check the new (x, y) tile as an intermediate. Applies to BOTH cardinal
+		# AND diagonal steps — on a diagonal step we have already advanced THROUGH
+		# the corner (handled above) into (x, y), and (x, y) is on the line and
+		# must be evaluated as an intermediate blocker like any other.
+		if _tile_blocks_los(x, y, elev_max, cols):
+			return false
+
+	# Unreachable under correct Bresenham termination, but GDScript requires a return.
+	return true
+
+
+## Internal LoS blocking predicate. Returns [code]true[/code] iff the tile at
+## [code](tx, ty)[/code] blocks line of sight given [param elev_max] (= max of from/to
+## elevations).
+##
+## A tile blocks iff either:
+## [br]• its [code]_passable_base_cache[/code] entry is 0 (impassable terrain — wall), OR
+## [br]• its [code]_elevation_cache[/code] entry exceeds [param elev_max].
+##
+## Hot-path: reads packed caches only. No allocations.
+##
+## [param tx], [param ty] — tile column and row (caller must have bounds-checked).
+## [param elev_max] — pre-computed [code]max(from_elev, to_elev)[/code].
+## [param cols] — map column count (passed in to avoid re-reading [member _map]).
+func _tile_blocks_los(tx: int, ty: int, elev_max: int, cols: int) -> bool:
+	var tidx: int = ty * cols + tx
+	if _passable_base_cache[tidx] == 0:
+		return true
+	if _elevation_cache[tidx] > elev_max:
+		return true
+	return false
+
+
+# ─── Query API — attack range / direction / occupants (story-006) ─────────────
+
+## Return all tiles within Manhattan distance [param attack_range] of [param origin],
+## EXCLUDING [param origin] itself.
+##
+## When [param apply_los] is [code]true[/code], filters out tiles where
+## [method has_line_of_sight](origin, tile) returns [code]false[/code]. Callers decide
+## per-call: melee skips LoS (passes [code]false[/code]); ranged applies LoS
+## (passes [code]true[/code]) per GDD §CR-7 ("원거리 유닛에만 적용").
+##
+## Bounds-clipped against [member _map].map_cols / map_rows. Returns an empty
+## [PackedVector2Array] when [member _map] is null, [param attack_range] is 0, or no
+## valid tiles remain after filtering.
+##
+## Return type: [PackedVector2Array] (ADV-1 — see [method get_movement_range]).
+## Each element is [code]Vector2(col, row)[/code]; cast to [Vector2i] at call sites.
+##
+## Complexity: O(attack_range²) candidate enumeration; O(attack_range² × distance) when
+## [param apply_los] is [code]true[/code] (one Bresenham per candidate).
+##
+## Example:
+## [codeblock]
+## # Get all attackable tiles for a ranged unit at (5,5) with range 4 and LoS rules.
+## var tiles: PackedVector2Array = grid.get_attack_range(Vector2i(5, 5), 4, true)
+## [/codeblock]
+func get_attack_range(origin: Vector2i, attack_range: int, apply_los: bool) -> PackedVector2Array:
+	var result: PackedVector2Array = PackedVector2Array()
+	if _map == null or attack_range <= 0:
+		return result
+
+	var cols: int = _map.map_cols
+	var rows: int = _map.map_rows
+
+	# Bounds-check origin defensively.
+	if origin.x < 0 or origin.x >= cols or origin.y < 0 or origin.y >= rows:
+		return result
+
+	# Manhattan-diamond enumeration centered on origin.
+	for dr: int in range(-attack_range, attack_range + 1):
+		var nrow: int = origin.y + dr
+		if nrow < 0 or nrow >= rows:
+			continue
+		var dc_max: int = attack_range - absi(dr)
+		for dc: int in range(-dc_max, dc_max + 1):
+			# Exclude origin itself (attacker doesn't attack own tile).
+			if dc == 0 and dr == 0:
+				continue
+			var ncol: int = origin.x + dc
+			if ncol < 0 or ncol >= cols:
+				continue
+
+			var tile: Vector2i = Vector2i(ncol, nrow)
+			if apply_los and not has_line_of_sight(origin, tile):
+				continue
+			result.append(Vector2(ncol, nrow))
+
+	return result
+
+
+## Return the angular relationship between [param attacker] and [param defender] given
+## the defender's [param defender_facing].
+##
+## Returns one of [constant ATK_DIR_FRONT], [constant ATK_DIR_FLANK], or
+## [constant ATK_DIR_REAR] per the GDD §F-5 formula:
+## [codeblock]
+## attack_dir = (horizontal axis if abs(dc) >= abs(dr), else vertical axis)
+## relative_angle = (attack_dir - defender_facing + 4) % 4
+## lookup: 0 → FRONT, 1 → FLANK, 2 → REAR, 3 → FLANK
+## [/codeblock]
+##
+## §EC-4 horizontal tie-break: when [code]abs(dc) == abs(dr)[/code] (perfect diagonal
+## offset), the horizontal axis (EAST/WEST) wins — encoded by the [code]>=[/code]
+## comparison. This is the deterministic cross-system rule shared with
+## [code]design/gdd/damage-calc.md[/code].
+##
+## Same-tile case ([param attacker] == [param defender]): emits
+## [code]push_warning("ERR_SAME_TILE_ATTACK")[/code] and returns
+## [constant ATK_DIR_FRONT] (caller bug, deterministic recovery).
+##
+## [param defender_facing] must be one of [constant FACING_NORTH], [constant FACING_EAST],
+## [constant FACING_SOUTH], [constant FACING_WEST]. Out-of-range values produce undefined
+## behavior — caller is GridBattleController which guards its inputs.
+##
+## Example:
+## [codeblock]
+## # Defender at (5,5) faces NORTH; attacker at (5,4) (directly north).
+## # dc=0, dr=-1 → vertical, NORTH attack_dir → relative_angle=0 → FRONT.
+## var dir: int = grid.get_attack_direction(Vector2i(5, 4), Vector2i(5, 5), MapGrid.FACING_NORTH)
+## # dir == MapGrid.ATK_DIR_FRONT
+## [/codeblock]
+func get_attack_direction(attacker: Vector2i, defender: Vector2i, defender_facing: int) -> int:
+	var dc: int = defender.x - attacker.x
+	var dr: int = defender.y - attacker.y
+
+	# Same-tile guard (§EC-4): caller bug, warn, return deterministic FRONT.
+	if dc == 0 and dr == 0:
+		push_warning("ERR_SAME_TILE_ATTACK")
+		return ATK_DIR_FRONT
+
+	# Determine the compass direction FROM the defender's perspective of where the
+	# attacker is — i.e., the direction the attack came FROM. With
+	#   dc = defender.x - attacker.x  → dc > 0 means attacker.x < defender.x → attacker is WEST
+	#   dr = defender.y - attacker.y  → dr > 0 means attacker.y < defender.y → attacker is NORTH
+	# §EC-4 horizontal tie-break: `>=` on equal-magnitude diagonal → horizontal axis wins.
+	#
+	# NOTE (TD-032 A-22): story-006 spec line 70-73 wrote
+	#   "EAST if dc > 0, SOUTH if dr > 0" which is internally inconsistent with the
+	# AC-8 expected matrix (attacker N(7,6) of defender(7,7) facing-NORTH must yield
+	# FRONT). The AC-8 expectations are canonical; spec line 70-73 has the sign
+	# flipped. Story-006 spec needs errata.
+	var attack_dir: int
+	if absi(dc) >= absi(dr):
+		# Horizontal axis dominates (or ties — §EC-4 horizontal wins).
+		attack_dir = FACING_WEST if dc > 0 else FACING_EAST
+	else:
+		# Vertical axis dominates.
+		attack_dir = FACING_NORTH if dr > 0 else FACING_SOUTH
+
+	# `relative_angle = (attack_dir - defender_facing + 4) % 4` then lookup.
+	var relative_angle: int = (attack_dir - defender_facing + 4) % 4
+	match relative_angle:
+		0: return ATK_DIR_FRONT
+		1: return ATK_DIR_FLANK
+		2: return ATK_DIR_REAR
+		3: return ATK_DIR_FLANK
+	# Unreachable (relative_angle ∈ [0,3]), but GDScript needs an explicit return.
+	return ATK_DIR_FRONT
+
+
+## Return unit IDs from the 4 cardinal neighbours of [param coord].
+##
+## When [param faction] is non-default ([code]-1[/code] = any faction), filters to units
+## of that faction only. Reads [member _occupant_id_cache] and [member _occupant_faction_cache];
+## a tile with [code]_occupant_id_cache == 0[/code] has no occupant and is skipped.
+##
+## Result is NOT de-duplicated — adjacency is by tile, not by unit. Under the MVP
+## ADR-0004 contract (1 tile = 1 unit) this is irrelevant; if multi-tile units arrive
+## later, callers must de-duplicate.
+##
+## Returns an empty [PackedInt32Array] when [member _map] is null, [param coord] is out of
+## bounds, or no qualifying neighbours exist.
+##
+## Example:
+## [codeblock]
+## # Get all enemy units adjacent to player at (3,4) for area-of-effect targeting.
+## var enemy_neighbours: PackedInt32Array = grid.get_adjacent_units(
+##         Vector2i(3, 4), MapGrid.FACTION_ENEMY)
+## [/codeblock]
+func get_adjacent_units(coord: Vector2i, faction: int = -1) -> PackedInt32Array:
+	var result: PackedInt32Array = PackedInt32Array()
+	if _map == null:
+		return result
+
+	var cols: int = _map.map_cols
+	var rows: int = _map.map_rows
+
+	# Bounds-check coord defensively.
+	if coord.x < 0 or coord.x >= cols or coord.y < 0 or coord.y >= rows:
+		return result
+
+	# 4-directional cardinal offsets: (dcol, drow).
+	for _dir: int in 4:
+		var dcol: int
+		var drow: int
+		match _dir:
+			0: dcol =  0; drow = -1  # NORTH
+			1: dcol =  1; drow =  0  # EAST
+			2: dcol =  0; drow =  1  # SOUTH
+			3: dcol = -1; drow =  0  # WEST
+
+		var ncol: int = coord.x + dcol
+		var nrow: int = coord.y + drow
+
+		# Bounds-skip out-of-map.
+		if ncol < 0 or ncol >= cols or nrow < 0 or nrow >= rows:
+			continue
+
+		var nidx: int = nrow * cols + ncol
+		var uid: int = _occupant_id_cache[nidx]
+		# No occupant → skip.
+		if uid == 0:
+			continue
+		# Faction filter (-1 = any).
+		if faction != -1 and _occupant_faction_cache[nidx] != faction:
+			continue
+		result.append(uid)
+
+	return result
+
+
+## Return all tiles currently occupied by a unit, in row-major order.
+##
+## When [param faction] is non-default ([code]-1[/code] = any faction), filters to
+## occupants of that faction only. Single full-map scan over [member _occupant_id_cache];
+## acceptable because callers (AI, HUD) invoke this at round boundaries, NOT per-frame.
+##
+## Result ordering is deterministic (row-major: ascending [code]y * cols + x[/code]),
+## which is asserted by AC-12 of story-006.
+##
+## Returns an empty [PackedVector2Array] when [member _map] is null or no occupants
+## match the filter.
+##
+## Return type: [PackedVector2Array] (ADV-1 — see [method get_movement_range]).
+## Each element is [code]Vector2(col, row)[/code]; cast to [Vector2i] at call sites.
+##
+## Complexity: O(rows × cols) regardless of occupant count.
+##
+## Example:
+## [codeblock]
+## # Get all ally units' positions at end-of-turn for save-state snapshot.
+## var allies: PackedVector2Array = grid.get_occupied_tiles(MapGrid.FACTION_ALLY)
+## [/codeblock]
+func get_occupied_tiles(faction: int = -1) -> PackedVector2Array:
+	var result: PackedVector2Array = PackedVector2Array()
+	if _map == null:
+		return result
+
+	var cols: int = _map.map_cols
+	var rows: int = _map.map_rows
+	var n: int = rows * cols
+
+	# Single row-major pass — deterministic ordering required by AC-12.
+	for i: int in n:
+		if _occupant_id_cache[i] == 0:
+			continue
+		if faction != -1 and _occupant_faction_cache[i] != faction:
+			continue
+		result.append(Vector2(i % cols, i / cols))
 
 	return result

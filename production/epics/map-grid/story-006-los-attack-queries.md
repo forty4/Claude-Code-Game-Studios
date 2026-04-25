@@ -1,7 +1,7 @@
 # Story 006: LoS + attack queries + adjacency (remaining 7 queries)
 
 > **Epic**: map-grid
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
@@ -193,3 +193,29 @@
 
 - Depends on: Story 002 (packed caches), Story 004 (mutation API used for LoS destroyed-wall + occupant tests), Story 005 (not strictly depended on but ordering puts pathfinding first)
 - Unlocks: Story 007 (performance story may benchmark LoS alongside Dijkstra), Grid Battle + AI + Formation Bonus + Damage Calc consumer epics (all 4 need at least some of these queries)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-25
+**Criteria**: 14/14 passing — all 14 ACs auto-verified by 13 test functions; AC-4 destroyed-wall sub-bullet UNTESTED (advisory; queued A-23)
+**Test Evidence**: Logic
+- `tests/unit/core/map_grid_queries_test.gd` (658 LoC, 13 test functions) — 13/13 PASS, 88ms suite
+- Full regression: 226/226 PASS (213 baseline + 13 new), 0 errors / 0 failures / 0 orphans, exit 0
+**Files delivered**:
+- `src/core/map_grid.gd` (extended 988 → 1191 LoC; +203) — 7 constants + 5 public methods + 1 private helper
+- `tests/unit/core/map_grid_queries_test.gd` (NEW, 658 LoC, 13 test functions)
+**Code Review**: Complete — godot-gdscript-specialist CLEAN + qa-tester TESTABLE WITH ADVISORY GAPS. Zero required changes; 4 advisory follow-up tests queued.
+**Deviations** (all ADVISORY; queued to TD-032 batch as A-21..A-26):
+- A-21 Extended signatures `get_attack_range(apply_los)` + `get_attack_direction(defender_facing)` — ADR-0004 §Decision 5 lists MVP placeholders; story spec governs. 3-document errata: ADR-0004 + TR-map-grid-003 + story-006 spec
+- A-22 Story spec line 70-73 sign convention contradicted AC-8 expected matrix; AC-8 is canonical. Implementation comment at `map_grid.gd:1263-1267` documents the inversion.
+- A-23 Destroyed-wall LoS restoration test missing from V-3 matrix (story spec line 126 sub-bullet)
+- A-24 3 defensive guard tests untested + doc-comment misleading on `defender_facing` undefined-behavior claim
+- A-25 SOUTH + WEST defender_facing direction matrix tests missing (full 4×4 cross-product canonical with damage-calc.md)
+- A-26 Tie-break × non-NORTH facing test gap (AC-9 covers tie-break only against NORTH-facing)
+**Bugs caught and fixed during integration testing** (validates test rigor):
+- Bresenham corner-cut order bug: D=2 diagonal reached destination in single iteration, skipping corner-cut. Fixed: corner-cut runs BEFORE destination guard.
+- Diagonal-step intermediate bug: `(x,y)` post-diagonal-step never checked. Fixed: unconditional `_tile_blocks_los(x,y)` after destination guard.
+- Test fixture: FORTRESS_WALL elev=0 violated CR-3 ELEVATION_RANGES (must be 1 or 2). Fixed factory to elev=1.
+- Spec-canonical sign-convention mismatch (A-22) caught by AC-8 expected-value comparison.
