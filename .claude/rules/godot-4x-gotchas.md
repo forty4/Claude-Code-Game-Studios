@@ -403,6 +403,70 @@ godot --headless --path . -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
 
 ---
 
+## G-15 — GdUnit4 v6.1.2 lifecycle hooks: `before_test()` is the canonical name; `before_each()` is silently ignored
+
+**Context**: writing a new GdUnit4 test suite and using a Jest/JUnit-style `before_each()` lifecycle hook for per-test setup (e.g. resetting static state).
+
+**Broken**: GdUnit4 v6.1.2 only recognizes `before_test()` / `after_test()` (and suite-scope `before()` / `after()`). A function named `func before_each() -> void:` is NEVER invoked by the test runner — it's a regular method that just happens to exist on the suite. Tests pass or fail based on whatever state happened to leak in from previous tests. The bug is usually invisible because the tests pass coincidentally — the default class-init state often satisfies the assertions, especially in the first run.
+
+```gdscript
+# BROKEN — before_each is a phantom hook; never invoked
+extends GdUnitTestSuite
+
+var _state_dirty: bool = false
+
+func before_each() -> void:    # ← NEVER CALLED by GdUnit4 v6.1.2
+    _state_dirty = false
+    SomeSingleton.reset_for_tests()
+
+func test_first() -> void:
+    SomeSingleton.set_value(42)
+    _state_dirty = true
+    assert_int(SomeSingleton.get_value()).is_equal(42)   # PASSES
+
+func test_second() -> void:
+    # _state_dirty is still true — before_each didn't run!
+    # SomeSingleton.value is still 42 — reset didn't run!
+    assert_int(SomeSingleton.get_value()).is_equal(0)    # FAILS
+```
+
+Symptom — failures of the form: "expected X but got Y, where Y is the value left behind by a previous test." Tests that depend on independent setup (e.g., loading a different fixture) all fail with stale state from the previous test. Tests that happen to leave the right state for the next test pass coincidentally.
+
+**Correct**: use `before_test()` / `after_test()`. These are the names the runner actually calls (verified in `addons/gdUnit4/src/core/execution/stages/GdUnitTestCaseBeforeStage.gd:18`: `await test_suite.before_test()`).
+
+```gdscript
+# CORRECT — before_test is invoked before each test
+extends GdUnitTestSuite
+
+var _state_dirty: bool = false
+
+func before_test() -> void:
+    _state_dirty = false
+    SomeSingleton.reset_for_tests()
+
+func after_test() -> void:
+    # cleanup if needed
+    pass
+```
+
+**Why this bug hides itself**: tests that don't rely on cross-test isolation — e.g., tests that only read class constants, or tests where the default state happens to match the expected setup — pass even with `before_each` as a phantom. The bug only surfaces when a test depends on `reset_for_tests()` actually running, which typically happens when a test mutates state via a function call (like `load_config(custom_path)`) and the next test expects fresh state. For ~6 tests that DON'T reset state via function calls, you might never notice.
+
+**Discovery validation pattern**: if a new test fails with "expected X but got Y" where Y is suspiciously the value from a prior test in the same suite — and `reset_for_tests()` is called in `before_each()` — audit ALL existing test files in the project for `before_each` usage. The fix is mechanical: rename to `before_test()` everywhere.
+
+```bash
+# Find all phantom before_each / after_each hooks across the test suite
+grep -rn "func before_each\|func after_each" tests/
+# Replace with the canonical names
+```
+
+**Future-proofing**: GdUnit4 newer versions (v7+) MAY add `before_each` / `after_each` aliases (Jest-style). When upgrading GdUnit4, re-verify by reading `addons/gdUnit4/src/core/execution/stages/GdUnitTestCaseBeforeStage.gd` for the actual method name the runner invokes. Until then, only `before_test()` / `after_test()` are safe.
+
+**Distinct from G-6**: G-6 is about WHEN cleanup runs (orphan detector fires before `after_test`). G-15 is about WHETHER the cleanup hook runs at all (`before_each` doesn't, `before_test` does). Both can produce "state from a previous test leaked in" symptoms but for different reasons. If `before_test()` is correct and tests still leak state, suspect G-6.
+
+**Discovered**: terrain-effect story-003 (3 test files used `func before_each()`; new config tests failed with "got 15" where 15 was the production-fixture HILLS value from a prior test's `load_config()` call. Renaming all three test files' `before_each` → `before_test` fixed all 6 failures without any production code change. Story-002's tests passed despite the same bug because the default class state happened to satisfy assertions and AC-7 isolation canary explicitly called `reset_for_tests()` inline within the test body).
+
+---
+
 ## Verification Pattern Summary
 
 When testing changes that touch any of the above areas, always:
