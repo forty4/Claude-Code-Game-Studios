@@ -182,7 +182,7 @@ Grid System이 외부에 노출하는 쿼리 인터페이스:
 |-------|---------|--------|
 | `get_tile(coord: Vector2i)` → TileData | Terrain Effect, Battle HUD | 타일 전체 데이터 |
 | `get_movement_range(unit_id, origin, move_range)` → Array[Vector2i] | Grid Battle, AI | 이동 가능 타일 |
-| `get_path(unit_id, from, to)` → Array[Vector2i] | Grid Battle, AI | 최단 경로 |
+| `get_movement_path(from, to, unit_type)` → Array[Vector2i] | Grid Battle, AI | 최단 경로 |
 | `get_attack_range(origin, atk_range, apply_los)` → Array[Vector2i] | Grid Battle, AI | 공격 가능 타일 |
 | `get_attack_direction(atk_coord, def_coord, def_facing)` → AttackDirection | Grid Battle, Damage Calc | FRONT / FLANK / REAR |
 | `get_adjacent_units(coord, faction)` → Array[int] | Formation Bonus | 인접 유닛 ID |
@@ -252,9 +252,19 @@ reachable = (accumulated_cost <= move_budget)
 **Output Range:** move_budget 10~100. ×10 스케일이 정수 타일 수와 정수
 코스트 체계를 연결한다 (move_range=3이 평지 3칸 = 30 = 30 정확히 일치).
 
-**Example:** move_range=3 (budget=30).
-- PLAINS→HILLS→PLAINS = 10+15+10 = 35 > 30 → **이동 불가**
-- PLAINS→ROAD→PLAINS = 10+7+10 = 27 ≤ 30 → **이동 가능**
+**Cost convention:** `step_cost`는 타일에 **진입할 때** 발생하는 비용. 출발
+타일(origin)은 비용 0으로 시작; non-origin 타일만 누적 비용에 합산. 표준
+Dijkstra 규약.
+
+**Example:** move_range=3 (budget=30). 출발 타일에서 3칸 이동:
+- PLAINS→PLAINS→PLAINS→PLAINS (출발 + 3칸 진입) = 0+10+10+10 = 30 ≤ 30 → **도달 가능**
+- PLAINS→PLAINS→PLAINS→HILLS (출발 + 2 PLAINS 진입 + 1 HILLS 진입) = 0+10+10+15 = 35 > 30 → **도달 불가**
+- PLAINS→PLAINS→PLAINS→ROAD (출발 + 2 PLAINS + 1 ROAD) = 0+10+10+7 = 27 ≤ 30 → **도달 가능**
+
+> **Errata 2026-04-25 (TD-032 A-20)**: 이전 예시 "PLAINS→HILLS→PLAINS = 10+15+10 = 35"는
+> origin-included 비용 모델을 가정했지만, 실제 구현(story-005)은 표준 Dijkstra
+> 규약(origin 비용 0)을 사용함. 위 예시는 실제 구현과 일치하도록 수정됨. 동일 길이의
+> 경로는 origin을 제외한 transition 비용만 합산.
 
 ---
 
@@ -286,14 +296,27 @@ passable=true → **LoS 통과**.
 ### F-5. Attack Direction Calculation
 
 ```
-attack_dir = direction(attacker_coord → defender_coord)
+dc = defender.x - attacker.x
+dr = defender.y - attacker.y
+
+# attack_dir = 방어자 시점에서 공격이 들어온 방향 (compass direction).
+# dc > 0 ⇒ attacker.x < defender.x ⇒ 공격자가 WEST에 있음 ⇒ attack_dir = WEST
+# dr > 0 ⇒ attacker.y < defender.y ⇒ 공격자가 NORTH에 있음 ⇒ attack_dir = NORTH
+
+if abs(dc) >= abs(dr):                        # 수평축 우세 (또는 §EC-4 동률 시 수평 우선)
+    attack_dir = WEST if dc > 0 else EAST
+else:                                          # 수직축 우세
+    attack_dir = NORTH if dr > 0 else SOUTH
+
 relative_angle = (attack_dir - defender.facing + 4) % 4
 attack_direction = lookup(relative_angle)
 ```
 
 | Variable | Symbol | Type | Range | Description |
 |----------|--------|------|-------|-------------|
-| Attack direction | attack_dir | int | 0–3 | 공격자→방어자 방향 |
+| Column delta | dc | int | — | `defender.x - attacker.x` |
+| Row delta | dr | int | — | `defender.y - attacker.y` |
+| Attack direction | attack_dir | int | 0–3 | 공격이 들어온 compass 방향 (방어자 시점) |
 | Defender facing | facing | int | 0–3 | 방어자 facing (CR-5) |
 | Relative angle | rel | int | 0–3 | 상대 각도 |
 | Result | attack_direction | enum | FRONT/FLANK/REAR | 공격 판정 |
@@ -309,9 +332,17 @@ attack_direction = lookup(relative_angle)
 
 **Output Range:** 정확히 {FRONT, FLANK, REAR} 중 하나. `+4`가 음수를 방지.
 
-**Example:** 방어자 facing=NORTH(0). 공격자가 EAST(1)에서 접근 →
-`(1-0+4)%4 = 1` → **FLANK**. 공격자가 SOUTH(2)에서 접근 →
-`(2-0+4)%4 = 2` → **REAR**.
+**Example:** 방어자 (2,2) facing=NORTH(0).
+- 공격자 N(2,1): `dc=0, dr=1`. `abs(0)>=abs(1)` false → 수직축. `dr>0` → NORTH.
+  `(0-0+4)%4 = 0` → **FRONT** ✓
+- 공격자 E(3,2): `dc=-1, dr=0`. 수평축. `dc<0` → EAST. `(1-0+4)%4 = 1` → **FLANK** ✓
+- 공격자 S(2,3): `dc=0, dr=-1`. 수직축. `dr<0` → SOUTH. `(2-0+4)%4 = 2` → **REAR** ✓
+- 공격자 W(1,2): `dc=1, dr=0`. 수평축. `dc>0` → WEST. `(3-0+4)%4 = 3` → **FLANK** ✓
+
+> **Errata 2026-04-25 (TD-032 A-22)**: 이전 story-006 spec 초안의
+> 부호 규약("EAST if dc > 0, SOUTH if dr > 0")은 AC-8 expected 매트릭스와
+> 모순되었음. AC-8이 정답이며, 위 부호 규약(`dc > 0 ⇒ WEST`, `dr > 0 ⇒ NORTH`)이
+> 표준. `damage-calc.md` 와의 cross-system 계약은 위 정의에 맞춰져 있음.
 
 ## Edge Cases
 
@@ -403,7 +434,7 @@ attack_direction = lookup(relative_angle)
 | System | 의존 유형 | 사용하는 쿼리 | 데이터 인터페이스 |
 |--------|----------|-------------|-----------------|
 | Terrain Effect | Hard | `get_tile()` | terrain_type, elevation |
-| Grid Battle | Hard | `get_movement_range()`, `get_path()`, `get_attack_range()`, `get_attack_direction()` | 이동/공격 전체 |
+| Grid Battle | Hard | `get_movement_range()`, `get_movement_path()`, `get_attack_range()`, `get_attack_direction()` | 이동/공격 전체 |
 | Formation Bonus | Hard | `get_adjacent_units()` | 인접 유닛 ID 목록 |
 | Damage/Combat Calc | Hard | `get_attack_direction()` | FRONT / FLANK / REAR |
 | AI System | Hard | `get_movement_range()`, `get_attack_range()`, `get_occupied_tiles()`, `has_line_of_sight()` | 전술 분석 전체 |
@@ -580,7 +611,7 @@ Foundation 시스템 — 직접적 UI 없음.
 
 **AC-PERF-2. 경로 탐색 16ms 이내**
 - **GIVEN** 40×30 맵에서 move_range=10인 유닛이 있을 때
-- **WHEN** `get_movement_range()` 또는 `get_path()` 호출 시
+- **WHEN** `get_movement_range()` 또는 `get_movement_path()` 호출 시
 - **THEN** 함수 실행 시간이 16ms를 초과하지 않는다 (캐시 미적중 포함)
 
 ## Open Questions

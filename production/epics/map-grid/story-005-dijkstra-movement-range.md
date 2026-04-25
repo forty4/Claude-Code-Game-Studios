@@ -25,7 +25,7 @@
 - Required: Visited set — `PackedByteArray` of length `rows * cols`, indexed by `row * cols + col`; flag byte = 1 once finalized — avoids `Dictionary` allocation in hot loop
 - Required: Priority queue — sorted `PackedInt32Array` scratch buffer with packed `(cost << 16) | tile_index` entries; `bsearch` for insertion
 - Required: Static typing throughout inner loop; no `is_instance_valid()` or `typeof()` in hot path; cost table pre-validated at `load_map()` time
-- Required: Early termination — `cost_so_far > move_budget` for `get_movement_range`; admissible heuristic lower-bound for `get_path`
+- Required: Early termination — `cost_so_far > move_budget` for `get_movement_range`; admissible heuristic lower-bound for `get_movement_path`
 - Forbidden: `AStarGrid2D` or `NavigationServer2D` for grid pathfinding (TR-map-grid-002)
 - Forbidden: Dereference TileData objects in the Dijkstra hot loop — virtual-dispatch cost ~1200× per query; read packed caches only
 - Guardrail: `get_movement_range` CPU <16 ms on 40×30, move_range=10, mid-range Android (AC-PERF-2 / TR-map-grid-006; empirical benchmark in story-007)
@@ -42,7 +42,7 @@
 - [ ] AC-CR-6: `get_movement_range` excludes ENEMY_OCCUPIED tiles and every tile reachable only through them; ALLY_OCCUPIED tiles are traversable but not landable (return excludes ALLY_OCCUPIED tiles)
 - [ ] AC-F-1 Manhattan distance via `|dc| + |dr|` used wherever a distance is needed
 - [ ] AC-F-2 step cost formula: `step_cost = terrain_cost(terrain_type) × cost_multiplier(unit_type, terrain_type)` (placeholder `cost_multiplier` table — see Implementation Notes; ADR-0008 will populate final values)
-- [ ] AC-F-3 budget boundary: move_range=3 (budget=30), PLAINS→HILLS→PLAINS = 10+15+10 = 35 > 30 → NOT reachable; PLAINS→ROAD→PLAINS = 10+7+10 = 27 ≤ 30 → reachable
+- [ ] AC-F-3 budget boundary (standard Dijkstra cost model — origin entry cost = 0): move_range=3 (budget=30); HILLS at (3,0) on flat 15×15 PLAINS map → path (0,0)→(1,0)→(2,0)→(3,0) costs 0+10+10+15 = 35 > 30 → NOT reachable; ROAD at (3,0) → 0+10+10+7 = 27 ≤ 30 → reachable. (TD-032 A-20 errata: earlier draft "10+15+10=35" assumed origin-included cost model; reconciled to standard convention.)
 - [ ] AC-EDGE-2: unit completely surrounded by IMPASSABLE + ENEMY_OCCUPIED → `get_movement_range` returns empty PackedVector2Array
 - [ ] `get_path(from, to)` with `from == to` returns `PackedVector2Array([from])` (single-element); with unreachable `to` returns empty
 - [ ] `is_passable_base == false` tiles (walls) never enter the priority queue
@@ -97,7 +97,7 @@
 - **AC-2**: AC-F-3 budget boundary
   - Given: 3×3 strip with tiles (0,0)=PLAINS, (1,0)=HILLS, (2,0)=PLAINS, everything else non-reachable; unit at (0,0), move_range=3 (budget=30), unit_type=INFANTRY
   - When: `get_movement_range(1, 3, INFANTRY)`
-  - Then: (2,0) NOT in result (cost 10+15+10=35 > 30); tile (1,0) IS in result (cost 10+15=25 ≤ 30)
+  - Then: under standard Dijkstra (origin entry cost = 0), HILLS at (3,0) makes (3,0) NOT in result (cost 0+10+10+15=35 > 30); (2,0) IS in result (cost 0+10+10=20 ≤ 30); (1,0) IS in result (cost 0+10=10). The ROAD variant (3,0)=ROAD makes (3,0) reachable (cost 0+10+10+7=27 ≤ 30). (TD-032 A-20 errata reconciled to standard cost model.)
   - Edge cases: swap (1,0) to ROAD → (2,0) IS reachable (cost 10+7+10=27 ≤ 30)
 
 - **AC-3**: AC-CR-6 enemy blocks, ally passes
@@ -132,7 +132,7 @@
 
 - **AC-8**: V-4 reference equivalence (50-query fixture)
   - Given: fixed 20×20 mixed-terrain fixture (authored in test setup) with 50 `(from, to)` query pairs
-  - When: for each pair, production `get_path` and reference Dijkstra both compute
+  - When: for each pair, production `get_movement_path` and reference Dijkstra both compute
   - Then: for all 50 pairs: (a) both return empty OR both non-empty; (b) if non-empty, total cost matches; (c) each step in production path is adjacent + passable + valid per `_tile_state_cache`
   - Edge cases: 5 of the 50 pairs are intentionally unreachable (wall bisects map) → both return empty
 
@@ -189,5 +189,5 @@
 - A-18 API renamed `get_path()` → `get_movement_path()` to avoid shadowing `Node.get_path()` (NodePath collision) — ADR-0004 + TR-map-grid-003 + story spec all need errata
 - A-19 AC-3b uses move_range=3 (not spec's 4) under standard Dijkstra cost model — documented inline
 - A-20 Cost-model interpretation: implementation uses standard Dijkstra (origin entry cost = 0); story spec line 99 / ADR-0004 §F-3 used non-standard origin-included arithmetic — 3-document errata required
-- G-13 candidate: User-defined methods can shadow inherited `Node` API (e.g. `get_path` returns NodePath) — codify in `.claude/rules/godot-4x-gotchas.md`
+- G-13 candidate: User-defined methods can shadow inherited `Node` API (e.g. `get_movement_path` returns NodePath) — codify in `.claude/rules/godot-4x-gotchas.md`
 - ADR-0004 §Decision 7 admissible heuristic for `get_movement_path` deferred to story-007 perf optimization (TODO comment at `map_grid.gd:899`)

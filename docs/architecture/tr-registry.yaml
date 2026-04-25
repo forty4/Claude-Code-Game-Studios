@@ -210,9 +210,9 @@ requirements:
     system: map-grid
     gdd: design/gdd/map-grid.md
     adr: docs/architecture/ADR-0004-map-grid-data-model.md
-    requirement: "MapGrid exposes 9 public read-only query methods: get_tile, get_movement_range, get_path, get_attack_range, get_attack_direction, get_adjacent_units, get_occupied_tiles, has_line_of_sight, get_map_dimensions."
+    requirement: "MapGrid exposes 9 public read-only query methods: get_tile, get_movement_range, get_movement_path, get_attack_range, get_attack_direction, get_adjacent_units, get_occupied_tiles, has_line_of_sight, get_map_dimensions. Signatures per stories 005-006-008: get_movement_path(from, to, unit_type), get_attack_range(origin, range, apply_los), get_attack_direction(attacker, defender, defender_facing), get_adjacent_units(coord, faction=-1), get_occupied_tiles(faction=-1)."
     created: 2026-04-20
-    revised: ""
+    revised: 2026-04-25
     status: active
 
   - id: TR-map-grid-004
