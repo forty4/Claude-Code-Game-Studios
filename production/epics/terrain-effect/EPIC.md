@@ -3,7 +3,7 @@
 > **Layer**: Core
 > **GDD**: design/gdd/terrain-effect.md (Designed, 2026-04-16)
 > **Architecture Module**: Terrain Effect (docs/architecture/architecture.md §Core layer line 252)
-> **Status**: Ready
+> **Status**: Complete (2026-04-26) — 8/8 stories done 🎉
 > **Manifest Version**: 2026-04-20 (docs/architecture/control-manifest.md)
 > **Stories**: 8 — see table below
 
@@ -128,20 +128,38 @@ This epic is complete when:
 | 005 | [get_combat_modifiers (CR-2 elevation + CR-3a/b symmetric clamp + CR-5 bridge flag + EC-14 delta clamp)](story-005-combat-modifiers-elevation-clamp-bridge.md) | Logic | **Complete (2026-04-26)** | ADR-0008 | TR-003, TR-004, TR-005, TR-007, TR-008 (3/3), TR-009, TR-011, TR-015 |
 | 006 | [cost_multiplier + terrain_cost.gd:32 migration + Map/Grid regression](story-006-cost-multiplier-mapgrid-migration.md) | Integration | **Complete (2026-04-26)** | ADR-0008 | TR-018, TR-002 (CR-1d MVP=1 uniform) |
 | 007 | [max_defense_reduction + max_evasion shared accessors](story-007-cap-shared-accessors.md) | Logic | **Complete (2026-04-26)** | ADR-0008 | TR-017 (single source of truth) |
-| 008 | [Performance baseline (desktop substitute) — AC-21 <0.1ms benchmark](story-008-perf-baseline.md) | Integration | Ready | ADR-0008 | TR-013 (AC-21) |
+| 008 | [Performance baseline (desktop substitute) — AC-21 <0.1ms benchmark](story-008-perf-baseline.md) | Integration | **Complete (2026-04-26)** | ADR-0008 | TR-013 (AC-21) |
 
 **Dependency chain**: 001 → 002 → 003 → {004, 005, 006, 007 parallelizable} → 008. The multi-suite static-state isolation regression test (the discipline-establishing test for the entire epic's GdUnit4 pattern) lands in story-002 AC-7.
 
 ## Next Step
 
-Stories 001-007 Complete (001-002: 2026-04-25; 003-007: 2026-04-26). **7/8 done — query layer + integration migration + cross-system shared-cap accessors all landed; only story-008 (perf baseline + epic-end TD-034 §A-K hardening pass) remains**. Story-007 is the critical-path unlock for the Formation Bonus Feature epic + Damage Calc Feature epic — both can now consume `TerrainEffect.max_defense_reduction()` / `max_evasion()` via the shared-cap contract.
+🎉 **EPIC COMPLETE** — All 8 stories landed (001-002: 2026-04-25; 003-008: 2026-04-26). The full TerrainEffect public API is shipped: `get_terrain_modifiers` / `get_combat_modifiers` / `get_terrain_score` / `cost_multiplier` / `max_defense_reduction` / `max_evasion`, plus AC-21 perf baseline validated (desktop p95=3µs vs 100µs budget = 33× headroom).
 
-**Story-003 GAP-4 carry-over: RESOLVED in story-004 AC-2** — the 8-terrain canonical CR-1 matrix exercises every fallback value with explicit `defense_bonus`/`evasion_bonus`/`special_rules` assertions. A `_fall_back_to_defaults()` typo of HILLS=10 vs. canonical 15 would now fail at story-004 AC-2 line 203. TD-034 entry updated to mark RESOLVED.
+**Definition of Done satisfied**:
+- All 21 ACs from `design/gdd/terrain-effect.md` verified (AC-1..AC-20 covered by stories 001-007 unit tests; AC-21 covered by story-008 integration perf test)
+- `terrain_cost.gd:32` placeholder migrated to `TerrainEffect.cost_multiplier()` delegate (story-006); full Map/Grid regression suite passes unchanged
+- Multi-suite static-state isolation regression test (story-002 AC-7) passes — Suite A custom-config + Suite B default-config sequence clean
+- Schema validation + safe-default fallback (AC-19/20) covered by story-003
+- Full project regression: **294/294 PASS, 0 errors / 0 failures / 0 flaky / 0 orphans, godot exit 0**
+- ADR-0008's KEEP-through-implementation Verification item (AC-21 benchmark) validated
 
-**Story-005 carry-overs**: 3 advisories deferred to TD-034 §G/§H/§I (RIVER/ROAD as defender untested in story-005; `_elevation_table[delta=0]` row untested directly; `get_terrain_score` redundant lazy-load guard cosmetic). All low-risk; transitive coverage via story-004 AC-2 + story-003 covers the underlying tables.
+**Downstream unlocks** (now Ready to start):
+- **Damage Calc Feature epic** — consumes `get_combat_modifiers()` for terrain_def/terrain_evasion + `max_defense_reduction()` for shared cap; orchestrates Bridge FLANK→FRONT override using ADR-0004 §5b constants
+- **Formation Bonus Feature epic** — consumes `max_evasion()` + `max_defense_reduction()` via shared-cap contract
+- **AI Feature epic** — consumes `get_terrain_score()` for tile ranking
+- **Battle HUD Presentation epic** — consumes `get_terrain_modifiers()` for tile tooltip display
 
-**Story-006 carry-overs**: 2 advisories deferred to TD-034 §J/§K (AC-6 expected reachable tile count not pinned — defer to ADR-0009 trigger; ADR-0008 §Risks line 567 stale `before_each()` reference — defer to next ADR-0008 amendment). All low-risk; AC-6 boundary assertions catch primary regression case.
+**Carry-overs to TD-034 (epic-end consolidated test-infrastructure cleanup pass — deferred)**:
+- §G/§H/§I (story-005): RIVER/ROAD defender-untested; `_elevation_table[delta=0]` row direct-untested; redundant lazy-load guard
+- §J/§K (story-006): AC-6 reachable tile count not pinned (defer to ADR-0009); ADR-0008 §Risks line 567 stale `before_each()` reference (defer to next ADR-0008 amendment)
+- All low-risk — transitive coverage via story-004 AC-2 + story-003 covers underlying tables. Bundle-resolve when ADR-0009 lands or as a standalone hardening pass.
 
-**Story-007 carry-overs**: NONE 🎉 — first fully-clean implementation in this epic. No deviations, no mid-implementation fixes, no advisory carry-overs to TD-034. /code-review applied 4 inline strengthenings (1 GAP test addition + 3 doc-comment clarifications); 0 deferred.
+**Epic-level process insights**:
+- **8 stories, 8 PRs, zero reverts, zero rollbacks**
+- **6 fixture-vs-engine drift occurrences** — pattern now canonical; story templates should add an "Engine constraint quick-reference" section (recommendation from story-005, still unactioned)
+- **6 sub-agent Bash blocking incidents** — pattern is load-bearing; should be codified as workflow standard in `.claude/rules/tooling-gotchas.md` (TG-2 candidate)
+- **G-1/G-2/G-6/G-9/G-14/G-15 gotcha codifications** all paid dividends across the epic — no rediscovery cost on stories 003-008
+- **Story-007 + Story-008 fully-clean** (first-iteration pass on first regression run) — pattern: trivial Logic stories with verbatim ADR reference impls + canonical-pattern Integration tests are the lowest-defect-rate types
 
-Run `/story-readiness production/epics/terrain-effect/story-008-perf-baseline.md` to validate the next story, then `/dev-story` to implement. Story-008 is the epic close-out: AC-21 performance benchmark (<0.1ms per query call) + bundled TD-034 §A-K test infrastructure hardening pass (~2.5 hours of consolidated cleanup work).
+**Recommended next workflow**: run `/sprint-plan` to schedule the unlocked downstream epics (Damage Calc + Formation Bonus + AI + Battle HUD), then iterate /story-readiness → /dev-story per the established pattern. Or revisit `/gate-check` Pre-Production → Production criteria (this epic was a major DoD contributor).

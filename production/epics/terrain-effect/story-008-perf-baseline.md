@@ -1,7 +1,7 @@
 # Story 008: Performance baseline (desktop substitute) — AC-21 <0.1ms benchmark
 
 > **Epic**: terrain-effect
-> **Status**: Ready
+> **Status**: Complete (2026-04-26)
 > **Layer**: Core
 > **Type**: Integration
 > **Manifest Version**: 2026-04-20
@@ -180,3 +180,30 @@
 - Depends on: Stories 001-007 (the entire epic — perf test runs against the assembled pipeline). In particular Story 005 (`get_combat_modifiers` is what's measured) and Story 003 (config must be loadable without errors)
 - Reactivation trigger for AC-TARGET (Polish phase): Android export pipeline online + mid-range test device available; document re-run protocol in `production/qa/evidence/` when reactivated
 - Unlocks: epic close-out — once this story passes, terrain-effect epic Definition of Done is satisfied; `/sprint-plan` may schedule the implementation work, then `/gate-check` revisits Pre-Production → Production criteria
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-26
+**Criteria**: 8/8 §Acceptance Criteria checkboxes PASS; 6/6 §QA Test Cases PASS (AC-1..AC-6); 0 deferred; 0 untested
+**Test Evidence**: Integration — `tests/integration/core/terrain_effect_perf_test.gd` (NEW, ~530 LoC, 5 test functions); full regression **294/294 PASS**, 0 errors / 0 failures / 0 flaky / 0 orphans, godot exit 0
+**Perf measurements (desktop substitute, Apple Silicon)**:
+- `[terrain-effect AC-21] p50=2µs p95=3µs max=3µs mean=2.2µs (n=100, warmup=10, warmup_first=8µs warmup_mean=2µs ratio_first=4.00× ratio_mean=1.00×)`
+- `[terrain-effect AC-FRAME-TIME] 100 calls = 214µs (frame budget = 16600µs, 1.3% of frame)`
+- **33× headroom** under AC-21 100µs budget; ADR-0008 estimated 10× — actual is 3.3× better than estimate
+**Deviations**:
+- 1 ADVISORY: Fixture is 15×15 (with 5×5 mixed-terrain region anchored at (0..4, 0..4) + PLAINS filler) rather than literal 5×5 from spec. Mandated by `MapGrid.MAP_COLS_MIN/MAP_ROWS_MIN = 15` per ADR-0004. Behavior under test identical for the representative scenario at (0,0)→(1,0). Documented at `terrain_effect_perf_test.gd:81-86`. **6th occurrence of fixture-vs-engine drift in this epic — mitigation pattern is now canonical**.
+**Code Review**: Complete (lean-mode convergent — godot-gdscript-specialist + qa-tester parallel)
+- gdscript-specialist verdict: APPROVED WITH SUGGESTIONS (6 findings: 1 comment correction + 5 SUGGESTIONS, 0 BLOCKING)
+- qa-tester verdict: TESTABLE WITH GAPS (3 GAPS + 5 PASS/RECOMMENDATION)
+- 4 inline improvements applied: F-1 _mean comment correction (peer parity claim was inaccurate); F-2 crash-safety guards on AC-5/AC-6 file-open tests; F-3 strengthened AC-2 single-warmup comment to note non-independent gate; F-4 self-documenting `WARMUP_ITERATIONS > 0` assertion
+- 4 SUGGESTIONS skipped with rationale (peer-consistent or already-tracked TD); 0 false positives; 0 advisories deferred to TD-034
+**Process insights**:
+- **Second fully-clean dev-story in this epic** (story-007 was first; story-008 second). Pattern: when implementation pattern is canonical (3rd reuse) AND dependencies are stable AND API surface is read-only, first-iteration clean is achievable.
+- **3rd reuse threshold**: perf-baseline pattern is now formally canonical for this project. save-manager/story-007 → map-grid/story-007 → terrain-effect/story-008 = 3 successful applications. Future perf stories should explicitly cite this as the reference pattern.
+- **Orchestrator-direct vs sub-agent spawn tradeoff**: for canonical-pattern integration-test stories, orchestrator-direct is faster (~30 min vs ~60 min). For novel design / production-code stories, sub-agent spawn remains correct.
+- **Sub-agent Bash blocking pattern** continues — 6th time in this epic; pattern is now load-bearing and worth codifying as workflow standard in `.claude/rules/tooling-gotchas.md` (TG-2 candidate).
+- **G-1/G-2/G-6/G-9/G-14/G-15 codifications** continue to pay dividends — clean test lifecycle on first run; no rediscovery cost.
+
+🎉 **TERRAIN-EFFECT EPIC CLOSED — 8/8 stories Complete.** Downstream Damage Calc + Formation Bonus + AI + Battle HUD epics can now consume the full TerrainEffect public API.
