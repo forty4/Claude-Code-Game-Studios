@@ -22,15 +22,15 @@ Accepted (2026-04-20, via `/architecture-review`)
 | **Domain** | Core — gameplay foundation data model |
 | **Knowledge Risk** | MEDIUM — uses Godot 4.5+ `duplicate_deep()` and relies on 4.6-stable `@export`-typed `Array[Resource]` semantics; all other APIs are pre-cutoff. |
 | **References Consulted** | `docs/engine-reference/godot/VERSION.md`, `docs/engine-reference/godot/breaking-changes.md`, `docs/engine-reference/godot/modules/navigation.md`, `design/gdd/map-grid.md`, `docs/architecture/ADR-0001-gamebus-autoload.md`, `docs/architecture/ADR-0002-scene-manager.md`, `docs/architecture/ADR-0003-save-load.md` |
-| **Post-Cutoff APIs Used** | `Resource.duplicate_deep()` (4.5+) — used once per battle enter on the authoritative `MapResource` clone |
-| **Verification Required** | (1) Benchmark `get_movement_range()` on 40×30 map, move_range=10, unit_type=infantry: must be <16ms on mid-range Android target per AC-PERF-2. (2) Round-trip test: load `MapResource` → `duplicate_deep()` → apply destruction mutations → confirm disk asset unchanged. (3) Confirm Godot 4.6 inspector can edit a 1200-element `Array[TileData]` without editor stalls (acceptable if scrolling is slow, blocking if inspector hangs). |
+| **Post-Cutoff APIs Used** | `Resource.duplicate_deep(Resource.DEEP_DUPLICATE_ALL)` (4.5+) — used once per battle enter on the authoritative `MapResource` clone. **Errata (2026-04-25)**: earlier drafts referenced a `DEEP_DUPLICATE_ALL_BUT_SCRIPTS` flag — this enum value does NOT exist in Godot 4.6. The `DeepDuplicateMode` enum has three values only: `NONE`, `INTERNAL`, `ALL`. `ALL` is the correct max-depth mode for this use case. See save_manager.gd precedent (TD-024). |
+| **Verification Required** | (1) Benchmark `get_movement_range()` on 40×30 map, move_range=10, unit_type=infantry: must be <16ms on mid-range Android target per AC-PERF-2. (2) Round-trip test: load `MapResource` → `duplicate_deep()` → apply destruction mutations → confirm disk asset unchanged. (3) Confirm Godot 4.6 inspector can edit a 1200-element `Array[MapTileData]` without editor stalls (acceptable if scrolling is slow, blocking if inspector hangs). |
 
 ## ADR Dependencies
 
 | Field | Value |
 |-------|-------|
 | **Depends On** | None (Foundation layer) |
-| **Enables** | ADR-0008 Terrain Effect (consumes `TileData.terrain_type` + terrain-cost matrix contract); future Formation Bonus ADR; future AI ADR (consumes `tile_destroyed` signal for cached-path invalidation) |
+| **Enables** | ADR-0008 Terrain Effect (consumes `MapTileData.terrain_type` + terrain-cost matrix contract); future Formation Bonus ADR; future AI ADR (consumes `tile_destroyed` signal for cached-path invalidation) |
 | **Blocks** | Grid Battle, Terrain Effect, AI, Formation Bonus, HP/Status (positional checks), Input Handling (tile-tap routing) implementation — all 6 cannot start implementation until this ADR is Accepted |
 | **Ordering Note** | Must be Accepted before ADR-0008 Terrain Effect. This ADR carries a concurrent amendment to ADR-0001 (Accepted 2026-04-18) adding an Environment domain banner + `tile_destroyed(coord: Vector2i)` signal — the amendment is part of this ADR's write pass, not a follow-up. |
 
@@ -106,23 +106,23 @@ a signal emitter for the `tile_destroyed(coord)` event.
 
 ## Decision
 
-### 1. Tile Storage — `Array[TileData]` inside `MapResource`
+### 1. Tile Storage — `Array[MapTileData]` inside `MapResource`
 
 ```gdscript
 class_name MapResource extends Resource
 
+@export var terrain_version: int = 1  # bump on schema change (loader-first convention per save_context.gd)
 @export var map_id: StringName
 @export var map_rows: int
 @export var map_cols: int
-@export var tiles: Array[TileData]  # size = map_rows * map_cols
-@export var terrain_version: int = 1  # bump on schema change
+@export var tiles: Array[MapTileData]  # size = map_rows * map_cols
 
-class_name TileData extends Resource
+class_name MapTileData extends Resource
 
 @export var coord: Vector2i
 @export var terrain_type: int          # enum mirror (see TerrainType)
 @export var elevation: int             # 0 | 1 | 2
-@export var tile_state: int            # enum mirror (NORMAL, OCCUPIED, DESTROYED, ...)
+@export var tile_state: int            # enum mirror (EMPTY, ALLY_OCCUPIED, ENEMY_OCCUPIED, IMPASSABLE, DESTRUCTIBLE, DESTROYED)
 @export var is_destructible: bool
 @export var destruction_hp: int
 @export var occupant_id: int = 0       # 0 = none
@@ -131,18 +131,18 @@ class_name TileData extends Resource
 ```
 
 - Indexing: `tiles[coord.y * map_cols + coord.x]` (CR-2)
-- ~64 B per `TileData` × 1200 tiles max = **~77 KB per map at rest**
-- `Array[TileData]` is the **authoritative source** for mutation and
+- ~64 B per `MapTileData` × 1200 tiles max = **~77 KB per map at rest**
+- `Array[MapTileData]` is the **authoritative source** for mutation and
   serialization
 
 ### 2. Hot-Path Packed Caches (required for AC-PERF-2)
 
-`TileData` objects are GDScript `Object` subclasses. Per-tile dereference in
+`MapTileData` objects are GDScript `Object` subclasses. Per-tile dereference in
 the Dijkstra inner loop would pay virtual-dispatch cost ~1200× per
 movement-range query — that is the dominant cost, not the algorithm itself.
 
 `MapGrid` builds **parallel `PackedInt32Array` caches** from the
-`Array[TileData]` at battle-enter (after `duplicate_deep()`):
+`Array[MapTileData]` at battle-enter (after `duplicate_deep()`):
 
 ```gdscript
 var _terrain_type_cache: PackedInt32Array      # length = rows * cols
@@ -155,19 +155,19 @@ var _tile_state_cache: PackedInt32Array        # mutated on apply_tile_damage
 
 **Invariants:**
 
-- Every mutation method that updates `Array[TileData]` **must also update
+- Every mutation method that updates `Array[MapTileData]` **must also update
   the corresponding cache entry in the same call** (write-through). The
-  `Array[TileData]` is the authoritative source; the caches are a
+  `Array[MapTileData]` is the authoritative source; the caches are a
   structural read-optimization.
 - Pathfinding, LoS, and attack-range queries **read only from the packed
-  caches** — they never dereference `TileData` in the hot loop.
-- `get_tile(coord)` (a rare cold-path query) returns the `TileData` object
+  caches** — they never dereference `MapTileData` in the hot loop.
+- `get_tile(coord)` (a rare cold-path query) returns the `MapTileData` object
   directly for systems that need full tile detail.
 
 ### 3. Authoring Format — `.tres` at `res://data/maps/[map_id].tres`
 
 - **MVP**: Godot's native Resource text format (`.tres`). Maps authored via
-  Godot's built-in inspector on `MapResource` + `TileData` sub-resources.
+  Godot's built-in inspector on `MapResource` + `MapTileData` sub-resources.
 - **No custom editor plugin for MVP** — Open Question #2 is resolved:
   authoring happens in the Godot inspector.
 - **Shipped builds**: converted to binary `.res` for load speed (see Risks).
@@ -195,7 +195,7 @@ BattleScene (scene root — battle-scoped per ADR-0002)
   representation of its own; visuals are owned by a sibling `MapRenderer`
   node (out of this ADR's scope).
 - On `load_map(res: MapResource)`:
-  1. `_map = res.duplicate_deep()` — clones so destruction state does not
+  1. `_map = res.duplicate_deep(Resource.DEEP_DUPLICATE_ALL)` — clones so destruction state does not
      pollute the disk asset
   2. Build packed caches from `_map.tiles`
 - On scene free: `MapGrid` is freed with BattleScene; all state gone.
@@ -203,7 +203,7 @@ BattleScene (scene root — battle-scoped per ADR-0002)
 ### 5. Query API (public, read-only)
 
 ```gdscript
-func get_tile(coord: Vector2i) -> TileData
+func get_tile(coord: Vector2i) -> MapTileData
 func get_movement_range(unit_id: int, move_range: int, unit_type: int) -> PackedVector2Array
 func get_path(from: Vector2i, to: Vector2i, unit_type: int) -> PackedVector2Array
 func get_attack_range(origin: Vector2i, attack_range: int) -> PackedVector2Array
@@ -221,7 +221,7 @@ func set_occupant(coord: Vector2i, unit_id: int, faction: int) -> void
 func clear_occupant(coord: Vector2i) -> void
 func apply_tile_damage(coord: Vector2i, damage: int) -> bool
     # Returns true if the tile was destroyed by this damage.
-    # On destruction: updates TileData + caches, emits GameBus.tile_destroyed(coord).
+    # On destruction: updates MapTileData + caches, emits GameBus.tile_destroyed(coord).
 ```
 
 - These methods are **not marked private** (GDScript has no access control),
@@ -329,7 +329,7 @@ func load_map(map_res: MapResource) -> void
 func get_map_dimensions() -> Vector2i
 
 # ─── Query API (read-only; reads packed caches only) ──────
-func get_tile(coord: Vector2i) -> TileData
+func get_tile(coord: Vector2i) -> MapTileData
 func get_movement_range(unit_id: int, move_range: int, unit_type: int) -> PackedVector2Array
 func get_path(from: Vector2i, to: Vector2i, unit_type: int) -> PackedVector2Array
 func get_attack_range(origin: Vector2i, attack_range: int) -> PackedVector2Array
@@ -351,13 +351,13 @@ func apply_tile_damage(coord: Vector2i, damage: int) -> bool
 
 ```gdscript
 class_name MapResource extends Resource
+@export var terrain_version: int = 1  # loader-first convention (save_context.gd mirror)
 @export var map_id: StringName
 @export var map_rows: int
 @export var map_cols: int
-@export var tiles: Array[TileData]
-@export var terrain_version: int = 1
+@export var tiles: Array[MapTileData]
 
-class_name TileData extends Resource
+class_name MapTileData extends Resource
 @export var coord: Vector2i
 @export var terrain_type: int
 @export var elevation: int
@@ -371,10 +371,10 @@ class_name TileData extends Resource
 
 ## Alternatives Considered
 
-### Alternative 1: TileMapLayer + parallel `Array[TileData]` overlay
+### Alternative 1: TileMapLayer + parallel `Array[MapTileData]` overlay
 
 - **Description**: Use Godot's `TileMapLayer` (4.3+) for visuals and
-  authoring; maintain a parallel `Array[TileData]` as the gameplay
+  authoring; maintain a parallel `Array[MapTileData]` as the gameplay
   source-of-truth.
 - **Pros**: Free tile-editor UX in Godot. Atlas-based rendering.
 - **Cons**: Two sources of truth requiring sync on every mutation. Atlas
@@ -387,8 +387,8 @@ class_name TileData extends Resource
 
 ### Alternative 2: Struct-of-Arrays (`PackedInt32Array` per field) as primary storage
 
-- **Description**: Replace `Array[TileData]` entirely with parallel
-  `PackedInt32Array` for each field. No `TileData` Resource class exists;
+- **Description**: Replace `Array[MapTileData]` entirely with parallel
+  `PackedInt32Array` for each field. No `MapTileData` Resource class exists;
   tiles are "records" defined by array-index convention.
 - **Pros**: Tightest memory. Fastest iteration. Expected <2ms Dijkstra on
   40×30.
@@ -434,16 +434,16 @@ class_name TileData extends Resource
   custom editor tool. Open Question #2 resolved.
 - **Battle-scoped lifetime**: zero cross-battle state leak risk; matches
   ADR-0002's IDLE → LOADING_BATTLE → IN_BATTLE → free lifecycle.
-- **Packed-cache layer**: hot-path queries bypass `TileData`
+- **Packed-cache layer**: hot-path queries bypass `MapTileData`
   virtual-dispatch cost — AC-PERF-2 achievable on mobile.
 - **Inline pathfinding**: matches GDD's 9-query-interface section
   literally; single test surface for benchmarks.
 - **Schema evolution path**: `terrain_version` field + ADR-0003 migration
-  registry pattern applies if `TileData` schema changes post-MVP.
+  registry pattern applies if `MapTileData` schema changes post-MVP.
 
 ### Negative
 
-- **~1200 `TileData` Resource allocations per battle**: ~77KB plus
+- **~1200 `MapTileData` Resource allocations per battle**: ~77KB plus
   per-Resource object overhead. Negligible on mobile (well under 512MB
   ceiling), but a noticeable `duplicate_deep()` cost (~1–3ms on low-end
   Android — must verify).
@@ -473,15 +473,15 @@ class_name TileData extends Resource
   `res://data/maps/` to `.res` via Godot's import settings. `.tres`
   remains the source-of-truth in version control.
 - **R-3: `duplicate_deep()` only clones embedded sub-resources.** If a
-  future refactor extracts `TileData` to shared `.tres` presets with
+  future refactor extracts `MapTileData` to shared `.tres` presets with
   UIDs (e.g., "mountain_preset.tres" referenced by UID from many maps),
   `duplicate_deep()` returns the shared instance instead of cloning —
   destruction state would leak between maps. Mitigation: **hard
-  constraint** — for as long as this ADR stands, `TileData` MUST remain
+  constraint** — for as long as this ADR stands, `MapTileData` MUST remain
   inline inside `MapResource.tres` files with no external UID references.
   A future refactor to shared presets requires a new ADR superseding this
   one.
-- **R-4: Cache-sync drift.** If a mutation method updates `Array[TileData]`
+- **R-4: Cache-sync drift.** If a mutation method updates `Array[MapTileData]`
   without updating the matching packed cache, queries will return stale
   data. Mitigation: a single mutation method per field — no ad-hoc writes
   permitted; mutation methods are small and test-covered.
@@ -495,7 +495,7 @@ class_name TileData extends Resource
 
 | GDD System | Requirement | How This ADR Addresses It |
 |---|---|---|
-| `map-grid.md` | CR-2: flat-array storage indexed `row * cols + col` | `MapResource.tiles: Array[TileData]`; indexing formula documented in Decision §1 |
+| `map-grid.md` | CR-2: flat-array storage indexed `row * cols + col` | `MapResource.tiles: Array[MapTileData]`; indexing formula documented in Decision §1 |
 | `map-grid.md` | CR-6: custom Dijkstra, AStarGrid2D rejected | Decision §7 mandates custom Dijkstra inline on MapGrid; AStarGrid2D + NavigationServer2D explicitly rejected in Alternatives |
 | `map-grid.md` | Open Question #2: map data format | Resolved: `.tres` text format at `res://data/maps/[map_id].tres`, Godot inspector authoring, binary `.res` in shipped builds |
 | `map-grid.md` | Interactions §: 9 public query methods | Key Interfaces section defines all 9 with typed signatures |
@@ -503,10 +503,10 @@ class_name TileData extends Resource
 | `map-grid.md` | `tile_destroyed(coord)` signal on GameBus | Decision §9 + concurrent ADR-0001 amendment (Environment banner) |
 | `map-grid.md` | Read-only external access | Query API methods are public; mutation API is convention-scoped to Grid Battle |
 | `map-grid.md` | 4-directional movement | Decision §7: 4-directional adjacency |
-| `map-grid.md` | Elevation 0/1/2 for LoS | TileData.elevation field; Decision §8 Bresenham + elevation check |
+| `map-grid.md` | Elevation 0/1/2 for LoS | MapTileData.elevation field; Decision §8 Bresenham + elevation check |
 | `map-grid.md` | 15–40 col × 15–30 row map size range | MapResource.map_rows / map_cols not capped in code; max benchmarked is 40×30 |
 | `grid-battle.md` | Place/remove units on tiles; apply damage to tiles | Decision §6: set_occupant / clear_occupant / apply_tile_damage |
-| `terrain-effect.md` | Consume `terrain_type` and apply per-unit-type cost multipliers | TileData.terrain_type as int enum; ADR-0008 defines the cost matrix consumed by Decision §7 |
+| `terrain-effect.md` | Consume `terrain_type` and apply per-unit-type cost multipliers | MapTileData.terrain_type as int enum; ADR-0008 defines the cost matrix consumed by Decision §7 |
 
 ## Performance Implications
 
@@ -514,7 +514,7 @@ class_name TileData extends Resource
   (AC-PERF-2). Expected <5ms with packed caches + 4-dir + early
   termination. Verification required on low-end Android (Moto G series or
   equivalent).
-- **Memory**: ~77KB per map at rest (1200 × ~64B `TileData`). Packed
+- **Memory**: ~77KB per map at rest (1200 × ~64B `MapTileData`). Packed
   caches add ~36KB per map (6 arrays × ~6KB). `duplicate_deep()` clone =
   same footprint. Total <150KB per active battle — well under 512MB
   ceiling.
@@ -543,7 +543,7 @@ post-MVP follows ADR-0003's migration registry pattern
 - **V-4**: Dijkstra path equivalence test — 50 path queries against a
   reference Python Dijkstra implementation produce identical paths.
 - **V-5**: Cache-sync test — every mutation method is unit-tested to
-  verify both `Array[TileData]` and the matching packed cache updated.
+  verify both `Array[MapTileData]` and the matching packed cache updated.
 - **V-6**: `GameBus.tile_destroyed(coord)` fires exactly once per
   destruction event; subscriber receives correct Vector2i.
 - **V-7**: Inspector loads a 40×30 `MapResource.tres` without editor hang
@@ -572,3 +572,4 @@ post-MVP follows ADR-0003's migration registry pattern
 |------|--------|
 | 2026-04-18 | Initial draft. Proposed status. Resolves map-grid.md Open Question #2. Carries concurrent amendment to ADR-0001 (Environment domain banner + `tile_destroyed` signal). |
 | 2026-04-20 | Status flipped Proposed → Accepted via `/architecture-review` (context-isolated godot-specialist validation: 8/8 engine checks APPROVED). All R-1..R-5 mitigations verified consistent with Godot 4.6. CR-6 custom-Dijkstra rejection of AStarGrid2D re-confirmed (4.6 `set_point_weight_scale` is per-cell scalar, cannot carry per-unit-type × per-terrain-type cost matrix). TR-map-grid-001..010 registered in tr-registry.yaml v3. Advisory carried (non-blocking): `get_movement_range()` return type `PackedVector2Array` vs `Array[Vector2i]` — defer to GDScript specialist at implementation time per /dev-story. |
+| 2026-04-25 | **Errata sweep** (TD-032 A-1 + A-2 + A-9, post-story-004 close-out batch): (1) `TileData` → `MapTileData` project-wide rename in Decision §1 + Key Interfaces + Risks + GDD Requirements table. Root cause: Godot 4.4+ built-in `TileData` class (TileSet/TileMapLayer API) silently collides with user `class_name TileData` — see `.claude/rules/godot-4x-gotchas.md` G-12. (2) `MapResource.terrain_version` moved to first field position (loader-first convention mirrors `save_context.gd::schema_version`). (3) `duplicate_deep()` flag clarified as `Resource.DEEP_DUPLICATE_ALL` — `DEEP_DUPLICATE_ALL_BUT_SCRIPTS` (mentioned in earlier drafts) does NOT exist in Godot 4.6's `DeepDuplicateMode` enum (NONE/INTERNAL/ALL only). Implementation already used the correct flag per map_grid.gd:152 inline-errata comment + save_manager.gd precedent (TD-024). |

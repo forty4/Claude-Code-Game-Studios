@@ -88,9 +88,9 @@ func test_map_grid_before_load_map_queries_return_inert_values() -> void:
 	).is_true()
 
 	var dims: Vector2i = grid.get_map_dimensions()
-	assert_bool(dims == Vector2i.ZERO).override_failure_message(
+	assert_that(dims).override_failure_message(
 		"get_map_dimensions before load_map should return Vector2i.ZERO; got %s" % str(dims)
-	).is_true()
+	).is_equal(Vector2i.ZERO)
 
 	grid.free()
 
@@ -130,9 +130,9 @@ func test_map_grid_double_load_map_rebuilds_caches_no_stale_carryover() -> void:
 
 	# Assert — get_map_dimensions reflects the new resource (cols=16, rows=15)
 	var dims: Vector2i = grid.get_map_dimensions()
-	assert_bool(dims == Vector2i(16, 15)).override_failure_message(
+	assert_that(dims).override_failure_message(
 		"After second load_map, dims should be Vector2i(16,15); got %s" % str(dims)
-	).is_true()
+	).is_equal(Vector2i(16, 15))
 
 	grid.free()
 
@@ -258,7 +258,7 @@ func test_map_grid_cache_values_match_tile_data_field_by_field() -> void:
 		).is_equal(t.elevation)
 
 		var expected_passable: int = 1 if t.is_passable_base else 0
-		assert_int(grid._passable_base_cache[i] as int).override_failure_message(
+		assert_int(grid._passable_base_cache[i]).override_failure_message(
 			"_passable_base_cache[%d] should be %d (is_passable_base=%s)" \
 			% [i, expected_passable, str(t.is_passable_base)]
 		).is_equal(expected_passable)
@@ -293,10 +293,10 @@ func test_map_grid_passable_base_cache_bool_to_byte_coercion() -> void:
 	).is_true()
 
 	# Assert — true -> 1, false -> 0
-	assert_int(grid._passable_base_cache[0] as int).override_failure_message(
+	assert_int(grid._passable_base_cache[0]).override_failure_message(
 		"tiles[0] is_passable_base=true should store as byte 1 (PLAINS tile)"
 	).is_equal(1)
-	assert_int(grid._passable_base_cache[2] as int).override_failure_message(
+	assert_int(grid._passable_base_cache[2]).override_failure_message(
 		"tiles[2] is_passable_base=false should store as byte 0 (HILLS tile, i%5==2)"
 	).is_equal(0)
 
@@ -366,9 +366,9 @@ func test_map_grid_get_map_dimensions_returns_cols_rows_order() -> void:
 	var dims: Vector2i = grid.get_map_dimensions()
 
 	# Assert — .x = cols, .y = rows per GDD Interactions table
-	assert_bool(dims == Vector2i(40, 30)).override_failure_message(
+	assert_that(dims).override_failure_message(
 		"get_map_dimensions for 40x30 map should be Vector2i(40,30); got %s" % str(dims)
-	).is_true()
+	).is_equal(Vector2i(40, 30))
 	assert_int(dims.x).override_failure_message("dims.x should be cols (40)").is_equal(40)
 	assert_int(dims.y).override_failure_message("dims.y should be rows (30)").is_equal(30)
 
@@ -382,9 +382,9 @@ func test_map_grid_get_map_dimensions_square_map() -> void:
 	grid.load_map(res)
 
 	var dims: Vector2i = grid.get_map_dimensions()
-	assert_bool(dims == Vector2i(15, 15)).override_failure_message(
+	assert_that(dims).override_failure_message(
 		"get_map_dimensions for 15x15 map should be Vector2i(15,15); got %s" % str(dims)
-	).is_true()
+	).is_equal(Vector2i(15, 15))
 
 	grid.free()
 
@@ -802,8 +802,86 @@ func test_map_grid_validate_negative_destruction_hp_clamped_to_zero() -> void:
 		"Original res.tiles[5].destruction_hp should remain -10 (disk asset unchanged)"
 	).is_equal(-10)
 
-	# Note: push_warning() output cannot be asserted in GdUnit4 v6.1.2 without a
-	# custom logger stub (no built-in warning capture API). Skipped by design.
+	# TD-032 A-12: warning must be observable via get_last_load_warnings() —
+	# silent clamps are no longer possible. Exact contract: one entry per offending
+	# tile, prefixed with WARN_NEGATIVE_DESTRUCTION_HP.
+	var warnings: PackedStringArray = grid.get_last_load_warnings()
+	assert_int(warnings.size()).override_failure_message(
+		"get_last_load_warnings() should contain >= 1 entry for the negative-hp clamp at tiles[5]; got: %s" % str(warnings)
+	).is_greater_equal(1)
+	var found_neg_hp_warning: bool = false
+	for warning: String in warnings:
+		if warning.begins_with(MapGrid.WARN_NEGATIVE_DESTRUCTION_HP):
+			found_neg_hp_warning = true
+			break
+	assert_bool(found_neg_hp_warning).override_failure_message(
+		"warnings must contain WARN_NEGATIVE_DESTRUCTION_HP entry; got: %s" % str(warnings)
+	).is_true()
+
+	grid.free()
+
+
+## TD-032 A-12 + qa-tester gap (story-003): DESTROYED-state standalone test.
+## Verifies that a destructible tile arriving from disk with destruction_hp == 0
+## is clamped to tile_state=DESTROYED with an observable warning entry.
+##
+## Distinct from the AC-7 negative-hp test above — this exercises the second
+## clamp branch in _apply_load_time_clamps where the value is already 0 (no
+## hp clamp needed) but the state needs adjustment.
+func test_map_grid_validate_destructible_zero_hp_sets_destroyed_with_warning() -> void:
+	# Arrange — valid PLAINS map; tiles[7] is destructible with hp=0 on disk
+	var res := MapResource.new()
+	res.map_id = &"zero_hp_destructible"
+	res.map_rows = 15
+	res.map_cols = 15
+	res.terrain_version = 1
+	for i: int in 225:
+		var t := MapTileData.new()
+		t.coord            = Vector2i(i % 15, i / 15)
+		t.terrain_type     = 0
+		t.elevation        = 0
+		t.is_passable_base = true
+		t.tile_state       = 0
+		t.is_destructible  = false
+		t.destruction_hp   = 0
+		res.tiles.append(t)
+	# Inject: tiles[7] is destructible with hp=0 (clamp should set to DESTROYED)
+	res.tiles[7].is_destructible = true
+	res.tiles[7].destruction_hp  = 0
+
+	var grid := MapGrid.new()
+
+	# Act
+	var ok: bool = grid.load_map(res)
+
+	# Assert — load succeeds (clamp is warning-level)
+	assert_bool(ok).override_failure_message(
+		"load_map with destructible-zero-hp tile should succeed (clamp is warning); errors: %s" % str(grid.get_last_load_errors())
+	).is_true()
+
+	# Tile state must be DESTROYED on the clone
+	assert_int(grid._map.tiles[7].tile_state).override_failure_message(
+		"_map.tiles[7].tile_state should be TILE_STATE_DESTROYED after destructible-zero-hp clamp"
+	).is_equal(MapGrid.TILE_STATE_DESTROYED)
+
+	# Original resource must be unchanged (V-2 invariant)
+	assert_int(res.tiles[7].tile_state).override_failure_message(
+		"Original res.tiles[7].tile_state should remain 0 (disk asset unchanged by clamp)"
+	).is_equal(0)
+
+	# Warning entry must be observable
+	var warnings: PackedStringArray = grid.get_last_load_warnings()
+	assert_int(warnings.size()).override_failure_message(
+		"get_last_load_warnings() should contain >= 1 entry for destructible-zero-hp; got: %s" % str(warnings)
+	).is_greater_equal(1)
+	var found_destroyed_warning: bool = false
+	for warning: String in warnings:
+		if warning.begins_with(MapGrid.WARN_DESTRUCTIBLE_ZERO_HP_SET_DESTROYED):
+			found_destroyed_warning = true
+			break
+	assert_bool(found_destroyed_warning).override_failure_message(
+		"warnings must contain WARN_DESTRUCTIBLE_ZERO_HP_SET_DESTROYED entry; got: %s" % str(warnings)
+	).is_true()
 
 	grid.free()
 

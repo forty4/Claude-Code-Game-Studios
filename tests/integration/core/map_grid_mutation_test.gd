@@ -299,7 +299,7 @@ func test_map_grid_mutation_apply_tile_damage_destroying_emits_exactly_once() ->
 	assert_int(grid._tile_state_cache[idx]).override_failure_message(
 		"_tile_state_cache[78] should be TILE_STATE_DESTROYED"
 	).is_equal(MapGrid.TILE_STATE_DESTROYED)
-	assert_int(grid._passable_base_cache[idx] as int).override_failure_message(
+	assert_int(grid._passable_base_cache[idx]).override_failure_message(
 		"_passable_base_cache[78] should be 1 (passable) after destruction"
 	).is_equal(1)
 	assert_int(grid._occupant_id_cache[idx]).override_failure_message(
@@ -317,9 +317,9 @@ func test_map_grid_mutation_apply_tile_damage_destroying_emits_exactly_once() ->
 	assert_int(_tile_destroyed_captures.size()).override_failure_message(
 		"tile_destroyed should have been emitted exactly once"
 	).is_equal(1)
-	assert_bool(_tile_destroyed_captures[0] == Vector2i(3, 5)).override_failure_message(
+	assert_that(_tile_destroyed_captures[0]).override_failure_message(
 		"tile_destroyed coord payload should be Vector2i(3,5); got %s" % str(_tile_destroyed_captures[0])
-	).is_true()
+	).is_equal(Vector2i(3, 5))
 
 	# Edge: over-damage (damage=99 on hp=5 tile) also destroys with exactly one emit.
 	# Set up a new tile for this edge case.
@@ -391,9 +391,9 @@ func test_map_grid_mutation_apply_tile_damage_occupant_survives_destruction() ->
 	assert_int(_tile_destroyed_captures.size()).override_failure_message(
 		"tile_destroyed should be emitted exactly once even when occupant survives"
 	).is_equal(1)
-	assert_bool(_tile_destroyed_captures[0] == Vector2i(3, 5)).override_failure_message(
+	assert_that(_tile_destroyed_captures[0]).override_failure_message(
 		"tile_destroyed coord should be Vector2i(3,5)"
-	).is_true()
+	).is_equal(Vector2i(3, 5))
 
 	# Assert — occupant preserved (AC-EDGE-4)
 	var td: MapTileData = grid._map.tiles[idx]
@@ -414,7 +414,7 @@ func test_map_grid_mutation_apply_tile_damage_occupant_survives_destruction() ->
 	assert_int(grid._occupant_id_cache[idx]).override_failure_message(
 		"_occupant_id_cache should be 42"
 	).is_equal(42)
-	assert_int(grid._passable_base_cache[idx] as int).override_failure_message(
+	assert_int(grid._passable_base_cache[idx]).override_failure_message(
 		"_passable_base_cache should be 1 (passable)"
 	).is_equal(1)
 
@@ -691,49 +691,49 @@ func test_map_grid_mutation_cache_sync_parametric_all_mutations_all_caches() -> 
 	# Step 1: set_occupant (0,0) ALLY #1
 	step_count += 1
 	grid.set_occupant(Vector2i(0, 0), 1, MapGrid.FACTION_ALLY)
-	_assert_all_caches_match_tiledata(grid, check_coords, step_count)
+	TestHelpers.assert_all_caches_match_tiledata(self, grid, check_coords, step_count)
 
 	# Step 2: set_occupant (1,0) ALLY #2
 	step_count += 1
 	grid.set_occupant(Vector2i(1, 0), 2, MapGrid.FACTION_ALLY)
-	_assert_all_caches_match_tiledata(grid, check_coords, step_count)
+	TestHelpers.assert_all_caches_match_tiledata(self, grid, check_coords, step_count)
 
 	# Step 3: set_occupant (2,0) ENEMY #3
 	step_count += 1
 	grid.set_occupant(Vector2i(2, 0), 3, MapGrid.FACTION_ENEMY)
-	_assert_all_caches_match_tiledata(grid, check_coords, step_count)
+	TestHelpers.assert_all_caches_match_tiledata(self, grid, check_coords, step_count)
 
 	# Step 4: clear_occupant (1,0) → EMPTY
 	step_count += 1
 	grid.clear_occupant(Vector2i(1, 0))
-	_assert_all_caches_match_tiledata(grid, check_coords, step_count)
+	TestHelpers.assert_all_caches_match_tiledata(self, grid, check_coords, step_count)
 
 	# Step 5: apply_tile_damage (0,1) 5 → partial damage (hp 10→5)
 	step_count += 1
 	grid.apply_tile_damage(Vector2i(0, 1), 5)
-	_assert_all_caches_match_tiledata(grid, check_coords, step_count)
+	TestHelpers.assert_all_caches_match_tiledata(self, grid, check_coords, step_count)
 
 	# Step 6: apply_tile_damage (1,1) 10 → destroy tile (no occupant)
 	step_count += 1
 	grid.apply_tile_damage(Vector2i(1, 1), 10)
 	await get_tree().process_frame
-	_assert_all_caches_match_tiledata(grid, check_coords, step_count)
+	TestHelpers.assert_all_caches_match_tiledata(self, grid, check_coords, step_count)
 
 	# Step 7: set_occupant (0,1) unit 7 ALLY (tile is DESTRUCTIBLE hp=5, not occupied)
 	step_count += 1
 	grid.set_occupant(Vector2i(0, 1), 7, MapGrid.FACTION_ALLY)
-	_assert_all_caches_match_tiledata(grid, check_coords, step_count)
+	TestHelpers.assert_all_caches_match_tiledata(self, grid, check_coords, step_count)
 
 	# Step 8: apply_tile_damage (0,1) 5 → destroy with occupant (AC-EDGE-4)
 	step_count += 1
 	grid.apply_tile_damage(Vector2i(0, 1), 5)
 	await get_tree().process_frame
-	_assert_all_caches_match_tiledata(grid, check_coords, step_count)
+	TestHelpers.assert_all_caches_match_tiledata(self, grid, check_coords, step_count)
 
 	# Step 9: clear_occupant (0,0) → EMPTY (was ALLY #1)
 	step_count += 1
 	grid.clear_occupant(Vector2i(0, 0))
-	_assert_all_caches_match_tiledata(grid, check_coords, step_count)
+	TestHelpers.assert_all_caches_match_tiledata(self, grid, check_coords, step_count)
 
 	# Step 10: clear_occupant (0,1) → should stay ALLY_OCCUPIED if occupant survived step 8,
 	# then become EMPTY after clear; or if tile is DESTROYED (no occupant survive path)
@@ -744,7 +744,7 @@ func test_map_grid_mutation_cache_sync_parametric_all_mutations_all_caches() -> 
 	# But here tile_state is ALLY_OCCUPIED (AC-EDGE-4 path) — clear goes to EMPTY.
 	step_count += 1
 	grid.clear_occupant(Vector2i(0, 1))
-	_assert_all_caches_match_tiledata(grid, check_coords, step_count)
+	TestHelpers.assert_all_caches_match_tiledata(self, grid, check_coords, step_count)
 
 	_current_grid = null
 	grid.free()
@@ -838,44 +838,6 @@ func test_map_grid_mutation_null_map_and_out_of_bounds_guards_are_noop() -> void
 	grid.free()
 
 
-## Internal helper: assert all 6 packed caches match TileData for the given coords.
-## Fails the test immediately on first mismatch. Step number is included in messages.
-func _assert_all_caches_match_tiledata(
-		grid: MapGrid,
-		coords: Array[Vector2i],
-		step: int) -> void:
-
-	for coord: Vector2i in coords:
-		var idx: int = coord.y * grid._map.map_cols + coord.x
-		var td: MapTileData = grid._map.tiles[idx]
-
-		assert_int(grid._terrain_type_cache[idx]).override_failure_message(
-			("Step %d: _terrain_type_cache[%d] (%s) mismatch. cache=%d td=%d") \
-			% [step, idx, str(coord), grid._terrain_type_cache[idx], td.terrain_type]
-		).is_equal(td.terrain_type)
-
-		assert_int(grid._elevation_cache[idx]).override_failure_message(
-			("Step %d: _elevation_cache[%d] (%s) mismatch. cache=%d td=%d") \
-			% [step, idx, str(coord), grid._elevation_cache[idx], td.elevation]
-		).is_equal(td.elevation)
-
-		var expected_passable: int = 1 if td.is_passable_base else 0
-		assert_int(grid._passable_base_cache[idx] as int).override_failure_message(
-			("Step %d: _passable_base_cache[%d] (%s) mismatch. cache=%d td=%s") \
-			% [step, idx, str(coord), grid._passable_base_cache[idx] as int, str(td.is_passable_base)]
-		).is_equal(expected_passable)
-
-		assert_int(grid._occupant_id_cache[idx]).override_failure_message(
-			("Step %d: _occupant_id_cache[%d] (%s) mismatch. cache=%d td=%d") \
-			% [step, idx, str(coord), grid._occupant_id_cache[idx], td.occupant_id]
-		).is_equal(td.occupant_id)
-
-		assert_int(grid._occupant_faction_cache[idx]).override_failure_message(
-			("Step %d: _occupant_faction_cache[%d] (%s) mismatch. cache=%d td=%d") \
-			% [step, idx, str(coord), grid._occupant_faction_cache[idx], td.occupant_faction]
-		).is_equal(td.occupant_faction)
-
-		assert_int(grid._tile_state_cache[idx]).override_failure_message(
-			("Step %d: _tile_state_cache[%d] (%s) mismatch. cache=%d td=%d") \
-			% [step, idx, str(coord), grid._tile_state_cache[idx], td.tile_state]
-		).is_equal(td.tile_state)
+## Cache-integrity helper extracted to TestHelpers.assert_all_caches_match_tiledata
+## per TD-032 A-14 — story-005 (Dijkstra) and story-006 (LoS) need the same assertion.
+## See tests/unit/core/test_helpers.gd for the implementation.

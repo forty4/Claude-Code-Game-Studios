@@ -918,7 +918,41 @@ Seven advisory items surfaced during /code-review of save-manager story-007. Non
 
 **Source**: map-grid story-001 `/dev-story` + `/code-review` + `/story-done` (2026-04-25)
 **Priority**: Low (advisory / doc-level; zero impact on runtime correctness)
-**Status**: Open
+**Status**: Partially resolved (pre-story-005 batch — 2026-04-25)
+
+### Resolution Log
+
+**2026-04-25 — Pre-story-005 cleanup batch** (PR pending) executed the following items:
+
+| Item | Status | Notes |
+|---|---|---|
+| A-1 (TileData → MapTileData rename) | RESOLVED | ADR-0004 §Decision 1 + Key Interfaces + Risks + GDD table — single replace_all pass |
+| A-2 (terrain_version field reordering) | RESOLVED | Both ADR-0004 code blocks updated; loader-first convention noted |
+| A-3 (G-12 gotcha entry) | RESOLVED | Appended to `.claude/rules/godot-4x-gotchas.md` between G-11 and Verification Pattern Summary |
+| A-4 (story-001 AC-2 text staleness) | RESOLVED | `TileData.new()` → `MapTileData.new()` in QA Test Cases section |
+| A-5 (AC-2 default-value coverage gap) | RESOLVED | Added `coord = Vector2i.ZERO` + `is_destructible = false` assertions to default-construction block |
+| A-6 (AC-4 intent comment) | RESOLVED | Added 5-line note explaining why AC-3 + AC-4 use separate round-trip saves |
+| A-7 (assert_bool(vec == ...) → assert_that.is_equal) | RESOLVED | 4 call sites in `map_grid_test.gd` lines 91, 133, 369, 385 |
+| A-8 (redundant `as int` casts in map_grid_test.gd) | RESOLVED | 3 call sites (lines 261, 296, 299) |
+| A-8 (extension — same in map_grid_mutation_test.gd) | RESOLVED | 3 call sites cleaned |
+| A-9 (DEEP_DUPLICATE_ALL_BUT_SCRIPTS errata) | RESOLVED | ADR-0004 §Engine Compatibility row + §Decision 4 prose updated; enum errata noted |
+| A-10 (story-002 AC-7 path mismatch) | RESOLVED | `user://test_map_v2.tres` → `user://map_grid_test_v2_round_trip.tres` (2 occurrences) |
+| A-12 (`_last_load_warnings` public query) | RESOLVED | New field + `WARN_*` constants + `get_last_load_warnings()` method + per-tile warning entries in `_apply_load_time_clamps` + 2 test assertions (extended AC-7 negative-hp test + new DESTRUCTIBLE-zero-hp standalone test) |
+| A-13 (assert_bool 2 call sites in mutation test) | RESOLVED | Lines 320, 394 — only 2 found at audit time (specialist's third was eliminated by AC-10 close-out edit) |
+| A-14 (helper extraction to test_helpers.gd) | RESOLVED | Helper signature changed: passes `test_suite: GdUnitTestSuite` first arg because GdUnit4 v6.1.2 binds `assert_int` as instance method, not free function. 10 call sites updated. ADR-0004-relevant cache-integrity assertion now reusable for story-005/006. |
+
+**ADR-0004 §Changelog updated** with 2026-04-25 errata sweep entry covering A-1 + A-2 + A-9.
+
+**Test results post-batch**: 197/197 PASSED full regression across 3 consecutive runs (0 errors, 0 failures, 0 orphans). Test count delta: +1 (new DESTRUCTIBLE-zero-hp standalone test from A-12).
+
+### Still Open (post-batch)
+
+- **A-11**: 8 advisory edge-case tests for story-003 validator (~1.5-2h). Suggested trigger: batch with story-005 close or as standalone hardening pass.
+- **A-15**: 4 advisory edge-case tests for story-004 mutation API (~45 min). Same trigger as A-11.
+
+**Total remaining effort**: ~2-2.75h. Both items are advisory test hardening — primary ACs already covered. May be subsumed by story-005's new test coverage (some edge cases re-exercised through Dijkstra).
+
+---
 
 **Context**: Story-001 closed COMPLETE WITH NOTES. All 5 ACs pass (4 automated + 1 doc-level); 166/166 full regression green. Two documented ADR-0004 deviations (class rename + field ordering) and a newly-discovered Godot 4.6 gotcha (G-12) need batched correction. Two optional test-polish items surfaced by /code-review are also bundled here.
 
