@@ -1,7 +1,7 @@
 # Story 007: Performance baseline (desktop substitute)
 
 > **Epic**: map-grid
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Integration
 > **Manifest Version**: 2026-04-20
@@ -147,3 +147,24 @@ Pattern mirrored from save-manager/story-007.
   (c) move Dijkstra to GDExtension C++ (invokes godot-gdextension-specialist)
 
 **None of the fallbacks change the public `get_movement_range` signature or ADR-0004 decisions** — the API surface stays stable across fallback paths.
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-25
+**Criteria**: 4/4 hard ACs passing (AC-DESKTOP, AC-WARMUP, AC-FRAME-TIME, STRESS FIXTURE) + 3 explicitly deferred (AC-BREAKDOWN, AC-TARGET, Reproducibility) — all deferrals documented in test file header
+**Test Evidence**: Integration
+- `tests/integration/core/map_grid_perf_test.gd` (261 LoC, 3 test functions) — 3/3 PASS in ~80ms
+- `tests/fixtures/generate_stress_40x30.gd` (134 LoC) — one-shot SceneTree generator
+- `tests/fixtures/maps/stress_40x30.tres` (committed deterministic 1200-tile asset, 60% PLAINS / 15% HILLS / 10% FOREST / 10% ROAD / 5% MOUNTAIN, 5 enemy occupants)
+- Full regression: 229/229 PASS (226 baseline + 3 new), 0 errors / 0 failures / 0 orphans, exit 0
+**Measured stats** (developer machine, macOS arm64): p50=0.272ms, p95=0.288ms, max=0.376ms, mean=0.270ms, warmup_ratio=1.08×, 0/100 frame-time over-budget — ~17× under ADR-0004 expected <5ms desktop and ~55× under AC-PERF-2 16ms mobile target.
+**Code Review**: Complete — godot-gdscript-specialist CLEAN with 5 minor suggestions (4 applied inline) + qa-tester TESTABLE WITH GAPS (3 of 6 suggestions applied inline; 3 queued to TD-032). Convergent finding: enabling strict full-map terrain-distribution assertions caught a real 1-tile drift caused by enemy-coord override at (8,22) on a ROAD tile — assertion now correctly accounts for the 4 PLAINS-overrides + 1 ROAD-override pattern.
+**Deviations** (all ADVISORY; queued to TD-032 batch as A-27..A-30):
+- A-27 Increase warmup 10 → 20 iterations for cold-cache CI conservatism
+- A-28 Normalize AC-FRAME-TIME warmup to 10 iters (currently 1; asymmetric with AC-DESKTOP)
+- A-29 JSON-structured perf artifact for future trend-dashboard ingestion
+- A-30 Reproducibility ±10% AC documented as deferred but never automated; reactivate only if multi-run perf-trend dashboard introduced
+**ADR R-1 fallbacks** (map cap 32×24, flow-field precompute, GDExtension C++): NOT triggered. Desktop substitute validates AC-PERF-2 mandate; mobile remains plausible without invoking fallback paths.
+**Spec-internal collision resolved at generator time**: Story line 56 listed (20,15) as an enemy_occupied coord; line 80 also fixed (20,15) as the player query origin. Resolution: enemy coord moved to (25,12); player remains (20,15). Documented in `generate_stress_40x30.gd` ENEMY_COORDS comment.
