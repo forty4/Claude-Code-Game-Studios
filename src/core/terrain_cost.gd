@@ -12,14 +12,16 @@
 ## Terrain-type integer mirror (must match GDD §CR-3 and MapTileData.terrain_type):
 ##   PLAINS=0, FOREST=1, HILLS=2, MOUNTAIN=3, RIVER=4, BRIDGE=5, FORTRESS_WALL=6, ROAD=7
 ## These mirrors are declared here so pathfinding consumers do not need to import
-## a separate enum. ADR-0008 will formalise the canonical enum; until then these
-## are the single source of truth for Dijkstra inner-loop terrain index access.
+## a separate enum. ADR-0008 (Accepted 2026-04-25) has formalised the canonical
+## ordering; these consts mirror TerrainEffect's constants. ADR-0009 Unit Role
+## (not yet written) will populate concrete per-class cost_matrix values.
 class_name TerrainCost
 extends RefCounted
 
 # ─── Terrain-type integer mirrors ────────────────────────────────────────────
 ## Must stay in sync with GDD §CR-3 ordering and MapGrid.ELEVATION_RANGES indices.
-## ADR-0008 will formalise these as an exported enum; these consts shadow that future enum.
+## ADR-0008 (Accepted 2026-04-25) has formalised the canonical ordering; these consts
+## mirror TerrainEffect's terrain-type constants. ADR-0009 will define the UnitType enum.
 const PLAINS        := 0
 const FOREST        := 1
 const HILLS         := 2
@@ -39,8 +41,8 @@ const ROAD          := 7
 ##
 ## Untyped `Dictionary` because Godot 4.6 GDScript does not support typed-Dictionary
 ## const literals (same constraint as ELEVATION_RANGES in map_grid.gd line 53).
-## Track for ADR-0008 cleanup; candidate gotcha G-13 if typed const Dictionary
-## parse error is confirmed in project's pinned Godot 4.6 build.
+## See gotcha G-1 (codified in .claude/rules/godot-4x-gotchas.md) — do NOT convert
+## this to Dictionary[int, int]; the engine rejects generic-typed const Dictionaries.
 const BASE_TERRAIN_COST: Dictionary = {
 	PLAINS:        10,
 	FOREST:        15,
@@ -55,14 +57,20 @@ const BASE_TERRAIN_COST: Dictionary = {
 # ─── Cost multiplier ─────────────────────────────────────────────────────────
 ## Return the cost multiplier for [param unit_type] crossing [param terrain_type].
 ##
-## PLACEHOLDER — returns 1 for all unit×terrain combinations.
-## REPLACED WHEN ADR-0008 Terrain Effect lands; MVP ships with this placeholder.
-## The function signature is stable so ADR-0008 replacement does not break consumers.
+## Delegates to [method TerrainEffect.cost_multiplier] (ADR-0008 §Decision 5
+## §Migration Plan). MVP returns 1 for all pairs per CR-1d uniformity (TR-002);
+## ADR-0009 Unit Role will populate concrete per-class values via TerrainEffect's
+## _cost_matrix lookup. This delegate's signature is stable across that population
+## change — only the value returned by TerrainEffect.cost_multiplier evolves.
 ##
-## [param unit_type] — integer unit-type id (will match ADR-0008 UnitType enum).
+## [param unit_type] — integer unit-type id (will match ADR-0009 UnitType enum).
 ## [param terrain_type] — integer terrain-type id matching the consts above.
+##
+## Future deletion: per ADR-0008 §Migration Plan step 4, this file will be deleted
+## entirely once all callers migrate to TerrainEffect.cost_multiplier() directly.
+## Tracked as TD when ADR-0009 lands.
 ##
 ## Example:
 ##   var multiplier: int = TerrainCost.cost_multiplier(unit_type, terrain_type)
-static func cost_multiplier(_unit_type: int, _terrain_type: int) -> int:
-	return 1
+static func cost_multiplier(unit_type: int, terrain_type: int) -> int:
+	return TerrainEffect.cost_multiplier(unit_type, terrain_type)

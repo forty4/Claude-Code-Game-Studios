@@ -1818,11 +1818,44 @@ static func get_terrain_score(grid: MapGrid, coord: Vector2i) -> float:
 
 **Cost**: 30 seconds + re-run regression (262 → 262 expected, no behavior change). **Benefit**: removes 2 redundant lines; tightens the public API surface to "lazy-load is owned by `get_terrain_modifiers`, all other queries inherit transitively". Defer to story-004 follow-up or any edit pass that touches this file.
 
+### J. AC-6 expected reachable tile count not pinned (story-006 /code-review qa-tester F-2)
+
+`tests/integration/core/terrain_cost_migration_test.gd` AC-6 (`test_terrain_cost_migration_smoke_path_via_terrain_cost`) asserts `result.size() > 1` (now `assert_int(...).is_greater(1)` after inline fix) for `MapGrid.get_movement_range(unit_id, 3, 0)` on the deterministic 15×15 mixed-terrain fixture. The boundary-correctness assertions at (5,7) HILLS positive and (7,4) PLAINS negative do catch the primary regression case (cost-multiplier returning a wrong constant value through the delegate path), but an implementation that reaches *too many* tiles (e.g., HILLS treated as cost=1 instead of cost=15 due to a multiplier-vs-base-cost bug) would still pass all current assertions while being incorrect.
+
+**Risk**: medium — the gap matters most when ADR-0009 lands and per-class cost matrix values become non-uniform. A bug like "Cavalry MOUNTAIN cost multiplier=2 not applied" could silently expand the reachable set on a Cavalry-test fixture.
+
+**Proposed remediation**: compute the analytically-expected reachable tile count for the 15×15 PLAINS/HILLS-band/FOREST-strip layout with budget=30 and pin it as a constant. Either compute by hand (Dijkstra walk on paper) or run once with a known-good build and pin the result:
+```gdscript
+const AC6_EXPECTED_REACHABLE_TILES: int = 13   # placeholder — recompute and pin
+
+assert_int(result.size()).override_failure_message(
+    ("AC-6: expected %d reachable tiles for budget=30 on the AC-6 fixture; got %d. "
+    + "If terrain costs changed, recompute the constant and update.")
+    % [AC6_EXPECTED_REACHABLE_TILES, result.size()]
+).is_equal(AC6_EXPECTED_REACHABLE_TILES)
+```
+
+**Cost**: ~15 minutes (compute count + pin + re-run). **Benefit**: deterministic regression guard against over-counting bugs that the boundary assertions miss.
+
+**Suggested trigger**: when ADR-0009 cost-matrix population work begins — at that point per-class non-uniform values make over-counting bugs much more likely.
+
+### K. ADR-0008 §Risks line 567 `before_each()` reference is stale (G-15) (story-006 /code-review gdscript-specialist OOS-1)
+
+`docs/architecture/ADR-0008-terrain-effect.md` §Risks table at line 567 says: "All test suites that call any TerrainEffect method MUST call `reset_for_tests()` in `before_each()` — NOT just suites that call `load_config()`...". The implementation and tests correctly use `before_test()` (G-15-canonical hook); the `before_each()` reference in the ADR text is stale documentation from before G-15 was codified. No runtime impact — the ADR's *intent* (call reset unconditionally) is correctly observed by all test files.
+
+**Risk**: low — documentation-only. A future engineer reading the ADR before reading the codified G-15 rule could try to add a `before_each()` and be silently-skipped per G-15.
+
+**Proposed remediation**: a one-line edit in ADR-0008 §Risks line 567: `before_each()` → `before_test()`. Add a parenthetical "(canonical GdUnit4 v6.1.2 hook; see `.claude/rules/godot-4x-gotchas.md` G-15)".
+
+**Cost**: 1 minute. **Benefit**: removes stale doc reference; aligns ADR text with codified rules. Safe — an ADR edit that does not change architectural decisions, only corrects a phrasing artifact.
+
+**Suggested trigger**: bundle into the next ADR-0008 amendment (e.g., when ADR-0006 Balance/Data lands and Migration Plan triggers, or when ADR-0009 cost-matrix population requires a §Migration Plan addendum).
+
 ---
 
-**Total estimated remediation effort**: ~2 hours 15 minutes total (across A-I).
+**Total estimated remediation effort**: ~2 hours 31 minutes total (across A-K).
 
-**Suggested trigger**: at the end of the terrain-effect epic (story-008 perf baseline), bundle A (validator split), B (fixture DRY), C (advisory edge tests), F (unknown terrain_type safety-net), G (RIVER/ROAD direct), H (delta=0 direct) into a single test infrastructure hardening pass. D (diagnostic labels), E (cosmetic), and I (redundant guard) stay deferred until separate triggers.
+**Suggested trigger**: at the end of the terrain-effect epic (story-008 perf baseline), bundle A (validator split), B (fixture DRY), C (advisory edge tests), F (unknown terrain_type safety-net), G (RIVER/ROAD direct), H (delta=0 direct) into a single test infrastructure hardening pass. D (diagnostic labels), E (cosmetic), I (redundant guard), J (AC-6 count pin), and K (ADR-0008 §Risks doc-fix) stay deferred until separate triggers (J trigger: ADR-0009; K trigger: next ADR-0008 amendment).
 
 **Story-004 carry-over (RESOLVED 2026-04-26)**: qa-tester GAP-4 / R-6 was the carry-over from story-003 — fallback exact-value correctness must be a BLOCKING requirement in story-004's `get_terrain_modifiers()` tests. **CONFIRMED SATISFIED** by story-004 AC-2 (lines 183-224 of `terrain_effect_queries_test.gd`): explicit per-terrain `defense_bonus`, `evasion_bonus`, and `special_rules.size()` assertions for all 8 terrain types. A `_fall_back_to_defaults()` typo of HILLS=10 instead of 15 would fail at line 203.
 
@@ -1830,11 +1863,13 @@ static func get_terrain_score(grid: MapGrid, coord: Vector2i) -> float:
 - Story (origin): `production/epics/terrain-effect/story-003-config-loading-validation.md`
 - Story-004 carry-over (RESOLVED): `production/epics/terrain-effect/story-004-terrain-modifiers-score-queries.md`
 - Story-005 carry-overs (§G/§H/§I): `production/epics/terrain-effect/story-005-combat-modifiers-elevation-clamp-bridge.md`
+- Story-006 carry-overs (§J/§K): `production/epics/terrain-effect/story-006-cost-multiplier-mapgrid-migration.md`
 - Reviews:
   - Story-003: standalone `/code-review` 2026-04-25 (gdscript APPROVED WITH SUGGESTIONS + qa-tester TESTABLE WITH GAPS — 14 findings; 7 inline-applied; 7 deferred §A-§E)
   - Story-004: standalone `/code-review` 2026-04-26 (gdscript APPROVED WITH SUGGESTIONS + qa-tester TESTABLE WITH GAPS — 7 findings; 4 inline-applied; 1 deferred §F; 2 false positives skipped)
   - Story-005: standalone `/code-review` 2026-04-26 (gdscript APPROVED WITH SUGGESTIONS + qa-tester TESTABLE WITH GAPS — 7 actionable + 4 advisory; 6 inline-applied; 3 deferred §G/§H/§I; 1 false positive skipped)
-- Inline improvements applied across stories: 7 (story-003) + 4 (story-004) + 6 (story-005) = 17 total
+  - Story-006: standalone `/code-review` 2026-04-26 (gdscript APPROVED WITH SUGGESTIONS + qa-tester TESTABLE WITH GAPS — 11 findings; 6 inline-applied; 2 deferred §J/§K)
+- Inline improvements applied across stories: 7 (story-003) + 4 (story-004) + 6 (story-005) + 6 (story-006) = 23 total
 - New gotcha codified: G-15 (`before_each` phantom hook) in `.claude/rules/godot-4x-gotchas.md` (story-003)
-- Completions: session extracts in `production/session-state/active.md` §/story-done 2026-04-25 (story-003), §/story-done 2026-04-26 (story-004), §/story-done 2026-04-26 (story-005)
+- Completions: session extracts in `production/session-state/active.md` §/story-done 2026-04-25 (story-003), §/story-done 2026-04-26 (story-004), §/story-done 2026-04-26 (story-005), §/story-done 2026-04-26 (story-006 pending)
 

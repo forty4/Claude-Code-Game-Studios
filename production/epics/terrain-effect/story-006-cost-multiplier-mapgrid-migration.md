@@ -1,11 +1,12 @@
 # Story 006: cost_multiplier + terrain_cost.gd:32 migration + Map/Grid regression
 
 > **Epic**: terrain-effect
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Integration
 > **Manifest Version**: 2026-04-20
 > **Estimate**: 1.5-2 hours (1 trivial method + 1 file edit + Map/Grid regression run; the integration verification is the real work)
+> **Actual**: ~2.5 hours (implementation 1h + 1 mid-implementation orchestrator-direct fix + /code-review with 6 inline improvements 45min + /story-done bookkeeping 30min)
 
 ## Context
 
@@ -144,7 +145,7 @@
 - Pre-migration baseline test count captured + post-migration confirmation: AC-5 verification result documented in `production/qa/evidence/` OR captured in the integration test file's header comment
 - Full Map/Grid test suite runs green after migration (any failure blocks the story)
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created and passing — `tests/integration/core/terrain_cost_migration_test.gd` (385 LoC, 6 test functions covering AC-1..AC-7); full regression 282/282 PASS, 0 errors / 0 failures / 0 orphans, godot exit 0 (was 276/276 baseline → +6 new = exact expected delta)
 
 ---
 
@@ -153,3 +154,41 @@
 - Depends on: Story 003 (`_cost_default_multiplier` populated from config), Story 002 (lazy-init guard)
 - Soft-depends on: map-grid epic story-005 (Dijkstra) being landed for full AC-6 integration verification — if not yet landed at this branch tip, AC-6 reduces to AC-1+AC-4 coverage and is re-validated when story-005 lands (treated as a regression check at that future merge)
 - Unlocks: ADR-0009 Unit Role epic (will populate `_cost_matrix` values; structure already in place); future deletion of `terrain_cost.gd` (tracked as TD when ADR-0009 lands)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-26
+**Verdict**: COMPLETE WITH NOTES
+**Criteria**: 7/7 PASS (all spec'd as named test functions; 0 deferred; 0 untested; 100% covered)
+**Tests**: 6 test functions in `terrain_cost_migration_test.gd` (385 LoC after /code-review enhancements); full regression 282/282 PASS, 0 errors / 0 failures / 0 flaky / 0 orphans, godot exit 0; suite execution 49ms.
+
+**Files delivered** (3 in scope, 1 admin):
+- `src/core/terrain_effect.gd` (MODIFY, 629 → 656 LoC; +27 LoC = +25 method/doc + +2 ADR-0009 cleanup TODO comment) — new `static func cost_multiplier(unit_type: int, terrain_type: int) -> int` inserted after `get_terrain_score` per ADR-0008 §Decision 5 ordering. `@warning_ignore("unused_parameter")` annotation + ADR-0009 cleanup TODO.
+- `src/core/terrain_cost.gd` (MODIFY, 69 → 76 LoC; +7 LoC) — placeholder body replaced with `return TerrainEffect.cost_multiplier(unit_type, terrain_type)` delegate; 3 doc-comment regions updated (header lines 12-17, lines 21-24, BASE_TERRAIN_COST G-1 cross-ref lines 41-45). Argument names lose `_` prefix.
+- `tests/integration/core/terrain_cost_migration_test.gd` (NEW, 385 LoC after /code-review trim, 6 test functions covering AC-1..AC-7) — `before_test()` discipline (G-15) with `TerrainEffect.reset_for_tests()`; user:// fixture pattern (AC-3) with `_write_ac3_fixture` helper + `DirAccess.remove_absolute` cleanup; `(load(PATH) as GDScript).get(...)` static-var inspection (AC-2); `_make_custom_terrain_map` factory (AC-7); `MapGrid.get_movement_range` Dijkstra exercise with positive (5,7) + negative (7,4) boundary assertions; `grid.free()` G-6 cleanup at end of AC-7 test.
+- `docs/tech-debt-register.md` (MODIFY, +TD-034 §J/§K + cross-ref bookkeeping) — admin bookkeeping for advisory items from /code-review.
+
+**Code-review verdict** (lean mode standalone convergent — 2 specialists in parallel):
+- godot-gdscript-specialist: **APPROVED WITH SUGGESTIONS** (4 suggestions + 5 PASS-info + 1 recommendation + 1 OOS finding)
+- qa-tester: **TESTABLE WITH GAPS** (6/6 ACs faithfully covered + 6 findings, 0 BLOCKING)
+- **6 inline improvements applied**: (1) removed dead `_make_uniform_map` helper [convergent gdscript 1-A + qa F-4]; (2) typed `pairs: Array[Vector2i]` [gdscript 1-B]; (3) typed `result_set: Dictionary[Vector2i, bool]` [gdscript 1-C]; (4) direct `assert_int(...).is_greater(1)` [gdscript 1-D]; (5) line 384 prose fix "PLAINS neighbour" → "HILLS neighbour" [convergent gdscript 1-J + qa F-3]; (6) AC-5 doc-comment expanded to clarify hybrid value+count contract [qa F-1]; (7) TODO comment above `@warning_ignore` for ADR-0009 cleanup obligation [qa F-6].
+- **2 advisories deferred** to TD-034 §J/§K (~16 min total): §J AC-6 expected reachable tile count not pinned (defer to ADR-0009 trigger); §K ADR-0008 §Risks line 567 stale `before_each()` reference (defer to next ADR-0008 amendment).
+
+**Forced deviation accepted (1 ADVISORY, 0 BLOCKING)**: AC-7 spec wording "5×5 fixture map" relaxed to 15×15. `MapGrid.load_map` validation requires `rows ∈ [15,40]` and `cols ∈ [15,40]` per ADR-0004 §Decision 4. Behavior under test (Dijkstra cost-accumulation through migrated TerrainCost.cost_multiplier delegate) is identical at 15×15. Documented in test docstring + budget arithmetic adjusted (move_range=3, budget=30, origin (7,7) center).
+
+**Mid-implementation orchestrator-direct fix history** (1 iteration): agent's first AC-7 (smoke path) draft had a step-cost arithmetic error in the (7,4) reachability assertion — comment said "3 steps × 10 = 30 = budget" but origin (7,7) IS in the HILLS band (rows 5-9), so path crosses 2 HILLS cells (cost 30) before reaching PLAINS (+10 = 40, over budget). Also missing `grid.free()` (G-6 orphan). Orchestrator-direct fix flipped (7,4) to negative assertion (HILLS band acts as budget barrier — itself useful regression coverage), added (5,7) positive boundary assertion (2 HILLS × 15 = 30 exactly = budget), added `grid.free()` cleanup. Re-run: 282/282 clean.
+
+**Process insights**:
+- **Cross-product fixture-vs-engine drift** is now the **5th occurrence** in this epic (story-002 TILE_STATE_, story-004 MAP_COLS_MIN, story-005 ELEVATION_RANGES, story-006 5×5 → 15×15 fixture-size + step-cost arithmetic). Recommendation logged earlier (story-005) for "Engine constraint quick-reference" section in story files remains unactioned and would have prevented both story-006 issues.
+- **Convergent /code-review pattern (lean mode)** validated 5th time in this epic — minimum-safe-unit confirmed. Both specialists hit dead `_make_uniform_map` helper independently (gdscript 1-A + qa F-4); both hit cosmetic line 384 prose (gdscript 1-J + qa F-3). Strong-signal pattern: when both reviewers independently flag the same item, apply without further deliberation.
+- **G-6/G-14/G-15 codifications** continue to pay dividends — clean lifecycle on first run for the orchestrator-direct AC-7 fix (G-6 `grid.free()` recall was immediate); G-14 import pass produced clean parse for the new test file; G-15 `before_test()` applied correctly from start.
+- **Sub-agent Bash blocking pattern** continues — agent drafted both files for approval, then BLOCKED on Bash for verification chain. Orchestrator-direct Bash recovery (G-14 import + full-suite regression + AC-7 inline fix) executed in 1 iteration. 5th time in this epic; pattern stable.
+- **AC-5 hybrid value+count contract**: the value contract (`TerrainEffect.cost_multiplier(0,0) == 1` AND `TerrainCost.cost_multiplier(0,0) == 1`) is asserted in the test function; the count contract (276 → 282 zero-regression) is captured externally in active.md per story §Test Evidence allowance. The qa-tester correctly flagged that the test function's NAME implied AC-5 automated coverage when the actual count contract is external — fix was a doc-comment expansion clarifying the hybrid (no rename needed since the orchestrator-level external check IS the canonical AC-5 verification).
+
+**Tech debt logged**: 2 new sub-items — TD-034 §J (~15 min) + §K (~1 min). TD-034 cross-references updated to mark story-006 carry-over.
+
+**No new gotcha codified this story** — all gotchas applied correctly from prior work (G-1 / G-6 / G-9 / G-14 / G-15). The AC-7 step-cost arithmetic error is test-authoring discipline, not a Godot/GdUnit4 gotcha.
+
+**Terrain-effect epic status**: **6/8 Complete** 🎉 — first Integration story landed. Stories 007 (cap accessors) and 008 (perf benchmark + epic-end test infrastructure hardening) remain.
