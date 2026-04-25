@@ -5,7 +5,7 @@ extends GdUnitTestSuite
 ## the entire terrain-effect epic (ADR-0008 §Risks line 562).
 ##
 ## Purpose: proves that Suite A mutating TerrainEffect static state does NOT
-## bleed into Suite B when Suite B calls reset_for_tests() in before_each().
+## bleed into Suite B when Suite B calls reset_for_tests() in before_test().
 ##
 ## In a GdUnit4 run, test suites (GdUnitTestSuite subclasses) may run in any
 ## order and share the same Godot VM / GDScript runtime. Static vars persist
@@ -48,7 +48,7 @@ func _simulate_suite_a_mutation() -> void:
 ## AC-7: After Suite A mutates state, Suite B's reset_for_tests() restores all
 ## static vars to compile-time defaults with no bleed.
 ## Given: Suite A mutations applied (simulated inline).
-## When:  reset_for_tests() called (simulating Suite B's before_each()).
+## When:  reset_for_tests() called (simulating Suite B's before_test()).
 ## Then:  _config_loaded==false, _max_defense_reduction==30 — no state bleed.
 ## This is the canary test for ADR-0008 §Risks line 562.
 ## CI must treat failure of this test as an immediate epic-blocker.
@@ -66,7 +66,7 @@ func test_terrain_effect_isolation_suite_b_sees_pristine_state_after_suite_a_mut
 		"Pre-condition: Suite A must have set _max_defense_reduction=99"
 	).is_equal(99)
 
-	# ── Simulate Suite B: before_each() calls reset_for_tests() ─────────────────
+	# ── Simulate Suite B: before_test() calls reset_for_tests() ─────────────────
 	TerrainEffect.reset_for_tests()
 
 	# ── Suite B assertions: pristine state, no bleed ─────────────────────────────
