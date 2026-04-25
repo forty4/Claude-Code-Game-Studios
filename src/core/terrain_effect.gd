@@ -19,6 +19,17 @@
 ##   support generic-Dictionary syntax in static var declarations. Do NOT
 ##   "fix" these to Dictionary[K, V] — the engine will reject them at parse time.
 ##   Same root cause as src/core/save_migration_registry.gd._migrations.
+##
+## CROSS-SYSTEM SHARED CAP CONTRACT (ADR-0008 §Decision 7 + TR-017):
+##   Formation Bonus and Damage Calc consumers MUST call
+##   [method max_defense_reduction] and [method max_evasion] to obtain the
+##   defense/evasion clamp ceilings — never hardcode the literal 30. The
+##   compile-time consts [constant MAX_DEFENSE_REDUCTION_DEFAULT] and
+##   [constant MAX_EVASION_DEFAULT] are the BOOTSTRAP FALLBACK only (used by
+##   consumers initializing before any battle / config load has happened); the
+##   runtime value after [method load_config] is authoritative and may differ
+##   if [code]terrain_config.json[/code] tunes [code]caps.max_defense_reduction[/code]
+##   or [code]caps.max_evasion[/code].
 class_name TerrainEffect
 extends RefCounted
 
@@ -654,3 +665,45 @@ static func cost_multiplier(unit_type: int, terrain_type: int) -> int:
 	# MVP: uniform multiplier per CR-1d. ADR-0009 will replace this with
 	# _cost_matrix.get(unit_type, {}).get(terrain_type, _cost_default_multiplier).
 	return _cost_default_multiplier
+
+
+## Returns the runtime-effective maximum signed defense modifier cap.
+## Cross-system shared accessor — Formation Bonus and Damage Calc MUST call this
+## (not [constant MAX_DEFENSE_REDUCTION_DEFAULT] directly) to obtain the cap.
+##
+## Reference: ADR-0008 §Decision 7 (lines 339-366) + GDD §CR-3a/b + TR-017.
+## The compile-time default is the bootstrap fallback; the runtime value (after
+## [method load_config]) is authoritative. Tuned via [code]caps.max_defense_reduction[/code]
+## in [code]terrain_config.json[/code].
+##
+## Lazy-triggers [method load_config] on first call if [member _config_loaded]
+## is false (independent lazy entry point — same contract as sibling queries).
+##
+## Usage (consumer side):
+##   var cap: int = TerrainEffect.max_defense_reduction()    # canonical
+##   var bootstrap: int = TerrainEffect.MAX_DEFENSE_REDUCTION_DEFAULT  # bootstrap-only fallback
+static func max_defense_reduction() -> int:
+	if not _config_loaded:
+		load_config()
+	return _max_defense_reduction
+
+
+## Returns the runtime-effective maximum evasion cap.
+## Cross-system shared accessor — Formation Bonus and Damage Calc MUST call this
+## (not [constant MAX_EVASION_DEFAULT] directly) to obtain the cap.
+##
+## Reference: ADR-0008 §Decision 7 (lines 339-366) + GDD §CR-3a/b + TR-017.
+## The compile-time default is the bootstrap fallback; the runtime value (after
+## [method load_config]) is authoritative. Tuned via [code]caps.max_evasion[/code]
+## in [code]terrain_config.json[/code].
+##
+## Lazy-triggers [method load_config] on first call if [member _config_loaded]
+## is false (independent lazy entry point — same contract as sibling queries).
+##
+## Usage (consumer side):
+##   var cap: int = TerrainEffect.max_evasion()              # canonical
+##   var bootstrap: int = TerrainEffect.MAX_EVASION_DEFAULT  # bootstrap-only fallback
+static func max_evasion() -> int:
+	if not _config_loaded:
+		load_config()
+	return _max_evasion
