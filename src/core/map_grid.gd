@@ -3,6 +3,15 @@
 ## Lifecycle: instantiated as a child of BattleScene; freed when BattleScene is freed.
 ## Never registered as an autoload (ADR-0002 battle-scoped contract).
 ##
+## ADV-1 return-type decision (story-005): pathfinding methods return [PackedVector2Array]
+## with [code]Vector2(int(coord.x), int(coord.y))[/code] construction.
+## Callers cast back to [code]Vector2i[/code] at the consumer boundary:
+##   [code]var coord: Vector2i = Vector2i(result[i])[/code]
+## Rationale: [PackedVector2Array] is the only packed array of 2D coordinates in Godot
+## 4.6 — there is no [PackedVector2iArray]. Using [Array[Vector2i]] would pay per-element
+## boxing overhead on every access. Integer coordinate precision is preserved because
+## float32 is exact for integers up to 2^24 (>> 40*30 max index). (ADR-0004 §Decision 7.)
+##
 ## Usage example:
 ##   var grid := MapGrid.new()
 ##   add_child(grid)
@@ -14,6 +23,8 @@
 ##       print("Validation errors: ", grid.get_last_load_errors())
 ##   var tile: MapTileData = grid.get_tile(Vector2i(3, 5))
 ##   var dims: Vector2i = grid.get_map_dimensions()  # Vector2i(cols, rows)
+##   var range_tiles: PackedVector2Array = grid.get_movement_range(1, 3, TerrainCost.PLAINS)
+##   var path: PackedVector2Array = grid.get_movement_path(Vector2i(0,0), Vector2i(4,4), TerrainCost.PLAINS)
 class_name MapGrid
 extends Node
 
@@ -139,6 +150,23 @@ var _occupant_faction_cache: PackedInt32Array = PackedInt32Array()
 
 ## Packed tile-state enum mirror values.
 var _tile_state_cache: PackedInt32Array = PackedInt32Array()
+
+# ─── Pathfinding scratch buffers (ADR-0004 §Decision 7 / story-005) ──────────
+#
+# Declared at class scope so get_movement_range and get_path can clear-and-reuse
+# them across calls without per-call allocation (zero-alloc hot-path rule).
+# Both methods clear at entry — no re-entrance concern (no coroutines / threading
+# per ADR-0004). (Approved: C-1.)
+
+## Sorted priority-queue scratch for Dijkstra.
+## Entry format: (cost << 16) | tile_index — packed into one Int32.
+## Cleared (not reallocated) at the start of each query.
+var _priority_queue_scratch: PackedInt32Array = PackedInt32Array()
+
+## Visited-set scratch: one byte per tile, index = row * cols + col.
+## Resized to rows*cols on each query (no-op if size unchanged); filled 0 at entry.
+## Byte = 1 once a tile is finalised (popped from queue).
+var _visited_scratch: PackedByteArray = PackedByteArray()
 
 # ─── Lifecycle ────────────────────────────────────────────────────────────────
 
@@ -640,3 +668,324 @@ func _write_tile(idx: int, td: MapTileData) -> void:
 	_occupant_id_cache[idx]      = td.occupant_id
 	_occupant_faction_cache[idx] = td.occupant_faction
 	_tile_state_cache[idx]       = td.tile_state
+
+
+# ─── Pathfinding API (story-005 / ADR-0004 §Decision 7) ──────────────────────
+
+## Return all tiles reachable and landable by the unit at its current position
+## given [param move_range] movement points.
+##
+## Implements custom Dijkstra on packed caches (ADR-0004 §Decision 7).
+## 4-directional adjacency; integer cost budget [code]move_budget = move_range × 10[/code].
+## Step cost formula: [code]BASE_TERRAIN_COST[terrain] × cost_multiplier(unit_type, terrain)[/code]
+## ([TerrainCost]; ADR-0008 will replace the placeholder multiplier).
+##
+## Origin tile ([code]origin_coord[/code] from [code]_occupant_id_cache[/code]) is ALWAYS
+## included in the result — origin cost = 0 satisfies any budget including move_range=0.
+## This means [code]move_range=0[/code] returns exactly [code]PackedVector2Array([origin_coord])[/code].
+##
+## Traversal rules (GDD §CR-6, AC-CR-6):
+##   - ENEMY_OCCUPIED tiles block traversal (and all tiles reachable only through them).
+##   - ALLY_OCCUPIED tiles are traversable (can pass through) but NOT landable (excluded
+##     from the returned set).
+##   - IMPASSABLE tiles ([code]_passable_base_cache == 0[/code]) are never entered.
+##   - EMPTY and DESTROYED tiles are both landable.
+##
+## Return type: [PackedVector2Array] — each element [code]Vector2(col, row)[/code] with
+## integer precision (ADV-1; see class header). Callers cast: [code]Vector2i(result[i])[/code].
+##
+## Scratch buffers [member _priority_queue_scratch] and [member _visited_scratch]
+## are cleared at entry and reused across calls (zero-alloc hot path).
+##
+## [param unit_id] — occupant id used to locate the unit's origin tile.
+## [param move_range] — movement points (budget = move_range × 10).
+## [param unit_type] — unit-type id forwarded to [method TerrainCost.cost_multiplier].
+##
+## Returns empty [PackedVector2Array] when:
+##   - [member _map] is null (before [method load_map]).
+##   - [param unit_id] is not found in [member _occupant_id_cache].
+##
+## Example:
+##   var reachable: PackedVector2Array = grid.get_movement_range(1, 3, TerrainCost.PLAINS)
+##   for v: Vector2 in reachable:
+##       highlight_tile(Vector2i(v))
+func get_movement_range(unit_id: int, move_range: int, unit_type: int) -> PackedVector2Array:
+	if _map == null:
+		return PackedVector2Array()
+
+	# Locate the unit's origin tile by scanning occupant cache.
+	var cols: int = _map.map_cols
+	var rows: int = _map.map_rows
+	var n: int = rows * cols
+	var origin_idx: int = -1
+	for i: int in n:
+		if _occupant_id_cache[i] == unit_id:
+			origin_idx = i
+			break
+	if origin_idx == -1:
+		return PackedVector2Array()
+
+	var move_budget: int = move_range * 10
+
+	# ── Scratch reset (C-1: shared with get_movement_path; both clear at entry) ─
+	_priority_queue_scratch.clear()
+	_visited_scratch.resize(n)
+	_visited_scratch.fill(0)
+
+	# ── Dijkstra ──────────────────────────────────────────────────────────────
+	# Priority queue entry: (cost << 16) | tile_index.
+	# Max cost bounded by move_budget ≤ 100 (move_range max 10 × 10); tile_index
+	# max 1200 (40×30). Both fit cleanly in Int32 with 16-bit split.
+	# Enqueue origin at cost 0.
+	_priority_queue_scratch.append(origin_idx)   # 0 << 16 | origin_idx
+
+	# 4-directional neighbour offsets: (dcol, drow).
+	# Stored as flat delta to avoid per-iteration array construction.
+	var result: PackedVector2Array = PackedVector2Array()
+
+	while _priority_queue_scratch.size() > 0:
+		# Pop lowest-cost entry (front of sorted array).
+		var entry: int = _priority_queue_scratch[0]
+		_priority_queue_scratch.remove_at(0)
+
+		var cost_so_far: int = entry >> 16
+		var idx: int = entry & 0xFFFF
+
+		# Skip if already finalised (may have been inserted multiple times at
+		# lower cost before a duplicate higher-cost entry is popped).
+		if _visited_scratch[idx] == 1:
+			continue
+		_visited_scratch[idx] = 1
+
+		# Early exit: nothing reachable beyond this cost.
+		if cost_so_far > move_budget:
+			break
+
+		# Determine landability: EMPTY or DESTROYED are landable (GDD §ST-1).
+		var state: int = _tile_state_cache[idx]
+		var landable: bool = (state == TILE_STATE_EMPTY or state == TILE_STATE_DESTROYED)
+		# Origin tile (cost=0) is always returned even if occupied by this unit.
+		if landable or idx == origin_idx:
+			var col: int = idx % cols
+			var row: int = idx / cols
+			result.append(Vector2(col, row))
+
+		# Expand neighbours.
+		var cur_col: int = idx % cols
+		var cur_row: int = idx / cols
+
+		# Unrolled 4-directional offsets: (0,-1), (1,0), (0,1), (-1,0).
+		for _dir: int in 4:
+			var dcol: int
+			var drow: int
+			match _dir:
+				0: dcol =  0; drow = -1
+				1: dcol =  1; drow =  0
+				2: dcol =  0; drow =  1
+				3: dcol = -1; drow =  0
+
+			var ncol: int = cur_col + dcol
+			var nrow: int = cur_row + drow
+
+			# Bounds check.
+			if ncol < 0 or ncol >= cols or nrow < 0 or nrow >= rows:
+				continue
+
+			var nidx: int = nrow * cols + ncol
+
+			# Already finalised.
+			if _visited_scratch[nidx] == 1:
+				continue
+
+			# Impassable base — walls never entered.
+			if _passable_base_cache[nidx] == 0:
+				continue
+
+			# Enemy-occupied — blocks traversal entirely.
+			var nstate: int = _tile_state_cache[nidx]
+			if nstate == TILE_STATE_ENEMY_OCCUPIED or nstate == TILE_STATE_IMPASSABLE:
+				continue
+
+			# Compute step cost.
+			var terrain: int = _terrain_type_cache[nidx]
+			var step: int = TerrainCost.BASE_TERRAIN_COST[terrain] \
+					* TerrainCost.cost_multiplier(unit_type, terrain)
+			var new_cost: int = cost_so_far + step
+
+			if new_cost > move_budget:
+				continue
+
+			# Insert into sorted priority queue (ascending cost).
+			var packed: int = (new_cost << 16) | nidx
+			var insert_pos: int = _priority_queue_scratch.bsearch(packed)
+			_priority_queue_scratch.insert(insert_pos, packed)
+
+	return result
+
+
+## Return the lowest-cost path from [param from] to [param to] for [param unit_type].
+##
+## Named [code]get_movement_path[/code] (not [code]get_path[/code]) to avoid colliding
+## with the inherited [code]Node.get_path() -> NodePath[/code] built-in method.
+## GDScript treats same-name overrides of Node built-ins as warning-as-error in Godot 4.6
+## strict mode; renaming avoids the collision. (Session-discovered; candidate G-14.)
+##
+## Implements standard Dijkstra with predecessor map (ADR-0004 §Decision 7).
+## Returns a [PackedVector2Array] of tiles from [param from] (inclusive) to
+## [param to] (inclusive) along the minimum-cost route, or an empty array if
+## [param to] is unreachable from [param from].
+##
+## Special cases:
+##   - [code]from == to[/code]: returns [code]PackedVector2Array([from])[/code] (length 1).
+##   - Unreachable [param to]: returns empty [PackedVector2Array].
+##
+## Traversal rules are identical to [method get_movement_range]: impassable base tiles
+## and ENEMY_OCCUPIED / IMPASSABLE tile-states are never entered.
+## ALLY_OCCUPIED tiles ARE traversable for path planning (the path goes through them
+## but the movement-range layer decides landability).
+##
+## Return type: [PackedVector2Array] (ADV-1 — see class header). Each element is
+## [code]Vector2(col, row)[/code]; callers cast: [code]Vector2i(result[i])[/code].
+##
+## Scratch buffers [member _priority_queue_scratch] and [member _visited_scratch]
+## are cleared at entry (C-1 shared pattern). [code]predecessor[/code] is allocated
+## per-call (per-call alloc; promote to class-scope [code]_predecessor_scratch[/code]
+## if [code]get_movement_path[/code] enters AI hot path — C-2 decision).
+##
+## [param from] — start coordinate (must be within map bounds).
+## [param to] — target coordinate (must be within map bounds).
+## [param unit_type] — unit-type id forwarded to [method TerrainCost.cost_multiplier].
+##
+## Returns empty [PackedVector2Array] when [member _map] is null or coordinates are
+## out of bounds.
+##
+## Example:
+##   var path: PackedVector2Array = grid.get_movement_path(Vector2i(0,0), Vector2i(4,4), TerrainCost.PLAINS)
+##   for v: Vector2 in path:
+##       move_unit_to(Vector2i(v))
+func get_movement_path(from: Vector2i, to: Vector2i, unit_type: int) -> PackedVector2Array:
+	if _map == null:
+		return PackedVector2Array()
+
+	var cols: int = _map.map_cols
+	var rows: int = _map.map_rows
+
+	# Bounds checks.
+	if from.x < 0 or from.x >= cols or from.y < 0 or from.y >= rows:
+		return PackedVector2Array()
+	if to.x < 0 or to.x >= cols or to.y < 0 or to.y >= rows:
+		return PackedVector2Array()
+
+	# from == to short-circuit.
+	if from == to:
+		return PackedVector2Array([Vector2(from.x, from.y)])
+
+	var n: int = rows * cols
+	var from_idx: int = from.y * cols + from.x
+	var to_idx: int = to.y * cols + to.x
+
+	# ── Scratch reset (C-1: shared with get_movement_range; both clear at entry) ─
+	_priority_queue_scratch.clear()
+	_visited_scratch.resize(n)
+	_visited_scratch.fill(0)
+
+	# Per-call predecessor map (C-2: acceptable for MVP; see doc comment above).
+	var predecessor: PackedInt32Array = PackedInt32Array()
+	predecessor.resize(n)
+	predecessor.fill(-1)
+
+	# Enqueue origin.
+	_priority_queue_scratch.append(from_idx)   # 0 << 16 | from_idx
+
+	# TODO (story-007 / AC-PERF-2): plain Dijkstra — no admissible heuristic
+	# lower-bound applied. ADR-0004 §Decision 7 recommends a Manhattan-distance
+	# heuristic for `get_movement_path`. Correctness is unaffected; performance
+	# delta only matters at the 40×30 m=10 benchmark scale (TR-map-grid-006).
+	var found: bool = false
+
+	while _priority_queue_scratch.size() > 0:
+		var entry: int = _priority_queue_scratch[0]
+		_priority_queue_scratch.remove_at(0)
+
+		var cost_so_far: int = entry >> 16
+		var idx: int = entry & 0xFFFF
+
+		if _visited_scratch[idx] == 1:
+			continue
+		_visited_scratch[idx] = 1
+
+		if idx == to_idx:
+			found = true
+			break
+
+		var cur_col: int = idx % cols
+		var cur_row: int = idx / cols
+
+		for _dir: int in 4:
+			var dcol: int
+			var drow: int
+			match _dir:
+				0: dcol =  0; drow = -1
+				1: dcol =  1; drow =  0
+				2: dcol =  0; drow =  1
+				3: dcol = -1; drow =  0
+
+			var ncol: int = cur_col + dcol
+			var nrow: int = cur_row + drow
+
+			if ncol < 0 or ncol >= cols or nrow < 0 or nrow >= rows:
+				continue
+
+			var nidx: int = nrow * cols + ncol
+
+			if _visited_scratch[nidx] == 1:
+				continue
+
+			if _passable_base_cache[nidx] == 0:
+				continue
+
+			var nstate: int = _tile_state_cache[nidx]
+			if nstate == TILE_STATE_ENEMY_OCCUPIED or nstate == TILE_STATE_IMPASSABLE:
+				continue
+
+			var terrain: int = _terrain_type_cache[nidx]
+			var step: int = TerrainCost.BASE_TERRAIN_COST[terrain] \
+					* TerrainCost.cost_multiplier(unit_type, terrain)
+			var new_cost: int = cost_so_far + step
+
+			# Record predecessor on first reach (and only on first reach: the
+			# `predecessor[nidx] == -1` guard skips re-enqueues). Safe under
+			# non-negative integer costs because Dijkstra's monotone exploration
+			# guarantees the first enqueue is along the minimum-cost path —
+			# duplicate higher-cost entries inserted later are filtered by the
+			# `_visited_scratch[nidx] == 1` guard at pop time. Equal-cost ties
+			# resolve to whichever direction was expanded first; total cost is
+			# identical so the V-4 reference-equivalence test asserts on cost,
+			# not on tile sequence.
+			if predecessor[nidx] == -1:
+				predecessor[nidx] = idx
+
+			var packed: int = (new_cost << 16) | nidx
+			var insert_pos: int = _priority_queue_scratch.bsearch(packed)
+			_priority_queue_scratch.insert(insert_pos, packed)
+
+	if not found:
+		return PackedVector2Array()
+
+	# Walk predecessor chain from to_idx back to from_idx, then reverse.
+	var path_indices: PackedInt32Array = PackedInt32Array()
+	var cur: int = to_idx
+	while cur != -1:
+		path_indices.append(cur)
+		if cur == from_idx:
+			break
+		cur = predecessor[cur]
+
+	# Reverse to get from→to order.
+	var result: PackedVector2Array = PackedVector2Array()
+	var path_len: int = path_indices.size()
+	for i: int in path_len:
+		var tile_idx: int = path_indices[path_len - 1 - i]
+		result.append(Vector2(tile_idx % cols, tile_idx / cols))
+
+	return result

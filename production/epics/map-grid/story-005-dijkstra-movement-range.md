@@ -1,7 +1,7 @@
-# Story 005: Custom Dijkstra — get_movement_range + get_path
+# Story 005: Custom Dijkstra — get_movement_range + get_movement_path
 
 > **Epic**: map-grid
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
@@ -166,3 +166,28 @@
 
 - Depends on: Story 002 (packed caches are the read source), Story 003 (validator guarantees pathfinding-ready state), Story 004 (mutation-driven tile_state changes are what Dijkstra must respect — tests may reuse mutation API to build scenarios)
 - Unlocks: Story 006 (LoS/attack queries can reuse some caching patterns), Story 007 (performance benchmark exercises this story's Dijkstra at 40×30 move_range=10)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-25
+**Criteria**: 14/14 passing — 13 automated + AC-11 (RIVER/FORTRESS_WALL terrain-type-specific never-entered) untested but production behavior covered orthogonally by `_passable_base_cache==0` guard
+**Test Evidence**: Logic
+- `tests/unit/core/map_grid_pathfinding_test.gd` (789 LoC, 16 test functions) — 16/16 PASS, 127ms suite
+- `tests/fixtures/pathfinding_reference.gd` (169 LoC) — V-4 reference Dijkstra fixture
+- Full regression: 213/213 PASS, 0 errors / 0 failures / 0 orphans, exit 0
+**Files delivered**:
+- `src/core/terrain_cost.gd` (NEW, 68 LoC)
+- `src/core/map_grid.gd` (extended 642 → 988 LoC; +346)
+- `tests/fixtures/pathfinding_reference.gd` (NEW, 169 LoC)
+- `tests/unit/core/map_grid_pathfinding_test.gd` (NEW, 789 LoC)
+**Code Review**: Complete — godot-gdscript-specialist APPROVED WITH SUGGESTIONS + qa-tester GAPS (1 advisory AC); convergent assertion-inversion finding resolved inline (uncovered cost-model divergence, restructured AC-2a/2b at (3,0) for true budget discriminator)
+**Deviations** (all ADVISORY; queued to TD-032 batch as A-16..A-20 + G-13 candidate):
+- A-16 TerrainCost ordering follows MapGrid's existing comment (PLAINS=0, FOREST=1, HILLS=2, MOUNTAIN=3) — story spec line 60 errata
+- A-17 DESTRUCTIBLE skip rule not actually applied to skip list; `_passable_base_cache==0` guard is sufficient in practice
+- A-18 API renamed `get_path()` → `get_movement_path()` to avoid shadowing `Node.get_path()` (NodePath collision) — ADR-0004 + TR-map-grid-003 + story spec all need errata
+- A-19 AC-3b uses move_range=3 (not spec's 4) under standard Dijkstra cost model — documented inline
+- A-20 Cost-model interpretation: implementation uses standard Dijkstra (origin entry cost = 0); story spec line 99 / ADR-0004 §F-3 used non-standard origin-included arithmetic — 3-document errata required
+- G-13 candidate: User-defined methods can shadow inherited `Node` API (e.g. `get_path` returns NodePath) — codify in `.claude/rules/godot-4x-gotchas.md`
+- ADR-0004 §Decision 7 admissible heuristic for `get_movement_path` deferred to story-007 perf optimization (TODO comment at `map_grid.gd:899`)

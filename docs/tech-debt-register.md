@@ -1260,3 +1260,126 @@ Call sites become: `TestHelpers.assert_all_caches_match_tiledata(self, grid, che
   2. **Gaps 7+8 (qa-tester)**: `ERR_UNIT_COORD_OUT_OF_BOUNDS` path + null-map pre-load mutations — new AC-10 test (`test_..._null_map_and_out_of_bounds_guards_are_noop`) exercises all 6 previously-untested guards (3 null-map + 3 OOB × multiple coord variants).
 - Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-004)
 
+### A-16 — TerrainCost integer ordering reconciliation (story-005)
+
+**Source**: map-grid story-005 implementation 2026-04-25.
+
+**Issue**: Story-005 spec §Implementation Notes line 60 prescribes:
+```
+const PLAINS := 0, HILLS := 1, MOUNTAIN := 2, FOREST := 3, RIVER := 4, ...
+```
+But `MapGrid` (committed at story-003, line 47 + ELEVATION_RANGES indexing) uses:
+```
+PLAINS=0, FOREST=1, HILLS=2, MOUNTAIN=3, RIVER=4, BRIDGE=5, FORTRESS_WALL=6, ROAD=7
+```
+
+Implementation followed `MapGrid`'s committed ordering (the `_terrain_type_cache` is already populated with this layout across 196+ baseline tests). `terrain_cost.gd` line 13 documents the deviation explicitly.
+
+**Errata required**:
+- `production/epics/map-grid/story-005-dijkstra-movement-range.md` line 60 — update to MapGrid ordering
+- ADR-0004 — if the spec ordering originated there, update accordingly
+
+**Estimated effort**: ~10 min (one story-spec edit; verify ADR alignment).
+
+**Suggested trigger**: ADR-0004 errata pass (batched with A-17, A-18, A-20).
+
+### A-17 — DESTRUCTIBLE skip rule not applied (story-005)
+
+**Source**: map-grid story-005 implementation 2026-04-25; gdscript-specialist code review verified.
+
+**Issue**: orchestrator's pre-implementation guidance asked for `TILE_STATE_DESTRUCTIBLE` to be added to the Dijkstra skip list as a safety guard. Final implementation skips only `TILE_STATE_ENEMY_OCCUPIED` and `TILE_STATE_IMPASSABLE` (`map_grid.gd:806`); the orthogonal `_passable_base_cache[nidx] == 0` guard catches DESTRUCTIBLE tiles in practice (undestroyed walls have `is_passable_base = false`).
+
+**Resolution**: not a defect; skipping via `_passable_base_cache` is sufficient. The explicit DESTRUCTIBLE-in-skip-list belt-and-braces is purely defensive — only matters if a future tile arrives with `is_passable_base = true` AND `tile_state = DESTRUCTIBLE`, which contradicts the GDD §ST-1 schema.
+
+**Action**: optional — add `TILE_STATE_DESTRUCTIBLE` to the skip-list at `map_grid.gd:806` for defensive symmetry. ~5 min. No errata required against ADR-0004 (the ADR doesn't enumerate DESTRUCTIBLE specifically).
+
+**Suggested trigger**: same pass as A-16 if ADR-0004 receives an errata revision.
+
+### A-18 — `get_path` → `get_movement_path` API rename (story-005)
+
+**Source**: map-grid story-005 implementation 2026-04-25; sub-agent self-flagged Node.get_path collision.
+
+**Issue**: ADR-0004 §Decision 7 + TR-map-grid-003 + story-005 all specify `get_path(from, to, unit_type)` as the public API name. Godot's `Node` class has an inherited `get_path() -> NodePath` method. A user `func get_path(...) -> PackedVector2Array` on a `Node`-extending class shadows the inherited method, surprising callers and potentially breaking code that expected NodePath. Implementation renamed to `get_movement_path(...)`.
+
+**Errata required (3 documents)**:
+- `docs/architecture/ADR-0004-map-grid-data-model.md` §Decision 7 + §Public API surface — update method name
+- `docs/architecture/tr-registry.yaml` TR-map-grid-003 requirement text — replace `get_path` with `get_movement_path`
+- `production/epics/map-grid/story-005-dijkstra-movement-range.md` AC list (lines 40, 47-48) — update spec text + AC-9 from==to and unreachable cases
+
+Story-006 (LoS + remaining 7 queries) is unaffected — it adds `has_line_of_sight`, `get_attack_range`, etc., not `get_path`.
+
+**Estimated effort**: ~15 min (3-document edit + verification).
+
+**Suggested trigger**: batch with A-16, A-17, A-20 in a single ADR-0004 errata pass before story-007 close-out.
+
+### A-19 — AC-3b move_range deviation (test-only; documented inline)
+
+**Source**: map-grid story-005 test authoring 2026-04-25.
+
+**Issue**: Story-005 spec AC-3 (line 107) edge case "change (1,0) to ENEMY_OCCUPIED → (2,0) and (3,0) also dropped" assumes move_range=4 (corridor budget). Under the open 15×15 grid (min validator dimensions), the row-1 detour `(0,0)→(0,1)→(1,1)→(2,1)→(2,0)` costs exactly 40 = budget at move_range=4 — making (2,0) reachable around the enemy block, defeating the spec's intent.
+
+**Resolution**: AC-3b test (`test_get_movement_range_enemy_occupied_blocks_traversal`) uses move_range=3 (budget=30) which keeps the detour at cost 40 > 30 off-budget while preserving the corridor-cost semantics. Documented inline in test docstring at lines 273-276.
+
+**Errata optional**: spec line 107 edge-case wording is technically correct under a 4×1 corridor (the spec's original assumption), but doesn't apply under the validator's 15×15 minimum. Update story-005 spec to clarify "in a corridor with no orthogonal alternatives" or accept the test's m=3 framing.
+
+**Estimated effort**: ~5 min (one spec edit) or skip entirely.
+
+**Suggested trigger**: same pass as A-18 if revising story-005 spec; otherwise no action needed.
+
+### A-20 — Cost-model interpretation: standard Dijkstra vs origin-included (story-005)
+
+**Source**: map-grid story-005 `/code-review` 2026-04-25 (convergent gdscript-specialist + qa-tester finding via inverted assertion).
+
+**Issue**: Implementation uses **standard Dijkstra**: origin enqueued at cost 0; `step_cost = BASE_TERRAIN_COST[terrain] × cost_multiplier(unit_type, terrain)` charged on entry to each non-origin tile. Total path cost = sum of entry costs of non-origin tiles.
+
+Story spec line 99 + ADR-0004 §F-3 reference example reads:
+```
+PLAINS→HILLS→PLAINS = 10+15+10 = 35 > 30 → NOT reachable
+```
+This arithmetic includes the origin tile's terrain cost (3 terms for a 3-tile path), implying a **non-standard origin-included** cost model. Under standard Dijkstra the same path costs 25 (only 2 transitions; origin contributes 0).
+
+The spec example's "35" is internally inconsistent with the standard Dijkstra interpretation that the implementation chose (and that AC-1's "Manhattan diamond r=3 + origin = 25 tiles" assertion in the test confirms). The inverted-assertion bug at the original AC-2a was a symptom of this divergence — the test was written under the spec's model, the implementation used the standard model, and the inversion masked the mismatch.
+
+**Resolution**: AC-2a/2b restructured during /code-review — HILLS/ROAD moved from (1,0) to (3,0) so the budget boundary matches the standard model:
+- HILLS at (3,0): cost 0+10+10+15 = 35 > 30 NOT reachable ✓
+- ROAD at (3,0):  cost 0+10+10+7  = 27 ≤ 30 REACHABLE ✓
+
+**Errata required (3 documents)**:
+- `docs/architecture/ADR-0004-map-grid-data-model.md` §F-3 cost-formula example — update to standard model
+- `production/epics/map-grid/story-005-dijkstra-movement-range.md` line 99 (AC-F-3 boundary) + line 95 (Manhattan-diamond tile count) — reconcile with standard model
+- `design/gdd/map-grid.md` §F-3 (if cost formula example present) — same update
+
+**Estimated effort**: ~30-45 min (3-document edit + careful arithmetic verification across all examples).
+
+**Suggested trigger**: same pass as A-18 (ADR-0004 errata batch).
+
+### G-13 candidate — User-defined methods can shadow inherited Node API
+
+**Source**: map-grid story-005 implementation 2026-04-25 (`get_path` → `get_movement_path` rename rationale, A-18).
+
+**Pattern**: Declaring a method on a `Node`-extending class (or any subclass of an engine type) with the same name as an inherited engine method silently shadows the engine method. Symptom: code expecting the engine-typed return value (e.g., `Node.get_path() -> NodePath`) gets the user method's return type instead, often without a parse-time warning in non-strict mode.
+
+**Mitigation**: Prefix domain-specific verbs (`get_movement_path`, `get_attack_range`, `get_destination_node` instead of `get_node`). Cross-reference Godot's `Node` API (and parent classes) before declaring any `func get_*`, `func set_*`, `func is_*`, or other common-verb methods.
+
+**Codification**: add as G-13 to `.claude/rules/godot-4x-gotchas.md` after this story closes; update TD-013 register cross-reference.
+
+**Estimated effort**: ~20 min (rule-file authoring + TD-013 register touch + cross-reference).
+
+**Suggested trigger**: next time `.claude/rules/godot-4x-gotchas.md` is touched (G-12 was added at story-001; G-13 is the next entry).
+
+---
+
+**Updated estimated remediation effort (revised — includes A-16..A-20 + G-13)**: 5-6 hours total
+
+**Suggested trigger (revised, post-story-005)**: Three-batch plan:
+- **Before story-006**: G-13 codification (~20 min) — keeps the rule file fresh while context is active
+- **ADR-0004 errata pass**: A-16 + A-17 + A-18 + A-20 (4 deviations across 3 documents). Combined ~1-1.5h. Best done before story-007 (perf benchmark) so AC-PERF-2 measures the canonical contract.
+- **Optional polish**: A-19 (story-005 spec wording) — 5 min if the ADR errata pass is happening anyway.
+
+**Story-005 specific links**:
+- Story: `production/epics/map-grid/story-005-dijkstra-movement-range.md`
+- Review: standalone `/code-review` ran 2026-04-25 (godot-gdscript-specialist APPROVED WITH SUGGESTIONS + qa-tester GAPS — convergent assertion-inversion finding)
+- **Convergent finding RESOLVED INLINE** during close-out (NOT deferred):
+  - Inverted `assert_bool(not has(...)).is_false()` at line 200 (original AC-2a) masked a deeper cost-model divergence between spec and implementation. AC-2a/2b restructured (HILLS/ROAD at (3,0) instead of (1,0)) for the meaningful budget discriminator.
+- Completion: session extract `production/session-state/active.md` §/story-done 2026-04-25 (story-005)
+
