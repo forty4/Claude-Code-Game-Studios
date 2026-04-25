@@ -1,7 +1,7 @@
 # Story 005: get_combat_modifiers (CR-2 elevation + CR-3a/b symmetric clamp + CR-5 bridge flag + EC-14 delta clamp)
 
 > **Epic**: terrain-effect
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
@@ -212,3 +212,50 @@
 - Depends on: Story 003 (`_elevation_table` + `_terrain_table` + `_max_defense_reduction` + `_max_evasion` populated), Story 002 (lazy-init guard), Story 001 (`CombatModifiers` Resource class)
 - Soft-depends on: Story 004 (defensive-copy pattern established; this story consumes the discipline)
 - Unlocks: Damage Calc Feature epic (consumes `CombatModifiers` for damage formula F-DC-5; orchestrates Bridge FLANK→FRONT using ADR-0004 §5b ATK_DIR_* constants)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-26
+**Verdict**: COMPLETE WITH NOTES
+**Criteria**: 14/14 PASS — all spec'd as named test functions; 0 deferred; 0 untested
+**Test Evidence**: Logic story — `tests/unit/core/terrain_effect_combat_modifiers_test.gd` (~822 LoC after /code-review enhancements; 14 test functions covering AC-1..AC-14 + `_make_grid_2tile` factory + `_assert_combat_modifiers_within_clamps` AC-12 contract-gate helper). Full regression `276/276 PASS` (262 baseline → +14 new), 0 errors / 0 failures / 0 orphans, godot exit 0, suite execution ~97ms.
+**Code Review**: Complete (lean-mode convergent: godot-gdscript-specialist APPROVED WITH SUGGESTIONS + qa-tester TESTABLE WITH GAPS; 6 inline improvements applied; 3 advisories deferred to TD-034 §G/§H/§I).
+
+**Files delivered**:
+- `src/core/terrain_effect.gd` (MODIFY, 536 → 629 LoC; +93 LoC) — new `get_combat_modifiers(grid, atk_coord, def_coord) -> CombatModifiers` static method inserted between `get_terrain_modifiers` (line 493) and `get_terrain_score` (line 625); doc-comment uses BBCode `[code]` tags + cross-system contract callout (TR-011) + bridge denormalisation note + table-completeness invariant comment (gdscript 1-A from /code-review). Implementation: lazy-load + null/OOB zero-fill guard + raw_delta computation + `clampi(raw_delta, -2, 2)` with `push_warning` on EC-14 trigger + Dict-key access on `_elevation_table` + `TerrainModifiers` lookup on `_terrain_table` + F-1 symmetric clamp `clampi(total_def, -_max_defense_reduction, _max_defense_reduction)` + evasion clamp `clampi(terrain.evasion_bonus, 0, _max_evasion)` + bridge flag denormalisation + G-2 `Array[StringName].assign()` discipline.
+- `tests/unit/core/terrain_effect_combat_modifiers_test.gd` (NEW, 822 LoC after /code-review) — 14 test functions named `test_terrain_effect_combat_modifiers_<descriptive_outcome>` covering AC-1..AC-14; `_make_grid_2tile(atk_terrain, atk_elev, def_terrain, def_elev)` factory + `_assert_combat_modifiers_within_clamps(cm, label)` AC-12 contract-gate helper called from 13 of 14 tests + the dedicated AC-12 standalone sweep.
+
+**Deviations** (1 ADVISORY, 0 BLOCKING):
+- **MOUNTAIN attacker substitution in 7 fixtures**: AC-1, AC-2, AC-5, AC-8, AC-9, AC-12 grid_c, AC-14 use `MOUNTAIN(elev=2)` attacker stand-in for the spec's "atk PLAINS elev=2" / "atk HILLS elev=2" / "atk PLAINS elev=1" wording. Forced by `MapGrid.ELEVATION_RANGES` validation rejecting PLAINS-at-elev=2 and HILLS-at-elev=2 at `load_map()` time. Mathematical equivalence verified independently by gdscript-specialist + qa-tester in convergent /code-review: attacker terrain doesn't participate in any asserted output field; only `atk_tile.elevation` is read by the formula. Documented in inline arrange comments + AC-1 doc-comment "ELEVATION_RANGES NOTE" block + AC-5/AC-8 explicit substitution explanations + active.md process-insight extract.
+
+**Mid-implementation orchestrator-direct fix history** (1 iteration):
+- Round 1: agent's first draft used `_make_grid_2tile(TerrainEffect.PLAINS, 2, ...)` and `(TerrainEffect.HILLS, 2, ...)` across 7 fixtures (the agent fixed only AC-8 inline, missed the rest). First regression run: 16 failures + 1 error + 1 orphan, all in the new suite, all tracing to `_make_grid_2tile` line 106's `assert_bool(load_map ok).is_true()`.
+- Fix: substituted MOUNTAIN(elev=2) attacker in 7 fixtures + accompanying inline comments. Re-run: 276/276 clean.
+
+**6 /code-review improvements applied inline**:
+1. **gdscript 1-A** — `terrain_effect.gd:575-583` table-completeness invariant comment (cites story-003 _validate_config + _fall_back_to_defaults guarantee at the call site)
+2. **qa F4** — AC-11 `_terrain_table.has(FORTRESS_WALL)` pre-condition guard after `_fall_back_to_defaults()` reflection (converts misleading zero-fill failure into targeted "method renamed without test update" diagnostic)
+3. **qa F2 + gdscript 6-H (convergent)** — AC-10 null-grid sub-case expanded from 2/6 → 6/6 fields; OOB-atk sub-case expanded from 1/6 → 6/6 (parallel of OOB-def 6-field assertions)
+4. **qa F3** — AC-12 scenario (b) MOUNTAIN direct `cm_b.defender_terrain_def == 30` assertion alongside contract gate (catches mistuned MOUNTAIN(20) regression that gate alone wouldn't catch in [-30,+30] range)
+5. **qa F7** — AC-3 added `cm.elevation_atk_mod == -15` assertion (closes symmetric inverse coverage of CR-2 table delta=-2 row's `attack_mod`; no other test exercises this)
+6. **qa F10** — AC-8 doc-comment "Given" line updated to reflect MOUNTAIN substitution + ELEVATION_RANGES NOTE cross-reference
+
+**Tech debt logged**: 3 new sub-items in TD-034 (story-005 advisories deferred from /code-review):
+- §G — RIVER and ROAD as defender untested in story-005; relies on story-004 AC-2's 8-terrain sweep over the shared `_terrain_table` (transitive coverage; coupled-not-direct)
+- §H — `_elevation_table[delta=0]` row untested directly; story-003 owns table population, but story-005's `get_combat_modifiers` is the only consumer of the Dict-keyed access pattern
+- §I — `get_terrain_score` (story-004 code) has redundant lazy-load guard since it calls `get_terrain_modifiers` which also lazy-loads (story-004 design decision; negligible perf, cosmetic)
+
+**Process insights**:
+- **Cross-product fixture-vs-engine drift** is now the third occurrence in this epic: story-004 hit `MapGrid.MAP_COLS_MIN=15` vs spec's "1×1 fixture"; story-005 hit `ELEVATION_RANGES` per-terrain elevation lock vs spec's "PLAINS elev=2"; story-002 had a similar minor mismatch on TILE_STATE_* prefix in spec wording. Pattern: GDD/spec wording is intentionally engine-agnostic; MapGrid validation is engine-specific. Recommendation logged for "Engine constraint quick-reference" addition to story files.
+- **Convergent /code-review pattern (lean mode)** continues to validate as minimum-safe-unit: gdscript + qa-tester ran in <3min combined; identified 7 actionable findings; applied 6 inline within ~5min; deferred 3 to TD-034 with clear rationale; correctly skipped 1 false positive (gdscript 7-G doc-comment "Then" clause minor discrepancy where assertions are stricter than the doc — safe direction). 4th validation of this pattern in this epic.
+- **Sub-agent Bash blocking pattern** continues — gdscript-specialist drafted both files for approval, then was BLOCKED on running Bash for the regression. Orchestrator-direct Bash recovery (1 iteration) + 6 inline /code-review improvements (5 min) produced clean 276/276.
+- **G-14 codification (PR #35)** still paying dividends — pre-emptive `--import` pass after writing the new test file produced clean parse on first try.
+- **G-15 codification (story-003)** still paying dividends — `before_test()` discipline applied correctly from the start.
+
+**Gates skipped (lean mode)**: QL-STORY-READY (story-readiness Phase 8) + QL-TEST-COVERAGE + LP-CODE-REVIEW phase-gates per `production/review-mode.txt = lean`. Standalone /code-review already ran with 2 specialists (gdscript + qa-tester convergent) and produced APPROVED-with-suggestions verdict.
+
+**No new gotcha codified this story** — all gotchas applied correctly from prior work (G-2 / G-6 / G-14 / G-15). The ELEVATION_RANGES-violation pattern is engine-constraint drift, not a Godot/GdUnit4 gotcha; documented as a process insight rather than a rules/godot-4x-gotchas.md addition.
+
+**Terrain-effect epic status**: **5/8 Complete** 🎉 — query layer fully landed (raw modifiers + AI score + combat modifiers all implemented). Stories 006/007/008 remaining; per EPIC dependency chain {004, 005, 006, 007 parallelizable} → 008. Critical-path next: **story-006 (`cost_multiplier` + `terrain_cost.gd:32` migration + Map/Grid regression)** — Integration story type; first time leaving the unit-test-only zone for this epic.
