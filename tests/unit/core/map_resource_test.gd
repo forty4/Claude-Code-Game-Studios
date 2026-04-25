@@ -99,10 +99,15 @@ func test_tile_data_class_declaration_fields_and_defaults() -> void:
 	assert_int(t.occupant_faction).is_equal(1)
 	assert_bool(t.is_passable_base).is_true()
 
-	# Assert — default construction yields correct zero-values (edge case from AC-2)
+	# Assert — default construction yields correct zero-values (edge case from AC-2).
+	# Coverage extended per TD-032 A-5: previously only 3 of 5 zero-defaults were asserted.
+	# Adding coord + is_destructible means a regression on any default field change
+	# (e.g., someone adds `= Vector2i.ONE` to coord's declaration) fails this test.
 	var d := MapTileData.new()
+	assert_that(d.coord).is_equal(Vector2i.ZERO)
 	assert_int(d.occupant_id).is_equal(0)
 	assert_int(d.occupant_faction).is_equal(0)
+	assert_bool(d.is_destructible).is_false()
 	assert_bool(d.is_passable_base).is_true()
 
 	# Assert — all expected @export fields present; exact count guards against extras.
@@ -201,6 +206,12 @@ func test_map_resource_round_trip_9_tile_fixture() -> void:
 
 ## AC-4: Vector2i / int / bool field types preserved across round-trip (no Variant coercion).
 ## Uses a fresh load from AC-3's path pattern to verify typeof() results.
+##
+## NOTE (TD-032 A-6): this test writes and reads its OWN save path independently of AC-3's
+## fixture. Two separate round-trip saves is intentional — AC-3 tests value-equality across
+## multiple tile fields, AC-4 tests type identity (typeof) on a minimal single-tile fixture.
+## Do not consolidate the two tests; separation keeps type-drift bugs from being hidden behind
+## field-equality failures.
 func test_map_resource_round_trip_preserves_field_types() -> void:
 	# Arrange — minimal MapResource with one tile containing typed values
 	var m := MapResource.new()

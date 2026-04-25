@@ -73,14 +73,14 @@
   - Then: `assert_that(m.map_id).is_equal(&"test")`, `assert_int(m.map_rows).is_equal(3)`, field types preserved
   - Edge cases: empty `tiles` array is a valid construction (validation lives in story-003, not here)
 
-- **AC-2**: TileData class declaration with all `@export` fields
+- **AC-2**: MapTileData class declaration with all `@export` fields
   - Given: freshly-loaded test script
-  - When: `var t := TileData.new(); t.coord = Vector2i(5, 3); t.terrain_type = 0; t.elevation = 1; t.tile_state = 0; t.is_destructible = true; t.destruction_hp = 100; t.occupant_id = 42; t.occupant_faction = 1; t.is_passable_base = true`
+  - When: `var t := MapTileData.new(); t.coord = Vector2i(5, 3); t.terrain_type = 0; t.elevation = 1; t.tile_state = 0; t.is_destructible = true; t.destruction_hp = 100; t.occupant_id = 42; t.occupant_faction = 1; t.is_passable_base = true`
   - Then: each field readable with the exact value set; `t.coord.x == 5` and `t.coord.y == 3`
-  - Edge cases: default construction `TileData.new()` yields `occupant_id == 0`, `occupant_faction == 0`, `is_passable_base == true`
+  - Edge cases: default construction `MapTileData.new()` yields `occupant_id == 0`, `occupant_faction == 0`, `is_passable_base == true`, `coord == Vector2i.ZERO`, `is_destructible == false`
 
 - **AC-3**: MapResource ResourceSaver/ResourceLoader round-trip (9-tile fixture)
-  - Given: MapResource with 3×3 = 9 distinct TileData entries (each with unique coord + terrain_type + elevation + hp values)
+  - Given: MapResource with 3×3 = 9 distinct MapTileData entries (each with unique coord + terrain_type + elevation + hp values)
   - When: `ResourceSaver.save(m, "user://test_map.tres")` then `ResourceLoader.load("user://test_map.tres", "", ResourceLoader.CACHE_MODE_IGNORE)` as MapResource
   - Then: loaded.map_rows/map_cols/terrain_version match saved; loaded.tiles.size() == 9; each loaded tile's coord, terrain_type, elevation, tile_state, is_destructible, destruction_hp, occupant_id, occupant_faction, is_passable_base match the corresponding saved tile field-by-field
   - Edge cases: temp file cleaned up in after_test; CACHE_MODE_IGNORE consistent with ADR-0003 convention

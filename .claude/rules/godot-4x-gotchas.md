@@ -336,6 +336,38 @@ func _cleanup_battle_ref(battle_ref: Variant) -> void:
 
 ---
 
+## G-12 — User `class_name` must not collide with Godot built-in classes
+
+**Context**: declaring a user `class_name` for a Resource / Node / etc.
+
+**Broken**: Godot 4.6 silently registers user `class_name` in `.godot/global_script_class_cache.cfg` even when the name collides with a built-in (e.g., `TileData`, `Tween`, `Material`). The engine built-in wins at parse-time resolution; user-class member access fails with the misleading error:
+
+```
+Parser Error: Could not resolve external class member "foo"
+```
+
+Even a minimal probe `var m: MyClass = MyClass.new(); print(m.field)` fails. `.uid` files are generated correctly, so the error is entirely parse-time, not import-time.
+
+**Correct**: Choose a `class_name` that doesn't collide. Prefix with project/domain scope (`MapTileData` instead of `TileData`, `GameTween` instead of `Tween`). Before declaring any new `class_name`, search Godot docs for built-in class list and verify no collision.
+
+```gdscript
+# BROKEN — silently registered, but TileData built-in wins at parse time
+class_name TileData extends Resource   # collides with Godot 4.4+ TileSet API
+@export var coord: Vector2i
+
+# CORRECT — project-scoped prefix
+class_name MapTileData extends Resource
+@export var coord: Vector2i
+```
+
+**Collision-prone names to avoid** (non-exhaustive): `TileData`, `TileMap`, `TileSet`, `Tween`, `Material`, `Curve`, `Shape2D`, `Shape3D`, `Timer`, `Animation`, `Node`, `Resource`. When in doubt, prefix.
+
+**Symptom misdirection**: the error message points at member access, not at the `class_name` declaration. Without knowing this gotcha, diagnosis tends toward "is my export working?" / "is the import cache stale?" — neither of which is the actual cause.
+
+**Discovered**: map-grid story-001 round-2 (parse error blocked ALL `map_resource_test` discovery; not resolved by cache-refresh editor passes; only resolved by the `TileData` → `MapTileData` rename).
+
+---
+
 ## Verification Pattern Summary
 
 When testing changes that touch any of the above areas, always:

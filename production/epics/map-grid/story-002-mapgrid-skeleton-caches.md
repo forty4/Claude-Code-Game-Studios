@@ -112,8 +112,8 @@
   - Edge cases: 15×15 returns `Vector2i(15, 15)`
 
 - **AC-7**: V-2 disk asset unchanged after duplicate_deep mutation (round-trip)
-  - Given: MapResource saved to `user://test_map_v2.tres`; MapGrid loaded from disk; runtime mutation of `grid._map.tiles[0].destruction_hp` to a sentinel value
-  - When: `ResourceLoader.load("user://test_map_v2.tres", "", ResourceLoader.CACHE_MODE_IGNORE)` re-loaded from disk
+  - Given: MapResource saved to `user://map_grid_test_v2_round_trip.tres`; MapGrid loaded from disk; runtime mutation of `grid._map.tiles[0].destruction_hp` to a sentinel value
+  - When: `ResourceLoader.load("user://map_grid_test_v2_round_trip.tres", "", ResourceLoader.CACHE_MODE_IGNORE)` re-loaded from disk
   - Then: the freshly-loaded resource's `tiles[0].destruction_hp` equals the original saved value, NOT the sentinel — the disk asset was not mutated by runtime play
   - Edge cases: CACHE_MODE_IGNORE critical here (stale-cache would hide the check); same assertion across multiple tile indices to guard against partial-share leak
 
@@ -149,7 +149,7 @@
 
 **Deviations** (all ADVISORY; zero runtime impact — logged to TD-032 batch):
 - **DEP-1 (ADR-0004 §Decision 4)**: `duplicate_deep(Resource.DEEP_DUPLICATE_ALL)` used instead of ADR-prescribed `DEEP_DUPLICATE_ALL_BUT_SCRIPTS`. The prescribed enum value does not exist in Godot 4.6's `DeepDuplicateMode` (only NONE/INTERNAL/ALL). Documented in-code (map_grid.gd:58–62); matches save_manager.gd TD-024 precedent. TD-032 A-9.
-- **DEP-2 (story-002 QA cases)**: AC-7 test file path is `user://map_grid_test_v2_round_trip.tres`; story-authored path was `user://test_map_v2.tres`. Impl choice is better (self-documenting, matches map_resource_test.gd naming). Story-doc audit-trail update deferred. TD-032 A-10.
+- **DEP-2 (story-002 QA cases)**: AC-7 test file path is `user://map_grid_test_v2_round_trip.tres`; story-authored path was `user://map_grid_test_v2_round_trip.tres`. Impl choice is better (self-documenting, matches map_resource_test.gd naming). Story-doc audit-trail update deferred. TD-032 A-10.
 - **DEP-3 (story-003 scope)**: `load_map(null)` has no null-guard and no test. Validator story-003 is the intended gating point per story §Implementation Notes; cheap defensive null-guard deferred to that story. Not added as errata — normal scope handoff.
 - **Code-review SUGGESTIONS (optional test polish)**: 4× `assert_bool(vec == ...)` could be `assert_that(vec).is_equal(...)` for better failure diffs; 3× redundant `as int` casts on `PackedByteArray` access. Both low-priority. TD-032 A-7 + A-8.
 

@@ -87,6 +87,19 @@ const FACTION_ENEMY: int = 2  ## AI-controlled unit.
 ## tile whose current state forbids the requested transition.
 const ERR_ILLEGAL_STATE_TRANSITION := "ERR_ILLEGAL_STATE_TRANSITION"
 
+# ─── Load-time clamp warning codes (TD-032 A-12) ──────────────────────────────
+#
+# Symmetric to ERR_* constants above. Populated into _last_load_warnings by
+# _apply_load_time_clamps() so tests can assert the V-2 invariant narrative
+# ("we clamped but we told you") rather than relying on push_warning side effects.
+
+## A tile had destruction_hp < 0 on disk; clamped to 0. Format: WARN...(col,row)
+const WARN_NEGATIVE_DESTRUCTION_HP := "WARN_NEGATIVE_DESTRUCTION_HP"
+
+## A destructible tile arrived with destruction_hp == 0; tile_state set to DESTROYED.
+## Format: WARN...(col,row)
+const WARN_DESTRUCTIBLE_ZERO_HP_SET_DESTROYED := "WARN_DESTRUCTIBLE_ZERO_HP_SET_DESTROYED"
+
 ## Valid map dimension bounds (GDD §EC-1 / §EC-7).
 const MAP_COLS_MIN: int = 15
 const MAP_COLS_MAX: int = 40
@@ -102,6 +115,12 @@ var _map: MapResource = null
 ## Errors from the most recent load_map() call. Empty if validation passed.
 ## Access via get_last_load_errors(); never modify this array directly.
 var _last_load_errors: PackedStringArray = PackedStringArray()
+
+## Warnings from the most recent load_map() call (TD-032 A-12). Symmetric to
+## _last_load_errors but for non-fatal clamp warnings (negative destruction_hp,
+## destructible tile loaded with hp=0). Populated by _apply_load_time_clamps.
+## Access via get_last_load_warnings(); never modify this array directly.
+var _last_load_warnings: PackedStringArray = PackedStringArray()
 
 ## Packed terrain-type values — one int per tile, index = row * cols + col.
 var _terrain_type_cache: PackedInt32Array = PackedInt32Array()
@@ -154,6 +173,7 @@ func load_map(res: MapResource) -> bool:
 	# guard on _map == null, so only _map needs resetting for the inert contract;
 	# packed caches are rebuilt wholesale on the success path below.
 	_map = null
+	_last_load_warnings = PackedStringArray()  # TD-032 A-12: clear warnings before re-populate.
 
 	_last_load_errors = _validate_map(res)
 	if not _last_load_errors.is_empty():
@@ -243,7 +263,7 @@ func get_map_dimensions() -> Vector2i:
 ##   "ERR_ELEVATION_TERRAIN_MISMATCH(0,0,0,2)"
 ##
 ## Clamp warnings (§EC-5 negative destruction_hp) do NOT appear here — they are
-## emitted via push_warning and do not contribute to the error list.
+## available via [method get_last_load_warnings] and do not contribute to the error list.
 ##
 ## Example:
 ##   var ok: bool = grid.load_map(res)
@@ -252,6 +272,26 @@ func get_map_dimensions() -> Vector2i:
 ##           print(err)
 func get_last_load_errors() -> PackedStringArray:
 	return _last_load_errors
+
+
+## Return the clamp-warning list from the most recent load_map() call (TD-032 A-12).
+##
+## Returns an empty PackedStringArray when no clamp-worthy tiles were encountered
+## (or load_map() has never been called). Each entry is a warning-code string of
+## the form "WARN_CODE(col,row)", e.g.:
+##   "WARN_NEGATIVE_DESTRUCTION_HP(5,3)"
+##   "WARN_DESTRUCTIBLE_ZERO_HP_SET_DESTROYED(2,7)"
+##
+## Symmetric to [method get_last_load_errors] but for non-fatal clamp warnings
+## emitted by [method _apply_load_time_clamps]. Tests can assert exact counts and
+## per-coord identification — silent clamps are no longer possible.
+##
+## Example:
+##   grid.load_map(res)
+##   for warn in grid.get_last_load_warnings():
+##       print(warn)
+func get_last_load_warnings() -> PackedStringArray:
+	return _last_load_warnings
 
 # ─── Private helpers ──────────────────────────────────────────────────────────
 
@@ -344,35 +384,44 @@ func _validate_map(res: MapResource) -> PackedStringArray:
 ## asset is never touched; this runs on _map after duplicate_deep).
 ##
 ## Clamp cases (GDD §EC-5, §EC-7):
-##   - destruction_hp < 0 → clamp to 0; push_warning once per map (not per tile)
+##   - destruction_hp < 0 → clamp to 0; warning per offending tile in
+##     [member _last_load_warnings] (TD-032 A-12 changed from once-per-map to
+##     per-tile so tests can assert exact counts and per-coord identification).
 ##   - is_destructible == true && destruction_hp == 0 → set tile_state to DESTROYED;
-##     push_warning once per map
+##     warning per offending tile.
 ##
 ## These are warnings only; they do not contribute to the error list and do not
-## prevent the map from loading.
+## prevent the map from loading. Both push_warning (visible in editor / CI logs)
+## and [member _last_load_warnings] (testable contract) are populated.
 func _apply_load_time_clamps(map: MapResource) -> void:
-	var warned_negative_hp: bool = false
-	var warned_zero_hp_destructible: bool = false
+	var pushed_negative_hp_summary: bool = false
+	var pushed_zero_hp_destructible_summary: bool = false
 
 	for t: MapTileData in map.tiles:
 		# Clamp negative destruction_hp to 0.
 		if t.destruction_hp < 0:
 			t.destruction_hp = 0
-			if not warned_negative_hp:
+			_last_load_warnings.append(
+				"%s(%d,%d)" % [WARN_NEGATIVE_DESTRUCTION_HP, t.coord.x, t.coord.y]
+			)
+			if not pushed_negative_hp_summary:
 				push_warning(
 					"MapGrid: one or more tiles had destruction_hp < 0; clamped to 0 (GDD §EC-5)"
 				)
-				warned_negative_hp = true
+				pushed_negative_hp_summary = true
 
 		# Treat is_destructible=true + destruction_hp=0 as DESTROYED state.
 		if t.is_destructible and t.destruction_hp == 0:
 			t.tile_state = TILE_STATE_DESTROYED
-			if not warned_zero_hp_destructible:
+			_last_load_warnings.append(
+				"%s(%d,%d)" % [WARN_DESTRUCTIBLE_ZERO_HP_SET_DESTROYED, t.coord.x, t.coord.y]
+			)
+			if not pushed_zero_hp_destructible_summary:
 				push_warning(
 					"MapGrid: one or more destructible tiles had destruction_hp == 0;" \
 					+ " tile_state set to DESTROYED (GDD §EC-7)"
 				)
-				warned_zero_hp_destructible = true
+				pushed_zero_hp_destructible_summary = true
 
 
 # ─── Mutation API (GridBattleController-only by convention — ADR-0004 §Decision 6) ──
