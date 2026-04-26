@@ -1,11 +1,12 @@
-# Story 006: Stage 3-4 — raw damage + counter halve + DAMAGE_CEILING + ResolveResult construction + source_flags + AC-DC-51 bypass-seam
+# Story 006: Stage 3-4 — raw damage + counter halve + DAMAGE_CEILING + ResolveResult construction + source_flags + N-1 enum-cast fix + AC-DC-51 bypass-seam
 
 > **Epic**: damage-calc
 > **Status**: Ready
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
-> **Estimate**: 5-6 hours (Stage 3-4 pipeline + final cap + counter halve + ResolveResult + source_flags semantics + AC-DC-51 bypass-seam test + static lints + 10 ACs — final-pipeline integration story)
+> **Estimate**: ~5 hours (Stage 3-4 pipeline + final cap + counter halve + ResolveResult + source_flags semantics + AC-DC-N1 enum-cast fix + AC-DC-51 bypass-seam test + static lints + 11 ACs — final-pipeline integration story)
+> **Scope split note (2026-04-26)**: Split from original "story-006 (10 ACs ~6h)" via /story-readiness. AC-DC-48 (TUNING knobs read from registry) + the BalanceConstants wrapper / entities.yaml authoring / hardcoded-constants migration moved to **story-006b** for cleaner review surface and faster vertical-slice unblock. Hardcoded constants from stories 004/005 remain in `damage_calc.gd` until 006b lands; this story preserves the TODO(story-006) → TODO(story-006b) comments.
 
 ## Context
 
@@ -22,10 +23,12 @@
 **Control Manifest Rules (Feature layer)**:
 - Required: `source_flags` is ALWAYS a fresh `Array[StringName]` constructed via `modifiers.source_flags.duplicate()` then appended (per ADR-0012 §12); never mutates caller
 - Required: All flag literals use `&"foo"` StringName syntax (release-build defense per AC-DC-51)
-- Required: All tuning constants read via `DataRegistry.get_const()` or `BalanceConstants` wrapper — `DAMAGE_CEILING=180`, `COUNTER_ATTACK_MODIFIER=0.5`, `MIN_DAMAGE=1`, plus `CHARGE_BONUS=1.20` and `AMBUSH_BONUS=1.15` (from story-005 references — registry read verified here via AC-DC-48)
+- Required: `ResolveResult.HIT/MISS` construction sets `attack_type` via explicit conversion from `ResolveModifiers.AttackType` (NEVER via `as ResolveResult.AttackType` cast — AC-DC-N1 eliminates the silent enum-divergence time-bomb at the construction site)
+- Required: All NEW tuning constants introduced this story (`DAMAGE_CEILING=180`, `COUNTER_ATTACK_MODIFIER=0.5`) hardcoded with `TODO(story-006b)` comments — match the existing pattern from stories 004/005. story-006b discharges all hardcoding in one PR.
 - Forbidden: `signal` declarations or `connect()` calls in `damage_calc.gd` (AC-DC-34 static lint enforced this story)
 - Forbidden: `apply_damage` or `hp_status` write-path calls in `damage_calc.gd` (AC-DC-35 static lint enforced this story)
 - Forbidden: `Dictionary(` or standalone `{` constructor inside reachable `resolve()` body except `build_vfx_tags` helper (AC-DC-41 static lint — verified in story-008)
+- Forbidden: literal `int(` substring anywhere in `damage_calc.gd` (F-1 grep-policy Option 1 — parity with stories 004/005; AC-10 grep test from story-004 enforces)
 
 ---
 
@@ -41,7 +44,7 @@
 - [ ] **AC-DC-34 (zero signals)**: static grep on `damage_calc.gd` for `signal ` and `emit_signal` returns 0 matches; CI-lint integrated
 - [ ] **AC-DC-35 (no apply_damage)**: static grep on `damage_calc.gd` for `apply_damage` and `hp_status` write-path returns 0 matches; CI-lint integrated
 - [ ] **AC-DC-36 (vfx_tags populated)**: for each provenance flag {charge, ambush, counter, terrain_penalty}, assert tag present in `ResolveResult.HIT.vfx_tags` when condition fires, absent when does not. Test all 8 combinations of {charge, ambush, counter}.
-- [ ] **AC-DC-48 (TUNING knobs from registry)**: grep `1.20` and `1.15` literal floats in `damage_calc.gd` returns 0 matches; unit test mocks `BalanceConstants.get_const("CHARGE_BONUS") -> 1.30`, runs D-3 fixture, asserts resolved_damage changes accordingly (proves live registry read)
+- [ ] **AC-DC-N1 (NEW — enum-cast time-bomb fix, deferred from story-004 /code-review)**: `ResolveResult.HIT` construction at the resolve() return path sets `attack_type` via an explicit conversion from `ResolveModifiers.AttackType` to `ResolveResult.AttackType` (e.g., a match expression or a static `_to_result_attack_type()` helper). NEVER via `as ResolveResult.AttackType` direct cast (the cast silently reinterprets ints; if either enum diverges in ordering or adds a value, the result becomes wrong without a compile-time signal). Test: construct PHYSICAL and MAGICAL ResolveModifiers, run resolve(), assert `result.attack_type == ResolveResult.AttackType.PHYSICAL` and `== ResolveResult.AttackType.MAGICAL` respectively (one assertion per attack_type — pin the conversion contract).
 - [ ] **AC-DC-51 (StringName boundary bypass-seam)**: per ADR-0012 R-9 mitigation — direct private-helper call with locally-constructed untyped `Array` containing `String` elements; assert `&"passive_charge" in arr` returns false; P_mult=1.00; positive case (`Array[StringName]` with `&"passive_charge"`) returns P_mult=1.20 through normal `resolve()` entry. Test file extends `GdUnitTestSuite` (Node base) for `@onready` decorator support.
 - [ ] `source_flags` always-new-Array semantics verified: re-call resolve() with same modifiers → no flag accumulation across calls
 - [ ] `damage_calc.gd` total LoC ≈ 250-400 (sanity check; not blocking) — F-DC-1 master pipeline + 6 private helpers ((`_evasion_check`, `_stage_1_base_damage`, `_direction_multiplier`, `_passive_multiplier`, `_stage_2_raw_damage`, `_counter_reduction`) + invariant guards + factory wrappers
@@ -77,7 +80,25 @@
   ```gdscript
   return ResolveResult.miss([&"evasion"])  # Stage 0 evasion path
   ```
-- **`COUNTER_ATTACK_MODIFIER`, `DAMAGE_CEILING`, `MIN_DAMAGE`, `CHARGE_BONUS`, `AMBUSH_BONUS`** constants: read via `BalanceConstants.get_const(key)` (provisional wrapper) or `DataRegistry.get_const(key)` (post-ADR-0006). NEVER hardcoded — AC-DC-48 grep gate enforces.
+- **`COUNTER_ATTACK_MODIFIER`, `DAMAGE_CEILING`** constants (NEW this story): hardcoded with `TODO(story-006b)` migration comment, matching the pattern from stories 004/005 (BASE_CEILING/MIN_DAMAGE/ATK_CAP/DEF_CAP/DEFEND_STANCE_ATK_PENALTY/P_MULT_COMBINED_CAP/CHARGE_BONUS/AMBUSH_BONUS/dir-mult tables). story-006b discharges all hardcoding and AC-DC-48 grep gate together. Pre-resolved: BalanceConstants wrapper does not yet exist; do NOT build it here — that's 006b's scope.
+- **AC-DC-N1 enum-cast fix** (NEW this story): the current resolve() return at `damage_calc.gd:82` (today, post-story-005) uses `as ResolveResult.AttackType` direct cast. Replace with explicit conversion. Two acceptable patterns:
+  ```gdscript
+  # Pattern A — inline match
+  var rr_attack_type: ResolveResult.AttackType = (
+      ResolveResult.AttackType.PHYSICAL
+      if modifiers.attack_type == ResolveModifiers.AttackType.PHYSICAL
+      else ResolveResult.AttackType.MAGICAL)
+
+  # Pattern B — static helper
+  static func _to_result_attack_type(rm_type: ResolveModifiers.AttackType) -> ResolveResult.AttackType:
+      match rm_type:
+          ResolveModifiers.AttackType.PHYSICAL: return ResolveResult.AttackType.PHYSICAL
+          ResolveModifiers.AttackType.MAGICAL: return ResolveResult.AttackType.MAGICAL
+          _: 
+              push_error("DamageCalc: unmapped attack_type=%d" % rm_type)
+              return ResolveResult.AttackType.PHYSICAL
+  ```
+  Pattern B is preferred — surfaces a future enum mismatch via push_error rather than silent fallthrough. Replace the `modifiers.attack_type as ResolveResult.AttackType` cast at the existing resolve() return + every NEW return path added this story (HIT and MISS construction).
 - **AC-DC-51 bypass-seam test pattern** (per ADR-0012 §2 + §10 #4 + R-9 + damage-calc.md AC-DC-51 rev 2.6):
   - Test class: `extends GdUnitTestSuite` (Node base) for `@onready` decorator support per ADR-0012 §10 #4 — required ONLY for this AC-DC-51(b) test class; other tests may use the lighter RefCounted base.
   - Test exposes `@onready var _passive_mul := Callable(DamageCalc, "_passive_multiplier_for_test")` — a test-only entry point on `DamageCalc` that accepts an external passives Array parameter overriding the attacker's own.
@@ -88,7 +109,7 @@
   - Assert `P_mult == 1.00` — because `&"passive_charge" in ["passive_charge"]` returns `false` (StringName ≠ String comparison).
   - Positive case: same setup with `Array[StringName]` typed `[&"passive_charge"]` through normal `resolve()` entry — assert `P_mult == 1.20`.
 - **AC-DC-33/34/35 static lints**: integrate as CI grep steps in this story's PR. Pattern matches PR #43 (terrain-effect story-008) static-lint additions to `.github/workflows/tests.yml`.
-- **AC-DC-48 registry-read test**: mock `BalanceConstants.get_const("CHARGE_BONUS") -> 1.30` (instead of 1.20); run D-3 fixture; assert `resolved_damage` changes from 59 (with 1.20) to `floori(30×1.64×1.30) = 63` (with 1.30) — proves live registry read, not cached literal.
+- **AC-DC-48 deferred to story-006b** — see §Out of Scope below.
 
 ---
 
@@ -96,7 +117,8 @@
 
 *Handled by neighbouring stories — do not implement here:*
 
-- Story 007: F-GB-PROV retirement + entities.yaml damage_resolve registration + Grid Battle integration tests (AC-DC-29/31/42/43/44)
+- **Story 006b**: BalanceConstants wrapper + entities.yaml scaffolding + migrate ALL hardcoded constants from stories 004/005/006 (BASE_CEILING, MIN_DAMAGE, ATK_CAP, DEF_CAP, DEFEND_STANCE_ATK_PENALTY, P_MULT_COMBINED_CAP, CHARGE_BONUS, AMBUSH_BONUS, BASE_DIRECTION_MULT, CLASS_DIRECTION_MULT, DAMAGE_CEILING, COUNTER_ATTACK_MODIFIER) + AC-DC-48 grep gate verification + live-registry-read mock test. Splits original story-006 into 006 (this story — Stage 3-4 + N-1 fix + AC-DC-51) and 006b (constants migration) per /story-readiness 2026-04-26.
+- Story 007: F-GB-PROV retirement + entities.yaml damage_resolve registration + Grid Battle integration tests (AC-DC-29/31/42/43/44). Note: story-006b creates entities.yaml; story-007 adds the damage_resolve schema entry to it.
 - Story 008: AC-DC-39 RNG replay determinism (full-pipeline level test) + AC-DC-41 Dictionary-alloc static lint + AC-DC-49/50 engine-pin
 - Story 009: AC-DC-45/46/47 accessibility UI tests
 - Story 010: AC-DC-40(a)/(b) performance baseline
@@ -150,10 +172,11 @@
   - Then: `result.vfx_tags` contains `&"charge"` iff charge fired; `&"ambush"` iff ambush fired; `&"counter"` iff is_counter; `&"terrain_penalty"` iff terrain_def > 0
   - Edge cases: all-flags-firing case has vfx_tags = [`&"charge"`, `&"counter"`, `&"terrain_penalty"`] (Charge+counter is structurally impossible — but if a test bypasses via subclass, only `&"counter"` and `&"terrain_penalty"` set since Charge guard blocks)
 
-- **AC-9 (AC-DC-48 TUNING knobs from registry)**:
-  - Given: 2 test runs with mocked `BalanceConstants.get_const("CHARGE_BONUS")` returning 1.20 vs 1.30
-  - When: D-3 fixture runs
-  - Then: resolved_damage values 59 vs 63 respectively; supplementary: grep `1\\.20\\|1\\.15` in `damage_calc.gd` returns 0 matches
+- **AC-9 (AC-DC-N1 NEW — enum-cast time-bomb fix)**:
+  - Given: two `ResolveModifiers` instances, one with `attack_type=PHYSICAL`, one with `attack_type=MAGICAL`; otherwise identical fixture (Cavalry FRONT, no charge, no rally, no formation, baseline ATK/DEF — D-1 setup)
+  - When: each `resolve()`
+  - Then: `result.attack_type == ResolveResult.AttackType.PHYSICAL` and `== ResolveResult.AttackType.MAGICAL` respectively
+  - Edge cases: grep `damage_calc.gd` for ` as ResolveResult.AttackType` returns 0 matches (the cast is replaced with the explicit conversion); future enum divergence test (synthetic: pretend ResolveResult.AttackType has a 3rd value the conversion doesn't handle, verify push_error fires) is OPTIONAL — basic 2-case PHYSICAL/MAGICAL coverage is sufficient for this story
 
 - **AC-10 (AC-DC-51 StringName bypass-seam)**:
   - Given: `var wrong_typed: Array = ["passive_charge"]` (untyped Array, String element); empty `attacker.passives`; Cavalry charge_active=true
