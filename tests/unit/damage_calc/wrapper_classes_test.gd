@@ -261,3 +261,33 @@ func test_class_names_collision_free_with_godot_builtins() -> void:
 	assert_bool(ClassDB.class_exists("DefenderContext")).is_false()
 	assert_bool(ClassDB.class_exists("ResolveModifiers")).is_false()
 	assert_bool(ClassDB.class_exists("ResolveResult")).is_false()
+
+
+# ---------------------------------------------------------------------------
+# AC-7 (story-005) — ResolveModifiers.acted_this_turn_callable field
+# ---------------------------------------------------------------------------
+
+## AC-7 (story-005): acted_this_turn_callable defaults to Callable() (not valid, no-op).
+## Verifies the field is settable and the injected Callable invokes correctly per AC-DC-09.
+func test_resolve_modifiers_acted_this_turn_callable_defaults_and_is_injectable() -> void:
+	# Arrange / Act — required-args-only factory (callable defaults to Callable())
+	var rng := RandomNumberGenerator.new()
+	var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1)
+
+	# Assert default: Callable() is not valid (is_valid() returns false per GDScript contract)
+	assert_bool(mod.acted_this_turn_callable.is_valid()).is_false()
+
+	# Inject a test callable that returns false (defender not acted)
+	var not_acted_callable := func(_unit_id: StringName) -> bool: return false
+	mod.acted_this_turn_callable = not_acted_callable
+
+	# Assert: callable is now valid and invokes correctly
+	assert_bool(mod.acted_this_turn_callable.is_valid()).is_true()
+	var result_not_acted: bool = mod.acted_this_turn_callable.call(&"unit_x") as bool
+	assert_bool(result_not_acted).is_false()
+
+	# Inject a callable that returns true (defender has acted)
+	var acted_callable := func(_unit_id: StringName) -> bool: return true
+	mod.acted_this_turn_callable = acted_callable
+	var result_acted: bool = mod.acted_this_turn_callable.call(&"unit_x") as bool
+	assert_bool(result_acted).is_true()
