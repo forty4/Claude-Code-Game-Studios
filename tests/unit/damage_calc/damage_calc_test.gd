@@ -126,17 +126,23 @@ func test_valid_directions_pass_guard() -> void:
 
 
 # ---------------------------------------------------------------------------
-# AC-4 (AC-DC-28) — bad attack_type guard via TestResolveModifiersBypass
+# AC-4 (AC-DC-28) — bad attack_type guard via direct int-to-enum assignment
 # ---------------------------------------------------------------------------
 
-## AC-4: attack_type == 99 (bypassed via subclass) returns MISS with bad_attack_type flag.
-func test_bad_attack_type_via_bypass_subclass() -> void:
-	# Arrange — TestResolveModifiersBypass shadows attack_type as untyped int
+## AC-4: attack_type == 99 returns MISS with bad_attack_type flag.
+##
+## Bypass technique: GDScript enums are runtime ints. Assigning an out-of-range
+## int (99) to an enum-typed field passes parse-time but triggers our `not in
+## [PHYSICAL, MAGICAL]` guard at runtime. This is simpler than the originally-
+## planned `TestResolveModifiersBypass` subclass-shadow approach (which Godot
+## 4.6 parser rejected with "Could not resolve external class member" on first
+## CI attempt — see PR #56 commit history).
+func test_bad_attack_type_returns_invariant_violation_flag() -> void:
+	# Arrange — start with valid PHYSICAL, then force-assign 99 (out-of-enum-range)
 	var rng := RandomNumberGenerator.new()
-	var mod := TestResolveModifiersBypass.new()
-	mod.rng = rng
-	mod.direction_rel = &"FRONT"
-	mod.attack_type = 99   # bypasses AttackType enum binding
+	var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1)
+	@warning_ignore("int_as_enum_without_cast")
+	mod.attack_type = 99
 
 	# Act
 	var result: ResolveResult = DamageCalc.resolve(_atk, _def, mod)
