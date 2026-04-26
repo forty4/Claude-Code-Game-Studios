@@ -25,7 +25,7 @@
 
 **Stories total**: 10 — 1 Config/Data, 6 Logic, 2 Integration, 1 Visual/Feel.
 
-**Implementation order**: 001 → 002 → 003 → 004 → 005 → 006 → {007, 008, 009, 010 — parallel after 006 lands}.
+**Implementation order** (vertical-slice replan 2026-04-26): **Core path 001 → 002 → 003 → 004 → 005 → 006 → 007 = first-playable damage roll demo** (target: ~5/24 end of Sprint 2). **Polish stories 008 (cross-platform determinism) + 009 (a11y UI tests) + 010 (perf baseline) deferred** to a post-vertical-slice phase — story-001 already scaffolded the CI matrix that runs them weekly + on rc/* tags, so divergence still surfaces as WARN annotations during deferral. Rationale: prioritize a working damage-roll loop (story-007 Grid Battle integration end-to-end) over completing all 10 stories in sequence.
 
 **AC coverage**: All 53 GDD ACs assigned across 10 stories. AC-DC-51(b) bypass-seam test class extends `GdUnitTestSuite` (Node base) per ADR-0012 §10 #4.
 

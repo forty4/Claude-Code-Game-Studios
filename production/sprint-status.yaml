@@ -6,7 +6,7 @@ goal: "Close last in-flight Foundation/Core story; ratify ADR-0012 Damage Calc; 
 start: "2026-04-26"
 end: "2026-05-10"
 generated: "2026-04-26"
-updated: "2026-04-26"  # S1-01..S1-05 + S1-08 closed this date — S1-08 PR #52 merged (damage-calc story-001 CI prerequisite); macOS hard-gate deferred to TD-036
+updated: "2026-04-26"  # S1-01..S1-05 + S1-08 closed; vertical-slice replan: S1-06/S1-07 deferred to Sprint 2 (provisional pattern unblocks damage-calc 002-007 without ADR-0009)
 
 stories:
   - id: "S1-01"
@@ -63,7 +63,12 @@ stories:
     name: "Author ADR-0009 Unit Role"
     file: "docs/architecture/ADR-0009-unit-role.md (to be created)"
     priority: should-have
-    status: backlog
+    # Deferred to Sprint 2 per vertical-slice replan (2026-04-26):
+    # damage-calc stories 002-007 use the provisional pattern (local const tables in damage_calc.gd
+    # using unit-role.md §EC-7 locked values verbatim) per ADR-0012 §8 + EPIC.md "Provisional Dependencies".
+    # ADR-0009 ratifies (does not negotiate) when authored — Sprint 2 ratify-only pass (~half day).
+    # Rationale: prioritize first-playable damage roll demo over upstream-ADR completionism.
+    status: deferred-to-sprint-2
     owner: ""
     estimate_days: 1.5
     blocker: ""
@@ -73,7 +78,8 @@ stories:
     name: "/architecture-review ADR-0009 delta → Accepted"
     file: ""
     priority: should-have
-    status: backlog
+    # Deferred to Sprint 2 — automatically follows S1-06 (blocker chain).
+    status: deferred-to-sprint-2
     owner: ""
     estimate_days: 0.5
     blocker: "S1-06"
