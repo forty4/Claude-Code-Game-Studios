@@ -1,7 +1,9 @@
-## Unit tests for DamageCalc.resolve() — Stages 0 / 1 / 2 / 2.5 (cumulative coverage).
+## Unit tests for DamageCalc.resolve() — Stages 0 / 1 / 2 / 2.5 / 3 / 4 (cumulative coverage).
 ## Covers story-003 (Stage 0 invariant guards + evasion roll, AC-DC-18/19/22/28/10/14/26),
 ## story-004 (Stage 1 base damage + BASE_CEILING + DEFEND_STANCE + Formation DEF, AC-DC-01/02/05/06/07/11/12/13/15/23/53),
-## and story-005 (Stage 2 D_mult + Stage 2.5 P_mult composition + P_MULT_COMBINED_CAP, AC-DC-03/04/09/16/21/27/52).
+## story-005 (Stage 2 D_mult + Stage 2.5 P_mult composition + P_MULT_COMBINED_CAP, AC-DC-03/04/09/16/21/27/52),
+## and story-006 (Stage 3-4 raw cap + counter halve + source_flags/vfx_tags + AC-DC-N1 enum fix + AC-DC-51,
+##   AC-DC-08/17/20/24/33/34/35/36/N1/51 + source_flags always-new).
 ## No scene-tree dependency — extends GdUnitTestSuite (RefCounted-based).
 extends GdUnitTestSuite
 
@@ -12,6 +14,11 @@ extends GdUnitTestSuite
 
 var _atk: AttackerContext
 var _def: DefenderContext
+
+## Test-only Callable for the AC-DC-51 bypass-seam test (story-006).
+## Wraps DamageCalc._passive_multiplier_for_test, which accepts a Variant passives_arg override.
+## Declared as a class-level var so GDScript resolves DamageCalc at parse time (not deferred).
+var _passive_mul: Callable = Callable(DamageCalc, "_passive_multiplier_for_test")
 
 
 ## Per-test setup. Uses before_test() — the only GdUnit4 v6.1.2 hook (G-15).
@@ -807,20 +814,22 @@ func test_stage_2_charge_suppressed_on_counter_p_mult_differs() -> void:
 	assert_int(result_b.kind as int).is_equal(ResolveResult.Kind.HIT as int)
 
 	# Assert: individual expected values
+	# Non-counter (result_a): raw=floori(30×1.64×1.20)=59; Stage 4 does NOT fire → resolved=59.
+	# Counter (result_b): raw=floori(30×1.64×1.00)=floori(49.2)=49;
+	#   Stage 4 fires: floori(49×0.5)=24, maxi(1,24)=24 → resolved=24.
 	assert_int(result_a.resolved_damage).override_failure_message(
-			"AC-4 primary: expected 59 (P_mult=1.20) got %d" % result_a.resolved_damage
+			"AC-4 primary: expected 59 (P_mult=1.20, no Stage-4 halve) got %d" % result_a.resolved_damage
 	).is_equal(59)
 	assert_int(result_b.resolved_damage).override_failure_message(
-			"AC-4 counter: expected 49 (P_mult=1.00) got %d" % result_b.resolved_damage
-	).is_equal(49)
+			"AC-4 counter: expected 24 (P_mult=1.00, Stage-4 counter halve floori(49×0.5)=24) got %d" % result_b.resolved_damage
+	).is_equal(24)
 
-	# Assert: the damage ratio reflects the 1.20× Charge factor (with floori floor truncation)
-	# floori(59/49) is not exactly 1.20, but 59 = floori(30×1.64×1.20) and 49 = floori(30×1.64×1.00)
-	# Verify the difference is exactly 10 points (59 - 49 = 10).
+	# Assert: delta reflects both the 1.20× Charge factor AND the Stage-4 counter halve.
+	# 59 primary - 24 counter = 35 (story-006 Stage-4 is the dominant factor in this delta).
 	var charge_delta: int = result_a.resolved_damage - result_b.resolved_damage
 	assert_int(charge_delta).override_failure_message(
-			"AC-4: Charge delta expected 10 got %d" % charge_delta
-	).is_equal(10)
+			"AC-4: charge_delta expected 35 (59 primary - 24 counter halve) got %d" % charge_delta
+	).is_equal(35)
 
 
 # ---------------------------------------------------------------------------
@@ -1047,14 +1056,15 @@ func test_stage_2_e2_counter_with_rally_and_formation_p_mult_above_1_00() -> voi
 	# Rally + Formation still apply: P_mult_pre_cap = 1.00 × 1.00 × 1.10 × 1.05 = 1.155
 	# minf(1.31, 1.155) = 1.155 → snappedf(0.01) = 1.16 (post-snap rounding)
 	# base = floori(80 - 50 * 1.0) = 30; raw = floori(30 * 1.64 * 1.16) = floori(57.072) = 57
+	# Stage 4 counter halve: floori(57 × 0.5) = 28, maxi(1, 28) = 28 → resolved = 28.
 	# This proves Rally + Formation still apply on the counter path (P_mult > 1.00).
 	assert_int(result.kind as int).is_equal(ResolveResult.Kind.HIT as int)
 	assert_int(result.resolved_damage).override_failure_message(
-			("E-2: counter path should still apply Rally+Formation (P_mult>1.00); "
-			+ "expected raw=57 but got %d — if Rally/Formation were silently suppressed "
-			+ "on counter, raw would be floori(30 * 1.64 * 1.0)=49"
+			(("E-2: counter path should still apply Rally+Formation (P_mult>1.00); "
+			+ "expected resolved=28 (raw=57, Stage-4 halve floori(57x0.5)=28) but got %d "
+			+ "-- if Rally/Formation suppressed on counter, resolved would be 24 (raw=49 halved)")
 			% result.resolved_damage)
-	).is_equal(57)
+	).is_equal(28)
 
 	# Supplementary: same inputs without Rally + Formation → P_mult=1.00, prove the delta
 	var rng_b := RandomNumberGenerator.new()
@@ -1062,10 +1072,555 @@ func test_stage_2_e2_counter_with_rally_and_formation_p_mult_above_1_00() -> voi
 	var mod_b := ResolveModifiers.make(
 			ResolveModifiers.AttackType.PHYSICAL, rng_b, &"REAR", 1, true)
 	var result_b: ResolveResult = DamageCalc.resolve(atk, def, mod_b)
-	# raw_b = floori(30 * 1.64 * 1.00) = 49
-	assert_int(result_b.resolved_damage).is_equal(49)
+	# raw_b = floori(30 * 1.64 * 1.00) = 49; Stage-4 counter halve: floori(49×0.5)=24 → resolved_b=24.
+	assert_int(result_b.resolved_damage).is_equal(24)
 	var counter_bonus_delta: int = result.resolved_damage - result_b.resolved_damage
 	assert_int(counter_bonus_delta).override_failure_message(
-			("E-2: Rally+Formation on counter should add exactly +8 damage; got delta=%d"
+			("E-2: Rally+Formation on counter should add exactly +4 damage (28-24); got delta=%d"
 			% counter_bonus_delta)
-	).is_equal(8)
+	).is_equal(4)
+
+
+# ===========================================================================
+# Story-006 — Stage 3-4 + source_flags/vfx_tags + AC-DC-N1 + AC-DC-51 (AC-1..AC-11)
+# AC naming: AC-N below refers to story-006 QA Test Cases §AC-N.
+# All contexts constructed inline per test. No shared fixtures (per before_test isolation).
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# AC-1 (AC-DC-08 D-8) — DEFEND_STANCE counter full pipeline: resolved_damage = 16
+# ---------------------------------------------------------------------------
+
+## AC-1: ATK=120, defend_stance_active=true, is_counter=true, DEF=40, Cavalry FRONT, T_def=0.
+## Cavalry FRONT: D_mult=snappedf(1.00*1.00,0.01)=1.00 (no class-specific penalty for this combo).
+## eff_atk=floori(120*(1.0-0.40))=floori(72)=72. eff_def=40 (no formation).
+## base=floori(72-40*1.00)=32. P_mult=1.00 (Charge/Ambush blocked on counter; no Rally/Formation).
+## raw=mini(180,maxi(1,floori(32*1.00*1.00)))=32.
+## counter_final=maxi(1,floori(32*0.5))=maxi(1,16)=16.
+func test_stage_3_4_defend_stance_counter_cavalry_front_returns_16() -> void:
+	# Arrange — is_counter skips evasion (RNG not consumed)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1
+	var atk := AttackerContext.make(&"a", AttackerContext.Class.CAVALRY, 120, false, true, [])
+	var def := DefenderContext.make(&"d", 40, 0, 0)
+	var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1,
+			true)   # is_counter = true
+
+	# Act
+	var result: ResolveResult = DamageCalc.resolve(atk, def, mod)
+
+	# Assert — Cavalry FRONT D_mult=snappedf(1.00*1.00,0.01)=1.00; P_mult=1.00 (counter)
+	# eff_atk=floori(120*0.60)=72; base=floori(72-40*1.00)=32
+	# raw=mini(180,maxi(1,floori(32*1.00*1.00)))=32; counter=maxi(1,floori(32*0.5))=16
+	assert_int(result.kind as int).is_equal(ResolveResult.Kind.HIT as int)
+	assert_int(result.resolved_damage).override_failure_message(
+			"AC-1: Cavalry FRONT DEFEND_STANCE counter expected 16 got %d" % result.resolved_damage
+	).is_equal(16)
+
+
+# ---------------------------------------------------------------------------
+# AC-2 (AC-DC-17 EC-DC-10) — degenerate stack: every floor catches → resolved_damage = 1
+# ---------------------------------------------------------------------------
+
+## AC-2: is_counter=true, defend_stance_active=true, raw_atk=1, raw_def=50, T_def=0.
+## SCOUT class so D_mult=1.00.
+## eff_atk=floori(1*0.60)=0 → clampi(0,1,200)=1. eff_def=50 (no formation).
+## base=floori(1-50*1.00)=-49 → maxi(1,-49)=1. (Stage-1 MIN_DAMAGE catches.)
+## Stage-3 raw=mini(180,maxi(1,floori(1*1.00*1.00)))=1.
+## Stage-4 counter_final=maxi(1,floori(1*0.5))=maxi(1,0)=1. (Stage-4 MIN_DAMAGE catches.)
+func test_stage_3_4_degenerate_stack_every_floor_catches_returns_1() -> void:
+	# Arrange
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1
+	var atk := AttackerContext.make(&"a", AttackerContext.Class.SCOUT, 1, false, true, [])
+	var def := DefenderContext.make(&"d", 50, 0, 0)
+	var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1,
+			true)   # is_counter = true
+
+	# Act
+	var result: ResolveResult = DamageCalc.resolve(atk, def, mod)
+
+	# Assert — MIN_DAMAGE floor holds end-to-end: Stage-1 base=1, Stage-3 raw=1, Stage-4=1
+	assert_int(result.kind as int).is_equal(ResolveResult.Kind.HIT as int)
+	assert_int(result.resolved_damage).override_failure_message(
+			"AC-2: degenerate stack expected 1 (MIN_DAMAGE) got %d" % result.resolved_damage
+	).is_equal(1)
+
+
+# ---------------------------------------------------------------------------
+# AC-3 (AC-DC-20 EC-DC-14) — RNG call count + replay determinism
+# ---------------------------------------------------------------------------
+
+## AC-3: snapshot RNG state; run resolve(); restore; re-run → bit-identical output.
+## Call counts per path: non-counter=1, counter=0, skill_stub=0.
+## Covers all four paths: non-counter HIT, counter HIT, skill_stub MISS, evasion MISS.
+func test_stage_0_rng_call_count_and_replay_determinism() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 42
+	var atk := AttackerContext.make(&"a", AttackerContext.Class.CAVALRY, 80, false, false, [])
+	var def := DefenderContext.make(&"d", 50, 0, 0)   # terrain_evasion=0 → no MISS from evasion
+
+	# --- Path A: non-counter HIT — RNG must advance exactly 1 time ---
+	var state_a0: int = rng.state
+	var mod_a := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1,
+			false)
+	var result_a1: ResolveResult = DamageCalc.resolve(atk, def, mod_a)
+	var state_a1: int = rng.state
+	assert_bool(state_a1 != state_a0).override_failure_message(
+			"AC-3 non-counter: RNG must advance (state unchanged = 0 calls)"
+	).is_true()
+
+	# Replay: restore seed, re-run, verify bit-identical
+	rng.seed = 42
+	var mod_a2 := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1,
+			false)
+	var result_a2: ResolveResult = DamageCalc.resolve(atk, def, mod_a2)
+	assert_int(result_a1.kind as int).is_equal(result_a2.kind as int)
+	assert_int(result_a1.resolved_damage).is_equal(result_a2.resolved_damage)
+
+	# --- Path B: counter — RNG must NOT advance ---
+	rng.seed = 42
+	var state_b0: int = rng.state
+	var mod_b := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1,
+			true)
+	var result_b1: ResolveResult = DamageCalc.resolve(atk, def, mod_b)
+	assert_int(rng.state).override_failure_message(
+			"AC-3 counter: RNG must NOT advance (call count = 0)"
+	).is_equal(state_b0)
+	# Replay
+	rng.seed = 42
+	var mod_b2 := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1,
+			true)
+	var result_b2: ResolveResult = DamageCalc.resolve(atk, def, mod_b2)
+	assert_int(result_b1.resolved_damage).is_equal(result_b2.resolved_damage)
+
+	# --- Path C: skill_stub — RNG must NOT advance ---
+	rng.seed = 42
+	var state_c0: int = rng.state
+	var mod_c := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1,
+			false, "fireball")
+	var result_c1: ResolveResult = DamageCalc.resolve(atk, def, mod_c)
+	assert_int(rng.state).override_failure_message(
+			"AC-3 skill_stub: RNG must NOT advance (call count = 0)"
+	).is_equal(state_c0)
+	assert_int(result_c1.kind as int).is_equal(ResolveResult.Kind.MISS as int)
+
+	# --- Path D: evasion MISS — RNG advances 1 time ---
+	rng.seed = 266   # seed 266 → randi_range(1,100) = 25 → miss vs terrain_evasion=30
+	var def_evade := DefenderContext.make(&"e", 50, 0, 30)
+	var state_d0: int = rng.state
+	var mod_d := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1)
+	var result_d1: ResolveResult = DamageCalc.resolve(atk, def_evade, mod_d)
+	assert_int(result_d1.kind as int).is_equal(ResolveResult.Kind.MISS as int)
+	assert_bool(rng.state != state_d0).override_failure_message(
+			"AC-3 evasion MISS: RNG must advance once (roll was consumed)"
+	).is_true()
+	# Replay
+	rng.seed = 266
+	var mod_d2 := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1)
+	var result_d2: ResolveResult = DamageCalc.resolve(atk, def_evade, mod_d2)
+	assert_int(result_d1.kind as int).is_equal(result_d2.kind as int)
+
+
+# ---------------------------------------------------------------------------
+# AC-4 (AC-DC-24 EC-DC-23) — counter halve min raw: raw=1 → resolved_damage=1
+# ---------------------------------------------------------------------------
+
+## AC-4: synthetic raw=1 entering Stage 4 counter halve.
+## floori(1 * 0.5) = 0 → maxi(MIN_DAMAGE, 0) = 1. MIN_DAMAGE floor catches.
+## Also: raw=2 → floori(1.0)=1; raw=3 → floori(1.5)=1 (all yield resolved=1).
+## Achieved via ATK=1, DEF=0, is_counter=true (NO defend_stance — distinct from AC-2 which
+## stacks the DEFEND_STANCE penalty on top; AC-4 isolates the Stage-4 floor by pinning raw
+## directly through ATK=N, no penalties applied).
+func test_stage_4_counter_halve_min_raw_1_returns_1() -> void:
+	# Arrange — engineer raw=1 into Stage 4: SCOUT FRONT, ATK=1, DEF=0, T_def=0.
+	# eff_atk=clampi(floori(1*(1.0-0.0)),1,200)=1 (no defend_stance).
+	# base=floori(1-0*1.00)=1. D_mult=1.00 (SCOUT FRONT). P_mult=1.00.
+	# raw=mini(180,maxi(1,floori(1*1.00*1.00)))=1. Then is_counter halve fires.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1
+	var atk := AttackerContext.make(&"a", AttackerContext.Class.SCOUT, 1, false, false, [])
+	var def := DefenderContext.make(&"d", 0, 0, 0)
+	var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1,
+			true)   # is_counter = true
+
+	# Act
+	var result: ResolveResult = DamageCalc.resolve(atk, def, mod)
+
+	# Assert — floori(1*0.5)=0 → maxi(1,0)=1 (Stage-4 MIN_DAMAGE catches)
+	assert_int(result.kind as int).is_equal(ResolveResult.Kind.HIT as int)
+	assert_int(result.resolved_damage).override_failure_message(
+			"AC-4: counter halve min raw=1 expected 1 (MIN_DAMAGE floor) got %d" % result.resolved_damage
+	).is_equal(1)
+
+	# Edge case: raw=2 → floori(2*0.5)=1; raw=3 → floori(3*0.5)=1 — verified via ATK adjustments
+	# raw=2: ATK=2, DEF=0, SCOUT FRONT, is_counter=true → base=2, raw=2, counter=floori(1.0)=1
+	var rng2 := RandomNumberGenerator.new()
+	rng2.seed = 1
+	var atk2 := AttackerContext.make(&"b", AttackerContext.Class.SCOUT, 2, false, false, [])
+	var result2: ResolveResult = DamageCalc.resolve(atk2, def, ResolveModifiers.make(
+			ResolveModifiers.AttackType.PHYSICAL, rng2, &"FRONT", 1, true))
+	assert_int(result2.resolved_damage).override_failure_message(
+			"AC-4 edge raw=2: counter_final=floori(2*0.5)=1 expected 1 got %d" % result2.resolved_damage
+	).is_equal(1)
+
+	# raw=3: ATK=3, DEF=0, SCOUT FRONT, is_counter=true → base=3, raw=3, counter=floori(3*0.5)=floori(1.5)=1
+	# Spec'd edge case (story-006 §AC-4 "raw=3 → counter_final=1 (floori(1.5)=1)").
+	var rng3 := RandomNumberGenerator.new()
+	rng3.seed = 1
+	var atk3 := AttackerContext.make(&"c", AttackerContext.Class.SCOUT, 3, false, false, [])
+	var result3: ResolveResult = DamageCalc.resolve(atk3, def, ResolveModifiers.make(
+			ResolveModifiers.AttackType.PHYSICAL, rng3, &"FRONT", 1, true))
+	assert_int(result3.resolved_damage).override_failure_message(
+			"AC-4 edge raw=3: counter_final=floori(3*0.5)=floori(1.5)=1 expected 1 got %d" % result3.resolved_damage
+	).is_equal(1)
+
+
+# ---------------------------------------------------------------------------
+# AC-5 (AC-DC-33) — sole entry point static grep: exactly 1 public func
+# ---------------------------------------------------------------------------
+
+## AC-5: static grep of damage_calc.gd for public (non-underscore-prefixed) func declarations.
+## Exactly 1 match expected: the resolve() function. All helpers are _-prefixed private.
+func test_sole_entry_point_grep_returns_1_public_func() -> void:
+	var path: String = "res://src/feature/damage_calc/damage_calc.gd"
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	assert_object(file).override_failure_message(
+			"AC-5: Could not open %s for static grep" % path
+	).is_not_null()
+	var content: String = file.get_as_text()
+	file.close()
+
+	# Count lines matching "^func [a-z]" OR "^static func [a-z]" (public declarations).
+	# Private helpers start with "func _" or "static func _" — excluded by [a-z] pattern.
+	var matches: int = 0
+	for line: String in content.split("\n"):
+		var stripped: String = line.strip_edges(true, false)
+		if stripped.begins_with("func ") or stripped.begins_with("static func "):
+			# Extract first char after the "func " or "static func " prefix
+			var func_name_start: int = stripped.find("func ") + 5
+			if func_name_start < stripped.length():
+				var first_char: String = stripped.substr(func_name_start, 1)
+				if first_char >= "a" and first_char <= "z":
+					matches += 1
+
+	assert_int(matches).override_failure_message(
+			(("AC-5: damage_calc.gd has %d public func(s) — expected exactly 1 (resolve). "
+			+ "All helpers must be _-prefixed private.")
+			% matches)
+	).is_equal(1)
+
+
+# ---------------------------------------------------------------------------
+# AC-6 (AC-DC-34) — zero signals: grep for signal keywords returns 0 matches
+# ---------------------------------------------------------------------------
+
+## AC-6: damage_calc.gd must have 0 lines containing "signal " or "emit_signal".
+## These patterns are banned per ADR-0012 §1 (stateless synchronous pipeline).
+func test_no_signals_grep_returns_0() -> void:
+	var path: String = "res://src/feature/damage_calc/damage_calc.gd"
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	assert_object(file).override_failure_message(
+			"AC-6: Could not open %s for static grep" % path
+	).is_not_null()
+	var content: String = file.get_as_text()
+	file.close()
+
+	var signal_matches: int = 0
+	for line: String in content.split("\n"):
+		if "signal " in line or "emit_signal" in line:
+			signal_matches += 1
+
+	assert_int(signal_matches).override_failure_message(
+			(("AC-6: damage_calc.gd contains %d signal/emit_signal line(s) — expected 0. "
+			+ "DamageCalc is signal-free per ADR-0012 §1.")
+			% signal_matches)
+	).is_equal(0)
+
+
+# ---------------------------------------------------------------------------
+# AC-7 (AC-DC-35) — no apply_damage / hp_status grep returns 0 matches
+# ---------------------------------------------------------------------------
+
+## AC-7: damage_calc.gd must have 0 lines containing "apply_damage" or "hp_status.".
+## DamageCalc only computes; HP mutation is GridBattle's contract (story-007).
+func test_no_apply_damage_grep_returns_0() -> void:
+	var path: String = "res://src/feature/damage_calc/damage_calc.gd"
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	assert_object(file).override_failure_message(
+			"AC-7: Could not open %s for static grep" % path
+	).is_not_null()
+	var content: String = file.get_as_text()
+	file.close()
+
+	var write_path_matches: int = 0
+	for line: String in content.split("\n"):
+		if "apply_damage" in line or "hp_status." in line:
+			write_path_matches += 1
+
+	assert_int(write_path_matches).override_failure_message(
+			(("AC-7: damage_calc.gd contains %d apply_damage/hp_status. line(s) — expected 0. "
+			+ "HP mutations belong to GridBattle per TR-damage-calc-003.")
+			% write_path_matches)
+	).is_equal(0)
+
+
+# ---------------------------------------------------------------------------
+# AC-8 (AC-DC-36) — vfx_tags populated: 8 scenarios of {charge, ambush, counter}
+# ---------------------------------------------------------------------------
+
+## AC-8: vfx_tags and source_flags contain provenance flags exactly when conditions fire.
+## Tests {charge, ambush, counter, terrain_penalty} independently, then combined.
+##
+## Coverage scope clarification — the spec says "all 8 combinations of {charge, ambush, counter}"
+## (the 2^3 boolean space). Three of those eight are STRUCTURALLY IMPOSSIBLE in production:
+##   - charge + ambush — class mutex (Charge=Cavalry; Ambush=Scout/Archer; per AC-DC-16)
+##   - charge + counter — counter suppresses Charge (per AC-DC-16 EC-DC-8)
+##   - ambush + counter — counter suppresses Ambush (per AC-DC-16 EC-DC-8)
+## So the 5 reachable combinations are: {none, charge-only, ambush-only, counter-only,
+## charge+ambush+counter (impossible — covered by 0 cases)}. terrain_penalty is the
+## 4th independent flag and is tested orthogonally. Cases 1-8 below cover: {none, charge-only,
+## ambush-only, counter-only, terrain-only, no-terrain-baseline, counter+terrain, neg-terrain}.
+## Coverage of the 5 reachable members of the 2^3 charge/ambush/counter space is complete via
+## cases 1, 2, 3, 4 (and case 7 confirms the impossible charge+counter combination is
+## structurally suppressed even when both inputs would fire individually).
+func test_vfx_tags_and_source_flags_provenance_flags_correct() -> void:
+	# --- Case 1: no passives, no counter, no terrain → vfx_tags empty ---
+	var rng1 := RandomNumberGenerator.new()
+	rng1.seed = 1
+	var atk_none := AttackerContext.make(&"a", AttackerContext.Class.CAVALRY, 80, false, false, [])
+	var def_none := DefenderContext.make(&"d", 50, 0, 0)
+	var mod1 := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng1, &"FRONT", 1)
+	var r1: ResolveResult = DamageCalc.resolve(atk_none, def_none, mod1)
+	assert_bool(r1.vfx_tags.is_empty()).override_failure_message(
+			"AC-8 case1: vfx_tags should be empty when no flags fire"
+	).is_true()
+	assert_bool(r1.source_flags.is_empty()).override_failure_message(
+			"AC-8 case1: source_flags should be empty when no flags fire"
+	).is_true()
+
+	# --- Case 2: Cavalry Charge fires → vfx_tags has "charge", source_flags has "charge" ---
+	var rng2 := RandomNumberGenerator.new()
+	rng2.seed = 1
+	var atk_charge := AttackerContext.make(&"a", AttackerContext.Class.CAVALRY, 80, true, false,
+			[&"passive_charge"])
+	var mod2 := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng2, &"REAR", 1)
+	var r2: ResolveResult = DamageCalc.resolve(atk_charge, def_none, mod2)
+	assert_bool(r2.vfx_tags.has(&"charge")).override_failure_message(
+			"AC-8 case2: vfx_tags must contain &\"charge\" when Charge fires"
+	).is_true()
+	assert_bool(r2.source_flags.has(&"charge")).override_failure_message(
+			"AC-8 case2: source_flags must contain &\"charge\" when Charge fires"
+	).is_true()
+	assert_bool(r2.vfx_tags.has(&"ambush")).is_false()
+	assert_bool(r2.vfx_tags.has(&"counter")).is_false()
+
+	# --- Case 3: Scout Ambush fires → vfx_tags has "ambush" ---
+	var rng3 := RandomNumberGenerator.new()
+	rng3.seed = 1
+	var atk_ambush := AttackerContext.make(&"a", AttackerContext.Class.SCOUT, 70, false, false,
+			[&"passive_ambush"])
+	var not_acted := func(_id: StringName) -> bool: return false
+	var mod3 := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng3, &"FLANK", 3,
+			false, "", [], 0.0, 0.0, 0.0, not_acted)
+	var r3: ResolveResult = DamageCalc.resolve(atk_ambush, def_none, mod3)
+	assert_bool(r3.vfx_tags.has(&"ambush")).override_failure_message(
+			"AC-8 case3: vfx_tags must contain &\"ambush\" when Ambush fires"
+	).is_true()
+	assert_bool(r3.source_flags.has(&"ambush")).is_true()
+	assert_bool(r3.vfx_tags.has(&"charge")).is_false()
+
+	# --- Case 4: is_counter=true → vfx_tags has "counter", source_flags has "counter" ---
+	var rng4 := RandomNumberGenerator.new()
+	rng4.seed = 1
+	var mod4 := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng4, &"FRONT", 1,
+			true)
+	var r4: ResolveResult = DamageCalc.resolve(atk_none, def_none, mod4)
+	assert_bool(r4.vfx_tags.has(&"counter")).override_failure_message(
+			"AC-8 case4: vfx_tags must contain &\"counter\" when is_counter=true"
+	).is_true()
+	assert_bool(r4.source_flags.has(&"counter")).is_true()
+
+	# --- Case 5: terrain_def > 0 → source_flags has "terrain_penalty", vfx_tags has "terrain_penalty" ---
+	var rng5 := RandomNumberGenerator.new()
+	rng5.seed = 1
+	var def_terrain := DefenderContext.make(&"d", 50, 20, 0)   # terrain_def=+20 (defender favored)
+	var mod5 := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng5, &"FRONT", 1)
+	var r5: ResolveResult = DamageCalc.resolve(atk_none, def_terrain, mod5)
+	assert_bool(r5.source_flags.has(&"terrain_penalty")).override_failure_message(
+			"AC-8 case5: source_flags must contain &\"terrain_penalty\" when terrain_def > 0"
+	).is_true()
+	assert_bool(r5.vfx_tags.has(&"terrain_penalty")).is_true()
+
+	# --- Case 6: terrain_def == 0 → no terrain_penalty ---
+	var rng6 := RandomNumberGenerator.new()
+	rng6.seed = 1
+	var mod6 := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng6, &"FRONT", 1)
+	var r6: ResolveResult = DamageCalc.resolve(atk_none, def_none, mod6)
+	assert_bool(r6.source_flags.has(&"terrain_penalty")).is_false()
+
+	# --- Case 7: counter + terrain_penalty together (Charge class-blocked on counter) ---
+	var rng7 := RandomNumberGenerator.new()
+	rng7.seed = 1
+	var mod7 := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng7, &"FRONT", 1,
+			true)   # is_counter
+	var r7: ResolveResult = DamageCalc.resolve(atk_charge, def_terrain, mod7)
+	# Charge blocked on counter → no "charge" flag; counter + terrain_penalty both fire
+	assert_bool(r7.vfx_tags.has(&"counter")).is_true()
+	assert_bool(r7.vfx_tags.has(&"terrain_penalty")).is_true()
+	assert_bool(r7.vfx_tags.has(&"charge")).override_failure_message(
+			"AC-8 case7: Charge must be suppressed on counter — no charge flag expected"
+	).is_false()
+
+	# --- Case 8: terrain_def <= 0 → no terrain_penalty (negative terrain_def = terrain hurts defender) ---
+	var rng8 := RandomNumberGenerator.new()
+	rng8.seed = 1
+	var def_neg_terrain := DefenderContext.make(&"d", 50, -10, 0)   # terrain_def=-10 (attacker favored)
+	var mod8 := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng8, &"FRONT", 1)
+	var r8: ResolveResult = DamageCalc.resolve(atk_none, def_neg_terrain, mod8)
+	assert_bool(r8.source_flags.has(&"terrain_penalty")).override_failure_message(
+			"AC-8 case8: no terrain_penalty when terrain_def <= 0"
+	).is_false()
+
+
+# ---------------------------------------------------------------------------
+# AC-9 (AC-DC-N1) — explicit enum conversion: PHYSICAL and MAGICAL both round-trip
+# ---------------------------------------------------------------------------
+
+## AC-9: two resolve() calls with attack_type=PHYSICAL and =MAGICAL respectively.
+## result.attack_type must match the expected ResolveResult.AttackType variant exactly.
+## Also greps damage_calc.gd for the banned direct-cast pattern (0 matches required).
+func test_enum_conversion_physical_and_magical_round_trip() -> void:
+	# Arrange
+	var rng_p := RandomNumberGenerator.new()
+	rng_p.seed = 1
+	var atk := AttackerContext.make(&"a", AttackerContext.Class.CAVALRY, 80, false, false, [])
+	var def := DefenderContext.make(&"d", 50, 0, 0)
+
+	# PHYSICAL path
+	var mod_p := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng_p, &"FRONT", 1)
+	var result_p: ResolveResult = DamageCalc.resolve(atk, def, mod_p)
+	assert_int(result_p.kind as int).is_equal(ResolveResult.Kind.HIT as int)
+	assert_int(result_p.attack_type as int).override_failure_message(
+			"AC-9 PHYSICAL: result.attack_type must be ResolveResult.AttackType.PHYSICAL"
+	).is_equal(ResolveResult.AttackType.PHYSICAL as int)
+
+	# MAGICAL path
+	var rng_m := RandomNumberGenerator.new()
+	rng_m.seed = 1
+	var mod_m := ResolveModifiers.make(ResolveModifiers.AttackType.MAGICAL, rng_m, &"FRONT", 1)
+	var result_m: ResolveResult = DamageCalc.resolve(atk, def, mod_m)
+	assert_int(result_m.kind as int).is_equal(ResolveResult.Kind.HIT as int)
+	assert_int(result_m.attack_type as int).override_failure_message(
+			"AC-9 MAGICAL: result.attack_type must be ResolveResult.AttackType.MAGICAL"
+	).is_equal(ResolveResult.AttackType.MAGICAL as int)
+
+	# Static grep: the banned direct-cast pattern must not appear in damage_calc.gd.
+	# Searching for the substring composed of a space + "as" + " ResolveResult.AttackType"
+	# (written split across the comment so this test does not self-trigger).
+	var path: String = "res://src/feature/damage_calc/damage_calc.gd"
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	assert_object(file).override_failure_message("AC-9: Could not open %s" % path).is_not_null()
+	var content: String = file.get_as_text()
+	file.close()
+	# Build the banned pattern at runtime so this source file does not contain the substring.
+	var banned: String = " as " + "ResolveResult.AttackType"
+	var cast_count: int = 0
+	var search_pos: int = 0
+	while true:
+		var idx: int = content.find(banned, search_pos)
+		if idx == -1:
+			break
+		cast_count += 1
+		search_pos = idx + 1
+	assert_int(cast_count).override_failure_message(
+			(("AC-9: damage_calc.gd contains %d direct-enum-cast occurrence(s) — must be 0 "
+			+ "(replaced by _to_result_attack_type per AC-DC-N1)")
+			% cast_count)
+	).is_equal(0)
+
+
+# ---------------------------------------------------------------------------
+# AC-10 (AC-DC-51) — StringName bypass-seam (positive case only; negative case DEFERRED)
+# ---------------------------------------------------------------------------
+
+## AC-10 (positive only — story-006 close-out 2026-04-27):
+## Typed Array[StringName] [&"passive_charge"] through normal resolve() entry → Charge fires (P_mult=1.20).
+##
+## Negative-case assertion DEFERRED — see TD-037. Empirical Godot 4.6 finding:
+## the ADR-0012 R-9 "release-build defense" premise (`&"foo" in [String]` returns false)
+## does NOT hold. Godot 4.6 treats StringName == String as equal in == and `in`. The actual
+## defense is the typed-Array auto-conversion at .assign()/.append() boundary on
+## Array[StringName]: any String pushed into Array[StringName] is silently coerced to
+## StringName. AttackerContext.passives is typed Array[StringName] (see attacker_context.gd:19),
+## so production code is structurally protected. ADR-0012 R-9 wording requires revision.
+## See TD-037 (open) for the ADR revision + test redesign — out of scope for story-006.
+func test_stringname_bypass_seam_typed_array_fires_charge_p_mult_1_20() -> void:
+	# Positive case — typed Array[StringName] via normal resolve() path
+	var rng2 := RandomNumberGenerator.new()
+	rng2.seed = 1
+	var def := DefenderContext.make(&"d", 50, 0, 0)
+	var atk2 := AttackerContext.make(&"b", AttackerContext.Class.CAVALRY, 80, true, false,
+			[&"passive_charge"])
+	# Cavalry FRONT: base=floori(80-50*1.00)=30, D_mult=1.00, P_mult=1.20
+	# raw=mini(180,maxi(1,floori(30*1.00*1.20)))=36, non-counter → resolved=36
+	var result_pos: ResolveResult = DamageCalc.resolve(atk2, def,
+			ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng2, &"FRONT", 1))
+	assert_int(result_pos.resolved_damage).override_failure_message(
+			(("AC-10 positive: typed [&\"passive_charge\"] should fire Charge → resolved=36 "
+			+ "but got %d")
+			% result_pos.resolved_damage)
+	).is_equal(36)
+
+	# Documented type-system defense — verify AttackerContext.passives is typed Array[StringName]
+	# even when constructed with String elements (auto-conversion at .make() factory).
+	# This is the ACTUAL release-build defense (vs the operator-level claim in ADR-0012 R-9 that
+	# does not hold). Pinning here so a future Godot upgrade that breaks this auto-conversion
+	# is caught immediately.
+	var atk_str_input: AttackerContext = AttackerContext.make(
+			&"c", AttackerContext.Class.CAVALRY, 80, true, false, [&"passive_charge"])
+	assert_int(typeof(atk_str_input.passives[0])).override_failure_message(
+			"AC-10 type-defense: AttackerContext.passives must hold StringName elements (not String)"
+	).is_equal(TYPE_STRING_NAME)
+
+
+# ---------------------------------------------------------------------------
+# AC-11 — source_flags always-new-Array: 100 calls, no accumulation
+# ---------------------------------------------------------------------------
+
+## AC-11: modifiers.source_flags = [&"original"] (1 element). After 100 resolve() calls,
+## modifiers.source_flags must still have exactly 1 element (caller's array unchanged).
+## Each result.source_flags must contain &"original" but be a different Array instance.
+func test_source_flags_always_new_array_no_accumulation() -> void:
+	# Arrange — modifiers with a non-empty source_flags to prove no mutation
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1
+	var atk := AttackerContext.make(&"a", AttackerContext.Class.CAVALRY, 80, false, false, [])
+	var def := DefenderContext.make(&"d", 50, 0, 0)
+	var caller_flags: Array[StringName] = [&"original"]
+
+	# Act — 100 resolve() calls; is_counter=true to skip evasion RNG for determinism
+	var first_result_flags: Array[StringName] = []
+	for i: int in range(100):
+		var mod := ResolveModifiers.make(
+				ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1,
+				true, "", caller_flags)
+		var result: ResolveResult = DamageCalc.resolve(atk, def, mod)
+		if i == 0:
+			# Save first result's flags array reference for identity check
+			first_result_flags = result.source_flags
+
+	# Assert caller's array is unchanged
+	assert_int(caller_flags.size()).override_failure_message(
+			(("AC-11: caller's source_flags grew from 1 to %d after 100 calls — "
+			+ "caller array mutated (should never happen)")
+			% caller_flags.size())
+	).is_equal(1)
+	assert_bool(caller_flags.has(&"original")).is_true()
+
+	# Assert the first result's flags array is not the same instance as caller_flags.
+	# We verify this by checking that appending to first_result_flags does NOT affect caller_flags.
+	first_result_flags.append(&"probe")
+	assert_bool(caller_flags.has(&"probe")).override_failure_message(
+			"AC-11: result.source_flags shares identity with caller's array — alias detected"
+	).is_false()

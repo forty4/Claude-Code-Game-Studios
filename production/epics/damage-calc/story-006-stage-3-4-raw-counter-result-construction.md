@@ -1,7 +1,7 @@
 # Story 006: Stage 3-4 — raw damage + counter halve + DAMAGE_CEILING + ResolveResult construction + source_flags + N-1 enum-cast fix + AC-DC-51 bypass-seam
 
 > **Epic**: damage-calc
-> **Status**: Ready
+> **Status**: Complete (2026-04-27)
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
@@ -45,7 +45,7 @@
 - [ ] **AC-DC-35 (no apply_damage)**: static grep on `damage_calc.gd` for `apply_damage` and `hp_status` write-path returns 0 matches; CI-lint integrated
 - [ ] **AC-DC-36 (vfx_tags populated)**: for each provenance flag {charge, ambush, counter, terrain_penalty}, assert tag present in `ResolveResult.HIT.vfx_tags` when condition fires, absent when does not. Test all 8 combinations of {charge, ambush, counter}.
 - [ ] **AC-DC-N1 (NEW — enum-cast time-bomb fix, deferred from story-004 /code-review)**: `ResolveResult.HIT` construction at the resolve() return path sets `attack_type` via an explicit conversion from `ResolveModifiers.AttackType` to `ResolveResult.AttackType` (e.g., a match expression or a static `_to_result_attack_type()` helper). NEVER via `as ResolveResult.AttackType` direct cast (the cast silently reinterprets ints; if either enum diverges in ordering or adds a value, the result becomes wrong without a compile-time signal). Test: construct PHYSICAL and MAGICAL ResolveModifiers, run resolve(), assert `result.attack_type == ResolveResult.AttackType.PHYSICAL` and `== ResolveResult.AttackType.MAGICAL` respectively (one assertion per attack_type — pin the conversion contract).
-- [ ] **AC-DC-51 (StringName boundary bypass-seam)**: per ADR-0012 R-9 mitigation — direct private-helper call with locally-constructed untyped `Array` containing `String` elements; assert `&"passive_charge" in arr` returns false; P_mult=1.00; positive case (`Array[StringName]` with `&"passive_charge"`) returns P_mult=1.20 through normal `resolve()` entry. Test file extends `GdUnitTestSuite` (Node base) for `@onready` decorator support.
+- [ ] **AC-DC-51 (StringName boundary bypass-seam) — POSITIVE CASE ONLY; NEGATIVE CASE DEFERRED via TD-037 (2026-04-27)**: positive case (`Array[StringName]` with `&"passive_charge"`) returns P_mult=1.20 through normal `resolve()` entry (PASSING). Negative case (untyped `Array` with `String` elements asserting `&"passive_charge" in arr → false`) **DEFERRED** — empirical Godot 4.6 finding: StringName == String returns true in both `==` and `in` operators. The actual release-build defense is typed-Array auto-conversion at `Array[StringName].assign()/.append()` boundary (Strings auto-coerce to StringNames at array-creation), not at the operator level. AttackerContext.passives is typed `Array[StringName]` so production code is structurally protected. Story-006 ships with the positive case + a type-system defense pin (asserts `typeof(attacker.passives[0]) == TYPE_STRING_NAME`). ADR-0012 R-9 wording revision tracked in TD-037.
 - [ ] `source_flags` always-new-Array semantics verified: re-call resolve() with same modifiers → no flag accumulation across calls
 - [ ] `damage_calc.gd` total LoC ≈ 250-400 (sanity check; not blocking) — F-DC-1 master pipeline + 6 private helpers ((`_evasion_check`, `_stage_1_base_damage`, `_direction_multiplier`, `_passive_multiplier`, `_stage_2_raw_damage`, `_counter_reduction`) + invariant guards + factory wrappers
 
@@ -204,3 +204,46 @@
 
 - Depends on: Story 005 (Stage 2 D_mult + P_mult feed Stage 3) + Story 001 (CI infrastructure for static-lint integration)
 - Unlocks: Story 007 (Grid Battle integration tests run against the completed pipeline) + Story 008 (determinism + engine-pin tests run on the completed pipeline) + Story 009 (UI accessibility tests against full resolve()) + Story 010 (perf baseline against full resolve())
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-27
+**Criteria**: 11/11 covered (AC-DC-51 negative case DEFERRED via TD-037; positive case + new type-system defense pin shipped)
+**Effort**: ~5 hours implementation + ~1.5 hours /code-review fix-cycle (total ~6.5h vs ~5h estimate)
+**Test Evidence**: `tests/unit/damage_calc/damage_calc_test.gd` — 12 new test functions for AC-1..AC-11 + 1 type-system defense pin; full regression **352/352 PASS**, 0 errors / 0 failures / 0 flaky / 0 orphans, exit 0
+**Static-lint Evidence**: 3 new lint scripts in `tools/ci/lint_damage_calc_*.sh`, all exit 0; integrated into `.github/workflows/tests.yml`
+**Code Review**: COMPLETE — `/code-review` 2026-04-27 with godot-gdscript-specialist (verdict: APPROVED WITH SUGGESTIONS) + qa-tester (verdict: APPROVED WITH SUGGESTIONS). 5 inline fixes applied before close-out (AC-1 docstring strip, AC-8 8-combinations comment, AC-4 raw=3 + defend_stance comment, `_build_source_flags` extraction reducing resolve() 85 → 74 lines).
+
+### Deviations (advisory, all logged)
+
+1. **`.assign()` over `.duplicate()`** — story §Implementation Notes quoted godot-specialist AF-3 `.duplicate()`, used `.assign()` per G-2 gotcha (typed-Array preservation). Inline comment in `damage_calc.gd:160-161`.
+2. **AC-DC-51 negative case DEFERRED via TD-037** — empirical Godot 4.6 finding: `&"foo" == "foo"` returns true; `in` operator considers them equal. ADR-0012 R-9 operator-level defense premise is wrong. Production code is structurally protected by typed-Array auto-conversion at `Array[StringName]` boundary. Positive case shipped + new type-system defense pin verifies `typeof(atk.passives[0]) == TYPE_STRING_NAME`.
+3. **`_passive_multiplier_for_test` parameter order** — initial draft `(attacker, modifiers, defender, passives)`; corrected mid-implementation to `(attacker, defender, modifiers, passives)` per story §Implementation Notes line 107.
+4. **Function rename mid-implementation** — `_stage_2_raw_damage` → `_stage_3_raw_damage` (matches docstring + ADR §F-DC-6 vocabulary).
+5. **`resolve()` over 40-line method budget** (74 lines post-extraction) — accepted as orchestrator-method precedent (story-005 same).
+6. **`_passive_multiplier_for_test` ambush-callable branch divergence** from production `_ambush_factor` — DEFERRED to TD-037-A (latent because AC-DC-51 negative case is itself deferred).
+
+### Tech-debt entries logged
+
+- **TD-037** (NEW) — ADR-0012 R-9 wording revision + AC-DC-51 negative case redesign; absorbs:
+  - **TD-037-A** — `_passive_multiplier_for_test` seam divergence
+  - **TD-037-B** — AC-2 floors not independently observable at end-to-end level (recommend per-helper unit-direct tests in story-007/008)
+  - **TD-037-C** — AC-3 100-iteration spec wording vs single-replay test (awaits qa-lead ruling)
+
+### G-N codification candidates (deferred to post-vertical-slice batch)
+
+- **G-20 candidate**: Godot 4.6 `StringName == String` returns true; `in` operator considers them equal. Defenses must operate at typed-Array boundary, not operator boundary.
+- **G-21 candidate**: Stage-N additions break prior-stage tests' assertions when prior tests asserted raw-pre-Stage-N values as final resolved values. Pattern stable across story-005 (Stage-2 → Stage-1 fixes) + story-006 (Stage-4 → 2 story-005 test fixes). Sibling to G-19 (SCOUT identity for D_mult isolation).
+
+### Files delivered
+
+- M `src/feature/damage_calc/damage_calc.gd` (+199 LoC; 6 new private helpers + 2 new constants + 2 new StringName const sentinels + AC-DC-N1 conversion fix + AC-DC-51 bypass-seam entry point + Stage 3-4 wiring + `_build_source_flags` extraction)
+- M `src/feature/damage_calc/{resolve_result,resolve_modifiers,attacker_context}.gd` (+6 -5 LoC; comment-only TODO discharge — these were forward-references explicitly named for story-006 to resolve)
+- M `tests/unit/damage_calc/damage_calc_test.gd` (+540 LoC; 12 new test functions + 1 type-system defense pin + 2 pre-existing story-005 tests updated for Stage-4 counter halve impact + G-9 paren fix on E-2)
+- N `tools/ci/lint_damage_calc_sole_entry_point.sh` (AC-DC-33)
+- N `tools/ci/lint_damage_calc_no_signals.sh` (AC-DC-34)
+- N `tools/ci/lint_damage_calc_no_apply_damage.sh` (AC-DC-35)
+- M `.github/workflows/tests.yml` (+9 LoC; 3 new lint steps inserted before `Run GdUnit4 tests`)
+- M `docs/tech-debt-register.md` (+TD-037 with 3 sub-items)

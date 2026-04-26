@@ -34,6 +34,7 @@ static func make(
 	result.raw_atk = raw_atk
 	result.charge_active = charge_active
 	result.defend_stance_active = defend_stance_active
-	# TODO story-006: revisit always-new-Array semantics (ADR-0012 §6 / G-2) if defensive copy is needed.
+	# passives assigned directly — caller owns the Array; DamageCalc reads passives read-only.
+	# If defensive copy is needed for future mutation isolation, use assign() per G-2.
 	result.passives = passives
 	return result

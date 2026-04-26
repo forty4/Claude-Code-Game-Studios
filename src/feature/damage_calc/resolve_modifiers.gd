@@ -45,7 +45,8 @@ static func make(
 	result.round_number = round_number
 	result.is_counter = is_counter
 	result.skill_id = skill_id
-	# TODO story-006: revisit always-new-Array semantics (ADR-0012 §6 / G-2) if defensive copy is needed.
+	# source_flags assigned directly — caller constructs per-call (production) or per-test (tests).
+	# DamageCalc.resolve() copies via assign() (G-2 pattern) before appending provenance tags.
 	result.source_flags = source_flags
 	result.rally_bonus = rally_bonus
 	result.formation_atk_bonus = formation_atk_bonus
