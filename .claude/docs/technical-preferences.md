@@ -42,9 +42,11 @@
 - **Draw Calls**: < 500 (2D, mobile 기준)
 - **Memory Ceiling**: 512 MB (mobile), 1 GB (PC)
 
-## Testing
+## Test Framework
 
 - **Framework**: GdUnit4 (GDScript testing framework)
+- **Pinned Version**: **v6.1.2** — Godot 4.6.x compatible (pinned 2026-04-20)
+- **Upgrade Path**: See `tests/README.md` for version upgrade procedure
 - **Minimum Coverage**: Balance formulas 100%, gameplay systems 80%
 - **Required Tests**: Balance formulas, gameplay systems, 운명 분기 판정 로직
 

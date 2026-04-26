@@ -25,13 +25,15 @@ godot --headless --path . -s res://addons/gdUnit4/bin/GdUnitCmdTool.gd \
   --ignoreHeadlessMode -a res://tests/unit -a res://tests/integration -c
 ```
 
-Prerequisite: gdUnit4 vendored at `addons/gdUnit4/` — see `addons/gdUnit4/VERSION.txt` for pinned version. To upgrade, follow the instructions in that file.
+**gdUnit4 pinned version**: v6.1.2 (Godot 4.6.x compatible; pinned 2026-04-20). Prerequisite: gdUnit4 vendored at `addons/gdUnit4/` — see `addons/gdUnit4/VERSION.txt` for pinned version. To upgrade, follow the instructions in that file.
 
 The `--ignoreHeadlessMode` flag is required because gdUnit4 v6.x refuses headless mode by default (it warns that UI-interaction tests won't work in headless). Our test suite is pure logic/integration — no UI InputEvent simulation — so ignoring the warning is safe.
 
 ### CI
 
 GitHub Actions runs `.github/workflows/tests.yml` on every push to `main` and every PR. Uses `MikeSchulze/gdUnit4-action@v1` which provisions Godot + gdUnit4 automatically — the vendored `addons/gdUnit4/` copy is for local dev, not CI.
+
+Headless CI runs per-push (AC-DC-25 gate). Headed CI via `xvfb-run` runs weekly + `rc/*` tags (AC-DC-46/47 frame-trace + screenshot capture).
 
 ## Conventions
 
@@ -42,6 +44,15 @@ Per `.claude/docs/coding-standards.md`:
 - **Isolation**: each test sets up + tears down its own state; no cross-test order dependency.
 - **No hardcoded data**: use `tests/fixtures/` (exception: boundary value tests where the exact number IS the point).
 - **No external I/O** in unit tests — use dependency injection.
+
+### Base class selection
+
+Test classes extend one of two base types per `.claude/docs/technical-preferences.md` Framework configuration:
+
+- **`GdUnitTestSuite` (Node-based)** — required for tests needing `@onready` decorator (lazy initialization, scene-tree lifecycle). Used by AC-DC-51(b) bypass-seam tests in damage-calc story-006 which need `@onready var _passive_mul := Callable(...)` for test-exposed private-method observation.
+- **RefCounted-based** (lighter, default GdUnit4) — sufficient for pure logic tests without scene-tree dependencies. Per-test-class choice.
+
+Cross-reference: ADR-0012 §10 #4 for rationale (GdUnitTestSuite Node base enables `@onready` seam access; other tests may use either base).
 
 ## What NOT to automate
 

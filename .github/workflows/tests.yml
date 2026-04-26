@@ -3,8 +3,13 @@ name: Tests
 on:
   push:
     branches: [main]
+    tags:
+      - 'rc/*'
   pull_request:
     branches: [main]
+  schedule:
+    - cron: '0 4 * * 0'  # Weekly: Sunday 04:00 UTC
+  workflow_dispatch:
 
 jobs:
   gdunit4:
@@ -25,6 +30,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Assert gdUnit4 version (ADR-0012 §10 #5)
+        run: |
+          EXPECTED="v6.1.2"
+          ACTUAL=$(head -1 addons/gdUnit4/VERSION.txt)
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::gdUnit4 version mismatch: expected $EXPECTED, found $ACTUAL. Update both addons/gdUnit4/ and the workflow assertion together."
+            exit 1
+          fi
+          echo "gdUnit4 version assertion PASS: $ACTUAL"
 
       - name: Lint per-frame emit ban (ADR-0001 §Implementation Guidelines §7)
         run: bash tools/ci/lint_per_frame_emit.sh
@@ -58,5 +73,185 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gdunit4-report
+          path: reports/
+          retention-days: 14
+
+  headed-tests:
+    name: Headed Tests (xvfb-run, Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event_name == 'schedule' || startsWith(github.ref, 'refs/tags/rc/') || github.event_name == 'workflow_dispatch'
+
+    # AC-DC-46/47 (ADR-0012 §10 #1-#2): xvfb-run virtual display required for
+    # Control-node observation (Reduce-Motion frame trace + monochrome screenshot).
+    # Headless mode cannot observe Control nodes; this job is the only path.
+    permissions:
+      contents: read
+      checks: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Assert gdUnit4 version (ADR-0012 §10 #5)
+        run: |
+          EXPECTED="v6.1.2"
+          ACTUAL=$(head -1 addons/gdUnit4/VERSION.txt)
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::gdUnit4 version mismatch: expected $EXPECTED, found $ACTUAL. Update both addons/gdUnit4/ and the workflow assertion together."
+            exit 1
+          fi
+          echo "gdUnit4 version assertion PASS: $ACTUAL"
+
+      - name: Setup xvfb virtual display
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb x11-utils
+          Xvfb :99 -screen 0 1920x1080x24 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
+          sleep 2
+          if xdpyinfo -display :99 > /dev/null 2>&1; then
+            echo "xvfb virtual display :99 ready"
+          else
+            echo "::error::xvfb failed to start on display :99"
+            exit 1
+          fi
+
+      - name: Run headed UI tests (conditional on test file presence)
+        if: hashFiles('tests/integration/damage_calc/damage_calc_ui_test.gd') != ''
+        uses: MikeSchulze/gdUnit4-action@v1
+        with:
+          godot-version: '4.6'
+          godot-status: 'stable'
+          paths: |
+            tests/integration/damage_calc
+          timeout: 10
+          retries: 0
+          report-name: gdunit4-headed-report
+
+      - name: Discover xvfb-run readiness (no-op when test file absent)
+        if: hashFiles('tests/integration/damage_calc/damage_calc_ui_test.gd') == ''
+        run: |
+          echo "damage_calc_ui_test.gd not yet present (story-009 pending)"
+          echo "Headed job infrastructure is ready; xvfb display :99 active and verified"
+          echo "DISPLAY=$DISPLAY"
+          exit 0
+
+      - name: Upload headed test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gdunit4-headed-report
+          path: reports/
+          retention-days: 14
+
+  cross-platform-macos:
+    name: Cross-Platform — macOS Metal (per-push baseline)
+    runs-on: macos-latest
+    timeout-minutes: 15
+
+    # AC-DC-37/50 (ADR-0012 §10 #1): macOS Metal is the per-push determinism
+    # baseline. Hard gate — divergence here fails the build (no continue-on-error).
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Assert gdUnit4 version (ADR-0012 §10 #5)
+        run: |
+          EXPECTED="v6.1.2"
+          ACTUAL=$(head -1 addons/gdUnit4/VERSION.txt)
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::gdUnit4 version mismatch: expected $EXPECTED, found $ACTUAL. Update both addons/gdUnit4/ and the workflow assertion together."
+            exit 1
+          fi
+          echo "gdUnit4 version assertion PASS: $ACTUAL"
+
+      - name: Run GdUnit4 tests (AC-DC-37/50 determinism baseline)
+        uses: MikeSchulze/gdUnit4-action@v1
+        env:
+          SKIP_PERF_BUDGETS: "1"
+        with:
+          godot-version: '4.6'
+          godot-status: 'stable'
+          paths: |
+            tests/unit
+            tests/integration
+          timeout: 10
+          retries: 0
+          report-name: gdunit4-macos-report
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gdunit4-macos-report
+          path: reports/
+          retention-days: 14
+
+  cross-platform-other:
+    name: Cross-Platform — Windows D3D12 + Linux Vulkan (weekly + rc/*)
+    if: github.event_name == 'schedule' || startsWith(github.ref, 'refs/tags/rc/') || github.event_name == 'workflow_dispatch'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    # AC-DC-37 softened-determinism contract (ADR-0012 R-7): cross-platform
+    # divergence on snappedf boundary residue is a critical-tier WARN, NOT a
+    # hard ship-block. continue-on-error: true converts failures into
+    # annotations rather than build-fail.
+    continue-on-error: true
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+
+    permissions:
+      contents: read
+      checks: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Assert gdUnit4 version (ADR-0012 §10 #5)
+        shell: bash
+        run: |
+          EXPECTED="v6.1.2"
+          ACTUAL=$(head -1 addons/gdUnit4/VERSION.txt)
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::gdUnit4 version mismatch: expected $EXPECTED, found $ACTUAL. Update both addons/gdUnit4/ and the workflow assertion together."
+            exit 1
+          fi
+          echo "gdUnit4 version assertion PASS: $ACTUAL"
+
+      - name: Run GdUnit4 tests (AC-DC-37/50 cross-platform determinism)
+        uses: MikeSchulze/gdUnit4-action@v1
+        env:
+          SKIP_PERF_BUDGETS: "1"
+        with:
+          godot-version: '4.6'
+          godot-status: 'stable'
+          paths: |
+            tests/unit
+            tests/integration
+          timeout: 10
+          retries: 0
+          report-name: gdunit4-${{ matrix.os }}-report
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gdunit4-${{ matrix.os }}-report
           path: reports/
           retention-days: 14
