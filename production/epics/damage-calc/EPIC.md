@@ -4,9 +4,30 @@
 > **GDD**: `design/gdd/damage-calc.md` (rev 2.9.3, APPROVED post-ninth-pass + narrow re-review close-out 2026-04-20, 2335 LoC, 53 ACs)
 > **Architecture Module**: Damage Calc (#11) — `src/feature/damage_calc/`
 > **Status**: Ready
-> **Stories**: Not yet created — run `/create-stories damage-calc`
+> **Stories**: 10/10 created (2026-04-26) — run `/story-readiness production/epics/damage-calc/story-001-ci-infrastructure-prerequisite.md` to begin implementation
 > **Manifest Version**: 2026-04-20 (`docs/architecture/control-manifest.md`)
 > **Created**: 2026-04-26 (Sprint 1 S1-05)
+
+## Stories
+
+| # | Story | Type | Status | Governing ADR | Depends on |
+|---|-------|------|--------|---------------|------------|
+| 001 | [CI infrastructure prerequisite](story-001-ci-infrastructure-prerequisite.md) | Config/Data | Ready | ADR-0012 §10 | None (gates 002-010) |
+| 002 | [RefCounted wrapper classes](story-002-refcounted-wrapper-classes.md) | Logic | Ready | ADR-0012 §2 | 001 |
+| 003 | [Stage 0 — invariant guards + evasion roll](story-003-stage-0-invariant-guards-evasion.md) | Logic | Ready | ADR-0012 §1, §5, §12 | 002 |
+| 004 | [Stage 1 — base damage + BASE_CEILING](story-004-stage-1-base-damage-base-ceiling.md) | Logic | Ready | ADR-0012 §7 | 003 |
+| 005 | [Stage 2 — direction × passive multiplier + P_MULT_COMBINED_CAP](story-005-stage-2-direction-passive-multiplier.md) | Logic | Ready | ADR-0012 §7, §8 | 004 |
+| 006 | [Stage 3-4 — raw + counter + result + AC-DC-51 bypass-seam](story-006-stage-3-4-raw-counter-result-construction.md) | Logic | Ready | ADR-0012 §1, §3, §4, §6, §12 | 005 |
+| 007 | [F-GB-PROV retirement + entities.yaml + Grid Battle integration](story-007-fgbprov-retirement-entities-yaml-grid-battle-integration.md) | Integration | Ready | ADR-0012 §9 | 006 |
+| 008 | [Determinism + engine-pin + cross-platform matrix + AC-DC-41 lint](story-008-determinism-engine-pin-cross-platform.md) | Integration | Ready | ADR-0012 §10, §11 | 006, 001 |
+| 009 | [Accessibility UI tests — TalkBack + Reduce Motion + monochrome](story-009-accessibility-ui-tests.md) | Visual/Feel | Ready | ADR-0012 §10 | 006, 001 |
+| 010 | [Performance baseline — headless throughput + mobile p99](story-010-perf-baseline.md) | Logic | Ready | ADR-0012 Performance Implications + R-2 | 006, 001 |
+
+**Stories total**: 10 — 1 Config/Data, 6 Logic, 2 Integration, 1 Visual/Feel.
+
+**Implementation order**: 001 → 002 → 003 → 004 → 005 → 006 → {007, 008, 009, 010 — parallel after 006 lands}.
+
+**AC coverage**: All 53 GDD ACs assigned across 10 stories. AC-DC-51(b) bypass-seam test class extends `GdUnitTestSuite` (Node base) per ADR-0012 §10 #4.
 
 ## Overview
 
