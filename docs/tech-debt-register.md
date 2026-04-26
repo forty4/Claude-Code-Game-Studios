@@ -2005,3 +2005,77 @@ The action's compatibility advertisement is misleading. Two real options for cro
 - AC-DC-37 softened-determinism contract (R-7) intent is preserved: macOS divergence still surfaces as WARN annotations during the soft-gate period, just with `continue-on-error: true` rather than the action's hard-fail signal.
 - Action pinning to a specific commit hash (currently `@v1` floating tag) is a separate concern — see code-review Suggestion 1 from PR #52; not blocking.
 
+---
+
+## TD-037 — ADR-0012 R-9 "release-build defense" premise is wrong; AC-DC-51 negative case redesign
+
+**Status**: Open
+**Severity**: Medium (correctness of an ADR claim; production code already structurally protected)
+**Discovered**: 2026-04-27 (damage-calc story-006 /dev-story)
+**Story (incidental discovery)**: `production/epics/damage-calc/story-006-stage-3-4-raw-counter-result-construction.md` AC-DC-51
+
+### Problem
+
+ADR-0012 R-9 + Implementation Guidelines §7 + AC-DC-51 spec all rely on the premise that `&"foo" in [String]` returns `false` in Godot 4.6 — i.e. that the StringName/String boundary is enforced at the `in` operator level as a "release-build defense" against test-only bypass attempts that inject untyped Arrays with String elements.
+
+**This premise is empirically wrong.** Probe results (Godot 4.6, 2026-04-27):
+
+| Expression | ADR claim | Actual |
+|---|---|---|
+| `&"foo" == "foo"` | (assumed false) | `true` |
+| `&"foo" in ["foo"]` | `false` | `true` |
+| `"foo" in [&"foo"]` | (assumed false) | `true` |
+| `Array[StringName].assign(["foo"])` | (assumed reject) | succeeds; auto-converts elements to StringName |
+
+What actually exists is a **typed-Array boundary defense**: `Array[StringName]` typed arrays auto-coerce String elements to StringName at `.assign()` / `.append()` time. So production code that uses `Array[StringName]` for `attacker.passives` (per `attacker_context.gd:19`) is structurally protected — but the protection is at the type-system level, not at the operator level.
+
+Story-006 ships with AC-DC-51 covered as positive-case-only + a type-system defense pin (`assert_int(typeof(atk.passives[0])).is_equal(TYPE_STRING_NAME)` in `damage_calc_test.gd::test_stringname_bypass_seam_typed_array_fires_charge_p_mult_1_20`). The negative case (`untyped Array → P_mult=1.00`) is removed because it tests a property GDScript 4.6 does not have.
+
+### Reactivation Plan
+
+1. New ADR-revision branch: `feature/td-037-adr-0012-r9-revision`
+2. **Revise ADR-0012 R-9 wording**: replace "release-build defense via StringName != String at `in` operator" with "typed-Array auto-conversion defense via Array[StringName]". Update §Implementation Guidelines #7 + R-9 mitigation paragraph + AC-DC-51 spec accordingly.
+3. **Revise damage-calc.md AC-DC-51** to match: assert the typed-Array auto-conversion property, not the operator-level rejection.
+4. **Optionally redesign the negative-case test**: use a bypass-seam that injects an `Array[String]` (typed) instead of untyped `Array` — Godot 4.6 may reject the cross-typed-array assignment at function-call boundary. Verify experimentally.
+5. **Codify discovery as gotcha G-N** in `.claude/rules/godot-4x-gotchas.md`: "StringName == String returns true in Godot 4.6 — the `in` operator considers them equal; defenses must operate at typed-Array boundary, not operator boundary." Pattern-stable now (one discovery; codify on next sweep batch per story-005 G-19 precedent).
+6. **Cross-doc sweep**: any other ADR / GDD that references "StringName boundary defense at operator level" needs the same update — grep `docs/architecture/`, `design/gdd/`, `production/epics/` for "release-build defense", "StringName boundary", "in operator" and audit each occurrence.
+7. Run `/architecture-review` delta on the revised ADR-0012 → Accepted.
+8. Run `/propagate-design-change` to find downstream stories that reference AC-DC-51's old spec.
+
+### Evidence
+
+- Empirical probe (story-006 close-out 2026-04-27):
+  ```
+  --- Probe: StringName vs String in Godot 4.6 ---
+  sn == s:                                    true
+  &"passive_charge" in ["passive_charge"]:    true
+  &"passive_charge" in [&"passive_charge"]:   true
+  "passive_charge" in [&"passive_charge"]:    true
+  typed Array[StringName] after .assign([String]): size=1 element_type=21
+    typed[0]: passive_charge is StringName: true
+  ```
+- Failing test pre-fix: `damage_calc_test.gd::test_stringname_bypass_seam_wrong_typed_array_returns_p_mult_1_00` (story-006 first verification run; replaced with positive-case-only test)
+- ADR-0012 §10 #4 + R-9 + Implementation Guidelines §7 (the wording requiring revision)
+
+### Notes
+
+- Production correctness is **not** affected — `attacker.passives: Array[StringName]` typed declaration enforces the auto-conversion at every entry point. A caller passing `["passive_charge"]` (String) into `AttackerContext.make()` results in `passives[0]` becoming `&"passive_charge"` (StringName). The Charge factor membership test still works correctly. The defense exists; it just operates at a different layer than the ADR claimed.
+- Story-006 closure does **not** wait on this TD. AC-DC-51 is marked "POSITIVE CASE ONLY; NEGATIVE CASE DEFERRED via TD-037" in the story file (line 48).
+- Sibling discovery class to G-19 (story-005: SCOUT identity for D_mult isolation) — both are "GDScript 4.6 reality differs from spec assumption" findings. Worth grouping in a single codification batch.
+
+### Additional items absorbed at story-006 /code-review (2026-04-27)
+
+These three deferrals were surfaced during /code-review and consolidated into TD-037 because all three are coupled to the AC-DC-51 / R-9 redesign. Resolving TD-037 should address them together.
+
+**TD-037-A — `_passive_multiplier_for_test` ambush callable branch divergence** (godot-gdscript-specialist CR-1)
+
+The test-only seam at `damage_calc.gd:410-437` reproduces `_passive_multiplier` logic but inlines `has_acted = false` and skips the `acted_this_turn_callable.call()` branch entirely (compare to production `_ambush_factor` lines 305-324). Latent because AC-DC-51 negative case is DEFERRED, so the seam currently exercises only the Charge path. When AC-DC-51 is redesigned per TD-037 main entry, refactor: extract a shared `_passive_multiplier_impl(passives: Variant, ...)` and have both `_passive_multiplier` and `_passive_multiplier_for_test` delegate, so the seam becomes a one-line argument substitution rather than a full reimplementation.
+
+**TD-037-B — AC-2 (test_stage_3_4_degenerate_stack) cannot independently observe each MIN_DAMAGE floor** (qa-tester GAP-1)
+
+The single-output assertion (`resolved_damage == 1`) cannot prove all three floors (Stage-1, Stage-3, Stage-4 MIN_DAMAGE) actually fired — it only proves at least one did. A future refactor that accidentally removes Stage-3's `maxi(MIN_DAMAGE, raw)` clamp would leave this test green if Stage-1 or Stage-4 still catches the floor. Documented limitation accepted at story-006 close-out. Resolve via: when adding any new tests in story-007 or story-008 that touch the floors directly (e.g., a `_stage_3_raw_damage` unit-direct test, a `_counter_reduction` unit-direct test), bundle the per-stage floor assertions with them. The floors will then be independently observed at the helper level.
+
+**TD-037-C — AC-3 (RNG call counts test) does single-replay, spec says 100 iterations** (qa-tester GAP-2)
+
+`damage-calc.md` AC-DC-20 spec wording reads "across 100 iterations of each path, RNG advance count is exactly path × call." Story-006 test does a single restore-and-replay per path. Logically equivalent for a deterministic RNG (state-bit-identical-after-1-replay implies identical after N replays), but the spec wording is stricter. **Recommend qa-lead ruling**: amend the spec to "1 replay sufficient for deterministic pipeline" OR expand the test to 100-iteration loops on the zero-advance paths (counter, skill_stub) where loop-based assertion is the most efficient way to surface a spurious advance. Block on qa-lead decision; deferral is safe in the meantime because the determinism property IS pinned (just at a lower iteration count than spec wording demands).
+

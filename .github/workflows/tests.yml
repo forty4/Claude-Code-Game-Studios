@@ -50,6 +50,15 @@ jobs:
       - name: Lint BattleOutcome.Result enum append-only (ADR-0003 §Schema Stability + TR-save-load-005)
         run: bash tools/ci/lint_enum_append_only.sh
 
+      - name: Lint DamageCalc sole entry point (AC-DC-33 TR-damage-calc-001)
+        run: bash tools/ci/lint_damage_calc_sole_entry_point.sh
+
+      - name: Lint DamageCalc zero signals (AC-DC-34 TR-damage-calc-004)
+        run: bash tools/ci/lint_damage_calc_no_signals.sh
+
+      - name: Lint DamageCalc no apply_damage (AC-DC-35 TR-damage-calc-003)
+        run: bash tools/ci/lint_damage_calc_no_apply_damage.sh
+
       - name: Run GdUnit4 tests
         uses: MikeSchulze/gdUnit4-action@v1
         env:

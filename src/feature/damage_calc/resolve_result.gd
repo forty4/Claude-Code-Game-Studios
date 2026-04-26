@@ -15,6 +15,9 @@ var vfx_tags: Array[StringName] = []
 
 ## HIT factory — damage must be >= 1 (enforced by caller pipeline, not re-validated here).
 ## Parameter order: damage, attack type, source flags, vfx tags.
+## Caller (DamageCalc.resolve) constructs flags and vfx as always-new Arrays (ADR-0012 §12);
+## this factory assigns them directly (no extra copy). G-2: assign() used at the call site
+## in DamageCalc to preserve typed-Array annotation when copying modifiers.source_flags.
 static func hit(
 		damage: int,
 		atk_type: AttackType,
@@ -24,7 +27,6 @@ static func hit(
 	result.kind = Kind.HIT
 	result.resolved_damage = damage
 	result.attack_type = atk_type
-	# TODO story-006: revisit always-new-Array semantics (ADR-0012 §6 / G-2) if defensive copy is needed.
 	result.source_flags = flags
 	result.vfx_tags = vfx
 	return result
@@ -32,10 +34,10 @@ static func hit(
 
 ## MISS factory — resolved_damage stays 0. flags defaults to empty array (zero-args overload).
 ## attack_type left at field default (PHYSICAL) — immaterial on MISS per ADR-0012 §2 ("0 on MISS (immaterial)").
+## Caller always passes a freshly-constructed Array[StringName] literal (never reuses across calls).
 static func miss(flags: Array[StringName] = []) -> ResolveResult:
 	var result := ResolveResult.new()
 	result.kind = Kind.MISS
 	result.resolved_damage = 0
-	# TODO story-006: revisit always-new-Array semantics (ADR-0012 §6 / G-2) if defensive copy is needed.
 	result.source_flags = flags
 	return result

@@ -4,7 +4,7 @@
 > **GDD**: `design/gdd/damage-calc.md` (rev 2.9.3, APPROVED post-ninth-pass + narrow re-review close-out 2026-04-20, 2335 LoC, 53 ACs)
 > **Architecture Module**: Damage Calc (#11) — `src/feature/damage_calc/`
 > **Status**: Ready
-> **Stories**: 11/11 created (2026-04-26 — original 10; +1 via /story-readiness story-006 split) — **5/11 complete** (story-001 ✓ PR #52, story-002 ✓ PR #54, story-003 ✓ PR #56, story-004 ✓ PR #59, story-005 ✓ PR #61); next: `/dev-story production/epics/damage-calc/story-006-stage-3-4-raw-counter-result-construction.md` (story-006 already validated READY post-split)
+> **Stories**: 11/11 created (2026-04-26 — original 10; +1 via /story-readiness story-006 split) — **6/11 complete** (story-001 ✓ PR #52, story-002 ✓ PR #54, story-003 ✓ PR #56, story-004 ✓ PR #59, story-005 ✓ PR #61, story-006 ✓ 2026-04-27 — TD-037 logged for ADR-0012 R-9 revision); next: `/story-readiness production/epics/damage-calc/story-006b-balance-constants-migration.md` then `/dev-story` (vertical-slice 7/7 = story-007 first-playable demo follows after 006b)
 > **Manifest Version**: 2026-04-20 (`docs/architecture/control-manifest.md`)
 > **Created**: 2026-04-26 (Sprint 1 S1-05)
 
@@ -17,7 +17,7 @@
 | 003 | [Stage 0 — invariant guards + evasion roll](story-003-stage-0-invariant-guards-evasion.md) | Logic | **Complete (2026-04-26)** | ADR-0012 §1, §5, §12 | 002 |
 | 004 | [Stage 1 — base damage + BASE_CEILING](story-004-stage-1-base-damage-base-ceiling.md) | Logic | **Complete (2026-04-26)** | ADR-0012 §7 | 003 |
 | 005 | [Stage 2 — direction × passive multiplier + P_MULT_COMBINED_CAP](story-005-stage-2-direction-passive-multiplier.md) | Logic | **Complete (2026-04-26)** | ADR-0012 §7, §8 | 004 |
-| 006 | [Stage 3-4 — raw + counter + result + N-1 enum-cast fix + AC-DC-51 bypass-seam](story-006-stage-3-4-raw-counter-result-construction.md) | Logic | Ready | ADR-0012 §1, §3, §4, §12 | 005 |
+| 006 | [Stage 3-4 — raw + counter + result + N-1 enum-cast fix + AC-DC-51 bypass-seam](story-006-stage-3-4-raw-counter-result-construction.md) | Logic | **Complete (2026-04-27)** | ADR-0012 §1, §3, §4, §12 | 005 |
 | 006b | [BalanceConstants wrapper + entities.json + migrate hardcoded constants + AC-DC-48 grep gate](story-006b-balance-constants-migration.md) | Logic | Ready | ADR-0012 §6 + ADR-0008 (TerrainConfig precedent) | 006 |
 | 007 | [F-GB-PROV retirement + entities.yaml + Grid Battle integration](story-007-fgbprov-retirement-entities-yaml-grid-battle-integration.md) | Integration | Ready | ADR-0012 §9 | 006b |
 | 008 | [Determinism + engine-pin + cross-platform matrix + AC-DC-41 lint](story-008-determinism-engine-pin-cross-platform.md) | Integration | Ready | ADR-0012 §10, §11 | 006, 001 |
