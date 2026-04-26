@@ -3,9 +3,9 @@
 > **Layer**: Platform
 > **GDD**: — (infrastructure; authoritative spec is ADR-0003; payload schema consumer: scenario-progression.md §Detailed Rules 3-CP policy)
 > **Architecture Module**: SaveManager (docs/architecture/architecture.md §Platform layer)
-> **Status**: Ready
+> **Status**: Complete (2026-04-24) — 8/8 stories done 🎉
 > **Manifest Version**: 2026-04-20
-> **Stories**: 8 decomposed (2026-04-22) — see table in §Stories
+> **Stories**: 8 decomposed (2026-04-22) — all Complete; see table in §Stories
 
 ## Overview
 

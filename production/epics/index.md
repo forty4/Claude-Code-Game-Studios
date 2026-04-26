@@ -1,19 +1,19 @@
 # Epics Index
 
-> **Last Updated**: 2026-04-25
+> **Last Updated**: 2026-04-26
 > **Engine**: Godot 4.6
 > **Manifest Version**: 2026-04-20 (docs/architecture/control-manifest.md)
-> **Layer coverage**: Platform (3/3 epics ready) + Foundation (1/4 epics ready — 3 blocked on ADR-0005/0006/0007) + Core (1/5 epics ready — 3 blocked on ADR-0009/0010/0011 + 1 deferred to VS)
+> **Layer coverage**: Platform (3/3 epics — 2 Complete + 1 Ready 6/7) + Foundation (1/4 epics Complete — 3 blocked on ADR-0005/0006/0007) + Core (1/5 epics Complete — 3 blocked on ADR-0009/0010/0011 + 1 deferred to VS)
 
 ## Epics
 
 | Epic | Layer | System | GDD | Governing ADRs | Stories | Status |
 |------|-------|--------|-----|----------------|---------|--------|
-| [gamebus](gamebus/EPIC.md) | Platform | GameBus autoload | — (ADR-0001 authoritative) | ADR-0001 | Not yet created | Ready |
-| [scene-manager](scene-manager/EPIC.md) | Platform | SceneManager autoload | — (ADR-0002 authoritative) | ADR-0002, ADR-0001 | Not yet created | Ready |
-| [save-manager](save-manager/EPIC.md) | Platform | SaveManager autoload | — (ADR-0003 authoritative) | ADR-0003, ADR-0001, ADR-0002 | Not yet created | Ready |
-| [map-grid](map-grid/EPIC.md) | Foundation | Map/Grid System (#14) | design/gdd/map-grid.md | ADR-0004, ADR-0001, ADR-0002, ADR-0003 | Not yet created | Ready |
-| [terrain-effect](terrain-effect/EPIC.md) | Core | Terrain Effect System (#2) | design/gdd/terrain-effect.md | ADR-0008, ADR-0004 (+§5b), ADR-0001 | Not yet created | Ready |
+| [gamebus](gamebus/EPIC.md) | Platform | GameBus autoload | — (ADR-0001 authoritative) | ADR-0001 | 9/9 Complete | **Complete** (2026-04-21) 🎉 |
+| [scene-manager](scene-manager/EPIC.md) | Platform | SceneManager autoload | — (ADR-0002 authoritative) | ADR-0002, ADR-0001 | 6/7 Complete (story-007 in flight — Sprint 1 S1-01) | Ready |
+| [save-manager](save-manager/EPIC.md) | Platform | SaveManager autoload | — (ADR-0003 authoritative) | ADR-0003, ADR-0001, ADR-0002 | 8/8 Complete | **Complete** (2026-04-24) 🎉 |
+| [map-grid](map-grid/EPIC.md) | Foundation | Map/Grid System (#14) | design/gdd/map-grid.md | ADR-0004, ADR-0001, ADR-0002, ADR-0003 | 8/8 Complete | **Complete** (2026-04-25) 🎉 |
+| [terrain-effect](terrain-effect/EPIC.md) | Core | Terrain Effect System (#2) | design/gdd/terrain-effect.md | ADR-0008, ADR-0004 (+§5b), ADR-0001 | 8/8 Complete | **Complete** (2026-04-26) 🎉 |
 
 ## Pending (blocked on ADR)
 
@@ -41,57 +41,56 @@ These systems have approved GDDs but no ADR yet. Epic creation is deferred until
 |--------|-------|-----------|-------|
 | Save/Load (#17) | Core | **Not Started** (GDD pending) | Schema spec (what is saved); save-manager Platform epic already covers infra (how it's saved). VS tier — author GDD before creating Core epic. |
 
-## Recommended Implementation Order
+## Implementation Order (historical — all 5 listed epics are now Complete or in flight)
 
-Per architecture.md layer invariants (Platform → Foundation → Core → ...), the 5 ready epics follow the dependency chain below.
+Per architecture.md layer invariants (Platform → Foundation → Core → ...), the 5 ready epics shipped in this dependency order:
 
-Suggested order:
-
-1. **GameBus** — unblocks stub-injectable test infrastructure for the other 3 Platform epics + all Foundation/Core consumers
-2. **SceneManager** + **SaveManager** in parallel — both depend only on GameBus being stub-able
-3. **Map/Grid** — can parallelize with SceneManager / SaveManager (different test surfaces)
-4. **Terrain Effect** — depends on Map/Grid (`get_tile`, `ATK_DIR_*` constants per ADR-0004 §5b) and GameBus (deferred `terrain_changed` signal)
+1. **GameBus** — Complete 2026-04-21 (PR #9 closure). Unblocked stub-injectable test infrastructure for all downstream epics.
+2. **SaveManager** — Complete 2026-04-24 (8/8 stories). Built on GameBus stub pattern.
+3. **Map/Grid** — Complete 2026-04-25 (8/8 stories; PRs #26-#30). Foundation layer.
+4. **SceneManager** — 6/7 Complete (story-007 target-device verification = Sprint 1 S1-01).
+5. **Terrain Effect** — Complete 2026-04-26 (8/8 stories; PR #43 closure). First Core-layer epic; consumes ADR-0004 §5b constants.
 
 ## Dependency Snapshot
 
 ```
-  GameBus (Platform, ADR-0001) ──────┐
-      │                              │
-      ▼                              │
-  SceneManager (Platform, ADR-0002)  │
-      │                              │
-      ▼                              │
-  SaveManager (Platform, ADR-0003) ◀─┘
+  GameBus (Platform, ADR-0001) ✅ Complete 2026-04-21
       │
       ▼
-  Map/Grid (Foundation, ADR-0004 + §5b erratum)
+  SceneManager (Platform, ADR-0002) ⚠ 6/7 — story-007 in flight (Sprint 1 S1-01)
       │
       ▼
-  Terrain Effect (Core, ADR-0008)
+  SaveManager (Platform, ADR-0003) ✅ Complete 2026-04-24
+      │
+      ▼
+  Map/Grid (Foundation, ADR-0004 + §5b erratum) ✅ Complete 2026-04-25
+      │
+      ▼
+  Terrain Effect (Core, ADR-0008) ✅ Complete 2026-04-26
 ```
 
-All 5 ready epics trace to 1+ Accepted ADR with full TR coverage. No untraced requirements.
+All 5 epics traced to 1+ Accepted ADR with full TR coverage. No untraced requirements.
 
-## Next Steps
+## Next Steps (Sprint 1 — 2026-04-26 → 2026-05-10)
 
-- Run `/create-stories gamebus` first (unblocks test infrastructure for all other epics)
-- Run `/create-stories scene-manager` and `/create-stories save-manager` in parallel after GameBus stories are Ready
-- Run `/create-stories map-grid` in parallel with any of the above (independent test surface)
-- Run `/create-stories terrain-effect` after Map/Grid stories 005-006 land (Dijkstra + LoS + ADR-0004 §5b constants)
-- Author ADR-0005 (Input, HIGH engine risk) → `/create-epics input-handling` when Accepted
-- Author ADR-0006 (Balance/Data) → `/create-epics balance-data` + supports terrain-effect config-loading migration when Accepted
-- Author ADR-0007 (Hero DB) → `/create-epics hero-database` when Accepted
-- Author ADR-0009 (Unit Role) → `/create-epics unit-role` + populates terrain-effect cost_matrix when Accepted
-- Author HP/Status ADR + Turn Order ADR → `/create-epics layer: core` re-run picks them up
+See `production/sprints/sprint-1.md` for the active sprint plan. Highlights:
 
-### Core layer ADRs (next session priority — unblocks Pre-Production → Production gate)
+- **S1-01**: Close scene-manager story-007 (target-device verification) → SceneManager epic graduates to Complete.
+- **S1-02**: ✅ This admin pass (Status field flips on the 4 Complete epics) — done 2026-04-26.
+- **S1-03**: Author **ADR-0012 Damage Calc** from rev 2.9.3 GDD → `/architecture-decision damage-calc` (Highest-value Must-Have; retires R1 risk).
+- **S1-04**: `/architecture-review` ADR-0012 delta → Accepted.
+- **S1-05**: `/create-epics damage-calc` + `/create-stories damage-calc` (first Feature-layer epic).
+- **S1-06/07** (Should-Have): Author ADR-0009 Unit Role → `/architecture-review` → Accepted (unblocks unit-role + populates terrain-effect cost_matrix).
+- **S1-09** (Nice-to-Have): Author ADR-0006 Balance/Data (FileAccess 4.4 — MEDIUM engine risk).
 
-- Author **ADR-0008 Terrain Effect** (highest leverage — referenced by 6+ downstream Feature systems including Grid Battle, Damage Calc, AI; also unblocks story-005's `cost_multiplier` placeholder in `src/core/terrain_cost.gd`) → `/architecture-decision terrain-effect`
-- Author **ADR-0009 Unit Role** (class-coefficient schema; consumed by HP/Status, Turn Order, Damage Calc) → `/architecture-decision unit-role`
-- Author **ADR-0010 HP/Status** (status-effect stacking contract) → `/architecture-decision hp-status`
-- Author **ADR-0011 Turn Order signal-inversion** (resolves architecture.md §1 invariant-#4 blocker; GDD `turn-order.md` revision required first to invert AI direct-call to GameBus signal pattern) → GDD revision + `/architecture-decision turn-order-ai-inversion`
+### Outstanding ADRs (post-Sprint-1 priority)
 
-After each ADR is Accepted: re-run `/create-epics layer: core` to scaffold the corresponding EPIC.md file (the index entry above will graduate to the "Epics" table).
+- **ADR-0005** Input Handling (HIGH engine risk — dual-focus 4.6 + SDL3 + Android edge-to-edge) → unblocks input-handling Foundation epic.
+- **ADR-0007** Hero Database (LOW risk; schema decision primarily) → unblocks hero-database Foundation epic.
+- **ADR-0010** HP/Status (status-effect stacking contract) → unblocks hp-status Core epic.
+- **ADR-0011** Turn Order signal-inversion (resolves architecture.md §1 invariant-#4 blocker; GDD `turn-order.md` revision required first) → unblocks turn-order Core epic.
+
+After each ADR is Accepted: run `/create-epics layer: <layer>` to scaffold the corresponding EPIC.md file (the index Pending entry below will graduate to the "Epics" table).
 
 ## Gate Readiness
 
@@ -112,3 +111,4 @@ Current gate blockers (post-2026-04-25 update):
 | 2026-04-20 | Initial index. 4 epics created: gamebus, scene-manager, save-manager, map-grid. 3 Foundation-layer epics (input-handling, balance-data, hero-database) deferred pending ADR-0005/0006/0007 authoring. |
 | 2026-04-25 | Map-grid epic close-out (8/8 stories Complete; PRs #26-#30 pending merge). 4 Core-layer pending entries added (terrain-effect, unit-role, hp-status, turn-order) — all blocked on ADR-0008..0011 + TR registry expansion (terrain-effect, unit-role have no TR-IDs registered). Save/Load (#17) deferred to VS tier (GDD doesn't exist; save-manager Platform epic already covers infra). Gate readiness re-checked: still FAIL (Vertical Slice + playtest + Core ADRs outstanding). |
 | 2026-04-25 | terrain-effect epic created (Core layer, governed by ADR-0008 Accepted same day via `/architecture-review` delta + concurrent ADR-0004 §5b erratum). 18 TR-terrain-effect-* registered in tr-registry v4. terrain-effect graduates from Pending to Ready; remaining 3 Core-layer Pending entries (unit-role / hp-status / turn-order) still blocked on missing ADRs. |
+| 2026-04-26 | **Sprint 1 S1-02 admin pass** — flip stale Status fields on 4 fully-Complete epics that were still labeled Ready: gamebus (Complete 2026-04-21, 9/9), save-manager (Complete 2026-04-24, 8/8), map-grid (Complete 2026-04-25, 8/8), terrain-effect (Complete 2026-04-26, 8/8 — already flipped in own EPIC.md via /story-done; index sync only). 33/33 cumulative stories shipped across these 4 epics; 4 PRs in Sprint 0 close-out window. scene-manager remains Ready (6/7; story-007 is Sprint 1 S1-01). No content changes — admin labels only. |
