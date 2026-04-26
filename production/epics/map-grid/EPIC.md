@@ -3,9 +3,9 @@
 > **Layer**: Foundation
 > **GDD**: design/gdd/map-grid.md (Designed, APPROVED)
 > **Architecture Module**: MapGrid (docs/architecture/architecture.md §Foundation layer)
-> **Status**: Ready
+> **Status**: Complete (2026-04-25) — 8/8 stories done 🎉
 > **Manifest Version**: 2026-04-20
-> **Stories**: 8 — see table below
+> **Stories**: 8 — all Complete; see table below
 
 ## Overview
 

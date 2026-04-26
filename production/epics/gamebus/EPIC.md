@@ -3,9 +3,9 @@
 > **Layer**: Platform
 > **GDD**: — (infrastructure; authoritative spec is ADR-0001)
 > **Architecture Module**: GameBus (docs/architecture/architecture.md §Platform layer)
-> **Status**: Ready
+> **Status**: Complete (2026-04-21) — 9/9 stories done 🎉
 > **Manifest Version**: 2026-04-20
-> **Stories**: 9 created (2026-04-20; +Story 000 bootstrap added post-review) — see Stories table below
+> **Stories**: 9 created (2026-04-20; +Story 000 bootstrap added post-review) — all Complete; see Stories table below
 
 ## Overview
 
@@ -75,15 +75,15 @@ This epic is complete when:
 
 | # | Story | Type | Status | ADR | Validation |
 |---|-------|------|--------|-----|------------|
-| 000 | Godot 4.6 project + GdUnit4 test harness bootstrap | Config/Data | Ready | ADR-0001..0004 | Prerequisite: `.gd` parse + test runner |
-| 001 | Non-provisional payload Resource classes | Logic | Ready | ADR-0001 | TR-gamebus-001 §3 |
-| 002 | GameBus autoload declaration + registration | Logic | Ready | ADR-0001 | V-1, V-9 |
-| 003 | signal_contract_test — ADR table → code drift gate | Integration | Ready | ADR-0001 | V-2 |
-| 004 | payload_serialization_test — ResourceSaver round-trip | Integration | Ready | ADR-0001 | V-3 |
-| 005 | GameBusDiagnostics — debug-only 50-emit/frame soft cap | Logic | Ready | ADR-0001 | V-5 |
-| 006 | GameBus stub pattern for GdUnit4 | Integration | Ready | ADR-0001 | V-6 |
-| 007 | Cross-scene emit integration test | Integration | Ready | ADR-0001 | V-4 |
-| 008 | CI lint — per-frame emit ban | Config/Data | Ready | ADR-0001 | V-7 |
+| 000 | Godot 4.6 project + GdUnit4 test harness bootstrap | Config/Data | Complete | ADR-0001..0004 | Prerequisite: `.gd` parse + test runner |
+| 001 | Non-provisional payload Resource classes | Logic | Complete | ADR-0001 | TR-gamebus-001 §3 |
+| 002 | GameBus autoload declaration + registration | Logic | Complete | ADR-0001 | V-1, V-9 |
+| 003 | signal_contract_test — ADR table → code drift gate | Integration | Complete | ADR-0001 | V-2 |
+| 004 | payload_serialization_test — ResourceSaver round-trip | Integration | Complete | ADR-0001 | V-3 |
+| 005 | GameBusDiagnostics — debug-only 50-emit/frame soft cap | Logic | Complete | ADR-0001 | V-5 |
+| 006 | GameBus stub pattern for GdUnit4 | Integration | Complete | ADR-0001 | V-6 |
+| 007 | Cross-scene emit integration test | Integration | Complete | ADR-0001 | V-4 |
+| 008 | CI lint — per-frame emit ban | Config/Data | Complete | ADR-0001 | V-7 |
 
 **Deferred to Polish phase (consumer-system-dependent)**:
 - V-8: Frame-time profile on target Android showing <0.5 ms bus dispatch — requires running battle with real consumers
