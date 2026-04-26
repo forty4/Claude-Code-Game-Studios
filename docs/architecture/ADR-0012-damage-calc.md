@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted (2026-04-26, via `/architecture-review` delta)
 
 ## Date
 
@@ -16,7 +16,7 @@ Proposed
 
 - Technical Director (architecture owner)
 - User (Sprint 1 S1-03 authorization, 2026-04-26)
-- godot-specialist (engine validation — pending fresh-session `/architecture-review`)
+- godot-specialist (engine validation 2026-04-26 — `/architecture-decision` 5 findings + `/architecture-review` delta APPROVED WITH SUGGESTIONS, 12/12 PASS, 2 wording corrections applied AF-1 + Item 3, 1 advisory carried AF-3)
 
 ## Summary
 
@@ -505,7 +505,7 @@ interfaces:
 
 7. **`StringName` literal discipline** — All flag / direction / passive comparisons use `&"foo"` syntax (StringName literal), NEVER plain `"foo"` (String). The release-build defense layer relies on this: even if a test bypass-seam injects `Array[String]` with String elements, `&"passive_charge" in attacker.passives` returns `false` (StringName ≠ String comparison), so P_mult stays 1.00.
 
-8. **`@abstract` decorator (optional, Godot 4.5+)** — `class_name DamageCalc` MAY be marked `@abstract` to make `DamageCalc.new()` a parse error, structurally enforcing the no-instance contract. Apply this decoration in story-001 implementation if no instance-construction caller emerges. Low-urgency: the static-only call form is clear from this ADR; static-lint can also catch `DamageCalc.new()` anti-pattern. Identified by godot-specialist validation 2026-04-26.
+8. **`@abstract` decorator (optional, Godot 4.5+)** — `class_name DamageCalc` MAY be marked `@abstract` to reject `DamageCalc.new()` instantiation, structurally enforcing the no-instance contract. The exact failure mode (parse-time error vs. runtime error at `_init()` call) on a class with only `static func` declarations is not explicitly documented in `docs/engine-reference/godot/`; treat the failure as a runtime error and verify the precise level via story-001 implementation. Apply this decoration in story-001 if no instance-construction caller emerges. **Low-urgency**: the static-only call form is clear from this ADR; static-lint (CI grep for `DamageCalc.new(`) is the safer enforcement path and is recommended as the primary mechanism with `@abstract` as a secondary defense. Identified by godot-specialist `/architecture-decision` validation 2026-04-26 + `/architecture-review` consultation same day (Item 3 verdict).
 
 ## Alternatives Considered
 
@@ -536,7 +536,7 @@ interfaces:
 
 - **Deterministic, signal-free, stateless** — three compounding invariants make the system trivially testable, replayable, and reasoning-friendly. No "did a stale signal fire?" debugging surface.
 - **Aligned with ADR-0001 non-emitter list** — no architectural drift risk; static-lint can enforce zero signal emissions in `damage_calc.gd`.
-- **Type boundary enforced at compile-time** — `Array[StringName]` parameter binding catches `Array[String]` bugs at parse time, not at runtime via silent-wrong-answer EC-DC-25 hole.
+- **Type boundary enforced at the call-site boundary** — `Array[StringName]` parameter binding catches `Array[String]` bugs at runtime (assignment / insertion / parameter-bind time, NOT parse time per Decision §2 nuance), not via silent-wrong-answer EC-DC-25 hole at F-DC-5. The runtime catch is at Grid Battle's `DamageCalc.resolve(...)` call, before any multiplier composition runs. Per godot-specialist `/architecture-review` consultation 2026-04-26 (AF-1): wording corrected from earlier "compile-time" claim to align with Decision §2 — see also R-9 mitigation for the bypass-seam test pattern.
 - **Lazy-tuneable via `entities.yaml`** — TK-DC-1 / TK-DC-2 movement is a balance-data edit, not a code change. Damage feel can be iterated without recompilation.
 - **Test-bypass seams via private helpers** — AC-DC-51(b) StringName-literal bypass-seam coverage is achievable without exposing helpers in the public API.
 - **Provisional-dependency strategy unblocks Sprint 1** — ADR-0006/0009/0010/0011 not-yet-written status does not block ADR-0012 or the damage-calc Feature epic stories. Mirrors ADR-0008 → ADR-0006 precedent (proven).

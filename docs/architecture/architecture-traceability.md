@@ -11,15 +11,15 @@
 
 | Field | Value |
 |---|---|
-| Version | 0.3 |
-| Last Updated | 2026-04-25 |
+| Version | 0.4 |
+| Last Updated | 2026-04-26 |
 | Source — architecture: | `docs/architecture/architecture.md` v0.1 |
-| Source — TR registry: | `docs/architecture/tr-registry.yaml` v4 |
-| Source — /architecture-review: | `docs/architecture/architecture-review-2026-04-18.md` (PASS) + `architecture-review-2026-04-20.md` (PASS delta, ADR-0004 accepted) + `architecture-review-2026-04-25.md` (PASS delta, ADR-0008 accepted) |
-| GDDs scanned | 10 of 14 MVP (2026-04-18) + map-grid.md re-scan (2026-04-20) + terrain-effect.md re-scan (2026-04-25) |
+| Source — TR registry: | `docs/architecture/tr-registry.yaml` v5 |
+| Source — /architecture-review: | `docs/architecture/architecture-review-2026-04-18.md` (PASS) + `architecture-review-2026-04-20.md` (PASS delta, ADR-0004 accepted) + `architecture-review-2026-04-25.md` (PASS delta, ADR-0008 accepted) + `architecture-review-2026-04-26.md` (PASS delta, ADR-0012 accepted) |
+| GDDs scanned | 10 of 14 MVP (2026-04-18) + map-grid.md re-scan (2026-04-20) + terrain-effect.md re-scan (2026-04-25) + damage-calc.md re-scan (2026-04-26) |
 | TRs extracted (this session) | 120 |
-| TRs registered (permanent IDs) | 48 |
-| ADR coverage: | 5 ADRs (all Accepted — 4 Foundation + 1 Core) |
+| TRs registered (permanent IDs) | 61 |
+| ADR coverage: | 6 ADRs (all Accepted — 4 Foundation + 1 Core + 1 Feature) |
 
 ---
 
@@ -29,12 +29,12 @@
 |---|---|---|---|---|
 | Platform | — (infra) | 3 (ADR-0001..0003 Accepted) | 0 more | ✅ Complete |
 | Foundation | ~35 | 2 (ADR-0004 Accepted) | 3 more (Input, Balance/Data, Hero DB) | ⚠️ 2/5 |
-| Core | ~30 | 1 (ADR-0008 Accepted) | 1+ more (Turn Order signal, Damage Calc) | ⚠️ 1/2 |
-| Feature | ~25 | 0 | 3+ (Damage Calc, AI, Destiny Branch) | ❌ 0/3 |
+| Core | ~30 | 1 (ADR-0008 Accepted) | 1+ more (Turn Order signal, HP/Status) | ⚠️ 1/2 |
+| Feature | ~25 | 1 (ADR-0012 Accepted) | 2+ (AI, Grid Battle, Destiny Branch) | ⚠️ 1/3 |
 | Presentation | ~10 | 0 | 1+ (Dual-focus UI pattern) | ❌ 0/1 |
 | Polish | ~2 | 0 | 1 (Accessibility, if tier committed) | ❌ 0/1 |
 
-**Net-new ADRs required before Pre-Production → Production gate**: 7–11 (ADR-0004 landed this pass).
+**Net-new ADRs required before Pre-Production → Production gate**: 6–10 (ADR-0012 landed this pass; first Feature-layer ADR).
 
 ---
 
@@ -93,7 +93,23 @@ These 20 requirements have permanent IDs and are already covered by an Accepted 
 | TR-terrain-effect-017 | terrain-effect | ADR-0008 | Accepted | Shared cap accessor max_defense_reduction()/max_evasion() — single source of truth for Formation Bonus + Damage Calc |
 | TR-terrain-effect-018 | terrain-effect | ADR-0008 | Accepted | cost_multiplier(unit_type, terrain_type) matrix structure; MVP=1 uniform; replaces terrain_cost.gd:32 placeholder |
 
-All Foundation-layer ADRs (ADR-0001..0004) and the first Core-layer ADR (ADR-0008) now have permanent TR IDs registered.
+All Foundation-layer ADRs (ADR-0001..0004), the first Core-layer ADR (ADR-0008), and the first Feature-layer ADR (ADR-0012) now have permanent TR IDs registered.
+
+| TR ID | System | ADR | Status | Summary |
+|---|---|---|---|---|
+| TR-damage-calc-001 | damage-calc | ADR-0012 | Accepted | CR-1: stateless `class_name DamageCalc extends RefCounted` + static `resolve()` sole entry point; autoload/Node forms rejected |
+| TR-damage-calc-002 | damage-calc | ADR-0012 | Accepted | 4 typed RefCounted wrappers replace Dictionary payload; `Array[StringName]` discipline (runtime enforcement) + StringName literal release-build defense |
+| TR-damage-calc-003 | damage-calc | ADR-0012 | Accepted | Direct-call interface Grid Battle → DamageCalc.resolve(); apply_damage invoked by Grid Battle, never DamageCalc |
+| TR-damage-calc-004 | damage-calc | ADR-0012 | Accepted | Stateless / signal-free invariant per ADR-0001 non-emitter list line 375 |
+| TR-damage-calc-005 | damage-calc | ADR-0012 | Accepted | Per-call seeded RNG injection; call-count-stable contract (1/0/0 per non-counter/counter/skill-stub) |
+| TR-damage-calc-006 | damage-calc | ADR-0012 | Accepted | 11 tuning constants in entities.yaml via DataRegistry.get_const(); hardcoding banned |
+| TR-damage-calc-007 | damage-calc | ADR-0012 | Accepted | 3-tier cap layering BASE_CEILING=83 / P_MULT_COMBINED_CAP=1.31 / DAMAGE_CEILING=180 in non-negotiable order |
+| TR-damage-calc-008 | damage-calc | ADR-0012 | Accepted | 5 cross-system READ-ONLY upstream interfaces (HP/Status, Terrain Effect, Unit Role, Turn Order, Balance/Data); provisional-dependency strategy on ADR-0006/0009/0010/0011 |
+| TR-damage-calc-009 | damage-calc | ADR-0012 | Accepted | F-GB-PROV retirement same-patch obligation with entities.yaml damage_resolve registration; AC-DC-44 CI grep gate |
+| TR-damage-calc-010 | damage-calc | ADR-0012 | Accepted | Test infrastructure: headless+headed CI matrix, GdUnitTestSuite extends Node for AC-DC-51(b), gdUnit4 addon pinning |
+| TR-damage-calc-011 | damage-calc | ADR-0012 | Accepted | AC-DC-49 (randi_range inclusive both ends) + AC-DC-50 (snappedf round-half-away-from-zero) mandatory engine pin tests |
+| TR-damage-calc-012 | damage-calc | ADR-0012 | Accepted | source_flags always-new-Array semantics; never mutate caller; error-flag vocabulary via .has(&"invariant_violation:reason") |
+| TR-damage-calc-013 | damage-calc | ADR-0012 | Accepted | Performance: 50µs avg headless / <1ms p99 mobile / zero Dictionary alloc inside resolve() body except build_vfx_tags |
 
 ---
 
@@ -189,3 +205,5 @@ _Full rows deferred. Seed: 6 classes with ATK/DEF profiles, formulas F-1..F-5, t
 |---|---|---|
 | 2026-04-18 | 0.1 | Stub created during `/create-architecture` Phase 0. 20 registered TRs carried forward; 102-TR baseline previewed per-GDD. Full registration deferred to next `/architecture-review`. |
 | 2026-04-20 | 0.2 | Delta review: ADR-0004 escalated Proposed → Accepted. 10 new TR-map-grid-* entries registered (registry v2→v3). Foundation layer 1/4 → 2/5 complete. Source: `docs/architecture/architecture-review-2026-04-20.md`. |
+| 2026-04-25 | 0.3 | Delta review: ADR-0008 escalated Proposed → Accepted. 18 new TR-terrain-effect-* entries registered (registry v3→v4). Core layer 0/2 → 1/2 complete. Concurrent ADR-0004 §5b erratum amendment. Source: `docs/architecture/architecture-review-2026-04-25.md`. |
+| 2026-04-26 | 0.4 | Delta review: ADR-0012 (Damage Calc) escalated Proposed → Accepted. 13 new TR-damage-calc-* entries registered (registry v4→v5). First Feature-layer ADR. Provisional-dependency strategy on ADR-0006/0009/0010/0011 mirrors ADR-0008→ADR-0006 precedent (proven 2 invocations). 2 godot-specialist text corrections applied (AF-1 + Item 3). Source: `docs/architecture/architecture-review-2026-04-26.md`. |
