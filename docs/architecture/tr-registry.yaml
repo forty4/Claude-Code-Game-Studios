@@ -24,8 +24,8 @@
 #
 # STATUS VALUES: active | deprecated | superseded-by: TR-[system]-NNN
 
-version: 4
-last_updated: "2026-04-25"
+version: 5
+last_updated: "2026-04-26"
 
 requirements:
   - id: TR-gamebus-001
@@ -432,5 +432,122 @@ requirements:
     adr: docs/architecture/ADR-0008-terrain-effect.md
     requirement: "TerrainEffect.cost_multiplier(unit_type: int, terrain_type: int) -> int defines the unit-type × terrain-type cost matrix structure for Map/Grid Dijkstra. MVP returns 1 for all pairs (CR-1d uniform); ADR-0009 Unit Role populates values. Replaces src/core/terrain_cost.gd:32 placeholder."
     created: 2026-04-25
+    revised: ""
+    status: active
+
+  - id: TR-damage-calc-001
+    system: damage-calc
+    gdd: design/gdd/damage-calc.md
+    adr: docs/architecture/ADR-0012-damage-calc.md
+    requirement: "CR-1: Module type — class_name DamageCalc extends RefCounted with single static func resolve(attacker: AttackerContext, defender: DefenderContext, modifiers: ResolveModifiers) -> ResolveResult as the sole public entry point. Stateless: zero instance fields, zero per-battle init/teardown. Autoload form rejected (would tempt signal emission per ADR-0001 line 375); Node form rejected (SceneTree lifecycle implies state)."
+    created: 2026-04-26
+    revised: ""
+    status: active
+
+  - id: TR-damage-calc-002
+    system: damage-calc
+    gdd: design/gdd/damage-calc.md
+    adr: docs/architecture/ADR-0012-damage-calc.md
+    requirement: "CR-1 + CONTRACT rev 2.2: Type boundary — 4 typed RefCounted wrappers (AttackerContext, DefenderContext, ResolveModifiers, ResolveResult) with class_name + static make() factories. Replaces grid-battle.md lines 807-816 Dictionary payload. Array[StringName] discipline mandatory on .passives / .source_flags / .vfx_tags. Enforcement is runtime (assignment / insertion / parameter-bind time), NOT parse-time — per godot-specialist 2026-04-26 Item 2. StringName literal &foo comparison is the release-build defense (rejects String elements at F-DC-5). Forbidden alternative: Dictionary payload (registered as forbidden_pattern damage_calc_dictionary_payload)."
+    created: 2026-04-26
+    revised: ""
+    status: active
+
+  - id: TR-damage-calc-003
+    system: damage-calc
+    gdd: design/gdd/damage-calc.md
+    adr: docs/architecture/ADR-0012-damage-calc.md
+    requirement: "CR-11 + AC-DC-33/34/35/36: Direct-call interface Grid Battle → DamageCalc.resolve(). Damage Calc has zero outbound calls into HP/Status mutator API; hp_status.apply_damage() is invoked by Grid Battle on HIT, never by Damage Calc. Forbidden alternative: signal-driven resolution (would violate ADR-0001 non-emitter list and AC-DC-42 call-count discipline; registered as forbidden_pattern damage_calc_signal_emission)."
+    created: 2026-04-26
+    revised: ""
+    status: active
+
+  - id: TR-damage-calc-004
+    system: damage-calc
+    gdd: design/gdd/damage-calc.md
+    adr: docs/architecture/ADR-0012-damage-calc.md
+    requirement: "CR-1 + AC-DC-34/35: Stateless / signal-free invariant per ADR-0001 §Damage Calc non-emitter list (line 375). Zero instance fields, zero signal emissions, zero signal subscriptions, zero per-call mutation outside the injected RNG handle. Architecture-registry stance: damage_resolution interface is direct_call, never signal. Static-lint enforcement: 0 matches for `signal ` declarations and `connect(` calls in damage_calc.gd. Forbidden alternative: state mutation (registered as forbidden_pattern damage_calc_state_mutation)."
+    created: 2026-04-26
+    revised: ""
+    status: active
+
+  - id: TR-damage-calc-005
+    system: damage-calc
+    gdd: design/gdd/damage-calc.md
+    adr: docs/architecture/ADR-0012-damage-calc.md
+    requirement: "CR-2 + EC-DC-14 + AC-DC-39: RNG ownership — per-call seeded injection via ResolveModifiers.rng (typed RandomNumberGenerator, never Variant). Call-count-stable contract: 1 randi_range per non-counter attack (Stage-0 evasion roll, F-DC-2), 0 per counter attack (skip evasion per CR-2), 0 per skill-stub MISS (F-DC-1 early return). Damage Calc never owns or mutates RNG state; Save/Load #21 snapshots Grid Battle's RNG handle, replay reproduces bit-identical outputs."
+    created: 2026-04-26
+    revised: ""
+    status: active
+
+  - id: TR-damage-calc-006
+    system: damage-calc
+    gdd: design/gdd/damage-calc.md
+    adr: docs/architecture/ADR-0012-damage-calc.md
+    requirement: "CR-12 + AC-DC-48 + TUNING: 11 tuning constants — 9 consumed (BASE_CEILING, DAMAGE_CEILING, COUNTER_ATTACK_MODIFIER, MIN_DAMAGE, MAX_DEFENSE_REDUCTION, MAX_EVASION, ATK_CAP, DEF_CAP, DEFEND_STANCE_ATK_PENALTY) + 2 owned (TK-DC-1 CHARGE_BONUS=1.20, TK-DC-2 AMBUSH_BONUS=1.15) + 1 owned cap (P_MULT_COMBINED_CAP=1.31). All live in assets/data/balance/entities.yaml; read via DataRegistry.get_const(key). Hardcoding banned (registered as forbidden_pattern hardcoded_damage_constants)."
+    created: 2026-04-26
+    revised: ""
+    status: active
+
+  - id: TR-damage-calc-007
+    system: damage-calc
+    gdd: design/gdd/damage-calc.md
+    adr: docs/architecture/ADR-0012-damage-calc.md
+    requirement: "CR-6/CR-8/CR-9 + F-DC-3/F-DC-5/F-DC-6: Three-tier cap layering composes multiplicatively in non-negotiable order — BASE_CEILING=83 pre-multipliers (Stage-1 ceiling) → P_MULT_COMBINED_CAP=1.31 post-passive-composition (Stage-2.5 cap, rev 2.9 NEW) → DAMAGE_CEILING=180 final (Stage-3 ceiling). Apex arithmetic: Cavalry REAR + Charge + Rally(+10%) + Formation(+5%) → D_mult=snappedf(1.50×1.09, 0.01)=1.64; pre-cap P_mult=1.386 clamped to 1.31; raw=floori(83×1.64×1.31)=178. DAMAGE_CEILING silent on primary path; fires only under EC-DC-9 synthetic dual-passive bypass."
+    created: 2026-04-26
+    revised: ""
+    status: active
+
+  - id: TR-damage-calc-008
+    system: damage-calc
+    gdd: design/gdd/damage-calc.md
+    adr: docs/architecture/ADR-0012-damage-calc.md
+    requirement: "CR-3 + Section F: Five cross-system READ-ONLY upstream interfaces. (1) HP/Status: get_modified_stat(unit_id: StringName, stat_name: String) -> int (provisional ADR-0010). (2) Terrain Effect: get_combat_modifiers(atk: Vector2i, def: Vector2i) -> CombatModifiers with already-clamped terrain_def ∈ [-30,+30] / terrain_evasion ∈ [0,30] (ADR-0008 Accepted). (3) Unit Role: BASE_DIRECTION_MULT[3] + CLASS_DIRECTION_MULT[4][3] compile-time const tables (provisional ADR-0009). (4) Turn Order: get_acted_this_turn(unit_id: StringName) -> bool (provisional ADR-0011). (5) Balance/Data: DataRegistry.get_const(key: String) -> Variant (provisional ADR-0006). Each upstream ADR ratifies (not negotiates) the locked interface; narrowing change triggers reciprocal ADR-0012 amendment."
+    created: 2026-04-26
+    revised: ""
+    status: active
+
+  - id: TR-damage-calc-009
+    system: damage-calc
+    gdd: design/gdd/damage-calc.md
+    adr: docs/architecture/ADR-0012-damage-calc.md
+    requirement: "AC-DC-44 + Migration Plan: F-GB-PROV retirement — same-patch obligation. (1) Remove F-GB-PROV from grid-battle.md §CR-5 Step 7. (2) Register damage_resolve formula in entities.yaml. (3) grid-battle.md §CR-5 Step 7 cites damage-calc.md §F-DC-1 and calls DamageCalc.resolve() directly. (4) CI grep gate AC-DC-44: 0 matches for F-GB-PROV in design/ post-patch."
+    created: 2026-04-26
+    revised: ""
+    status: active
+
+  - id: TR-damage-calc-010
+    system: damage-calc
+    gdd: design/gdd/damage-calc.md
+    adr: docs/architecture/ADR-0012-damage-calc.md
+    requirement: "AC-DC-37/46/47/50/51(b): Test infrastructure prerequisites — (1) headless CI per push for FORMULA/EDGE_CASE/CONTRACT/DETERMINISM/PERFORMANCE/TUNING/VERIFY-ENGINE/non-UI INTEGRATION (44 of 53 ACs). (2) Headed CI via xvfb-run weekly + every rc/* tag for AC-DC-46/47 UI INTEGRATION ACs. (3) Cross-platform determinism matrix macOS-Metal per-push baseline + Windows-D3D12 + Linux-Vulkan weekly + rc/* (AC-DC-37 softened to WARN-not-fail, AC-DC-50 hard-fail). (4) GdUnitTestSuite extends Node base required for AC-DC-51(b) bypass-seam (@onready Node-only in 4.6). (5) gdUnit4 addon pinned at 4.x version matching Godot 4.6 LTS, recorded in tests/README.md and CLAUDE.md."
+    created: 2026-04-26
+    revised: ""
+    status: active
+
+  - id: TR-damage-calc-011
+    system: damage-calc
+    gdd: design/gdd/damage-calc.md
+    adr: docs/architecture/ADR-0012-damage-calc.md
+    requirement: "AC-DC-49 + AC-DC-50 + Verify-against-engine: Two engine-contract pin tests mandatory on every push (headless CI) and every cross-platform matrix run. AC-DC-49: randi_range(from, to) inclusive on both ends — pattern `for i in 1000: assert(rng.randi_range(1, 1) == 1); assert(rng.randi_range(1, 100) ∈ [1, 100])`. AC-DC-50: snappedf(0.005, 0.01) == 0.01 AND snappedf(-0.005, 0.01) == -0.01 (round-half-away-from-zero). Cross-platform divergence on AC-DC-50 boundary residue is critical-tier WARN per AC-DC-37 softened-determinism contract."
+    created: 2026-04-26
+    revised: ""
+    status: active
+
+  - id: TR-damage-calc-012
+    system: damage-calc
+    gdd: design/gdd/damage-calc.md
+    adr: docs/architecture/ADR-0012-damage-calc.md
+    requirement: "CR-11 + AC-DC-36: source_flags mutation semantics — resolve() ALWAYS constructs a NEW Array[StringName] for ResolveResult.source_flags, copying from modifiers.source_flags via .duplicate() and appending internal flags (counter, charge, ambush, evasion, invariant_violation:reason). NEVER mutates the caller's modifiers.source_flags. Tests can re-call resolve() with the same modifiers without observing flag accumulation. Error-flag vocabulary: rng_null, bad_attack_type, unknown_direction, unknown_class — assert via result.source_flags.has(&\"invariant_violation:rng_null\"), never via Engine.get_error_count() (fabricated API)."
+    created: 2026-04-26
+    revised: ""
+    status: active
+
+  - id: TR-damage-calc-013
+    system: damage-calc
+    gdd: design/gdd/damage-calc.md
+    adr: docs/architecture/ADR-0012-damage-calc.md
+    requirement: "AC-DC-40(a) + AC-DC-40(b) + AC-DC-41: Performance budgets. (a) 10,000 calls in headless CI under 500ms (50µs avg per resolve() — Vertical Slice blocker). (b) Mobile p99 < 1ms on minimum-spec device (ARMv8, ≥4GB RAM, Adreno 610 / Mali-G57 class, Android 12+/iOS 15+) — Beta blocker, KEEP-through-implementation. Memory: zero Dictionary allocations inside resolve() body except build_vfx_tags helper (AC-DC-41 static lint via grep — 0 matches for `Dictionary(` and standalone `{` in reachable resolve() functions). 4 RefCounted wrapper allocations per call (deterministic free at scope exit, no GC pause)."
+    created: 2026-04-26
     revised: ""
     status: active
