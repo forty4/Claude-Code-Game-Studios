@@ -345,6 +345,16 @@ The five upstream interfaces are read-only, locked here, ratifiable by upstream 
 
 **Provisional-dependency contract**: ADR-0006/0009/0010/0011 each, when authored, will *ratify* the interface above without modification. If any upstream ADR proposes a change to the interface, it must include a reciprocal ADR-0012 amendment in the same patch (`/architecture-review` cross-conflict detection enforces).
 
+**Call-site ownership** *(added 2026-04-26 per damage-calc story-004 design-gap resolution)*: All 5 upstream interfaces above are invoked at the **Grid Battle orchestrator boundary**, not from within `DamageCalc.resolve()`. Grid Battle reads upstream values and passes the extracted data to `DamageCalc` via the typed `AttackerContext` / `DefenderContext` / `ResolveModifiers` wrappers. `DamageCalc` consumes pre-extracted data; it never holds a reference to any upstream singleton or invokes any upstream API.
+
+Wrapper fields carrying upstream data (story-004 lockdown):
+
+- `AttackerContext.raw_atk: int` — return value of `hp_status.get_modified_stat(unit_id, &"atk")`. Pre-clamp; CR-3 `clampi(raw_atk, 1, ATK_CAP)` applied inside `DamageCalc` (AC-DC-11/15).
+- `DefenderContext.raw_def: int` — return value of `hp_status.get_modified_stat(unit_id, def_stat)` where `def_stat ∈ {&"phys_def", &"mag_def"}` is selected by Grid Battle from `modifiers.attack_type`. Pre-clamp; CR-3 `clampi(raw_def, 1, DEF_CAP)` applied inside `DamageCalc`.
+- `DefenderContext.terrain_def`, `terrain_evasion` — pre-clamped per ADR-0008 (existing precedent for this convention).
+
+This amendment is **non-substantive with respect to interface signatures**: the 5 row signatures above remain the contracts upstream ADRs (0006/0009/0010/0011) will ratify. It clarifies *who* invokes them (Grid Battle), not *what* the signatures are. Pseudocode in `damage-calc.md` §F-DC-3 line 465 (`eff_atk = clampi(hp_status.get_modified_stat(...), 1, ATK_CAP)`) is illustrative of the read-and-clamp logic flow; the actual call site for `get_modified_stat()` is in Grid Battle, with the result flowing through `AttackerContext.raw_atk`.
+
 ### 9. F-GB-PROV Retirement — Same-Patch Obligation
 
 `grid-battle.md` §CR-5 Step 7 currently defines `F-GB-PROV` as the provisional damage formula with a Dictionary-payload pseudocode. Per OQ-DC-2 (Section D of damage-calc.md) and AC-DC-44, this ADR commits to:

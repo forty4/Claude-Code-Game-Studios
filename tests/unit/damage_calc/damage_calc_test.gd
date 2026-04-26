@@ -14,8 +14,8 @@ var _def: DefenderContext
 
 ## Per-test setup. Uses before_test() — the only GdUnit4 v6.1.2 hook (G-15).
 func before_test() -> void:
-	_atk = AttackerContext.make(&"unit_a", AttackerContext.Class.INFANTRY, false, false, [])
-	_def = DefenderContext.make(&"unit_b", 0, 0)
+	_atk = AttackerContext.make(&"unit_a", AttackerContext.Class.INFANTRY, 0, false, false, [])
+	_def = DefenderContext.make(&"unit_b", 0, 0, 0)
 
 
 # ---------------------------------------------------------------------------
@@ -162,7 +162,7 @@ func test_evasion_miss_seeded_roll_25_terrain_30() -> void:
 	# Arrange
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 266   # first randi_range(1,100) → 25
-	var def := DefenderContext.make(&"unit_b", 0, 30)
+	var def := DefenderContext.make(&"unit_b", 0, 0, 30)
 	var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1,
 			false)
 
@@ -179,7 +179,7 @@ func test_counter_path_skips_evasion_no_rng_advance() -> void:
 	# Arrange
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 266   # would produce roll=25 (MISS) if evasion ran — counter skips it
-	var def := DefenderContext.make(&"unit_b", 0, 30)
+	var def := DefenderContext.make(&"unit_b", 0, 0, 30)
 	var state_before: int = rng.state
 	var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1,
 			true)   # is_counter = true
@@ -203,7 +203,7 @@ func test_evasion_boundary_roll_30_terrain_30_misses() -> void:
 	# Arrange — roll=30 <= terrain_evasion=30 → MISS
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 84   # first randi_range(1,100) → 30
-	var def := DefenderContext.make(&"unit_b", 0, 30)
+	var def := DefenderContext.make(&"unit_b", 0, 0, 30)
 	var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1)
 
 	# Act
@@ -219,7 +219,7 @@ func test_evasion_boundary_roll_31_terrain_30_hits() -> void:
 	# Arrange — roll=31 > terrain_evasion=30 → passes Stage 0
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 53   # first randi_range(1,100) → 31
-	var def := DefenderContext.make(&"unit_b", 0, 30)
+	var def := DefenderContext.make(&"unit_b", 0, 0, 30)
 	var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1)
 
 	# Act
@@ -240,7 +240,7 @@ func test_zero_evasion_always_hits_rng_advances_once_per_call() -> void:
 	# Arrange
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 42
-	var def := DefenderContext.make(&"unit_b", 0, 0)   # terrain_evasion = 0
+	var def := DefenderContext.make(&"unit_b", 0, 0, 0)   # terrain_evasion = 0
 	var miss_count: int = 0
 
 	# Capture state snapshots — N+1 distinct states proves N calls
@@ -276,7 +276,7 @@ func test_counter_path_zero_evasion_rng_never_advances() -> void:
 	# Arrange
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 42
-	var def := DefenderContext.make(&"unit_b", 0, 0)
+	var def := DefenderContext.make(&"unit_b", 0, 0, 0)
 	var state_before: int = rng.state
 
 	# Act — 100 counter-path resolve calls (is_counter = true)

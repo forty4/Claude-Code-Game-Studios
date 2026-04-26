@@ -142,3 +142,25 @@
 **Damage-calc epic progress**: 2/10 stories complete. Vertical-slice 2/7 done (001 ✓ + 002 ✓; next 003 → 004 → 005 → 006 → 007 = first-playable damage roll demo target ~5/24).
 
 **Unlocks**: damage-calc story-003 (Stage 0 — invariant guards + evasion roll); first `damage_calc.gd` skeleton + first RNG usage in the project.
+
+---
+
+## Story-004 design-gap addendum (2026-04-26)
+
+Story-002 closed wrappers needed two additive int fields to support story-004 Stage 1 base-damage HP/Status reads. Per **ADR-0012 §8 amendment 2026-04-26 (Call-site ownership)**, all 5 cross-system upstream interfaces are invoked at the Grid Battle orchestrator boundary; DamageCalc consumes already-extracted data via these wrappers — generalizing the precedent already established by `DefenderContext.terrain_def` (pre-clamped via ADR-0008).
+
+**Fields added**:
+
+- `AttackerContext.raw_atk: int` (default 0) — return value of `hp_status.get_modified_stat(unit_id, &"atk")`. Pre-Damage-Calc clamp; CR-3 `clampi(raw_atk, 1, ATK_CAP)` is DamageCalc's responsibility (story-004 AC-DC-11/15).
+- `DefenderContext.raw_def: int` (default 0) — return value of `hp_status.get_modified_stat(unit_id, def_stat)` where `def_stat ∈ {&"phys_def", &"mag_def"}` is selected by Grid Battle from `modifiers.attack_type`. Pre-Damage-Calc clamp; CR-3 `clampi(raw_def, 1, DEF_CAP)` is DamageCalc's responsibility.
+
+**Factory signature updates** (parameter order mirrors field declaration order per existing convention):
+
+- `AttackerContext.make()` — `raw_atk: int` inserted after `unit_class`, before `charge_active`.
+- `DefenderContext.make()` — `raw_def: int` inserted after `unit_id`, before `terrain_def`.
+
+**Mini-PR pattern**: per active.md 2026-04-26 STOP point insight #3 — "closed wrappers may need additive fields as later stories surface needs; document via mini-PR rather than back-fill silently". This addendum + the wrapper code edits + test updates ship together with story-004 prep, before story-004 implementation begins.
+
+**Tests updated**: `tests/unit/damage_calc/wrapper_classes_test.gd` — existing 10 make() call sites updated to pass raw_atk / raw_def positional args. Added field-coverage tests for raw_atk and raw_def round-trip + default behavior. No existing AC regressions; original 6 ACs remain valid (the addendum is purely additive).
+
+**Closed ACs not amended**: AC-1..AC-6 remain the canonical story-002 closure record. New field coverage is documented here in the addendum rather than retroactively appended as AC-7/AC-8.

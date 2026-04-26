@@ -16,6 +16,7 @@ func test_attacker_context_default_construction_produces_empty_typed_passives() 
 	# Assert
 	assert_str(String(ctx.unit_id)).is_equal("")
 	assert_int(ctx.unit_class).is_equal(0)   # CAVALRY = 0 per local enum
+	assert_int(ctx.raw_atk).is_equal(0)
 	assert_bool(ctx.charge_active).is_false()
 	assert_bool(ctx.defend_stance_active).is_false()
 	assert_array(ctx.passives).has_size(0)
@@ -30,11 +31,12 @@ func test_attacker_context_make_factory_assigns_all_fields() -> void:
 	var passives: Array[StringName] = [&"passive_charge"]
 
 	# Act
-	var ctx := AttackerContext.make(&"hero_001", AttackerContext.Class.CAVALRY, true, false, passives)
+	var ctx := AttackerContext.make(&"hero_001", AttackerContext.Class.CAVALRY, 80, true, false, passives)
 
 	# Assert
 	assert_str(String(ctx.unit_id)).is_equal("hero_001")
 	assert_int(ctx.unit_class).is_equal(AttackerContext.Class.CAVALRY)
+	assert_int(ctx.raw_atk).is_equal(80)
 	assert_bool(ctx.charge_active).is_true()
 	assert_bool(ctx.defend_stance_active).is_false()
 	assert_array(ctx.passives).has_size(1)
@@ -52,6 +54,7 @@ func test_defender_context_default_construction_produces_zero_fields() -> void:
 
 	# Assert
 	assert_str(String(def_default.unit_id)).is_equal("")
+	assert_int(def_default.raw_def).is_equal(0)
 	assert_int(def_default.terrain_def).is_equal(0)
 	assert_int(def_default.terrain_evasion).is_equal(0)
 
@@ -59,10 +62,11 @@ func test_defender_context_default_construction_produces_zero_fields() -> void:
 ## AC-3b: DefenderContext.make() factory assigns all fields.
 func test_defender_context_make_factory_assigns_all_fields() -> void:
 	# Arrange / Act
-	var def2 := DefenderContext.make(&"enemy_b", 15, 5)
+	var def2 := DefenderContext.make(&"enemy_b", 50, 15, 5)
 
 	# Assert
 	assert_str(String(def2.unit_id)).is_equal("enemy_b")
+	assert_int(def2.raw_def).is_equal(50)
 	assert_int(def2.terrain_def).is_equal(15)
 	assert_int(def2.terrain_evasion).is_equal(5)
 
@@ -191,6 +195,57 @@ func test_resolve_result_hit_empty_vfx_tags_is_valid() -> void:
 	assert_int(result.attack_type).is_equal(ResolveResult.AttackType.MAGICAL)
 	assert_array(result.source_flags).has_size(0)
 	assert_array(result.vfx_tags).has_size(0)
+
+
+# ---------------------------------------------------------------------------
+# AC-2 (extended)  AttackerContext.raw_atk pass-through (no wrapper clamp)
+# ---------------------------------------------------------------------------
+
+## raw_atk wrapper stores arbitrary int unmodified — clamp is DamageCalc's
+## responsibility per ADR-0012 §8 (CR-3 + AC-DC-11/15). Wrapper-level invariant:
+## what Grid Battle stores is what DamageCalc reads.
+func test_attacker_context_raw_atk_stores_arbitrary_int_unclamped() -> void:
+	# Arrange
+	var passives: Array[StringName] = []
+
+	# Act / Assert — boundary values bracket the eventual ATK_CAP=200 clamp range.
+	# The wrapper itself never modifies them; DamageCalc applies clampi.
+	var below_min := AttackerContext.make(&"a1", 0, 0, false, false, passives)
+	var negative  := AttackerContext.make(&"a2", 0, -5, false, false, passives)
+	var floor_val := AttackerContext.make(&"a3", 0, 1, false, false, passives)
+	var baseline  := AttackerContext.make(&"a4", 0, 80, false, false, passives)
+	var at_cap    := AttackerContext.make(&"a5", 0, 200, false, false, passives)
+	var over_cap  := AttackerContext.make(&"a6", 0, 201, false, false, passives)
+
+	assert_int(below_min.raw_atk).is_equal(0)
+	assert_int(negative.raw_atk).is_equal(-5)
+	assert_int(floor_val.raw_atk).is_equal(1)
+	assert_int(baseline.raw_atk).is_equal(80)
+	assert_int(at_cap.raw_atk).is_equal(200)
+	assert_int(over_cap.raw_atk).is_equal(201)
+
+
+# ---------------------------------------------------------------------------
+# AC-3 (extended)  DefenderContext.raw_def pass-through (no wrapper clamp)
+# ---------------------------------------------------------------------------
+
+## raw_def wrapper stores arbitrary int unmodified — clamp is DamageCalc's
+## responsibility per ADR-0012 §8 (CR-3). Wrapper-level invariant.
+func test_defender_context_raw_def_stores_arbitrary_int_unclamped() -> void:
+	# Act / Assert — boundary values bracket the eventual DEF_CAP=105 clamp range.
+	var below_min := DefenderContext.make(&"d1", 0, 0, 0)
+	var negative  := DefenderContext.make(&"d2", -5, 0, 0)
+	var floor_val := DefenderContext.make(&"d3", 1, 0, 0)
+	var baseline  := DefenderContext.make(&"d4", 50, 0, 0)
+	var at_cap    := DefenderContext.make(&"d5", 105, 0, 0)
+	var over_cap  := DefenderContext.make(&"d6", 106, 0, 0)
+
+	assert_int(below_min.raw_def).is_equal(0)
+	assert_int(negative.raw_def).is_equal(-5)
+	assert_int(floor_val.raw_def).is_equal(1)
+	assert_int(baseline.raw_def).is_equal(50)
+	assert_int(at_cap.raw_def).is_equal(105)
+	assert_int(over_cap.raw_def).is_equal(106)
 
 
 # ---------------------------------------------------------------------------
