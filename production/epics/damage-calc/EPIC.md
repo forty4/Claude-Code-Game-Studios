@@ -4,7 +4,7 @@
 > **GDD**: `design/gdd/damage-calc.md` (rev 2.9.3, APPROVED post-ninth-pass + narrow re-review close-out 2026-04-20, 2335 LoC, 53 ACs)
 > **Architecture Module**: Damage Calc (#11) — `src/feature/damage_calc/`
 > **Status**: Ready
-> **Stories**: 10/10 created (2026-04-26) — **5/10 complete** (story-001 ✓ PR #52, story-002 ✓ PR #54, story-003 ✓ PR #56, story-004 ✓ PR #59, story-005 ✓ PR #61 — Stage 2 direction × passive multiplier with apex P_MULT_COMBINED_CAP=1.31 cap); next: `/story-readiness production/epics/damage-calc/story-006-stage-3-4-raw-counter-result-construction.md`
+> **Stories**: 11/11 created (2026-04-26 — original 10; +1 via /story-readiness story-006 split) — **5/11 complete** (story-001 ✓ PR #52, story-002 ✓ PR #54, story-003 ✓ PR #56, story-004 ✓ PR #59, story-005 ✓ PR #61); next: `/dev-story production/epics/damage-calc/story-006-stage-3-4-raw-counter-result-construction.md` (story-006 already validated READY post-split)
 > **Manifest Version**: 2026-04-20 (`docs/architecture/control-manifest.md`)
 > **Created**: 2026-04-26 (Sprint 1 S1-05)
 
@@ -17,15 +17,16 @@
 | 003 | [Stage 0 — invariant guards + evasion roll](story-003-stage-0-invariant-guards-evasion.md) | Logic | **Complete (2026-04-26)** | ADR-0012 §1, §5, §12 | 002 |
 | 004 | [Stage 1 — base damage + BASE_CEILING](story-004-stage-1-base-damage-base-ceiling.md) | Logic | **Complete (2026-04-26)** | ADR-0012 §7 | 003 |
 | 005 | [Stage 2 — direction × passive multiplier + P_MULT_COMBINED_CAP](story-005-stage-2-direction-passive-multiplier.md) | Logic | **Complete (2026-04-26)** | ADR-0012 §7, §8 | 004 |
-| 006 | [Stage 3-4 — raw + counter + result + AC-DC-51 bypass-seam](story-006-stage-3-4-raw-counter-result-construction.md) | Logic | Ready | ADR-0012 §1, §3, §4, §6, §12 | 005 |
-| 007 | [F-GB-PROV retirement + entities.yaml + Grid Battle integration](story-007-fgbprov-retirement-entities-yaml-grid-battle-integration.md) | Integration | Ready | ADR-0012 §9 | 006 |
+| 006 | [Stage 3-4 — raw + counter + result + N-1 enum-cast fix + AC-DC-51 bypass-seam](story-006-stage-3-4-raw-counter-result-construction.md) | Logic | Ready | ADR-0012 §1, §3, §4, §12 | 005 |
+| 006b | [BalanceConstants wrapper + entities.json + migrate hardcoded constants + AC-DC-48 grep gate](story-006b-balance-constants-migration.md) | Logic | Ready | ADR-0012 §6 + ADR-0008 (TerrainConfig precedent) | 006 |
+| 007 | [F-GB-PROV retirement + entities.yaml + Grid Battle integration](story-007-fgbprov-retirement-entities-yaml-grid-battle-integration.md) | Integration | Ready | ADR-0012 §9 | 006b |
 | 008 | [Determinism + engine-pin + cross-platform matrix + AC-DC-41 lint](story-008-determinism-engine-pin-cross-platform.md) | Integration | Ready | ADR-0012 §10, §11 | 006, 001 |
 | 009 | [Accessibility UI tests — TalkBack + Reduce Motion + monochrome](story-009-accessibility-ui-tests.md) | Visual/Feel | Ready | ADR-0012 §10 | 006, 001 |
-| 010 | [Performance baseline — headless throughput + mobile p99](story-010-perf-baseline.md) | Logic | Ready | ADR-0012 Performance Implications + R-2 | 006, 001 |
+| 010 | [Performance baseline — headless throughput + mobile p99](story-010-perf-baseline.md) | Logic | Ready | ADR-0012 Performance Implications + R-2 | 006b, 001 |
 
-**Stories total**: 10 — 1 Config/Data, 6 Logic, 2 Integration, 1 Visual/Feel.
+**Stories total**: 11 — 1 Config/Data, 7 Logic (incl. 006b), 2 Integration, 1 Visual/Feel. (Was 10; +1 via /story-readiness story-006 split 2026-04-26 — extracted BalanceConstants migration + AC-DC-48 grep gate from story-006 into 006b for cleaner review surface.)
 
-**Implementation order** (vertical-slice replan 2026-04-26): **Core path 001 → 002 → 003 → 004 → 005 → 006 → 007 = first-playable damage roll demo** (target: ~5/24 end of Sprint 2). **Polish stories 008 (cross-platform determinism) + 009 (a11y UI tests) + 010 (perf baseline) deferred** to a post-vertical-slice phase — story-001 already scaffolded the CI matrix that runs them weekly + on rc/* tags, so divergence still surfaces as WARN annotations during deferral. Rationale: prioritize a working damage-roll loop (story-007 Grid Battle integration end-to-end) over completing all 10 stories in sequence.
+**Implementation order** (vertical-slice replan 2026-04-26 + post-006-split): **Core path 001 → 002 → 003 → 004 → 005 → 006 → 006b → 007 = first-playable damage roll demo** (target: ~5/24 end of Sprint 2). **Polish stories 008 (cross-platform determinism) + 009 (a11y UI tests) + 010 (perf baseline) deferred** to a post-vertical-slice phase — story-001 already scaffolded the CI matrix that runs them weekly + on rc/* tags, so divergence still surfaces as WARN annotations during deferral. Rationale: prioritize a working damage-roll loop (story-007 Grid Battle integration end-to-end) over completing all 11 stories in sequence. Story-006 (Stage 3-4 + N-1 fix + AC-DC-51) ships first to unblock vertical-slice 6/8 demo planning; 006b (BalanceConstants migration) follows on its own PR to discharge the deferred-constants tech debt without bundling into a single oversized PR.
 
 **AC coverage**: All 53 GDD ACs assigned across 10 stories. AC-DC-51(b) bypass-seam test class extends `GdUnitTestSuite` (Node base) per ADR-0012 §10 #4.
 
