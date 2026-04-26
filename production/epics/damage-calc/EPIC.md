@@ -4,7 +4,7 @@
 > **GDD**: `design/gdd/damage-calc.md` (rev 2.9.3, APPROVED post-ninth-pass + narrow re-review close-out 2026-04-20, 2335 LoC, 53 ACs)
 > **Architecture Module**: Damage Calc (#11) — `src/feature/damage_calc/`
 > **Status**: Ready
-> **Stories**: 10/10 created (2026-04-26) — run `/story-readiness production/epics/damage-calc/story-001-ci-infrastructure-prerequisite.md` to begin implementation
+> **Stories**: 10/10 created (2026-04-26) — **1/10 complete** (story-001 ✓ 2026-04-26 PR #52); next: `/story-readiness production/epics/damage-calc/story-002-refcounted-wrapper-classes.md`
 > **Manifest Version**: 2026-04-20 (`docs/architecture/control-manifest.md`)
 > **Created**: 2026-04-26 (Sprint 1 S1-05)
 
@@ -12,7 +12,7 @@
 
 | # | Story | Type | Status | Governing ADR | Depends on |
 |---|-------|------|--------|---------------|------------|
-| 001 | [CI infrastructure prerequisite](story-001-ci-infrastructure-prerequisite.md) | Config/Data | Ready | ADR-0012 §10 | None (gates 002-010) |
+| 001 | [CI infrastructure prerequisite](story-001-ci-infrastructure-prerequisite.md) | Config/Data | **Complete (2026-04-26)** | ADR-0012 §10 | None (gates 002-010) |
 | 002 | [RefCounted wrapper classes](story-002-refcounted-wrapper-classes.md) | Logic | Ready | ADR-0012 §2 | 001 |
 | 003 | [Stage 0 — invariant guards + evasion roll](story-003-stage-0-invariant-guards-evasion.md) | Logic | Ready | ADR-0012 §1, §5, §12 | 002 |
 | 004 | [Stage 1 — base damage + BASE_CEILING](story-004-stage-1-base-damage-base-ceiling.md) | Logic | Ready | ADR-0012 §7 | 003 |
