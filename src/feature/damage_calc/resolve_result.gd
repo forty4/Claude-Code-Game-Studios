@@ -31,6 +31,7 @@ static func hit(
 
 
 ## MISS factory — resolved_damage stays 0. flags defaults to empty array (zero-args overload).
+## attack_type left at field default (PHYSICAL) — immaterial on MISS per ADR-0012 §2 ("0 on MISS (immaterial)").
 static func miss(flags: Array[StringName] = []) -> ResolveResult:
 	var result := ResolveResult.new()
 	result.kind = Kind.MISS

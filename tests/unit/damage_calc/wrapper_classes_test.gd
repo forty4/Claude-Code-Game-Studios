@@ -45,20 +45,23 @@ func test_attacker_context_make_factory_assigns_all_fields() -> void:
 # AC-3  DefenderContext
 # ---------------------------------------------------------------------------
 
-## AC-3: DefenderContext default construction and make() factory.
-func test_defender_context_default_and_make_factory() -> void:
-	# Arrange / Act — default
+## AC-3a: DefenderContext default construction produces zero-valued fields.
+func test_defender_context_default_construction_produces_zero_fields() -> void:
+	# Arrange / Act
 	var def_default := DefenderContext.new()
 
-	# Assert defaults
+	# Assert
 	assert_str(String(def_default.unit_id)).is_equal("")
 	assert_int(def_default.terrain_def).is_equal(0)
 	assert_int(def_default.terrain_evasion).is_equal(0)
 
-	# Act — factory
+
+## AC-3b: DefenderContext.make() factory assigns all fields.
+func test_defender_context_make_factory_assigns_all_fields() -> void:
+	# Arrange / Act
 	var def2 := DefenderContext.make(&"enemy_b", 15, 5)
 
-	# Assert factory fields
+	# Assert
 	assert_str(String(def2.unit_id)).is_equal("enemy_b")
 	assert_int(def2.terrain_def).is_equal(15)
 	assert_int(def2.terrain_evasion).is_equal(5)
@@ -156,6 +159,8 @@ func test_resolve_result_miss_factory_sets_kind_miss_and_zero_damage() -> void:
 # ---------------------------------------------------------------------------
 
 ## AC-5 edge case: ResolveResult.miss() with no arguments returns MISS with empty source_flags.
+## Also asserts attack_type field default (PHYSICAL) is preserved on MISS — ADR-0012 §2 says
+## attack_type is "immaterial on MISS" but having a defined default avoids Variant-state hazards.
 func test_resolve_result_miss_zero_args_overload_returns_empty_source_flags() -> void:
 	# Arrange / Act
 	var result := ResolveResult.miss()
@@ -163,7 +168,29 @@ func test_resolve_result_miss_zero_args_overload_returns_empty_source_flags() ->
 	# Assert
 	assert_int(result.kind).is_equal(ResolveResult.Kind.MISS)
 	assert_int(result.resolved_damage).is_equal(0)
+	assert_int(result.attack_type).is_equal(ResolveResult.AttackType.PHYSICAL)  # field default preserved
 	assert_array(result.source_flags).has_size(0)
+
+
+# ---------------------------------------------------------------------------
+# AC-5d  ResolveResult.hit() with empty vfx_tags edge case
+# ---------------------------------------------------------------------------
+
+## AC-5 edge case: ResolveResult.hit() with empty vfx_tags is valid (no VFX dispatch).
+func test_resolve_result_hit_empty_vfx_tags_is_valid() -> void:
+	# Arrange
+	var empty_flags: Array[StringName] = []
+	var empty_vfx: Array[StringName] = []
+
+	# Act
+	var result := ResolveResult.hit(1, ResolveResult.AttackType.MAGICAL, empty_flags, empty_vfx)
+
+	# Assert
+	assert_int(result.kind).is_equal(ResolveResult.Kind.HIT)
+	assert_int(result.resolved_damage).is_equal(1)
+	assert_int(result.attack_type).is_equal(ResolveResult.AttackType.MAGICAL)
+	assert_array(result.source_flags).has_size(0)
+	assert_array(result.vfx_tags).has_size(0)
 
 
 # ---------------------------------------------------------------------------

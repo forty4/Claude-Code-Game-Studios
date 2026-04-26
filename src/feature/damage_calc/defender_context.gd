@@ -4,8 +4,8 @@
 class_name DefenderContext extends RefCounted
 
 var unit_id: StringName
-var terrain_def: int       # already clamped [-30, +30] by Terrain Effect (ADR-0008 opaque contract)
-var terrain_evasion: int   # already clamped [0, 30] by Terrain Effect (ADR-0008 opaque contract)
+var terrain_def: int = 0       # already clamped [-30, +30] by Terrain Effect (ADR-0008 opaque contract)
+var terrain_evasion: int = 0   # already clamped [0, 30] by Terrain Effect (ADR-0008 opaque contract)
 
 
 ## Factory — the only sanctioned construction path in production code.
