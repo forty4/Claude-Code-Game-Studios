@@ -6,7 +6,7 @@ goal: "Close last in-flight Foundation/Core story; ratify ADR-0012 Damage Calc; 
 start: "2026-04-26"
 end: "2026-05-10"
 generated: "2026-04-26"
-updated: "2026-04-26"  # S1-01..S1-05 closed this date — S1-04 PR #48, S1-05a PR #49, S1-05b PR #50
+updated: "2026-04-26"  # S1-01..S1-05 + S1-08 closed this date — S1-08 PR #52 merged (damage-calc story-001 CI prerequisite); macOS hard-gate deferred to TD-036
 
 stories:
   - id: "S1-01"
@@ -80,14 +80,14 @@ stories:
     completed: ""
 
   - id: "S1-08"
-    name: "Begin damage-calc story-001 (ResolveModifiers + DamageBreakdown Resource classes)"
-    file: "production/epics/damage-calc/story-001-resource-classes.md (to be created)"
+    name: "damage-calc story-001 — CI infrastructure prerequisite (headed CI + cross-platform matrix + gdUnit4 v6.1.2 pin)"
+    file: "production/epics/damage-calc/story-001-ci-infrastructure-prerequisite.md"
     priority: should-have
-    status: backlog
+    status: completed
     owner: ""
-    estimate_days: 1.5
+    estimate_days: 1.5  # actual ~5-6h vs estimate due to MikeSchulze/gdUnit4-action@v1 macOS incompatibility (TD-036)
     blocker: "S1-05"
-    completed: ""
+    completed: "2026-04-26"  # PR #52 merged — verdict COMPLETE WITH NOTES (macOS soft-gate via TD-036 deferral)
 
   - id: "S1-09"
     name: "Author ADR-0006 Balance/Data"
