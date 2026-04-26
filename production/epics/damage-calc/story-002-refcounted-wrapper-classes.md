@@ -1,11 +1,12 @@
 # Story 002: AttackerContext / DefenderContext / ResolveModifiers / ResolveResult RefCounted wrapper classes
 
 > **Epic**: damage-calc
-> **Status**: Ready
+> **Status**: Complete (2026-04-26)
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
 > **Estimate**: 2-3 hours (4 wrapper classes with `class_name` + `make()` factories; no pipeline logic — purely structural)
+> **Actual**: ~2.5 hours (initial impl + 4 review suggestions inline + 1 API-slip CI fix `Engine.has_class` → `ClassDB.class_exists`)
 
 ## Context
 
@@ -118,3 +119,26 @@
 
 - Depends on: Story 001 (CI infrastructure prerequisite — required for `tests/unit/damage_calc/` discovery + headless CI run)
 - Unlocks: Story 003 (Stage 0 pipeline references these wrappers)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-26
+**Verdict**: COMPLETE WITH NOTES
+**Criteria**: 6/6 passing — covered by 10 test functions on CI (run 24952627xxx, all green on Linux headless gdUnit4 + macOS soft-gate)
+**Code Review**: Complete — `/code-review` lean-mode dual review (gdscript-specialist APPROVED WITH SUGGESTIONS + qa-tester TESTABLE); all 4 advisory suggestions applied inline pre-merge (commit `d79e16e`):
+1. Explicit `= 0` defaults on DefenderContext int fields (style consistency)
+2. miss() factory doc clarifies attack_type-immaterial-on-MISS per ADR §2
+3. Split AC-3 test into 1-scenario-per-function (AC-3a + AC-3b)
+4. New AC-5d test for `hit()` with empty vfx_tags edge case
+**Test Evidence**: `tests/unit/damage_calc/wrapper_classes_test.gd` — 10 test functions, all pass on Linux headless CI
+**Deviations (advisory)**:
+- **Authorized workaround**: `AttackerContext.unit_class: int = 0` instead of ADR §2 verbatim `unit_class: UnitRole.Class`. Story §Implementation Notes explicitly authorizes per ADR-0012 §8 provisional-dependency strategy; `UnitRole` deferred to Sprint 2 (S1-06/S1-07 deferred per 2026-04-26 vertical-slice replan). Local enum `Class { CAVALRY, SCOUT, INFANTRY, ARCHER }` values lock to `unit-role.md` §EC-7 — zero-value-change migration when ADR-0009 lands.
+- **API correction during CI iteration**: First CI run on PR #54 failed parse with `Engine.has_class()` (does not exist in Godot 4.6 — agent hallucinated API). Fixed to `ClassDB.class_exists()` per gdUnit4's own internal usage (commit `c87267f`). Candidate for new G-16 gotcha entry in `.claude/rules/godot-4x-gotchas.md` (`Engine` vs `ClassDB` API split for collision/class-existence checks) if a similar slip recurs.
+
+**PRs landed**: #53 (S1-08 closure + vertical-slice replan, dependency) + **#54 (story-002 implementation, 3 commits — initial + review polish + API fix)**.
+
+**Damage-calc epic progress**: 2/10 stories complete. Vertical-slice 2/7 done (001 ✓ + 002 ✓; next 003 → 004 → 005 → 006 → 007 = first-playable damage roll demo target ~5/24).
+
+**Unlocks**: damage-calc story-003 (Stage 0 — invariant guards + evasion roll); first `damage_calc.gd` skeleton + first RNG usage in the project.
