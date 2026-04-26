@@ -1873,3 +1873,77 @@ assert_int(result.size()).override_failure_message(
 - New gotcha codified: G-15 (`before_each` phantom hook) in `.claude/rules/godot-4x-gotchas.md` (story-003)
 - Completions: session extracts in `production/session-state/active.md` §/story-done 2026-04-25 (story-003), §/story-done 2026-04-26 (story-004), §/story-done 2026-04-26 (story-005), §/story-done 2026-04-26 (story-006 pending)
 
+---
+
+## TD-035 — `save_perf_test.gd` catastrophic-threshold flakes on shared CI runners (SKIP_PERF_BUDGETS not honored)
+
+**Status**: Open
+**Severity**: Medium (false-positive CI failures block PRs unrelated to save-perf)
+**Discovered**: 2026-04-26 — terrain-effect/story-008 PR #43 first attempt
+**Effort**: ~15 min for either fix
+**Story (incidental discovery)**: `production/epics/terrain-effect/story-008-perf-baseline.md` (the PR that triggered the flake — save-perf flake is unrelated to terrain-effect content)
+
+### Problem
+
+`tests/integration/core/save_perf_test.gd::test_save_perf_full_cycle_p95_under_desktop_budget_advisory` fires a `BLOCKING` assert at line 162 when desktop p95 ≥ 100ms (catastrophic threshold). On shared GitHub Actions ubuntu-latest runners, this assertion flakes due to file-I/O long-tail variance even when steady-state mean is well under budget.
+
+**Observed flake on PR #43 attempt 1 (2026-04-25T19:43:33Z)**:
+- p95 = 133.25ms (catastrophic threshold = 100ms → FAIL)
+- mean = 13.35ms (well under 20ms advisory)
+- max = 237.04ms (long-tail outlier)
+- per-stage breakdown ALL fast: `duplicate_deep=0.066ms ResourceSaver.save=0.206ms rename_absolute=0.076ms`
+- attempt 2 (rerun, no code change) = SUCCESS
+
+The failing iteration's outlier was a single I/O long-tail event from runner contention or disk-cache miss; nothing in the actual save-system code regressed.
+
+### Root cause
+
+The CI workflow sets `SKIP_PERF_BUDGETS=1` env var (verified in PR #43 CI logs at `2026-04-25T19:42:59.5803115Z` step config). However, `save_perf_test.gd:162` does NOT check this env var — it asserts unconditionally. The env var is therefore non-functional for the catastrophic-threshold path.
+
+### Affected files
+
+- `tests/integration/core/save_perf_test.gd:162` — catastrophic `assert_int(p95).is_less(100_000)` (or similar) — line ref from CI report; needs verification at fix time
+- Possibly other `assert_*` calls in the same file that should respect `SKIP_PERF_BUDGETS=1`
+
+### Why it matters
+
+This blocks PRs unrelated to save-perf (PR #43 was a terrain-effect story; the failure was orthogonal to its diff). Every PR that lands while this flakes carries a 15-30min triage tax (was it a real save-perf regression? requires log inspection to rule out). At ~1 PR per day cadence and ~10% flake rate (rough estimate from 1/9 recent runs), that's ~1.5h/month of unproductive triage.
+
+### Proposed fix (pick one)
+
+**Option A — Honor `SKIP_PERF_BUDGETS=1` env var at line 162** (preferred; cheapest):
+
+```gdscript
+# Wrap the catastrophic assert
+if OS.get_environment("SKIP_PERF_BUDGETS") != "1":
+    assert_int(p95_ms).override_failure_message(
+        "AC-DESKTOP catastrophic: p95=%.2fms >= 100ms — regression severe enough that mobile cannot plausibly hit V-11. Investigate immediately." % p95_ms
+    ).is_less(100)
+else:
+    print("[save AC-DESKTOP] SKIP_PERF_BUDGETS=1 set — catastrophic assert skipped (CI/shared-runner mode). p95=%.2fms" % p95_ms)
+```
+
+The advisory `push_warning` at the 20ms threshold should remain unconditional (it's print-only; doesn't fail CI).
+
+**Option B — Loosen the catastrophic threshold for CI**:
+
+Bump from 100ms to 250ms so file-I/O long-tails don't cause flakes. Steady-state regression detection still works because the advisory threshold (20ms) catches mean-degradation cases via push_warning.
+
+**Recommend Option A** — it preserves the ability to detect a true regression on local dev hardware (where the SKIP env var is not set), while killing the CI-shared-runner false-positive class entirely. Option B drops the catastrophic-detection signal for everyone, not just CI.
+
+### Cross-system impact
+
+- `tests/integration/core/map_grid_perf_test.gd` and `tests/integration/core/terrain_effect_perf_test.gd` use TIGHTER per-call budgets (100µs, not 100ms) and have NOT exhibited this flake — they measure CPU-bound code, not I/O. The catastrophic-threshold pattern is appropriate for them. Save-perf is the outlier because it touches disk.
+- If Option A is adopted, the `SKIP_PERF_BUDGETS=1` env var becomes a project-wide convention that catastrophic asserts in I/O-bound perf tests should respect. Worth documenting in `.claude/rules/test-standards.md` so future perf tests follow the pattern.
+
+### Workaround until fixed
+
+When PR CI fails on this test, re-run the failing job (`gh run rerun --failed --job=<id>`). Expected to pass on retry.
+
+### Cross-references
+
+- PR #43 CI logs (failed attempt 1, succeeded attempt 2): https://github.com/forty4/Claude-Code-Game-Studios/actions/runs/24939085309
+- Test source (line ref from CI report — verify at fix time): `tests/integration/core/save_perf_test.gd:162`
+- Workflow env var setting: `.github/workflows/<test-workflow>.yml` `SKIP_PERF_BUDGETS: 1`
+- Related: G-7 (GdUnit4 silent "no tests" on parse-failed scripts) — different problem, but reminds us that exit code alone is not sufficient signal for CI test runs.
+
