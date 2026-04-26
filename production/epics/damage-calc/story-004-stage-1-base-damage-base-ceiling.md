@@ -1,11 +1,12 @@
 # Story 004: Stage 1 — base damage + F-DC-3 + BASE_CEILING (CR-3..CR-6)
 
 > **Epic**: damage-calc
-> **Status**: Ready
+> **Status**: Complete (2026-04-26)
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
 > **Estimate**: 4-5 hours (effective-stat read via stub + terrain reduction + DEFEND_STANCE penalty + base damage formula + BASE_CEILING cap + Formation DEF consumer + 11 ACs)
+> **Actual**: ~3.5 hours (vertical-slice cadence holding)
 
 ## Context
 
@@ -31,18 +32,18 @@
 
 *From `damage-calc.md` §F-DC-3 + AC-DC-01..07/11..15/23/53:*
 
-- [ ] **AC-DC-01 (D-1 baseline)**: `resolve(eff_atk=80, eff_def=50, FRONT, no passives)` → `HIT(resolved_damage=30)` (Cavalry FRONT base, no multipliers in Stage 1 — D_mult/P_mult applied in stories 005-006)
-- [ ] **AC-DC-02 (D-2 BASE_CEILING)**: ATK=190, DEF=10, FRONT → base=83 (clamps at BASE_CEILING)
-- [ ] **AC-DC-05 (D-5 MIN_DAMAGE floor)**: ATK=30, DEF=100, T_def=+30 → base=1 (MIN_DAMAGE floor)
-- [ ] **AC-DC-06 (D-6 negative T_def amplifies defense)**: ATK=60, DEF=50, T_def=−30 → defense_mul=1.30 → base=1 (since `60 − 50×1.30 = −5`, clamped to 1)
-- [ ] **AC-DC-07 (D-7 positive T_def penalty)**: ATK=80, DEF=50, T_def=+20 → defense_mul=0.80 → base=40 (`floori(80 − 50×0.80) = 40`)
-- [ ] **AC-DC-11 (EC-DC-1 ATK 0 clamp)**: mock `get_modified_stat` returning 0 or −5 → eff_atk clamped to 1; pipeline does not produce negative base
-- [ ] **AC-DC-12 (EC-DC-2 DEFEND_STANCE on eff_atk=1)**: `is_counter=true, defend_stance_active=true, raw_atk=1` → `floori(1×0.60)=0` → max(MIN_DAMAGE, 0) recovers to base=1
-- [ ] **AC-DC-13 (EC-DC-3 terrain_def boundary clamp)**: T_def values −31, −30, 0, +30, +31 → defense_mul values 1.30, 1.30, 1.00, 0.70, 0.70 (via `snappedf(1.0 − clampi(T_def, -30, 30) / 100.0, 0.01)`)
-- [ ] **AC-DC-15 (EC-DC-7 ATK over cap)**: mock returning 199, 200, 201 → eff_atk = 199, 200, 200 (Damage Calc clamp is last defense)
-- [ ] **AC-DC-23 (EC-DC-20 floori not int)**: synthetic intermediate float = −0.7 → result matches `floori(−0.7) = −1` path, not `int(−0.7) = 0` path; static grep for `int(` in `damage_calc.gd` returns 0 matches
-- [ ] **AC-DC-53 (D-8 Formation DEF consumer)**: `formation_def_bonus = 0.04`, `defender.def = 50` → `eff_def = clampi(50, 1, 100) + floori(50 × 0.04) = 50 + 2 = 52` → base=30; supplementary delta assertion vs `formation_def_bonus = 0.0` proves Formation DEF absorbs 2 points
-- [ ] Stage-1 returns `int base_damage` (passed to Stage 2 in story-005); private helpers `_stage_1_base_damage`, `_apply_defend_stance_penalty`, `_compute_defense_mul`, `_consume_formation_def_bonus` declared and tested
+- [x] **AC-DC-01 (D-1 baseline)**: `resolve(eff_atk=80, eff_def=50, FRONT, no passives)` → `HIT(resolved_damage=30)` (Cavalry FRONT base, no multipliers in Stage 1 — D_mult/P_mult applied in stories 005-006)
+- [x] **AC-DC-02 (D-2 BASE_CEILING)**: ATK=190, DEF=10, FRONT → base=83 (clamps at BASE_CEILING)
+- [x] **AC-DC-05 (D-5 MIN_DAMAGE floor)**: ATK=30, DEF=100, T_def=+30 → base=1 (MIN_DAMAGE floor)
+- [x] **AC-DC-06 (D-6 negative T_def amplifies defense)**: ATK=60, DEF=50, T_def=−30 → defense_mul=1.30 → base=1 (since `60 − 50×1.30 = −5`, clamped to 1)
+- [x] **AC-DC-07 (D-7 positive T_def penalty)**: ATK=80, DEF=50, T_def=+20 → defense_mul=0.80 → base=40 (`floori(80 − 50×0.80) = 40`)
+- [x] **AC-DC-11 (EC-DC-1 ATK 0 clamp)**: mock `get_modified_stat` returning 0 or −5 → eff_atk clamped to 1; pipeline does not produce negative base
+- [x] **AC-DC-12 (EC-DC-2 DEFEND_STANCE on eff_atk=1)**: `is_counter=true, defend_stance_active=true, raw_atk=1` → `floori(1×0.60)=0` → max(MIN_DAMAGE, 0) recovers to base=1
+- [x] **AC-DC-13 (EC-DC-3 terrain_def boundary clamp)**: T_def values −31, −30, 0, +30, +31 → defense_mul values 1.30, 1.30, 1.00, 0.70, 0.70 (via `snappedf(1.0 − clampi(T_def, -30, 30) / 100.0, 0.01)`)
+- [x] **AC-DC-15 (EC-DC-7 ATK over cap)**: mock returning 199, 200, 201 → eff_atk = 199, 200, 200 (Damage Calc clamp is last defense)
+- [x] **AC-DC-23 (EC-DC-20 floori not int)**: synthetic intermediate float = −0.7 → result matches `floori(−0.7) = −1` path, not `int(−0.7) = 0` path; static grep for `int(` in `damage_calc.gd` returns 0 matches
+- [x] **AC-DC-53 (D-8 Formation DEF consumer)**: `formation_def_bonus = 0.04`, `defender.def = 50` → `eff_def = clampi(50, 1, 100) + floori(50 × 0.04) = 50 + 2 = 52` → base=30; supplementary delta assertion vs `formation_def_bonus = 0.0` proves Formation DEF absorbs 2 points
+- [x] Stage-1 returns `int base_damage` (passed to Stage 2 in story-005); private helpers `_stage_1_base_damage`, `_apply_defend_stance_penalty`, `_compute_defense_mul`, `_consume_formation_def_bonus` declared and tested
 
 ---
 
@@ -143,7 +144,7 @@
 **Story Type**: Logic
 **Required evidence**: `tests/unit/damage_calc/damage_calc_test.gd` — Stage 1 + F-DC-3 test functions; must pass on headless CI
 
-**Status**: [ ] Not yet created
+**Status**: [x] Test file exists at `tests/unit/damage_calc/damage_calc_test.gd` — 12 new test functions (AC-1..AC-11 + 1 E-1 compound) appended to the story-003 baseline; 37/37 PASS in damage_calc suite, 331/331 PASS in full regression (0 errors / 0 failures / 0 orphans / exit 0).
 
 ---
 
@@ -151,3 +152,45 @@
 
 - Depends on: Story 003 (Stage 0 + DamageCalc class skeleton)
 - Unlocks: Story 005 (Stage 2 reads `base_damage` from this story's output)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-26 (PR #59 merged; commit 6ae3047 on main)
+**Pre-PR**: PR #58 — story-004 prep (wrapper `raw_atk`/`raw_def` fields + ADR-0012 §8 call-site ownership amendment) merged the same day before implementation began.
+
+**Criteria**: 12/11 PASS (11 ACs + 1 E-1 compound edge case from /code-review qa-tester).
+- All 11 ACs covered by 11 dedicated test functions (AC-6, AC-8, AC-9 use parametric `Array[Dictionary]` sub-case loops with `override_failure_message`).
+- E-1 (qa-tester recommendation): `raw_atk=0 + defend_stance_active=true` → MIN_DAMAGE=1 — added as `test_stage_1_defend_stance_raw_atk_0_compound_recovers_to_min_damage` to pin the compound clamp-recovery path against future refactors.
+
+**Pre-resolved decisions (orchestrator authorization, recorded for audit)**:
+1. Hardcoded constants (`BASE_CEILING=83`, `MIN_DAMAGE=1`, `ATK_CAP=200`, `DEF_CAP=105`, `DEFEND_STANCE_ATK_PENALTY=0.40`) per §Implementation Notes line 63 — `BalanceConstants` wrapper does not exist yet; story-006 grep-lint AC-DC-48 will catch and force migration when ADR-0006 lands. TODO(story-006) inline.
+2. `TerrainEffect.max_defense_reduction()` ADR-0008 shared accessor used for the defense_mul cap (no hardcoded `30`).
+3. DEFEND_STANCE applied as `(1.0 - DEFEND_STANCE_ATK_PENALTY)` matching AC-DC-12 expected output — resolved the spec's flagged ambiguity at §Implementation Notes line 55. Doc-comments at `damage_calc.gd:25-28, 123-127` document the semantic so future readers don't re-litigate.
+
+**Deviations**: None blocking. Three documented advisories:
+- Hardcoded constants (covered by inline TODO + future story-006 migration grep-lint).
+- F-1 (qa-tester MAJOR policy flag): AC-10 literal-grep test is future-hostile to Stages 2/3/4 additions in `damage_calc.gd`. **Surface to qa-lead at `/story-readiness story-005`** with three options on the table (accept brittleness as enforcement / narrow grep scope per-stage / move to `tools/ci/` lint script). Not a story-004 defect.
+- G-16 codification candidate (gdscript-specialist): untyped `Array` of Dictionary literals in parametric tests should be `Array[Dictionary]`. Pattern-stable across this story's 3 occurrences (now corrected inline at `damage_calc_test.gd:417, 487, 520`). Worth batching with future tech-debt sweep into `.claude/rules/godot-4x-gotchas.md`.
+
+**Deferred to future stories** (rationale documented):
+- N-1 (gdscript-specialist NIT): `as ResolveResult.AttackType` enum-cast time-bomb at `damage_calc.gd:82` — affects Stage 2/3/4 ResolveResult construction sites too; story-006 ResolveResult-construction scope.
+- E-2 (qa-tester advisory): `formation_def_bonus` out-of-range guard not tested — correctly out of scope per Formation Bonus contract (upstream-capped per F-FB-3).
+- N-2 (gdscript-specialist NIT): FileAccess CI-only comment on AC-10 test — low-value; AC-DC-23 reference + test name already convey intent.
+- E-3 (qa-tester advisory): `terrain_evasion=0 + defend_stance_active=true` non-counter compound — Stage 0/1 paths independent; AC-7 covers via counter shortcut.
+
+**CI catch-and-fix during implementation**: 1 iteration. AC-10 literal-grep test caught `int(` substring inside 3 explanatory doc-comments on first headless run. Resolved by rephrasing ("the truncating int conversion"). No logic change. Process insight: future docs/comments in `damage_calc.gd` must avoid the literal `int(` substring — codification candidate alongside G-16.
+
+**Test Evidence**: Logic story — `tests/unit/damage_calc/damage_calc_test.gd` (24 functions; 12 new for story-004 + 1 E-1 compound; 37/37 PASS; 0 orphans; exit 0). Full regression 331/331 PASS.
+
+**Code Review**: Standalone `/code-review` (lean dual: gdscript-specialist + qa-tester) → APPROVED WITH SUGGESTIONS APPLIED. 3 inline edits applied (S-1 tighter helper signature, S-2 `Array[Dictionary]` typing × 3, E-1 compound test); 5 deferred with rationale (N-1, N-2, F-1, E-2, E-3). Per-story dev-time gate review skipped per lean mode (`production/review-mode.txt`).
+
+**Files delivered**:
+- M `src/feature/damage_calc/damage_calc.gd` (+99 LoC; 5 const declarations + 4 private static helpers; replaces story-003 `TODO(story-004)` placeholder)
+- M `tests/unit/damage_calc/damage_calc_test.gd` (+355 LoC; 12 new test functions appended to story-003 baseline)
+
+**Damage-calc epic progress**: 3/10 → 4/10. Vertical-slice 4/7 done (next: 005 → 006 → 007 = first-playable damage roll demo).
+**Sprint 1**: 7 stories closed (S1-01..S1-05 Must-Haves + S1-08 + damage-calc 002/003); story-004 is 4th damage-calc story but remains tracked via EPIC.md per the vertical-slice replan note in `sprint-status.yaml` S1-06 (which references "damage-calc stories 002-007").
+
+**Unlocks**: damage-calc story-005 (Stage 2 — direction × passive multiplier composition; reads `base_damage` from this story's output).
