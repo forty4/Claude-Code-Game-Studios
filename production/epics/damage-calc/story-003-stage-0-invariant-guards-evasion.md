@@ -1,11 +1,12 @@
 # Story 003: Stage 0 — invariant guards + evasion roll (F-DC-2)
 
 > **Epic**: damage-calc
-> **Status**: Ready
+> **Status**: Complete (2026-04-26)
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
 > **Estimate**: 3-4 hours (DamageCalc class declaration + invariant guards + Stage-0 evasion roll + 7 ACs)
+> **Actual**: ~3 hours (initial impl ~2h + 1 CI iteration on TestResolveModifiersBypass parse failure + closure paperwork)
 
 ## Context
 
@@ -135,3 +136,35 @@
 
 - Depends on: Story 002 (wrappers exist) + Story 001 (CI infrastructure)
 - Unlocks: Story 004 (Stage 1 base damage replaces Stage-0-passes placeholder)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-26
+**Verdict**: COMPLETE WITH NOTES
+**Criteria**: 7/7 passing — covered by 13 test functions on Linux headless gdUnit4 CI (PR #56 run, "13 test cases | 0 errors | 0 failures | 0 flaky | 0 skipped | 0 orphans | PASSED 63ms")
+**Code Review**: Skipped — lean mode + orchestrator-direct (story-002's pattern). CI was the authoritative gate; caught the TestResolveModifiersBypass parse error on first run.
+**Test Evidence**: `tests/unit/damage_calc/damage_calc_test.gd` — 13 test functions covering 7 ACs with sub-cases:
+- AC-1 (skill stub): 1a (RNG calls=0) + 1b (default empty skill_id passes through)
+- AC-2 (rng null guard): 1
+- AC-3 (unknown direction): 3a (DIAGONAL) + 3b (empty StringName) + 3c (FRONT/FLANK/REAR all pass)
+- AC-4 (bad attack_type): 1 (direct int-to-enum assignment, see deviation below)
+- AC-5 (seeded MISS): 5a (seed 266 → roll 25 MISS) + 5b (counter skips evasion, RNG unchanged)
+- AC-6 (boundary inclusive): 6a (seed 84 → roll 30 MISS) + 6b (seed 53 → roll 31 HIT)
+- AC-7 (zero evasion): 7a (RNG advances 100 times across 100 calls) + 7b (counter never advances)
+
+**Deviations (advisory)**:
+
+1. **TestResolveModifiersBypass subclass abandoned** — Story §QA Test Cases AC-4 + §Implementation Notes called for `class_name TestResolveModifiersBypass extends ResolveModifiers` shadowing `attack_type` as untyped int. **Godot 4.6 parser rejected** at parse time: "Parse Error: Could not resolve external class member 'attack_type'". The shadowing pattern (`var attack_type: int = 0` in subclass when parent declares `var attack_type: AttackType`) is not supported by Godot 4.6 GDScript even with `@warning_ignore("shadowed_variable_base_class")`.
+   - **Replacement**: direct `mod.attack_type = 99` assignment on the parent `ResolveModifiers` class with `@warning_ignore("int_as_enum_without_cast")` decorator. GDScript enums are runtime ints, so out-of-range int values pass parse-time and trigger the runtime guard via `not in [PHYSICAL, MAGICAL]`.
+   - **Same AC coverage** (AC-4 / AC-DC-28); simpler mechanism; no helper file needed (`tests/helpers/test_resolve_modifiers_bypass.gd` deleted in fix commit `c2aa5d4`).
+   - **Codify candidate (G-16)**: "Subclass var-shadowing of parent's enum-typed field with `var foo: int` fails Godot 4.6 parse — assign out-of-range int directly to enum-typed parent field for bypass-seam tests instead." Pair with story-002's `Engine.has_class()` slip (story-002 = `Engine` vs `ClassDB` API split for collision check); both are training-data gaps for Godot 4.6 specifics caught by CI.
+
+2. **Stub helpers retained** (`_evasion_check`, `_invariant_guard_*`) — return `false` placeholders per story §Implementation Notes "Empty bodies allowed for stages 1-4 stubs"; logic inlined in `resolve()` for story-003. Story-004 will inline-or-extract per Stage 1 needs. No action.
+
+**PRs landed**: #56 (story-003 implementation, 2 commits — initial + bypass-subclass fix). Predecessor PR #55 (story-002 closure paperwork) merged immediately before.
+
+**Damage-calc epic progress**: **3/10 stories complete** (vertical-slice 3/7). Stories 004-007 remain on first-playable damage roll demo core path (target ~5/24 end of Sprint 2).
+
+**Unlocks**: damage-calc story-004 (Stage 1 base damage + BASE_CEILING) — replaces the Stage-0-passes placeholder. First actual damage formula in the project.
