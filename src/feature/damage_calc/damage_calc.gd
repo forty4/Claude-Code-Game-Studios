@@ -27,6 +27,48 @@ const DEF_CAP: int = 105
 ## Name uses "PENALTY" to denote the fraction subtracted, not the resulting multiplier.
 const DEFEND_STANCE_ATK_PENALTY: float = 0.40
 
+## Stage-2 base direction multipliers per F-DC-4 (unit-role.md §EC-7, rev 2.8 locked values).
+## Keys are StringName literals. Locked-not-tunable.
+## TODO(story-006): migrate to UnitRole.BASE_DIRECTION_MULT when ADR-0009 lands.
+const BASE_DIRECTION_MULT: Dictionary = {
+	&"FRONT": 1.00,
+	&"FLANK": 1.20,
+	&"REAR": 1.50,
+}
+## Stage-2 class-specific direction multipliers per F-DC-4 (unit-role.md §EC-7, rev 2.8 locked values).
+## Outer key: unit_class int (CAVALRY=0, SCOUT=1, INFANTRY=2, ARCHER=3).
+## Inner key: StringName direction literal.
+## Cavalry REAR was 1.20 pre-Rally-cap-fix; locked to 1.09 at rev 2.8.
+## Archer FLANK 1.375 per BLK-7-9/10 Pillar-3 parity.
+## TODO(story-006): migrate to UnitRole.CLASS_DIRECTION_MULT when ADR-0009 lands.
+## Outer keys are AttackerContext.Class int values (0..3); enum literals are not permitted in
+## const Dictionary in Godot 4.6 — use the AttackerContext.Class.* names at lookup sites.
+const CLASS_DIRECTION_MULT: Dictionary = {
+	0: {  # CAVALRY
+		&"FRONT": 1.00, &"FLANK": 1.05, &"REAR": 1.09,
+	},
+	1: {  # SCOUT
+		&"FRONT": 1.00, &"FLANK": 1.00, &"REAR": 1.00,
+	},
+	2: {  # INFANTRY
+		&"FRONT": 0.90, &"FLANK": 1.00, &"REAR": 1.00,
+	},
+	3: {  # ARCHER
+		&"FRONT": 1.00, &"FLANK": 1.375, &"REAR": 1.00,
+	},
+}
+## Combined passive multiplier cap (F-DC-5, rev 2.9). Applied post-composition. Locked-not-tunable.
+## TODO(story-006): migrate to BalanceConstants.get_const("P_MULT_COMBINED_CAP") when ADR-0006 lands.
+const P_MULT_COMBINED_CAP: float = 1.31
+## Charge passive bonus multiplier (TK-DC-1, F-DC-5). Fires for CAVALRY with passive_charge on
+## non-counter primary attacks. Locked at 1.20.
+## TODO(story-006): migrate to BalanceConstants.get_const("CHARGE_BONUS") when ADR-0006 lands.
+const CHARGE_BONUS: float = 1.20
+## Ambush passive bonus multiplier (TK-DC-2, F-DC-5). Fires for SCOUT/ARCHER with passive_ambush
+## on non-counter attacks at round >= 2 when defender has not acted. Locked at 1.15.
+## TODO(story-006): migrate to BalanceConstants.get_const("AMBUSH_BONUS") when ADR-0006 lands.
+const AMBUSH_BONUS: float = 1.15
+
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -63,8 +105,6 @@ static func resolve(
 		push_error("DamageCalc.resolve: modifiers.direction_rel=%s is not in {FRONT, FLANK, REAR}" % modifiers.direction_rel)
 		return ResolveResult.miss([&"invariant_violation:unknown_direction"])
 
-	# TODO(story-005): unknown_class guard fires at Stage-2 unit_class lookup site.
-
 	# --- Stage 0: Evasion roll (F-DC-2) ---
 	if not modifiers.is_counter:
 		# Non-counter: always consume exactly one randi_range call (replay determinism — AC-DC-26).
@@ -77,9 +117,24 @@ static func resolve(
 	# --- Stage 0 passes: proceed to Stage 1 base damage ---
 	var base: int = _stage_1_base_damage(attacker, defender, modifiers)
 
-	# TODO(story-005): Stage 2 — direction × passive multiplier (D_mult × P_mult).
-	# TODO(story-006): Stage 3-4 — raw damage + DAMAGE_CEILING + counter halve + source_flags.
-	return ResolveResult.hit(base, modifiers.attack_type as ResolveResult.AttackType, [], [])
+	# --- Stage 2: AC-DC-21 unknown_class invariant guard at F-DC-4 lookup site ---
+	if not CLASS_DIRECTION_MULT.has(attacker.unit_class):
+		push_error("DamageCalc.resolve: unknown unit_class=%d" % attacker.unit_class)
+		return ResolveResult.miss([&"invariant_violation:unknown_class"])
+
+	# --- Stage 2: direction multiplier (F-DC-4) ---
+	var d_mult: float = _direction_multiplier(attacker.unit_class, modifiers.direction_rel)
+
+	# --- Stage 2.5: passive multiplier with P_MULT_COMBINED_CAP clamp (F-DC-5) ---
+	var p_mult: float = _passive_multiplier(attacker, modifiers, defender)
+
+	# Compose Stage-2 output: the truncating int conversion (floori) applied to
+	# base × D_mult × P_mult. Raw int forwarded to Stage 3 (story-006).
+	var raw_pre_dc6: int = floori(base * d_mult * p_mult)
+
+	# TODO(story-006): Stage 3 — DAMAGE_CEILING=180 final cap + MIN_DAMAGE floor.
+	# TODO(story-006): Stage 4 — counter halve (COUNTER_ATTACK_MODIFIER=0.5) + source_flags semantics.
+	return ResolveResult.hit(raw_pre_dc6, modifiers.attack_type as ResolveResult.AttackType, [], [])
 
 
 # ---------------------------------------------------------------------------
@@ -149,3 +204,77 @@ static func _compute_defense_mul(defender: DefenderContext) -> float:
 ## round-toward-−∞ semantics (AC-DC-23).
 static func _consume_formation_def_bonus(eff_def: int, modifiers: ResolveModifiers) -> int:
 	return eff_def + floori(eff_def * modifiers.formation_def_bonus)
+
+
+# ---------------------------------------------------------------------------
+# Stage 2 — direction multiplier (CR-7, F-DC-4, story-005)
+# ---------------------------------------------------------------------------
+
+## Computes D_mult = snappedf(BASE_DIRECTION_MULT[dir] × CLASS_DIRECTION_MULT[class][dir], 0.01).
+## Precision 0.01 is locked-not-tunable per ADR-0012 §Implementation Guidelines #6 + AC-DC-30.
+## Apex example: Cavalry REAR = snappedf(1.50 × 1.09, 0.01) = snappedf(1.635, 0.01) = 1.64.
+## Caller (resolve) has already verified unit_class is a known key in CLASS_DIRECTION_MULT.
+static func _direction_multiplier(unit_class: int, direction_rel: StringName) -> float:
+	var base_mult: float = BASE_DIRECTION_MULT[direction_rel] as float
+	var class_mult: float = (CLASS_DIRECTION_MULT[unit_class] as Dictionary)[direction_rel] as float
+	return snappedf(base_mult * class_mult, 0.01)
+
+
+# ---------------------------------------------------------------------------
+# Stage 2.5 — passive multiplier composition + P_MULT_COMBINED_CAP (CR-8, F-DC-5, story-005)
+# ---------------------------------------------------------------------------
+
+## Orchestrates P_mult: Charge × Ambush × (1+rally) × (1+formation_atk_bonus).
+## Applies minf(P_MULT_COMBINED_CAP, pre_cap) after full composition.
+## Applies snappedf(value, 0.01) to the final post-cap result for cross-platform
+## IEEE-754 residue control per AC-DC-50.
+## Ordering is non-negotiable per ADR-0012 §7 + F-DC-5 line ordering.
+static func _passive_multiplier(
+		attacker: AttackerContext,
+		modifiers: ResolveModifiers,
+		defender: DefenderContext) -> float:
+	var charge: float = _charge_factor(attacker, modifiers)
+	var ambush: float = _ambush_factor(attacker, modifiers, defender)
+	var pre_cap: float = charge * ambush * (1.0 + modifiers.rally_bonus) * (1.0 + modifiers.formation_atk_bonus)
+	var post_cap: float = minf(P_MULT_COMBINED_CAP, pre_cap)
+	return snappedf(post_cap, 0.01)
+
+
+## Returns CHARGE_BONUS (1.20) iff: unit is CAVALRY AND charge_active AND passive_charge present
+## AND attack is not a counter. Counter suppression per AC-DC-16 (EC-DC-8).
+## Class mutex: SCOUT / INFANTRY / ARCHER can never fire Charge (class guard blocks).
+static func _charge_factor(attacker: AttackerContext, modifiers: ResolveModifiers) -> float:
+	if (attacker.unit_class == AttackerContext.Class.CAVALRY
+			and attacker.charge_active
+			and &"passive_charge" in attacker.passives
+			and not modifiers.is_counter):
+		return CHARGE_BONUS
+	return 1.0
+
+
+## Returns AMBUSH_BONUS (1.15) iff: unit is SCOUT or ARCHER AND passive_ambush present
+## AND attack is not a counter AND round_number >= 2 AND defender has not yet acted this turn.
+## Counter suppression per AC-DC-16 (EC-DC-8). Class mutex: CAVALRY / INFANTRY cannot fire Ambush.
+## Turn Order interface stub: modifiers.acted_this_turn_callable defaults to Callable() (no-op = false).
+static func _ambush_factor(
+		attacker: AttackerContext,
+		modifiers: ResolveModifiers,
+		defender: DefenderContext) -> float:
+	if attacker.unit_class not in [AttackerContext.Class.SCOUT, AttackerContext.Class.ARCHER]:
+		return 1.0
+	if not (&"passive_ambush" in attacker.passives):
+		return 1.0
+	if modifiers.is_counter:
+		return 1.0
+	if modifiers.round_number < 2:
+		return 1.0
+	# Turn Order interface: provisional ADR-0011 workaround per ADR-0012 §8.
+	# Default Callable() is not valid — is_valid() returns false → treat as not-acted (false).
+	var has_acted: bool = false
+	if modifiers.acted_this_turn_callable.is_valid():
+		has_acted = modifiers.acted_this_turn_callable.call(defender.unit_id) as bool
+	if has_acted:
+		return 1.0
+	return AMBUSH_BONUS
+
+

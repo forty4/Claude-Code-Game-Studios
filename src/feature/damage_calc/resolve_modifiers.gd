@@ -16,6 +16,12 @@ var rally_bonus: float = 0.0               # [0.0, 0.10] — upstream-capped in 
 var formation_atk_bonus: float = 0.0       # [0.0, 0.05] — upstream-capped in Formation Bonus F-FB-3
 var formation_def_bonus: float = 0.0       # [0.0, 0.05] — upstream-capped in Formation Bonus F-FB-3
 
+## Turn Order interface stub — provisional ADR-0011 workaround per ADR-0012 §8.
+## Defaults to a no-op returning false (defender has not acted this turn).
+## Production wiring (story-007 Grid Battle integration) will inject TurnOrder.get_acted_this_turn.
+## Test fixtures inject a fresh Callable per test per AC-DC-09.
+var acted_this_turn_callable: Callable = Callable()
+
 
 ## Factory — the only sanctioned construction path in production code.
 ## Required params first (attack_type, rng, direction_rel, round_number); optional params follow
@@ -30,7 +36,8 @@ static func make(
 		source_flags: Array[StringName] = [],
 		rally_bonus: float = 0.0,
 		formation_atk_bonus: float = 0.0,
-		formation_def_bonus: float = 0.0) -> ResolveModifiers:
+		formation_def_bonus: float = 0.0,
+		acted_this_turn_callable: Callable = Callable()) -> ResolveModifiers:
 	var result := ResolveModifiers.new()
 	result.attack_type = attack_type
 	result.rng = rng
@@ -43,4 +50,5 @@ static func make(
 	result.rally_bonus = rally_bonus
 	result.formation_atk_bonus = formation_atk_bonus
 	result.formation_def_bonus = formation_def_bonus
+	result.acted_this_turn_callable = acted_this_turn_callable
 	return result

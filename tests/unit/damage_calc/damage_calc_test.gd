@@ -1,5 +1,7 @@
-## Unit tests for DamageCalc.resolve() Stage 0 — invariant guards + evasion roll.
-## Covers story-003 AC-1 through AC-7 (AC-DC-18/19/22/28/10/14/26).
+## Unit tests for DamageCalc.resolve() — Stages 0 / 1 / 2 / 2.5 (cumulative coverage).
+## Covers story-003 (Stage 0 invariant guards + evasion roll, AC-DC-18/19/22/28/10/14/26),
+## story-004 (Stage 1 base damage + BASE_CEILING + DEFEND_STANCE + Formation DEF, AC-DC-01/02/05/06/07/11/12/13/15/23/53),
+## and story-005 (Stage 2 D_mult + Stage 2.5 P_mult composition + P_MULT_COMBINED_CAP, AC-DC-03/04/09/16/21/27/52).
 ## No scene-tree dependency — extends GdUnitTestSuite (RefCounted-based).
 extends GdUnitTestSuite
 
@@ -349,7 +351,9 @@ func test_stage_1_d5_min_damage_floor_atk30_def100_tdef30_returns_1() -> void:
 	# Arrange
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1
-	var atk := AttackerContext.make(&"a", AttackerContext.Class.INFANTRY, 30, false, false, [])
+	# SCOUT class chosen so D_mult=1.00 across all directions per story-005 spec —
+	# isolates Stage-1 verification from Stage-2 multiplication.
+	var atk := AttackerContext.make(&"a", AttackerContext.Class.SCOUT, 30, false, false, [])
 	var def := DefenderContext.make(&"d", 100, 30, 0)
 	var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1)
 
@@ -370,7 +374,8 @@ func test_stage_1_d6_negative_tdef_amplifies_defense_returns_1() -> void:
 	# Arrange
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1
-	var atk := AttackerContext.make(&"a", AttackerContext.Class.INFANTRY, 60, false, false, [])
+	# SCOUT class chosen so D_mult=1.00 across all directions per story-005 spec.
+	var atk := AttackerContext.make(&"a", AttackerContext.Class.SCOUT, 60, false, false, [])
 	var def := DefenderContext.make(&"d", 50, -30, 0)
 	var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1)
 
@@ -391,7 +396,8 @@ func test_stage_1_d7_positive_tdef_reduces_defense_returns_40() -> void:
 	# Arrange
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1
-	var atk := AttackerContext.make(&"a", AttackerContext.Class.INFANTRY, 80, false, false, [])
+	# SCOUT class chosen so D_mult=1.00 across all directions per story-005 spec.
+	var atk := AttackerContext.make(&"a", AttackerContext.Class.SCOUT, 80, false, false, [])
 	var def := DefenderContext.make(&"d", 50, 20, 0)
 	var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1)
 
@@ -424,7 +430,8 @@ func test_stage_1_atk_clamp_boundaries_raw_values_0_neg5_1_200() -> void:
 	for c: Dictionary in cases:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 1
-		var atk := AttackerContext.make(&"a", AttackerContext.Class.INFANTRY,
+		# SCOUT class chosen so D_mult=1.00 across all directions per story-005 spec.
+		var atk := AttackerContext.make(&"a", AttackerContext.Class.SCOUT,
 				c["raw_atk"] as int, false, false, [])
 		var def := DefenderContext.make(&"d", 100, 0, 0)
 		var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1)
@@ -457,7 +464,8 @@ func test_stage_1_defend_stance_raw_atk_1_recovers_to_min_damage() -> void:
 	# Arrange — is_counter skips evasion roll (RNG not consumed)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1
-	var atk := AttackerContext.make(&"a", AttackerContext.Class.INFANTRY, 1, false, true, [])
+	# SCOUT class chosen so D_mult=1.00 across all directions per story-005 spec.
+	var atk := AttackerContext.make(&"a", AttackerContext.Class.SCOUT, 1, false, true, [])
 	var def := DefenderContext.make(&"d", 50, 0, 0)
 	var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1,
 			true)   # is_counter = true (skips evasion)
@@ -480,7 +488,8 @@ func test_stage_1_defend_stance_raw_atk_0_compound_recovers_to_min_damage() -> v
 	# Arrange — is_counter skips evasion roll (RNG not consumed)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1
-	var atk := AttackerContext.make(&"a", AttackerContext.Class.INFANTRY, 0, false, true, [])
+	# SCOUT class chosen so D_mult=1.00 across all directions per story-005 spec.
+	var atk := AttackerContext.make(&"a", AttackerContext.Class.SCOUT, 0, false, true, [])
 	var def := DefenderContext.make(&"d", 50, 0, 0)
 	var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1,
 			true)   # is_counter = true (skips evasion)
@@ -518,7 +527,8 @@ func test_stage_1_terrain_def_boundary_clamp_five_values() -> void:
 	for c: Dictionary in cases:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 1
-		var atk := AttackerContext.make(&"a", AttackerContext.Class.INFANTRY, 80, false, false, [])
+		# SCOUT class chosen so D_mult=1.00 across all directions per story-005 spec.
+		var atk := AttackerContext.make(&"a", AttackerContext.Class.SCOUT, 80, false, false, [])
 		var def := DefenderContext.make(&"d", 100, c["t_def"] as int, 0)
 		var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1)
 
@@ -549,7 +559,8 @@ func test_stage_1_atk_over_cap_clamps_at_200() -> void:
 	for c: Dictionary in cases:
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 1
-		var atk := AttackerContext.make(&"a", AttackerContext.Class.INFANTRY,
+		# SCOUT class chosen so D_mult=1.00 across all directions per story-005 spec.
+		var atk := AttackerContext.make(&"a", AttackerContext.Class.SCOUT,
 				c["raw_atk"] as int, false, false, [])
 		var def := DefenderContext.make(&"d", 10, 0, 0)
 		var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1)
@@ -616,7 +627,8 @@ func test_stage_1_floori_not_int_negative_float_and_static_grep() -> void:
 ## Delta: 30 - 32 = -2 (Formation DEF absorbs 2 damage points — AC-DC-53 supplementary assertion).
 func test_stage_1_formation_def_consumer_delta_minus_2() -> void:
 	# Arrange — shared attacker/defender; only formation_def_bonus differs
-	var atk := AttackerContext.make(&"a", AttackerContext.Class.INFANTRY, 82, false, false, [])
+	# SCOUT class chosen so D_mult=1.00 across all directions per story-005 spec.
+	var atk := AttackerContext.make(&"a", AttackerContext.Class.SCOUT, 82, false, false, [])
 	var def := DefenderContext.make(&"d", 50, 0, 0)
 
 	# Case A: formation_def_bonus = 0.04
@@ -643,3 +655,417 @@ func test_stage_1_formation_def_consumer_delta_minus_2() -> void:
 	assert_int(delta).override_failure_message(
 			"AC-11: Formation DEF delta expected -2 (bonus absorbs 2 pts) but got %d" % delta
 	).is_equal(-2)
+
+
+# ===========================================================================
+# Story-005 — Stage 2 + Stage 2.5 direction × passive multiplier (AC-1..AC-7)
+# AC naming: AC-N below refers to story-005 QA Test Cases §AC-N.
+# All contexts constructed inline per test. No shared fixtures (per before_test isolation).
+# Math verification key: Cavalry REAR D_mult = snappedf(1.50×1.09,0.01) = 1.64.
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# AC-1 (AC-DC-03 D-3) — Cavalry REAR Charge primary
+# ---------------------------------------------------------------------------
+
+## AC-1: Cavalry REAR, ATK=80, DEF=50, charge_active=true, passive_charge, is_counter=false.
+## base=floori(80-50*1.00)=30. D_mult=snappedf(1.50×1.09,0.01)=1.64. P_mult=1.20.
+## raw=floori(30×1.64×1.20)=floori(59.04)=59.
+func test_stage_2_cavalry_rear_charge_primary_returns_59() -> void:
+	# Arrange
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1   # seed 1 passes evasion (terrain_evasion=0)
+	var atk := AttackerContext.make(&"a", AttackerContext.Class.CAVALRY, 80, true, false,
+			[&"passive_charge"])
+	var def := DefenderContext.make(&"d", 50, 0, 0)
+	var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"REAR", 1)
+
+	# Act
+	var result: ResolveResult = DamageCalc.resolve(atk, def, mod)
+
+	# Assert
+	assert_int(result.kind as int).is_equal(ResolveResult.Kind.HIT as int)
+	assert_int(result.resolved_damage).is_equal(59)
+
+
+# ---------------------------------------------------------------------------
+# AC-2 (AC-DC-04 D-4) — hardest primary path, P_MULT_COMBINED_CAP fires + sub-cap delta
+# ---------------------------------------------------------------------------
+
+## AC-2 primary path: Cavalry REAR Charge, ATK=200, DEF=10, Rally(+10%), Formation(+5%).
+## base=83 (BASE_CEILING fires: floori(200-10)=190→83). D_mult=1.64.
+## pre-cap P_mult=1.20×1.10×1.05=1.386 → P_MULT_COMBINED_CAP clamps to 1.31.
+## raw=floori(83×1.64×1.31)=floori(178.35)=178.
+## Sub-case: same with charge_active=false + rally only (+10%, no Formation) → P_mult=1.10.
+## raw=floori(83×1.64×1.10)=floori(149.71)=149. Delta=178-149=29 (Pillar-1 peak differentiation).
+func test_stage_2_hardest_primary_path_p_mult_cap_fires_returns_178_delta_29() -> void:
+	# Arrange — Case A: full Charge + Rally + Formation stack
+	var rng_a := RandomNumberGenerator.new()
+	rng_a.seed = 1
+	var atk_a := AttackerContext.make(&"a", AttackerContext.Class.CAVALRY, 200, true, false,
+			[&"passive_charge"])
+	var def_a := DefenderContext.make(&"d", 10, 0, 0)
+	var mod_a := ResolveModifiers.make(
+			ResolveModifiers.AttackType.PHYSICAL, rng_a, &"REAR", 1,
+			false, "", [], 0.10, 0.05, 0.0)
+
+	# Act A
+	var result_a: ResolveResult = DamageCalc.resolve(atk_a, def_a, mod_a)
+
+	# Assert A: P_MULT_COMBINED_CAP fires → 178
+	assert_int(result_a.kind as int).is_equal(ResolveResult.Kind.HIT as int)
+	assert_int(result_a.resolved_damage).override_failure_message(
+			"AC-2 cap case: expected 178 got %d" % result_a.resolved_damage
+	).is_equal(178)
+
+	# Arrange — Case B: no Charge (charge_active=false), Rally only (+10%), no Formation
+	var rng_b := RandomNumberGenerator.new()
+	rng_b.seed = 1
+	var atk_b := AttackerContext.make(&"b", AttackerContext.Class.CAVALRY, 200, false, false,
+			[&"passive_charge"])
+	var def_b := DefenderContext.make(&"d", 10, 0, 0)
+	var mod_b := ResolveModifiers.make(
+			ResolveModifiers.AttackType.PHYSICAL, rng_b, &"REAR", 1,
+			false, "", [], 0.10, 0.0, 0.0)
+
+	# Act B
+	var result_b: ResolveResult = DamageCalc.resolve(atk_b, def_b, mod_b)
+
+	# Assert B: P_mult=1.10, no cap → 149
+	assert_int(result_b.kind as int).is_equal(ResolveResult.Kind.HIT as int)
+	assert_int(result_b.resolved_damage).override_failure_message(
+			"AC-2 sub-cap case: expected 149 got %d" % result_b.resolved_damage
+	).is_equal(149)
+
+	# Assert supplementary: 29-point Pillar-1 peak differentiation
+	var peak_delta: int = result_a.resolved_damage - result_b.resolved_damage
+	assert_int(peak_delta).override_failure_message(
+			("AC-2: Pillar-1 peak delta expected 29 got %d"
+			% peak_delta)
+	).is_equal(29)
+
+
+# ---------------------------------------------------------------------------
+# AC-3 (AC-DC-09 D-9) — Scout Ambush FLANK
+# ---------------------------------------------------------------------------
+
+## AC-3: Scout (class=1), ATK=70, DEF=40, FLANK, round=3, defender not acted, passive_ambush.
+## base=floori(70-40*1.00)=30. D_mult=snappedf(1.20×1.00,0.01)=1.20. P_mult=1.15.
+## raw=floori(30×1.20×1.15)=floori(41.4)=41.
+func test_stage_2_scout_ambush_flank_round3_defender_not_acted_returns_41() -> void:
+	# Arrange
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1
+	var atk := AttackerContext.make(&"a", AttackerContext.Class.SCOUT, 70, false, false,
+			[&"passive_ambush"])
+	var def := DefenderContext.make(&"d", 40, 0, 0)
+	var not_acted_callable := func(_unit_id: StringName) -> bool: return false
+	var mod := ResolveModifiers.make(
+			ResolveModifiers.AttackType.PHYSICAL, rng, &"FLANK", 3,
+			false, "", [], 0.0, 0.0, 0.0, not_acted_callable)
+
+	# Act
+	var result: ResolveResult = DamageCalc.resolve(atk, def, mod)
+
+	# Assert
+	assert_int(result.kind as int).is_equal(ResolveResult.Kind.HIT as int)
+	assert_int(result.resolved_damage).override_failure_message(
+			"AC-3: Scout Ambush FLANK expected 41 got %d" % result.resolved_damage
+	).is_equal(41)
+
+
+# ---------------------------------------------------------------------------
+# AC-4 (AC-DC-16 EC-DC-8) — Charge suppressed on counter
+# ---------------------------------------------------------------------------
+
+## AC-4: Cavalry REAR Charge, ATK=80, DEF=50. Two runs: is_counter ∈ {true, false}.
+## is_counter=false: P_mult=1.20, raw=floori(30×1.64×1.20)=59.
+## is_counter=true:  P_mult=1.00, raw=floori(30×1.64×1.00)=floori(49.2)=49.
+## Charge is suppressed on counter path (AC-DC-16 EC-DC-8).
+func test_stage_2_charge_suppressed_on_counter_p_mult_differs() -> void:
+	# Arrange — shared attacker with passive_charge
+	var atk := AttackerContext.make(&"a", AttackerContext.Class.CAVALRY, 80, true, false,
+			[&"passive_charge"])
+	var def := DefenderContext.make(&"d", 50, 0, 0)
+
+	# Case A: primary attack (is_counter=false) — Charge fires
+	var rng_a := RandomNumberGenerator.new()
+	rng_a.seed = 1
+	var mod_a := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng_a, &"REAR", 1,
+			false)
+	var result_a: ResolveResult = DamageCalc.resolve(atk, def, mod_a)
+
+	# Case B: counter attack (is_counter=true) — Charge suppressed, evasion also skipped
+	var rng_b := RandomNumberGenerator.new()
+	rng_b.seed = 1
+	var mod_b := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng_b, &"REAR", 1,
+			true)
+	var result_b: ResolveResult = DamageCalc.resolve(atk, def, mod_b)
+
+	# Assert: both HIT
+	assert_int(result_a.kind as int).is_equal(ResolveResult.Kind.HIT as int)
+	assert_int(result_b.kind as int).is_equal(ResolveResult.Kind.HIT as int)
+
+	# Assert: individual expected values
+	assert_int(result_a.resolved_damage).override_failure_message(
+			"AC-4 primary: expected 59 (P_mult=1.20) got %d" % result_a.resolved_damage
+	).is_equal(59)
+	assert_int(result_b.resolved_damage).override_failure_message(
+			"AC-4 counter: expected 49 (P_mult=1.00) got %d" % result_b.resolved_damage
+	).is_equal(49)
+
+	# Assert: the damage ratio reflects the 1.20× Charge factor (with floori floor truncation)
+	# floori(59/49) is not exactly 1.20, but 59 = floori(30×1.64×1.20) and 49 = floori(30×1.64×1.00)
+	# Verify the difference is exactly 10 points (59 - 49 = 10).
+	var charge_delta: int = result_a.resolved_damage - result_b.resolved_damage
+	assert_int(charge_delta).override_failure_message(
+			"AC-4: Charge delta expected 10 got %d" % charge_delta
+	).is_equal(10)
+
+
+# ---------------------------------------------------------------------------
+# AC-5 (AC-DC-21 EC-DC-15) — unknown_class invariant guard
+# ---------------------------------------------------------------------------
+
+## Bypass-seam subclass for AC-5: extends AttackerContext to allow direct field assignment
+## of an out-of-range unit_class (99) that bypasses the make() factory.
+## Per ADR-0012 §Implementation Guidelines #3: test-only bypass-seam pattern.
+## MUST NOT appear in src/ — tests/unit/ location is sufficient.
+class TestAttackerContextBypass extends AttackerContext:
+	pass
+
+
+## AC-5: unit_class=99 (via TestAttackerContextBypass) → MISS with invariant_violation:unknown_class.
+## push_error fires (visible in log). Production-exclusion: TestAttackerContextBypass in src/ = 0.
+func test_stage_2_unknown_class_guard_returns_miss_with_invariant_flag() -> void:
+	# Arrange — TestAttackerContextBypass allows direct field assignment (bypass-seam per ADR-0012 §3)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1
+	var ctx := TestAttackerContextBypass.new()
+	@warning_ignore("int_as_enum_without_cast")
+	ctx.unit_class = 99   # out-of-range value not in CLASS_DIRECTION_MULT
+	ctx.raw_atk = 80
+	ctx.unit_id = &"bypass_test"
+	var def := DefenderContext.make(&"d", 50, 0, 0)
+	var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"REAR", 1,
+			true)   # is_counter=true to skip evasion RNG so we reach Stage 2
+
+	# Act
+	var result: ResolveResult = DamageCalc.resolve(ctx, def, mod)
+
+	# Assert
+	assert_int(result.kind as int).is_equal(ResolveResult.Kind.MISS as int)
+	assert_bool(result.source_flags.has(&"invariant_violation:unknown_class")).override_failure_message(
+			"AC-5: source_flags must contain invariant_violation:unknown_class"
+	).is_true()
+
+	# Production-exclusion lint: TestAttackerContextBypass must NOT appear in src/
+	var src_path: String = "res://src/"
+	var dir: DirAccess = DirAccess.open(src_path)
+	assert_object(dir).override_failure_message(
+			"AC-5 lint: could not open res://src/ for production-exclusion check"
+	).is_not_null()
+	# Read damage_calc.gd specifically (the most likely accidental location)
+	var calc_path: String = "res://src/feature/damage_calc/damage_calc.gd"
+	var calc_file: FileAccess = FileAccess.open(calc_path, FileAccess.READ)
+	if calc_file != null:
+		var content: String = calc_file.get_as_text()
+		calc_file.close()
+		assert_bool(content.contains("TestAttackerContextBypass")).override_failure_message(
+				"AC-5 lint: TestAttackerContextBypass found in damage_calc.gd — production-exclusion violated"
+		).is_false()
+
+
+# ---------------------------------------------------------------------------
+# AC-6 (AC-DC-27 EC-DC-9) — class mutex: BOTH passives, 4 classes
+# ---------------------------------------------------------------------------
+
+## AC-6: parametric loop over 4 unit classes, each with passive_charge + passive_ambush +
+## charge_active=true. Class mutex ensures only one passive fires per class.
+## Expected P_mult: CAVALRY=1.20 (Charge), SCOUT=1.15 (Ambush), INFANTRY=1.00, ARCHER=1.15 (Ambush).
+## Structural invariant: P_mult is NEVER 1.38 (1.20×1.15 = dual-fire = class mutex violation).
+## All cases use Cavalry REAR direction to isolate P_mult observable via raw damage.
+## Ambush-eligible classes (SCOUT=1, ARCHER=3) use round=2 and defender-not-acted callable.
+func test_stage_2_class_mutex_four_classes_p_mult_never_1_38() -> void:
+	# Arrange — parametric test cases per story-005 §AC-6
+	# D_mult for CAVALRY REAR = 1.64; SCOUT REAR = 1.50; INFANTRY REAR = 1.50; ARCHER REAR = 1.50.
+	# base = floori(80-50*1.00) = 30 (ATK=80, DEF=50, T_def=0, no defend_stance).
+	# Expected raw = floori(base × D_mult × P_mult):
+	#   CAVALRY  (0): floori(30×1.64×1.20) = 59
+	#   SCOUT    (1): floori(30×1.50×1.15) = floori(51.75) = 51
+	#   INFANTRY (2): floori(30×1.50×1.00) = 45
+	#   ARCHER   (3): floori(30×1.50×1.15) = 51
+	var cases: Array[Dictionary] = [
+		{"unit_class": AttackerContext.Class.CAVALRY,  "label": "CAVALRY",  "expected_dmg": 59},
+		{"unit_class": AttackerContext.Class.SCOUT,    "label": "SCOUT",    "expected_dmg": 51},
+		{"unit_class": AttackerContext.Class.INFANTRY, "label": "INFANTRY", "expected_dmg": 45},
+		{"unit_class": AttackerContext.Class.ARCHER,   "label": "ARCHER",   "expected_dmg": 51},
+	]
+
+	# Callable stub: defender has not acted (enables Ambush for eligible classes)
+	var not_acted_callable := func(_unit_id: StringName) -> bool: return false
+
+	for c: Dictionary in cases:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 1
+		var atk := AttackerContext.make(
+				&"a", c["unit_class"] as int, 80, true, false,
+				[&"passive_charge", &"passive_ambush"])
+		var def := DefenderContext.make(&"d", 50, 0, 0)
+		var mod := ResolveModifiers.make(
+				ResolveModifiers.AttackType.PHYSICAL, rng, &"REAR", 2,
+				false, "", [], 0.0, 0.0, 0.0, not_acted_callable)
+
+		var result: ResolveResult = DamageCalc.resolve(atk, def, mod)
+
+		assert_int(result.kind as int).override_failure_message(
+				("AC-6 [%s]: expected HIT" % [c["label"] as String])
+		).is_equal(ResolveResult.Kind.HIT as int)
+
+		assert_int(result.resolved_damage).override_failure_message(
+				("AC-6 [%s]: expected %d got %d"
+				% [c["label"] as String, c["expected_dmg"] as int, result.resolved_damage])
+		).is_equal(c["expected_dmg"] as int)
+
+		# Structural invariant: 1.38 dual-fire is class-mutex-impossible
+		# 1.38 dual-fire for CAVALRY REAR = floori(30×1.64×1.38) = floori(67.9) = 67
+		# 1.38 dual-fire for SCOUT/INFANTRY/ARCHER REAR = floori(30×1.50×1.38) = floori(62.1) = 62
+		# Neither 67 nor 62 should ever appear as a resolved_damage in this test.
+		assert_bool(result.resolved_damage == 67 or result.resolved_damage == 62).override_failure_message(
+				("AC-6 [%s]: resolved_damage=%d looks like a P_mult=1.38 dual-fire (class mutex violated)"
+				% [c["label"] as String, result.resolved_damage])
+		).is_false()
+
+
+# ---------------------------------------------------------------------------
+# AC-7 (AC-DC-52 D-7) — Formation ATK sub-apex: cap does NOT fire
+# ---------------------------------------------------------------------------
+
+## AC-7: Cavalry REAR Charge, ATK=200, DEF=10, formation_atk_bonus=0.05, no Rally.
+## base=83. D_mult=1.64. pre-cap P_mult=1.20×1.05=1.26 (P_MULT_COMBINED_CAP=1.31 does NOT fire).
+## raw=floori(83×1.64×1.26)=floori(171.7)=171.
+## Sub-case: same with formation_atk_bonus=0.0 → P_mult=1.20, raw=floori(83×1.64×1.20)=floori(163.5)=163.
+## Delta=171-163=+8 proves Formation ATK contribution at sub-apex.
+func test_stage_2_formation_atk_sub_apex_cap_does_not_fire_delta_8() -> void:
+	# Arrange — Case A: with formation_atk_bonus=0.05
+	var rng_a := RandomNumberGenerator.new()
+	rng_a.seed = 1
+	var atk := AttackerContext.make(&"a", AttackerContext.Class.CAVALRY, 200, true, false,
+			[&"passive_charge"])
+	var def := DefenderContext.make(&"d", 10, 0, 0)
+	var mod_a := ResolveModifiers.make(
+			ResolveModifiers.AttackType.PHYSICAL, rng_a, &"REAR", 1,
+			false, "", [], 0.0, 0.05, 0.0)
+
+	# Act A
+	var result_a: ResolveResult = DamageCalc.resolve(atk, def, mod_a)
+
+	# Arrange — Case B: no formation_atk_bonus (0.0)
+	var rng_b := RandomNumberGenerator.new()
+	rng_b.seed = 1
+	var mod_b := ResolveModifiers.make(
+			ResolveModifiers.AttackType.PHYSICAL, rng_b, &"REAR", 1,
+			false, "", [], 0.0, 0.0, 0.0)
+
+	# Act B
+	var result_b: ResolveResult = DamageCalc.resolve(atk, def, mod_b)
+
+	# Assert A: 171 (P_MULT_COMBINED_CAP=1.31 does NOT fire at P_mult=1.26)
+	assert_int(result_a.kind as int).is_equal(ResolveResult.Kind.HIT as int)
+	assert_int(result_a.resolved_damage).override_failure_message(
+			"AC-7 with formation: expected 171 got %d" % result_a.resolved_damage
+	).is_equal(171)
+
+	# Assert B: 163 (P_mult=1.20, no formation)
+	assert_int(result_b.kind as int).is_equal(ResolveResult.Kind.HIT as int)
+	assert_int(result_b.resolved_damage).override_failure_message(
+			"AC-7 no formation: expected 163 got %d" % result_b.resolved_damage
+	).is_equal(163)
+
+	# Assert supplementary delta: Formation ATK bonus adds exactly +8 damage
+	var formation_delta: int = result_a.resolved_damage - result_b.resolved_damage
+	assert_int(formation_delta).override_failure_message(
+			("AC-7: Formation ATK delta expected +8 got %d" % formation_delta)
+	).is_equal(8)
+
+
+## E-1 (from /code-review qa-tester): default-Callable Ambush path through resolve().
+## Pins the production contract that an unset acted_this_turn_callable (default Callable())
+## evaluates as is_valid()=false in _ambush_factor → has_acted=false → Ambush fires.
+## Distinct from AC-3 which injects an explicit not-acted lambda; this exercises the
+## no-callable-injected default-no-op fallback that production code will hit before
+## ADR-0011 lands.
+func test_stage_2_e1_default_callable_ambush_fires_p_mult_1_15() -> void:
+	# Arrange — Scout, FLANK, round=2, passive_ambush, NO acted_this_turn_callable injected
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1
+	var atk := AttackerContext.make(
+			&"a", AttackerContext.Class.SCOUT, 70, false, false, [&"passive_ambush"])
+	var def := DefenderContext.make(&"d", 40, 0, 0)
+	var mod := ResolveModifiers.make(
+			ResolveModifiers.AttackType.PHYSICAL, rng, &"FLANK", 2)
+	# acted_this_turn_callable left as default Callable() — is_valid() returns false
+
+	# Act
+	var result: ResolveResult = DamageCalc.resolve(atk, def, mod)
+
+	# Assert — Scout FLANK D_mult=1.20, P_mult=1.15 (Ambush fires via is_valid() fallback)
+	# base = floori(70 - 40 * 1.0) = 30; raw = floori(30 * 1.20 * 1.15) = floori(41.4) = 41
+	assert_int(result.kind as int).is_equal(ResolveResult.Kind.HIT as int)
+	assert_int(result.resolved_damage).override_failure_message(
+			("E-1: default Callable() should fall back to has_acted=false → Ambush fires; "
+			+ "expected raw=41 (P_mult=1.15) but got %d" % result.resolved_damage)
+	).is_equal(41)
+
+
+## E-2 (from /code-review qa-tester): Counter + Rally + Formation simultaneously.
+## Pins the spec line 96 positive claim: "Rally + Formation still apply on counter"
+## (counter only suppresses Charge/Ambush, NOT the additive bonuses). Catches a future
+## regression if someone adds `and not modifiers.is_counter` to the Rally or Formation
+## terms in _passive_multiplier.
+func test_stage_2_e2_counter_with_rally_and_formation_p_mult_above_1_00() -> void:
+	# Arrange — Cavalry REAR, Charge eligible BUT is_counter=true (suppresses Charge),
+	# Rally(+10%) and Formation ATK(+5%) active on counter path
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1
+	var atk := AttackerContext.make(
+			&"a", AttackerContext.Class.CAVALRY, 80, true, false, [&"passive_charge"])
+	var def := DefenderContext.make(&"d", 50, 0, 0)
+	var mod := ResolveModifiers.make(
+			ResolveModifiers.AttackType.PHYSICAL, rng, &"REAR", 1,
+			true,           # is_counter = true
+			"",             # skill_id
+			[],             # source_flags
+			0.10,           # rally_bonus = +10%
+			0.05,           # formation_atk_bonus = +5%
+			0.0)            # formation_def_bonus
+
+	# Act
+	var result: ResolveResult = DamageCalc.resolve(atk, def, mod)
+
+	# Assert — Cavalry REAR D_mult=1.64; Charge SUPPRESSED on counter (charge=1.0);
+	# Rally + Formation still apply: P_mult_pre_cap = 1.00 × 1.00 × 1.10 × 1.05 = 1.155
+	# minf(1.31, 1.155) = 1.155 → snappedf(0.01) = 1.16 (post-snap rounding)
+	# base = floori(80 - 50 * 1.0) = 30; raw = floori(30 * 1.64 * 1.16) = floori(57.072) = 57
+	# This proves Rally + Formation still apply on the counter path (P_mult > 1.00).
+	assert_int(result.kind as int).is_equal(ResolveResult.Kind.HIT as int)
+	assert_int(result.resolved_damage).override_failure_message(
+			("E-2: counter path should still apply Rally+Formation (P_mult>1.00); "
+			+ "expected raw=57 but got %d — if Rally/Formation were silently suppressed "
+			+ "on counter, raw would be floori(30 * 1.64 * 1.0)=49"
+			% result.resolved_damage)
+	).is_equal(57)
+
+	# Supplementary: same inputs without Rally + Formation → P_mult=1.00, prove the delta
+	var rng_b := RandomNumberGenerator.new()
+	rng_b.seed = 1
+	var mod_b := ResolveModifiers.make(
+			ResolveModifiers.AttackType.PHYSICAL, rng_b, &"REAR", 1, true)
+	var result_b: ResolveResult = DamageCalc.resolve(atk, def, mod_b)
+	# raw_b = floori(30 * 1.64 * 1.00) = 49
+	assert_int(result_b.resolved_damage).is_equal(49)
+	var counter_bonus_delta: int = result.resolved_damage - result_b.resolved_damage
+	assert_int(counter_bonus_delta).override_failure_message(
+			("E-2: Rally+Formation on counter should add exactly +8 damage; got delta=%d"
+			% counter_bonus_delta)
+	).is_equal(8)
