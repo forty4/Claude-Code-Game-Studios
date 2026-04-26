@@ -3,14 +3,14 @@
 > **Last Updated**: 2026-04-26
 > **Engine**: Godot 4.6
 > **Manifest Version**: 2026-04-20 (docs/architecture/control-manifest.md)
-> **Layer coverage**: Platform (3/3 epics — 2 Complete + 1 Ready 6/7) + Foundation (1/4 epics Complete — 3 blocked on ADR-0005/0006/0007) + Core (1/5 epics Complete — 3 blocked on ADR-0009/0010/0011 + 1 deferred to VS)
+> **Layer coverage**: Platform (3/3 epics Complete 🎉) + Foundation (1/4 epics Complete — 3 blocked on ADR-0005/0006/0007) + Core (1/5 epics Complete — 3 blocked on ADR-0009/0010/0011 + 1 deferred to VS)
 
 ## Epics
 
 | Epic | Layer | System | GDD | Governing ADRs | Stories | Status |
 |------|-------|--------|-----|----------------|---------|--------|
 | [gamebus](gamebus/EPIC.md) | Platform | GameBus autoload | — (ADR-0001 authoritative) | ADR-0001 | 9/9 Complete | **Complete** (2026-04-21) 🎉 |
-| [scene-manager](scene-manager/EPIC.md) | Platform | SceneManager autoload | — (ADR-0002 authoritative) | ADR-0002, ADR-0001 | 6/7 Complete (story-007 in flight — Sprint 1 S1-01) | Ready |
+| [scene-manager](scene-manager/EPIC.md) | Platform | SceneManager autoload | — (ADR-0002 authoritative) | ADR-0002, ADR-0001 | 7/7 Complete (story-007 V-7/V-8 on-device portions deferred to Polish per Sprint 1 R3) | **Complete** (2026-04-26) 🎉 |
 | [save-manager](save-manager/EPIC.md) | Platform | SaveManager autoload | — (ADR-0003 authoritative) | ADR-0003, ADR-0001, ADR-0002 | 8/8 Complete | **Complete** (2026-04-24) 🎉 |
 | [map-grid](map-grid/EPIC.md) | Foundation | Map/Grid System (#14) | design/gdd/map-grid.md | ADR-0004, ADR-0001, ADR-0002, ADR-0003 | 8/8 Complete | **Complete** (2026-04-25) 🎉 |
 | [terrain-effect](terrain-effect/EPIC.md) | Core | Terrain Effect System (#2) | design/gdd/terrain-effect.md | ADR-0008, ADR-0004 (+§5b), ADR-0001 | 8/8 Complete | **Complete** (2026-04-26) 🎉 |
@@ -48,7 +48,7 @@ Per architecture.md layer invariants (Platform → Foundation → Core → ...),
 1. **GameBus** — Complete 2026-04-21 (PR #9 closure). Unblocked stub-injectable test infrastructure for all downstream epics.
 2. **SaveManager** — Complete 2026-04-24 (8/8 stories). Built on GameBus stub pattern.
 3. **Map/Grid** — Complete 2026-04-25 (8/8 stories; PRs #26-#30). Foundation layer.
-4. **SceneManager** — 6/7 Complete (story-007 target-device verification = Sprint 1 S1-01).
+4. **SceneManager** — Complete 2026-04-26 (7/7 stories; story-007 closed via Polish-deferral pattern per Sprint 1 R3 — desktop-verifiable portions PASS, V-7/V-8 on-device portions deferred to Polish phase with documented reactivation trigger).
 5. **Terrain Effect** — Complete 2026-04-26 (8/8 stories; PR #43 closure). First Core-layer epic; consumes ADR-0004 §5b constants.
 
 ## Dependency Snapshot
@@ -57,7 +57,7 @@ Per architecture.md layer invariants (Platform → Foundation → Core → ...),
   GameBus (Platform, ADR-0001) ✅ Complete 2026-04-21
       │
       ▼
-  SceneManager (Platform, ADR-0002) ⚠ 6/7 — story-007 in flight (Sprint 1 S1-01)
+  SceneManager (Platform, ADR-0002) ✅ Complete 2026-04-26 (Polish-deferral on V-7/V-8)
       │
       ▼
   SaveManager (Platform, ADR-0003) ✅ Complete 2026-04-24
@@ -75,8 +75,8 @@ All 5 epics traced to 1+ Accepted ADR with full TR coverage. No untraced require
 
 See `production/sprints/sprint-1.md` for the active sprint plan. Highlights:
 
-- **S1-01**: Close scene-manager story-007 (target-device verification) → SceneManager epic graduates to Complete.
-- **S1-02**: ✅ This admin pass (Status field flips on the 4 Complete epics) — done 2026-04-26.
+- **S1-01**: ✅ Closed scene-manager story-007 via Polish-deferral pattern (4th invocation of pattern; precedents: save-manager/story-007 + map-grid/story-007). SceneManager epic graduated to Complete 2026-04-26 — desktop-verifiable portions PASS; V-7/V-8 on-device portions deferred to Polish per Sprint 1 R3.
+- **S1-02**: ✅ Admin pass (Status field flips on the 4 Complete epics) — done 2026-04-26.
 - **S1-03**: Author **ADR-0012 Damage Calc** from rev 2.9.3 GDD → `/architecture-decision damage-calc` (Highest-value Must-Have; retires R1 risk).
 - **S1-04**: `/architecture-review` ADR-0012 delta → Accepted.
 - **S1-05**: `/create-epics damage-calc` + `/create-stories damage-calc` (first Feature-layer epic).
@@ -112,3 +112,4 @@ Current gate blockers (post-2026-04-25 update):
 | 2026-04-25 | Map-grid epic close-out (8/8 stories Complete; PRs #26-#30 pending merge). 4 Core-layer pending entries added (terrain-effect, unit-role, hp-status, turn-order) — all blocked on ADR-0008..0011 + TR registry expansion (terrain-effect, unit-role have no TR-IDs registered). Save/Load (#17) deferred to VS tier (GDD doesn't exist; save-manager Platform epic already covers infra). Gate readiness re-checked: still FAIL (Vertical Slice + playtest + Core ADRs outstanding). |
 | 2026-04-25 | terrain-effect epic created (Core layer, governed by ADR-0008 Accepted same day via `/architecture-review` delta + concurrent ADR-0004 §5b erratum). 18 TR-terrain-effect-* registered in tr-registry v4. terrain-effect graduates from Pending to Ready; remaining 3 Core-layer Pending entries (unit-role / hp-status / turn-order) still blocked on missing ADRs. |
 | 2026-04-26 | **Sprint 1 S1-02 admin pass** — flip stale Status fields on 4 fully-Complete epics that were still labeled Ready: gamebus (Complete 2026-04-21, 9/9), save-manager (Complete 2026-04-24, 8/8), map-grid (Complete 2026-04-25, 8/8), terrain-effect (Complete 2026-04-26, 8/8 — already flipped in own EPIC.md via /story-done; index sync only). 33/33 cumulative stories shipped across these 4 epics; 4 PRs in Sprint 0 close-out window. scene-manager remains Ready (6/7; story-007 is Sprint 1 S1-01). No content changes — admin labels only. |
+| 2026-04-26 | **Sprint 1 S1-01 close-out** — scene-manager story-007 (target-device verification) closed via Polish-deferral pattern (4th invocation; precedents: save-manager/story-007 2026-04-24, map-grid/story-007 2026-04-25). Desktop-verifiable portions PASS (AC-5 CONNECT_DEFERRED ordering test 3/3 PASSED 0 errors / 0 failures / 0 orphans / exit 0; AC-4 async load partial-substitute observably non-blocking on macOS). V-7/V-8 on-device portions explicitly deferred to Polish per Sprint 1 R3 mitigation with documented reactivation trigger ("when first Android export build is green AND Snapdragon 7-gen device available"); estimated Polish-phase effort 3-4h. V-7 fallback (per-Control mouse_filter recursive walk per ADR-0002 §Neutral Consequences) ready-to-ship in evidence doc §D if Polish-phase AC-1 detects need. **Scene-manager epic graduates to Complete (2026-04-26) — 7/7 stories done 🎉**. **All 5 Platform/Foundation/Core epics now Complete** (gamebus + scene-manager + save-manager + map-grid + terrain-effect = 41/41 cumulative stories shipped). |

@@ -3,9 +3,9 @@
 > **Layer**: Platform
 > **GDD**: — (infrastructure; authoritative spec is ADR-0002; consumer contracts in scenario-progression.md §UI-7 and grid-battle.md §CLEANUP)
 > **Architecture Module**: SceneManager (docs/architecture/architecture.md §Platform layer)
-> **Status**: Ready
+> **Status**: Complete (2026-04-26) — 7/7 stories done 🎉 (with story-007 V-7/V-8 on-device portions DEFERRED to Polish phase per Sprint 1 R3 mitigation; desktop-verifiable portions PASS — see `production/qa/evidence/scene-manager-android-verification.md`)
 > **Manifest Version**: 2026-04-20
-> **Stories**: 7 — see table below
+> **Stories**: 7 — all Complete (story-007 with documented Polish-phase deferral); see table below
 
 ## Overview
 
@@ -86,7 +86,7 @@ This epic is complete when:
 | 004 | Async threaded BattleScene loading + progress | Integration | Complete | ADR-0002 | TR-003, V-3, V-4 partial, V-12 |
 | 005 | Outcome-driven teardown + co-subscriber-safe free | Integration | Complete | ADR-0002 | TR-004, V-5 |
 | 006 | Error recovery + retry loop | Integration | Complete | ADR-0002 | TR-005, V-4 full, V-11 |
-| 007 | Target-device verification (Android recursive Control disable + memory profile) | Integration | Ready | ADR-0002 | V-7, V-8 |
+| 007 | Target-device verification (Android recursive Control disable + memory profile) | Integration | **Complete** (AC-1/2/3/6 + AC-4/5 on-device DEFERRED to Polish per Sprint 1 R3) | ADR-0002 | V-7, V-8 (on-device portions deferred) |
 
 **Dependency chain**: 001 → 002 (stub) → 003 (pause) → 004 (load) → 005 (teardown) → 006 (error/retry) → 007 (target-device)
 

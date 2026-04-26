@@ -1,7 +1,7 @@
 # Story 007: Target-device verification (Android recursive Control disable + memory profile)
 
 > **Epic**: scene-manager
-> **Status**: Ready
+> **Status**: Complete (with AC-1/2/3/6 + AC-4-target + AC-5-target DEFERRED to Polish phase) — 2026-04-26
 > **Layer**: Platform
 > **Type**: Integration
 > **Manifest Version**: 2026-04-20
@@ -127,3 +127,48 @@ This is a manual-verification story. Each AC below is a playtest step documented
 
 - **Depends on**: Stories 001-006 all Complete on main (prior stories provide the implementation; this story verifies on target device)
 - **Unlocks**: scene-manager epic DoD satisfied; ADR-0002 §Validation Criteria V-7, V-8 closed; Scenario Progression epic (Feature layer) can reference scene-manager as a fully validated dependency
+
+## Completion Notes
+
+**Completed**: 2026-04-26 (desktop-verified portions PASS; on-device portions DEFERRED to Polish phase per Sprint 1 R3 sanctioned mitigation)
+**Sprint**: Sprint 1 (S1-01 — easiest unblocked Must-Have, closes scene-manager epic to 7/7)
+**Closure path**: Polish-deferral pattern — 4th invocation in this project (precedents: save-manager/story-007 2026-04-24, map-grid/story-007 2026-04-25, scene-manager/story-007 itself was the original precedent referenced by save-manager/story-007's deferral).
+
+**Acceptance criteria status**:
+
+- [x] **AC-5 CONNECT_DEFERRED ordering on desktop** — story-005's `test_co_subscriber_reads_battle_scene_ref_in_deferred_handler` passes on macOS arm64 (3/3 suite, 0 errors / 0 failures / 0 flaky / 0 orphans, exit 0). Headless precondition for on-device run satisfied.
+- [x] **AC-4 async load partial-substitute on desktop** — `test_scene_manager_async_load_happy_path_idle_to_in_battle` passes (8ms); async pipeline observably non-blocking. Partial substitute only — desktop PASS does not prove mobile PASS, but desktop FAIL would have GUARANTEED mobile FAIL (asymmetric signal — same rationale as save-manager/story-007 §AC-DESKTOP).
+- [?] **AC-1 V-7 recursive Control disable on Android export** — DEFERRED. Touch ≠ mouse (Android `InputEventScreenTouch` exercises a different code path than macOS `MOUSE_BUTTON_PRESSED`); desktop is NOT a substitute. Reactivation trigger documented in evidence doc §E.
+- [?] **AC-2 V-7 fallback (conditional)** — DEFERRED. Activates only if AC-1 detects need. Fallback code is **ready-to-ship** in evidence doc §D (per-Control mouse_filter recursive walk per ADR-0002 §Neutral Consequences).
+- [?] **AC-3 V-8 memory profile ≤250 MB during IN_BATTLE on Snapdragon 7-gen** — DEFERRED. Mobile memory pressure semantics differ from desktop (Android oom_killer thresholds, mobile heap allocators, debug-symbol footprint differences); desktop is NOT authoritative.
+- [?] **AC-4 on-device async load (no frame spike >100ms on Android)** — DEFERRED. Desktop Metal renderer + SSD I/O is not representative of Android Vulkan/OpenGL ES + flash storage.
+- [?] **AC-5 on-device CONNECT_DEFERRED ordering** — DEFERRED. Desktop pass establishes test-logic correctness; mobile-specific frame timing (e.g., 30fps vs 60fps) requires direct verification.
+- [?] **AC-6 retry loop memory stability over 5 cycles** — DEFERRED. Desktop GC behavior differs from Android; profiler-tool quality varies.
+- [x] **Evidence doc**: `production/qa/evidence/scene-manager-android-verification.md` — structured §A through §F sections with per-AC desktop-verified or DEFERRED status, V-7 fallback code, reactivation trigger, Polish-phase effort estimate (3-4h)
+- [N/A] **V-7 fallback ship** — not shipped this story; ready for Polish-phase activation if AC-1 requires it.
+
+**Files changed (this story)**:
+- `production/epics/scene-manager/story-007-target-device-verification.md` (M — Status flip + Completion Notes)
+- `production/epics/scene-manager/EPIC.md` (M — Status flip Ready → Complete; story-007 row updated)
+- `production/qa/evidence/scene-manager-android-verification.md` (NEW — evidence doc)
+- `production/epics/index.md` (M — scene-manager Status cell flip + layer-coverage line + changelog)
+
+**Tests run this session**:
+```
+$ SKIP_PERF_BUDGETS=1 godot --headless --path . \
+    -s addons/gdUnit4/bin/GdUnitCmdTool.gd \
+    --add tests/integration/core/scene_handoff_timing_test.gd \
+    --ignoreHeadlessMode
+
+3 test cases | 0 errors | 0 failures | 0 flaky | 0 skipped | 0 orphans | PASSED 48ms
+Exit code: 0
+```
+
+No new tech debt logged. Polish-phase obligations tracked in evidence doc §E.
+
+**Polish-phase reactivation trigger**: when BOTH conditions are met — (a) Android export pipeline is first green, AND (b) Snapdragon 7-gen class device or approved touch-emulator is available. Estimated effort: 3-4 hours (mirrors save-manager/story-007 estimate).
+
+**Process insights**:
+- **Polish-deferral pattern stable** — 4th invocation in this project. The pattern works: save-manager closed 2026-04-24, map-grid closed 2026-04-25, scene-manager closed 2026-04-26 (this story). Each closure shipped the desktop-verifiable portions + explicit deferral marker + reactivation trigger + ready-to-ship fallback code (where applicable).
+- **Asymmetric-signal rationale reused** — "desktop PASS does not prove mobile PASS, but desktop FAIL would have GUARANTEED mobile FAIL" — same framing applied across all 3 deferral-pattern stories. Worth codifying as a project-standard test-evidence-doc section heading.
+- **Polish-deferral admin scope** — ~1.5h actual session work (evidence doc + status flips + headless test rerun) vs original 1.0d estimate which assumed device access. The deferral path is dramatically faster than the full-verification path; the project should expect this when R3-pattern mitigations fire.

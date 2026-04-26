@@ -6,18 +6,18 @@ goal: "Close last in-flight Foundation/Core story; ratify ADR-0012 Damage Calc; 
 start: "2026-04-26"
 end: "2026-05-10"
 generated: "2026-04-26"
-updated: "2026-04-26"
+updated: "2026-04-26"  # S1-01 + S1-02 + S1-03 closed this date — see story files / PRs #45 #46 (and S1-01 PR pending)
 
 stories:
   - id: "S1-01"
-    name: "scene-manager story-007 — target-device verification"
+    name: "scene-manager story-007 — target-device verification (closed via Polish-deferral)"
     file: "production/epics/scene-manager/story-007-target-device-verification.md"
     priority: must-have
-    status: ready-for-dev
+    status: completed
     owner: ""
     estimate_days: 1.0
     blocker: ""
-    completed: ""
+    completed: "2026-04-26"
 
   - id: "S1-02"
     name: "Admin: flip stale EPIC.md statuses (gamebus + map-grid + save-manager) + refresh epics-index.md"
