@@ -30,7 +30,7 @@
 #   Superseded entries:     Grep pattern="status: superseded"
 
 version: 1
-last_updated: "2026-04-18"
+last_updated: "2026-04-26"
 # 2026-04-18: ADR-0003 Save/Load — added save_persistence_lifecycle interface,
 # save_serialization / save_atomic_write / save_load_cache API decisions,
 # 4 new forbidden patterns, 2 new state_ownership entries.
@@ -40,6 +40,14 @@ last_updated: "2026-04-18"
 # custom-Dijkstra pathfinding, .tres→.res authoring pipeline), 3 forbidden
 # patterns (tile_data_external_subresource, astar_grid2d_for_tactical_pathfinding,
 # map_grid_cache_sync_bypass).
+# 2026-04-26: ADR-0012 Damage Calc — added damage_resolution (direct_call)
+# interface (Grid Battle → DamageCalc.resolve, sole caller, stateless-static)
+# + 4 forbidden patterns (damage_calc_signal_emission,
+# damage_calc_state_mutation, damage_calc_dictionary_payload,
+# hardcoded_damage_constants). No state_ownership entries (Damage Calc is
+# stateless — invariant registered via forbidden_patterns layer instead).
+# No api_decisions entries (engine APIs are LOW-risk pre-cutoff stable;
+# decisions are GDD-locked, not novel ADR commitments).
 
 # ─── STATE OWNERSHIP ─────────────────────────────────────────────────────────
 # Who is the authoritative owner of each piece of shared game state.
@@ -240,6 +248,23 @@ interfaces:
       - docs/architecture/ADR-0001-gamebus-autoload.md  # §10 Environment domain + non-emitter list exception
       - docs/architecture/ADR-0004-map-grid-data-model.md
     added: 2026-04-18
+    revised: ""
+
+  - contract: damage_resolution
+    status: active
+    pattern: direct_call
+    producer: damage-calc       # DamageCalc.resolve() — stateless static method on class_name DamageCalc
+    consumers:
+      - grid-battle             # sole caller per damage-calc.md CR-1 + AC-DC-42 (exactly 2 calls per primary HIT → counter; exactly 1 per primary HIT/MISS → no counter)
+    adr: docs/architecture/ADR-0012-damage-calc.md
+    method_signatures:
+      - "DamageCalc.resolve(attacker: AttackerContext, defender: DefenderContext, modifiers: ResolveModifiers) -> ResolveResult"
+    notes: "Stateless static method on class_name DamageCalc extends RefCounted. ZERO signals emitted (per ADR-0001 non-emitter list, line 375). ZERO signal subscriptions. ZERO instance state. ZERO outbound calls into mutator APIs — hp_status.apply_damage() is invoked by Grid Battle (NOT by DamageCalc) on HIT only. Per-call seeded RNG via ResolveModifiers.rng (typed RandomNumberGenerator, never Variant). Determinism contract: 1 randi_range per non-counter, 0 per counter, 0 per skill stub. Four typed RefCounted wrapper classes (AttackerContext, DefenderContext, ResolveModifiers, ResolveResult) replace the prior Dictionary payload — Array[StringName] passives are mandatory (Array[String] is a silent-wrong-answer hole per EC-DC-25 / AC-DC-51). All 11 tuning constants read via DataRegistry.get_const() — hardcoded literals are blocker bugs."
+    referenced_by:
+      - docs/architecture/ADR-0001-gamebus-autoload.md  # non-emitter list (line 375)
+      - docs/architecture/ADR-0008-terrain-effect.md    # Damage Calc consumer of get_combat_modifiers
+      - docs/architecture/ADR-0012-damage-calc.md
+    added: 2026-04-26
     revised: ""
 
 # Example:
@@ -521,6 +546,34 @@ forbidden_patterns:
     why: "The packed caches are a structural read-optimization for AC-PERF-2. Pathfinding and LoS hot paths read ONLY from the caches — they never dereference TileData. If a mutation updates the Array[TileData] but not the cache (or vice-versa), queries return stale data. This is a silent correctness bug that surfaces only when a query fires between the mutation and the missed cache update — exactly the timing casual testing misses. Single-mutation-entry-point discipline + unit tests on every mutation path is the mitigation."
     adr: docs/architecture/ADR-0004-map-grid-data-model.md
     added: 2026-04-18
+
+  - pattern: damage_calc_signal_emission
+    status: active
+    description: "DamageCalc MUST NOT emit any GameBus signal, MUST NOT subscribe to any GameBus signal, and MUST NOT hold any signal connection. Damage Calc is on the ADR-0001 non-emitter list (line 375). The single legal communication channel is direct call: Grid Battle invokes DamageCalc.resolve(...) and consumes the ResolveResult return value."
+    why: "Signal emission would (a) violate ADR-0001's non-emitter contract, (b) decouple AC-DC-42 call-count discipline (signal subscribers cannot be reliably counted without a registry layer), and (c) split the responsibility for hp_status.apply_damage() between Grid Battle and the signal handler — which path is canonical? The stateless-deterministic invariant collapses if signal-ordering races become possible. Static-lint enforces zero `signal` declarations and zero `connect(` / `emit_signal` calls in src/feature/damage_calc/."
+    adr: docs/architecture/ADR-0012-damage-calc.md
+    added: 2026-04-26
+
+  - pattern: damage_calc_state_mutation
+    status: active
+    description: "DamageCalc MUST NOT declare any instance fields, MUST NOT declare any static fields (e.g., `static var _last_result`), and MUST NOT mutate any external state during resolve(). The class body contains only `static func` declarations (the public `resolve` plus private helpers). No `_init` constructor, no `_ready`, no `_process`. The `class_name DamageCalc extends RefCounted` form structurally enforces statelessness — instances are never constructed in production code; tests construct only for AC-DC-51(b) bypass-seam coverage. Optional `@abstract` decoration (Godot 4.5+) further hardens this by making `DamageCalc.new()` a parse error."
+    why: "Per damage-calc.md CR-1: 'No internal mutable state, no signal emission, no I/O. Same inputs → same output.' State mutation breaks determinism (AC-DC-37, AC-DC-39 RNG replay), breaks call-count discipline (AC-DC-42), and breaks the signal-free contract (state changes invite signal-emit shortcuts). Memoization, caching, or 'optimization' state additions are blocker bugs — they trade correctness for imagined throughput gains that are unmeasurable against the 50µs avg / 1ms mobile p99 budget."
+    adr: docs/architecture/ADR-0012-damage-calc.md
+    added: 2026-04-26
+
+  - pattern: damage_calc_dictionary_payload
+    status: active
+    description: "Grid Battle MUST NOT pass Dictionary-shaped payloads to DamageCalc.resolve(). The three arguments MUST be typed RefCounted wrappers (`AttackerContext`, `DefenderContext`, `ResolveModifiers`). Construction routes through the static `make(...)` factory on each wrapper class. Direct field-by-field construction (`var ctx = AttackerContext.new(); ctx.passives = [...]`) is reserved exclusively for AC-DC-51(b) bypass-seam tests."
+    why: "Dictionary payloads silently re-open EC-DC-25 (Array[String] passive leakage — `&\"passive_charge\" in attacker.passives` returns false against String elements, P_mult stays 1.00 despite the unit having the passive) and AC-DC-51 (silent-fail StringName guard). The typed-RefCounted boundary catches mismatched element types at parameter-bind time (or via runtime type error), and the StringName literal comparison is the release-build defense layer. The current grid-battle.md:807-816 Dictionary-shaped payload is an anti-pattern carried from rev 2.2 brief; rev 2.3 of damage-calc.md fixed it. Reinstating Dictionary in any future story re-opens the silent-wrong-answer hole."
+    adr: docs/architecture/ADR-0012-damage-calc.md
+    added: 2026-04-26
+
+  - pattern: hardcoded_damage_constants
+    status: active
+    description: "Any literal numeric constant in src/feature/damage_calc/*.gd that matches one of the 11 damage-calc constants (BASE_CEILING, DAMAGE_CEILING, COUNTER_ATTACK_MODIFIER, MIN_DAMAGE, MAX_DEFENSE_REDUCTION, MAX_EVASION, ATK_CAP, DEF_CAP, DEFEND_STANCE_ATK_PENALTY, CHARGE_BONUS, AMBUSH_BONUS, P_MULT_COMBINED_CAP) is a blocker bug. All 11 MUST be read via `DataRegistry.get_const(key)` at resolve-time (or cached at module-load via a thin `BalanceConstants` accessor — same call form, internal lazy-init only)."
+    why: "The 11 constants are tuning surface owned by Balance/Data (#26). Hardcoding any of them silently breaks balance governance: a designer changing CHARGE_BONUS in entities.yaml from 1.20 to 1.15 to test feel sees no in-game change because the GDScript source baked in 1.20. The bug surfaces only when QA notices the disparity, by which point hours of tuning iteration have been wasted. Per balance-data.md, hardcoded values are a blocker bug. Static lint via grep for the 11 literals (1.20, 1.15, 83, 180, 0.5, 1, 30, 200, 105, 0.40, 1.31) inside src/feature/damage_calc/ — exception list maintained in tools/ci/ for false-positive numeric-coincidence cases (e.g., array indices)."
+    adr: docs/architecture/ADR-0012-damage-calc.md
+    added: 2026-04-26
 
 # Example:
 #

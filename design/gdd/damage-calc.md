@@ -79,7 +79,7 @@ and re-runnable from identical inputs.
 **CR-1 — Single synchronous service.** Damage Calc is exposed as a stateless
 function `resolve(attacker: AttackerContext, defender: DefenderContext,
 modifiers: ResolveModifiers) -> ResolveResult` (rev 2.3 — typed RefCounted
-wrappers replace the prior Dictionary signature per ADR-0005; see §B
+wrappers replace the prior Dictionary signature per ADR-0012; see §B
 GDScript Implementation Shape). No internal mutable state, no signal
 emission (per ADR-0001 §Damage Calc line 375), no I/O. Same inputs → same
 output.
@@ -272,13 +272,15 @@ static func make(attack_type: AttackType, rng: RandomNumberGenerator,
                  formation_def_bonus: float = 0.0) -> ResolveModifiers: ...
 ```
 
-**Phase-5 migration note — ADR candidate.** The switch from Dictionary to
+**Phase-5 migration note — ratified by ADR-0012.** The switch from Dictionary to
 `ResolveModifiers` is a cross-system ABI change: `grid-battle.md` lines
-807–816 currently document a Dictionary-shaped payload. A new ADR
-(`docs/architecture/ADR-0005-resolve-modifiers-wrapper.md`) is required
-*before* implementation, covering (a) Grid Battle call-site migration,
-(b) save/load RNG snapshot compatibility (unchanged — `rng` is still a
-`RandomNumberGenerator` reference), and (c) test-fixture construction pattern
+807–816 currently document a Dictionary-shaped payload. ADR-0012
+(`docs/architecture/ADR-0012-damage-calc.md`, authored 2026-04-26) folds the
+typed-wrapper layer into the Damage Calc ADR itself rather than splitting it
+out as a separate ADR-0005 (which has been reassigned to Input Handling).
+ADR-0012 covers (a) Grid Battle call-site migration, (b) save/load RNG
+snapshot compatibility (unchanged — `rng` is still a `RandomNumberGenerator`
+reference), and (c) test-fixture construction pattern
 (`ResolveModifiers.make(...)` vs. prior `{rng: ..., …}` dict literals).
 Tracked in §Cross-System Patches Queued (Phase 5).
 
@@ -338,7 +340,7 @@ with no Damage Calc internals to mock.
 | **HP/Status (#12)** | OUT (via Grid Battle) | Grid Battle calls `hp_status.apply_damage(unit_id, resolved_damage, attack_type, source_flags)` after `resolve()` returns | `{resolved_damage: int ≥ 1, attack_type: AttackType, source_flags: Array[StringName]}` | `hp-status.md` §Contract 1 lines 271–273 |
 | **Terrain Effect (#2)** | IN | `terrain.get_combat_modifiers(atk_coord, def_coord)` | `{defender_terrain_def: int [-30,+30], defender_terrain_eva: int [0,30], elevation_atk_mod: int, elevation_def_mod: int, special_rules: Array[StringName]}` | `terrain-effect.md` §Method 2 lines 178–183 |
 | **Turn Order (#13)** | IN | `turn_order.get_acted_this_turn(unit_id) → bool` (O(1) contract — see `turn-order.md` §perf-AC) | Scout/Archer Ambush gate: `modifiers.round_number ≥ 2 AND defender.acted_this_turn == false`. **Round number is supplied via `modifiers.round_number`, NOT via signal subscription.** | `turn-order.md` lines 407–408; `unit-role.md` §EC-8 |
-| **Grid Battle (#1)** | IN | `damage_calc.resolve(attacker, defender, modifiers)` — sole caller | `attacker: AttackerContext; defender: DefenderContext; modifiers: ResolveModifiers` (all typed `RefCounted` wrappers — rev 2.3 replaces prior Dictionary payload per ADR-0005). `ResolveModifiers` fields: `{attack_type, source_flags: Array[StringName], direction_rel: StringName, is_counter: bool, skill_id: String, rng: RandomNumberGenerator, round_number: int}` | `grid-battle.md` lines 807–816 (Phase-5 migration) |
+| **Grid Battle (#1)** | IN | `damage_calc.resolve(attacker, defender, modifiers)` — sole caller | `attacker: AttackerContext; defender: DefenderContext; modifiers: ResolveModifiers` (all typed `RefCounted` wrappers — rev 2.3 replaces prior Dictionary payload per ADR-0012). `ResolveModifiers` fields: `{attack_type, source_flags: Array[StringName], direction_rel: StringName, is_counter: bool, skill_id: String, rng: RandomNumberGenerator, round_number: int}` | `grid-battle.md` lines 807–816 (Phase-5 migration) |
 | **Grid Battle (#1)** | OUT | Returns `ResolveResult` | `MISS()` OR `HIT(resolved_damage: int [1,180], attack_type, source_flags: Array[StringName], vfx_tags: Array[StringName])` | `grid-battle.md` line 815 |
 | **Balance/Data (#26)** | IN | `DataRegistry.get_const_int(key) / get_const_float(key)` (typed getters; null-key returns trigger `push_error` once-per-key) | All cross-system constants — never hardcoded: `BASE_CEILING, DAMAGE_CEILING, COUNTER_ATTACK_MODIFIER, MIN_DAMAGE, MAX_DEFENSE_REDUCTION, MAX_EVASION, ATK_CAP, DEF_CAP, DEFEND_STANCE_ATK_PENALTY, CHARGE_BONUS, AMBUSH_BONUS`. Plus the **direction tables** `BASE_DIRECTION_MULT[3]` and `CLASS_DIRECTION_MULT[4][3]` accessed via `get_const_table(key)` (loaded once at scene-init, cached in DamageCalc). | `balance-data.md` lines 206, 334; registry constants block + `unit-role.md` §EC-7 (table values owned upstream) |
 | **AI System (#8, future)** | OUT | Returns same `ResolveResult` (no separate AI path) | AI calls Grid Battle, which calls Damage Calc identically; AI reads `resolved_damage` from result for threat scoring | `turn-order.md` lines 397, 401 |
@@ -2314,8 +2316,8 @@ The following back-reference patches must land in the same commit window as the 
 6. **`balance-data.md`** — back-reference CHARGE_BONUS, AMBUSH_BONUS registry entries authored by Phase 5 entities.yaml update.
 7. **`design/registry/entities.yaml`** — register `damage_resolve` formula + `CHARGE_BONUS=1.20` + `AMBUSH_BONUS=1.15` constants; update `referenced_by` on 9 consumed constants. **Rev 2.4 update**: `BASE_CEILING` value `100 → 83` (CRITICAL-3 resolution); notes revision.
 8. **`design/gdd/systems-index.md`** — row #11 status: `Not Started` → `Designed`.
-9. **`docs/architecture/ADR-0005-resolve-modifiers-wrapper.md` (NEW — rev 2.3 / BLK-3 resolution)** — author a new ADR documenting the `Dictionary` → `ResolveModifiers` RefCounted wrapper for `damage_calc.resolve()`'s third argument. ADR must cover: (a) Grid Battle call-site migration (line 807–816 of grid-battle.md), (b) `AttackerContext` and `DefenderContext` companion wrappers (same pattern), (c) save/load RNG snapshot compatibility (unchanged — `rng` is still a `RandomNumberGenerator` reference), (d) test-fixture construction pattern `ResolveModifiers.make(...)` vs. prior dict-literal, (e) **rev 2.4** — `unit_class` field rename (GDScript 4.6 reserved keyword avoidance). Blocks implementation of F-DC-5 / F-DC-6 typed-signature pseudocode.
-10. **`grid-battle.md` (§CR-5 lines 807–816)** — update damage_calc call-site payload description from Dictionary to typed `AttackerContext` / `DefenderContext` / `ResolveModifiers`. Depends on ADR-0005 landing first. **Rev 2.4**: field name `class` → `unit_class` in the typed wrapper.
+9. **`docs/architecture/ADR-0012-damage-calc.md` (Proposed 2026-04-26 — rev 2.3 / BLK-3 resolution; folded INTO ADR-0012 rather than split out as a separate ADR-0005, which has been reassigned to Input Handling)** — ADR-0012 documents the `Dictionary` → `ResolveModifiers` RefCounted wrapper for `damage_calc.resolve()`'s third argument and covers: (a) Grid Battle call-site migration (line 807–816 of grid-battle.md), (b) `AttackerContext` and `DefenderContext` companion wrappers (same pattern), (c) save/load RNG snapshot compatibility (unchanged — `rng` is still a `RandomNumberGenerator` reference), (d) test-fixture construction pattern `ResolveModifiers.make(...)` vs. prior dict-literal, (e) **rev 2.4** — `unit_class` field rename (note: `class` has been a reserved keyword since Godot 4.0 / GDScript 2.0, NOT a 4.6 introduction — corrected per godot-specialist validation 2026-04-26). Blocks implementation of F-DC-5 / F-DC-6 typed-signature pseudocode.
+10. **`grid-battle.md` (§CR-5 lines 807–816)** — update damage_calc call-site payload description from Dictionary to typed `AttackerContext` / `DefenderContext` / `ResolveModifiers`. Depends on ADR-0012 landing first. **Rev 2.4**: field name `class` → `unit_class` in the typed wrapper.
 11. **DevOps story (NEW — rev 2.4 / BLK-9+BLK-10 resolution)** — wire `.github/workflows/tests.yml` for (a) multi-platform matrix (macOS-Metal per-push baseline, Windows-D3D12 + Linux-Vulkan on weekly cron + `rc/*` tag trigger — required for AC-DC-25/37/50 enforceability) and (b) headed UI-integration job via `xvfb-run` on Linux runner (required for AC-DC-46/47). Additionally ensure `tests/gdunit4_runner.gd` discovers `tests/integration/`. Until this lands, AC-DC-25/37/46/47/50 are un-enforceable at Beta gate. Owner: producer → DevOps engineer.
 12. **Build-mode sentinel (NEW — rev 2.4 / BLK-6 resolution)** — engine-programmer authors an autoload bootstrap that emits `"[BUILD_MODE] release"` / `"[BUILD_MODE] debug"` log line at boot in all builds, AND renders the string in a top-right accessibility-debug overlay chip when "Show build mode" toggle is enabled (Settings panel). Required for AC-DC-45 release-config walkthrough reproducibility.
 13. **gdUnit4 addon installation (NEW — rev 2.4 / user action)** — user commits `addons/gdUnit4/` at a pinned version (ideally the latest 4.x matching the Godot 4.6 LTS line) and records the pinned version in `CLAUDE.md` or `tests/README.md`. Unblocks AC-DC-51(b) bypass-seam assertions and all `assert_eq` / `assert_that` usage across the test suite. Rev 2.4 flagged-MISS redesign has already removed dependency on gdUnit4's `assert_error(...)` matcher — so AC-DC-19/21/22 no longer require a specific gdUnit4 version, but the rest of the suite still does.
