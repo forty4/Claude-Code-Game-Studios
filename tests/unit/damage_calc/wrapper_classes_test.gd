@@ -198,11 +198,11 @@ func test_resolve_result_hit_empty_vfx_tags_is_valid() -> void:
 # ---------------------------------------------------------------------------
 
 ## AC-6: Confirms none of the 4 class_names collide with Godot 4.6 built-in classes.
-## Engine.has_class() returns true only for engine-registered (C++) built-ins.
-## User class_name declarations do NOT appear in Engine.has_class() — so these
-## assertions confirm our names don't shadow any built-ins.
+## ClassDB.class_exists() returns true only for engine-registered (C++) built-ins.
+## User class_name declarations do NOT appear in ClassDB — so these assertions
+## confirm our names don't shadow any built-ins (G-12 collision rule).
 func test_class_names_collision_free_with_godot_builtins() -> void:
-	assert_bool(Engine.has_class("AttackerContext")).is_false()
-	assert_bool(Engine.has_class("DefenderContext")).is_false()
-	assert_bool(Engine.has_class("ResolveModifiers")).is_false()
-	assert_bool(Engine.has_class("ResolveResult")).is_false()
+	assert_bool(ClassDB.class_exists("AttackerContext")).is_false()
+	assert_bool(ClassDB.class_exists("DefenderContext")).is_false()
+	assert_bool(ClassDB.class_exists("ResolveModifiers")).is_false()
+	assert_bool(ClassDB.class_exists("ResolveResult")).is_false()
