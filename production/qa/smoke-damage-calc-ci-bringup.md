@@ -96,7 +96,9 @@ continue-on-error: true:     1 directive (line 209, on cross-platform-other job)
 schedule|tags|dispatch if:   2 matches (headed-tests line 84 + cross-platform-other line 188)
 ```
 
-**Result**: ✓ PASS — macOS job has no `if:` filter (runs unconditionally per-push as hard gate); Windows/Linux jobs in `cross-platform-other` matrix `[windows-latest, ubuntu-latest]` gated by `if: schedule || rc/* tag || workflow_dispatch` with job-level `continue-on-error: true` (matrix entries inherit; soft WARN on divergence per AC-DC-37 softened-determinism contract / ADR-0012 R-7).
+**Result**: ✓ PASS (structure) — macOS job runs unconditionally per-push; Windows/Linux jobs in `cross-platform-other` matrix `[windows-latest, ubuntu-latest]` gated by `if: schedule || rc/* tag || workflow_dispatch` with job-level `continue-on-error: true` (matrix entries inherit; soft WARN on divergence per AC-DC-37 softened-determinism contract / ADR-0012 R-7).
+
+**⚠️ DEFERRED — macOS hard-gate**: PR #52 first CI run (run 24951303484, then 24951454704 after GNU-grep fix) revealed `MikeSchulze/gdUnit4-action@v1` hardcodes `/home/runner/godot-linux` for the Godot binary cache path on EVERY OS — fundamentally Linux-only despite advertising cross-platform support. macOS soft-gated (`continue-on-error: true`) for this PR; ADR-0012 §10 #1 hard-gate intent restored once **TD-036** (refactor `cross-platform-macos` + Windows entry to raw `godot` invocation per `tests/README.md` local-dev pattern) lands. Reactivation: drop `continue-on-error: true` from `cross-platform-macos` job once raw-godot pattern verified passing.
 
 ---
 

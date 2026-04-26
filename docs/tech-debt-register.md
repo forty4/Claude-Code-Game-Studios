@@ -1947,3 +1947,61 @@ When PR CI fails on this test, re-run the failing job (`gh run rerun --failed --
 - Workflow env var setting: `.github/workflows/<test-workflow>.yml` `SKIP_PERF_BUDGETS: 1`
 - Related: G-7 (GdUnit4 silent "no tests" on parse-failed scripts) — different problem, but reminds us that exit code alone is not sufficient signal for CI test runs.
 
+---
+
+## TD-036 — `MikeSchulze/gdUnit4-action@v1` is fundamentally Linux-only; macOS + Windows need raw `godot` invocation
+
+**Status**: Open
+**Severity**: Medium (macOS hard-gate per ADR-0012 §10 #1 currently soft-gated; Windows hidden behind weekly-cron `if:` filter — will surface at first cron / `rc/*` tag run)
+**Discovered**: 2026-04-26 — damage-calc story-001 PR #52 (Sprint 1 S1-08) first 2 CI runs
+**Effort**: ~30-50 min (replace `MikeSchulze/gdUnit4-action@v1` calls in `cross-platform-macos` + `cross-platform-other` Windows matrix entry with raw `godot` invocation pattern; Linux entry can keep the action since action works on Linux)
+**Story (incidental discovery)**: `production/epics/damage-calc/story-001-ci-infrastructure-prerequisite.md` AC-2 cross-platform matrix
+**Related**: TG-1 (`gh pr create` upstream-vs-fork remote auto-detection — same class of CI/tooling assumption issues)
+
+### Problem
+
+`MikeSchulze/gdUnit4-action@v1` advertises cross-platform support but has two layered Linux-only assumptions that break macOS (and would break Windows on weekly cron):
+
+1. **Compat-check script uses `grep -oP`** (PCRE / Perl regex). macOS BSD grep doesn't support `-P`. Fix: install GNU grep via Homebrew + prepend to PATH. Applied in `.github/workflows/tests.yml` `cross-platform-macos` job (commit `61a968c`). This unblocked the compat check.
+
+2. **Godot binary cache/setup hardcodes `/home/runner/godot-linux`** as the install path on EVERY OS, including macOS. macOS-latest doesn't have `/home/runner/`; the cache miss triggers a download to a Linux-only path that the macOS runner can't execute. Fix #1 alone is insufficient — discovered on PR #52 second run (job 73062139518 step "Run GdUnit4 tests" failed at 07:44:19 with cache path mismatch + missing test report).
+
+The action's compatibility advertisement is misleading. Two real options for cross-platform CI:
+
+- **Option A (recommended for TD-036)**: replace the action with raw `godot` invocation matching the local-dev pattern documented in `tests/README.md`:
+  ```yaml
+  - name: Install Godot 4.6 (macOS)
+    run: brew install --cask godot
+  - name: Build class cache
+    run: /Applications/Godot.app/Contents/MacOS/Godot --headless --import --path .
+  - name: Run GdUnit4 tests
+    run: /Applications/Godot.app/Contents/MacOS/Godot --headless --path . \
+           -s addons/gdUnit4/bin/GdUnitCmdTool.gd \
+           --ignoreHeadlessMode -a tests/unit -a tests/integration -c
+  ```
+  Same pattern needed for Windows entry in `cross-platform-other` (use `choco install godot` or download zip + `Expand-Archive`). Linux entry can keep the action (action works there).
+
+- **Option B (rejected — current ship-this-PR posture)**: soft-gate macOS via `continue-on-error: true`, log this TD, fix in follow-up. Done in PR #52 commit (TBD). Hard-gate intent from ADR-0012 §10 #1 restored once Option A lands.
+
+### Reactivation Plan
+
+1. New story or this TD's resolution branch: `feature/td-036-cross-platform-raw-godot-invocation` (off main after PR #52 merges)
+2. Replace `MikeSchulze/gdUnit4-action@v1` step in `cross-platform-macos` with raw godot invocation (see Option A above)
+3. Replace same in `cross-platform-other` Windows entry; Linux entry of matrix unchanged (action works on Linux)
+4. Drop `continue-on-error: true` from `cross-platform-macos` job header (restore hard-gate)
+5. Update `production/qa/smoke-damage-calc-ci-bringup.md` §D to remove the DEFERRED marker
+6. Verify per-push macOS CI green for 3 consecutive merges before closing TD-036
+7. Optional: send issue/PR upstream to `MikeSchulze/gdUnit4-action` flagging the Linux-only assumption
+
+### Evidence
+
+- PR #52 first CI run (BSD-grep failure): https://github.com/forty4/Claude-Code-Game-Studios/actions/runs/24951303484/job/73061739597
+- PR #52 second CI run (compat check passes, Linux-path failure): https://github.com/forty4/Claude-Code-Game-Studios/actions/runs/24951454704/job/73062139518
+- Soft-gate commit: see PR #52 commit history under `cross-platform-macos: continue-on-error: true`
+
+### Notes
+
+- The `gdunit4` headless job (existing per-push gate, Linux ubuntu-latest) is unaffected and continues to use the action — it works on Linux.
+- AC-DC-37 softened-determinism contract (R-7) intent is preserved: macOS divergence still surfaces as WARN annotations during the soft-gate period, just with `continue-on-error: true` rather than the action's hard-fail signal.
+- Action pinning to a specific commit hash (currently `@v1` floating tag) is a separate concern — see code-review Suggestion 1 from PR #52; not blocking.
+
