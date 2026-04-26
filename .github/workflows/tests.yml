@@ -175,6 +175,15 @@ jobs:
           fi
           echo "gdUnit4 version assertion PASS: $ACTUAL"
 
+      # MikeSchulze/gdUnit4-action@v1 internal compatibility-check uses `grep -oP`
+      # (Perl regex), which BSD grep on macOS does NOT support. Install GNU grep
+      # via Homebrew and prepend to PATH so the action's bash scripts pick up
+      # gnubin grep instead. Fixes "grep: invalid option -- P" failure.
+      - name: Install GNU grep (action requires PCRE -oP; macOS ships BSD grep only)
+        run: |
+          brew install grep
+          echo "$(brew --prefix)/opt/grep/libexec/gnubin" >> "$GITHUB_PATH"
+
       - name: Run GdUnit4 tests (AC-DC-37/50 determinism baseline)
         uses: MikeSchulze/gdUnit4-action@v1
         env:
