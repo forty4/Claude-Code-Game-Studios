@@ -1,11 +1,12 @@
 # Story 005: Stage 2 — direction × passive multiplier + F-DC-4 + F-DC-5 + P_MULT_COMBINED_CAP
 
 > **Epic**: damage-calc
-> **Status**: Ready
+> **Status**: Complete (2026-04-26)
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
 > **Estimate**: 4-5 hours (D_mult lookup + Charge/Ambush/Rally/Formation passive composition + P_MULT_COMBINED_CAP clamp + class-mutex + unknown_class guard + 7 ACs)
+> **Actual**: ~4 hours (vertical-slice cadence holding)
 
 ## Context
 
@@ -32,15 +33,15 @@
 
 *From `damage-calc.md` §F-DC-4 + §F-DC-5 + AC-DC-03/04/09/16/21/27/52:*
 
-- [ ] **AC-DC-03 (D-3 Cavalry REAR Charge primary)**: Cavalry REAR, ATK=80, DEF=50, charge_active=true, passive_charge, is_counter=false → D_mult=1.64, P_mult=1.20 → Stage-2 raw composition `floori(30×1.64×1.20) = 59`
-- [ ] **AC-DC-04 (D-4 hardest primary path)**: Cavalry REAR Charge ATK=200, DEF=10, Rally(+10%), Formation(+5%) → D_mult=1.64, pre-cap P_mult=1.39 → P_MULT_COMBINED_CAP clamps to 1.31 → `floori(83×1.64×1.31) = 178` (NOT 180 — DAMAGE_CEILING silent on primary path)
-- [ ] **AC-DC-09 (D-9 Scout Ambush FLANK)**: Scout, ATK=70, DEF=40, FLANK, round=3, defender not acted → D_mult=1.20, P_mult=1.15, base=30 → `floori(30×1.20×1.15) = 41`
-- [ ] **AC-DC-16 (EC-DC-8 Charge suppressed on counter)**: same inputs `is_counter ∈ {true, false}` → P_mult ∈ {1.00, 1.20} respectively
-- [ ] **AC-DC-21 (EC-DC-15 unknown_class guard)**: `attacker.unit_class = 99` (via `TestAttackerContextBypass`) → push_error fires; returns MISS with `source_flags.has(&"invariant_violation:unknown_class") == true`
-- [ ] **AC-DC-27 (EC-DC-9 dual-passive class mutex)**: For each class ∈ {CAVALRY, SCOUT, INFANTRY, ARCHER}, attempt to fire BOTH `passive_charge` AND `passive_ambush`; assert P_mult ∈ {1.00, 1.15, 1.20} only — NEVER 1.38 (1.20×1.15=1.38 is structurally impossible)
-- [ ] **AC-DC-52 (D-7 Formation ATK sub-apex)**: Cavalry REAR Charge, ATK=200, DEF=10, formation_atk_bonus=0.05, no Rally → P_mult=snappedf(1.20×1.05, 0.01)=1.26 (P_MULT_COMBINED_CAP=1.31 does NOT fire) → `floori(83×1.64×1.26) = 171`; supplementary delta vs `formation_atk_bonus=0.0` (P_mult=1.20, raw=163) proves Formation ATK is live and visible at sub-apex (+8 damage)
-- [ ] Stage-2 returns `(int base_damage, float D_mult, float P_mult)` tuple OR `int raw_pre_dc6` for Stage 3+ consumption (whichever pattern matches the F-DC-1 master pipeline composition)
-- [ ] Private helpers declared and tested: `_direction_multiplier`, `_passive_multiplier`, `_apply_p_mult_combined_cap`, `_check_class_mutex`, `_invariant_guard_unknown_class`
+- [x] **AC-DC-03 (D-3 Cavalry REAR Charge primary)**: Cavalry REAR, ATK=80, DEF=50, charge_active=true, passive_charge, is_counter=false → D_mult=1.64, P_mult=1.20 → Stage-2 raw composition `floori(30×1.64×1.20) = 59`
+- [x] **AC-DC-04 (D-4 hardest primary path)**: Cavalry REAR Charge ATK=200, DEF=10, Rally(+10%), Formation(+5%) → D_mult=1.64, pre-cap P_mult=1.39 → P_MULT_COMBINED_CAP clamps to 1.31 → `floori(83×1.64×1.31) = 178` (NOT 180 — DAMAGE_CEILING silent on primary path)
+- [x] **AC-DC-09 (D-9 Scout Ambush FLANK)**: Scout, ATK=70, DEF=40, FLANK, round=3, defender not acted → D_mult=1.20, P_mult=1.15, base=30 → `floori(30×1.20×1.15) = 41`
+- [x] **AC-DC-16 (EC-DC-8 Charge suppressed on counter)**: same inputs `is_counter ∈ {true, false}` → P_mult ∈ {1.00, 1.20} respectively
+- [x] **AC-DC-21 (EC-DC-15 unknown_class guard)**: `attacker.unit_class = 99` (via `TestAttackerContextBypass`) → push_error fires; returns MISS with `source_flags.has(&"invariant_violation:unknown_class") == true`
+- [x] **AC-DC-27 (EC-DC-9 dual-passive class mutex)**: For each class ∈ {CAVALRY, SCOUT, INFANTRY, ARCHER}, attempt to fire BOTH `passive_charge` AND `passive_ambush`; assert P_mult ∈ {1.00, 1.15, 1.20} only — NEVER 1.38 (1.20×1.15=1.38 is structurally impossible)
+- [x] **AC-DC-52 (D-7 Formation ATK sub-apex)**: Cavalry REAR Charge, ATK=200, DEF=10, formation_atk_bonus=0.05, no Rally → P_mult=snappedf(1.20×1.05, 0.01)=1.26 (P_MULT_COMBINED_CAP=1.31 does NOT fire) → `floori(83×1.64×1.26) = 171`; supplementary delta vs `formation_atk_bonus=0.0` (P_mult=1.20, raw=163) proves Formation ATK is live and visible at sub-apex (+8 damage)
+- [x] Stage-2 returns `(int base_damage, float D_mult, float P_mult)` tuple OR `int raw_pre_dc6` for Stage 3+ consumption (chose `raw_pre_dc6` int per Implementation Notes line 100 recommendation; simpler interface for Stage-3 in story-006)
+- [x] Private helpers declared and tested: `_direction_multiplier`, `_passive_multiplier`, `_charge_factor`, `_ambush_factor` (4 helpers shipped; `_invariant_guard_unknown_class` was deleted post-/code-review S-1 because the inline guard at `resolve()` line 119 is the sole enforcement site — having an extracted helper alongside it caused divergent push_error message prefixes; `_apply_p_mult_combined_cap` and `_check_class_mutex` from the original spec were folded into `_passive_multiplier` and `_charge_factor`/`_ambush_factor` respectively, simplifying the call graph without losing semantic clarity)
 
 ---
 
@@ -163,7 +164,7 @@
 **Story Type**: Logic
 **Required evidence**: `tests/unit/damage_calc/damage_calc_test.gd` — Stage 2 + F-DC-4/5 test functions; must pass on headless CI
 
-**Status**: [ ] Not yet created
+**Status**: [x] Test file at `tests/unit/damage_calc/damage_calc_test.gd` — 9 new test functions appended (7 covering AC-DC-03/04/09/16/21/27/52 + 2 from /code-review qa-tester E-1/E-2). 46/46 PASS in damage_calc unit suite, 341/341 PASS in full regression (0 errors / 0 failures / 0 orphans / exit 0).
 
 ---
 
@@ -171,3 +172,59 @@
 
 - Depends on: Story 004 (Stage 1 base damage feeds Stage 2)
 - Unlocks: Story 006 (Stage 3 raw + counter halve consumes Stage-2 output)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-26 (PR #61 merged; commit 54c1ad5 on main)
+
+**Criteria**: 9/7 PASS (7 ACs + 2 bonus from /code-review qa-tester E-1/E-2).
+- All 7 ACs covered by 7 dedicated test functions; AC-6 uses 4-class parametric mutex with `override_failure_message` per the established S-2 pattern + structural-invariant sentinel (P_mult NEVER 1.38).
+- E-1 (qa-tester recommendation): default-Callable Ambush fallback through `resolve()` — pins the production contract that an unset `acted_this_turn_callable` evaluates as `is_valid()=false` in `_ambush_factor` → `has_acted=false` → Ambush fires. Distinct from AC-3 which injects an explicit lambda.
+- E-2 (qa-tester recommendation): Counter+Rally+Formation simultaneous test — pins spec line 96 positive claim ("Rally + Formation still apply on counter"). Counter suppresses Charge but Rally(+10%)+Formation(+5%) still apply → P_mult>1.00. Includes dual-resolve delta (+8) per the AC-7 pattern.
+
+**Pre-resolved decisions (orchestrator authorization, recorded for audit)**:
+1. Hardcoded constants (`P_MULT_COMBINED_CAP=1.31`, `CHARGE_BONUS=1.20`, `AMBUSH_BONUS=1.15`, `BASE_DIRECTION_MULT`, `CLASS_DIRECTION_MULT`) per §Implementation Notes line 99 — `BalanceConstants` wrapper does not exist yet; story-006 grep-lint AC-DC-48 will catch and force migration when ADR-0006 lands. TODO(story-006) inline at `damage_calc.gd:9-13` (consolidated with story-004's hardcoded-constants TODO block).
+2. **`mini_float` story-spec typo** at story line 90 → corrected to `minf` at brief-time. The actual GDScript API is `minf(a, b)` for floats; `mini_float` does not exist. Documented in dev-story brief; agent never wrote the wrong API.
+3. **Turn Order injection seam** = `acted_this_turn_callable: Callable` field on `ResolveModifiers` (defaults to no-op `Callable()`). Matches the story-004-prep wrapper-field precedent. Production wiring (story-007 Grid Battle) will inject `TurnOrder.get_acted_this_turn`; tests inject inline lambdas per AC-3.
+4. **F-1 policy = Option 1** (accept AC-10 literal-grep brittleness) — parity with story-004. Avoided the literal `int(` substring in all new code and doc-comments. AC-10 grep test from story-004 still passes clean (0 occurrences in `damage_calc.gd`).
+
+**Implementation refinements during /code-review** (6 inline + 6 deferred):
+- Inline-applied:
+  - **S-1** (gdscript): deleted dead `_invariant_guard_unknown_class` helper — divergent push_error prefixes vs the inline guard at `resolve()` was a maintenance hazard. Inline guard is now sole enforcement.
+  - **S-2** (gdscript): rewrote `_ambush_factor` class check from verbose multi-line OR to `in` idiom (style consistency with passives check).
+  - **N-1** (gdscript): added explanatory comment on `CLASS_DIRECTION_MULT` int keys (Godot 4.6 const Dictionary doesn't permit enum literals).
+  - **N-3** (gdscript): updated `damage_calc_test.gd` file-level doc comment to cumulative story-003 + 004 + 005 coverage.
+  - **E-1** (qa): added default-Callable Ambush fallback test.
+  - **E-2** (qa): added Counter+Rally+Formation simultaneous test.
+- Deferred with rationale:
+  - **S-3** (gdscript): AC-2 doc-comment arithmetic polish (1.386 vs 1.39 post-snap) — comment-only; code correct.
+  - **N-2** (gdscript): `wrapper_classes_test.gd` "all-10-args" comment now stale (11 args after `acted_this_turn_callable`) — AC-7 covers the 11th field; comment-only.
+  - **G-1** (qa): AC-2 sub-case description nuance — test functionally correct.
+  - **G-2** (qa MAJOR): AC-5 production-exclusion grep scope (only checks `damage_calc.gd`, not full `src/`) — defer to story-008 AC-DC-51(b) full-src/ bypass-seam grep (subsumes).
+  - **E-3** (qa): `P_MULT_COMBINED_CAP` boundary (== 1.31 exactly) — `minf` semantics well-defined; low priority.
+  - **F-2** (qa): AC-6 structural-invariant assertion direction — no code change needed.
+
+**Retroactive fix (orchestrator-direct, ~3 min, 9 surgical edits)**:
+- Stage 2 wiring multiplied story-004 Stage-1 tests' results by `D_mult ≠ 1.0` (because INFANTRY+FRONT → 0.90 per story-005 spec line 66). Surgical fix: 9 `INFANTRY → SCOUT` swaps in story-004 test fixtures (SCOUT has `D_mult=1.00` across all directions per spec line 64 — fully decouples Stage-1 verification from Stage-2 multiplication). Each swap got an inline rationale comment. 0 logic changes; expected values unchanged. CAVALRY-specific tests at lines 309/330 untouched (CAVALRY+FRONT also produces D_mult=1.00).
+- **G-19 codification candidate** (NEW): Stage-N tests in multi-stage pipelines must use class+direction with downstream-mult identity (D_mult=1.00) for stage-isolated verification. SCOUT class is the "identity element" for D_mult. Worth batching with G-16/G-17/G-18 for tech-debt sweep into `.claude/rules/godot-4x-gotchas.md`.
+
+**Out-of-scope deferrals tracked**:
+- **N-1 (story-004 deferral)** enum-cast `as ResolveResult.AttackType` time-bomb — still deferred; will be addressed in story-006 ResolveResult.HIT/MISS construction scope.
+- **F-1 policy decision** still open for qa-lead; surface again at `/story-readiness story-006`.
+
+**Test Evidence**: Logic story — `tests/unit/damage_calc/damage_calc_test.gd` (46 functions; 9 new for story-005 + 9 INFANTRY→SCOUT swaps in story-004 fixtures; 46/46 PASS; 0 orphans; exit 0). Full regression 341/341 PASS. CI green on PR #61 (macOS Metal + GdUnit4 + gdunit4-report all pass).
+
+**Code Review**: Standalone `/code-review` (lean dual: gdscript-specialist + qa-tester) → APPROVED WITH SUGGESTIONS APPLIED. 6 inline edits applied; 6 deferred with rationale. Per-story dev-time gate review skipped per lean mode (`production/review-mode.txt`).
+
+**Files delivered**:
+- M `src/feature/damage_calc/damage_calc.gd` (+139 LoC; 5 const declarations + AC-DC-21 unknown_class guard + 4 private static helpers; replaces story-004 `TODO(story-005)` placeholder for Stage 2)
+- M `src/feature/damage_calc/resolve_modifiers.gd` (+10 LoC; new `acted_this_turn_callable: Callable` field + factory param)
+- M `tests/unit/damage_calc/damage_calc_test.gd` (+447 LoC + 9 surgical edits; 9 new test functions appended to story-004 baseline + 1 nested TestAttackerContextBypass class for AC-5 + 9 retroactive INFANTRY→SCOUT swaps in story-004 fixtures)
+- M `tests/unit/damage_calc/wrapper_classes_test.gd` (+30 LoC; 1 new test for `acted_this_turn_callable` defaults + invocation)
+
+**Damage-calc epic progress**: 4/10 → 5/10. Vertical-slice 5/7 done (next: 006 → 007 = first-playable damage roll demo).
+**Sprint 1**: 7 stories closed → unchanged (vertical-slice 002-007 tracked via EPIC.md per `sprint-status.yaml` S1-06 inline note; story-005 not separately tracked).
+
+**Unlocks**: damage-calc story-006 (Stage 3-4 — DAMAGE_CEILING=180 final cap + counter halve via COUNTER_ATTACK_MODIFIER=0.5 + ResolveResult.HIT/MISS construction with full source_flags semantics; consumes `raw_pre_dc6` from this story's output; final story before story-007 Grid Battle integration = first-playable damage roll demo).
