@@ -339,6 +339,8 @@ Recommended: Option B — standalone file, well-cross-referenced. ~200 lines tot
 
 **Update 2026-04-25 (terrain-effect story-001)**: G-14 codified — new `class_name` declarations need a class-cache refresh (`godot --headless --import --path .`) before tests can resolve the identifier. Renumbered to G-14 to honor the pre-reserved G-13 slot for "User-defined methods can shadow inherited Node API" (still pending codification — see TD-032 batch G-13 candidate at line 1374).
 
+**Update 2026-04-27 (damage-calc stories 002-006 codification batch)**: 6 gotchas codified in a single batch — G-16 (untyped Array of Dict literals in parametric tests), G-17 (`Engine.has_class()` doesn't exist — use `ClassDB.class_exists()`), G-18 (subclass var-shadowing of typed parent fails parse), G-19 (Stage-N tests must use class+direction with downstream-multiplier identity — SCOUT is the D_mult identity element), G-20 (Godot 4.6 `StringName == String` returns true; defenses must operate at typed-Array boundary, not `==` / `in` operator — TD-037 cross-reference), G-21 (Stage-N additions invalidate prior-stage tests' raw assertions; sibling to G-19). Backlog from session extracts dated stories 002-006 (mostly 2026-04-26..04-27); previously deferred batch from "post-vertical-slice" point now closed. The rule file now contains 21 entries.
+
 ---
 
 ## TD-014 — Verify CI registers GameBusDiagnostics autoload for AC-7 coverage
