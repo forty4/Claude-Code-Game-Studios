@@ -3,8 +3,8 @@
 > **Layer**: Feature
 > **GDD**: `design/gdd/damage-calc.md` (rev 2.9.3, APPROVED post-ninth-pass + narrow re-review close-out 2026-04-20, 2335 LoC, 53 ACs)
 > **Architecture Module**: Damage Calc (#11) — `src/feature/damage_calc/`
-> **Status**: Ready
-> **Stories**: 11/11 created (2026-04-26 — original 10; +1 via /story-readiness story-006 split) — **10/11 complete** (story-001 ✓ PR #52, story-002 ✓ PR #54, story-003 ✓ PR #56, story-004 ✓ PR #59, story-005 ✓ PR #61, story-006 ✓ PR #64 — TD-037 logged for ADR-0012 R-9 revision, story-006b ✓ PR #65 — BalanceConstants wrapper + entities.json migration, story-007 ✓ PR #67 — F-GB-PROV retirement + Grid Battle integration = vertical-slice 7/7 first-playable damage roll demo achieved, story-008 ✓ PR #68 — engine-pin + RNG replay + AC-DC-41 lint + ENGINE-CONTRACT-FINDING with TD-038/TD-039 logged, story-010 ✓ PR #70 — AC-DC-40(a) headless CI throughput + AC-DC-40(b) Polish-deferred = 5th invocation of stable 4-precedent pattern); next: `/story-readiness production/epics/damage-calc/story-009-accessibility-ui-tests.md` then `/dev-story` (Visual/Feel story; 5-6h; only remaining damage-calc story — closes the epic)
+> **Status**: Complete (2026-04-27) — 11/11 stories shipped; 4 items carry forward to Battle HUD epic
+> **Stories**: 11/11 created (2026-04-26 — original 10; +1 via /story-readiness story-006 split) — **11/11 complete (epic CLOSED 2026-04-27)** with 4 carry-forward items deferred to Battle HUD epic (see §Deferred to Battle HUD Epic). Closure sequence: story-001 ✓ PR #52, story-002 ✓ PR #54, story-003 ✓ PR #56, story-004 ✓ PR #59, story-005 ✓ PR #61, story-006 ✓ PR #64 (TD-037 logged for ADR-0012 R-9 revision), story-006b ✓ PR #65 (BalanceConstants wrapper + entities.json migration), story-007 ✓ PR #67 (F-GB-PROV retirement + Grid Battle integration = vertical-slice 7/7 first-playable damage roll demo achieved), story-008 ✓ PR #68 (engine-pin + RNG replay + AC-DC-41 lint + ENGINE-CONTRACT-FINDING with TD-038/TD-039 logged), story-010 ✓ PR #70 (AC-DC-40(a) headless CI throughput + AC-DC-40(b) Polish-deferred = 5th invocation of stable 4-precedent pattern), story-009 ✓ closed 2026-04-27 (build-mode sentinel autoload + stub-copy CI-lint = headless prerequisites; AC-DC-45/46/47 + chip overlay + headed xvfb-run lane deferred to Battle HUD epic = 6th invocation of stable Polish-deferral pattern; TD-040 logged for lint regex multiline/escape edge cases).
 > **Manifest Version**: 2026-04-20 (`docs/architecture/control-manifest.md`)
 > **Created**: 2026-04-26 (Sprint 1 S1-05)
 
@@ -21,10 +21,10 @@
 | 006b | [BalanceConstants wrapper + entities.json + migrate hardcoded constants + AC-DC-48 grep gate](story-006b-balance-constants-migration.md) | Logic | **Complete (2026-04-27)** | ADR-0012 §6 + ADR-0008 (TerrainConfig precedent) | 006 |
 | 007 | [F-GB-PROV retirement + entities.yaml + Grid Battle integration](story-007-fgbprov-retirement-entities-yaml-grid-battle-integration.md) | Integration | **Complete (2026-04-27)** | ADR-0012 §9 | 006b |
 | 008 | [Determinism + engine-pin + cross-platform matrix + AC-DC-41 lint](story-008-determinism-engine-pin-cross-platform.md) | Integration | **Complete (2026-04-27)** | ADR-0012 §10, §11 | 006, 001 |
-| 009 | [Accessibility UI tests — TalkBack + Reduce Motion + monochrome](story-009-accessibility-ui-tests.md) | Visual/Feel | Ready | ADR-0012 §10 | 006, 001 |
+| 009 | [Accessibility infrastructure prerequisites — build-mode sentinel + stub-copy CI-lint](story-009-accessibility-ui-tests.md) | Logic | **Complete (2026-04-27)** (narrowed 2026-04-27 via scope-split — see §Deferred to Battle HUD Epic; 6th invocation of stable Polish-deferral pattern) | ADR-0012 §10 #1 | 006, 001 |
 | 010 | [Performance baseline — headless throughput + mobile p99](story-010-perf-baseline.md) | Logic | **Complete (2026-04-27)** | ADR-0012 Performance Implications + R-2 | 006b, 001 |
 
-**Stories total**: 11 — 1 Config/Data, 7 Logic (incl. 006b), 2 Integration, 1 Visual/Feel. (Was 10; +1 via /story-readiness story-006 split 2026-04-26 — extracted BalanceConstants migration + AC-DC-48 grep gate from story-006 into 006b for cleaner review surface.)
+**Stories total**: 11 — 1 Config/Data, 8 Logic (incl. 006b + 009 narrowed 2026-04-27), 2 Integration. (Was 10; +1 via /story-readiness story-006 split 2026-04-26 — extracted BalanceConstants migration + AC-DC-48 grep gate from story-006 into 006b for cleaner review surface. Story-009 was Visual/Feel until 2026-04-27 scope-split moved AC-DC-45/46/47 to Battle HUD epic; remaining headless prerequisites are Logic.)
 
 **Implementation order** (vertical-slice replan 2026-04-26 + post-006-split): **Core path 001 → 002 → 003 → 004 → 005 → 006 → 006b → 007 = first-playable damage roll demo** (target: ~5/24 end of Sprint 2). **Polish stories 008 (cross-platform determinism) + 009 (a11y UI tests) + 010 (perf baseline) deferred** to a post-vertical-slice phase — story-001 already scaffolded the CI matrix that runs them weekly + on rc/* tags, so divergence still surfaces as WARN annotations during deferral. Rationale: prioritize a working damage-roll loop (story-007 Grid Battle integration end-to-end) over completing all 11 stories in sequence. Story-006 (Stage 3-4 + N-1 fix + AC-DC-51) ships first to unblock vertical-slice 6/8 demo planning; 006b (BalanceConstants migration) follows on its own PR to discharge the deferred-constants tech debt without bundling into a single oversized PR.
 
@@ -163,6 +163,20 @@ This epic is **Complete** when all of the following hold:
 
 ### Manifest staleness
 - [ ] All story files embed Manifest Version `2026-04-20`; `/story-done` staleness-check passes per project convention
+
+## Deferred to Battle HUD Epic (scope-split 2026-04-27)
+
+The following Definition-of-Done items above are explicitly **carried forward to the future Battle HUD epic** and do NOT block damage-calc epic close-out. Each is documented in `story-009-accessibility-ui-tests.md` §Deferred to Battle HUD Epic with the Polish-deferral 4-element template (deferral reason / reactivation trigger / ready-to-ship fallback / estimated Polish-phase effort).
+
+| DoD line above | Deferral target | Carried by |
+|---|---|---|
+| Tests §line 146 — `damage_calc_ui_test.gd` covers AC-DC-45/46/47 | Battle HUD epic stories generated post-Battle-HUD-ADR | story-009 §Deferred — 3 rows (AC-DC-45/46/47) |
+| CI infrastructure §line 160 — Headed `xvfb-run` job | Battle HUD epic's first UI INTEGRATION story | story-009 §Deferred — Headed xvfb-run row |
+| Original story-009 chip-overlay UI portion of build-mode sentinel | Battle HUD epic (depends on Settings autoload + accessibility-debug overlay) | story-009 §Deferred — chip-overlay row |
+
+**Damage-calc epic CLOSES at 11/11 with these 4 carry-forward items**. The carry-forward is bounded: TR-damage-calc-010 §item-2 / §item-2-ish (headed CI lane) commitment carries forward intact; no contract change. **6th invocation of the stable Polish-deferral 4-element pattern** (precedents: save-manager / map-grid / scene-manager / terrain-effect / damage-calc story-010).
+
+Reciprocal Battle HUD epic obligations when `/create-epics battle-hud` runs: produce stories that re-stitch the 4 deferred items above; tests reference `TR-damage-calc-010` for the test-infrastructure portion + future `TR-battle-hud-N` for the popup-rendering portion.
 
 ## Story Decomposition Strategy (preview)
 

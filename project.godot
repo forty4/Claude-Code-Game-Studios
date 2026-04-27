@@ -17,6 +17,7 @@ GameBus="*res://src/core/game_bus.gd"
 SceneManager="*res://src/core/scene_manager.gd"
 SaveManager="*res://src/core/save_manager.gd"
 GameBusDiagnostics="*res://src/core/game_bus_diagnostics.gd"
+BuildModeSentinel="*res://src/platform/build_mode_sentinel.gd"
 
 [physics]
 

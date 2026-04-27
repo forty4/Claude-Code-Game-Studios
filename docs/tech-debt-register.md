@@ -2190,3 +2190,65 @@ Story-008's `test_engine_pin_snappedf_asymmetric_tie_rounding_godot46` (AC-DC-50
 - `docs/architecture/tr-registry.yaml` TR-damage-calc-011 (requirement text to amend)
 
 **Next review**: bundle into the next damage-calc spec/cross-doc story or a docs-only PR. Low priority — production behaviour is already correct, just the spec wording needs aligning.
+
+---
+
+## TD-040 — `lint_damage_calc_no_stub_copy.sh` regex doesn't handle GDScript multiline strings or escaped quotes inside literals
+
+**Origin**: damage-calc story-009 close-out (lint script implementation, 2026-04-27)
+**Category**: tooling (CI lint script edge cases)
+**Severity**: low (current `src/feature/damage_calc/` tree uses neither edge case; accepted-risk per story-009 spec)
+**Status**: open
+
+### Context
+
+Story-009's stub-copy CI-lint guard (`tools/ci/lint_damage_calc_no_stub_copy.sh`) extracts quoted GDScript string literals via:
+
+```
+grep -rnoE '"[^"]*"|'\''[^'\'']*'\''' --include="*.gd" "$TARGET_DIR"
+```
+
+then pipes through a second case-insensitive grep for the stub-copy patterns (`not yet implemented|TODO|placeholder|stub`).
+
+The pattern correctly handles:
+- Single-line double-quoted strings: `"hello"`
+- Single-line single-quoted strings: `'hello'`
+- StringName literals: `&"hello"` (the inner `"hello"` is captured)
+- Inline comments after a string: `var msg := "real" # placeholder for now` — the `placeholder` in the comment is correctly NOT extracted (initial implementation false-positived here; corrected during /code-review)
+
+The pattern does NOT handle:
+
+1. **GDScript triple-quoted (multiline) strings** (`"""..."""`) — a stub-copy phrase inside a multiline string would not be caught because `[^"]*` terminates at the first single `"`. Example that would evade detection:
+   ```gdscript
+   var msg: String = """
+       This is a TODO placeholder.
+       More copy here.
+   """
+   ```
+2. **Escaped quotes inside string literals** — `[^"]*` terminates at the first unescaped `"`, so a stub-copy phrase straddling an escape boundary splits into two captures, neither of which alone matches the full phrase. Example:
+   ```gdscript
+   var msg: String = "the \"TODO\" item is pending"
+   ```
+   would yield two captures `"the \"` and `"\" item is pending"`. The substring `TODO` falls between them and evades detection.
+
+### Why deferred
+
+- **Production correctness is unaffected today**: `src/feature/damage_calc/` has zero multiline strings (per manual scan 2026-04-27) and zero escaped-quote string literals. The lint correctly reports clean on the current tree (verification gate exit 0).
+- **Story-009 spec explicitly acknowledges accepted-risk**: implementation notes call out the limitation (script header anti-self-trigger note + scope clause "not currently handled (acceptable for damage_calc/ where no error-message strings embed quotes)").
+- **Future-proofing cost is non-trivial**: a fully-correct GDScript string-literal extractor requires either (a) a tokenizer-aware parser (overkill for a lint script), (b) a multi-pass regex with state tracking for triple-quote regions (fragile), or (c) leveraging Godot's own GDScript parser via a `--script` runner (heavier than a bash lint).
+
+### Acceptance criteria for resolution
+
+Resolution required if EITHER trigger fires:
+- (a) A user-facing string in `src/feature/damage_calc/` is added that uses `"""..."""` multiline syntax — at that point, the lint must be widened to handle that specific case OR the lint must explicitly fail-open with a warning when it detects multiline-quoted regions.
+- (b) A user-facing string is added that uses escaped `\"` inside a double-quoted literal — same treatment.
+
+If neither trigger fires for ≥3 sprints post-merge, resolve as wontfix (current scope is structurally bounded — no future strings expected to need either pattern).
+
+### References
+
+- `tools/ci/lint_damage_calc_no_stub_copy.sh` (lines 33-47 — the regex pass)
+- `production/epics/damage-calc/story-009-accessibility-ui-tests.md` §Implementation Notes (acceptance of these edge cases)
+- `production/epics/damage-calc/story-009-accessibility-ui-tests.md` §Completion Notes (advisory deviation #2)
+
+**Next review**: when a story adds the first multiline OR escaped-quote string literal to `src/feature/damage_calc/`, OR after 3 sprints of no triggers (resolve as wontfix). Logged 2026-04-27.

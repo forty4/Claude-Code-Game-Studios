@@ -68,6 +68,9 @@ jobs:
       - name: Lint DamageCalc no hot-path Dictionary alloc (AC-DC-41 TR-damage-calc-008)
         run: bash tools/ci/lint_damage_calc_no_dictionary_alloc.sh
 
+      - name: Lint DamageCalc no stub-copy in user-facing strings (AC-DC-45 TR-damage-calc-010)
+        run: bash tools/ci/lint_damage_calc_no_stub_copy.sh
+
       - name: Run GdUnit4 tests
         uses: MikeSchulze/gdUnit4-action@v1
         env:
