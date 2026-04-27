@@ -2,8 +2,9 @@
 ## Covers story-003 (Stage 0 invariant guards + evasion roll, AC-DC-18/19/22/28/10/14/26),
 ## story-004 (Stage 1 base damage + BASE_CEILING + DEFEND_STANCE + Formation DEF, AC-DC-01/02/05/06/07/11/12/13/15/23/53),
 ## story-005 (Stage 2 D_mult + Stage 2.5 P_mult composition + P_MULT_COMBINED_CAP, AC-DC-03/04/09/16/21/27/52),
-## and story-006 (Stage 3-4 raw cap + counter halve + source_flags/vfx_tags + AC-DC-N1 enum fix + AC-DC-51,
-##   AC-DC-08/17/20/24/33/34/35/36/N1/51 + source_flags always-new).
+## story-006 (Stage 3-4 raw cap + counter halve + source_flags/vfx_tags + AC-DC-N1 enum fix + AC-DC-51,
+##   AC-DC-08/17/20/24/33/34/35/36/N1/51 + source_flags always-new),
+## and story-006b (BalanceConstants migration — AC-4 live-registry-read mock test, AC-DC-48).
 ## No scene-tree dependency — extends GdUnitTestSuite (RefCounted-based).
 extends GdUnitTestSuite
 
@@ -20,11 +21,27 @@ var _def: DefenderContext
 ## Declared as a class-level var so GDScript resolves DamageCalc at parse time (not deferred).
 var _passive_mul: Callable = Callable(DamageCalc, "_passive_multiplier_for_test")
 
+## GDScript handle for BalanceConstants — used by AC-4 mock test to set/clear the cache.
+## Stored at class scope so both before_test and after_test can reference it without reload.
+var _balance_constants_script: GDScript = load("res://src/feature/balance/balance_constants.gd")
+
 
 ## Per-test setup. Uses before_test() — the only GdUnit4 v6.1.2 hook (G-15).
+## Also resets BalanceConstants cache to ensure test isolation (story-006b).
 func before_test() -> void:
 	_atk = AttackerContext.make(&"unit_a", AttackerContext.Class.INFANTRY, 0, false, false, [])
 	_def = DefenderContext.make(&"unit_b", 0, 0, 0)
+	# Reset BalanceConstants static cache so every test starts with a clean lazy-load.
+	# Required for AC-4 mock test: prevents a mocked cache from leaking into subsequent tests.
+	_balance_constants_script.set("_cache_loaded", false)
+	_balance_constants_script.set("_cache", {})
+
+
+## Per-test teardown. Uses after_test() — the only GdUnit4 v6.1.2 hook (G-15).
+## Restores BalanceConstants cache to pristine state after any mock that may have set it.
+func after_test() -> void:
+	_balance_constants_script.set("_cache_loaded", false)
+	_balance_constants_script.set("_cache", {})
 
 
 # ---------------------------------------------------------------------------
@@ -1624,3 +1641,101 @@ func test_source_flags_always_new_array_no_accumulation() -> void:
 	assert_bool(caller_flags.has(&"probe")).override_failure_message(
 			"AC-11: result.source_flags shares identity with caller's array — alias detected"
 	).is_false()
+
+
+# ---------------------------------------------------------------------------
+# AC-4 (AC-DC-48 story-006b) — live-registry-read mock test
+# Pins the contract that damage_calc.gd reads CHARGE_BONUS through BalanceConstants
+# at resolve() call time, not from a parse-time literal cache.
+# ---------------------------------------------------------------------------
+
+## AC-4: Mock BalanceConstants cache to return CHARGE_BONUS=1.30 (instead of entities.json 1.20).
+## D-3 fixture: Cavalry REAR Charge, ATK=80, DEF=50, no rally, no formation, primary attack.
+##
+## Baseline (unmocked, CHARGE_BONUS=1.20):
+##   base = floori(80 - 50*1.00) = 30
+##   D_mult = snappedf(1.50 × 1.09, 0.01) = 1.64
+##   P_mult = snappedf(min(1.31, 1.20), 0.01) = 1.20
+##   raw = floori(30 × 1.64 × 1.20) = floori(59.04) = 59
+##
+## Mocked (CHARGE_BONUS=1.30):
+##   P_mult = snappedf(min(1.31, 1.30), 0.01) = 1.30
+##   raw = floori(30 × 1.64 × 1.30) = floori(63.96) = 63
+##
+## Delta = 63 - 59 = +4. Proves resolve() reads through the wrapper — not a literal.
+##
+## Mock pattern: set _cache and _cache_loaded directly on the GDScript class object.
+## before_test() and after_test() restore pristine state around every test (G-15).
+func test_ac4_live_registry_read_mock_charge_bonus_returns_63() -> void:
+	# Arrange — inject mock cache with CHARGE_BONUS=1.30; all other keys at entities.json values.
+	# The full 12-key mock dict is required: every get_const() call in the resolve() path must
+	# find its key, or push_error fires and returns null (which breaks arithmetic mid-resolve).
+	var mock_cache: Dictionary = {
+		"BASE_CEILING": 83,
+		"MIN_DAMAGE": 1,
+		"ATK_CAP": 200,
+		"DEF_CAP": 105,
+		"DEFEND_STANCE_ATK_PENALTY": 0.40,
+		"P_MULT_COMBINED_CAP": 1.31,
+		"CHARGE_BONUS": 1.30,
+		"AMBUSH_BONUS": 1.15,
+		"DAMAGE_CEILING": 180,
+		"COUNTER_ATTACK_MODIFIER": 0.5,
+		"BASE_DIRECTION_MULT": {"FRONT": 1.00, "FLANK": 1.20, "REAR": 1.50},
+		"CLASS_DIRECTION_MULT": {
+			"0": {"FRONT": 1.00, "FLANK": 1.05, "REAR": 1.09},
+			"1": {"FRONT": 1.00, "FLANK": 1.00, "REAR": 1.00},
+			"2": {"FRONT": 0.90, "FLANK": 1.00, "REAR": 1.00},
+			"3": {"FRONT": 1.00, "FLANK": 1.375, "REAR": 1.00},
+		},
+	}
+	_balance_constants_script.set("_cache", mock_cache)
+	_balance_constants_script.set("_cache_loaded", true)
+
+	# D-3 fixture: Cavalry REAR Charge, ATK=80, DEF=50, no rally, no formation, primary attack.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1   # seed 1 passes evasion (terrain_evasion=0)
+	var atk := AttackerContext.make(&"a", AttackerContext.Class.CAVALRY, 80, true, false,
+			[&"passive_charge"])
+	var def := DefenderContext.make(&"d", 50, 0, 0)
+	var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"REAR", 1)
+
+	# Act
+	var result: ResolveResult = DamageCalc.resolve(atk, def, mod)
+
+	# Assert — mocked CHARGE_BONUS=1.30 → resolved_damage=63 (not 59 from entities.json 1.20).
+	assert_int(result.kind as int).is_equal(ResolveResult.Kind.HIT as int)
+	assert_int(result.resolved_damage).override_failure_message(
+			("AC-4: expected resolved_damage=63 (mocked CHARGE_BONUS=1.30),"
+			+ " got %d — if 59, mock did not propagate (literal cache suspected)")
+			% result.resolved_damage
+	).is_equal(63)
+
+
+## AC-4b baseline regression: same D-3 fixture WITHOUT mocking returns 59.
+## Verifies that before_test() properly restores the real entities.json values
+## and that the mock from AC-4 did not bleed through (after_test() verified here).
+##
+## NOTE: This test intentionally mirrors `test_stage_2_cavalry_rear_charge_primary_returns_59`
+## (line 681). The duplication is deliberate — its purpose is to act as the after-mock
+## bleed-through canary for AC-4, NOT to re-verify the formula. Do NOT consolidate.
+func test_ac4b_unmocked_baseline_cavalry_rear_charge_returns_59() -> void:
+	# Arrange — NO mock; _balance_constants_script.set is NOT called.
+	# before_test() has already reset _cache_loaded=false so a fresh load fires.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1
+	var atk := AttackerContext.make(&"a", AttackerContext.Class.CAVALRY, 80, true, false,
+			[&"passive_charge"])
+	var def := DefenderContext.make(&"d", 50, 0, 0)
+	var mod := ResolveModifiers.make(ResolveModifiers.AttackType.PHYSICAL, rng, &"REAR", 1)
+
+	# Act
+	var result: ResolveResult = DamageCalc.resolve(atk, def, mod)
+
+	# Assert — entities.json CHARGE_BONUS=1.20 → resolved_damage=59
+	assert_int(result.kind as int).is_equal(ResolveResult.Kind.HIT as int)
+	assert_int(result.resolved_damage).override_failure_message(
+			("AC-4b: expected resolved_damage=59 (entities.json CHARGE_BONUS=1.20),"
+			+ " got %d — if 63, AC-4 mock bleed-through detected (after_test() not firing?)")
+			% result.resolved_damage
+	).is_equal(59)

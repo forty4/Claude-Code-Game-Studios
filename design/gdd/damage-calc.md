@@ -27,7 +27,7 @@ identical ATK on a Scout vs an Infantry produces visibly different outputs becau
 class-specific direction multipliers and passives gate where each role is decisive.
 The system retires `F-GB-PROV` (the provisional formula in `grid-battle.md` §CR-5
 Step 7) and replaces it with the canonical `damage_resolve` formula registered
-in `entities.yaml`.
+in `entities.json`.
 
 ## Player Fantasy
 
@@ -105,7 +105,7 @@ and computes `defense_mul = snappedf(1.0 - terrain_def / 100.0, 0.01)`.
 attacker has elevation) yields `defense_mul < 1.0`, **amplifying** damage;
 **negative** `terrain_def` (defender elevation advantage) yields
 `defense_mul > 1.0`, **reducing** damage. Range `[-30, +30]` matches
-`entities.yaml:max_defense_reduction` symmetric clamp.
+`entities.json:max_defense_reduction` symmetric clamp.
 
 **CR-5 — DEFEND_STANCE counter penalty.** Applied **exactly once** during the
 counter-attack resolution (never twice). When `modifiers.is_counter == true`
@@ -362,7 +362,7 @@ Damage Calc exposes one public formula, `damage_resolve` (F-DC-1), composed of
 six named sub-stages (F-DC-2 through F-DC-7). Every sub-stage is deterministic
 and integer-quantized at a defined boundary to prevent IEEE-754 platform drift.
 All constants referenced in this section are registered in
-`design/registry/entities.yaml` (or flagged below as new-candidate for Phase 5
+`design/registry/entities.json` (or flagged below as new-candidate for Phase 5
 registration).
 
 **Stacking order (OQ-DC-7 ratified — Option C two-stage cap):**
@@ -380,7 +380,7 @@ updated to point here.
 ### F-DC-1 — `damage_resolve` (master pipeline)
 
 Master pipeline. Composes F-DC-2 through F-DC-7 in fixed order. Registered as
-a new formula in `entities.yaml` (Phase 5 registration candidate).
+a new formula in `entities.json` (Phase 5 registration candidate).
 
 ```
 damage_resolve(attacker, defender, modifiers) -> ResolveResult:
@@ -1172,7 +1172,7 @@ requires updating the cited GDD in the same patch (and vice versa).
 | 3 | **HP/Status** (#12) | `hp-status.md:508` (read API); §F-1 (intake pipeline ownership) | ✅ Designed | Provides `get_modified_stat(unit_id, stat_name) → int` with all buffs/debuffs and DEFEND_STANCE penalty pre-folded. Owns `damage_intake_pipeline` formula (registry-locked). MIN_DAMAGE ≥ 1 contract per `hp-status.md:98`. |
 | 4 | **Terrain Effect** (#2) | `terrain-effect.md` §Method 2 lines 178–183 | ✅ Designed | Provides `get_combat_modifiers(atk_coord, def_coord)` → `{terrain_def, terrain_eva, elevation_atk_mod, elevation_def_mod, special_rules}`. Damage Calc consumes `terrain_def` ∈ [−30, +30] and `terrain_eva` ∈ [0, 30]; `elevation_*` consumed as opaque ints (OQ-DC-6 deferral). |
 | 5 | **Turn Order** (#13) | `turn-order.md` lines 397, 401, 407–408 | ✅ Designed | Provides `get_acted_this_turn(unit_id) → bool` and `get_current_round_number() → int` for the Scout Ambush gate (`round ≥ 2 AND defender.acted_this_turn == false`). |
-| 6 | **Balance/Data** (#26) | `balance-data.md` lines 206, 334; `entities.yaml` constants block | ⚠️ Pending | Provides `DataRegistry.get_const(key)` for all 9 + 2 cross-system constants: `BASE_CEILING, DAMAGE_CEILING, COUNTER_ATTACK_MODIFIER, MIN_DAMAGE, MAX_DEFENSE_REDUCTION, MAX_EVASION, ATK_CAP, DEF_CAP, DEFEND_STANCE_ATK_PENALTY, CHARGE_BONUS (NEW), AMBUSH_BONUS (NEW)`. NEVER hardcode in `damage_calc.gd`. |
+| 6 | **Balance/Data** (#26) | `balance-data.md` lines 206, 334; `entities.json` constants block | ⚠️ Pending | Provides `DataRegistry.get_const(key)` for all 9 + 2 cross-system constants: `BASE_CEILING, DAMAGE_CEILING, COUNTER_ATTACK_MODIFIER, MIN_DAMAGE, MAX_DEFENSE_REDUCTION, MAX_EVASION, ATK_CAP, DEF_CAP, DEFEND_STANCE_ATK_PENALTY, CHARGE_BONUS (NEW), AMBUSH_BONUS (NEW)`. NEVER hardcode in `damage_calc.gd`. |
 
 ### Downstream Dependents (these consume Damage Calc's output)
 
@@ -1191,7 +1191,7 @@ provisional damage formula. Per OQ-DC-2 ratification (Section D), Damage
 Calc's `damage_resolve` formula REPLACES `F-GB-PROV` for MVP. Reciprocal
 obligation: `grid-battle.md` §CR-5 Step 7 MUST be amended to point at this
 GDD and remove the provisional formula in the same patch that registers
-`damage_resolve` in `entities.yaml`.
+`damage_resolve` in `entities.json`.
 
 ### Bidirectional Citation Audit (must hold after Phase 5)
 
@@ -1211,7 +1211,7 @@ back-references:
 - `balance-data.md` — cites `damage-calc.md` Section D (constants consumer);
   registry entries for `damage_resolve`, `CHARGE_BONUS`, `AMBUSH_BONUS` add
   `referenced_by: [damage-calc.md]`.
-- `entities.yaml` — every `referenced_by` field on the 9 consumed constants
+- `entities.json` — every `referenced_by` field on the 9 consumed constants
   MUST include `damage-calc.md` (Phase 5 task).
 
 ### Cross-system Invariants Locked Here
@@ -1227,7 +1227,7 @@ back-references:
 4. **RNG ownership is Grid Battle's.** Damage Calc neither owns nor mutates
    RNG state — it only calls `randi_range` via the injected handle. Save/Load
    snapshots Grid Battle, which transitively covers Damage Calc replay.
-5. **Constants live in `entities.yaml`, not GDScript.** Damage Calc reads
+5. **Constants live in `entities.json`, not GDScript.** Damage Calc reads
    via `DataRegistry.get_const(key)`. Hardcoded values are a blocker bug
    per `balance-data.md`.
 
@@ -1244,7 +1244,7 @@ back-references:
 11 knobs total: 2 owned by Damage Calc (TK-DC-1, TK-DC-2 — NEW), 7 consumed
 from Balance/Data registry (read-only here, listed for blast-radius
 visibility), and 2 locked-not-tunable invariants. Every Damage Calc-owned
-knob lives in `entities.yaml` per Dependency invariant #5 — never hardcode.
+knob lives in `entities.json` per Dependency invariant #5 — never hardcode.
 
 ### TK-DC-1 — `CHARGE_BONUS` (NEW, Damage Calc-owned)
 
@@ -1293,7 +1293,7 @@ patch.
   determinism contract. Changing to 0.001 shifts D-1…D-10 outputs by ±1
   in IEEE-754 residue cases. Constitutes a breaking change to all
   registered worked-example fixtures.
-- **`MIN_DAMAGE = 1`** (`entities.yaml` registry). Owned by HP/Status per
+- **`MIN_DAMAGE = 1`** (`entities.json` registry). Owned by HP/Status per
   `hp-status.md:98`. Damage Calc consumes only — any change requires
   HP/Status amendment first.
 - **`BASE_DIRECTION_MULT` table (1.00 / 1.20 / 1.50)** — owned by
@@ -1306,10 +1306,10 @@ patch.
 ### Tuning Governance
 
 1. **All Damage Calc-owned knobs (TK-DC-1, TK-DC-2)** are tunable via
-   `entities.yaml` ONLY. Hardcoding them in `damage_calc.gd` is a
+   `entities.json` ONLY. Hardcoding them in `damage_calc.gd` is a
    blocker bug per Dependency invariant #5.
 2. **Cross-system tuning (TK-DC-3 through TK-DC-9)** requires a coordinated
-   change ticket: update `entities.yaml` + amend the owning GDD + re-run
+   change ticket: update `entities.json` + amend the owning GDD + re-run
    D-1 through D-10 + verify acceptance criteria still pass. Blast radius
    per knob is documented above.
 3. **Locked-not-tunable invariants** require a design review and may not
@@ -1541,7 +1541,7 @@ Ambush expressed via PEAK tier swell weight.
 #### A-6. Loudness Targets
 
 - LUFS-S target for layer (a + b combined, PEAK tier): **-18 LUFS-S** floor
-  (mobile audibility — anchor to `entities.yaml beat_2_audio_lufs_min`).
+  (mobile audibility — anchor to `entities.json beat_2_audio_lufs_min`).
 - Operating band: [-18, -14] LUFS-S for combat. SUBTLE/MISS may sit below
   by design.
 - True-peak ceiling: -1.0 dBTP on `SFX_Combat` (peak limiter active).
@@ -2148,7 +2148,7 @@ Every worked example is a mandatory test fixture in `tests/unit/damage_calc/dama
 - Pass criteria: mock hp_status.apply_damage; trigger 4 scenarios: (a) single HIT → 1 apply_damage call with `resolved_damage ≥ 1`; (b) single MISS → 0 apply_damage calls; (c) 6-target AoE all HIT → exactly 6 apply_damage calls each with `resolved_damage ≥ 1`; (d) 6-target AoE with 2 MISS results → exactly 4 apply_damage calls. Assert call count exact for all four; assert each call's `resolved_damage` argument ≥ 1.
 - Blocker for: MVP
 
-**AC-DC-44** [INTEGRATION] — F-GB-PROV provisional formula is REMOVED from grid-battle.md §CR-5 Step 7 in the same patch that registers damage_resolve in entities.yaml.
+**AC-DC-44** [INTEGRATION] — F-GB-PROV provisional formula is REMOVED from grid-battle.md §CR-5 Step 7 in the same patch that registers damage_resolve in entities.json.
 - Test: static analysis — grep for "F-GB-PROV" in `design/gdd/grid-battle.md` and `src/`
 - Method: automated unit (CI lint step)
 - Pass criteria: post-patch, `grep -r "F-GB-PROV" design/gdd/grid-battle.md src/` returns 0 matches. Presence of F-GB-PROV after the patch is a blocking CI failure.
@@ -2178,9 +2178,9 @@ Every worked example is a mandatory test fixture in `tests/unit/damage_calc/dama
 
 ---
 
-### TUNING — Damage Calc-Owned Knobs in entities.yaml
+### TUNING — Damage Calc-Owned Knobs in entities.json
 
-**AC-DC-48** [TUNING] — TK-DC-1 CHARGE_BONUS and TK-DC-2 AMBUSH_BONUS live in entities.yaml and are read via DataRegistry.get_const(); no hardcoded 1.20 or 1.15 values in damage_calc.gd.
+**AC-DC-48** [TUNING] — TK-DC-1 CHARGE_BONUS and TK-DC-2 AMBUSH_BONUS live in entities.json and are read via DataRegistry.get_const(); no hardcoded 1.20 or 1.15 values in damage_calc.gd.
 - Test: static analysis — grep for `1.20` and `1.15` as literal floats in `src/**/damage_calc.gd`; plus `tests/unit/damage_calc/damage_calc_test.gd::test_tuning_knobs_read_from_registry`
 - Method: automated unit
 - Pass criteria: (a) grep returns 0 matches for `1.20` and `1.15` as literals in `damage_calc.gd`; (b) unit test mocks DataRegistry.get_const("CHARGE_BONUS") → 1.30, runs D-3 fixture, asserts resolved_damage changes accordingly (confirms live registry read, not cached literal).
@@ -2298,7 +2298,7 @@ This section consolidates every Open Question raised during damage-calc authorin
 | **OQ-VIS-02** | Priority when `"counter"` + `"charge"` co-occur in `vfx_tags`. | **Counter glyph wins; charge border suppressed.** Mechanically blocked today by CR-8 (Charge gated off on counter), so this is a forward-compatibility default. | If a future passive enables Charge-on-counter (e.g., Hero ultimate, Destiny Branch effect), Battle VFX GDD must ratify before code change. | sound/visual VFX GDD author |
 | **OQ-AUD-01** | PEAK sub-bass haptic layer on mobile. | **Skip for MVP.** DSP cost on min-spec Android vs. likely speaker inaudibility; haptic-only is platform-fragmented (iOS Core Haptics ≠ Android Vibrator API). | Vertical Slice mobile playtests on min-spec hardware show DEVASTATING reads as non-distinct from NORMAL on phone speakers. | audio-director |
 | **OQ-AUD-02** | Dedicated stacked Charge+Ambush overlay asset. | **Charge wins overlay; Ambush rides tier swell.** No bespoke stack asset authored. | Vertical Slice feedback that the Cavalry REAR + Ambush stack reads as Charge-only and fails to communicate the Scout-class provenance. | audio-director + sound-designer |
-| **OQ-AUD-03** | PEAK LUFS cap reconciliation with Sound/Music #24. | **−14 LUFS-S provisionally locked.** Section H A-7 ratifies this. | Sound/Music #24 GDD authoring sets a different mix bus target. Coordinated registry update required (entities.yaml audio constants). | audio-director (cross-GDD owner) |
+| **OQ-AUD-03** | PEAK LUFS cap reconciliation with Sound/Music #24. | **−14 LUFS-S provisionally locked.** Section H A-7 ratifies this. | Sound/Music #24 GDD authoring sets a different mix bus target. Coordinated registry update required (entities.json audio constants). | audio-director (cross-GDD owner) |
 
 ### Open — None
 
@@ -2313,8 +2313,8 @@ The following back-reference patches must land in the same commit window as the 
 3. **`terrain-effect.md`** — flag the `+8%` UI vs `+15%` AC-3 elevation inconsistency as a separate bug (terrain-effect.md OQ); confirm Damage Calc treats `terrain_def` as opaque int.
 4. **`hp-status.md`** — back-reference DoT bypass invariant (EC-DC-12 + AC-DC-28); confirm `apply_damage(int ≥ 1)` MIN_DAMAGE contract.
 5. **`turn-order.md`** — back-reference round-counter ABI consumed by Ambush gate (D-9 worked example).
-6. **`balance-data.md`** — back-reference CHARGE_BONUS, AMBUSH_BONUS registry entries authored by Phase 5 entities.yaml update.
-7. **`design/registry/entities.yaml`** — register `damage_resolve` formula + `CHARGE_BONUS=1.20` + `AMBUSH_BONUS=1.15` constants; update `referenced_by` on 9 consumed constants. **Rev 2.4 update**: `BASE_CEILING` value `100 → 83` (CRITICAL-3 resolution); notes revision.
+6. **`balance-data.md`** — back-reference CHARGE_BONUS, AMBUSH_BONUS registry entries authored by Phase 5 entities.json update.
+7. **`design/registry/entities.json`** — register `damage_resolve` formula + `CHARGE_BONUS=1.20` + `AMBUSH_BONUS=1.15` constants; update `referenced_by` on 9 consumed constants. **Rev 2.4 update**: `BASE_CEILING` value `100 → 83` (CRITICAL-3 resolution); notes revision.
 8. **`design/gdd/systems-index.md`** — row #11 status: `Not Started` → `Designed`.
 9. **`docs/architecture/ADR-0012-damage-calc.md` (Proposed 2026-04-26 — rev 2.3 / BLK-3 resolution; folded INTO ADR-0012 rather than split out as a separate ADR-0005, which has been reassigned to Input Handling)** — ADR-0012 documents the `Dictionary` → `ResolveModifiers` RefCounted wrapper for `damage_calc.resolve()`'s third argument and covers: (a) Grid Battle call-site migration (line 807–816 of grid-battle.md), (b) `AttackerContext` and `DefenderContext` companion wrappers (same pattern), (c) save/load RNG snapshot compatibility (unchanged — `rng` is still a `RandomNumberGenerator` reference), (d) test-fixture construction pattern `ResolveModifiers.make(...)` vs. prior dict-literal, (e) **rev 2.4** — `unit_class` field rename (note: `class` has been a reserved keyword since Godot 4.0 / GDScript 2.0, NOT a 4.6 introduction — corrected per godot-specialist validation 2026-04-26). Blocks implementation of F-DC-5 / F-DC-6 typed-signature pseudocode.
 10. **`grid-battle.md` (§CR-5 lines 807–816)** — update damage_calc call-site payload description from Dictionary to typed `AttackerContext` / `DefenderContext` / `ResolveModifiers`. Depends on ADR-0012 landing first. **Rev 2.4**: field name `class` → `unit_class` in the typed wrapper.
