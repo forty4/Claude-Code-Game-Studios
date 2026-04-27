@@ -780,6 +780,19 @@ constants:
     added: 2026-04-18
     revised: ""
 
+  - name: p_mult_combined_cap
+    status: active
+    source: design/gdd/damage-calc.md
+    referenced_by:
+      - design/gdd/damage-calc.md
+      - design/gdd/grid-battle.md      # CR-FB-3 / CR-15 / CR-16 cite this cap as the combined-multiplier ceiling assembled inside damage-calc; Grid Battle does NOT enforce it locally
+      - design/gdd/formation-bonus.md  # F-FB-5 + CR-FB-3 rule 4: per-unit Formation cap 0.05 contributes into this combined cap
+    value: 1.31
+    unit: multiplier
+    notes: "Damage Calc F-DC-5 combined-multiplier ceiling (P_mult after CHARGE_BONUS × AMBUSH_BONUS × rally_bonus × formation_atk_bonus assembly, before D_mult). Locked-not-tunable. Pillar-1 apex preservation: Cavalry REAR + Charge + Rally(+10%) + Formation(+5%) clamps to P_mult=1.31 → raw=178 (max), DAMAGE_CEILING=180 still has 2pt headroom. Established in damage-calc.md rev 2.9 (formation-bonus v1.0 cross-doc obligation). Story-007 registry registration closes the same-patch obligation against AC-DC-44 grep gate. Config: locked constant — change requires apex re-derivation across all 12 Pillar-1+3 cells."
+    added: 2026-04-27
+    revised: ""
+
   - name: two_tap_timeout_s
     status: active
     source: design/gdd/grid-battle.md
