@@ -26,7 +26,7 @@ extends RefCounted
 # Internal state — lazy-loaded on first get_const() call
 # ---------------------------------------------------------------------------
 
-const _ENTITIES_JSON_PATH: String = "res://assets/data/balance/entities.json"
+const _ENTITIES_JSON_PATH: String = "res://assets/data/balance/balance_entities.json"
 
 ## Parsed constants table. Populated once by _load_cache(); never mutated thereafter.
 ## G-1 note: untyped Dictionary (GDScript 4.6 forbids generic Dictionary[K,V]
