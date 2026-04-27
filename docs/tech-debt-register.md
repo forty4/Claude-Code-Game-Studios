@@ -2254,3 +2254,64 @@ If neither trigger fires for ≥3 sprints post-merge, resolve as wontfix (curren
 - `production/epics/damage-calc/story-009-accessibility-ui-tests.md` §Completion Notes (advisory deviation #2)
 
 **Next review**: when a story adds the first multiline OR escaped-quote string literal to `src/feature/damage_calc/`, OR after 3 sprints of no triggers (resolve as wontfix). Logged 2026-04-27.
+
+---
+
+## TD-041 — `BalanceConstants.get_const(key) -> Variant` typed-accessor refactor (ADR-0006 forward TD)
+
+**Origin**: ADR-0006 Balance/Data ratification (2026-04-27); /architecture-decision Phase 4 Q6 design decision (6a — keep Variant return for MVP)
+**Category**: code (API surface)
+**Severity**: low (cosmetic — call-site `as int` / `as float` / `as Dictionary` casts work correctly; no functional defect)
+**Status**: open
+
+### Context
+
+ADR-0006 ratified `BalanceConstants.get_const(key: String) -> Variant` as the MVP-scoped call-site contract. /architecture-review ADV-3 from ADR-0012 (2026-04-26) flagged the Variant return as a cast-safety concern; the GDD CR-6 says "typed container 클래스 (raw Dictionary 사용 금지)". Q6 of /architecture-decision Phase 4 (2026-04-27) chose to keep Variant for MVP and log this as a forward TD.
+
+Current call-site shape (works, but noisy):
+
+```gdscript
+var cap: float = BalanceConstants.get_const("P_MULT_COMBINED_CAP") as float
+var ceiling: int = BalanceConstants.get_const("BASE_CEILING") as int
+var class_dir: Dictionary = BalanceConstants.get_const("CLASS_DIRECTION_MULT") as Dictionary
+```
+
+Refactor target:
+
+```gdscript
+var cap: float = BalanceConstants.get_const_float("P_MULT_COMBINED_CAP")
+var ceiling: int = BalanceConstants.get_const_int("BASE_CEILING")
+var class_dir: Dictionary = BalanceConstants.get_const_dict("CLASS_DIRECTION_MULT")
+```
+
+### Why deferred
+
+- **MVP scope discipline** — adding 3 typed accessors + migrating ~8 call sites in `damage_calc.gd` + ~3 in `terrain_config.gd` would balloon ADR-0006's PR scope from "ratify pattern" to "ratify pattern + refactor 2 production files + update tests".
+- **No functional defect** — the `as Type` cast at the call site works correctly. JSON.parse_string returns the right primitive types; casts are safe.
+- **No correctness signal** — 386/386 GdUnit4 regression PASSES (388/388 once PR #74 merges) with the current Variant return. No bug surfacing this; it's a pure API-cleanliness item.
+
+### Acceptance criteria for resolution
+
+1. Add 3 typed accessors to `src/feature/balance/balance_constants.gd`:
+   - `get_const_int(key: String) -> int` — `as int` cast inside the wrapper
+   - `get_const_float(key: String) -> float` — `as float` cast inside the wrapper
+   - `get_const_dict(key: String) -> Dictionary` — `as Dictionary` cast inside the wrapper
+2. Migrate all call sites in `src/feature/damage_calc/damage_calc.gd` (~8 call sites) and `src/core/terrain_config.gd` (~3 call sites) from `get_const(key) as Type` to `get_const_<type>(key)`.
+3. Add unit tests for each typed accessor in `tests/unit/balance/balance_constants_test.gd` covering happy path + missing-key behaviour (typed accessors return `0` / `0.0` / `{}` defaults instead of `null` since their return types are not nullable; document this behaviour difference in source comment).
+4. Update ADR-0006 §Decision #2 (Public API) to list the typed accessors; cross-reference TD-041 as resolved (PR #XXX).
+
+### Why not blocking
+
+- Variant return + `as Type` cast is a well-established GDScript idiom; verbose but not buggy.
+- Future migration to Alpha-pipeline `DataRegistry` will likely introduce typed accessors at that point anyway (GDD CR-6 typed-container requirement is more naturally satisfied by the full pipeline).
+- ~11 call sites across 2 files is a small refactor (~20 LoC change + 3 new test functions = ~30 min); bundle with any future damage-calc or terrain-effect cleanup story.
+
+### References
+
+- `docs/architecture/ADR-0006-balance-data.md` §Decision #2 (Public API) + §Notes N2 (Q6 decision)
+- `docs/architecture/ADR-0012-damage-calc.md` /architecture-review 2026-04-26 ADV-3 (original cast-safety advisory)
+- `design/gdd/balance-data.md` CR-6 (typed container requirement; deviated for MVP per ADR-0006)
+- `src/feature/balance/balance_constants.gd` (current implementation)
+- `tests/unit/balance/balance_constants_test.gd` (current 6-function test coverage)
+
+**Next review**: bundle into a future damage-calc cleanup or balance-data hardening story; not urgent. ~30 min effort. Logged 2026-04-27 as part of ADR-0006 acceptance.

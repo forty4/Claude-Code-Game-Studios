@@ -8,7 +8,7 @@
 # CHARGE_BONUS, AMBUSH_BONUS, DAMAGE_CEILING, COUNTER_ATTACK_MODIFIER,
 # BASE_DIRECTION_MULT, CLASS_DIRECTION_MULT) must NOT appear as `const X = ...`
 # declarations in damage_calc.gd. Their values live exclusively in
-# assets/data/balance/entities.json, read via BalanceConstants.get_const(key).
+# assets/data/balance/balance_entities.json, read via BalanceConstants.get_const(key).
 #
 # Exit 0: clean (no hardcoded const declarations found).
 # Exit 1: violation found (prints offending lines; CI should fail the build).
@@ -29,7 +29,7 @@ PATTERN="const (BASE_CEILING|MIN_DAMAGE|ATK_CAP|DEF_CAP|DEFEND_STANCE_ATK_PENALT
 if grep -nE "$PATTERN" "$TARGET"; then
   echo ""
   echo "FAIL: hardcoded balance constants found in $TARGET (AC-DC-48)."
-  echo "Move the literal value to assets/data/balance/entities.json and"
+  echo "Move the literal value to assets/data/balance/balance_entities.json and"
   echo "read it via BalanceConstants.get_const(\"KEY\") per ADR-0012 §6."
   exit 1
 fi
