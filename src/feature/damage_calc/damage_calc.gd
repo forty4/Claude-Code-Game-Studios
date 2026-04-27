@@ -2,79 +2,21 @@
 ## Single entry point: DamageCalc.resolve(). No instance state, no signals,
 ## no Dictionary allocations. Per ADR-0012 §1 (RefCounted, static-only).
 ## Caller: GridBattle (once per primary attack + once per counter).
+##
+## Tuning constants (BASE_CEILING, MIN_DAMAGE, ATK_CAP, DEF_CAP,
+## DEFEND_STANCE_ATK_PENALTY, DAMAGE_CEILING, COUNTER_ATTACK_MODIFIER,
+## P_MULT_COMBINED_CAP, CHARGE_BONUS, AMBUSH_BONUS, BASE_DIRECTION_MULT,
+## CLASS_DIRECTION_MULT) live in `assets/data/balance/entities.json` and
+## are read at call time via BalanceConstants.get_const(key). Hardcoding
+## these literals in damage_calc.gd is banned per AC-DC-48 + ADR-0012 §6.
+## Migration path: when ADR-0006 lands, BalanceConstants internals swap to
+## DataRegistry.get_const() — no call-site changes required here.
 class_name DamageCalc extends RefCounted
 
 
 # ---------------------------------------------------------------------------
-# Tunable constants — TODO(story-006b): migrate to BalanceConstants.get_const()
-# when ADR-0006 lands. Hardcoding authorized per story-004 §Implementation Notes
-# (provisional workaround: BalanceConstants wrapper does not yet exist; story-006b
-# grep-lint AC-DC-48 will catch and require migration when balance-data ADR-0006
-# is Accepted). Values locked per ADR-0012 §6 + damage-calc.md rev 2.9.2.
+# Sentinels — StringName identifiers, NOT tuning knobs (stay as const)
 # ---------------------------------------------------------------------------
-
-## Stage-1 damage ceiling (BASE_CEILING). Applied pre-multipliers. Locked-not-tunable.
-const BASE_CEILING: int = 83
-## Minimum resolved damage. HP/Status owns this contract; DamageCalc enforces
-## the floor per CR-6 / CR-9. Locked-not-tunable.
-const MIN_DAMAGE: int = 1
-## Maximum effective ATK after clamping. Game-design-tier cap (AC-DC-15).
-const ATK_CAP: int = 200
-## Maximum effective DEF after clamping. Rev 2.9.2 (was 100; expanded to 105).
-const DEF_CAP: int = 105
-## DEFEND_STANCE ATK penalty FRACTION. The multiplier applied to raw_atk is
-## (1.0 - DEFEND_STANCE_ATK_PENALTY) = 0.60 per CR-3 + AC-DC-12.
-## Name uses "PENALTY" to denote the fraction subtracted, not the resulting multiplier.
-const DEFEND_STANCE_ATK_PENALTY: float = 0.40
-## Stage-3 final damage ceiling (DAMAGE_CEILING). Applied post-multipliers. Locked-not-tunable.
-## TODO(story-006b): migrate to BalanceConstants.get_const("DAMAGE_CEILING") when ADR-0006 lands.
-const DAMAGE_CEILING: int = 180
-## Counter-attack halve modifier (F-DC-7, CR-10). Applied in Stage 4 when is_counter=true.
-## floori(raw × COUNTER_ATTACK_MODIFIER) then max(MIN_DAMAGE, result). Locked at 0.5.
-## TODO(story-006b): migrate to BalanceConstants.get_const("COUNTER_ATTACK_MODIFIER") when ADR-0006 lands.
-const COUNTER_ATTACK_MODIFIER: float = 0.5
-
-## Stage-2 base direction multipliers per F-DC-4 (unit-role.md §EC-7, rev 2.8 locked values).
-## Keys are StringName literals. Locked-not-tunable.
-## TODO(story-006b): migrate to UnitRole.BASE_DIRECTION_MULT when ADR-0009 lands.
-const BASE_DIRECTION_MULT: Dictionary = {
-	&"FRONT": 1.00,
-	&"FLANK": 1.20,
-	&"REAR": 1.50,
-}
-## Stage-2 class-specific direction multipliers per F-DC-4 (unit-role.md §EC-7, rev 2.8 locked values).
-## Outer key: unit_class int (CAVALRY=0, SCOUT=1, INFANTRY=2, ARCHER=3).
-## Inner key: StringName direction literal.
-## Cavalry REAR was 1.20 pre-Rally-cap-fix; locked to 1.09 at rev 2.8.
-## Archer FLANK 1.375 per BLK-7-9/10 Pillar-3 parity.
-## TODO(story-006b): migrate to UnitRole.CLASS_DIRECTION_MULT when ADR-0009 lands.
-## Outer keys are AttackerContext.Class int values (0..3); enum literals are not permitted in
-## const Dictionary in Godot 4.6 — use the AttackerContext.Class.* names at lookup sites.
-const CLASS_DIRECTION_MULT: Dictionary = {
-	0: {  # CAVALRY
-		&"FRONT": 1.00, &"FLANK": 1.05, &"REAR": 1.09,
-	},
-	1: {  # SCOUT
-		&"FRONT": 1.00, &"FLANK": 1.00, &"REAR": 1.00,
-	},
-	2: {  # INFANTRY
-		&"FRONT": 0.90, &"FLANK": 1.00, &"REAR": 1.00,
-	},
-	3: {  # ARCHER
-		&"FRONT": 1.00, &"FLANK": 1.375, &"REAR": 1.00,
-	},
-}
-## Combined passive multiplier cap (F-DC-5, rev 2.9). Applied post-composition. Locked-not-tunable.
-## TODO(story-006b): migrate to BalanceConstants.get_const("P_MULT_COMBINED_CAP") when ADR-0006 lands.
-const P_MULT_COMBINED_CAP: float = 1.31
-## Charge passive bonus multiplier (TK-DC-1, F-DC-5). Fires for CAVALRY with passive_charge on
-## non-counter primary attacks. Locked at 1.20.
-## TODO(story-006b): migrate to BalanceConstants.get_const("CHARGE_BONUS") when ADR-0006 lands.
-const CHARGE_BONUS: float = 1.20
-## Ambush passive bonus multiplier (TK-DC-2, F-DC-5). Fires for SCOUT/ARCHER with passive_ambush
-## on non-counter attacks at round >= 2 when defender has not acted. Locked at 1.15.
-## TODO(story-006b): migrate to BalanceConstants.get_const("AMBUSH_BONUS") when ADR-0006 lands.
-const AMBUSH_BONUS: float = 1.15
 
 ## StringName sentinel for passive_charge — used in _charge_factor and _passive_multiplier_for_test.
 ## Declared as a const StringName so the membership test uses StringName equality,
@@ -132,7 +74,8 @@ static func resolve(
 	var base: int = _stage_1_base_damage(attacker, defender, modifiers)
 
 	# --- Stage 2: AC-DC-21 unknown_class invariant guard at F-DC-4 lookup site ---
-	if not CLASS_DIRECTION_MULT.has(attacker.unit_class):
+	var class_dir_mult: Dictionary = BalanceConstants.get_const("CLASS_DIRECTION_MULT") as Dictionary
+	if not class_dir_mult.has(str(attacker.unit_class)):
 		push_error("DamageCalc.resolve: unknown unit_class=%d" % attacker.unit_class)
 		return ResolveResult.miss([&"invariant_violation:unknown_class"])
 
@@ -186,14 +129,19 @@ static func _stage_1_base_damage(
 		defender: DefenderContext,
 		modifiers: ResolveModifiers) -> int:
 
+	var atk_cap: int = BalanceConstants.get_const("ATK_CAP") as int
+	var def_cap: int = BalanceConstants.get_const("DEF_CAP") as int
+	var min_damage: int = BalanceConstants.get_const("MIN_DAMAGE") as int
+	var base_ceiling: int = BalanceConstants.get_const("BASE_CEILING") as int
+
 	# Step 1: effective ATK — DEFEND_STANCE penalty then [1, ATK_CAP] clamp (AC-DC-11/15).
 	var eff_atk: int = clampi(
 			_apply_defend_stance_penalty(attacker.raw_atk, attacker.defend_stance_active),
-			1, ATK_CAP)
+			1, atk_cap)
 
 	# Step 2: effective DEF — [1, DEF_CAP] clamp (AC-DC-13/rev-2.9.2), then Formation DEF bonus.
 	var eff_def: int = _consume_formation_def_bonus(
-			clampi(defender.raw_def, 1, DEF_CAP),
+			clampi(defender.raw_def, 1, def_cap),
 			modifiers)
 
 	# Step 3: defense multiplier from terrain_def (clamped by TerrainEffect cap).
@@ -204,7 +152,7 @@ static func _stage_1_base_damage(
 	var base: int = floori(eff_atk - eff_def * defense_mul)
 
 	# Step 5: apply floor and ceiling (CR-6). BASE_CEILING=83 is pre-multipliers cap.
-	return mini(BASE_CEILING, maxi(MIN_DAMAGE, base))
+	return mini(base_ceiling, maxi(min_damage, base))
 
 
 ## Applies the DEFEND_STANCE ATK penalty when the attacker is in defend stance.
@@ -216,7 +164,8 @@ static func _stage_1_base_damage(
 ## results round toward −∞ (AC-DC-23).
 static func _apply_defend_stance_penalty(raw_atk: int, defend_stance_active: bool) -> int:
 	if defend_stance_active:
-		return floori(raw_atk * (1.0 - DEFEND_STANCE_ATK_PENALTY))
+		var penalty: float = BalanceConstants.get_const("DEFEND_STANCE_ATK_PENALTY") as float
+		return floori(raw_atk * (1.0 - penalty))
 	return raw_atk
 
 
@@ -245,10 +194,14 @@ static func _consume_formation_def_bonus(eff_def: int, modifiers: ResolveModifie
 ## Computes D_mult = snappedf(BASE_DIRECTION_MULT[dir] × CLASS_DIRECTION_MULT[class][dir], 0.01).
 ## Precision 0.01 is locked-not-tunable per ADR-0012 §Implementation Guidelines #6 + AC-DC-30.
 ## Apex example: Cavalry REAR = snappedf(1.50 × 1.09, 0.01) = snappedf(1.635, 0.01) = 1.64.
-## Caller (resolve) has already verified unit_class is a known key in CLASS_DIRECTION_MULT.
+## Caller (resolve) has already verified unit_class is a known string key in CLASS_DIRECTION_MULT.
+## JSON delivers string keys; direction_rel is cast to String for dict lookup (approved design decision).
 static func _direction_multiplier(unit_class: int, direction_rel: StringName) -> float:
-	var base_mult: float = BASE_DIRECTION_MULT[direction_rel] as float
-	var class_mult: float = (CLASS_DIRECTION_MULT[unit_class] as Dictionary)[direction_rel] as float
+	var dir_str: String = direction_rel as String
+	var base_dir_mult: Dictionary = BalanceConstants.get_const("BASE_DIRECTION_MULT") as Dictionary
+	var class_dir_mult: Dictionary = BalanceConstants.get_const("CLASS_DIRECTION_MULT") as Dictionary
+	var base_mult: float = base_dir_mult[dir_str] as float
+	var class_mult: float = (class_dir_mult[str(unit_class)] as Dictionary)[dir_str] as float
 	return snappedf(base_mult * class_mult, 0.01)
 
 
@@ -268,7 +221,8 @@ static func _passive_multiplier(
 	var charge: float = _charge_factor(attacker, modifiers)
 	var ambush: float = _ambush_factor(attacker, modifiers, defender)
 	var pre_cap: float = charge * ambush * (1.0 + modifiers.rally_bonus) * (1.0 + modifiers.formation_atk_bonus)
-	var post_cap: float = minf(P_MULT_COMBINED_CAP, pre_cap)
+	var p_mult_combined_cap: float = BalanceConstants.get_const("P_MULT_COMBINED_CAP") as float
+	var post_cap: float = minf(p_mult_combined_cap, pre_cap)
 	return snappedf(post_cap, 0.01)
 
 
@@ -281,7 +235,7 @@ static func _charge_factor(attacker: AttackerContext, modifiers: ResolveModifier
 			and attacker.charge_active
 			and PASSIVE_CHARGE in attacker.passives
 			and not modifiers.is_counter):
-		return CHARGE_BONUS
+		return BalanceConstants.get_const("CHARGE_BONUS") as float
 	return 1.0
 
 
@@ -309,7 +263,7 @@ static func _ambush_factor(
 		has_acted = modifiers.acted_this_turn_callable.call(defender.unit_id) as bool
 	if has_acted:
 		return 1.0
-	return AMBUSH_BONUS
+	return BalanceConstants.get_const("AMBUSH_BONUS") as float
 
 
 # ---------------------------------------------------------------------------
@@ -320,8 +274,10 @@ static func _ambush_factor(
 ## DAMAGE_CEILING=180 is the post-multipliers hard ceiling (CR-9). MIN_DAMAGE=1 floors at zero.
 ## This value is forwarded to Stage 4 (counter halve); it does NOT flow to the caller directly.
 static func _stage_3_raw_damage(base: int, d_mult: float, p_mult: float) -> int:
+	var damage_ceiling: int = BalanceConstants.get_const("DAMAGE_CEILING") as int
+	var min_damage: int = BalanceConstants.get_const("MIN_DAMAGE") as int
 	var raw: int = floori(base * d_mult * p_mult)
-	return mini(DAMAGE_CEILING, maxi(MIN_DAMAGE, raw))
+	return mini(damage_ceiling, maxi(min_damage, raw))
 
 
 # ---------------------------------------------------------------------------
@@ -334,7 +290,9 @@ static func _stage_3_raw_damage(base: int, d_mult: float, p_mult: float) -> int:
 ## Non-counter path: returns raw unchanged (no halve applied).
 static func _counter_reduction(raw: int, is_counter: bool) -> int:
 	if is_counter:
-		return maxi(MIN_DAMAGE, floori(raw * COUNTER_ATTACK_MODIFIER))
+		var counter_mod: float = BalanceConstants.get_const("COUNTER_ATTACK_MODIFIER") as float
+		var min_damage: int = BalanceConstants.get_const("MIN_DAMAGE") as int
+		return maxi(min_damage, floori(raw * counter_mod))
 	return raw
 
 
@@ -434,7 +392,7 @@ static func _passive_multiplier_for_test(
 			and attacker.charge_active
 			and PASSIVE_CHARGE in passives_arg
 			and not modifiers.is_counter):
-		charge = CHARGE_BONUS
+		charge = BalanceConstants.get_const("CHARGE_BONUS") as float
 
 	var ambush: float = 1.0
 	if (attacker.unit_class in [AttackerContext.Class.SCOUT, AttackerContext.Class.ARCHER]
@@ -445,10 +403,11 @@ static func _passive_multiplier_for_test(
 		if modifiers.acted_this_turn_callable.is_valid():
 			has_acted = modifiers.acted_this_turn_callable.call(defender.unit_id) as bool
 		if not has_acted:
-			ambush = AMBUSH_BONUS
+			ambush = BalanceConstants.get_const("AMBUSH_BONUS") as float
 
 	var pre_cap: float = charge * ambush * (1.0 + modifiers.rally_bonus) * (1.0 + modifiers.formation_atk_bonus)
-	var post_cap: float = minf(P_MULT_COMBINED_CAP, pre_cap)
+	var p_mult_combined_cap: float = BalanceConstants.get_const("P_MULT_COMBINED_CAP") as float
+	var post_cap: float = minf(p_mult_combined_cap, pre_cap)
 	return snappedf(post_cap, 0.01)
 
 

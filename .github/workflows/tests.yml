@@ -59,6 +59,9 @@ jobs:
       - name: Lint DamageCalc no apply_damage (AC-DC-35 TR-damage-calc-003)
         run: bash tools/ci/lint_damage_calc_no_apply_damage.sh
 
+      - name: Lint DamageCalc no hardcoded balance constants (AC-DC-48 TR-damage-calc-006)
+        run: bash tools/ci/lint_damage_calc_no_hardcoded_constants.sh
+
       - name: Run GdUnit4 tests
         uses: MikeSchulze/gdUnit4-action@v1
         env:
