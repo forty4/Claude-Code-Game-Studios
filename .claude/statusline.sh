@@ -128,8 +128,11 @@ fi
 
 # --- Assemble ---
 if [ -n "$hud_out" ]; then
-  # claude-hud provides model/context/usage; project line carries stage + breadcrumb
-  printf '%s\n%s%s' "$hud_out" "${stage}" "${breadcrumb}"
+  # claude-hud provides model/context/usage on its own lines; the last project
+  # line ALSO prepends ctx_label so ctx % stays visible even if the UI clips
+  # multi-line output to the last line only (helps catch context-limit before
+  # auto-compaction kicks in).
+  printf '%s\n%s | %s%s' "$hud_out" "${ctx_label}" "${stage}" "${breadcrumb}"
 else
   # Fallback: original single-line format
   printf "%s | %s | %s%s" "${ctx_label}" "${model}" "${stage}" "${breadcrumb}"
