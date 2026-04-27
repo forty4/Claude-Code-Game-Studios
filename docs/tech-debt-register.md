@@ -2079,3 +2079,114 @@ The single-output assertion (`resolved_damage == 1`) cannot prove all three floo
 
 `damage-calc.md` AC-DC-20 spec wording reads "across 100 iterations of each path, RNG advance count is exactly path × call." Story-006 test does a single restore-and-replay per path. Logically equivalent for a deterministic RNG (state-bit-identical-after-1-replay implies identical after N replays), but the spec wording is stricter. **Recommend qa-lead ruling**: amend the spec to "1 replay sufficient for deterministic pipeline" OR expand the test to 100-iteration loops on the zero-advance paths (counter, skill_stub) where loop-based assertion is the most efficient way to surface a spurious advance. Block on qa-lead decision; deferral is safe in the meantime because the determinism property IS pinned (just at a lower iteration count than spec wording demands).
 
+
+---
+
+## TD-038 — ADR-0012 R-8 floating-point composition apex-path D_mult cross-platform pin
+
+**Origin**: damage-calc story-008 (R-8 advisory carried from `/architecture-review` ADV-4)
+**Category**: code (test scaffold) + infra (cross-platform CI matrix observability)
+**Severity**: medium
+**Status**: open
+
+### Context
+
+ADR-0012 R-8 (cross-platform IEEE-754 residue advisory) flags that the multiplicative apex-path in `D_mult` composition — specifically `BASE_DIRECTION_MULT[REAR] * CLASS_DIRECTION_MULT[CAVALRY][REAR]` (currently `1.50 * 1.09`) — may diverge by 1 ULP across Metal / D3D12 / Vulkan rendering backends UPSTREAM of the `snappedf(value, 0.01)` boundary clamp. AC-DC-50 only pins the snappedf boundary values (0.005 and -0.005); it does NOT verify the multiplicative composition chain end-to-end.
+
+Story-008 §AC-9 scaffolds a placeholder test in `tests/unit/damage_calc/damage_calc_test.gd::test_r8_apex_path_dmult_composition_cross_platform` with a `# TODO(R-8)` marker pointing to this TD entry. The placeholder PASSES (so it does not block CI) and serves as a forcing function — when this TD is resolved, the placeholder body becomes the actual implementation.
+
+### Why deferred
+
+1. The cross-platform CI matrix (story-001 + story-008) only runs Windows + Linux on the weekly schedule and `rc/*` tags. Per-push macOS Metal is the hard-fail baseline; Windows D3D12 + Linux Vulkan are WARN-not-fail per AC-DC-37 + ADR-0012 R-7 softened-determinism contract. So even when the test is implemented, a divergence does NOT block release except at `rc/*` time.
+2. The actual composition divergence is bounded — `1.50 * 1.09 = 1.635` snaps to `1.64` at 0.01 precision; an ULP-level upstream divergence (e.g., `1.6349999...` on one platform, `1.635` on another) would round to `1.63` vs `1.64`. This is critical-tier WARN, not silent corruption — observable, not invisible.
+3. story-008 priority is the engine-pin tests (AC-DC-49 + AC-DC-50) and the cross-platform infrastructure WIRING. Implementing the full composition test requires either (a) hardcoded expected values per platform (brittle) or (b) a baseline-snapshot scheme that lets the macOS result drive the test and Windows/Linux divergences emit annotations. Option (b) is the right design but requires a fixture format + comparison harness that is out of scope for story-008.
+
+### Implementation sketch (when resolved)
+
+```gdscript
+# Replaces the # TODO(R-8) placeholder in damage_calc_test.gd.
+func test_r8_apex_path_dmult_composition_cross_platform() -> void:
+    # Arrange — read constants via BalanceConstants (typed lookup; ADR-0012 §6).
+    var base_rear: float = BalanceConstants.get_const("BASE_DIRECTION_MULT").REAR
+    var class_cav_rear: float = BalanceConstants.get_const("CLASS_DIRECTION_MULT").CAVALRY.REAR
+    
+    # Act — evaluate the apex composition end-to-end.
+    var d_mult: float = snappedf(base_rear * class_cav_rear, 0.01)
+    
+    # Assert — macOS Metal hard-fail baseline = 1.64.
+    # Cross-platform matrix (Windows D3D12 + Linux Vulkan) WARN annotation
+    # if value diverges (e.g., 1.63 due to upstream ULP residue). Wrapping
+    # workflow's continue-on-error softens; this test is a hard local assert.
+    assert_float(d_mult).is_equal_approx(1.64, 0.0001)
+```
+
+Plus a corresponding entry in the YAML/JSON baseline fixture for the snappedf-boundary cross-platform pin.
+
+### Acceptance criteria for resolution
+
+- TODO(R-8) placeholder replaced with the live test
+- Cross-platform CI matrix (windows-latest + ubuntu-latest jobs) demonstrates divergence-detection working: artificially induce a divergence in a throwaway branch + verify the WARN annotation surfaces
+- TD-038 status updated to `resolved (PR #XXX)` here
+
+### References
+
+- `docs/architecture/ADR-0012-damage-calc.md` §R-8 (cross-platform IEEE-754 residue advisory) + §R-7 (softened-determinism contract)
+- `production/epics/damage-calc/story-008-determinism-engine-pin-cross-platform.md` §AC-9 (TD scaffold)
+- `tests/unit/damage_calc/damage_calc_test.gd::test_r8_apex_path_dmult_composition_cross_platform` (placeholder location)
+- `tests/fixtures/damage_calc/damage_calc_d1_through_d10_baseline.json` (existing baseline fixture pattern; extend with apex-composition entry when resolved)
+
+**Next review**: when first cross-platform release-candidate (`rc/*` tag) is cut, OR when AC-DC-37 cross-platform divergence is observed in the wild and demands tightening from WARN to hard-fail per ADR-0012 R-7 trigger conditions.
+
+---
+
+## TD-039 — AC-DC-38 + AC-DC-50 + ADR-0012 §10 #2 spec amendment: snappedf negative-tie behavior is asymmetric in Godot 4.6
+
+**Origin**: damage-calc story-008 (engine-pin test discovery, 2026-04-27)
+**Category**: docs (spec amendment) + code (test already pins reality, awaiting spec sync)
+**Severity**: low (no production impact; spec wording correctness only)
+**Status**: open
+
+### Context
+
+Story-008's `test_engine_pin_snappedf_asymmetric_tie_rounding_godot46` (AC-DC-50 implementation) empirically discovered that Godot 4.6's `snappedf(x, step)` does NOT honor symmetric round-half-away-from-zero for both positive and negative ties.
+
+**Empirical Godot 4.6 behaviour**:
+
+| Input | Output | Interpretation |
+|-------|--------|----------------|
+| `snappedf( 0.005, 0.01)` | `0.01`  | positive tie → AWAY from zero (matches spec) |
+| `snappedf(-0.005, 0.01)` | `0.0`   | negative tie → **TOWARD** zero (asymmetric) |
+| `snappedf(-0.0049, 0.01)` | `0.0`  | below-tie magnitude → toward zero |
+| `snappedf(-0.005000001, 0.01)` | `-0.01` | past-tie crossing → away from zero |
+| `snappedf(-0.015, 0.01)` | `-0.01` | non-tie negative → no asymmetry |
+
+**Empirical evidence**: `tests/unit/damage_calc/damage_calc_test.gd::test_engine_pin_snappedf_asymmetric_tie_rounding_godot46` (lines ~1840-1880; runs in `gdunit4` job per push) pins all three cases (positive tie / negative tie / below-tie crossing) and PASSES on macOS Metal.
+
+### Spec wording vs reality — three documents to amend
+
+1. **`design/gdd/damage-calc.md` AC-DC-38** — currently states "round-half-away-from-zero" for both signs. Amend to: "round positive ties away from zero (e.g., `snappedf(0.005, 0.01) == 0.01`); negative-tie rounding is **asymmetric** in Godot 4.6 and rounds toward zero (`snappedf(-0.005, 0.01) == 0.0`). Production code never exercises negative-tie rounding because `D_mult` and `P_mult` are positive-only multipliers."
+2. **`design/gdd/damage-calc.md` AC-DC-50** — same correction: replace symmetric claim with the Godot 4.6 asymmetric reality, and note that the engine-pin test (`test_engine_pin_snappedf_asymmetric_tie_rounding_godot46`) is the source of truth.
+3. **`docs/architecture/ADR-0012-damage-calc.md` §10 #2** — same correction; cross-reference TR-damage-calc-011 + TD-039.
+4. **`docs/architecture/tr-registry.yaml` TR-damage-calc-011** — `requirement` field text amendment to match.
+
+### Why deferred
+
+- **Production correctness is unaffected**: `DamageCalc.resolve()` applies `snappedf(D_mult, 0.01)` and `snappedf(P_mult, 0.01)`, where both `D_mult` and `P_mult` are PRODUCTS of positive multipliers (e.g., `BASE_DIRECTION_MULT × CLASS_DIRECTION_MULT × CHARGE_BONUS`). All values are ≥ 1.0 in normal play and never reach the negative-tie domain. The asymmetric behaviour discovery does not affect any damage value the player observes.
+- **Cross-doc same-patch obligation**: amending the spec touches 4 documents (damage-calc.md ×2 + ADR-0012 + tr-registry). story-008's scope is test infrastructure (engine-pin tests + cross-platform matrix + AC-DC-41 lint + R-8 scaffold), not spec authoring. Bundling spec edits would expand story-008 beyond its 4-5h estimate.
+- **Test already pins reality**: `test_engine_pin_snappedf_asymmetric_tie_rounding_godot46` is the canonical engine-contract source of truth as of story-008 close. Future spec amendment is documentation alignment, not a behaviour change.
+
+### Acceptance criteria for resolution
+
+1. Amend the 4 documents listed above with the corrected wording (positive tie away / negative tie toward zero, asymmetric)
+2. Cross-reference the engine-pin test as the canonical engine-contract truth
+3. Note that production code is unaffected (positive-only multiplier domain)
+4. Update TD-039 status to `resolved (PR #XXX)` here
+
+### References
+
+- `tests/unit/damage_calc/damage_calc_test.gd::test_engine_pin_snappedf_asymmetric_tie_rounding_godot46` — current empirical truth source (story-008)
+- `design/gdd/damage-calc.md` AC-DC-38 + AC-DC-50 (sections to amend)
+- `docs/architecture/ADR-0012-damage-calc.md` §10 #2 (Engine Compatibility section to amend)
+- `docs/architecture/tr-registry.yaml` TR-damage-calc-011 (requirement text to amend)
+
+**Next review**: bundle into the next damage-calc spec/cross-doc story or a docs-only PR. Low priority — production behaviour is already correct, just the spec wording needs aligning.

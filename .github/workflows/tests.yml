@@ -65,6 +65,9 @@ jobs:
       - name: Lint provisional formula retired (AC-DC-44 TR-damage-calc-009)
         run: bash tools/ci/lint_fgb_prov_removed.sh
 
+      - name: Lint DamageCalc no hot-path Dictionary alloc (AC-DC-41 TR-damage-calc-008)
+        run: bash tools/ci/lint_damage_calc_no_dictionary_alloc.sh
+
       - name: Run GdUnit4 tests
         uses: MikeSchulze/gdUnit4-action@v1
         env:

@@ -1,0 +1,69 @@
+{
+  "_comment": "Damage Calc D-1..D-10 cross-platform baseline (macOS Metal per-push known-good).",
+  "_authored": "2026-04-27",
+  "_source": "Extracted from passing damage_calc_test.gd D-1..D-10 fixture results.",
+  "_used_by": "AC-DC-37 cross-platform determinism baseline test (test_d1_through_d10_baseline_matches_fixture).",
+  "_soft_contract": "Cross-platform divergence is WARN per AC-DC-37 + ADR-0012 R-7. macOS Metal is the hard-fail baseline; Windows D3D12 + Linux Vulkan divergences emit WARN annotations only (enforced at CI workflow level via continue-on-error matrix, not here).",
+  "fixtures": {
+    "D-1": {
+      "kind": "HIT",
+      "resolved_damage": 30,
+      "source_flags": [],
+      "rationale": "Cavalry FRONT, ATK=80, DEF=50, T_def=0, no passives, no terrain. base=floori(80-50*1.00)=30. D_mult=1.00, P_mult=1.00. raw=30."
+    },
+    "D-2": {
+      "kind": "HIT",
+      "resolved_damage": 83,
+      "source_flags": [],
+      "rationale": "Cavalry FRONT, ATK=190, DEF=10. base=min(83,floori(190-10))=83 (BASE_CEILING fires). D_mult=1.00, P_mult=1.00. raw=83."
+    },
+    "D-3": {
+      "kind": "HIT",
+      "resolved_damage": 59,
+      "source_flags": ["charge"],
+      "rationale": "Cavalry REAR Charge, ATK=80, DEF=50, primary. base=30. D_mult=snappedf(1.50*1.09,0.01)=1.64. P_mult=1.20. raw=floori(30*1.64*1.20)=floori(59.04)=59."
+    },
+    "D-4": {
+      "kind": "HIT",
+      "resolved_damage": 178,
+      "source_flags": ["charge"],
+      "rationale": "Cavalry REAR Charge+Rally(+10%)+Formation(+5%), ATK=200, DEF=10. base=83 (BASE_CEILING). D_mult=1.64. pre-cap P_mult=1.20*1.10*1.05=1.386 clamped to 1.31. raw=floori(83*1.64*1.31)=floori(178.35)=178."
+    },
+    "D-5": {
+      "kind": "HIT",
+      "resolved_damage": 1,
+      "source_flags": ["terrain_penalty"],
+      "rationale": "Scout FRONT, ATK=30, DEF=100, T_def=+30. defense_mul=0.70. base=max(1,floori(30-100*0.70))=max(1,-40)=1 (MIN_DAMAGE). D_mult=1.00, P_mult=1.00. raw=1."
+    },
+    "D-6": {
+      "kind": "HIT",
+      "resolved_damage": 1,
+      "source_flags": [],
+      "rationale": "Scout FRONT, ATK=60, DEF=50, T_def=-30. defense_mul=1.30. base=max(1,floori(60-50*1.30))=max(1,-5)=1 (MIN_DAMAGE). D_mult=1.00, P_mult=1.00. raw=1."
+    },
+    "D-7": {
+      "kind": "HIT",
+      "resolved_damage": 40,
+      "source_flags": ["terrain_penalty"],
+      "rationale": "Scout FRONT, ATK=80, DEF=50, T_def=+20. defense_mul=0.80. base=floori(80-50*0.80)=40. D_mult=1.00, P_mult=1.00. raw=40."
+    },
+    "D-8": {
+      "kind": "HIT",
+      "resolved_damage": 16,
+      "source_flags": ["counter"],
+      "rationale": "Cavalry FRONT, ATK=120, defend_stance_active=true, is_counter=true, DEF=40, T_def=0. eff_atk=floori(120*0.60)=72. base=floori(72-40*1.00)=32. D_mult=1.00, P_mult=1.00 (counter suppresses Charge/Ambush). raw=32. counter_final=maxi(1,floori(32*0.5))=16."
+    },
+    "D-9": {
+      "kind": "HIT",
+      "resolved_damage": 41,
+      "source_flags": ["ambush"],
+      "rationale": "Scout FLANK, ATK=70, DEF=40, round=3, passive_ambush, defender not acted. base=floori(70-40*1.00)=30. D_mult=snappedf(1.20*1.00,0.01)=1.20. P_mult=1.15 (AMBUSH_BONUS). raw=floori(30*1.20*1.15)=floori(41.4)=41."
+    },
+    "D-10": {
+      "kind": "MISS",
+      "resolved_damage": 0,
+      "source_flags": ["evasion"],
+      "rationale": "Cavalry FRONT, ATK=80, DEF=50, terrain_evasion=30, rng seed=266 -> randi_range(1,100)=25. roll=25 <= terrain_evasion=30 -> MISS via evasion path."
+    }
+  }
+}
