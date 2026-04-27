@@ -62,6 +62,9 @@ jobs:
       - name: Lint DamageCalc no hardcoded balance constants (AC-DC-48 TR-damage-calc-006)
         run: bash tools/ci/lint_damage_calc_no_hardcoded_constants.sh
 
+      - name: Lint provisional formula retired (AC-DC-44 TR-damage-calc-009)
+        run: bash tools/ci/lint_fgb_prov_removed.sh
+
       - name: Run GdUnit4 tests
         uses: MikeSchulze/gdUnit4-action@v1
         env:

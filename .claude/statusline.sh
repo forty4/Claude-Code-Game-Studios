@@ -129,7 +129,7 @@ fi
 # --- Assemble ---
 if [ -n "$hud_out" ]; then
   # claude-hud provides model/context/usage; project line carries stage + breadcrumb
-  printf '%s\n%s' "$hud_out" "${stage}${breadcrumb# | }"
+  printf '%s\n%s%s' "$hud_out" "${stage}" "${breadcrumb}"
 else
   # Fallback: original single-line format
   printf "%s | %s | %s%s" "${ctx_label}" "${model}" "${stage}" "${breadcrumb}"

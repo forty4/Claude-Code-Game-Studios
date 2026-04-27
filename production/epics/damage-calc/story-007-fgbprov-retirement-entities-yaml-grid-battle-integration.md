@@ -1,7 +1,7 @@
 # Story 007: F-GB-PROV retirement + entities.yaml damage_resolve registration + Grid Battle integration tests
 
 > **Epic**: damage-calc
-> **Status**: Ready
+> **Status**: Complete (2026-04-27)
 > **Layer**: Feature
 > **Type**: Integration
 > **Manifest Version**: 2026-04-20
@@ -122,3 +122,47 @@
 
 - Depends on: Story 006 (completed `damage_calc.gd` pipeline) + Story 001 (CI infrastructure for grep-gate integration)
 - Unlocks: Future Grid Battle Feature epic (this story's GridBattleStub becomes a reference for the production Grid Battle implementation's call-count + AoE dispatch contracts)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-27
+**Verdict**: COMPLETE WITH NOTES (lean review mode)
+**Criteria**: 7/7 passing — all ACs covered by automated tests + CI lint + registry inspection
+**Test Evidence**: `tests/integration/damage_calc/damage_calc_integration_test.gd` — 13 test functions, exit 0, 0 errors / 0 failures / 0 orphans; full regression 374/374 PASS
+
+### Files changed (5)
+
+- `design/gdd/grid-battle.md` — 7 F-GB-PROV literal mentions replaced with neutral phrasing (retirement-section header renamed to "Damage Resolution Reference (v5.0)"; change-log + Open Questions + Provisional Contracts entries reworded). AC-DC-44 grep gate now returns 0 matches.
+- `design/registry/entities.yaml` — registered `p_mult_combined_cap` (1.31) with full schema (source: damage-calc.md; referenced_by: damage-calc + grid-battle + formation-bonus). 9 consumed constants + CHARGE_BONUS + AMBUSH_BONUS + `damage_resolve` formula were registered in prior commits (2026-04-18 damage-calc.md v1.0 Phase 5).
+- `tests/integration/damage_calc/damage_calc_integration_test.gd` — NEW, 472 LoC, file-local `class GridBattleStub extends RefCounted`, 13 test functions covering AC-3..AC-6 + 2 edge cases (empty AoE, all-MISS AoE) added during /code-review per qa-tester gap finding.
+- `tools/ci/lint_fgb_prov_removed.sh` — NEW lint script enforcing AC-DC-44 grep gate; anti-self-trigger via fragment concatenation (`TOKEN="F-GB"; TOKEN+="-PROV"`); targets `design/gdd/grid-battle.md` + `src/`.
+- `.github/workflows/tests.yml` — added `Lint provisional formula retired (AC-DC-44 TR-damage-calc-009)` step in `gdunit4` job; runs alongside other damage-calc lints.
+
+### Deviations (all ADVISORY — none blocking)
+
+1. **§CR-5 Step 7 rewrite already done in v5.0**: story implementation note expected this rewrite, but grid-battle.md v5.0 (2026-04-19) had already migrated the section to cite `damage_resolve()` + ADR-0012 §F-DC-1. Story-007's actual delta was the literal-string cleanup elsewhere in the file. Net effect: AC-DC-44 grep gate satisfied with 7 surgical edits instead of a section rewrite.
+2. **Test split**: story spec named single test `test_dead_defender_gated_by_grid_battle`; implementation split into 2 tests proving each side of the contract independently (DamageCalc has no HP guard / GridBattleStub blocks before resolve). More informative than a single combined test.
+3. **entities.yaml count phrasing stale**: story said "2 owned new + 1 owned cap"; in fact CHARGE_BONUS and AMBUSH_BONUS were already registered 2026-04-18. Story-007 added only `p_mult_combined_cap`.
+4. **2 edge case tests added during /code-review**: per qa-tester finding, AC-6 story spec explicitly enumerated "0-target AoE" and "all-MISS AoE" as edge cases. Both added (`test_aoe_empty_targets_calls_no_resolve_or_apply_damage`, `test_aoe_six_targets_all_miss_calls_apply_damage_zero_times`). Strengthens AC-6 coverage; not a deviation per se. Also typed `attempt_aoe_attack(targets: Array[DefenderContext])` parameter (S-1 from gdscript-specialist).
+
+### Code Review
+
+- `/code-review` ran with parallel godot-gdscript-specialist + qa-tester sub-agents (2026-04-27).
+- Initial verdict: APPROVED WITH SUGGESTIONS (gdscript) + TESTABLE WITH GAPS (qa-tester, 2 BLOCKING AC-6 edge case omissions).
+- Post-fix verdict: APPROVED — all BLOCKING items resolved; 3 cosmetic gdscript suggestions (S-2 readability, S-3 explicit StringName cast, S-4 collapse identical helpers) deferred as non-blocking polish.
+
+### Cross-doc / registry side effects
+
+- `design/gdd/grid-battle.md` retains all substantive content (counter-attack semantics, DEFEND_STANCE handling, registry-owned constants list). Only the literal token "F-GB-PROV" was scrubbed.
+- `design/registry/entities.yaml` `damage_resolve` formula entry's existing notes already reference the retirement obligation (line 242: "F-GB-PROV from grid-battle.md §CR-5 Step 7 is REPLACED... and must be removed in same patch (AC-DC-44 enforces)") — left unchanged as historical metadata; the registry file itself is not in the AC-DC-44 grep target list.
+- Retirement narrative preserved in `design/gdd/reviews/grid-battle-review-log.md` (v5.0 + pass-11c entries) and tr-registry TR-damage-calc-009 requirement text.
+
+### Tech-debt items (none promoted)
+
+None this story. The 3 cosmetic gdscript-specialist suggestions (S-2/S-3/S-4) are consolidatable in a future test-hardening pass alongside other polish-tier items if needed.
+
+### Epic progress
+
+damage-calc epic: **8/11 complete** (story-001 + story-002 + story-003 + story-004 + story-005 + story-006 + story-006b + story-007). Remaining Ready: story-008 (determinism + engine-pin + cross-platform), story-009 (accessibility UI tests), story-010 (perf baseline).

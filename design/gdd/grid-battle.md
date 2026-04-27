@@ -7,7 +7,7 @@
 > **UI spec**: `design/ux/battle-hud.md` (owns Visual/Audio, UI-GB-01..13, forecast contract)
 >
 > **v5.0 revision log (2026-04-19)**:
-> - **RC-1 drift**: `F-GB-PROV` deleted; `damage_resolve()` in `design/gdd/damage-calc.md` is the sole damage-resolution formula. `BASE_CEILING`/`DAMAGE_CEILING`/`COUNTER_ATTACK_MODIFIER` are now consumed from the registry, not restated. Render-driver language replaced with per-platform (Windows D3D12, Linux+Android Vulkan, macOS+iOS Metal) per `.claude/docs/technical-preferences.md`.
+> - **RC-1 drift**: prior provisional damage formula deleted; `damage_resolve()` in `design/gdd/damage-calc.md` is the sole damage-resolution formula. `BASE_CEILING`/`DAMAGE_CEILING`/`COUNTER_ATTACK_MODIFIER` are now consumed from the registry, not restated. Render-driver language replaced with per-platform (Windows D3D12, Linux+Android Vulkan, macOS+iOS Metal) per `.claude/docs/technical-preferences.md`.
 > - **RC-2 cross-doc**: `DEFEND_STANCE` reduction ratified at 50% (owned by `design/gdd/hp-status.md`, registry `defend_stance_reduction`); local `DEFEND_DAMAGE_REDUCTION` tuning knob deleted. CR-13 rule 4 (DEFEND_STANCE unit does not counter-attack) ratified; `design/gdd/hp-status.md` EC-14/AC-20 rewritten to match. `battle-hud.md` scope set to strict UI-only; rule-restatement migrated back here with bidirectional refs. Mobile DEFEND confirm rewritten to two-tap same-target (EC-GB-42).
 > - **RC-3 class identity**: `WAIT` kept per-unit but reframed as Scout Ambush setup tool (hidden from non-Scout action menu by default; Settings toggle reveals it). DEFEND sets `acted_this_turn = true` (CR-13 rule 5 added). `TacticalRead` UI affordance becomes Strategist-only (CR-14 rewritten); Commander retains its pre-existing `passive_rally` combat mechanic per `design/gdd/unit-role.md` CR-2 (no upgrade to Rally values — specific balance edit deferred to future unit-role revision). `EC-GB-44` (dual-TR case) deleted. `battle-hud.md` adds `UI-GB-12` TacticalRead extended-range visual.
 > - **RC-5 ACs/fixtures**: 10 flagged ACs rewritten inline with Given/When/Then + closed signal sets + `tests/fixtures/grid_battle/` fixture refs. 6–8 seed fixtures authored in this revision; full set deferred to implementation sprint.
@@ -207,12 +207,12 @@ This applies to primary attacks and to the counter-attack pipeline in CR-6
 (which reuses steps 2-9; if a counter-attack's step 10 equivalent emits
 `battle_ended`, no further steps execute).
 
-*(v5.0) `F-GB-PROV` has been deleted from this document. `damage_resolve` in
-`design/gdd/damage-calc.md` is the sole damage-resolution formula. Grid Battle
-is a consumer only; registry-owned constants (`BASE_CEILING`, `DAMAGE_CEILING`,
-`COUNTER_ATTACK_MODIFIER`, `CHARGE_BONUS`, `AMBUSH_BONUS`, `MIN_DAMAGE`,
-`MAX_EVASION`, `MAX_DEFENSE_REDUCTION`) are read from
-`design/registry/entities.yaml`.*
+*(v5.0) The prior provisional damage formula has been deleted from this
+document. `damage_resolve` in `design/gdd/damage-calc.md` is the sole
+damage-resolution formula. Grid Battle is a consumer only; registry-owned
+constants (`BASE_CEILING`, `DAMAGE_CEILING`, `COUNTER_ATTACK_MODIFIER`,
+`CHARGE_BONUS`, `AMBUSH_BONUS`, `MIN_DAMAGE`, `MAX_EVASION`,
+`MAX_DEFENSE_REDUCTION`) are read from `design/registry/entities.yaml`.*
 
 **CR-6: Counter-Attack Rules**
 
@@ -685,9 +685,9 @@ distribution makes high hit percentages feel more reliable than pure uniform
 (70% hit behaves like ~82% in practice) while leaving low hit percentages
 roughly as displayed.
 
-### F-GB-PROV: RETIRED (v5.0)
+### Damage Resolution Reference (v5.0)
 
-`F-GB-PROV` has been **deleted**. `damage_resolve()` in
+The prior provisional damage formula has been **deleted**. `damage_resolve()` in
 `design/gdd/damage-calc.md` (registry formula `damage_resolve`) is the sole
 damage-resolution primitive. Grid Battle is a consumer only.
 
@@ -870,7 +870,7 @@ contract in the opposite direction (over-warning on a safe play).
 | Terrain Effect System | Designed | Input/Output | Combat modifier queries |
 | Unit Role System | Designed | Input/Output | Class stats, passives (Strategist `passive_tactical_read` — both terrain-evasion-ignore combat mechanic per unit-role.md CR-2 AND UI forecast-extension affordance per this GDD CR-14 v5.0; Commander `passive_rally` — +5% ATK adjacent, cap 15%), direction multipliers, `tactical_read_extension_tiles` registry constant (UI facet only) |
 | HP/Status System | Designed | Input/Output | Damage intake, DEFEND_STANCE reduction pipeline (registry `defend_stance_reduction = 50` owned here — v5.0), status application, death detection, DEMORALIZED propagation |
-| Damage Calc System | Designed — `design/gdd/damage-calc.md` (rev 2.5) | Input/Output | `damage_resolve(attacker, defender, modifiers) -> ResolveResult` — sole damage-resolution primitive since v5.0 F-GB-PROV retirement. Owns `BASE_CEILING`, `DAMAGE_CEILING`, `COUNTER_ATTACK_MODIFIER`, `CHARGE_BONUS`, `AMBUSH_BONUS`, class `D_mult` table. |
+| Damage Calc System | Designed — `design/gdd/damage-calc.md` (rev 2.5) | Input/Output | `damage_resolve(attacker, defender, modifiers) -> ResolveResult` — sole damage-resolution primitive since v5.0 (prior provisional formula retired). Owns `BASE_CEILING`, `DAMAGE_CEILING`, `COUNTER_ATTACK_MODIFIER`, `CHARGE_BONUS`, `AMBUSH_BONUS`, class `D_mult` table. |
 | Turn Order System | Designed | Structural | Initiative queue, turn signals, action tokens |
 | Input Handling System | Designed | Input/Output | Player action commands, S5 blocking, two-beat flow, undo, DEFEND two-tap confirm (v5.0) |
 | Settings UX spec | `design/ux/settings.md` — NOT YET AUTHORED (provisional) | Input | `show_wait_for_all_classes` toggle (registry-backed key `settings.show_wait_for_all_classes`, default `false`; surfaced under Player Settings → Accessibility → "Always show WAIT action"). Grid Battle CR-10 menu visibility is gated on this toggle for non-Scout classes. |
@@ -892,7 +892,8 @@ contract in the opposite direction (over-warning on a safe play).
 
 - **Damage Calc**: *(v5.0 — no longer provisional)* `damage-calc.md` is
   **Designed** (rev 2.5). Grid Battle consumes `damage_resolve(attacker,
-  defender, modifiers) -> ResolveResult` directly. F-GB-PROV is deleted.
+  defender, modifiers) -> ResolveResult` directly. The prior provisional
+  formula has been deleted.
 
 - **AI System**: Grid Battle invokes AI via `ai_action_requested(unit_id, snapshot)` signal; AI responds via `ai_action_ready(unit_id, action_command)` within `AI_DECISION_TIMEOUT_MS` (500ms). AI does NOT decide counter-attacks, DEFEND_STANCE reductions, or TacticalRead forecasts — all are automatic.
 
@@ -1248,7 +1249,7 @@ assumption.*
 
 ## Open Questions
 
-1. ~~**Damage Calc GDD**: F-GB-PROV is provisional.~~ **RESOLVED 2026-04-18 (superseded)** → **CLOSED 2026-04-19 (v5.0)** — F-GB-PROV has been physically **deleted** from this document in the v5.0 revision. `damage_resolve()` is now the sole damage-resolution primitive. `BASE_CEILING = 83`, `DAMAGE_CEILING = 180`, `COUNTER_ATTACK_MODIFIER = 0.5` owned by `damage-calc.md` + registry. AC-DC-44 (CI grep asserting F-GB-PROV absence) is now satisfiable against this GDD.
+1. ~~**Damage Calc GDD**: provisional damage formula.~~ **RESOLVED 2026-04-18 (superseded)** → **CLOSED 2026-04-19 (v5.0)** — the prior provisional formula has been physically **deleted** from this document in the v5.0 revision. `damage_resolve()` is now the sole damage-resolution primitive. `BASE_CEILING = 83`, `DAMAGE_CEILING = 180`, `COUNTER_ATTACK_MODIFIER = 0.5` owned by `damage-calc.md` + registry. AC-DC-44 (CI grep asserting absence of the retired formula identifier) is now satisfiable against this GDD.
 2. **Deployment phase expansion**: MVP scripted only. VS or Alpha for player-configurable?
 3. **Additional victory conditions**: "survive N rounds", "capture tile", "route past boundary" — pluggable objective framework needed?
 4. **Formation Bonus integration point**: modify base stats or separate additive layer?
