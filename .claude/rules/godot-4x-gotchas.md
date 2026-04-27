@@ -467,6 +467,228 @@ grep -rn "func before_each\|func after_each" tests/
 
 ---
 
+## G-16 — Untyped `Array` of `Dictionary` literals in parametric tests should be `Array[Dictionary]`
+
+**Context**: parametric / table-driven tests that iterate over a list of `{...}` Dictionary literals describing cases (input/expected pairs). Common in formula tests, edge-case sweeps, and matrix coverage.
+
+**Broken**: declaring the outer container as untyped `Array`. The element type degrades to `Variant`, autocomplete loses Dictionary awareness, and downstream type narrowing on `case[...]` access reverts to `Variant`. Subtle bugs hide because index-access errors don't surface until runtime.
+
+```gdscript
+# BROKEN — outer is untyped Array; iteration var is Variant
+var cases: Array = [
+    {"input": 10, "expected": 20},
+    {"input": -5, "expected": -10},
+]
+for case in cases:                    # case: Variant
+    var input: int = case["input"]    # Variant index → no compile-time type check
+    assert_int(transform(input)).is_equal(case["expected"])
+```
+
+**Correct**: declare the outer as `Array[Dictionary]`. The iteration variable is now `Dictionary`, tools see it correctly, and a static type for each case is enforced. Element values are still `Variant` (Dictionaries are heterogeneous), so explicit `as int` / `as String` casts at the access site remain good practice.
+
+```gdscript
+# CORRECT — typed outer; iteration var is Dictionary
+var cases: Array[Dictionary] = [
+    {"input": 10, "expected": 20},
+    {"input": -5, "expected": -10},
+]
+for case: Dictionary in cases:
+    var input: int = case["input"] as int
+    var expected: int = case["expected"] as int
+    assert_int(transform(input)).is_equal(expected)
+```
+
+Same class as G-2 (`Array[T].duplicate()` demotion) and G-8 (`Signal.get_connections()` returns untyped). Whenever you build a list of typed-shape cases, declare the typed-array.
+
+**Discovered**: damage-calc story-004 (Stage 1 base damage parametric tests; pattern repeated 3 times across the file before being corrected during /code-review).
+
+---
+
+## G-17 — `Engine.has_class()` does not exist in Godot 4.6 — use `ClassDB.class_exists()`
+
+**Context**: runtime check whether a class is registered with the engine — for feature-detection of an addon, a guard for engine-version-conditional code, or test-time presence assertions.
+
+**Broken**: `Engine.has_class("Foo")`. The LLM commonly hallucinates this API from training-data drift. Godot 4.6 has no such method on `Engine`. Strict-typed projects catch it at parse time; dynamic-typed call sites hit a runtime `Invalid call. Nonexistent function 'has_class' in base 'Engine'`.
+
+```gdscript
+# BROKEN — Engine.has_class() does not exist in Godot 4.x
+if Engine.has_class("MyAddon"):
+    do_something()
+```
+
+**Correct**: `ClassDB.class_exists("Foo")`. Returns `true` if the class is registered with the engine's class database. This is the same method gdUnit4 itself uses internally for engine-class detection, so the convention is well-established.
+
+```gdscript
+# CORRECT — ClassDB.class_exists() is the canonical check
+if ClassDB.class_exists("MyAddon"):
+    do_something()
+```
+
+**Symptom checklist** — if you see any of these, suspect G-17:
+- Parse error: `Function "has_class()" not found in base self`
+- Runtime error: `Invalid call. Nonexistent function 'has_class' in base 'Engine'`
+- LLM-generated code referencing `Engine.has_class()` — replace with `ClassDB.class_exists()` before running
+
+Cross-class with G-12 (user `class_name` collision with built-ins) — both produce confusing parse errors that the bare-eye reading suggests are about something else.
+
+**Discovered**: damage-calc story-002 (RefCounted wrapper class registration check; specialist agent generated `Engine.has_class()` from training-data drift; CI caught it on the first run; ~3 min total fix cycle once G-17 was identified).
+
+---
+
+## G-18 — Subclass `var`-shadowing of a typed parent field fails to parse with a misleading error
+
+**Context**: writing a test bypass-seam helper class that subclasses a production class and re-declares one of the parent's typed fields with a different type — typically to inject a test-only out-of-range or wrong-type value.
+
+**Broken**: re-declaring a parent's typed `var` in a subclass with a different type. Godot 4.6's parser rejects this with an error that points at the *member access call site*, not at the subclass declaration. Diagnosis tends to wander toward "is the parent class loaded?" or "is the import cache stale?" — neither is the cause.
+
+```gdscript
+# Parent (production code)
+class_name ResolveModifiers
+extends RefCounted
+
+var attack_type: AttackType = AttackType.PHYSICAL
+
+
+# BROKEN — subclass var shadows parent's typed field with a different type
+class TestResolveModifiersBypass extends ResolveModifiers:
+    var attack_type: int = 0   # parser rejects with misleading error elsewhere
+```
+
+The error surfaces at the *call site* of `bypass.attack_type`, not at the subclass declaration:
+```
+Parser Error: Could not resolve external class member "attack_type"
+```
+
+**Correct**: do NOT shadow the parent field. Either (a) assign an out-of-range value directly via a narrowed `@warning_ignore` annotation, or (b) add a static factory on the parent that takes the test-injected value.
+
+```gdscript
+# CORRECT — direct assignment with narrowed warning suppression
+var bypass: ResolveModifiers = ResolveModifiers.new()
+@warning_ignore("int_as_enum_without_cast")
+bypass.attack_type = -1   # out-of-range int triggers invariant-violation path
+
+# Alternative — factory method on the parent
+# (in ResolveModifiers):
+#   static func bypass_make(injected_attack_type: int) -> ResolveModifiers:
+#       var m := ResolveModifiers.new()
+#       @warning_ignore("int_as_enum_without_cast")
+#       m.attack_type = injected_attack_type
+#       return m
+```
+
+**Symptom misdirection** — the error message points at member access on subclass instances, NOT at the subclass declaration. If you see `Could not resolve external class member` on a member that obviously exists in the parent, suspect G-18 before suspecting G-12 (built-in collision) or G-14 (class-cache refresh).
+
+**Discovered**: damage-calc story-003 (Stage 0 invariant guards bypass-seam; specialist agent's first attempt used subclass var-shadowing; parser rejected with the misleading "external class member" error; CI-caught on the first run; fix: direct assignment with `@warning_ignore`).
+
+---
+
+## G-19 — Stage-N tests in a multi-stage pipeline must use class+direction with downstream-multiplier identity
+
+**Context**: testing one stage of a multi-stage transformation pipeline (e.g., damage calculation: Stage 1 base damage → Stage 2 direction multiplier → Stage 2.5 passive multiplier → Stage 3 raw damage cap → Stage 4 counter halve). The test asserts the pre-Stage-N+1 value, meaning the test setup must avoid any non-identity downstream multiplier that would change the asserted value when later stages are added.
+
+**Broken**: using a non-identity class+direction combo in a Stage-1 test. Direction multiplier (Stage 2) and class multiplier collapse to identity (1.00) only for specific class+direction pairs; for all others, multiplier ≠ 1.00 means the Stage-1 raw assertion will be invalidated when Stage 2 lands. Result: 9 retroactive test fixes per Stage transition (see story-005 history).
+
+```gdscript
+# BROKEN — INFANTRY+FRONT has D_mult ≠ 1.00; Stage-2 will invalidate this assertion
+var ctx := AttackerContext.make(unit_id, &"INFANTRY", FRONT, ...)
+var result := DamageCalc.resolve(ctx, defender, modifiers)
+assert_int(result.resolved_damage).is_equal(70)   # Stage-1 raw
+
+# When Stage 2 lands: D_mult applies → 70 × 1.10 = 77 → assertion fails retroactively
+```
+
+**Correct**: pick the class+direction combo whose downstream multiplier is the **identity element** (1.00). For damage-calc, **SCOUT class is the D_mult identity element** in all 3 directions per `unit-role.md` §EC-7. Default to SCOUT when test intent is Stage-N-isolated verification.
+
+```gdscript
+# CORRECT — SCOUT is the identity for D_mult; Stage-2 doesn't change Stage-1 raw
+var ctx := AttackerContext.make(unit_id, &"SCOUT", FRONT, ...)
+var result := DamageCalc.resolve(ctx, defender, modifiers)
+assert_int(result.resolved_damage).is_equal(70)   # Stage-1 raw, holds across Stage 2
+```
+
+**Identity-element checklist** — before writing a Stage-N test, ask "what is the identity element of every downstream multiplier I haven't implemented yet?" Use that element. For damage-calc:
+- D_mult identity: SCOUT class (any direction)
+- P_mult identity: no Charge / no Ambush / no Rally / no Formation
+- Counter halve identity: `is_counter = false`
+
+**Sibling to G-21**: G-19 is the *prevention* (use the identity element so the assertion DOESN'T shift when Stage-N+1 lands); G-21 is the *correction* protocol (when prior tests didn't follow G-19, update them when Stage-N+1 lands).
+
+**Discovered**: damage-calc story-005 (Stage 2 direction multiplier landed; story-004's INFANTRY-based Stage-1 assertions were invalidated and required 9 retroactive INFANTRY→SCOUT swaps).
+
+---
+
+## G-20 — Godot 4.6 `StringName == String` returns true; `in` operator considers them equal
+
+**Context**: defending against type-confusion in an `Array[StringName]` field — e.g., a function expects `Array[StringName]` but a caller (or test bypass-seam) injects `Array[String]` with same string content. Defensive checks at `==` or `in` operators may not catch the type mismatch.
+
+**Broken**: assuming `&"foo" == "foo"` returns `false` because they're different types. Godot 4.6 implicitly coerces between `StringName` and `String` at the equality operator — both `==` and the `in` operator return `true` for equal-content cross-type comparisons. A defensive guard at the operator boundary is structurally unable to detect type mismatch.
+
+```gdscript
+# In Godot 4.6:
+&"charge" == "charge"           # → true  (cross-type equality)
+"charge" in [&"charge"]         # → true  (in-operator cross-type)
+&"charge" in ["charge"]         # → true  (also true the other way)
+
+# BROKEN — defensive guard at == / in operator does NOT catch type mismatch
+func has_passive(passives: Array, name: StringName) -> bool:
+    return name in passives   # passes regardless of whether passives is Array[StringName] or Array[String]
+```
+
+**Correct**: type-safety at the `==` / `in` operator is **not the right defense**. The real defense is the **typed-array auto-conversion at the field declaration boundary**. `Array[StringName]` enforces auto-coercion when the array is assigned, mutated, or returned. By the time the `in` check runs, the array is guaranteed to be StringName-only.
+
+```gdscript
+# CORRECT — defense is at the typed-array boundary, not the in operator
+class AttackerContext:
+    var passives: Array[StringName] = []   # auto-coerces String → StringName at assignment
+
+    func has_passive(name: StringName) -> bool:
+        return name in self.passives   # safe — passives is structurally Array[StringName]
+```
+
+**Production code is structurally protected** because typed-Array declarations enforce auto-coercion at every legitimate entry point (constructor, `make()` factory, public mutator). Test bypass-seams that *bypass* the structural protection (e.g., direct field assignment of `Array[String]`) need to assert downstream behaviour (`P_mult == 1.00`, `is_counter` flag flipped, etc.) rather than type-rejection at the entry point — because the type rejection happens at the `Array[T]` boundary, NOT at the `==` / `in` site.
+
+**Cross-reference**: TD-037 in `docs/tech-debt-register.md` — the original ADR-0012 R-9 "release-build defense" premise was wrong; AC-DC-51 negative case was redesigned around this insight.
+
+**Discovered**: damage-calc story-006 (Stage 3-4 + AC-DC-51 bypass-seam; specialist agent's first attempt asserted `==` rejection; CI caught the cross-type-equality by failing the bypass-seam test; redesigned to assert downstream `P_mult == 1.00`).
+
+---
+
+## G-21 — Stage-N additions invalidate prior-stage tests' raw assertions
+
+**Context**: implementing Stage-N+1 of a multi-stage pipeline where prior-stage tests asserted the pre-Stage-N+1 raw value. Adding Stage-N+1 changes the observed output of every test that runs through the full pipeline. Sibling pattern to G-19.
+
+**Broken**: implementing Stage-N+1, running the test suite, and being surprised when prior-stage tests fail with values that differ by exactly the Stage-N+1 transformation. The failures look like correctness regressions but are **expected** — the tests asserted values that were correct *before Stage-N+1 was added*.
+
+```gdscript
+# Pre-Stage-3 — story-005 wrote this assertion against Stage-2 raw
+func test_stage_2_direction_multiplier_applies() -> void:
+    # ... arrange counter-attack scenario ...
+    var result := DamageCalc.resolve(ctx, defender, modifiers)
+    assert_int(result.resolved_damage).is_equal(77)    # 70 × 1.10 (Stage-2 only)
+
+# Story-006 lands Stage-3 (counter halve, F-DC-7): same test now produces 38 (= 77 / 2).
+# Test fails — but the implementation is correct; the assertion is stale.
+```
+
+**Correct**: when implementing Stage-N+1, **proactively scan all Stage-N and earlier tests** for raw-value assertions that would shift. Update them to reflect the new pipeline output. Add a clarifying comment so the next reader can trace the value chain through every applied transformation.
+
+```gdscript
+# CORRECT — assertion updated for Stage-3 counter halve; comment documents value chain
+func test_stage_2_direction_multiplier_applies() -> void:
+    # ... arrange counter-attack scenario ...
+    var result := DamageCalc.resolve(ctx, defender, modifiers)
+    # Value chain: 70 (Stage-1 raw) × 1.10 (Stage-2 D_mult) = 77; counter halve (Stage-3) → 38
+    assert_int(result.resolved_damage).is_equal(38)
+```
+
+**Pattern stability**: this surfaced in story-005 (Stage-2 added → 9 retroactive Stage-1 raw-assertion fixes from story-004) and again in story-006 (Stage-3/4 added → 2 retroactive Stage-2 raw-assertion fixes from story-005). Pattern stable at 2 occurrences; treat it as a structural inevitability of the staged-pipeline architecture, not a bug.
+
+**Sibling to G-19**: prefer G-19 prevention (use identity-element class+direction combos) so prior assertions stay stable across Stage transitions. G-21 is the recovery protocol when prevention wasn't applied.
+
+**Discovered**: damage-calc story-005 (Stage-2 invalidated 9 INFANTRY-based Stage-1 raw assertions from story-004) + damage-calc story-006 (Stage-3/4 invalidated 2 story-005 Stage-2 raw assertions). Codified together with G-19 and G-20 in this batch (2026-04-27).
+
+---
+
 ## Verification Pattern Summary
 
 When testing changes that touch any of the above areas, always:
@@ -492,5 +714,5 @@ When a new Godot/GdUnit4 pattern bites the team:
 - `.claude/rules/test-standards.md` — general test naming, structure, isolation
 - `.claude/rules/engine-code.md` — engine-code hot-path rules (Godot-agnostic)
 - `docs/engine-reference/godot/VERSION.md` — pinned engine version + API verification
-- `docs/tech-debt-register.md` TD-013 (original accumulation), TD-019 (G-10 discovery — story-004), TD-021 (G-11 discovery — story-006)
+- `docs/tech-debt-register.md` TD-013 (original accumulation), TD-019 (G-10 discovery — story-004), TD-021 (G-11 discovery — story-006), TD-037 (G-20 discovery — damage-calc story-006), TD-040 (G-22-candidate — lint regex string-literal extraction; logged 2026-04-27 with damage-calc story-009)
 - `tools/ci/lint_per_frame_emit.sh` — template for Godot-specific CI lint scripts
