@@ -67,6 +67,55 @@ Most projects keep `upstream` for `git fetch upstream` to sync — so the explic
 
 ---
 
+## TG-2 — Stale handoff: trusting `active.md` without running `git fetch origin` at session resume
+
+**Context**: resuming a Claude Code session via `/clear` or new-session-start when `production/session-state/active.md` describes "uncommitted local work" or "implementation pending" or "next priority = story-X". The handoff was written by a prior session that may not have run a final `git fetch` against origin before the session ended (or the user/teammate may have merged a PR AFTER the handoff was written).
+
+**Broken**: trusting `active.md` as the source of truth for "what's local vs. what's already on origin" without first running `git fetch origin && git status -uno && git rev-list --left-right --count origin/main...HEAD`. If origin/main has advanced past local main (because a PR was merged AFTER the handoff was written, or because of an out-of-band push), the handoff text reads as a confident lie:
+
+```bash
+# BROKEN — trusting handoff verbatim
+# active.md says: "story-007 next priority — implementation done locally; not yet committed"
+# Reality (after fetch): origin/main has PR #67 (story-007) AND PR #68 (story-008) already merged.
+# Without fetch, the next session re-does already-merged work.
+```
+
+The misleading pattern in `active.md` to watch for is the phrase "Discrepancy with prior extract above" or any "supersedes earlier note" qualifier — that text indicates the prior session was patching its own stale notes, which is a SYMPTOM of unsynced state, NOT an acceptable handoff. Do not accept it without verification.
+
+**Correct**: ALWAYS run the fetch + sync-check sequence at session resume, BEFORE reading `active.md` as authoritative:
+
+```bash
+# CORRECT — sync check first
+git fetch origin
+git rev-list --left-right --count origin/main...HEAD
+# Output: <left>\t<right>  → left = commits origin/main has that HEAD doesn't (local behind)
+#                          → right = commits HEAD has that origin/main doesn't (local ahead)
+# If left > 0 and you're on main: run `git pull --ff-only origin main` before trusting active.md.
+# If right > 0: you're on a branch with local-only commits — verify they're not stale-after-squash-merge.
+```
+
+If the active.md handoff describes work as "uncommitted local" but `git fetch` shows origin ahead, audit before acting:
+
+```bash
+# Compare local working tree against the committed-on-origin version
+git diff origin/main -- [story-files-mentioned-in-active.md]
+# If significant diverge: the local work is a STALE re-implementation; reset to origin/main + drop redundant work.
+```
+
+**Symptom checklist** — flags that indicate unsynced state at session resume:
+1. `active.md` "Next-session priorities" lists a story as "implementation pending" but you have no recent memory of running `/dev-story` for it
+2. `git status -uno` shows the working tree carrying changes to files for a story whose merge commit you don't recognize in `git log --oneline origin/main -10`
+3. `gh pr list --repo <repo> --state all --limit 5` shows recent merges (within the timeframe of the prior session) that aren't in your local `git log`
+4. The current local branch is `feature/story-X-...` but a PR for that story already shows MERGED on origin
+
+**Concrete cost**: damage-calc story-006 close-out (2026-04-27) ran `/code-review` against a local working-tree re-implementation BEFORE discovering PR #64 had merged the canonical version 24 hours earlier. The local re-implementation diverged from the merged version by 273 LoC in production code + 913 LoC in tests. Cost: ~30 minutes on stale-against-merged code review + explicit `git reset --hard origin/main` + cross-check of which review fixes still applied to the merged version (3 of 4 had already been independently addressed by the merged refactor; 1 was a 1-word doc nit not worth a follow-up PR).
+
+**Wrapper script suggestion** (not yet implemented; future hardening): `tools/ci/session_resume_fetch_check.sh` that runs the fetch + count + warns if origin/main is ahead. Could be wired as a Claude Code SessionStart hook so it runs automatically before `active.md` is read by the agent.
+
+**Discovered**: damage-calc story-006 close-out (2026-04-27 — the "PR #64 already-merged discovery" session-extract block in `production/session-state/active.md` documents the trap in detail). Re-confirmed at damage-calc story-010 session resume (2026-04-27, same day, fresh session): active.md handoff said "next priority = story-007 vertical-slice 7/7"; `git fetch origin` revealed PRs #67 (story-007) and #68 (story-008) had both merged hours earlier. Pattern is now stable at 2 invocations.
+
+---
+
 ## Adding a new tooling gotcha
 
 When a workflow command bites the team:
