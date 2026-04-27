@@ -4,7 +4,7 @@
 > **GDD**: `design/gdd/damage-calc.md` (rev 2.9.3, APPROVED post-ninth-pass + narrow re-review close-out 2026-04-20, 2335 LoC, 53 ACs)
 > **Architecture Module**: Damage Calc (#11) — `src/feature/damage_calc/`
 > **Status**: Ready
-> **Stories**: 11/11 created (2026-04-26 — original 10; +1 via /story-readiness story-006 split) — **9/11 complete** (story-001 ✓ PR #52, story-002 ✓ PR #54, story-003 ✓ PR #56, story-004 ✓ PR #59, story-005 ✓ PR #61, story-006 ✓ PR #64 — TD-037 logged for ADR-0012 R-9 revision, story-006b ✓ PR #65 — BalanceConstants wrapper + entities.json migration, story-007 ✓ PR #67 — F-GB-PROV retirement + Grid Battle integration = vertical-slice 7/7 first-playable damage roll demo achieved, story-008 ✓ PR #68 — engine-pin + RNG replay + AC-DC-41 lint + ENGINE-CONTRACT-FINDING with TD-038/TD-039 logged); next: `/story-readiness production/epics/damage-calc/story-010-perf-baseline.md` then `/dev-story` (Logic story; 2-3h headless / 1.5-2h mobile p99 — Polish-deferral admin pass available if minimum-spec device unavailable)
+> **Stories**: 11/11 created (2026-04-26 — original 10; +1 via /story-readiness story-006 split) — **10/11 complete** (story-001 ✓ PR #52, story-002 ✓ PR #54, story-003 ✓ PR #56, story-004 ✓ PR #59, story-005 ✓ PR #61, story-006 ✓ PR #64 — TD-037 logged for ADR-0012 R-9 revision, story-006b ✓ PR #65 — BalanceConstants wrapper + entities.json migration, story-007 ✓ PR #67 — F-GB-PROV retirement + Grid Battle integration = vertical-slice 7/7 first-playable damage roll demo achieved, story-008 ✓ PR #68 — engine-pin + RNG replay + AC-DC-41 lint + ENGINE-CONTRACT-FINDING with TD-038/TD-039 logged, story-010 ✓ PR #70 — AC-DC-40(a) headless CI throughput + AC-DC-40(b) Polish-deferred = 5th invocation of stable 4-precedent pattern); next: `/story-readiness production/epics/damage-calc/story-009-accessibility-ui-tests.md` then `/dev-story` (Visual/Feel story; 5-6h; only remaining damage-calc story — closes the epic)
 > **Manifest Version**: 2026-04-20 (`docs/architecture/control-manifest.md`)
 > **Created**: 2026-04-26 (Sprint 1 S1-05)
 
@@ -22,7 +22,7 @@
 | 007 | [F-GB-PROV retirement + entities.yaml + Grid Battle integration](story-007-fgbprov-retirement-entities-yaml-grid-battle-integration.md) | Integration | **Complete (2026-04-27)** | ADR-0012 §9 | 006b |
 | 008 | [Determinism + engine-pin + cross-platform matrix + AC-DC-41 lint](story-008-determinism-engine-pin-cross-platform.md) | Integration | **Complete (2026-04-27)** | ADR-0012 §10, §11 | 006, 001 |
 | 009 | [Accessibility UI tests — TalkBack + Reduce Motion + monochrome](story-009-accessibility-ui-tests.md) | Visual/Feel | Ready | ADR-0012 §10 | 006, 001 |
-| 010 | [Performance baseline — headless throughput + mobile p99](story-010-perf-baseline.md) | Logic | Ready | ADR-0012 Performance Implications + R-2 | 006b, 001 |
+| 010 | [Performance baseline — headless throughput + mobile p99](story-010-perf-baseline.md) | Logic | **Complete (2026-04-27)** | ADR-0012 Performance Implications + R-2 | 006b, 001 |
 
 **Stories total**: 11 — 1 Config/Data, 7 Logic (incl. 006b), 2 Integration, 1 Visual/Feel. (Was 10; +1 via /story-readiness story-006 split 2026-04-26 — extracted BalanceConstants migration + AC-DC-48 grep gate from story-006 into 006b for cleaner review surface.)
 

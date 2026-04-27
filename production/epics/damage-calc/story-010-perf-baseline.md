@@ -1,7 +1,7 @@
 # Story 010: Performance baseline — headless CI throughput + mobile p99 (Polish-deferral candidate)
 
 > **Epic**: damage-calc
-> **Status**: Ready
+> **Status**: Complete (2026-04-27)
 > **Layer**: Feature
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
@@ -125,3 +125,56 @@
 
 - Depends on: Story 006 (completed `damage_calc.gd` pipeline) + Story 001 (CI infrastructure — headless throughput integration)
 - Unlocks: Beta release gate (AC-DC-40(b) mobile p99 KEEP-through-implementation hard gate at Beta tier)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-27
+**Verdict**: COMPLETE WITH NOTES
+**Path chosen**: Path B (Hybrid) — AC-DC-40(a) implemented + AC-DC-40(b) Polish-deferred (5th invocation of stable 4-precedent pattern)
+**Criteria**: 4/4 covered (3 direct + 1 deferred per AC-2-deferred pass condition)
+**Test Evidence**:
+- `tests/unit/damage_calc/damage_calc_perf_test.gd` — `test_perf_resolve_throughput_ci_under_budget` (AC-DC-40(a) regression gate; 80/76/78ms across 3 local runs vs 500ms budget = ~16% utilization)
+- `production/qa/evidence/damage_calc_perf_mobile.md` — AC-DC-40(b) Polish-deferral 4-element template (Android+iOS independent reactivation triggers)
+- `production/qa/evidence/damage_calc_perf_summary.md` — combined AC-3 summary (CI run URL filled in at story-done)
+**PR**: #70 merged 2026-04-27 (commit `6e72793`); CI green (GdUnit4 45s, macOS Metal 27s, gdunit4-report SUCCESS)
+
+### Files delivered (3 new + 1 .uid)
+
+| Path | LoC | Purpose |
+|---|---|---|
+| `tests/unit/damage_calc/damage_calc_perf_test.gd` | 67 | AC-DC-40(a) headless CI throughput test |
+| `production/qa/evidence/damage_calc_perf_mobile.md` | 135 | AC-DC-40(b) Polish-deferral evidence |
+| `production/qa/evidence/damage_calc_perf_summary.md` | 71 | Combined AC-3 summary |
+
+### /code-review verdicts (lean mode parallel)
+
+- **godot-gdscript-specialist**: APPROVED WITH SUGGESTIONS (0 blockers; 9/10 standards passing). G-9 parens correct; G-15 `before_test`/`after_test` correct; type safety + StringName + naming all clean.
+- **qa-tester**: TESTABLE (0 blockers; 4/4 ACs covered). 4-element template complete. Cross-references to all 4 prior precedents complete.
+
+### Review fixes applied (2 mechanical, both convergent or near-convergent)
+
+1. Test function rename: `test_perf_resolve_throughput_ci` → `test_perf_resolve_throughput_ci_under_budget` (convergent finding from both review agents — satisfies `test_[scenario]_[expected]` convention without coupling to the `_BUDGET_MS` value)
+2. `damage_calc_perf_mobile.md` L117: terrain-effect/story-008 precedent date `2026-04-26` added for enumeration consistency with precedents 1-3
+
+### Advisory deviations NOT applied (3 — accepted as-is)
+
+1. gdscript-specialist: ResolveModifiers Direction enum verification (advisory query; current API works as written)
+2. qa-tester: BalanceConstants reset comment tightening (current "G-15 + story-006b" comment acceptable)
+3. (Both via /code-review): no-op since the 2 convergent fixes were applied already
+
+### Deviations from story skeleton (3 enhancements with rationale)
+
+None blocking. All documented in PR #70 commit message:
+1. GdUnit4-idiomatic `assert_int(...).override_failure_message(...).is_less(...)` chain instead of bare `assert()`
+2. Constants `_CALL_COUNT` + `_BUDGET_MS` extracted (no magic numbers)
+3. `BalanceConstants` cache reset in `before_test`/`after_test` for forward-compat inter-suite isolation
+
+### Tech debt logged
+
+NONE NEW. TD-035 cross-reference embedded in failure message for future flakiness triage if it surfaces; no TODO required at story close. Test variance 5ms (10% of TD-035 50ms escalation threshold).
+
+### Polish-deferral pattern — 5th invocation
+
+Pattern remains stable. Precedent chronology updated: save-manager/007 2026-04-24 → map-grid/007 2026-04-25 → scene-manager/007 2026-04-26 → terrain-effect/008 2026-04-26 → **damage-calc/010 2026-04-27**. The pattern's 4-element template (deferral reason + reactivation trigger + ready-to-ship fallback + estimated Polish-phase effort) was applied without modification; 1 spec-driven additive change (per-platform Android+iOS branch in §2 reactivation trigger) since AC-DC-40(b) covers both target classes. Pattern continues to scale cleanly.

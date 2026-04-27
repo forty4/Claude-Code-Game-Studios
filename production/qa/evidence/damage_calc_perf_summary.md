@@ -14,7 +14,7 @@
 **Status**: Implemented (handled by godot-gdscript-specialist in parallel with this
 admin pass).
 
-**Test**: `tests/unit/damage_calc/damage_calc_perf_test.gd::test_perf_resolve_throughput_ci`
+**Test**: `tests/unit/damage_calc/damage_calc_perf_test.gd::test_perf_resolve_throughput_ci_under_budget`
 
 **Budget**: 10,000 `resolve()` calls < 500ms total (50µs avg per call) on Linux
 headless CI runner.
@@ -22,7 +22,7 @@ headless CI runner.
 **CI gate**: Regression gate — CI fails merge if budget exceeded. Runs on every push
 to main and every PR per `.github/workflows/tests.yml`.
 
-**CI run URL**: [pending — fill in after first PR CI run completes]
+**CI run URL**: https://github.com/forty4/Claude-Code-Game-Studios/actions/runs/24989348147 (PR #70 GdUnit4 lane SUCCESS, 45s; macOS Metal lane SUCCESS, 27s; gdunit4-report SUCCESS) — merged 2026-04-27 10:21:36Z as commit `6e72793`
 
 **Asymmetric-signal rationale** (ADR-0012 R-2): desktop CI PASS does not prove mobile
 PASS, but desktop CI FAIL would have GUARANTEED mobile FAIL. This AC provides the
@@ -69,3 +69,4 @@ class, Android 12+ / iOS 15+).
 | Date | Author | Change |
 |---|---|---|
 | 2026-04-27 | Dowan Kim | Initial — story-010 admin pass; AC-DC-40(a) implemented; AC-DC-40(b) Polish-deferred (5th invocation) |
+| 2026-04-27 | Dowan Kim | /story-done close-out — CI run URL filled (PR #70 merged commit `6e72793`); test function name updated to `test_perf_resolve_throughput_ci_under_budget` (convergent /code-review rename) |
