@@ -1,7 +1,7 @@
 # Story 006b: BalanceConstants wrapper + entities.yaml scaffolding + migrate hardcoded constants from stories 004/005/006 + AC-DC-48 grep gate
 
 > **Epic**: damage-calc
-> **Status**: Ready
+> **Status**: Complete (2026-04-27)
 > **Layer**: Feature
 > **Type**: Logic (with Config/Data scope for entities.yaml authoring)
 > **Manifest Version**: 2026-04-20
@@ -206,3 +206,78 @@ Recommended: **Option 1** — file is `entities.json`. Update damage-calc.md GDD
 
 - Depends on: Story 006 (Stage 3-4 must complete first; 006b migrates the constants from a stable `damage_calc.gd` post-Stage-3-4)
 - Unlocks: Story 007 (Grid Battle integration shares `entities.json` for `damage_resolve` schema entry — story-007 ADDS to the file 006b creates) + Story 010 (perf baseline benchmarks against migrated wrapper-read overhead) + ADR-0006 ratification (when ADR-0006 lands, BalanceConstants internals swap to DataRegistry.get_const() — call sites unchanged)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-04-27
+**PR**: [#65](https://github.com/forty4/Claude-Code-Game-Studios/pull/65) (commit `f40e709` on main)
+**Verdict**: COMPLETE WITH NOTES
+**Effort**: ~3.5h actual vs 3-4h estimate (within range)
+**Criteria**: 8/8 PASS (AC-DC-48, AC-1..AC-7), 0 deferred, 0 failed
+
+### Files delivered (10)
+
+| File | Change | Description |
+|---|---|---|
+| `src/feature/balance/balance_constants.gd` | NEW (~91 LoC) | `class_name BalanceConstants extends RefCounted`. Lazy-loaded static cache, public `get_const(key) -> Variant`, push_error on missing key + parse failure |
+| `src/feature/balance/balance_constants.gd.uid` | NEW (auto) | Godot 4.x stable resource ID |
+| `assets/data/balance/entities.json` | NEW (621 bytes) | All 12 tuning constants (10 scalars + 2 dict tables; CLASS_DIRECTION_MULT outer keys stringified per JSON requirement) |
+| `tests/unit/balance/balance_constants_test.gd` | NEW (~245 LoC, 7 functions) | Wrapper unit tests: lazy-load, cache stability, all 12 keys, dict-key handling, unknown-key null return, **GAP-1 stable-empty-cache contract** (added inline during /code-review), AC-7 string-key handling |
+| `tests/unit/balance/balance_constants_test.gd.uid` | NEW (auto) | |
+| `tools/ci/lint_damage_calc_no_hardcoded_constants.sh` | NEW | AC-DC-48 grep lint script (mirrors existing 3 lint script shapes) |
+| `src/feature/damage_calc/damage_calc.gd` | M (-105/+22 net) | All 12 const declarations removed; per-call `BalanceConstants.get_const("X") as TYPE` reads at every call site; PASSIVE_CHARGE/PASSIVE_AMBUSH preserved as const StringName; `str(unit_class)` at CLASS_DIRECTION_MULT lookup |
+| `tests/unit/damage_calc/damage_calc_test.gd` | M (+115/-2) | before_test/after_test BalanceConstants cache reset; AC-4 mock test (`test_ac4_live_registry_read_mock_charge_bonus_returns_63` — mocked CHARGE_BONUS=1.30 → resolved=63 vs unmocked 59 = +4 delta); AC-4b unmocked baseline (after-mock bleed-through canary; cross-reference comment to `test_stage_2_cavalry_rear_charge_primary_returns_59` per /code-review GAP-2) |
+| `.github/workflows/tests.yml` | M (+3) | AC-DC-48 lint step after the 3 existing damage-calc lint steps |
+| `design/gdd/damage-calc.md` | M (38 line changes) | Find/replace `entities.yaml` → `entities.json` (doc-drift cleanup) |
+
+### AC coverage (8/8)
+
+| AC | Evidence |
+|---|---|
+| AC-DC-48 | `tools/ci/lint_damage_calc_no_hardcoded_constants.sh` (exit 0) + CI step |
+| AC-1 | `balance_constants.gd` — class_name + 1 public function (`get_const`) |
+| AC-2 | `balance_constants_test.gd::test_get_const_all_scalar_keys_return_expected_values` (10 scalars) + `test_get_const_direction_mult_keys_return_dictionaries` (BASE/CLASS dicts) |
+| AC-3 | All 12 const declarations removed; AC-DC-48 grep returns 0 |
+| AC-4 | `damage_calc_test.gd::test_ac4_live_registry_read_mock_charge_bonus_returns_63` + `test_ac4b_unmocked_baseline_cavalry_rear_charge_returns_59` |
+| AC-5 | Full suite **361/361 PASS**, 0 errors / 0 failures / 0 flaky / 0 orphans, exit 0 |
+| AC-6 | grep `int(` = 0 in both `damage_calc.gd` and `balance_constants.gd` |
+| AC-7 | `balance_constants_test.gd::test_get_const_class_direction_mult_all_classes_all_directions` (4 classes × 3 directions = 12 cases) |
+
+### Code review (lean dual)
+
+- **godot-gdscript-specialist**: APPROVED WITH SUGGESTIONS (3 suggestions + 3 nits, 0 blockers)
+- **qa-tester**: TESTABLE WITH GAPS (3 GAPs + 4 suggestions, 0 blockers)
+- **4 inline fixes applied before commit**:
+  1. GAP-1: stable-empty-cache contract test added (`balance_constants_test.gd::test_get_const_stable_empty_cache_after_failure_returns_null_no_reparse`)
+  2. GAP-2: AC-4b cross-reference comment added (intentional duplicate of `test_stage_2_cavalry_rear_charge_primary_returns_59`; do not consolidate)
+  3. N-2: `balance_constants.gd` push_error message includes `type_string(typeof(parsed))` for diagnostics
+  4. balance_constants_test.gd:96-98: misleading "Tolerance=0 for int-typed values" comment corrected
+
+### Deviations (advisory; none blocking)
+
+1. **Perf optimization deferred** — gdscript S-1 + S-2: per-call dict-fetch redundancy (CLASS_DIRECTION_MULT 2× per `resolve()`; MIN_DAMAGE 3× per counter path). Defer to story-010 perf baseline. Within ADR-0012 §Performance budget (Dictionary lookup is nanoseconds; story spec acknowledges <1ms per resolve()).
+2. **`entities.json` key naming DRIFT** — keys use UPPER_SNAKE_CASE matching GDScript const names (`BASE_CEILING`, `CHARGE_BONUS`, etc.); conflicts with `.claude/rules/data-files.md:12` (mandates camelCase). Naming choice is intentional (1:1 mirror of GDScript constants for grep + cognitive mapping at every call site). Recommendation: rule-file exception over implementation change. Track for resolution alongside ADR-0006 ratification or follow-up rule update.
+3. **Filename DRIFT** — `entities.json` doesn't match `[system]_[name]` pattern from `data-files.md:8` (would be `balance_entities.json`). Per ADR-0012 §6 + GDD wording mandate. Same reconciliation path as #2.
+
+### Verification (final, all green)
+
+- Full GdUnit4 suite: **361/361 PASS** (was 360 + 1 new GAP-1 test), 0 errors / 0 failures / 0 flaky / 0 orphans, exit 0
+- 4 CI lints (AC-DC-33/34/35 existing + AC-DC-48 new): all exit 0
+- F-1 grep `int(` in damage_calc.gd / balance_constants.gd: 0 / 0
+- AC-DC-N1 grep `as ResolveResult.AttackType`: 0 (story-006 still clean)
+- GDD `entities.yaml` substring: 0 (doc cleanup verified)
+- CI on PR #65: GdUnit4 (Godot 4.6) SUCCESS, macOS Metal SUCCESS, gdunit4-report SUCCESS
+
+### Tech debt logged
+
+None new. Two ADVISORY items above (perf + naming DRIFT) are tracked in this section for visibility but not registered separately in `docs/tech-debt-register.md` — they're best resolved as part of the natural ADR-0006 ratification cycle (when DataRegistry lands) and a `data-files.md` rule update (which would naturally cover both #2 and #3).
+
+### Vertical-slice progress
+
+**6.5/7 done** (was 6/7). Story-007 (F-GB-PROV retirement + Grid Battle integration) is the final story for first-playable damage roll demo.
+
+### Cumulative damage-calc epic progress
+
+7/11 stories complete on origin/main: 001 ✓ PR #52, 002 ✓ PR #54, 003 ✓ PR #56, 004 ✓ PR #59, 005 ✓ PR #61, 006 ✓ PR #64, **006b ✓ PR #65 (this story)**.
