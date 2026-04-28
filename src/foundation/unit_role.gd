@@ -315,3 +315,23 @@ static func get_effective_move_range(hero: HeroData, unit_class: UnitRole.UnitCl
 	var range_min: int = BalanceConstants.get_const("MOVE_RANGE_MIN") as int
 	var range_max: int = BalanceConstants.get_const("MOVE_RANGE_MAX") as int
 	return clampi(hero.move_range + (entry["class_move_delta"] as int), range_min, range_max)
+
+
+# RETURNS PER-CALL COPY — DO NOT cache and return shared array. R-1 mitigation per ADR-0009 §5.
+## get_class_cost_table: Cost matrix unit-class dimension (ADR-0009 §5 + GDD CR-4).
+## Returns the 6-entry terrain cost multiplier row for the given class as a PackedFloat32Array.
+## Index mapping: [ROAD=0, PLAINS=1, HILLS=2, FOREST=3, MOUNTAIN=4, BRIDGE=5]
+## Callers MUST NOT mutate the returned array (forbidden_pattern unit_role_returned_array_mutation).
+## Map/Grid Dijkstra pattern: one fetch per get_movement_range call; index in inner loop.
+## Per-call fresh PackedFloat32Array construction is the R-1 mitigation — DO NOT add caching.
+static func get_class_cost_table(unit_class: UnitRole.UnitClass) -> PackedFloat32Array:
+	_load_coefficients()
+	var class_key: String = _class_to_key(unit_class)
+	var entry: Dictionary = _coefficients[class_key]
+	var table_array: Array = entry["terrain_cost_table"] as Array
+	# Construct fresh PackedFloat32Array per call — do NOT cache and return shared array.
+	var result: PackedFloat32Array = PackedFloat32Array()
+	result.resize(6)
+	for i: int in 6:
+		result[i] = table_array[i] as float
+	return result
