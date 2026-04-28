@@ -1,11 +1,20 @@
-# Story 007: MOVE_BUDGET_PER_RANGE balance_entities.json append + cross-doc obligation closure
+# Story 007: Unit-role global caps balance_entities.json append (8 keys) + cross-doc obligation closure
 
 > **Epic**: unit-role
-> **Status**: Ready
+> **Status**: Complete (2026-04-28) ✅ — 9/9 tests passing (`tests/unit/foundation/balance_constants_unit_role_caps_test.gd`)
 > **Layer**: Foundation
 > **Type**: Config/Data
 > **Manifest Version**: 2026-04-20
-> **Estimate**: 1 hour (XS)
+> **Estimate**: 1 hour (XS) — actual ~30min orchestrator (re-scoped from "MOVE_BUDGET_PER_RANGE only" to "8 unit-role-related caps" after story-003 readiness probe surfaced 7 missing keys; original ADR-0009 §4 wording assumed all 10 caps were already in balance_entities.json — they weren't)
+> **Implementation commit**: TBD (this commit)
+
+## Re-scope note (2026-04-28)
+
+Original story-007 scope was narrow: append `MOVE_BUDGET_PER_RANGE = 10` to `balance_entities.json` per ADR-0009 §Migration Plan §4 (the only key explicitly called out in the §Migration Plan).
+
+During /story-readiness story-003 (F-1..F-5 stat derivation), context probe surfaced that **7 additional unit-role-related caps were missing from balance_entities.json** despite ADR-0009 §4 line 221 declaring them as canonical: HP_CAP, HP_SCALE, HP_FLOOR, INIT_CAP, INIT_SCALE, MOVE_RANGE_MIN, MOVE_RANGE_MAX. Without these, story-003's `BalanceConstants.get_const("HP_CAP")` etc. would return null + push_error → silent test failures.
+
+Story-007 was re-scoped to cover all 8 unit-role-related caps and execute BEFORE story-003 (rather than the original "anytime after story-001"). The Implementation Order in EPIC.md was updated to reflect the revised dependency.
 
 ## Context
 
@@ -13,8 +22,8 @@
 **Requirement**: `TR-unit-role-005` (cross-doc obligation portion)
 *(Requirement text lives in `docs/architecture/tr-registry.yaml` — read fresh at review time)*
 
-**ADR Governing Implementation**: ADR-0009 — Unit Role System (§Migration Plan §4) + ADR-0006 — Balance/Data (BalanceConstants accessor + balance_entities.json schema)
-**ADR Decision Summary**: `MOVE_BUDGET_PER_RANGE = 10` constant single-line append to `assets/data/balance/balance_entities.json` per ADR-0009 §Migration Plan §4. Pre-registered in `unit-role.md` GDD Global Constant Summary table (lines 451-462) at ADR-0009 authoring. Consumers (Grid Battle, when implemented) read via `BalanceConstants.get_const("MOVE_BUDGET_PER_RANGE")`. UnitRole's own `get_effective_move_range` does NOT need this constant — `move_budget = effective_move_range × MOVE_BUDGET_PER_RANGE` is a consumer-side compute per ADR-0009 §3 + §Requirements.
+**ADR Governing Implementation**: ADR-0009 — Unit Role System (§4 + §Migration Plan §4) + ADR-0006 — Balance/Data (BalanceConstants accessor + balance_entities.json schema)
+**ADR Decision Summary**: 8 unit-role-related global caps appended to `assets/data/balance/balance_entities.json` per ADR-0009 §4 line 221 declaration: HP_CAP=300, HP_SCALE=2.0, HP_FLOOR=50, INIT_CAP=200, INIT_SCALE=2.0, MOVE_RANGE_MIN=2, MOVE_RANGE_MAX=6, MOVE_BUDGET_PER_RANGE=10. Values per GDD §Global Constant Summary + ADR-0009 §4. Consumers: stories 003 (F-1..F-5 formulas read all 8 except MOVE_BUDGET_PER_RANGE), 005 (no balance reads — direction multiplier comes from unit_roles.json per ADR-0009 §6 design-vs-runtime asymmetry), and future Grid Battle (consumes MOVE_BUDGET_PER_RANGE for `move_budget = effective_move_range × MOVE_BUDGET_PER_RANGE` consumer-side compute). All read via `BalanceConstants.get_const(key) -> Variant` per ADR-0006.
 
 **Engine**: Godot 4.6 | **Risk**: LOW (single-line JSON append; BalanceConstants accessor stable since ADR-0006 acceptance 2026-04-26)
 **Engine Notes**: JSON append is simple text edit; no parse-side concerns. BalanceConstants `_cache_loaded` reset obligation per G-15 applies to any test reading the new constant.
@@ -33,12 +42,16 @@
 
 *From GDD `design/gdd/unit-role.md` AC-20 + ADR-0009 §Migration Plan §4 cross-doc obligation:*
 
-- [ ] **AC-20 (Data-driven, no hardcoded gameplay values)**: `MOVE_BUDGET_PER_RANGE = 10` is added to `assets/data/balance/balance_entities.json` (NOT hardcoded anywhere in `src/`)
-- [ ] `BalanceConstants.get_const("MOVE_BUDGET_PER_RANGE")` returns `10` (int)
-- [ ] Smoke test: a test (or smoke-check doc) confirms `BalanceConstants.get_const("MOVE_BUDGET_PER_RANGE") == 10`
-- [ ] No regression: existing 9 BalanceConstants entries (ATK_CAP, DEF_CAP, HP_CAP, HP_SCALE, HP_FLOOR, INIT_CAP, INIT_SCALE, MOVE_RANGE_MIN, MOVE_RANGE_MAX) still return their expected values after the append
-- [ ] CI lint pass: any existing lint scripts reading balance_entities.json schema accept the new key (no schema validator changes needed per ADR-0009 §Migration Plan §4 "lint-script reference unchanged")
-- [ ] Pre-registered GDD reference is intact: `design/gdd/unit-role.md` Global Constant Summary table lines 451-462 reference `BalanceConstants.get_const("MOVE_BUDGET_PER_RANGE")` (ADR-0006, ADR-0009 §Migration Plan)
+- [x] **AC-1 (8 caps appended)**: 8 keys added to `assets/data/balance/balance_entities.json`: HP_CAP=300, HP_SCALE=2.0, HP_FLOOR=50, INIT_CAP=200, INIT_SCALE=2.0, MOVE_RANGE_MIN=2, MOVE_RANGE_MAX=6, MOVE_BUDGET_PER_RANGE=10. NOT hardcoded anywhere in `src/`
+- [x] **AC-1 (per-cap accessor verified)**: each of the 8 keys returns expected value via `BalanceConstants.get_const(key)` (8 test functions in `tests/unit/foundation/balance_constants_unit_role_caps_test.gd`)
+- [x] **AC-2 (no regression on pre-existing caps)**: 4 spot-checked pre-existing scalar caps (ATK_CAP=200, DEF_CAP=105, BASE_CEILING=83, DAMAGE_CEILING=180) still return expected values after the 8-key append. Existing `tests/unit/balance/balance_constants_test.gd` continues to pass (12 pre-existing keys covered there in detail; not duplicated here)
+- [x] **AC-3 (data-driven per coding-standards.md)**: BalanceConstants is the single read path for all 8 caps; no hardcoded literals matching cap values exist in `src/foundation/`. Story 010 will add a CI lint script formalizing this; this story includes a smoke check
+- [x] CI lint pass: existing lint scripts reading balance_entities.json schema accept the new keys (no schema validator changes needed; balance_entities.json remains a flat constants-registry per `.claude/rules/data-files.md` Constants Registry Exception)
+- [x] Pre-registered GDD reference is intact: `design/gdd/unit-role.md` Global Constant Summary table (lines 451-462) references `BalanceConstants.get_const(...)` for all 10 caps per ADR-0006 + ADR-0009 §Migration Plan
+
+### Original AC list (pre-2026-04-28 re-scope)
+
+The original AC list was scoped to MOVE_BUDGET_PER_RANGE only. Re-scoped 2026-04-28 to cover the full 8-cap unit-role obligation per ADR-0009 §4 line 221 (which declared all 10 caps as canonical but the §Migration Plan only called out MOVE_BUDGET_PER_RANGE explicitly — the gap was discovered during story-003 readiness probe).
 
 ---
 
@@ -107,8 +120,8 @@
 ## Test Evidence
 
 **Story Type**: Config/Data
-**Required evidence**: `production/qa/smoke-2026-04-XX.md` (smoke-check pass entry confirming MOVE_BUDGET_PER_RANGE == 10 + 9 existing constants intact). Optional: `tests/unit/foundation/balance_constants_move_budget_test.gd` for an automated assertion (preferred — converts the smoke-check into a regression test that runs on every push)
-**Status**: [ ] Not yet created
+**Required evidence**: `tests/unit/foundation/balance_constants_unit_role_caps_test.gd` — exists and passes (9 test functions: 8 per-cap value assertions + 1 regression spot-check on 4 pre-existing scalar caps). Re-scoped from the original "smoke-check OR optional automated test" to a mandatory automated test since the 8-cap append is more substantive than the original 1-cap append.
+**Status**: [x] Created 2026-04-28; **9 test cases | 0 errors | 0 failures | 0 flaky | 0 skipped | 0 orphans | PASSED** (foundation test suite total: 32/32 green = 8 story-001 + 15 story-002 + 9 story-007)
 
 ---
 

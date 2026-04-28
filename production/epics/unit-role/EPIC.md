@@ -108,7 +108,7 @@ This epic is complete when:
 | [004](story-004-cost-table-r1-mitigation.md) | get_class_cost_table + R-1 caller-mutation isolation regression test | Logic | Ready | ADR-0009 §5 + R-1 | TR-unit-role-006, 008 (AC-12..AC-15) |
 | [005](story-005-direction-mult-accessor.md) | get_class_direction_mult + 6×3 table read from unit_roles.json | Logic | Ready | ADR-0009 §6 | TR-unit-role-007 (AC-16, AC-17) |
 | [006](story-006-passive-tags-const.md) | PASSIVE_TAG_BY_CLASS const Dictionary + Array[StringName] consumer pattern | Logic | Ready | ADR-0009 §7 + ADR-0012 damage_calc_dictionary_payload | TR-unit-role-009 (AC-6..AC-11 tag layer only) |
-| [007](story-007-move-budget-balance-append.md) | MOVE_BUDGET_PER_RANGE balance_entities.json append + cross-doc obligation closure | Config/Data | Ready | ADR-0009 §Migration Plan §4 + ADR-0006 | TR-unit-role-005 cross-doc (AC-20) |
+| [007](story-007-move-budget-balance-append.md) | Unit-role global caps balance_entities.json append (8 keys) + cross-doc obligation closure | Config/Data | **Complete** (2026-04-28) ✅ | ADR-0009 §4 + §Migration Plan §4 + ADR-0006 | TR-unit-role-005 cross-doc (AC-20) |
 | [008](story-008-cost-multiplier-placeholder-retirement.md) | ADR-0008 cost_multiplier placeholder retirement (replace uniform=1 with UnitRole accessor) | Integration | Ready | ADR-0008 §Migration Plan + ADR-0009 §5 | TR-unit-role-006 (ratifies ADR-0008 §Context item 5) |
 | [009](story-009-damage-calc-integration.md) | Damage Calc integration test (consumes get_class_direction_mult per F-DC-3) | Integration | Ready | ADR-0012 §F-DC-3 + ADR-0009 §6 | TR-unit-role-007 (ratifies ADR-0012 CLASS_DIRECTION_MULT[6][3]; AC-22) |
 | [010](story-010-non-emitter-lint-perf-baseline.md) | Non-emitter static-lint + headless CI perf baseline (Polish-deferred on-device) | Logic | Ready | ADR-0009 §Validation Criteria §3-§5 + §Performance + ADR-0001 line 375 | TR-unit-role-010, 012 |
@@ -118,7 +118,7 @@ This epic is complete when:
 1. **Story 001** — module skeleton + UnitClass enum + provisional HeroData (foundation for all downstream stories)
 2. **Story 002** — JSON config loader + lazy-init + safe-default fallback (depends on Story 001)
 3. **Stories 003 / 004 / 005 / 006 in parallel** — F-1..F-5 + cost_table + direction_mult + passive tags (each depends on Story 002 for the data layer; mutually independent at the per-method level; Story 006 depends only on Story 001 since the const Dictionary doesn't need JSON loader)
-4. **Story 007** — MOVE_BUDGET_PER_RANGE constant append (depends on Story 001 conceptually; can run parallel with Stories 002-006)
+4. **Story 007** — Unit-role global caps balance_entities.json append (8 keys; re-scoped 2026-04-28 from original "MOVE_BUDGET_PER_RANGE only" after story-003 readiness probe surfaced 7 missing caps). MUST RUN BEFORE Stories 003-005 (which depend on the 8 caps via BalanceConstants.get_const). Original "anytime after story-001" ordering revised
 5. **Story 008** — ADR-0008 placeholder retirement (depends on Story 004's `get_class_cost_table`)
 6. **Story 009** — Damage Calc integration test (depends on Story 005's `get_class_direction_mult` + damage-calc epic's `DamageCalc.resolve()` body existing — note potential cross-epic ordering dependency)
 7. **Story 010** — non-emitter lint + perf baseline + Polish-deferral evidence (depends on all functional stories 003/004/005/006)
