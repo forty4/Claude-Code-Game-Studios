@@ -15,7 +15,7 @@
 | [map-grid](map-grid/EPIC.md) | Foundation | Map/Grid System (#14) | design/gdd/map-grid.md | ADR-0004, ADR-0001, ADR-0002, ADR-0003 | 8/8 Complete | **Complete** (2026-04-25) 🎉 |
 | [terrain-effect](terrain-effect/EPIC.md) | Core | Terrain Effect System (#2) | design/gdd/terrain-effect.md | ADR-0008, ADR-0004 (+§5b), ADR-0001 | 8/8 Complete | **Complete** (2026-04-26) 🎉 |
 | [damage-calc](damage-calc/EPIC.md) | Feature | Damage Calc System (#11) | design/gdd/damage-calc.md (rev 2.9.3) | ADR-0012, ADR-0001, ADR-0008 | Not yet created — run `/create-stories damage-calc` | **Ready** (2026-04-26) — first Feature-layer epic |
-| [unit-role](unit-role/EPIC.md) | Foundation | Unit Role System (#5) | design/gdd/unit-role.md | ADR-0009, ADR-0001, ADR-0006, ADR-0008 | 6/10 Complete + 4 Ready (stories 001+002+007+003+004+005 done 2026-04-28) | **In Progress** (2026-04-28) — direction multiplier accessor + 6×3 table green; 84/84 foundation suite |
+| [unit-role](unit-role/EPIC.md) | Foundation | Unit Role System (#5) | design/gdd/unit-role.md | ADR-0009, ADR-0001, ADR-0006, ADR-0008 | 7/10 Complete + 3 Ready (stories 001+002+007+003+004+005+006 done 2026-04-28) | **In Progress** (2026-04-28) — passive tag canonicalization complete; 93/93 foundation suite |
 
 ## Pending (blocked on ADR)
 

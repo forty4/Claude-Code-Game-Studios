@@ -1,11 +1,34 @@
 # Story 006: PASSIVE_TAG_BY_CLASS const Dictionary + Array[StringName] consumer pattern
 
 > **Epic**: unit-role
-> **Status**: Ready
+> **Status**: Complete (2026-04-28) ✅ — 9/9 new tests passing + 84/84 regression = 93/93 foundation suite green
 > **Layer**: Foundation
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
-> **Estimate**: 1-2 hours (XS)
+> **Estimate**: 1-2 hours (XS) — actual ~20min orchestrator + 1 specialist round (zero-iteration clean execution; G-23 awareness + cross-source pre-check prevented all known drift modes)
+> **Implementation commit**: `1995188` (2026-04-28)
+
+## Post-completion notes
+
+### Zero-iteration clean execution (2nd instance this session, after story-004)
+Agent's pre-implementation cross-check verified all 6 StringName tag values across 3 sources (GDD §CR-2 + ADR-0009 §7 + `unit_roles.json`); 0 drift caught. G-23 codification awareness from story-005 + correct understanding that `is_same()` applies to Objects (not value-type StringName) prevented API hallucination. All 9 tests passed on first run; orchestrator's import + test sequence required 0 iterations.
+
+### Verification anchors all green
+- AC-1: 6 entries with int keys 0..5
+- AC-2: 6 per-class StringName values match GDD §CR-2 + ADR-0009 §7 exactly
+- AC-3: `typeof()` returns `TYPE_STRING_NAME` (constant int 21) for all 6 values; process-global interning verified via `&"passive_charge" == PASSIVE_TAG_BY_CLASS[CAVALRY]`
+- AC-4: Array[StringName] consumer pattern — typed-array assignment + `in` operator + `is StringName` boundary defense per G-20
+- AC-5 (cross-doc consistency): all 6 `unit_roles.json` `passive_tag` strings match const values exactly per ADR-0009 §4 cross-doc obligation
+- AC-6 (activation logic OUT OF SCOPE — verify by absence): source-file grep confirms zero activation predicates (`accumulated_move_cost`, `acted_this_turn`, `delta_elevation`) in `src/foundation/unit_role.gd` body. The agent's defensive comment-stripping pass (excludes lines starting with `#` from the grep) avoids false-positives on GDD prose references in doc-comments — a nice defensive design choice
+
+### Code quality notes
+- Const declaration placed between `enum UnitClass` and `static var _coefficients_loaded` — groups class-shape contracts coherently (enum + const + lazy-init flag)
+- Doc-comment cites ADR-0009 §3 + §7 + ADR-0012 `damage_calc_dictionary_payload` precedent + G-20 + G-23 cross-references
+- `Dictionary` type annotation is unparameterized per Godot 4.x `const Dictionary[K, V]` parse-time restriction (cited in doc-comment to prevent future "let's add type parameters" PRs)
+- Parse-time literal — zero runtime cost; consumers access via `UnitRole.PASSIVE_TAG_BY_CLASS[unit_class]`
+
+### Calibration
+192 LoC test file vs story's 80-120 estimate. Calibration ~32 LoC/AC for narrow-scope const-only Logic stories (smaller than the ~38-40 LoC/AC for single-method-scope Logic stories like story-004/005). 9 test functions across 6 ACs.
 
 ## Context
 
@@ -157,8 +180,8 @@
 ## Test Evidence
 
 **Story Type**: Logic
-**Required evidence**: `tests/unit/foundation/unit_role_passive_tags_test.gd` — must exist and pass (6 ACs above; ~80-120 LoC test file with 6-entry coverage + interning verification + Array[StringName] typed-array consumer pattern); CI lint script for AC-5 cross-doc consistency
-**Status**: [ ] Not yet created
+**Required evidence**: `tests/unit/foundation/unit_role_passive_tags_test.gd` — exists and passes (9 test functions covering 6 ACs; 192 LoC actual vs 80-120 estimate — calibration ~32 LoC/AC for narrow-scope const-only Logic stories; CI lint for AC-5 cross-doc consistency embedded as test_passive_tag_json_matches_const_for_all_6_classes assertion).
+**Status**: [x] Created 2026-04-28 (commit `1995188`); **9 new test cases | 0 errors | 0 failures | 0 flaky | 0 skipped | 0 orphans | PASSED + 84/84 regression = 93/93 foundation suite green** (641ms total runtime, macOS-Metal CI baseline). Zero-iteration clean execution (2nd instance this session).
 
 ---
 
