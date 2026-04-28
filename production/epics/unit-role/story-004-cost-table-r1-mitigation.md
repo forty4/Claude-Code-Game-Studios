@@ -1,11 +1,36 @@
 # Story 004: get_class_cost_table + R-1 caller-mutation isolation regression test
 
 > **Epic**: unit-role
-> **Status**: Ready
+> **Status**: Complete (2026-04-28) ✅ — 10/10 new tests passing + 66/66 regression = 76/76 foundation suite green
 > **Layer**: Foundation
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
-> **Estimate**: 2-3 hours (S)
+> **Estimate**: 2-3 hours (S) — actual ~25min orchestrator + 1 specialist iteration round (clean execution; GDD §CR-4 cross-check verified no drift; only 1 minor self-undercount 9→10 test functions)
+> **Implementation commit**: `1e86cdc` (2026-04-28)
+
+## Post-completion notes
+
+### R-1 load-bearing safety check verified
+The mandatory regression test per ADR-0009 §Validation Criteria §6 passes:
+- **Basic mutation isolation** (`test_get_class_cost_table_caller_mutation_isolated`): caller-A mutates table_a[MOUNTAIN]=99.0; caller-B fetches fresh; assert table_b[MOUNTAIN]=3.0 (original) AND table_a[MOUNTAIN]=99.0 (caller's local mutation retained — proves separate arrays, NOT silently dropped by COW)
+- **100-round sustained pressure** (`test_get_class_cost_table_sustained_mutation_no_cross_contamination`): 600 fetch-mutate-refetch cycles across all 6 classes; no cross-contamination after sustained mutation pressure
+- **Source-comment guard** at line 320 of `src/foundation/unit_role.gd` present: `# RETURNS PER-CALL COPY — DO NOT cache and return shared array. R-1 mitigation per ADR-0009 §5.`
+- **forbidden_pattern** `unit_role_returned_array_mutation` entry in `docs/registry/architecture.yaml` intact (per commit `f4f1915` ADR-0009 authoring) — preventive static-lint layer alongside the runtime regression test
+
+Future PRs that try to cache + return shared array would fail BOTH the static lint AND this regression test.
+
+### No GDD drift this round (clean cross-check)
+GDD §CR-4 6×6 cost matrix table cross-checked against `assets/data/config/unit_roles.json` (story-002) and the `_build_fallback_dict()` hardcoded values (story-002): all 36 cells match exactly. No documentation sync needed. (Contrast with story-003's DEF_CAP sync.)
+
+### Code quality notes
+- Method body uses fresh `PackedFloat32Array()` construction per call (NOT a slice of cached array) — the simplest R-1-safe pattern per the agent's pre-implementation analysis
+- Existing code style preserved: `var entry: Dictionary = _coefficients[class_key]` with no `as Dictionary` cast (consistent with story-003 methods); inner `as float` cast on `table_array[i]` since Dictionary values are Variant
+- G-15 obligation honored: `before_test`/`after_test` reset BOTH `BalanceConstants` AND `UnitRole` caches even though `get_class_cost_table` doesn't call BalanceConstants directly (consistency discipline across all unit_role test suites)
+- G-16 honored: parametric test cases declare `Array[Dictionary]` (typed outer)
+- AC-3 idempotency re-fetch test landed as separate function (the agent's draft showed it but the count missed — minor self-undercount 9→10)
+
+### Calibration update
+265 LoC test file vs story's 150-200 estimate vs orchestrator's 250-350 estimate. Story-004 has 7 ACs × ~38 LoC/AC = ~265 LoC realistic — the parametric Array[Dictionary] approach for AC-1 + the 100-round AC-2 sustained-pressure test inflate the LoC. Closer to the story-001/002 calibration of ~40 LoC/AC than the story-003 calibration of ~85-90 LoC/AC because story-004 is single-method scope (vs story-003's 5 formulas).
 
 ## Context
 
@@ -156,8 +181,8 @@
 ## Test Evidence
 
 **Story Type**: Logic
-**Required evidence**: `tests/unit/foundation/unit_role_cost_table_test.gd` — must exist and pass (7 ACs above; ~150-200 LoC test file with the **mandatory R-1 mitigation regression test** + 6×6 matrix correctness + AC-13/AC-14 boundary tests + G-15 reset in `before_test`)
-**Status**: [ ] Not yet created
+**Required evidence**: `tests/unit/foundation/unit_role_cost_table_test.gd` — exists and passes (10 test functions covering 7 ACs; 265 LoC actual vs 150-200 estimate — calibration ~38 LoC/AC for single-method-scope Logic stories with parametric coverage + R-1 sustained-pressure test).
+**Status**: [x] Created 2026-04-28 (commit `1e86cdc`); **10 new test cases | 0 errors | 0 failures | 0 flaky | 0 skipped | 0 orphans | PASSED + 66/66 regression = 76/76 foundation suite green** (524ms total runtime, macOS-Metal CI baseline). R-1 mandatory regression test per ADR-0009 §Validation Criteria §6 GREEN.
 
 ---
 
