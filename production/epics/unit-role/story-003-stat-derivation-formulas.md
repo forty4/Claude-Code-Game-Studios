@@ -1,11 +1,38 @@
 # Story 003: F-1..F-5 stat derivation static methods + clamp discipline + G-15 test isolation
 
 > **Epic**: unit-role
-> **Status**: Ready
+> **Status**: Complete (2026-04-28) ✅ — 34/34 new tests passing + 32/32 regression (8 story-001 + 15 story-002 + 9 story-007) = 66/66 foundation suite green
 > **Layer**: Foundation
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
-> **Estimate**: 3-4 hours (M)
+> **Estimate**: 3-4 hours (M) — actual ~30min orchestrator + 1 specialist iteration round (3 architectural Q&A points pre-implementation; clean execution)
+> **Implementation commit**: `d3e1813` (2026-04-28)
+
+## Post-completion notes
+
+### Architectural decisions applied (3 specialist Q&A points resolved pre-implementation)
+1. **F-1 reflection helper** (`_read_hero_stat`) — for JSON-configurable `primary_stat`/`secondary_stat` field names per ADR-0009 §4 schema. F-1 stat names come from JSON
+2. **F-2 direct field access** (`hero.stat_might`, `hero.stat_command`, `hero.stat_intellect`) — F-2 stat names + weights (0.3/0.7 for phys, 0.7/0.3 for mag) are HARDCODED in the GDD formula, NOT JSON-configurable. Direct access is type-safe (caught by HeroData typed fields at parse time) + cleaner. Reserve `_read_hero_stat` reflection for F-1 only
+3. **DEF_CAP=105** (live `balance_entities.json` value per damage-calc rev 2.9.3 adjudication, NOT the GDD's pre-rev-2.9.3 stale "100" prose). EC-13 asserts Infantry phys_def → 105 not 100
+
+### GDD drift sync (post-implementation, this close-out)
+The implementation correctly used `BalanceConstants.get_const("DEF_CAP") = 105` (live value) but the unit-role.md GDD prose still said "Default: 100" in 4 locations (Tuning Knobs row, Global Constant Summary table, EC-13 boundary prose, AC-2 acceptance criterion). Synced in this close-out commit:
+- §Tuning Knobs (line 317): "Default: **100**" → "Default: **105**" with provenance note
+- §Global Constant Summary table (line 454): 100 → 105 + sync note
+- §EC-13 prose (lines 567-574): clamp result + cap value updated; explanatory prose updated
+- §AC-2 (line 881): `[1, DEF_CAP=100]` → `[1, DEF_CAP=105]`
+
+This pattern matches story-001's @abstract empirical correction precedent — implementation discovers reality differs from documentation; close-out syncs the documentation to match reality. 2nd instance this session of the pattern; track for codification as a process rule.
+
+### Calibration update
+714 LoC test file vs agent's 450-550 estimate vs story's 250-350. Multi-formula Logic stories realistically run ~85-90 LoC/AC (vs the prior 40 LoC/AC story-001/002 calibration for narrower-scope Logic stories). Story-003 has 8 ACs × ~90 LoC = ~720 LoC realistic. Future similar-shape stories (multi-formula + parametric coverage) should adopt the higher estimate.
+
+### Code quality notes
+- 6 public static methods + 1 private reflection helper (`_read_hero_stat`) added to `src/foundation/unit_role.gd` (189 → 317 LoC, +128)
+- Every method calls `_load_coefficients()` first (idempotent lazy-init guard from story-002); zero per-battle initialization beyond the one-time JSON parse
+- All clamp ranges use `BalanceConstants.get_const(...)` per ADR-0006 — zero hardcoded cap values in `src/foundation/`
+- F-3 HP correctly implements `+ HP_FLOOR` additive INSIDE the expression (NOT outside the clamp) — preserves EC-14 boundary semantics (Strategist seed=1 → 51, NOT 50)
+- F-5 Move Range correctly applies clamps with `MOVE_RANGE_MIN`/`MOVE_RANGE_MAX` so both EC-1 (Strategist mr=2 → 2 absorption) and EC-2 (Cavalry mr=6 → 6 absorption) pass
 
 ## Context
 
@@ -147,8 +174,8 @@
 ## Test Evidence
 
 **Story Type**: Logic
-**Required evidence**: `tests/unit/foundation/unit_role_stat_derivation_test.gd` — must exist and pass (7 ACs above; ~250-350 LoC test file with HeroData fixture builders + 18+ per-formula cases + EC-1/EC-2/EC-13/EC-14 boundary tests + G-15 reset in `before_test`)
-**Status**: [ ] Not yet created
+**Required evidence**: `tests/unit/foundation/unit_role_stat_derivation_test.gd` — exists and passes (34 test functions; 714 LoC actual vs 250-350 estimate — calibration update: multi-formula Logic stories with parametric Array[Dictionary] coverage realistically run ~85-90 LoC per AC, vs the narrower-scope story-001/002 ~40 LoC/AC calibration).
+**Status**: [x] Created 2026-04-28 (commit `d3e1813`); **34 new test cases | 0 errors | 0 failures | 0 flaky | 0 skipped | 0 orphans | PASSED + 32/32 regression = 66/66 foundation suite green** (455ms total runtime, macOS-Metal CI baseline)
 
 ---
 

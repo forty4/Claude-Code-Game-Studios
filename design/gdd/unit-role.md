@@ -314,7 +314,7 @@ mag_def  = clamp(floor(mag_def_base × class_mag_def_mult), 1, DEF_CAP)
 | `stat_might`, `stat_command`, `stat_intellect` | Hero DB | Base stats |
 | `class_phys_def_mult` | `unit_roles.json` | Class physical defense multiplier |
 | `class_mag_def_mult` | `unit_roles.json` | Class magical defense multiplier |
-| `DEF_CAP` | `balance_constants.json` | Hard cap on each defense stat. Default: **100** |
+| `DEF_CAP` | `balance_constants.json` | Hard cap on each defense stat. Default: **105** (sync 2026-04-28: was 100 at unit-role.md authoring; bumped to 105 by damage-calc rev 2.9.3 adjudication `eff_def [1,105]` per commit `46276c2`. Live `assets/data/balance/balance_entities.json` value is authoritative; this GDD prose synced post-/dev-story unit-role-003.) |
 
 **Class defense multiplier table:**
 
@@ -451,7 +451,7 @@ move_budget = effective_move_range × 10
 | Constant | Default | Source | Notes |
 |---|---|---|---|
 | ATK_CAP | 200 | `BalanceConstants.get_const("ATK_CAP")` (ADR-0006) | Theoretical max; in practice ≤ ~110 |
-| DEF_CAP | 100 | `BalanceConstants.get_const("DEF_CAP")` (ADR-0006) | Per-defense-type cap |
+| DEF_CAP | 105 | `BalanceConstants.get_const("DEF_CAP")` (ADR-0006) | Per-defense-type cap (sync 2026-04-28: was 100; bumped to 105 by damage-calc rev 2.9.3) |
 | HP_CAP | 300 | `BalanceConstants.get_const("HP_CAP")` (ADR-0006) | Absolute ceiling |
 | HP_SCALE | 2.0 | `BalanceConstants.get_const("HP_SCALE")` (ADR-0006) | Amplifies HP seed differences |
 | HP_FLOOR | 50 | `BalanceConstants.get_const("HP_FLOOR")` (ADR-0006) | No unit below 50 HP |
@@ -567,10 +567,11 @@ Authoritative cross-ref: `design/gdd/grid-battle.md` CR-15 rule 4.
 **EC-13. phys_def Reaching DEF_CAP**
 Infantry with `stat_might=100, stat_command=100`:
 `phys_def_base = floor(100 × 0.3 + 100 × 0.7) = 100`
-`phys_def = clamp(floor(100 × 1.3), 1, 100) = clamp(130, 1, 100) = 100`
-DEF_CAP is reachable in theory but practically impossible — Hero DB stat balance
-rules (stat_total 180–280, SPI ≥ 0.5) prevent both stats hitting 100. The clamp
-is the correct resolution. `phys_def` and `mag_def` are each clamped to DEF_CAP
+`phys_def = clamp(floor(100 × 1.3), 1, 105) = clamp(130, 1, 105) = 105`
+DEF_CAP=105 (sync 2026-04-28; was 100, bumped per damage-calc rev 2.9.3) is
+reachable in theory but practically impossible — Hero DB stat balance rules
+(stat_total 180–280, SPI ≥ 0.5) prevent both stats hitting 100. The clamp is
+the correct resolution. `phys_def` and `mag_def` are each clamped to DEF_CAP
 independently.
 
 **EC-14. HP Floor — Minimum max_hp is 51, Not 50**
@@ -878,7 +879,7 @@ Each passive activation gets a distinct audio cue:
 F-1 (ATK) produces an integer in [1, ATK_CAP=200]. Verified for all 6 classes with
 min stats (all=1), max stats (all=100), and median stats (all=50).
 
-**AC-2.** F-2 (DEF) produces `phys_def` and `mag_def` each in [1, DEF_CAP=100].
+**AC-2.** F-2 (DEF) produces `phys_def` and `mag_def` each in [1, DEF_CAP=105] (sync 2026-04-28; was 100, bumped per damage-calc rev 2.9.3).
 Infantry at max stats has the highest `phys_def`; Strategist at max stats has the
 highest `mag_def`. The split is verifiable: PHYSICAL attacks use `phys_def`,
 MAGICAL attacks use `mag_def` — never the wrong one.
