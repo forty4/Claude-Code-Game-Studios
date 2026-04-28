@@ -4,22 +4,36 @@ extends GdUnitTestSuite
 ## Integration tests for Story 006 (terrain-effect epic): TerrainEffect.cost_multiplier
 ## + terrain_cost.gd:32 migration + Map/Grid regression sanity.
 ##
-## Covers AC-1 through AC-6 from story-006 §Acceptance Criteria + §QA Test Cases.
+## Updated by Story 008 (unit-role epic): placeholder retirement. The MVP uniform-1
+## behaviour (CR-1d) has been replaced by per-class-per-terrain values via
+## UnitRole.get_class_cost_table(). Tests asserting the old uniform-1 behaviour
+## are updated to reflect the new per-class-per-terrain contract. The TerrainCost
+## delegate parity tests (AC-4, AC-6 Part 1) remain structurally unchanged — both
+## call paths now return per-class-per-terrain values consistently.
 ##
 ## Governing ADR: ADR-0008 Terrain Effect System (Accepted 2026-04-25), §Decision 5
 ##                + §Migration Plan.
+## ADR-0009 §5 (story-008): cost matrix unit-class dimension ratification; placeholder
+##                retired; UnitRole.get_class_cost_table() is now the data source.
 ## Related TRs:   TR-terrain-effect-018 (cost_matrix structure),
-##                TR-terrain-effect-002 (CR-1d uniform).
+##                TR-terrain-effect-002 (CR-1d uniform — superseded by ADR-0009 §5).
+##
+## TERRAIN_TYPE ORDERING NOTE (story-008 discovery):
+##   TerrainEffect canonical ordering: PLAINS=0, FOREST=1, HILLS=2, MOUNTAIN=3,
+##   RIVER=4, BRIDGE=5, FORTRESS_WALL=6, ROAD=7.
+##   UnitRole terrain_cost_table index: ROAD=0, PLAINS=1, HILLS=2, FOREST=3,
+##   MOUNTAIN=4, BRIDGE=5.
+##   Translation happens inside TerrainEffect.cost_multiplier() via _UNIT_ROLE_TERRAIN_IDX.
+##   All terrain_type values in this test use TerrainEffect's canonical ordering.
 ##
 ## STORY TYPE: Integration — verifies BOTH the new TerrainEffect.cost_multiplier
 ## method AND the terrain_cost.gd:32 delegate AND the Map/Grid regression sanity
 ## check via get_movement_range (map-grid Dijkstra story-005 is landed on this branch).
 ##
 ## ISOLATION (ADR-0008 §Notes §1 + §Risks line 562):
-##   before_test() calls TerrainEffect.reset_for_tests() unconditionally — every
-##   test starts from pristine defaults. AC-3 writes a per-test fixture to user://
-##   and cleans up in after_test() (same pattern as terrain_effect_config_test.gd).
-##   Per gotcha G-15: hook MUST be `before_test()`, NOT `before_each()`.
+##   before_test() calls TerrainEffect.reset_for_tests() + UnitRole cache reset
+##   unconditionally — every test starts from pristine defaults. Per gotcha G-15:
+##   hook MUST be `before_test()`, NOT `before_each()`.
 
 const TERRAIN_EFFECT_PATH: String = "res://src/core/terrain_effect.gd"
 
@@ -28,6 +42,8 @@ var _fixture_path: String = ""
 
 func before_test() -> void:
 	TerrainEffect.reset_for_tests()
+	UnitRole._coefficients_loaded = false
+	UnitRole._coefficients = {}
 	_fixture_path = ""
 
 
@@ -48,36 +64,6 @@ func _write_fixture(filename: String, content: String) -> String:
 	fa.close()
 	_fixture_path = ProjectSettings.globalize_path("user://" + filename)
 	return "user://" + filename
-
-
-## Writes a fixture JSON with cost_matrix.default_multiplier overridden to
-## [param default_multiplier] and ALL other fields set to canonical CR-1 values.
-## Returns the user:// path.
-func _write_ac3_fixture(default_multiplier: int) -> String:
-	var json: String = ("""{
-  "schema_version": 1,
-  "terrain_modifiers": {
-    "0": { "name": "PLAINS",        "defense_bonus": 0,  "evasion_bonus": 0,  "special_rules": [] },
-    "1": { "name": "FOREST",        "defense_bonus": 5,  "evasion_bonus": 15, "special_rules": [] },
-    "2": { "name": "HILLS",         "defense_bonus": 15, "evasion_bonus": 0,  "special_rules": [] },
-    "3": { "name": "MOUNTAIN",      "defense_bonus": 20, "evasion_bonus": 5,  "special_rules": [] },
-    "4": { "name": "RIVER",         "defense_bonus": 0,  "evasion_bonus": 0,  "special_rules": [] },
-    "5": { "name": "BRIDGE",        "defense_bonus": 5,  "evasion_bonus": 0,  "special_rules": ["bridge_no_flank"] },
-    "6": { "name": "FORTRESS_WALL", "defense_bonus": 25, "evasion_bonus": 0,  "special_rules": [] },
-    "7": { "name": "ROAD",          "defense_bonus": 0,  "evasion_bonus": 0,  "special_rules": [] }
-  },
-  "elevation_modifiers": {
-    "-2": { "attack_mod": -15, "defense_mod": 15 },
-    "-1": { "attack_mod": -8,  "defense_mod": 8  },
-    "0":  { "attack_mod": 0,   "defense_mod": 0  },
-    "1":  { "attack_mod": 8,   "defense_mod": -8 },
-    "2":  { "attack_mod": 15,  "defense_mod": -15 }
-  },
-  "caps": { "max_defense_reduction": 30, "max_evasion": 30 },
-  "ai_scoring": { "evasion_weight": 1.2, "max_possible_score": 43.0 },
-  "cost_matrix": { "default_multiplier": %d }
-}""") % default_multiplier
-	return _write_fixture("terrain_config_ac3_story006.json", json)
 
 
 ## Build a [param rows]×[param cols] MapResource with per-tile terrain types
@@ -106,26 +92,90 @@ func _make_custom_terrain_map(rows: int, cols: int, terrain_grid: Array[int]) ->
 	return m
 
 
-# ── AC-1: Uniform 1 across 5×8 matrix ────────────────────────────────────────
+# ── AC-1: Per-class-per-terrain values (placeholder retired) ─────────────────
 
 
-## AC-1 (TR-018 + CR-1d): TerrainEffect.cost_multiplier returns 1 for all
-## 5×8 = 40 (unit_type, terrain_type) pairs after default config load.
+## AC-1 (TR-018 + ADR-0009 §5): TerrainEffect.cost_multiplier returns per-class-per-terrain
+## int-truncated values after story-008 placeholder retirement.
 ##
-## Given: reset_for_tests() in before_test(); default config load (lazy-triggered).
-## When:  nested loop unit_type in [0,5) × terrain_type in [0,8).
-## Then:  every call returns 1.
+## Old behaviour (MVP CR-1d): all (unit_type, terrain_type) pairs returned 1.
+## New behaviour: values come from UnitRole.get_class_cost_table(unit_class)[terrain_idx],
+## int-truncated. RIVER (terrain_type=4) and FORTRESS_WALL (terrain_type=6) are
+## impassable per CR-4a; covered separately in AC-3.
 ##
-## Override failure messages include the (unit_type, terrain_type) pair so a
-## regression in ADR-0009 value-population work is immediately localised.
-func test_terrain_cost_migration_uniform_one_across_5x8_matrix() -> void:
-	for unit_type: int in range(5):
-		for terrain_type: int in range(8):
-			var result: int = TerrainEffect.cost_multiplier(unit_type, terrain_type)
-			assert_int(result).override_failure_message(
-				("AC-1: TerrainEffect.cost_multiplier(%d, %d) must return 1 in MVP;"
-				+ " got %d") % [unit_type, terrain_type, result]
-			).is_equal(1)
+## TerrainEffect terrain_type ordering used here: PLAINS=0, FOREST=1, HILLS=2, MOUNTAIN=3,
+## BRIDGE=5, ROAD=7. UnitRole index translation happens inside cost_multiplier().
+##
+## Expected values (int(float) truncation; from unit_roles.json + ADR-0009 §5 table):
+##   CAVALRY(0):    PLAINS=1, FOREST=2, HILLS=1, MOUNTAIN=3, BRIDGE=1, ROAD=1
+##   INFANTRY(1):   PLAINS=1, FOREST=1, HILLS=1, MOUNTAIN=1, BRIDGE=1, ROAD=1
+##   ARCHER(2):     PLAINS=1, FOREST=1, HILLS=1, MOUNTAIN=2, BRIDGE=1, ROAD=1
+##   STRATEGIST(3): PLAINS=1, FOREST=1, HILLS=1, MOUNTAIN=2, BRIDGE=1, ROAD=1
+##   COMMANDER(4):  PLAINS=1, FOREST=1, HILLS=1, MOUNTAIN=2, BRIDGE=1, ROAD=1
+##   SCOUT(5):      PLAINS=1, FOREST=0, HILLS=1, MOUNTAIN=1, BRIDGE=1, ROAD=1
+##
+## int() truncation notes:
+##   CAVALRY HILLS: 1.5→1  |  CAVALRY FOREST: 2.0→2  |  CAVALRY MOUNTAIN: 3.0→3
+##   INFANTRY MOUNTAIN: 1.5→1  |  SCOUT FOREST: 0.7→0
+func test_terrain_cost_migration_per_class_per_terrain_values() -> void:
+	# Per-class expected values keyed by TerrainEffect terrain_type int.
+	# Uses TerrainEffect canonical ordering (PLAINS=0, FOREST=1, HILLS=2, MOUNTAIN=3,
+	# BRIDGE=5, ROAD=7). RIVER(4) and FORTRESS_WALL(6) absent — tested in AC-3.
+	var expected: Array[Dictionary] = [
+		# { "unit_class": int, "terrain_type": int (TerrainEffect ordering), "expected": int }
+		# CAVALRY (0)
+		{"unit_class": 0, "terrain_type": 0, "expected": 1},  # PLAINS
+		{"unit_class": 0, "terrain_type": 1, "expected": 2},  # FOREST (2.0 → 2)
+		{"unit_class": 0, "terrain_type": 2, "expected": 1},  # HILLS  (1.5 → 1)
+		{"unit_class": 0, "terrain_type": 3, "expected": 3},  # MOUNTAIN (3.0 → 3)
+		{"unit_class": 0, "terrain_type": 5, "expected": 1},  # BRIDGE
+		{"unit_class": 0, "terrain_type": 7, "expected": 1},  # ROAD
+		# INFANTRY (1)
+		{"unit_class": 1, "terrain_type": 0, "expected": 1},
+		{"unit_class": 1, "terrain_type": 1, "expected": 1},
+		{"unit_class": 1, "terrain_type": 2, "expected": 1},
+		{"unit_class": 1, "terrain_type": 3, "expected": 1},  # MOUNTAIN (1.5 → 1)
+		{"unit_class": 1, "terrain_type": 5, "expected": 1},
+		{"unit_class": 1, "terrain_type": 7, "expected": 1},
+		# ARCHER (2)
+		{"unit_class": 2, "terrain_type": 0, "expected": 1},
+		{"unit_class": 2, "terrain_type": 1, "expected": 1},
+		{"unit_class": 2, "terrain_type": 2, "expected": 1},
+		{"unit_class": 2, "terrain_type": 3, "expected": 2},  # MOUNTAIN (2.0 → 2)
+		{"unit_class": 2, "terrain_type": 5, "expected": 1},
+		{"unit_class": 2, "terrain_type": 7, "expected": 1},
+		# STRATEGIST (3)
+		{"unit_class": 3, "terrain_type": 0, "expected": 1},
+		{"unit_class": 3, "terrain_type": 1, "expected": 1},  # FOREST (1.5 → 1)
+		{"unit_class": 3, "terrain_type": 2, "expected": 1},  # HILLS (1.5 → 1)
+		{"unit_class": 3, "terrain_type": 3, "expected": 2},  # MOUNTAIN (2.0 → 2)
+		{"unit_class": 3, "terrain_type": 5, "expected": 1},
+		{"unit_class": 3, "terrain_type": 7, "expected": 1},
+		# COMMANDER (4)
+		{"unit_class": 4, "terrain_type": 0, "expected": 1},
+		{"unit_class": 4, "terrain_type": 1, "expected": 1},  # FOREST (1.5 → 1)
+		{"unit_class": 4, "terrain_type": 2, "expected": 1},
+		{"unit_class": 4, "terrain_type": 3, "expected": 2},  # MOUNTAIN (2.0 → 2)
+		{"unit_class": 4, "terrain_type": 5, "expected": 1},
+		{"unit_class": 4, "terrain_type": 7, "expected": 1},
+		# SCOUT (5)
+		{"unit_class": 5, "terrain_type": 0, "expected": 1},
+		{"unit_class": 5, "terrain_type": 1, "expected": 0},  # FOREST (0.7 → 0)
+		{"unit_class": 5, "terrain_type": 2, "expected": 1},
+		{"unit_class": 5, "terrain_type": 3, "expected": 1},  # MOUNTAIN (1.5 → 1)
+		{"unit_class": 5, "terrain_type": 5, "expected": 1},
+		{"unit_class": 5, "terrain_type": 7, "expected": 1},
+	]
+
+	for case: Dictionary in expected:
+		var u: int = case["unit_class"] as int
+		var t: int = case["terrain_type"] as int
+		var ex: int = case["expected"] as int
+		var result: int = TerrainEffect.cost_multiplier(u, t)
+		assert_int(result).override_failure_message(
+			("AC-1: TerrainEffect.cost_multiplier(unit_class=%d, terrain_type=%d) "
+			+ "expected %d; got %d") % [u, t, ex, result]
+		).is_equal(ex)
 
 
 # ── AC-2: First call triggers lazy load ──────────────────────────────────────
@@ -135,8 +185,12 @@ func test_terrain_cost_migration_uniform_one_across_5x8_matrix() -> void:
 ## public query methods — first call triggers load_config() if _config_loaded is false.
 ##
 ## Given: reset_for_tests() called in before_test() → _config_loaded == false.
-## When:  TerrainEffect.cost_multiplier(0, 0) called.
-## Then:  returns 1; _config_loaded == true after the call.
+## When:  TerrainEffect.cost_multiplier(0, 0) called (CAVALRY × PLAINS).
+## Then:  returns 1 (CAVALRY × PLAINS = 1.0 → int 1); _config_loaded == true after.
+##
+## Note (story-008): CAVALRY × PLAINS uses TerrainEffect.PLAINS=0 → UnitRole index 1
+## → cavalry terrain_cost_table[1] = 1.0 → int(1.0) = 1. Return value unchanged from
+## MVP; only the code path changed (UnitRole delegation vs _cost_default_multiplier).
 func test_terrain_cost_migration_first_call_triggers_lazy_load() -> void:
 	var script: GDScript = load(TERRAIN_EFFECT_PATH) as GDScript
 
@@ -146,12 +200,12 @@ func test_terrain_cost_migration_first_call_triggers_lazy_load() -> void:
 		+ "before the first cost_multiplier call")
 	).is_false()
 
-	# Act
+	# Act: CAVALRY(0) × PLAINS(0) → UnitRole index 1 → 1.0 → int 1
 	var result: int = TerrainEffect.cost_multiplier(0, 0)
 
 	# Assert return value
 	assert_int(result).override_failure_message(
-		"AC-2: cost_multiplier(0, 0) must return 1 (default config); got %d" % result
+		"AC-2: cost_multiplier(CAVALRY=0, PLAINS=0) must return 1; got %d" % result
 	).is_equal(1)
 
 	# Assert lazy-init side effect
@@ -160,42 +214,46 @@ func test_terrain_cost_migration_first_call_triggers_lazy_load() -> void:
 	).is_true()
 
 
-# ── AC-3: Respects tuned default_multiplier from config ──────────────────────
+# ── AC-3: Impassable-terrain contract-violation fallback ─────────────────────
 
 
-## AC-3: cost_multiplier respects a config-driven _cost_default_multiplier override.
+## AC-3: cost_multiplier returns 1 and emits push_error for impassable terrain types.
 ##
-## Given: fixture JSON with cost_matrix.default_multiplier=3 (all other fields canonical);
-##        reset_for_tests() + load_config(fixture_path).
-## When:  TerrainEffect.cost_multiplier(0, 0).
-## Then:  returns 3 — verifies the config-driven path, not the compile-time default.
+## RIVER (TerrainEffect.RIVER=4) and FORTRESS_WALL (TerrainEffect.FORTRESS_WALL=6)
+## are absent from _UNIT_ROLE_TERRAIN_IDX because they are impassable per CR-4a.
+## Map/Grid short-circuits via is_passable_base before cost_multiplier is reached.
+## If cost_multiplier IS called with those terrain_types, it is a contract violation:
+## the method emits push_error and returns 1 as a safe fallback.
 ##
-## This is the key data-driven promise: tuning the multiplier happens in JSON config,
-## not in code. ADR-0009 will replace the uniform default with per-pair lookups; this
-## test verifies the default-multiplier fallback path remains correct for unpopulated pairs.
-func test_terrain_cost_migration_respects_tuned_default_multiplier() -> void:
-	# Arrange: write fixture with default_multiplier=3
-	var fixture_path: String = _write_ac3_fixture(3)
-
-	# Act: load custom config (reset_for_tests already called in before_test)
-	var load_ok: bool = TerrainEffect.load_config(fixture_path)
-	assert_bool(load_ok).override_failure_message(
-		"AC-3: load_config() must return true for the AC-3 fixture (all fields valid)"
-	).is_true()
-
-	# Assert: cost_multiplier reflects tuned value
-	var result: int = TerrainEffect.cost_multiplier(0, 0)
+## Story-008 deviation note: this test was originally AC-3 (config-driven
+## default_multiplier override). That behaviour is now moot — cost_multiplier() no
+## longer reads _cost_default_multiplier. The test is repurposed to cover the
+## impassable-terrain contract-violation guard added in story-008.
+func test_terrain_cost_migration_impassable_terrain_river_returns_fallback() -> void:
+	# RIVER = TerrainEffect.RIVER = 4; not in _UNIT_ROLE_TERRAIN_IDX
+	var result: int = TerrainEffect.cost_multiplier(0, TerrainEffect.RIVER)
 	assert_int(result).override_failure_message(
-		("AC-3: cost_multiplier(0, 0) must return 3 after loading fixture with "
-		+ "default_multiplier=3; got %d") % result
-	).is_equal(3)
+		("AC-3a: cost_multiplier(CAVALRY=0, RIVER=4) must return 1 (safe fallback for "
+		+ "impassable terrain); got %d") % result
+	).is_equal(1)
 
-	# Spot-check a second pair — the override is uniform across all (unit, terrain)
-	var result2: int = TerrainEffect.cost_multiplier(4, 7)
-	assert_int(result2).override_failure_message(
-		("AC-3: cost_multiplier(4, 7) must also return 3 (uniform default); got %d")
-		% result2
-	).is_equal(3)
+	# push_error captured via GdUnit4 assert_error + is_push_error(any())
+	await assert_error(func() -> void:
+		var _r: int = TerrainEffect.cost_multiplier(0, TerrainEffect.RIVER)
+	).is_push_error(any())
+
+
+func test_terrain_cost_migration_impassable_terrain_fortress_wall_returns_fallback() -> void:
+	# FORTRESS_WALL = TerrainEffect.FORTRESS_WALL = 6; not in _UNIT_ROLE_TERRAIN_IDX
+	var result: int = TerrainEffect.cost_multiplier(0, TerrainEffect.FORTRESS_WALL)
+	assert_int(result).override_failure_message(
+		("AC-3b: cost_multiplier(CAVALRY=0, FORTRESS_WALL=6) must return 1 (safe fallback "
+		+ "for impassable terrain); got %d") % result
+	).is_equal(1)
+
+	await assert_error(func() -> void:
+		var _r: int = TerrainEffect.cost_multiplier(0, TerrainEffect.FORTRESS_WALL)
+	).is_push_error(any())
 
 
 # ── AC-4: terrain_cost.gd delegates to TerrainEffect ─────────────────────────
@@ -206,71 +264,66 @@ func test_terrain_cost_migration_respects_tuned_default_multiplier() -> void:
 ##
 ## Given: reset_for_tests() + default config (lazy-loaded on first call).
 ## When:  TerrainCost.cost_multiplier(u, t) vs TerrainEffect.cost_multiplier(u, t)
-##        for representative pairs (u=2,t=3), (u=0,t=7), (u=4,t=5).
-## Then:  direct == delegated for each pair; both return 1 in MVP.
+##        for representative pairs.
+## Then:  direct == delegated for each pair.
 ##
-## MVP limitation note: because all pairs return 1 in MVP, args-swap regressions
-## in the delegate (e.g. accidentally passing terrain_type as unit_type) are NOT
-## detectable here — both orderings return 1. The structural wiring is verified;
-## value-symmetry testing becomes meaningful after ADR-0009 populates per-pair values.
-## TODO (ADR-0009): add an asymmetric-value test when cost_matrix entries are populated.
+## Pairs and their post-story-008 expected values
+## (TerrainEffect terrain_type ordering: PLAINS=0, FOREST=1, HILLS=2, MOUNTAIN=3,
+##  BRIDGE=5, ROAD=7):
+##   (unit=2=ARCHER,    terrain=3=MOUNTAIN): MOUNTAIN→UnitRole idx 4→archer[4]=2.0→int 2
+##   (unit=0=CAVALRY,   terrain=7=ROAD):    ROAD→UnitRole idx 0→cavalry[0]=1.0→int 1
+##   (unit=4=COMMANDER, terrain=5=BRIDGE):  BRIDGE→UnitRole idx 5→commander[5]=1.0→int 1
 func test_terrain_cost_migration_terrain_cost_delegates_to_terrain_effect() -> void:
-	# Three representative pairs to catch obvious wiring errors.
-	# Vector2i.x = unit_type, Vector2i.y = terrain_type.
+	# Vector2i.x = unit_type (UnitClass int), Vector2i.y = terrain_type (TerrainEffect ordering)
 	var pairs: Array[Vector2i] = [
-		Vector2i(2, 3),   # unit_type=2 (placeholder), terrain_type=MOUNTAIN
-		Vector2i(0, 7),   # unit_type=0, terrain_type=ROAD
-		Vector2i(4, 5),   # unit_type=4, terrain_type=BRIDGE
+		Vector2i(2, 3),   # ARCHER × MOUNTAIN
+		Vector2i(0, 7),   # CAVALRY × ROAD
+		Vector2i(4, 5),   # COMMANDER × BRIDGE
 	]
+	var expected_direct: Array[int] = [2, 1, 1]
 
-	for pair: Vector2i in pairs:
-		var u: int = pair.x
-		var t: int = pair.y
+	for i: int in pairs.size():
+		var u: int = pairs[i].x
+		var t: int = pairs[i].y
 		var direct: int = TerrainEffect.cost_multiplier(u, t)
 		var delegated: int = TerrainCost.cost_multiplier(u, t)
+
 		assert_int(delegated).override_failure_message(
 			("AC-4: TerrainCost.cost_multiplier(%d, %d) must equal "
 			+ "TerrainEffect.cost_multiplier(%d, %d) = %d; got %d")
 			% [u, t, u, t, direct, delegated]
 		).is_equal(direct)
+
 		assert_int(direct).override_failure_message(
-			("AC-4: TerrainEffect.cost_multiplier(%d, %d) must return 1 in MVP;"
-			+ " got %d") % [u, t, direct]
-		).is_equal(1)
+			("AC-4: TerrainEffect.cost_multiplier(%d, %d) expected %d; got %d")
+			% [u, t, expected_direct[i], direct]
+		).is_equal(expected_direct[i])
 
 
 # ── AC-5: Full-suite baseline documentation marker ────────────────────────────
 
 
 ## AC-5 (Map/Grid regression — integration verification marker):
-## Full pre/post-migration suite counts must match; zero regression.
+## Full pre/post-story-008 suite counts must match; zero regression.
 ##
-## This function documents the AC-5 contract and asserts the baseline MVP values
-## for both call paths. The orchestrator-level verification (276 PASS pre-migration →
-## 282 PASS post-migration, 0 errors, 0 failures, 0 orphans, EXIT 0) is performed
-## via the GdUnitCmdTool regression run and captured in active.md story-006 extract.
+## This function asserts baseline values for both call paths. The orchestrator-level
+## verification (suite count match pre vs post story-008) is performed via the
+## GdUnitCmdTool regression run captured in active.md story-008 extract.
 ##
-## NOTE: this function ASSERTS THE VALUE CONTRACT ONLY (both call paths return 1
-## in MVP). The count contract (full-suite regression count match pre vs post
-## migration) is NOT automatically verified inside this function — it is verified
-## externally via the orchestrator's GdUnitCmdTool regression run and the captured
-## count delta is recorded in production/session-state/active.md story-006 extract.
-## A future regression that silently reduces the test count (e.g., G-7 parse-fail)
-## would NOT turn this test red; it would only show up as a count mismatch in the
-## orchestrator's external comparison. AC-5 protection is hybrid: this function
-## guards the value contract; active.md guards the count contract.
+## CAVALRY × PLAINS (unit_type=0, terrain_type=0): UnitRole index 1, cavalry[1]=1.0 → int 1.
+## This pair produces 1 before and after story-008 retirement — no regression on this cell.
 func test_terrain_cost_migration_documents_full_suite_baseline() -> void:
-	# Baseline: both call paths return 1 for default config (MVP regression guard).
+	# Baseline: CAVALRY × PLAINS → 1 via both paths (unchanged after story-008).
 	var via_terrain_effect: int = TerrainEffect.cost_multiplier(0, 0)
 	var via_terrain_cost: int = TerrainCost.cost_multiplier(0, 0)
 
 	assert_int(via_terrain_effect).override_failure_message(
-		("AC-5: TerrainEffect.cost_multiplier(0, 0) baseline must be 1;"
+		("AC-5: TerrainEffect.cost_multiplier(CAVALRY=0, PLAINS=0) baseline must be 1;"
 		+ " got %d") % via_terrain_effect
 	).is_equal(1)
 
 	assert_int(via_terrain_cost).override_failure_message(
-		("AC-5: TerrainCost.cost_multiplier(0, 0) baseline must be 1;"
+		("AC-5: TerrainCost.cost_multiplier(CAVALRY=0, PLAINS=0) baseline must be 1;"
 		+ " got %d") % via_terrain_cost
 	).is_equal(1)
 
@@ -278,32 +331,24 @@ func test_terrain_cost_migration_documents_full_suite_baseline() -> void:
 # ── AC-6: Smoke path via TerrainCost into Map/Grid Dijkstra ──────────────────
 
 
-## AC-6 (Smoke integration test): Map/Grid Dijkstra produces identical
-## get_movement_range results whether using the migrated TerrainCost delegate
-## or the direct TerrainEffect.cost_multiplier path.
+## AC-6 (Smoke integration test): Map/Grid Dijkstra produces correct
+## get_movement_range results through the post-story-008 TerrainCost delegate.
 ##
-## Map-grid story-005 (Dijkstra) is landed on this branch; get_movement_range is
-## available and directly exercises the TerrainCost.cost_multiplier call site at
-## map_grid.gd line 827. Since cost_multiplier now delegates to TerrainEffect,
-## this test is the end-to-end smoke that migration introduces no off-by-one or
-## routing change.
+## CAVALRY(unit_type=0) on the 15×15 terrain grid:
+##   PLAINS (TerrainEffect.PLAINS=0): step = 10 × cost_multiplier(0,0) = 10 × 1 = 10
+##   HILLS  (TerrainEffect.HILLS=2):  step = 15 × cost_multiplier(0,2) = 15 × int(1.5)=1 = 15
+##   FOREST (TerrainEffect.FOREST=1): step = 15 × cost_multiplier(0,1) = 15 × int(2.0)=2 = 30
 ##
-## Approach: build a 15×15 mixed-terrain fixture (PLAINS/HILLS/FOREST), place a
-## unit at (7,7), call get_movement_range(1, 3, INFANTRY) which exercises the
-## Dijkstra path including TerrainCost.cost_multiplier. Verify reachable count
-## matches expectations (same terrain mix gives deterministic diamond). Then
-## exhaustively verify TerrainCost.cost_multiplier == TerrainEffect.cost_multiplier
-## for every terrain type present on the fixture map.
-##
-## AC-6 also cross-checks: for all (unit_type in [0,5)) × (terrain_type in [0,8)),
-## TerrainCost.cost_multiplier == TerrainEffect.cost_multiplier, verifying no drift
-## between the delegate and direct call paths at the full matrix level.
+## Budget = move_range(3) × MOVE_BUDGET_PER_RANGE(10) = 30.
+## CAVALRY×HILLS int-truncation (1.5→1) preserves story-006 Dijkstra geometry.
+## CAVALRY×FOREST multiplier changed (1→2), but FOREST tiles (col≥11) are unreachable
+## from (7,7) within budget=30 via the HILLS barrier, so all geometry assertions hold.
 func test_terrain_cost_migration_smoke_path_via_terrain_cost() -> void:
-	# ── Part 1: full matrix delegate == direct check ─────────────────────────
-	# AC-6 mandates: every (unit, terrain) pair returns identical values via
-	# both paths. In MVP all pairs return 1, so this also acts as a regression
-	# guard for any future ADR-0009 work that updates one path but not the other.
-	for unit_type: int in range(5):
+	# ── Part 1: full matrix delegate == direct parity check ──────────────────
+	# Verifies TerrainCost.cost_multiplier == TerrainEffect.cost_multiplier for
+	# all 6 classes × 8 terrain types. RIVER(4) and FORTRESS_WALL(6) return 1
+	# via push_error fallback on both paths — parity still holds.
+	for unit_type: int in range(6):
 		for terrain_type: int in range(8):
 			var direct: int = TerrainEffect.cost_multiplier(unit_type, terrain_type)
 			var delegated: int = TerrainCost.cost_multiplier(unit_type, terrain_type)
@@ -315,11 +360,8 @@ func test_terrain_cost_migration_smoke_path_via_terrain_cost() -> void:
 
 	# ── Part 2: get_movement_range Dijkstra smoke ─────────────────────────────
 	# Build 15×15 mixed-terrain map: mostly PLAINS (0) with a HILLS (2) band and
-	# a FOREST (1) patch near the unit's origin to exercise multiple terrain costs
-	# in the same Dijkstra expansion.
-	#
-	# Layout (15 cols × 15 rows, flat row-major): rows 5-9 are HILLS, col 11-14
-	# are FOREST, everything else PLAINS. Unit placed at (7,7) (center).
+	# a FOREST (1) patch. Layout: rows 5-9 are HILLS, col 11-14 are FOREST,
+	# everything else PLAINS. Unit placed at (7,7) (center).
 	var terrain_grid: Array[int] = []
 	for row: int in range(15):
 		for col: int in range(15):
@@ -340,9 +382,9 @@ func test_terrain_cost_migration_smoke_path_via_terrain_cost() -> void:
 
 	grid.set_occupant(Vector2i(7, 7), 1, MapGrid.FACTION_ALLY)
 
-	# With cost_multiplier returning 1 for all terrain types (MVP/CR-1d), step costs
-	# are: PLAINS=10, HILLS=15, FOREST=15. move_range=3 → budget=30.
-	# The result set is deterministic from the terrain layout.
+	# unit_type=0 (CAVALRY). Step costs with post-story-008 multipliers:
+	#   PLAINS: 10 × 1 = 10  |  HILLS: 15 × 1 = 15  |  FOREST: 15 × 2 = 30
+	# move_range=3 → budget=30.
 	var result: PackedVector2Array = grid.get_movement_range(1, 3, 0)
 
 	# Sanity: origin tile (7,7) is always included.
@@ -354,40 +396,28 @@ func test_terrain_cost_migration_smoke_path_via_terrain_cost() -> void:
 		"AC-6: origin (7,7) must be in get_movement_range result"
 	).is_true()
 
-	# Sanity: result is non-empty and plausible (at least the Manhattan-1 neighbours
-	# at PLAINS cost=10 must be reachable from budget=30).
 	assert_int(result.size()).override_failure_message(
 		("AC-6: get_movement_range must return more than just origin; got %d tiles")
 		% result.size()
 	).is_greater(1)
 
-	# Confirm a known HILLS neighbour at (6,7) — one step west of origin (7,7),
-	# also in the HILLS band (rows 5-9 inclusive). Step cost 15, reachable within budget=30.
+	# (6,7) HILLS, 1 step west — cost 15, reachable within budget=30.
 	assert_bool(result_set.has(Vector2i(6, 7))).override_failure_message(
 		("AC-6: tile (6,7) (HILLS, step=15) should be reachable from (7,7) "
 		+ "with budget=30; missing from result")
 	).is_true()
 
-	# Confirm a HILLS tile at the exact cost-budget boundary IS reachable:
-	# (5,7) is 2 steps west of (7,7): (7,7) → (6,7) HILLS=15 → (5,7) HILLS=15.
-	# Cumulative=30=budget. Verifies Dijkstra correctly accumulates terrain costs
-	# through the migrated TerrainCost.cost_multiplier delegate at the boundary.
+	# (5,7) HILLS, 2 steps west — 15+15=30=budget. Boundary reachability check.
 	assert_bool(result_set.has(Vector2i(5, 7))).override_failure_message(
 		("AC-6: tile (5,7) (HILLS, 2 steps at cost 15 each = 30 = budget) "
 		+ "should be reachable; missing from result")
 	).is_true()
 
-	# Confirm a PLAINS tile beyond the HILLS band is correctly NOT reachable:
-	# Origin (7,7) is in the HILLS band (rows 5-9). To reach (7,4) PLAINS requires
-	# crossing 2 HILLS rows first: (7,7) → (7,6) HILLS=15 → (7,5) HILLS=30 (budget
-	# exhausted) → (7,4) PLAINS would need +10 = 40 total, exceeding budget=30.
-	# This negative assertion proves the HILLS band acts as a budget barrier — a
-	# regression catching off-by-one in the migrated cost-multiplier delegate.
+	# (7,4) PLAINS beyond HILLS band — cost 40 > budget=30. Negative assertion.
 	assert_bool(result_set.has(Vector2i(7, 4))).override_failure_message(
 		"AC-6: tile (7,4) (PLAINS beyond HILLS band, total cost 40) must NOT be "
 		+ "reachable from (7,7) with budget=30; HILLS band must form a barrier"
 	).is_false()
 
-	# G-6 cleanup: MapGrid was Node.new()'d above; must be freed before test exit
-	# to avoid GdUnit4 orphan detection between test body and after_test.
+	# G-6 cleanup: MapGrid was Node.new()'d; free before test exit to avoid orphan.
 	grid.free()

@@ -72,6 +72,23 @@ const FORTRESS_WALL: int = 6
 ## Road terrain type (7). No modifiers. Used for movement cost reduction.
 const ROAD: int = 7
 
+## Translation: TerrainEffect.terrain_type int → UnitRole's terrain_cost_table index.
+## Ratified by ADR-0009 §5 (story-008). UnitRole owns the cost matrix indexed as
+## [ROAD=0, PLAINS=1, HILLS=2, FOREST=3, MOUNTAIN=4, BRIDGE=5]; TerrainEffect / Map-Grid
+## use the canonical MapGrid ordering (PLAINS=0..ROAD=7). This const translates at the
+## TerrainEffect boundary so callers pass TerrainEffect-ordered terrain_type ints unchanged.
+## RIVER (4) and FORTRESS_WALL (6) are intentionally absent — they are impassable per
+## CR-4a and Map/Grid short-circuits via is_passable_base before cost_multiplier is reached.
+## G-1: typed Dictionary[int, int] const is NOT supported in GDScript 4.6 — untyped Dictionary.
+const _UNIT_ROLE_TERRAIN_IDX: Dictionary = {
+	PLAINS:        1,
+	FOREST:        3,
+	HILLS:         2,
+	MOUNTAIN:      4,
+	BRIDGE:        5,
+	ROAD:          0,
+}
+
 # ── Static state (lazy-init; reset via reset_for_tests()) ───────────────────
 # G-1: Dictionary fields intentionally untyped — GDScript 4.6 forbids
 # generic Dictionary[K,V] syntax in static var declarations. See header.
@@ -109,7 +126,11 @@ static var _evasion_weight: float = EVASION_WEIGHT_DEFAULT
 static var _max_possible_score: float = MAX_POSSIBLE_SCORE_DEFAULT
 
 ## Default unit-type × terrain-type movement cost multiplier.
-## MVP: all (unit_type, terrain_type) pairs return this value. ADR-0009 will populate.
+## Loaded from cost_matrix.default_multiplier in terrain_config.json for JSON schema
+## backward-compatibility. No longer consulted by cost_multiplier() after story-008
+## placeholder retirement — cost_multiplier() now delegates to UnitRole.get_class_cost_table()
+## via _UNIT_ROLE_TERRAIN_IDX translation. Retained so the config validation + apply paths
+## remain intact. Future story: remove once terrain_config.json schema drops this field.
 static var _cost_default_multiplier: int = 1
 
 # ── Lifecycle / Test Seams ───────────────────────────────────────────────────
@@ -640,31 +661,41 @@ static func get_terrain_score(grid: MapGrid, coord: Vector2i) -> float:
 	return (mods.defense_bonus + mods.evasion_bonus * _evasion_weight) / _max_possible_score
 
 ## Returns the unit-type × terrain-type cost multiplier for Map/Grid Dijkstra.
-## MVP: returns 1 for all (unit_type, terrain_type) pairs (CR-1d uniformity).
-## ADR-0009 Unit Role will populate concrete values; structure already in place.
 ##
-## Reference: ADR-0008 §Decision 5 + §Migration Plan; TR-terrain-effect-018.
-## Per CR-1d / TR-002: structure is unit-type × terrain-type, but MVP values
-## are uniform across the entire 5×8 = 40 matrix. ADR-0009 Unit Role will
-## populate concrete per-class values via _cost_matrix lookup; this method's
-## signature is stable and ADR-0009 will replace only the return-value path.
+## ADR-0008 §Decision 5 placeholder retired by ADR-0009 ratification (story-008).
+## [param unit_type] maps 1:1 to [enum UnitRole.UnitClass] int (CAVALRY=0..SCOUT=5).
+## [param terrain_type] uses TerrainEffect's canonical ordering (PLAINS=0..ROAD=7);
+## translated to UnitRole's terrain_cost_table index via [constant _UNIT_ROLE_TERRAIN_IDX].
+## RIVER (4) and FORTRESS_WALL (6) are impassable per CR-4a — Map/Grid short-circuits via
+## is_passable_base BEFORE calling this method. If reached with those terrain_types, emits
+## [method push_error] and returns 1 (safe fallback — surfaces the contract violation).
 ##
-## Lazy-triggers [method load_config] on first call if [member _config_loaded]
-## is false (independent lazy entry point — same contract as
-## [method get_terrain_modifiers], [method get_combat_modifiers], and
-## [method get_terrain_score]).
+## Per-call isolation: [method UnitRole.get_class_cost_table] constructs a fresh
+## [PackedFloat32Array] per call (R-1 per ADR-0009 §5); this method reads
+## int(cost_row[index]) and does NOT cache the returned array. No shared backing memory.
+##
+## Lazy-triggers [method load_config] on first call if [member _config_loaded] is false.
+##
+## Reference: ADR-0008 §Decision 5 + §Migration Plan; ADR-0009 §5; TR-terrain-effect-018.
 ##
 ## Usage:
-##   var m: int = TerrainEffect.cost_multiplier(0, 3)   # any (unit, terrain) -> 1 in MVP
-# TODO(ADR-0009): remove @warning_ignore when body uses unit_type + terrain_type
-# (the args become live when ADR-0009 replaces the body with _cost_matrix lookup).
-@warning_ignore("unused_parameter")
+##   var m: int = TerrainEffect.cost_multiplier(UnitRole.UnitClass.CAVALRY, TerrainEffect.MOUNTAIN)
+##   # → 3  (CAVALRY × MOUNTAIN: UnitRole float 3.0, int-truncated to 3)
 static func cost_multiplier(unit_type: int, terrain_type: int) -> int:
 	if not _config_loaded:
 		load_config()
-	# MVP: uniform multiplier per CR-1d. ADR-0009 will replace this with
-	# _cost_matrix.get(unit_type, {}).get(terrain_type, _cost_default_multiplier).
-	return _cost_default_multiplier
+	if not _UNIT_ROLE_TERRAIN_IDX.has(terrain_type):
+		push_error(
+			("TerrainEffect.cost_multiplier: terrain_type=%d is not in the passable-terrain "
+			+ "set (RIVER=4 and FORTRESS_WALL=6 are impassable per CR-4a). "
+			+ "Map/Grid must short-circuit via is_passable_base before this call. "
+			+ "Returning 1 (safe fallback — contract violation).") % terrain_type
+		)
+		return 1
+	var unit_role_index: int = _UNIT_ROLE_TERRAIN_IDX[terrain_type] as int
+	var unit_class: UnitRole.UnitClass = unit_type as UnitRole.UnitClass
+	var cost_row: PackedFloat32Array = UnitRole.get_class_cost_table(unit_class)
+	return int(cost_row[unit_role_index])
 
 
 ## Returns the runtime-effective maximum signed defense modifier cap.
