@@ -1,9 +1,9 @@
 # Epics Index
 
-> **Last Updated**: 2026-04-26
+> **Last Updated**: 2026-04-28
 > **Engine**: Godot 4.6
 > **Manifest Version**: 2026-04-20 (docs/architecture/control-manifest.md)
-> **Layer coverage**: Platform (3/3 epics Complete 🎉) + Foundation (1/4 epics Complete — 3 blocked on ADR-0005/0006/0007) + Core (1/5 epics Complete — 3 blocked on ADR-0009/0010/0011 + 1 deferred to VS) + **Feature (1/13 epics Ready — damage-calc Sprint 1 S1-05)**
+> **Layer coverage**: Platform (3/3 epics Complete 🎉) + Foundation (1/5 epics Complete + **1/5 Ready — unit-role**; 3 blocked on ADR-0005/0006/0007) + Core (1/4 epics Complete — 2 blocked on ADR-0010/0011 + 1 deferred to VS; unit-role reclassified to Foundation per ADR-0009 §Engine Compatibility 2026-04-28) + **Feature (1/13 epics Ready — damage-calc Sprint 1 S1-05)**
 
 ## Epics
 
@@ -15,6 +15,7 @@
 | [map-grid](map-grid/EPIC.md) | Foundation | Map/Grid System (#14) | design/gdd/map-grid.md | ADR-0004, ADR-0001, ADR-0002, ADR-0003 | 8/8 Complete | **Complete** (2026-04-25) 🎉 |
 | [terrain-effect](terrain-effect/EPIC.md) | Core | Terrain Effect System (#2) | design/gdd/terrain-effect.md | ADR-0008, ADR-0004 (+§5b), ADR-0001 | 8/8 Complete | **Complete** (2026-04-26) 🎉 |
 | [damage-calc](damage-calc/EPIC.md) | Feature | Damage Calc System (#11) | design/gdd/damage-calc.md (rev 2.9.3) | ADR-0012, ADR-0001, ADR-0008 | Not yet created — run `/create-stories damage-calc` | **Ready** (2026-04-26) — first Feature-layer epic |
+| [unit-role](unit-role/EPIC.md) | Foundation | Unit Role System (#5) | design/gdd/unit-role.md | ADR-0009, ADR-0001, ADR-0006, ADR-0008 | Not yet created — run `/create-stories unit-role` | **Ready** (2026-04-28) — Sprint 1 S1-07 close-out |
 
 ## Pending (blocked on ADR)
 
@@ -28,11 +29,10 @@ These systems have approved GDDs but no ADR yet. Epic creation is deferred until
 | balance-data | Foundation | Balance/Data System (#26) | design/gdd/balance-data.md | ADR-0006 | MEDIUM (FileAccess 4.4) |
 | hero-database | Foundation | Hero Database (#25) | design/gdd/hero-database.md | ADR-0007 | LOW |
 
-### Core layer (3 pending — terrain-effect graduated to Ready 2026-04-25)
+### Core layer (2 pending — terrain-effect graduated to Ready 2026-04-25; unit-role reclassified to Foundation per ADR-0009 §Engine Compatibility 2026-04-28)
 
 | Pending Epic | Layer | System | GDD | Blocked on | TR Registry | Notes |
 |--------------|-------|--------|-----|------------|-------------|-------|
-| unit-role | Core | Unit Role System (#5) | design/gdd/unit-role.md (Designed) | **ADR-0009** (class-coefficient schema) + TR registry seed | ❌ no TR-IDs registered | Stateless rules calculator; consumed by HP/Status, Turn Order, Damage Calc |
 | hp-status | Core | HP/Status System (#12) | design/gdd/hp-status.md (Designed) | **ADR-0010** (status-effect stacking contract) | ⚠ partial (TR-hp-status-001 only) | Single authoritative emitter of `unit_died` per ADR-0001; needs TR registry expansion to cover DoT/heal/morale pipelines |
 | turn-order | Core | Turn Order/Action Management (#13) | design/gdd/turn-order.md (**Needs Revision**) | **ADR-0011** (AI-inversion signal contract) + GDD revision | ⚠ partial (TR-turn-order-001 only) | Architecture.md §1 blocker: GDD `turn-order.md:442` direct call into AI (Feature) violates invariant #4 — must invert to GameBus signal pattern |
 
@@ -121,3 +121,4 @@ Current gate blockers (post-2026-04-25 update):
 | 2026-04-26 | **Sprint 1 S1-01 close-out** — scene-manager story-007 (target-device verification) closed via Polish-deferral pattern (4th invocation; precedents: save-manager/story-007 2026-04-24, map-grid/story-007 2026-04-25). Desktop-verifiable portions PASS (AC-5 CONNECT_DEFERRED ordering test 3/3 PASSED 0 errors / 0 failures / 0 orphans / exit 0; AC-4 async load partial-substitute observably non-blocking on macOS). V-7/V-8 on-device portions explicitly deferred to Polish per Sprint 1 R3 mitigation with documented reactivation trigger ("when first Android export build is green AND Snapdragon 7-gen device available"); estimated Polish-phase effort 3-4h. V-7 fallback (per-Control mouse_filter recursive walk per ADR-0002 §Neutral Consequences) ready-to-ship in evidence doc §D if Polish-phase AC-1 detects need. **Scene-manager epic graduates to Complete (2026-04-26) — 7/7 stories done 🎉**. **All 5 Platform/Foundation/Core epics now Complete** (gamebus + scene-manager + save-manager + map-grid + terrain-effect = 41/41 cumulative stories shipped). |
 | 2026-04-26 | **Sprint 1 S1-04 close-out** — `/architecture-review` delta promoted ADR-0012 Damage Calc Proposed → Accepted (PR #48 merged). godot-specialist context-isolated validation APPROVED WITH SUGGESTIONS (12/12 engine claims PASS; 2 wording corrections AF-1+Item 3 applied pre-acceptance; 1 advisory AF-3 carried). 13 architectural TRs registered (TR-damage-calc-001..013); tr-registry.yaml v4 → v5; architecture-traceability.md v0.3 → v0.4 (48 → 61 registered TRs). Project: 5 → **6 Accepted ADRs** (4 Foundation + 1 Core + **1 Feature** — first Feature-layer ADR). Provisional-dependency strategy proven 2 invocations (ADR-0008→ADR-0006 + ADR-0012→ADR-0006/0009/0010/0011). 4 advisories carried non-blocking: ADV-1 int↔StringName direction encoding (defer to Grid Battle ADR), ADV-2 in-operator O(n) at MVP scale, ADV-3 DataRegistry cast safety, ADV-4 R-8 floating-point cross-platform 1 ULP residue. |
 | 2026-04-26 | **Sprint 1 S1-05 (partial) — damage-calc Feature epic created** (governed by ADR-0012 Accepted same day). First Feature-layer epic in the project. 13 TRs covered 100% by ADR-0012; 0 untraced requirements. Soft dependencies on unwritten ADR-0006/0009/0010/0011 acknowledged via provisional-dependency strategy with API-stable workaround patterns documented (direct entities.yaml read; locally-defined direction multiplier const tables; stub interface contracts in test fixtures). Status flips: Feature layer 0/13 → 1/13 (damage-calc Ready); preview story decomposition lists ~8-10 stories with story-001 = CI infrastructure prerequisite (gates story-002+). Next: `/create-stories damage-calc`. |
+| 2026-04-28 | **Sprint 1 S1-07 close-out — unit-role Foundation epic created** (governed by ADR-0009 Accepted same day via /architecture-review delta-mode). Layer reclassified Core → Foundation per ADR-0009 §Engine Compatibility "Foundation — stateless gameplay rules calculator" (the prior Pending entry preceded ADR-0009 authoring). 12 TRs covered 100% by ADR-0009 + ADR-0006 + ADR-0001 + ADR-0008 (TR-unit-role-001..012); 0 untraced requirements. Ratifies ADR-0008 cost-matrix unit-class dim placeholder + ADR-0012 CLASS_DIRECTION_MULT[6][3]. Soft-dep on unwritten ADR-0007 Hero DB (provisional `src/foundation/hero_data.gd` wrapper, parameter-stable migration; provisional-dependency strategy proven 3 invocations). Status flips: Foundation 1/4 → 1/5 + 1 Ready (unit-role); Core 1/5 → 1/4 (unit-role removed from Core pending). Preview story decomposition lists ~10 stories. Next: `/create-stories unit-role`. Sprint-1 reconciliation now COMPLETE (10/10 + DoD 12/12 + S1-07 ADR-0009 acceptance + S1-07 epic creation). |
