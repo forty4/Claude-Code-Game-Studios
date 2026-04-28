@@ -24,8 +24,8 @@
 #
 # STATUS VALUES: active | deprecated | superseded-by: TR-[system]-NNN
 
-version: 5
-last_updated: "2026-04-26"
+version: 6
+last_updated: "2026-04-28"
 
 requirements:
   - id: TR-gamebus-001
@@ -549,5 +549,111 @@ requirements:
     adr: docs/architecture/ADR-0012-damage-calc.md
     requirement: "AC-DC-40(a) + AC-DC-40(b) + AC-DC-41: Performance budgets. (a) 10,000 calls in headless CI under 500ms (50µs avg per resolve() — Vertical Slice blocker). (b) Mobile p99 < 1ms on minimum-spec device (ARMv8, ≥4GB RAM, Adreno 610 / Mali-G57 class, Android 12+/iOS 15+) — Beta blocker, KEEP-through-implementation. Memory: zero Dictionary allocations inside resolve() body except build_vfx_tags helper (AC-DC-41 static lint via grep — 0 matches for `Dictionary(` and standalone `{` in reachable resolve() functions). 4 RefCounted wrapper allocations per call (deterministic free at scope exit, no GC pause)."
     created: 2026-04-26
+    revised: ""
+    status: active
+
+  - id: TR-unit-role-001
+    system: unit-role
+    gdd: design/gdd/unit-role.md
+    adr: docs/architecture/ADR-0009-unit-role.md
+    requirement: "§1 Module form: class_name UnitRole extends RefCounted + @abstract decoration (4.5+ G-13 hardening; UnitRole.new() is a runtime error per godot-specialist /architecture-review 2026-04-28 Item 1) + all-static methods + lazy-init JSON config + zero instance state + zero signal emissions + zero signal subscriptions. NOT registered as autoload. 4-precedent class_name+RefCounted+all-static stateless-calculator pattern (ADR-0008 → ADR-0006 → ADR-0012 → ADR-0009). Source location: src/foundation/unit_role.gd."
+    created: 2026-04-28
+    revised: ""
+    status: active
+
+  - id: TR-unit-role-002
+    system: unit-role
+    gdd: design/gdd/unit-role.md
+    adr: docs/architecture/ADR-0009-unit-role.md
+    requirement: "§2 UnitClass typed enum: enum UnitClass { CAVALRY=0, INFANTRY=1, ARCHER=2, STRATEGIST=3, COMMANDER=4, SCOUT=5 } with typed parameter binding unit_class: UnitRole.UnitClass on every public static method signature. Improvement over ADR-0008's raw int terrain_type pattern — typed-enum binding produces stricter type-checker warnings at call sites with no 4.6 regression. Cross-script consumers reference as UnitRole.UnitClass.CAVALRY (qualified form); enum int values 0..5 used as Dictionary keys + entities.yaml CLASS_DIRECTION_MULT keys."
+    created: 2026-04-28
+    revised: ""
+    status: active
+
+  - id: TR-unit-role-003
+    system: unit-role
+    gdd: design/gdd/unit-role.md
+    adr: docs/architecture/ADR-0009-unit-role.md
+    requirement: "§3 Public API surface: 8 static methods + 1 const Dictionary. Methods: get_atk, get_phys_def, get_mag_def, get_max_hp, get_initiative (5 derived stats per F-1..F-4); get_effective_move_range (F-5; move_budget = effective_move_range × MOVE_BUDGET_PER_RANGE is consumer-side compute, NOT a separate method); get_class_cost_table (cost matrix unit-class dimension); get_class_direction_mult (Damage Calc F-DC-3 consumer). Const: PASSIVE_TAG_BY_CLASS Dictionary (6 entries int → StringName). Orthogonal per-stat methods (NOT bundled UnitStats Resource — Alternative 4 rejected to avoid coupling consumers to full derivation cost). Each consumer calls only what it needs (Damage Calc reads atk/phys_def/passives/direction; HP/Status reads max_hp; Turn Order reads initiative; Grid Battle reads effective_move_range/cost_table; AI reads passives + cost_table; Battle HUD reads passive_tags)."
+    created: 2026-04-28
+    revised: ""
+    status: active
+
+  - id: TR-unit-role-004
+    system: unit-role
+    gdd: design/gdd/unit-role.md
+    adr: docs/architecture/ADR-0009-unit-role.md
+    requirement: "§4 Per-class config schema and loading: assets/data/config/unit_roles.json (this system's config, parallel to ADR-0008's terrain_config.json). 6 class entries × 12 fields per class (primary_stat, secondary_stat, w_primary, w_secondary, class_atk_mult, class_phys_def_mult, class_mag_def_mult, class_hp_mult, class_init_mult, class_move_delta, passive_tag, terrain_cost_table[6], class_direction_mult[3]). Lazy-init via instance-form JSON.new().parse() (line/col diagnostics). Safe-default fallback per ADR-0008 precedent: missing/malformed config → push_error + populate hardcoded defaults matching GDD CR-1+CR-4+CR-6a values. Cache persists for GDScript engine session (mirrors ADR-0006 §6 BalanceConstants behavior). Hot-reload requires editor restart in MVP per AC-21 documented limitation."
+    created: 2026-04-28
+    revised: ""
+    status: active
+
+  - id: TR-unit-role-005
+    system: unit-role
+    gdd: design/gdd/unit-role.md
+    adr: docs/architecture/ADR-0009-unit-role.md
+    requirement: "§4 + §Engine Compatibility verification 1: Global caps via BalanceConstants.get_const(key) per ADR-0006. 10 constants consumed: ATK_CAP=200, DEF_CAP=100, HP_CAP=300, HP_SCALE=2.0, HP_FLOOR=50, INIT_CAP=200, INIT_SCALE=2.0, MOVE_RANGE_MIN=2, MOVE_RANGE_MAX=6, MOVE_BUDGET_PER_RANGE=10. UnitRole MUST use BalanceConstants accessor — zero direct reads of balance_entities.json. G-15 test isolation obligation: every UnitRole test suite calling any method that transitively reads BalanceConstants MUST reset _cache_loaded = false in before_test() per ADR-0006 §6 + .claude/rules/godot-4x-gotchas.md G-15. Static-lint check: grep -L '_cache_loaded = false' tests/unit/foundation/unit_role*.gd returns empty."
+    created: 2026-04-28
+    revised: ""
+    status: active
+
+  - id: TR-unit-role-006
+    system: unit-role
+    gdd: design/gdd/unit-role.md
+    adr: docs/architecture/ADR-0009-unit-role.md
+    requirement: "§5 Cost-matrix unit-class dimension ratification: 6×6 cost matrix per CR-4. get_class_cost_table(unit_class: UnitRole.UnitClass) -> PackedFloat32Array returns 6-entry packed array indexed by terrain_type enum (0..5: ROAD, PLAINS, HILLS, FOREST, MOUNTAIN, BRIDGE). Values lifted verbatim from unit-role.md §CR-4. RIVER/FORTRESS_WALL impassable handled at Map/Grid layer per CR-4a (is_passable_base = false BEFORE cost-table lookup). Hot path: Map/Grid Dijkstra calls one fetch per get_movement_range invocation, then index-reads in inner loop. Ratifies ADR-0008's cost-matrix unit-class dimension placeholder per ADR-0008 §Context item 5 deferral."
+    created: 2026-04-28
+    revised: ""
+    status: active
+
+  - id: TR-unit-role-007
+    system: unit-role
+    gdd: design/gdd/unit-role.md
+    adr: docs/architecture/ADR-0009-unit-role.md
+    requirement: "§6 Class direction multiplier ratification: 6×3 CLASS_DIRECTION_MULT table per CR-6a + EC-7 + entities.yaml. Cavalry REAR=1.09 (rev 2.8 Rally-ceiling-fix value, was 1.20). 6 classes × 3 directions (FRONT=0, FLANK=1, REAR=2). STRATEGIST and COMMANDER rows are all-1.0 no-ops by design (class identity expressed elsewhere — Tactical Read evasion bypass + Rally adjacency aura). get_class_direction_mult(unit_class, direction) reads from assets/data/config/unit_roles.json (per-class data locality), NOT BalanceConstants. The entities.yaml CLASS_DIRECTION_MULT registration is design-side cross-system tracking only — explicit asymmetry documented in ADR-0009 §6 prose. Damage Calc reads via UnitRole's accessor, not via BalanceConstants. Future amendment requires /propagate-design-change against unit-role.md + damage-calc.md + entities.yaml + unit_roles.json + this ADR §6."
+    created: 2026-04-28
+    revised: ""
+    status: active
+
+  - id: TR-unit-role-008
+    system: unit-role
+    gdd: design/gdd/unit-role.md
+    adr: docs/architecture/ADR-0009-unit-role.md
+    requirement: "§5 R-1 mitigation: PackedFloat32Array per-call copy semantics. Godot 4.x COW (copy-on-write) handles per-call copy naturally for PackedFloat32Array returned from a static method. UnitRole MUST NOT cache and return a shared backing array — GDScript has no const reference enforcement, and a caller mutating a cached array would silently corrupt subsequent calls. Codified as forbidden_pattern unit_role_returned_array_mutation in docs/registry/architecture.yaml. Mandatory unit test tests/unit/foundation/unit_role_test.gd::test_get_class_cost_table_caller_mutation_isolated: fetch table, mutate returned array, fetch again, assert original values returned. Source-comment in unit_role.gd above the method: '# RETURNS PER-CALL COPY — DO NOT cache and return shared array.'"
+    created: 2026-04-28
+    revised: ""
+    status: active
+
+  - id: TR-unit-role-009
+    system: unit-role
+    gdd: design/gdd/unit-role.md
+    adr: docs/architecture/ADR-0009-unit-role.md
+    requirement: "§7 Passive tag canonicalization: 6 StringName tags locked as canonical passive set — &\"passive_charge\" (CAVALRY), &\"passive_shield_wall\" (INFANTRY), &\"passive_high_ground_shot\" (ARCHER), &\"passive_tactical_read\" (STRATEGIST), &\"passive_rally\" (COMMANDER), &\"passive_ambush\" (SCOUT). Exposed via const PASSIVE_TAG_BY_CLASS: Dictionary keyed by UnitClass enum int. Array[StringName] is the mandatory typed-array form for any consumer assembling passive-tag sets per ADR-0012 forbidden_pattern damage_calc_dictionary_payload (Array[String] is silent-wrong-answer hole — see ADR-0012 EC-DC-25 / AC-DC-51). Adding a 7th passive requires ADR-0009 amendment + propagate-design-change against unit-role.md (CR-2) + damage-calc.md + AI ADR."
+    created: 2026-04-28
+    revised: ""
+    status: active
+
+  - id: TR-unit-role-010
+    system: unit-role
+    adr: docs/architecture/ADR-0009-unit-role.md
+    requirement: "Non-emitter invariant per ADR-0001 line 375 (UnitRole on non-emitter list as 'pure data/calculation layers... no state events'). Zero signal declarations + zero connect()/emit_signal() calls in src/foundation/unit_role.gd. Codified as forbidden_pattern unit_role_signal_emission in docs/registry/architecture.yaml. Static-lint enforcement per §Validation Criteria §4: grep -E '(signal\\s|connect\\(|emit_signal\\()' src/foundation/unit_role.gd returns zero matches. Mirrors ADR-0012 forbidden_pattern damage_calc_signal_emission precedent."
+    created: 2026-04-28
+    revised: ""
+    status: active
+
+  - id: TR-unit-role-011
+    system: unit-role
+    gdd: design/gdd/unit-role.md
+    adr: docs/architecture/ADR-0009-unit-role.md
+    requirement: "F-1..F-5 stat derivation formulas with explicit clamp ranges per CR-1b + GDD §Formulas: F-1 atk in [1, ATK_CAP=200]; F-2 phys_def + mag_def in [1, DEF_CAP=100]; F-3 max_hp in [HP_FLOOR+1=51, HP_CAP=300] (EC-14 minimum 51 not 50); F-4 initiative in [1, INIT_CAP=200]; F-5 effective_move_range in [MOVE_RANGE_MIN=2, MOVE_RANGE_MAX=6]. 100% test coverage required per technical-preferences.md 'balance formulas 100%'. EC-1 Strategist move_range floor + EC-2 Cavalry cap absorption + EC-13 phys_def reaching DEF_CAP + EC-14 HP_FLOOR+1 minimum are mandatory test scenarios."
+    created: 2026-04-28
+    revised: ""
+    status: active
+
+  - id: TR-unit-role-012
+    system: unit-role
+    adr: docs/architecture/ADR-0009-unit-role.md
+    requirement: "Performance budgets: each derived-stat method (get_atk, get_phys_def, get_mag_def, get_max_hp, get_initiative) <0.05ms; get_class_cost_table <0.01ms per call (single PackedFloat32Array per-call copy from cached row); get_class_direction_mult <0.01ms per call (single bracket index into cached 6×3 table); per-battle init derivation pass <0.6ms total (60 calls × 0.05ms one-time at battle init, well inside 16.6ms one-time budget). Memory <2KB for cached unit_roles.json parse + transient PackedFloat32Array copies (~24 bytes each, GC-collected per call). Headless CI throughput baseline test in tests/unit/foundation/unit_role_perf_test.gd; on-device measurement deferred per damage-calc story-010 Polish-deferral pattern (now stable at 5+ invocations)."
+    created: 2026-04-28
     revised: ""
     status: active

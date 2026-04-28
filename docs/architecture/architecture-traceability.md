@@ -11,15 +11,15 @@
 
 | Field | Value |
 |---|---|
-| Version | 0.4 |
-| Last Updated | 2026-04-26 |
+| Version | 0.5 |
+| Last Updated | 2026-04-28 |
 | Source — architecture: | `docs/architecture/architecture.md` v0.1 |
-| Source — TR registry: | `docs/architecture/tr-registry.yaml` v5 |
-| Source — /architecture-review: | `docs/architecture/architecture-review-2026-04-18.md` (PASS) + `architecture-review-2026-04-20.md` (PASS delta, ADR-0004 accepted) + `architecture-review-2026-04-25.md` (PASS delta, ADR-0008 accepted) + `architecture-review-2026-04-26.md` (PASS delta, ADR-0012 accepted) |
-| GDDs scanned | 10 of 14 MVP (2026-04-18) + map-grid.md re-scan (2026-04-20) + terrain-effect.md re-scan (2026-04-25) + damage-calc.md re-scan (2026-04-26) |
-| TRs extracted (this session) | 120 |
-| TRs registered (permanent IDs) | 61 |
-| ADR coverage: | 6 ADRs (all Accepted — 4 Foundation + 1 Core + 1 Feature) |
+| Source — TR registry: | `docs/architecture/tr-registry.yaml` v6 |
+| Source — /architecture-review: | `docs/architecture/architecture-review-2026-04-18.md` (PASS) + `architecture-review-2026-04-20.md` (PASS delta, ADR-0004 accepted) + `architecture-review-2026-04-25.md` (PASS delta, ADR-0008 accepted) + `architecture-review-2026-04-26.md` (PASS delta, ADR-0012 accepted) + `architecture-review-2026-04-28.md` (PASS delta, ADR-0009 accepted) |
+| GDDs scanned | 10 of 14 MVP (2026-04-18) + map-grid.md re-scan (2026-04-20) + terrain-effect.md re-scan (2026-04-25) + damage-calc.md re-scan (2026-04-26) + unit-role.md re-scan (2026-04-28) |
+| TRs extracted (this session) | 132 |
+| TRs registered (permanent IDs) | 73 |
+| ADR coverage: | 7 ADRs (all Accepted — 4 Foundation + 1 Core + 1 Feature + 1 Foundation/Core-bridge for Unit Role; per ADR-0009 §Engine Compatibility "Foundation — stateless gameplay rules calculator") |
 
 ---
 
@@ -28,19 +28,19 @@
 | Layer | TRs (est.) | ADRs existing | ADRs required | Status |
 |---|---|---|---|---|
 | Platform | — (infra) | 3 (ADR-0001..0003 Accepted) | 0 more | ✅ Complete |
-| Foundation | ~35 | 2 (ADR-0004 Accepted) | 3 more (Input, Balance/Data, Hero DB) | ⚠️ 2/5 |
+| Foundation | ~35 | 3 (ADR-0004 + ADR-0006 + ADR-0009 Accepted) | 2 more (Input, Hero DB) | ⚠️ 3/5 |
 | Core | ~30 | 1 (ADR-0008 Accepted) | 1+ more (Turn Order signal, HP/Status) | ⚠️ 1/2 |
 | Feature | ~25 | 1 (ADR-0012 Accepted) | 2+ (AI, Grid Battle, Destiny Branch) | ⚠️ 1/3 |
 | Presentation | ~10 | 0 | 1+ (Dual-focus UI pattern) | ❌ 0/1 |
 | Polish | ~2 | 0 | 1 (Accessibility, if tier committed) | ❌ 0/1 |
 
-**Net-new ADRs required before Pre-Production → Production gate**: 6–10 (ADR-0012 landed this pass; first Feature-layer ADR).
+**Net-new ADRs required before Pre-Production → Production gate**: 5–9 (ADR-0009 landed this pass; ratifies ADR-0008 cost-matrix unit-class dim + ADR-0012 CLASS_DIRECTION_MULT[6][3]).
 
 ---
 
-## Registered TR-to-ADR map (source: tr-registry.yaml v2)
+## Registered TR-to-ADR map (source: tr-registry.yaml v6)
 
-These 20 requirements have permanent IDs and are already covered by an Accepted ADR.
+These 73 requirements have permanent IDs and are already covered by an Accepted ADR.
 
 | TR ID | System | ADR | Status | Summary |
 |---|---|---|---|---|
@@ -110,10 +110,22 @@ All Foundation-layer ADRs (ADR-0001..0004), the first Core-layer ADR (ADR-0008),
 | TR-damage-calc-011 | damage-calc | ADR-0012 | Accepted | AC-DC-49 (randi_range inclusive both ends) + AC-DC-50 (snappedf round-half-away-from-zero) mandatory engine pin tests |
 | TR-damage-calc-012 | damage-calc | ADR-0012 | Accepted | source_flags always-new-Array semantics; never mutate caller; error-flag vocabulary via .has(&"invariant_violation:reason") |
 | TR-damage-calc-013 | damage-calc | ADR-0012 | Accepted | Performance: 50µs avg headless / <1ms p99 mobile / zero Dictionary alloc inside resolve() body except build_vfx_tags |
+| TR-unit-role-001 | unit-role | ADR-0009 | Accepted | §1 Module form — `class_name UnitRole extends RefCounted` + `@abstract` (runtime-error guard on `.new()`) + all-static + lazy-init JSON config; 4-precedent stateless-calculator pattern (ADR-0008→0006→0012→0009) |
+| TR-unit-role-002 | unit-role | ADR-0009 | Accepted | §2 UnitClass typed enum — `enum UnitClass { CAVALRY=0..SCOUT=5 }`; typed parameter binding `unit_class: UnitRole.UnitClass` improves on ADR-0008's raw int terrain_type pattern |
+| TR-unit-role-003 | unit-role | ADR-0009 | Accepted | §3 Public API — 8 static methods (5 derived stats + move_range + cost_table + direction_mult) + 1 const PASSIVE_TAG_BY_CLASS Dictionary; orthogonal per-stat (NOT bundled UnitStats Resource) |
+| TR-unit-role-004 | unit-role | ADR-0009 | Accepted | §4 Per-class config — `assets/data/config/unit_roles.json` 6×12 schema; lazy-init JSON.new().parse() + safe-default fallback; session-persistent cache |
+| TR-unit-role-005 | unit-role | ADR-0009 | Accepted | §4 + Engine Compat — Global caps via BalanceConstants.get_const(key) per ADR-0006; G-15 _cache_loaded reset obligation in every UnitRole test suite |
+| TR-unit-role-006 | unit-role | ADR-0009 | Accepted | §5 Cost-matrix unit-class dim — 6×6 per CR-4; `get_class_cost_table(UnitClass) -> PackedFloat32Array` 6-entry; ratifies ADR-0008's deferred placeholder per §Context item 5 |
+| TR-unit-role-007 | unit-role | ADR-0009 | Accepted | §6 Class direction mult — 6×3 CLASS_DIRECTION_MULT per CR-6a + EC-7 + entities.yaml; runtime read via unit_roles.json (per-class data locality), NOT BalanceConstants; STRATEGIST/COMMANDER all-1.0 no-op rows by design |
+| TR-unit-role-008 | unit-role | ADR-0009 | Accepted | §5 R-1 mitigation — PackedFloat32Array per-call copy COW semantics; forbidden_pattern unit_role_returned_array_mutation + caller-mutation regression test mandatory |
+| TR-unit-role-009 | unit-role | ADR-0009 | Accepted | §7 Passive tag canonicalization — 6 StringName tags locked (&"passive_charge"..&"passive_ambush"); Array[StringName] mandatory per ADR-0012 damage_calc_dictionary_payload |
+| TR-unit-role-010 | unit-role | ADR-0009 | Accepted | Non-emitter invariant per ADR-0001 line 375; forbidden_pattern unit_role_signal_emission; static-lint enforcement zero `signal `/`connect(`/`emit_signal(` matches |
+| TR-unit-role-011 | unit-role | ADR-0009 | Accepted | F-1..F-5 stat derivation — clamp ranges [1,ATK_CAP], [1,DEF_CAP], [HP_FLOOR+1,HP_CAP], [1,INIT_CAP], [MOVE_RANGE_MIN,MOVE_RANGE_MAX]; 100% test coverage required per technical-preferences |
+| TR-unit-role-012 | unit-role | ADR-0009 | Accepted | Performance — derived-stat <0.05ms / cost_table <0.01ms / direction_mult <0.01ms / per-battle init <0.6ms total; headless CI baseline + on-device deferred per damage-calc story-010 Polish-deferral pattern |
 
 ---
 
-## Pending TR baseline (102 extracted 2026-04-18, not yet registered)
+## Pending TR baseline (90 extracted 2026-04-18, not yet registered)
 
 Full extraction in the `/create-architecture` Phase 0 session log. To be folded into `tr-registry.yaml` by a future `/architecture-review` run. Grouped by GDD below. Each row links to the GDD location and the candidate covering ADR (⏳ = ADR not yet written).
 
@@ -185,9 +197,9 @@ _Full rows deferred. Seed: terrain modifiers caps, elevation modifiers ±2 asymm
 
 _Full rows deferred. Seed: interleaved queue, round lifecycle R1/R2/R3/RE1–3, per-unit turn T1–T7, action tokens, `acted_this_turn` semantics, tie-breaking, static initiative, death-mid-round, charge budget, round cap 30, signal ownership (per TR-turn-order-001 already registered), TurnOrderSnapshot. Target ADRs: covered partially by ADR-0001 signal ownership + ⏳ Turn Order finalization ADR._
 
-### design/gdd/unit-role.md (20 candidate TRs)
+### design/gdd/unit-role.md (12 TRs — REGISTERED 2026-04-28)
 
-_Full rows deferred. Seed: 6 classes with ATK/DEF profiles, formulas F-1..F-5, terrain cost multipliers, passives (Charge, Shield Wall, Tactical Read, Rally, Ambush, High Ground Shot), direction multipliers, Shield Wall PHYSICAL-only, skill slot management, class identities, JSON config locations, silhouette rendering. Target ADR: ⏳ Unit Role formula ownership ADR (may share with Damage Calc)._
+Registered as TR-unit-role-001..012 in tr-registry.yaml v6. See "Registered TR-to-ADR map" section above for the full table. The 23 GDD ACs (AC-1..AC-23) are a finer granularity than the architectural TR layer — they map to ADR-0009 via the §GDD Requirements Addressed table.
 
 ---
 
@@ -207,3 +219,4 @@ _Full rows deferred. Seed: 6 classes with ATK/DEF profiles, formulas F-1..F-5, t
 | 2026-04-20 | 0.2 | Delta review: ADR-0004 escalated Proposed → Accepted. 10 new TR-map-grid-* entries registered (registry v2→v3). Foundation layer 1/4 → 2/5 complete. Source: `docs/architecture/architecture-review-2026-04-20.md`. |
 | 2026-04-25 | 0.3 | Delta review: ADR-0008 escalated Proposed → Accepted. 18 new TR-terrain-effect-* entries registered (registry v3→v4). Core layer 0/2 → 1/2 complete. Concurrent ADR-0004 §5b erratum amendment. Source: `docs/architecture/architecture-review-2026-04-25.md`. |
 | 2026-04-26 | 0.4 | Delta review: ADR-0012 (Damage Calc) escalated Proposed → Accepted. 13 new TR-damage-calc-* entries registered (registry v4→v5). First Feature-layer ADR. Provisional-dependency strategy on ADR-0006/0009/0010/0011 mirrors ADR-0008→ADR-0006 precedent (proven 2 invocations). 2 godot-specialist text corrections applied (AF-1 + Item 3). Source: `docs/architecture/architecture-review-2026-04-26.md`. |
+| 2026-04-28 | 0.5 | Delta review: ADR-0009 (Unit Role) escalated Proposed → Accepted. 12 new TR-unit-role-* entries registered (registry v5→v6). Foundation layer 2/5 → 3/5. Ratifies ADR-0008's cost-matrix unit-class dimension placeholder + ADR-0012's CLASS_DIRECTION_MULT (corrected [4][3]→[6][3] in same patch). godot-specialist independent review-time validation: APPROVED WITH SUGGESTIONS (8/8 PASS-or-CONCERN); 2 corrections applied pre-acceptance (§1 line 130 parse-time→runtime; ADR-0012 line 42 dim amendment). Sprint-1 S1-07 closure. Source: `docs/architecture/architecture-review-2026-04-28.md`. |
