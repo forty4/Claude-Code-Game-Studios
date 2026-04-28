@@ -1,8 +1,9 @@
 ## unit_role.gd
 ## Foundation-layer stateless gameplay rules calculator per ADR-0009 §Engine Compatibility.
 ## 4-precedent class_name+RefCounted+all-static pattern (ADR-0008 → ADR-0006 → ADR-0012 → ADR-0009).
-## non-emitter per ADR-0001 line 375: zero signal declarations, zero signal emissions,
-## zero signal subscriptions. All methods are static. UnitRole.new() is blocked at
+## non-emitter per ADR-0001 line 375: zero `signal`-prefixed declarations, zero
+## emit broadcasts, zero subscriptions (paraphrased to avoid lint_unit_role.sh
+## Check 1 self-trigger). All methods are static. UnitRole.new() is blocked at
 ## parse time on typed references by @abstract (typed `var x: UnitRole = UnitRole.new()`
 ## triggers "Cannot construct abstract class" at GDScript reload). Reflective paths
 ## (`script.new()`) bypass @abstract entirely — see G-22 in .claude/rules/godot-4x-gotchas.md.

@@ -14,12 +14,29 @@ extends GdUnitTestSuite
 ##   after_test  — no cleanup needed (no nodes, no autoload swaps, no file I/O)
 
 
+## G-15 discipline (consistent with stories 002-009): reset both BalanceConstants
+## and UnitRole caches even though this skeleton test doesn't transitively read
+## either cache. Future-proofs against test additions that DO read; satisfies
+## tools/ci/lint_unit_role.sh Check 3 (universal G-15 obligation across all
+## unit_role*.gd test files).
+const _BC_PATH: String = "res://src/feature/balance/balance_constants.gd"
+const _UR_PATH: String = "res://src/foundation/unit_role.gd"
+var _bc_script: GDScript = load(_BC_PATH) as GDScript
+var _ur_script: GDScript = load(_UR_PATH) as GDScript
+
+
 func before_test() -> void:
-	pass
+	_bc_script.set("_cache_loaded", false)
+	_bc_script.set("_cache", {})
+	_ur_script.set("_coefficients_loaded", false)
+	_ur_script.set("_coefficients", {})
 
 
 func after_test() -> void:
-	pass
+	_bc_script.set("_cache_loaded", false)
+	_bc_script.set("_cache", {})
+	_ur_script.set("_coefficients_loaded", false)
+	_ur_script.set("_coefficients", {})
 
 
 # ── AC-1: UnitRole skeleton is a RefCounted subclass ─────────────────────────
