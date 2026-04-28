@@ -335,3 +335,23 @@ static func get_class_cost_table(unit_class: UnitRole.UnitClass) -> PackedFloat3
 	for i: int in 6:
 		result[i] = table_array[i] as float
 	return result
+
+
+## get_class_direction_mult: Class direction multiplier (ADR-0009 §6 + GDD CR-6a + EC-7).
+## Single bracket-index lookup into class_direction_mult loaded from unit_roles.json.
+## NOT read via BalanceConstants.get_const("CLASS_DIRECTION_MULT") — entities.yaml registration
+## is design-side cross-system tracking only; runtime read goes through unit_roles.json
+## per ADR-0009 §6 per-class data locality.
+## direction param is int per ADR-0004 §5b: ATK_DIR_FRONT=0, FLANK=1, REAR=2.
+## Damage Calc consumes via this accessor for F-DC-3 D_mult composition.
+## Do NOT add bounds-checking on direction (caller responsibility per story-005 §Implementation Notes §6).
+## Do NOT apply snappedf() here — Damage Calc responsibility per ADR-0012 §F-DC-3.
+static func get_class_direction_mult(
+		unit_class: UnitRole.UnitClass,
+		direction: int  # ATK_DIR_FRONT=0 / FLANK=1 / REAR=2 per ADR-0004 §5b
+) -> float:
+	_load_coefficients()
+	var class_key: String = _class_to_key(unit_class)
+	var entry: Dictionary = _coefficients[class_key]
+	var direction_array: Array = entry["class_direction_mult"] as Array
+	return direction_array[direction] as float
