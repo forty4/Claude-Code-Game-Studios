@@ -30,7 +30,7 @@
 #   Superseded entries:     Grep pattern="status: superseded"
 
 version: 1
-last_updated: "2026-04-26"
+last_updated: "2026-04-28"
 # 2026-04-18: ADR-0003 Save/Load — added save_persistence_lifecycle interface,
 # save_serialization / save_atomic_write / save_load_cache API decisions,
 # 4 new forbidden patterns, 2 new state_ownership entries.
@@ -48,6 +48,16 @@ last_updated: "2026-04-26"
 # stateless — invariant registered via forbidden_patterns layer instead).
 # No api_decisions entries (engine APIs are LOW-risk pre-cutoff stable;
 # decisions are GDD-locked, not novel ADR commitments).
+# 2026-04-28: ADR-0009 Unit Role (Proposed) — added class_profile_table
+# state_ownership (UnitRole owns 6-class enum + 6×6 cost matrix + 6×3 direction
+# multiplier table + 6-tag PASSIVE_TAG_BY_CLASS Dictionary), unit_role_queries
+# direct_call interface (1 producer + 7 consumers + 8 public static methods +
+# 1 const Dictionary), unit_role_module_form api_decision (class_name +
+# RefCounted + @abstract + all-static + lazy-init JSON config + typed UnitClass
+# enum parameter binding — 4-precedent stateless-static pattern), and 2
+# forbidden_patterns (unit_role_returned_array_mutation +
+# unit_role_signal_emission). Ratifies ADR-0008's cost-matrix unit-class
+# dimension placeholder + ADR-0012's locked CLASS_DIRECTION_MULT[6][3] table.
 
 # ─── STATE OWNERSHIP ─────────────────────────────────────────────────────────
 # Who is the authoritative owner of each piece of shared game state.
@@ -130,6 +140,20 @@ state_ownership:
       - docs/architecture/ADR-0004-map-grid-data-model.md
       - design/gdd/map-grid.md
     added: 2026-04-18
+    revised: ""
+
+  - state: class_profile_table
+    status: active
+    owner_system: unit-role
+    adr: docs/architecture/ADR-0009-unit-role.md
+    interface: "UnitRole class_name (RefCounted + @abstract + all-static methods) owns the 6-class UnitClass enum, 6×6 cost matrix, 6×3 direction multiplier table, and 6-tag PASSIVE_TAG_BY_CLASS Dictionary. Per-class coefficients (class_atk_mult, class_phys_def_mult, class_mag_def_mult, class_hp_mult, class_init_mult, class_move_delta, w_primary, w_secondary, primary_stat, secondary_stat, terrain_cost_table, class_direction_mult, passive_tag) loaded from assets/data/config/unit_roles.json into a session-persistent lazy-init cache. Global caps (ATK_CAP, DEF_CAP, HP_CAP, HP_SCALE, HP_FLOOR, INIT_CAP, INIT_SCALE, MOVE_RANGE_MIN, MOVE_RANGE_MAX, MOVE_BUDGET_PER_RANGE) read via BalanceConstants.get_const(key) per ADR-0006. Zero instance state, zero signal emissions, zero signal subscriptions — UnitRole on ADR-0001 non-emitter list. CLASS_DIRECTION_MULT runtime read goes through unit_roles.json (per-class data locality), not BalanceConstants — entities.yaml registration is design-side cross-system tracking only."
+    write_access: unit-role-only  # all-static; @abstract prevents .new()
+    referenced_by:
+      - docs/architecture/ADR-0009-unit-role.md
+      - docs/architecture/ADR-0008-terrain-effect.md  # cost-matrix structure; unit-class dimension owned here
+      - docs/architecture/ADR-0012-damage-calc.md     # CLASS_DIRECTION_MULT[6][3] consumer; ratified by ADR-0009
+      - design/gdd/unit-role.md
+    added: 2026-04-28
     revised: ""
 
 # Example:
@@ -265,6 +289,39 @@ interfaces:
       - docs/architecture/ADR-0008-terrain-effect.md    # Damage Calc consumer of get_combat_modifiers
       - docs/architecture/ADR-0012-damage-calc.md
     added: 2026-04-26
+    revised: ""
+
+  - contract: unit_role_queries
+    status: active
+    pattern: direct_call
+    producer: unit-role          # UnitRole class_name exposes 8 public static methods + 1 const Dictionary
+    consumers:
+      - damage-calc              # reads atk/phys_def/mag_def/get_class_direction_mult/PASSIVE_TAG_BY_CLASS
+      - grid-battle              # reads get_effective_move_range + get_class_cost_table for Dijkstra inputs
+      - turn-order               # reads get_initiative
+      - hp-status                # reads get_max_hp
+      - ai                       # reads PASSIVE_TAG_BY_CLASS + get_class_cost_table for decision-making
+      - formation-bonus          # reads PASSIVE_TAG_BY_CLASS[COMMANDER] for Rally consumer
+      - battle-preparation       # reads class_pools.json schema reference (CR-5c) — schema authored under ADR-0009 follow-up
+    adr: docs/architecture/ADR-0009-unit-role.md
+    method_signatures:
+      - "UnitRole.get_atk(hero: HeroData, unit_class: UnitRole.UnitClass) -> int                    # [1, ATK_CAP]"
+      - "UnitRole.get_phys_def(hero: HeroData, unit_class: UnitRole.UnitClass) -> int               # [1, DEF_CAP]"
+      - "UnitRole.get_mag_def(hero: HeroData, unit_class: UnitRole.UnitClass) -> int                # [1, DEF_CAP]"
+      - "UnitRole.get_max_hp(hero: HeroData, unit_class: UnitRole.UnitClass) -> int                 # [HP_FLOOR+1, HP_CAP]"
+      - "UnitRole.get_initiative(hero: HeroData, unit_class: UnitRole.UnitClass) -> int             # [1, INIT_CAP]"
+      - "UnitRole.get_effective_move_range(hero: HeroData, unit_class: UnitRole.UnitClass) -> int   # [MOVE_RANGE_MIN, MOVE_RANGE_MAX]"
+      - "UnitRole.get_class_cost_table(unit_class: UnitRole.UnitClass) -> PackedFloat32Array        # 6 entries indexed by terrain_type enum (per-call copy)"
+      - "UnitRole.get_class_direction_mult(unit_class: UnitRole.UnitClass, direction: int) -> float # direction = ATK_DIR_FRONT/FLANK/REAR per ADR-0004 §5b"
+      - "UnitRole.PASSIVE_TAG_BY_CLASS: Dictionary                                                   # const, 6 entries int → StringName"
+    notes: "Queries are direct-call (NOT signal-driven) per ADR-0001 non-emitter list. Hot-path callers (Map/Grid Dijkstra reads get_class_cost_table once per get_movement_range invocation; Damage Calc resolve() reads get_class_direction_mult once per call) read once per outer call, then index in inner loop — no per-cell static-method dispatch. PackedFloat32Array return is per-call copy (Godot 4.x COW) — see forbidden_patterns.unit_role_returned_array_mutation. HeroData parameter shape is soft-dep on unwritten ADR-0007 Hero DB; migration parameter-stable per ADR-0009 §Migration Plan §From provisional HeroData."
+    referenced_by:
+      - docs/architecture/ADR-0001-gamebus-autoload.md  # non-emitter list
+      - docs/architecture/ADR-0008-terrain-effect.md    # cost-matrix structure consumer
+      - docs/architecture/ADR-0009-unit-role.md
+      - docs/architecture/ADR-0012-damage-calc.md       # CLASS_DIRECTION_MULT + Array[StringName] passive consumer
+      - design/gdd/unit-role.md
+    added: 2026-04-28
     revised: ""
 
 # Example:
@@ -452,6 +509,20 @@ api_decisions:
     added: 2026-04-18
     revised: ""
 
+  - purpose: unit_role_module_form
+    status: active
+    api: "class_name UnitRole extends RefCounted + @abstract decoration + all-static methods + lazy-init JSON config from assets/data/config/unit_roles.json (instance-form JSON.new().parse() for line/col diagnostics) + BalanceConstants.get_const(key) for global caps + typed UnitRole.UnitClass enum parameter binding (improvement over ADR-0008's raw int terrain_type)"
+    not: "Battle-scoped Node with per-unit derived-stats cache (rejected — stateful; GDD §States and Transitions explicit 'stateless rule definition layer' invariant; cache-invalidation hazard with HP/Status's get_modified_stat accessor per ADR-0012 §Dependencies)"
+    not_also: "Autoload singleton at /root/UnitRole (rejected — no shared state to motivate autoload; 3-precedent class_name pattern established by ADR-0008/ADR-0006/ADR-0012; test-isolation friction per G-15 BalanceConstants pattern)"
+    not_also_2: "StringName-tag UnitClass representation (rejected — slower than int enum bracket index; re-opens ADR-0012 EC-DC-25/AC-DC-51 silent-fail surface that Array[StringName] vs Array[String] precedent closed)"
+    not_also_3: "Single bundled derive_unit_stats(hero, class) -> UnitStats Resource (rejected — couples consumers to full derivation cost; no consumer needs the bundle; orthogonal per-stat methods are simpler)"
+    adr: docs/architecture/ADR-0009-unit-role.md
+    reason: "Reuses 4-precedent stateless-static pattern (ADR-0008 → ADR-0006 → ADR-0012 → ADR-0009). Mobile budgets (60fps / 16.6ms) handle <0.6ms one-time battle-init derivation comfortably. Typed UnitRole.UnitClass enum parameter binding produces stricter parse-time errors at call sites than raw int (godot-specialist 2026-04-28 validated). Lazy-init follows ADR-0006 BalanceConstants pattern: session-persistent cache, no eager-load at boot, before_test() reset obligation per G-15."
+    referenced_by:
+      - docs/architecture/ADR-0009-unit-role.md
+    added: 2026-04-28
+    revised: ""
+
 # Example:
 #
 # api_decisions:
@@ -574,6 +645,20 @@ forbidden_patterns:
     why: "The 11 constants are tuning surface owned by Balance/Data (#26). Hardcoding any of them silently breaks balance governance: a designer changing CHARGE_BONUS in entities.yaml from 1.20 to 1.15 to test feel sees no in-game change because the GDScript source baked in 1.20. The bug surfaces only when QA notices the disparity, by which point hours of tuning iteration have been wasted. Per balance-data.md, hardcoded values are a blocker bug. Static lint via grep for the 11 literals (1.20, 1.15, 83, 180, 0.5, 1, 30, 200, 105, 0.40, 1.31) inside src/feature/damage_calc/ — exception list maintained in tools/ci/ for false-positive numeric-coincidence cases (e.g., array indices)."
     adr: docs/architecture/ADR-0012-damage-calc.md
     added: 2026-04-26
+
+  - pattern: unit_role_returned_array_mutation
+    status: active
+    description: "Caller of UnitRole.get_class_cost_table(unit_class) MUST NOT mutate the returned PackedFloat32Array. Per-call copy is the contract. Future caching optimizations that return a shared backing array (e.g., `static var _cached_table = ...; return _cached_table`) are blocker bugs without a superseding ADR. Source-comment in src/foundation/unit_role.gd above the method declaration must read: '# RETURNS PER-CALL COPY — DO NOT cache and return shared array.'"
+    why: "GDScript has no const reference enforcement; a caller mutating a cached shared PackedFloat32Array would silently corrupt subsequent calls. Map/Grid Dijkstra calls this once per get_movement_range invocation — the per-call copy cost (Godot 4.x COW) is negligible against the per-Dijkstra-call inner loop. Risk classified as LOW probability / HIGH impact in ADR-0009 R-1. Mitigation: unit test in tests/unit/foundation/unit_role_test.gd::test_get_class_cost_table_caller_mutation_isolated — fetches table, mutates returned array, fetches again, asserts original values. Test is mandatory per ADR-0009 §Validation Criteria §6."
+    adr: docs/architecture/ADR-0009-unit-role.md
+    added: 2026-04-28
+
+  - pattern: unit_role_signal_emission
+    status: active
+    description: "UnitRole MUST NOT declare any signal, MUST NOT emit any signal, MUST NOT subscribe to any signal, MUST NOT hold any signal connection. UnitRole is on the ADR-0001 non-emitter list. The single legal communication channel is direct call: consumers invoke the 8 public static methods (get_atk, get_phys_def, get_mag_def, get_max_hp, get_initiative, get_effective_move_range, get_class_cost_table, get_class_direction_mult) + read the const PASSIVE_TAG_BY_CLASS Dictionary. Static lint enforces zero `signal` declarations + zero `connect(` / `emit_signal(` calls in src/foundation/unit_role.gd."
+    why: "Signal emission would (a) violate ADR-0001's non-emitter contract, (b) introduce signal-ordering hazards into a stateless calculator with 7 consumers each reading independently, and (c) split responsibility for derived-stat reads between direct-call and signal-handler paths — which path is canonical? The stateless-deterministic invariant collapses if signal-emit shortcuts become possible. Mirrors ADR-0012 forbidden_pattern damage_calc_signal_emission for the same architectural reason. Pattern stable at 2 invocations (Damage Calc + Unit Role)."
+    adr: docs/architecture/ADR-0009-unit-role.md
+    added: 2026-04-28
 
 # Example:
 #

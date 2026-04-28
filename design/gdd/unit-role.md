@@ -239,10 +239,19 @@ Preparation. Once battle begins, skill assignments are read-only.
 
 ## Formulas
 
-All formulas use values from `assets/data/config/unit_roles.json` (class
-coefficients) and `assets/data/config/balance_constants.json` (global caps and
-scaling factors). No formula is hardcoded — every coefficient and cap is
-data-driven.
+All formulas use values from `assets/data/config/unit_roles.json` (per-class
+coefficients) and the `BalanceConstants` singleton (global caps and scaling
+factors — backed by `assets/data/balance/balance_entities.json` per ADR-0006,
+accessor `BalanceConstants.get_const(key) -> Variant`). No formula is hardcoded
+— every coefficient and cap is data-driven.
+
+> **Note (2026-04-28, ADR-0009 sync)**: References below to
+> `balance_constants.json` reflect this GDD's pre-ADR-0006 authoring
+> (rev 2026-04-16). At runtime, every such reference resolves to
+> `BalanceConstants.get_const(KEY)`. The Source column in the Global
+> Constant Summary table (below) lists the canonical accessor; legacy
+> `balance_constants.json` mentions in §Tuning Knobs and per-formula
+> tables remain as-is for traceability against the original design intent.
 
 ---
 
@@ -441,15 +450,16 @@ move_budget = effective_move_range × 10
 
 | Constant | Default | Source | Notes |
 |---|---|---|---|
-| ATK_CAP | 200 | balance_constants.json | Theoretical max; in practice ≤ ~110 |
-| DEF_CAP | 100 | balance_constants.json | Per-defense-type cap |
-| HP_CAP | 300 | balance_constants.json | Absolute ceiling |
-| HP_SCALE | 2.0 | balance_constants.json | Amplifies HP seed differences |
-| HP_FLOOR | 50 | balance_constants.json | No unit below 50 HP |
-| INIT_CAP | 200 | balance_constants.json | Theoretical max |
-| INIT_SCALE | 2.0 | balance_constants.json | Amplifies initiative seed differences |
-| MOVE_RANGE_MIN | 2 | balance_constants.json | Already registered in entities.yaml |
-| MOVE_RANGE_MAX | 6 | balance_constants.json | Already registered in entities.yaml |
+| ATK_CAP | 200 | `BalanceConstants.get_const("ATK_CAP")` (ADR-0006) | Theoretical max; in practice ≤ ~110 |
+| DEF_CAP | 100 | `BalanceConstants.get_const("DEF_CAP")` (ADR-0006) | Per-defense-type cap |
+| HP_CAP | 300 | `BalanceConstants.get_const("HP_CAP")` (ADR-0006) | Absolute ceiling |
+| HP_SCALE | 2.0 | `BalanceConstants.get_const("HP_SCALE")` (ADR-0006) | Amplifies HP seed differences |
+| HP_FLOOR | 50 | `BalanceConstants.get_const("HP_FLOOR")` (ADR-0006) | No unit below 50 HP |
+| INIT_CAP | 200 | `BalanceConstants.get_const("INIT_CAP")` (ADR-0006) | Theoretical max |
+| INIT_SCALE | 2.0 | `BalanceConstants.get_const("INIT_SCALE")` (ADR-0006) | Amplifies initiative seed differences |
+| MOVE_RANGE_MIN | 2 | `BalanceConstants.get_const("MOVE_RANGE_MIN")` (ADR-0006) | Already registered in entities.yaml |
+| MOVE_RANGE_MAX | 6 | `BalanceConstants.get_const("MOVE_RANGE_MAX")` (ADR-0006) | Already registered in entities.yaml |
+| MOVE_BUDGET_PER_RANGE | 10 | `BalanceConstants.get_const("MOVE_BUDGET_PER_RANGE")` (ADR-0006, ADR-0009 §Migration Plan) | Move budget = effective_move_range × this constant. Cross-doc obligation per ADR-0009 §Migration Plan §4 — appended to balance_entities.json on ADR-0009 Acceptance |
 
 ## Edge Cases
 
@@ -603,7 +613,7 @@ class profile table's slot column is the default only.
 | System | Data Read | GDD Status |
 |---|---|---|
 | **Hero Database** | `default_class`, `stat_might`, `stat_intellect`, `stat_command`, `stat_agility`, `base_hp_seed`, `base_initiative_seed`, `move_range`, `innate_skill_ids`, `equipment_slot_override` | Designed |
-| **Balance/Data System** | `unit_roles.json` (class coefficients, multipliers, passive definitions), `balance_constants.json` (ATK_CAP, DEF_CAP, HP_CAP, HP_SCALE, HP_FLOOR, INIT_CAP, INIT_SCALE, MOVE_RANGE_MIN, MOVE_RANGE_MAX), `class_pools.json` (per-class skill pool) | Designed |
+| **Balance/Data System** | `unit_roles.json` (per-class coefficients, multipliers, passive_tag, terrain_cost_table, class_direction_mult); `BalanceConstants.get_const(...)` per ADR-0006 (ATK_CAP, DEF_CAP, HP_CAP, HP_SCALE, HP_FLOOR, INIT_CAP, INIT_SCALE, MOVE_RANGE_MIN, MOVE_RANGE_MAX, MOVE_BUDGET_PER_RANGE — backed by `assets/data/balance/balance_entities.json`); `class_pools.json` (per-class skill pool, CR-5c) | ADR-0006 Accepted, ADR-0009 Proposed |
 | **Map/Grid System** | `terrain_type` per tile (for movement cost resolution via CR-4 table) | Designed |
 
 **All three upstream GDDs are designed.** No provisional assumptions required.
