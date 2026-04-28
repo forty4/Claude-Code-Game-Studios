@@ -1,11 +1,37 @@
 # Story 005: get_class_direction_mult + 6×3 table read from unit_roles.json
 
 > **Epic**: unit-role
-> **Status**: Ready
+> **Status**: Complete (2026-04-28) ✅ — 8/8 new tests passing + 76/76 regression = 84/84 foundation suite green
 > **Layer**: Foundation
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
-> **Estimate**: 2 hours (S)
+> **Estimate**: 2 hours (S) — actual ~25min orchestrator + 1 specialist iteration round + 1 mechanical fix iteration (~10sec orchestrator-side; GdUnit4 v6.1.2 API hallucination caught)
+> **Implementation commit**: `90f0b6f` (2026-04-28)
+
+## Post-completion notes
+
+### Verification anchors verified (no GDD drift)
+GDD §CR-6a 6×3 direction multiplier table cross-checked against `assets/data/config/unit_roles.json` (story-002) + ADR-0009 §6 + briefing table — all 18 cells consistent across 4 sources. No drift sync needed (contrast story-003 DEF_CAP).
+
+Critical cell **Cavalry REAR = 1.09** (rev 2.8 Rally-ceiling-fix value) verified by AC-2 LOAD-BEARING test + regression sentinel ("NOT 1.20"). Any future regression to 1.20 would activate DAMAGE_CEILING=180 per damage-calc.md ninth-pass desync audit BLK-G-2 — the regression test catches this immediately.
+
+### AC-4 sentinel propagation via DI
+Runtime read source verified as `unit_roles.json`, NOT `entities.yaml` / `BalanceConstants.get_const("CLASS_DIRECTION_MULT")`. Test method writes a fixture JSON with `cavalry.class_direction_mult[2] = 9.99` to `user://`, calls `_load_coefficients(fixture_path)` via the optional-path DI pattern from story-002, and asserts the sentinel propagates through `get_class_direction_mult(CAVALRY, 2)`. The design-vs-runtime asymmetry per ADR-0009 §6 is now empirically verified.
+
+### Mechanical fix iteration (GdUnit4 v6.1.2 API hallucination → G-23)
+Initial run: 1 SCRIPT ERROR — agent draft used `assert_float(result).is_not_equal_approx(1.20, 0.0001)` for the AC-2 regression sentinel. GdUnit4 v6.1.2 does NOT have `is_not_equal_approx()` method on float assertion (only `is_equal_approx()` and `is_not_equal()` exist). Fixed by switching to `is_not_equal(1.20)` — safe since 1.09 vs 1.20 differ by 0.11 (well above any binary float precision noise).
+
+**G-23 codified** in `.claude/rules/godot-4x-gotchas.md` (this close-out commit) — pattern matches G-17 (ClassDB.class_exists vs Engine.has_class hallucination); proactive codification to prevent re-discovery in stories 006-010 + future unit-role/damage-calc test authoring.
+
+### Code quality notes
+- Method body uses single bracket-index lookup pattern: `entry["class_direction_mult"][direction] as float`
+- Style consistent with story-004's `get_class_cost_table` (no `as Dictionary` cast on `_coefficients[class_key]`; `as Array` + `as float` casts on Variant inner accesses)
+- G-15 obligation honored: `before_test`/`after_test` reset BOTH BalanceConstants AND UnitRole caches
+- G-16 honored: parametric Array[Dictionary] for AC-1 18-cell coverage
+- AC-2 defensive redundancy (positive 1.09 + regression sentinel "NOT 1.20") provides clearer failure messages even if logically subsumed
+
+### Calibration
+265 LoC test file (matches story-004's exact size — both single-method-scope Logic stories with 6-7 ACs). Calibration stable at ~38-40 LoC/AC for narrow-scope Logic stories; ~85-90 LoC/AC for multi-formula stories like story-003.
 
 ## Context
 
@@ -136,8 +162,8 @@
 ## Test Evidence
 
 **Story Type**: Logic
-**Required evidence**: `tests/unit/foundation/unit_role_direction_mult_test.gd` — must exist and pass (6 ACs above; ~120-180 LoC test file with 18-cell coverage + AC-16/AC-17 baselines + JSON-source verification + G-15 reset in `before_test`)
-**Status**: [ ] Not yet created
+**Required evidence**: `tests/unit/foundation/unit_role_direction_mult_test.gd` — exists and passes (8 test functions covering 6 ACs; 265 LoC actual vs 120-180 estimate — calibration ~40 LoC/AC stable for narrow-scope single-method Logic stories with parametric coverage).
+**Status**: [x] Created 2026-04-28 (commit `90f0b6f`); **8 new test cases | 0 errors | 0 failures | 0 flaky | 0 skipped | 0 orphans | PASSED + 76/76 regression = 84/84 foundation suite green** (580ms total runtime, macOS-Metal CI baseline). AC-4 sentinel propagation verified via DI fixture; runtime source = unit_roles.json confirmed empirically.
 
 ---
 

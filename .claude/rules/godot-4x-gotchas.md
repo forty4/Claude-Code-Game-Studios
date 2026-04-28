@@ -752,6 +752,62 @@ The wording-history note is preserved in ADR-0009 §1 line 130 for traceability 
 
 ---
 
+## G-23 — GdUnit4 v6.1.2 has `is_equal_approx` and `is_not_equal` but NO `is_not_equal_approx`
+
+**Context**: writing a regression-sentinel float test that asserts a value is NOT some specific stale/wrong value (e.g., "Cavalry REAR must NOT be 1.20 (the pre-rev-2.8 stale value)"). The natural symmetry of GdUnit4's `is_equal_approx(expected, tolerance)` API suggests `is_not_equal_approx(unwanted, tolerance)` should exist as the inverse. **It does not.**
+
+**Broken**: writing `assert_float(result).is_not_equal_approx(unwanted, tolerance)`. The test fails at runtime with:
+
+```
+SCRIPT ERROR: Invalid call. Nonexistent function 'is_not_equal_approx' in base 'RefCounted (GdUnitFloatAssertImpl.gd)'.
+```
+
+GdUnit4 v6.1.2 verified inventory of float assertion methods (per `addons/gdUnit4/src/asserts/GdUnitFloatAssertImpl.gd`):
+- ✅ `is_equal(expected: float)` — exact equality
+- ✅ `is_equal_approx(expected: float, tolerance: float = ...)` — approximate equality with tolerance
+- ✅ `is_not_equal(expected: float)` — exact inequality
+- ❌ `is_not_equal_approx(...)` — DOES NOT EXIST
+
+```gdscript
+# BROKEN — GdUnit4 v6.1.2 has no is_not_equal_approx() method
+func test_regression_sentinel_value_is_not_stale() -> void:
+    var result: float = SomeModule.get_value()
+    assert_float(result).is_not_equal_approx(1.20, 0.0001)   # ← runtime SCRIPT ERROR
+```
+
+**Correct**: use one of these patterns based on the precision requirement:
+
+**Pattern A — exact inequality** (use when the unwanted value differs from the expected by more than ~10× the float precision noise; e.g., 1.09 vs 1.20 differ by 0.11):
+```gdscript
+# CORRECT — exact inequality is safe when values differ by >> binary float noise
+func test_regression_sentinel_value_is_not_stale() -> void:
+    var result: float = SomeModule.get_value()  # expected ~1.09
+    assert_float(result).is_not_equal(1.20)     # ← passes since 1.09 ≠ 1.20 exactly
+```
+
+**Pattern B — manual tolerance check** (use when the unwanted value is close enough to the expected that exact comparison might falsely pass; e.g., 1.0904 vs 1.0905):
+```gdscript
+# CORRECT — manual tolerance for "must not be approximately X"
+func test_regression_sentinel_value_is_not_stale() -> void:
+    var result: float = SomeModule.get_value()
+    assert_bool(absf(result - 1.20) > 0.0001).override_failure_message(
+        "Result %.6f is within 0.0001 of unwanted value 1.20" % result
+    ).is_true()
+```
+
+**Symptom checklist** — if you see `Invalid call. Nonexistent function 'is_not_equal_approx'` at runtime:
+1. The test file uses `is_not_equal_approx(unwanted, tolerance)` somewhere — grep for it
+2. Replace per Pattern A (cheap, safe when values differ significantly) or Pattern B (manual tolerance)
+3. Same family as G-17 (`Engine.has_class` hallucination): LLM training data assumes API symmetry that doesn't exist in the pinned framework version. Always grep `addons/gdUnit4/src/asserts/` for the actual method inventory before writing new assertions
+
+**Cross-references**:
+- G-17: `Engine.has_class()` doesn't exist in Godot 4.6 — same "API symmetry hallucination" pattern
+- G-7: silent test skip on parse error — applies if the parse_error happens before the script loads (this G-23 case is runtime, so parse succeeds + the failure shows up in test output)
+
+**Discovered**: unit-role/story-005 (2026-04-28). Specialist agent's draft for AC-2 regression sentinel test used `is_not_equal_approx(1.20, 0.0001)`; runtime SCRIPT ERROR on first test run; orchestrator-side mechanical fix changed to `is_not_equal(1.20)` (Pattern A; 1.09 vs 1.20 differ by 0.11 well above any binary float precision noise). 1st instance this session of GdUnit4 API hallucination; codified proactively to prevent re-discovery in subsequent unit-role test authoring (stories 006-010 + future Damage Calc tests).
+
+---
+
 ## Verification Pattern Summary
 
 When testing changes that touch any of the above areas, always:
