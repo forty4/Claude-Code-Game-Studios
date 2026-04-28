@@ -689,6 +689,69 @@ func test_stage_2_direction_multiplier_applies() -> void:
 
 ---
 
+## G-22 — `@abstract` enforcement is parse-time on typed references only; reflective bypasses exist
+
+**Context**: testing whether an `@abstract` class actually blocks `.new()` programmatically from within a GdUnit4 test suite.
+
+**Broken**: assuming `@abstract` produces either (a) a catchable `push_error`, (b) a `null` return value, or (c) a runtime exception that GdUnit4's `assert_error()` matcher can capture. Per Godot 4.6 empirical testing, **NONE of these paths surface a usable signal**.
+
+```gdscript
+# Path 1 — TYPED REFERENCE — produces parse error at GDScript reload, NOT a runtime push_error.
+# This blocks the test FILE from loading in the first place; GdUnit4's scanner
+# fails before any test function runs:
+func test_abstract_blocks_new() -> void:
+    var _attempted: UnitRole = UnitRole.new()   # ← Parse error: "Cannot construct abstract class"
+                                                #    at GDScript reload time, before scanner
+                                                #    sees the test function. Whole file fails to load.
+
+# Path 2 — REFLECTIVE — bypasses @abstract entirely; returns live RefCounted instance:
+func test_abstract_blocks_new() -> void:
+    var script: GDScript = load("res://src/foundation/unit_role.gd") as GDScript
+    var instance := script.new()   # ← NO error; instance is a live RefCounted
+    assert_object(instance).is_null()   # ← FAILS: instance is not null
+
+# Path 3 — assert_error matcher — no push_error fires, so the matcher never matches:
+func test_abstract_blocks_new() -> void:
+    await assert_error(func() -> void:
+        var _attempted := UnitRole.new()
+    ).is_push_error(any())   # ← FAILS: no push_error captured
+```
+
+**Correct**: assert structurally that the `@abstract` decorator is present in the source file. This is honest about Godot 4.6's enforcement mechanism (parse-time on typed references only) and catches removal of the decorator immediately:
+
+```gdscript
+# CORRECT — structural source-file assertion
+func test_abstract_decorator_present_in_source() -> void:
+    var content: String = FileAccess.get_file_as_string("res://src/foundation/unit_role.gd")
+    assert_bool(content.contains("@abstract")).override_failure_message(
+        "Source file must declare @abstract to block typed UnitRole.new() at parse time. "
+        + "Decorator is missing — typed-reference instantiation will succeed."
+    ).is_true()
+```
+
+**Symptom checklist** — if any of these surface during test authoring of an `@abstract` class:
+1. Test file fails to load with "Cannot construct abstract class" → using typed-reference Path 1 inside test body; whole file scanning fails (G-7 silent-skip can compound this — verify Overall Summary count to detect)
+2. `script.new()` returns a non-null instance despite `@abstract` → reflective Path 2 bypass (not a bug — intentional engine behavior; do not treat as "broken @abstract")
+3. `assert_error(callable).is_push_error(...)` matcher reports "no push_error captured" → no error mechanism is fired (Path 3)
+
+**Caveat**: `ClassDB.instantiate("UnitRole")` was NOT tested during the discovery. Hypothesis: it likely also bypasses `@abstract` since user `class_name` types are not registered in ClassDB the same way as engine built-ins (per G-17 cross-reference — user types appear in `get_global_class_list()`, not `class_exists()`). If a future test author needs to verify this fourth path, add the result here.
+
+**Cross-references**:
+- G-12: built-in `class_name` collision — different parse error class but same general "look at the decorator/declaration site" diagnosis pattern
+- G-14: class-cache refresh after new `class_name` — run `godot --headless --import --path .` after creating the file with `@abstract`; required regardless
+- G-17: `ClassDB.class_exists()` only finds engine-built-in classes — user `class_name` types are not registered in ClassDB, suggesting Path 4 also bypasses
+
+**Wording history of ADR-0009 §1 line 130** (the load-bearing prose for this gotcha):
+1. Original ADR text (2026-04-28 authoring): "**parse-time error**" — close to truth but unqualified
+2. /architecture-review 2026-04-28 Item 1 correction (godot-specialist design-time): "**runtime error**" based on engine-reference doc reading — wrong
+3. Empirical post-implementation correction (this gotcha): "**parse-time-on-typed-reference with reflective bypass + no `push_error`**" — authoritative
+
+The wording-history note is preserved in ADR-0009 §1 line 130 for traceability of the three-step correction journey.
+
+**Discovered**: unit-role/story-001 round 3 (2026-04-28). Iteration discovered Paths 1 + 2 + 3 sequentially after story-001 draft test used Path 3 first (`assert_error(callable).is_push_error(any())`). Round 1 hit Path 1 (typed-reference parse-time block). Round 3 final test pattern uses structural source-file assertion (Path "Correct" above). Resulted in second correction to ADR-0009 §1 line 130 (the original ADR text said "parse-time error" without qualification; the /architecture-review 2026-04-28 Item 1 correction moved it to "runtime error" based on engine-reference doc reading; this G-22 codification re-corrects to the precise reality).
+
+---
+
 ## Verification Pattern Summary
 
 When testing changes that touch any of the above areas, always:

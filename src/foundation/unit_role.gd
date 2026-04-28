@@ -3,7 +3,10 @@
 ## 4-precedent class_name+RefCounted+all-static pattern (ADR-0008 → ADR-0006 → ADR-0012 → ADR-0009).
 ## non-emitter per ADR-0001 line 375: zero signal declarations, zero signal emissions,
 ## zero signal subscriptions. All methods are static. UnitRole.new() is blocked at
-## runtime by @abstract — call static methods directly (e.g. UnitRole.UnitClass.CAVALRY).
+## parse time on typed references by @abstract (typed `var x: UnitRole = UnitRole.new()`
+## triggers "Cannot construct abstract class" at GDScript reload). Reflective paths
+## (`script.new()`) bypass @abstract entirely — see G-22 in .claude/rules/godot-4x-gotchas.md.
+## Call static methods directly (e.g. UnitRole.UnitClass.CAVALRY).
 @abstract
 class_name UnitRole
 extends RefCounted

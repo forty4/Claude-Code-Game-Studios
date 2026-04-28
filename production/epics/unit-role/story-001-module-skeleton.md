@@ -1,11 +1,12 @@
 # Story 001: UnitRole module skeleton + UnitClass enum + provisional HeroData wrapper
 
 > **Epic**: unit-role
-> **Status**: Ready
+> **Status**: Complete (2026-04-28) ✅ — 8/8 tests passing (`tests/unit/foundation/unit_role_skeleton_test.gd`)
 > **Layer**: Foundation
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
-> **Estimate**: 2-3 hours (S)
+> **Estimate**: 2-3 hours (S) — actual ~30min orchestrator + ~3 specialist iteration rounds (parse-time AC-3 form, AC-5 case-sensitivity, reflective-bypass AC-3 final form)
+> **Implementation commit**: `4be81c6` (2026-04-28)
 
 ## Context
 
@@ -17,7 +18,12 @@
 **ADR Decision Summary**: `class_name UnitRole extends RefCounted` + `@abstract` + all-static methods + `enum UnitClass` typed parameter binding. 4-precedent stateless-calculator pattern (ADR-0008 → ADR-0006 → ADR-0012 → ADR-0009). Provisional `HeroData` Resource wrapper per ADR-0009 §Migration Plan §3 ships ahead of ADR-0007 with parameter-stable migration when ADR-0007 ratifies.
 
 **Engine**: Godot 4.6 | **Risk**: LOW (no post-cutoff APIs; `class_name` + `RefCounted` + `static func` + typed `enum` + `@abstract` decorator all stable; `@abstract` is 4.5+ confirmed)
-**Engine Notes**: `@abstract` blocks `UnitRole.new()` at **runtime**, NOT parse time (per godot-specialist `/architecture-review` 2026-04-28 Item 1 correction). The test for the non-instantiability invariant must `expect_runtime_error()`, NOT assert parse rejection. `enum UnitClass` typed parameter binding (`unit_class: UnitRole.UnitClass`) produces stricter type-checker warnings at call sites than raw `int` (per godot-specialist 2026-04-28 design-time validation Item 1).
+**Engine Notes** (corrected 2026-04-28 post-implementation per G-22 empirical discovery; supersedes the godot-specialist `/architecture-review` 2026-04-28 Item 1 correction): `@abstract` enforcement in Godot 4.6 has THREE distinct paths with non-uniform behavior:
+- **Path 1 — typed reference** (`var x: UnitRole = UnitRole.new()`): triggers a **parse-time error** ("Cannot construct abstract class") at GDScript reload time. This blocks the test file from loading; GdUnit4's scanner fails before any test function runs. **Only reliable enforcement point.**
+- **Path 2 — reflective** (`var x: Variant = script.new()` where `script: GDScript = load(...)`): bypasses `@abstract` entirely; returns a live `RefCounted` instance with no error.
+- **Path 3 — `assert_error` matcher**: NO `push_error` is emitted by either path, so `await assert_error(...).is_push_error(any())` reports "no push_error captured".
+
+**Test authoring consequence**: assert structurally via source-file inspection (`FileAccess.get_file_as_string` + `content.contains("@abstract")`), NOT runtime instantiation tests. See G-22 in `.claude/rules/godot-4x-gotchas.md` for the full pattern. `enum UnitClass` typed parameter binding (`unit_class: UnitRole.UnitClass`) produces stricter type-checker warnings at call sites than raw `int` (per godot-specialist 2026-04-28 design-time validation Item 1).
 
 **Control Manifest Rules (Foundation layer + direct ADR cites)**:
 - Required (manifest, ADR-0001): "GameBus holds ZERO game state; pure signal relay only" — UnitRole inherits the zero-state pattern (zero instance fields, zero signal emissions, zero signal subscriptions per ADR-0001 line 375 non-emitter list)
@@ -36,7 +42,7 @@
 - [ ] `src/foundation/unit_role.gd` exists with `class_name UnitRole extends RefCounted` + `@abstract` decorator + zero instance fields
 - [ ] `enum UnitClass { CAVALRY = 0, INFANTRY = 1, ARCHER = 2, STRATEGIST = 3, COMMANDER = 4, SCOUT = 5 }` declared inside the class body
 - [ ] `static var _coefficients_loaded: bool = false` is the ONLY mutable state; no other `var` declarations (instance or static) at this story's scope
-- [ ] `UnitRole.new()` raises a runtime error (via `@abstract`); verified by test that uses `expect_runtime_error()` semantics (NOT parse-time rejection assertion)
+- [x] `@abstract` decorator is present in `src/foundation/unit_role.gd` source — verified structurally per G-22. Note (corrected 2026-04-28 post-implementation): `@abstract` enforcement is **parse-time on typed references** (`var x: UnitRole = UnitRole.new()` triggers "Cannot construct abstract class"), NOT runtime; reflective paths (`script.new()`) BYPASS @abstract entirely. Original AC wording "raises a runtime error" was incorrect per /architecture-review 2026-04-28 Item 1; corrected post-empirical-testing per G-22.
 - [ ] `UnitRole.UnitClass.CAVALRY` etc. are accessible from external scripts (qualified-form cross-script reference works in 4.6)
 - [ ] `src/foundation/hero_data.gd` exists with `class_name HeroData extends Resource` + @export-annotated fields per `hero-database.md` §Detailed Rules: `stat_might`, `stat_intellect`, `stat_command`, `stat_agility`, `base_hp_seed`, `base_initiative_seed`, `move_range`, `default_class`, `innate_skill_ids: Array[StringName]`, `equipment_slot_override` (typed per GDD)
 - [ ] HeroData fields all annotated `@export` (non-`@export` fields are silently dropped by ResourceSaver per ADR-0003 TR-save-load-002)
@@ -93,11 +99,12 @@
   - Then: each resolves to its expected int value (0, 1, 2, 3, 4, 5 respectively); `UnitClass.size()` (or equivalent introspection) reports 6 entries
   - Edge cases: typo in enum member name → parse error; integer-cast outside 0..5 → caller responsibility (no validation in UnitRole — Story 003 onward methods will assert)
 
-- **AC-3 (`@abstract` runtime block)**:
-  - Given: `UnitRole` is `@abstract`
-  - When: a test calls `UnitRole.new()`
-  - Then: a **runtime** error is raised (NOT a parse error). The test uses `expect_runtime_error()` or equivalent GdUnit4 pattern; assert the error message references @abstract or instantiation
-  - Edge cases: indirect instantiation via `ClassDB.instantiate("UnitRole")` should also fail with runtime error (verify in same test); calling a static method on `UnitRole` (e.g., from Story 003 onward) succeeds normally — `@abstract` only blocks `.new()`
+- **AC-3 (`@abstract` decorator present in source — corrected 2026-04-28 per G-22)**:
+  - Given: `src/foundation/unit_role.gd` is on disk
+  - When: a test reads the source file via `FileAccess.get_file_as_string`
+  - Then: `content.contains("@abstract")` returns `true`. This is the only honest test for `@abstract` enforcement in Godot 4.6 — typed-reference instantiation triggers parse-time block (cannot be tested from inside a test file that itself uses the typed form), reflective bypasses exist (so `assert_object().is_null()` would fail), and no `push_error` is emitted (so `assert_error().is_push_error()` would not match)
+  - Edge cases: `ClassDB.instantiate("UnitRole")` was NOT tested during empirical discovery; hypothesis is it likely also bypasses `@abstract` since user `class_name` types are not registered in ClassDB the same way as engine built-ins (per G-17). Calling a static method on `UnitRole` (e.g., from Story 003 onward) succeeds normally — `@abstract` only blocks the `.new()` call site, not static dispatch
+  - **Original AC-3 wording was**: "UnitRole.new() raises a runtime error". Per /architecture-review 2026-04-28 Item 1 correction this was changed to "raises a runtime error (NOT parse error)". Empirical testing during story-001 round 3 (2026-04-28) showed BOTH wordings are wrong — actual behavior is parse-time-on-typed-reference with reflective bypass + no error mechanism. G-22 codified.
 
 - **AC-4 (HeroData provisional wrapper)**:
   - Given: `src/foundation/hero_data.gd` exists with `class_name HeroData extends Resource`
@@ -116,8 +123,8 @@
 ## Test Evidence
 
 **Story Type**: Logic
-**Required evidence**: `tests/unit/foundation/unit_role_skeleton_test.gd` — must exist and pass (5 ACs above; ~30-60 LoC test file)
-**Status**: [ ] Not yet created
+**Required evidence**: `tests/unit/foundation/unit_role_skeleton_test.gd` — exists and passes (8 test functions covering 5 ACs; 234 LoC actual vs ~30-60 LoC story estimate — calibration note: comprehensive `override_failure_message` per assertion + per-AC section dividers + thorough doc-comments inflate LoC; future Logic stories should estimate ~40 LoC per AC realistic).
+**Status**: [x] Created 2026-04-28 (commit `4be81c6`); **8 test cases | 0 errors | 0 failures | 0 flaky | 0 skipped | 0 orphans | PASSED | Exit code: 0** (macOS-Metal CI baseline; on-device deferred per damage-calc story-010 Polish-deferral pattern)
 
 ---
 

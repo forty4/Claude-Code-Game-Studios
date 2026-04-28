@@ -7,13 +7,14 @@ Accepted
 2026-04-28
 
 ## Last Verified
-2026-04-28
+2026-04-28 (re-verified post-implementation 2026-04-28: §1 line 130 second-correction applied per G-22 empirical discovery during unit-role/story-001 round 3 — `@abstract` is parse-time-on-typed-reference, not runtime; supersedes the /architecture-review 2026-04-28 Item 1 design-time correction)
 
 ## Decision Makers
 - User (final approval, granted 2026-04-28 via `/architecture-review` delta-mode)
 - Technical Director (architecture owner)
 - godot-specialist (engine validation, 2026-04-28 design-time — APPROVED, 4 notes incorporated)
 - godot-specialist (engine validation, 2026-04-28 review-time `/architecture-review` independent second opinion — APPROVED WITH SUGGESTIONS; 8/8 PASS-or-CONCERN; 2 corrections applied pre-acceptance: §1 `parse-time error` → `runtime error` for `UnitRole.new()` under `@abstract`, ADR-0012 line 42 dependency `CLASS_DIRECTION_MULT[4][3]` → `[6][3]` same-patch amendment)
+- godot-gdscript-specialist (implementation-time empirical validation, 2026-04-28 unit-role/story-001 round 3 — DISCOVERED `@abstract` enforcement reality differs from BOTH the original ADR text AND the /architecture-review 2026-04-28 Item 1 correction; correctly characterized as parse-time-on-typed-reference with reflective bypass + no `push_error` emission; second correction applied to §1 line 130; G-22 codified in `.claude/rules/godot-4x-gotchas.md`)
 
 ## Engine Compatibility
 
@@ -128,7 +129,7 @@ Accepted
 
 `UnitRole` is a stateless static utility class with `class_name UnitRole extends RefCounted`. It is **NOT** registered as an autoload — the `class_name` global identifier provides direct access (`UnitRole.get_atk(...)`, `UnitRole.get_class_cost_table(...)`, etc.). The class body contains only `static func` declarations + `static const` data + a private `static var _coefficients_loaded: bool` lazy-init flag. No `_init` constructor, no `_ready`, no `_process`, no instance fields.
 
-**Optional `@abstract` decoration** (Godot 4.5+ G-13 hardening): the class body is decorated `@abstract` so that `UnitRole.new()` is a **runtime error** (the constructor is blocked at call time, not parse time — distinction matters for test authoring: assert runtime rejection, NOT parse rejection per godot-specialist `/architecture-review` 2026-04-28 Item 1). Mirrors the `damage_calc_state_mutation` forbidden_pattern enforcement on DamageCalc.
+**Optional `@abstract` decoration** (Godot 4.5+ G-13 hardening): the class body is decorated `@abstract` so that `UnitRole.new()` is a **parse-time error on typed references** (`var x: UnitRole = UnitRole.new()` triggers "Cannot construct abstract class" at GDScript reload time; this is the only reliable enforcement point). Reflective paths (`var x: Variant = script.new()` where `script: GDScript = load(...)`) BYPASS `@abstract` entirely and return a live `RefCounted` instance. No `push_error` is emitted by either path. Distinction matters for test authoring: assert structurally via source-file inspection (`FileAccess.get_file_as_string` + `content.contains("@abstract")`), NOT runtime instantiation tests. See G-22 in `.claude/rules/godot-4x-gotchas.md`. Mirrors the `damage_calc_state_mutation` forbidden_pattern enforcement on DamageCalc. **Wording history**: original ADR text said "parse-time error"; /architecture-review 2026-04-28 Item 1 corrected to "runtime error" based on engine-reference doc reading; empirical testing during unit-role/story-001 round 3 (2026-04-28) re-corrected to "parse-time-on-typed-reference with reflective bypass" — the precise reality. Both prior wordings were close-but-wrong; this is the third and authoritative formulation.
 
 **Source location**: `src/foundation/unit_role.gd`.
 
