@@ -5,7 +5,7 @@
 > **Architecture Module**: Unit Role (`src/foundation/unit_role.gd` per ADR-0009 §1)
 > **Status**: Ready
 > **Manifest Version**: 2026-04-20
-> **Stories**: Not yet created — run `/create-stories unit-role`
+> **Stories**: 10 created (2026-04-28); see Stories table below — all Ready
 
 ## Overview
 
@@ -100,35 +100,40 @@ This epic is complete when:
 
 ## Stories
 
-Not yet created — run `/create-stories unit-role`.
+| # | Story | Type | Status | ADR | TR Coverage |
+|---|-------|------|--------|-----|-------------|
+| [001](story-001-module-skeleton.md) | UnitRole module skeleton + UnitClass enum + provisional HeroData wrapper | Logic | Ready | ADR-0009 §1+§2+§Migration Plan §3 | TR-unit-role-001/002 |
+| [002](story-002-json-config-loader.md) | unit_roles.json schema + lazy-init JSON loader + safe-default fallback | Logic | Ready | ADR-0009 §4 | TR-unit-role-004 |
+| [003](story-003-stat-derivation-formulas.md) | F-1..F-5 stat derivation static methods + clamp discipline + G-15 test isolation | Logic | Ready | ADR-0009 §3 + ADR-0006 | TR-unit-role-005, 011 (AC-1..AC-5 + EC-1, EC-2, EC-13, EC-14) |
+| [004](story-004-cost-table-r1-mitigation.md) | get_class_cost_table + R-1 caller-mutation isolation regression test | Logic | Ready | ADR-0009 §5 + R-1 | TR-unit-role-006, 008 (AC-12..AC-15) |
+| [005](story-005-direction-mult-accessor.md) | get_class_direction_mult + 6×3 table read from unit_roles.json | Logic | Ready | ADR-0009 §6 | TR-unit-role-007 (AC-16, AC-17) |
+| [006](story-006-passive-tags-const.md) | PASSIVE_TAG_BY_CLASS const Dictionary + Array[StringName] consumer pattern | Logic | Ready | ADR-0009 §7 + ADR-0012 damage_calc_dictionary_payload | TR-unit-role-009 (AC-6..AC-11 tag layer only) |
+| [007](story-007-move-budget-balance-append.md) | MOVE_BUDGET_PER_RANGE balance_entities.json append + cross-doc obligation closure | Config/Data | Ready | ADR-0009 §Migration Plan §4 + ADR-0006 | TR-unit-role-005 cross-doc (AC-20) |
+| [008](story-008-cost-multiplier-placeholder-retirement.md) | ADR-0008 cost_multiplier placeholder retirement (replace uniform=1 with UnitRole accessor) | Integration | Ready | ADR-0008 §Migration Plan + ADR-0009 §5 | TR-unit-role-006 (ratifies ADR-0008 §Context item 5) |
+| [009](story-009-damage-calc-integration.md) | Damage Calc integration test (consumes get_class_direction_mult per F-DC-3) | Integration | Ready | ADR-0012 §F-DC-3 + ADR-0009 §6 | TR-unit-role-007 (ratifies ADR-0012 CLASS_DIRECTION_MULT[6][3]; AC-22) |
+| [010](story-010-non-emitter-lint-perf-baseline.md) | Non-emitter static-lint + headless CI perf baseline (Polish-deferred on-device) | Logic | Ready | ADR-0009 §Validation Criteria §3-§5 + §Performance + ADR-0001 line 375 | TR-unit-role-010, 012 |
 
-Projected story decomposition (~8-10 stories per ADR-0009 §Migration Plan §1-§6 runbook):
-
-| # | Title (projected) | Type | TR / AC |
-|---|-------------------|------|---------|
-| 001 | UnitRole module skeleton + UnitClass enum + provisional HeroData wrapper | Logic | TR-unit-role-001/002 |
-| 002 | unit_roles.json schema + lazy-init JSON loader + safe-default fallback | Logic | TR-unit-role-004 |
-| 003 | F-1..F-5 stat derivation static methods + clamp discipline | Logic | TR-unit-role-011 (AC-1..AC-5) |
-| 004 | get_class_cost_table + R-1 caller-mutation isolation test | Logic | TR-unit-role-006/008 (AC-12..AC-15) |
-| 005 | get_class_direction_mult (CLASS_DIRECTION_MULT[6][3] read from unit_roles.json) | Logic | TR-unit-role-007 (AC-16/AC-17) |
-| 006 | PASSIVE_TAG_BY_CLASS const + Array[StringName] consumer pattern | Logic | TR-unit-role-009 (AC-6..AC-11 tag layer) |
-| 007 | MOVE_BUDGET_PER_RANGE balance_entities.json append + G-15 test isolation discipline | Config/Data | TR-unit-role-005 cross-doc obligation |
-| 008 | ADR-0008 cost_multiplier placeholder retirement + thin pass-through OR direct UnitRole accessor | Integration | TR-unit-role-006 ratification of ADR-0008 |
-| 009 | Damage Calc integration test (consumes get_class_direction_mult per F-DC-3) | Integration | TR-unit-role-007 ratification of ADR-0012 |
-| 010 | Headless CI perf baseline + Polish-deferred on-device measurement | Logic | TR-unit-role-012 |
-
-Story-001 prerequisite chain: 001 → 002 → {003, 004, 005, 006 parallel} → 007 → 008 → 009 → 010. Authoring deferred to `/create-stories unit-role`.
-
-## Implementation Order
-
+**Type breakdown**: 7 Logic / 2 Integration / 1 Config/Data
+**Implementation order** (parallelism shown):
 1. **Story 001** — module skeleton + UnitClass enum + provisional HeroData (foundation for all downstream stories)
-2. **Story 002** — JSON config loader + lazy-init flag + safe-default fallback (depends on Story 001 for class_name + enum)
-3. **Stories 003 / 004 / 005 / 006 in parallel** — F-1..F-5 + cost_table + direction_mult + passive tags (each depends on Story 002 for the data layer; mutually independent at the per-method level)
-4. **Story 007** — `MOVE_BUDGET_PER_RANGE` constant append (depends on Story 002 for the BalanceConstants read pattern; can run parallel with Stories 003-006)
-5. **Story 008** — ADR-0008 placeholder retirement (depends on Story 004's `get_class_cost_table` + Map/Grid `get_movement_range` consumer test exists per terrain-effect epic Complete)
-6. **Story 009** — Damage Calc integration test (depends on Story 005's `get_class_direction_mult` + damage-calc epic Complete; verifies the F-DC-3 cross-system contract)
-7. **Story 010** — perf baseline (depends on all functional stories; final gate for Definition of Done perf budget)
+2. **Story 002** — JSON config loader + lazy-init + safe-default fallback (depends on Story 001)
+3. **Stories 003 / 004 / 005 / 006 in parallel** — F-1..F-5 + cost_table + direction_mult + passive tags (each depends on Story 002 for the data layer; mutually independent at the per-method level; Story 006 depends only on Story 001 since the const Dictionary doesn't need JSON loader)
+4. **Story 007** — MOVE_BUDGET_PER_RANGE constant append (depends on Story 001 conceptually; can run parallel with Stories 002-006)
+5. **Story 008** — ADR-0008 placeholder retirement (depends on Story 004's `get_class_cost_table`)
+6. **Story 009** — Damage Calc integration test (depends on Story 005's `get_class_direction_mult` + damage-calc epic's `DamageCalc.resolve()` body existing — note potential cross-epic ordering dependency)
+7. **Story 010** — non-emitter lint + perf baseline + Polish-deferral evidence (depends on all functional stories 003/004/005/006)
+
+**Polish-deferred (per damage-calc story-010 pattern, 5+ invocations stable)**:
+- Story 010 on-device perf measurement — reactivation trigger: first Android export build green AND target device available (Snapdragon 7-gen / Adreno 610 / Mali-G57 class)
 
 ## Next Step
 
-Run `/create-stories unit-role` to break this epic into implementable stories. Expected output: 8-10 story files at `production/epics/unit-role/story-NNN-*.md`, each embedding the relevant TR-unit-role-* coverage + ADR-0009 section anchor + acceptance criteria + test evidence path.
+Run `/story-readiness production/epics/unit-role/story-001-module-skeleton.md` to validate the first story, then `/dev-story` to begin implementation.
+
+Work through stories in order — each story's `Depends on:` field tells you what must be DONE before you can start it. The recommended path:
+1. Validate + implement Story 001 (skeleton)
+2. Validate + implement Story 002 (JSON loader)
+3. Parallelize Stories 003-006 across multiple sessions if developer capacity allows
+4. Story 007 can run in parallel with anything after Story 001
+5. Stories 008 + 009 are integration tests — schedule after their respective dependencies
+6. Story 010 is the epic close-out — runs last; produces `/story-done` graduation to Status=Complete
