@@ -5,12 +5,18 @@
 ##
 ## Tuning constants (BASE_CEILING, MIN_DAMAGE, ATK_CAP, DEF_CAP,
 ## DEFEND_STANCE_ATK_PENALTY, DAMAGE_CEILING, COUNTER_ATTACK_MODIFIER,
-## P_MULT_COMBINED_CAP, CHARGE_BONUS, AMBUSH_BONUS, BASE_DIRECTION_MULT,
-## CLASS_DIRECTION_MULT) live in `assets/data/balance/entities.json` and
-## are read at call time via BalanceConstants.get_const(key). Hardcoding
-## these literals in damage_calc.gd is banned per AC-DC-48 + ADR-0012 §6.
+## P_MULT_COMBINED_CAP, CHARGE_BONUS, AMBUSH_BONUS, BASE_DIRECTION_MULT)
+## live in `assets/data/balance/entities.json` and are read at call time
+## via BalanceConstants.get_const(key). Hardcoding these literals in
+## damage_calc.gd is banned per AC-DC-48 + ADR-0012 §6.
 ## Migration path: when ADR-0006 lands, BalanceConstants internals swap to
 ## DataRegistry.get_const() — no call-site changes required here.
+##
+## CLASS_DIRECTION_MULT is consumed via UnitRole.get_class_direction_mult
+## per ADR-0009 §6 (runtime read through unit_roles.json, per-class data
+## locality). The entities.json CLASS_DIRECTION_MULT entry is RETAINED for
+## design-side cross-system tracking (entities.yaml referenced_by) only;
+## it is NOT the runtime source. See _ATTACKER_CLASS_TO_UNIT_ROLE below.
 class_name DamageCalc extends RefCounted
 
 
@@ -24,6 +30,31 @@ class_name DamageCalc extends RefCounted
 const PASSIVE_CHARGE: StringName = &"passive_charge"
 ## StringName sentinel for passive_ambush — same StringName equality defense as PASSIVE_CHARGE.
 const PASSIVE_AMBUSH: StringName = &"passive_ambush"
+
+# ---------------------------------------------------------------------------
+# Direction + class translation tables for UnitRole.get_class_direction_mult
+# ---------------------------------------------------------------------------
+
+## Translates ResolveModifiers.direction_rel (StringName) to the int index
+## expected by UnitRole.get_class_direction_mult per ADR-0004 §5b.
+## FRONT=0, FLANK=1, REAR=2. Caller (resolve) already guards against unknown
+## direction values before reaching _direction_multiplier; no bounds-check needed here.
+const _DIR_INT: Dictionary = {&"FRONT": 0, &"FLANK": 1, &"REAR": 2}
+
+## Bridges AttackerContext.Class (local provisional 4-value enum) to
+## UnitRole.UnitClass (authoritative 6-value enum per ADR-0009 §2).
+## AttackerContext.Class ordering: CAVALRY=0, SCOUT=1, INFANTRY=2, ARCHER=3.
+## UnitRole.UnitClass ordering:    CAVALRY=0, INFANTRY=1, ARCHER=2, STRATEGIST=3, COMMANDER=4, SCOUT=5.
+## These enums are NOT numerically aligned — a bridge is required. Bridge lives here
+## per ADV-1 deferral (Grid Battle ADR owns the full int↔StringName encoding layer).
+## Migration path: when AttackerContext.unit_class is typed to UnitRole.UnitClass
+## directly (post ADR-0009 full propagation), this dict becomes a no-op and is removed.
+const _ATTACKER_CLASS_TO_UNIT_ROLE: Dictionary = {
+	0: 0,  # AttackerContext.Class.CAVALRY  (0) → UnitRole.UnitClass.CAVALRY  (0)
+	1: 5,  # AttackerContext.Class.SCOUT    (1) → UnitRole.UnitClass.SCOUT    (5)
+	2: 1,  # AttackerContext.Class.INFANTRY (2) → UnitRole.UnitClass.INFANTRY (1)
+	3: 2,  # AttackerContext.Class.ARCHER   (3) → UnitRole.UnitClass.ARCHER   (2)
+}
 
 
 # ---------------------------------------------------------------------------
@@ -74,8 +105,10 @@ static func resolve(
 	var base: int = _stage_1_base_damage(attacker, defender, modifiers)
 
 	# --- Stage 2: AC-DC-21 unknown_class invariant guard at F-DC-4 lookup site ---
-	var class_dir_mult: Dictionary = BalanceConstants.get_const("CLASS_DIRECTION_MULT") as Dictionary
-	if not class_dir_mult.has(str(attacker.unit_class)):
+	# Guard checks _ATTACKER_CLASS_TO_UNIT_ROLE (4-entry bridge dict) rather than
+	# BalanceConstants.get_const("CLASS_DIRECTION_MULT") — CLASS_DIRECTION_MULT is no
+	# longer the runtime source per ADR-0009 §6 + story-009 refactor.
+	if not _ATTACKER_CLASS_TO_UNIT_ROLE.has(attacker.unit_class):
 		push_error("DamageCalc.resolve: unknown unit_class=%d" % attacker.unit_class)
 		return ResolveResult.miss([&"invariant_violation:unknown_class"])
 
@@ -194,14 +227,21 @@ static func _consume_formation_def_bonus(eff_def: int, modifiers: ResolveModifie
 ## Computes D_mult = snappedf(BASE_DIRECTION_MULT[dir] × CLASS_DIRECTION_MULT[class][dir], 0.01).
 ## Precision 0.01 is locked-not-tunable per ADR-0012 §Implementation Guidelines #6 + AC-DC-30.
 ## Apex example: Cavalry REAR = snappedf(1.50 × 1.09, 0.01) = snappedf(1.635, 0.01) = 1.64.
-## Caller (resolve) has already verified unit_class is a known string key in CLASS_DIRECTION_MULT.
-## JSON delivers string keys; direction_rel is cast to String for dict lookup (approved design decision).
+## Caller (resolve) has already verified unit_class is in _ATTACKER_CLASS_TO_UNIT_ROLE.
+##
+## Post story-009 refactor (ADR-0009 §6):
+##   - BASE_DIRECTION_MULT still read via BalanceConstants (global tunable, entities.json).
+##   - CLASS_DIRECTION_MULT now read via UnitRole.get_class_direction_mult (per-class data
+##     locality, unit_roles.json). NOT via BalanceConstants.get_const("CLASS_DIRECTION_MULT").
+##   - _DIR_INT translates StringName direction_rel → int for UnitRole accessor.
+##   - _ATTACKER_CLASS_TO_UNIT_ROLE translates AttackerContext.Class int → UnitRole.UnitClass
+##     int per ADV-1 bridge (4-value provisional enum → 6-value authoritative enum).
 static func _direction_multiplier(unit_class: int, direction_rel: StringName) -> float:
-	var dir_str: String = direction_rel as String
+	var dir_int: int = _DIR_INT[direction_rel] as int
 	var base_dir_mult: Dictionary = BalanceConstants.get_const("BASE_DIRECTION_MULT") as Dictionary
-	var class_dir_mult: Dictionary = BalanceConstants.get_const("CLASS_DIRECTION_MULT") as Dictionary
-	var base_mult: float = base_dir_mult[dir_str] as float
-	var class_mult: float = (class_dir_mult[str(unit_class)] as Dictionary)[dir_str] as float
+	var base_mult: float = base_dir_mult[direction_rel as String] as float
+	var role_class: UnitRole.UnitClass = _ATTACKER_CLASS_TO_UNIT_ROLE[unit_class] as UnitRole.UnitClass
+	var class_mult: float = UnitRole.get_class_direction_mult(role_class, dir_int)
 	return snappedf(base_mult * class_mult, 0.01)
 
 

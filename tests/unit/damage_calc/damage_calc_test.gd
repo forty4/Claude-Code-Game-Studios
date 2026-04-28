@@ -910,22 +910,38 @@ func test_stage_2_unknown_class_guard_returns_miss_with_invariant_flag() -> void
 ## charge_active=true. Class mutex ensures only one passive fires per class.
 ## Expected P_mult: CAVALRY=1.20 (Charge), SCOUT=1.15 (Ambush), INFANTRY=1.00, ARCHER=1.15 (Ambush).
 ## Structural invariant: P_mult is NEVER 1.38 (1.20×1.15 = dual-fire = class mutex violation).
-## All cases use Cavalry REAR direction to isolate P_mult observable via raw damage.
+## All cases use REAR direction to isolate P_mult observable via raw damage.
 ## Ambush-eligible classes (SCOUT=1, ARCHER=3) use round=2 and defender-not-acted callable.
+##
+## Story-009 refactor: D_mult values updated to authoritative unit_roles.json values via
+## UnitRole.get_class_direction_mult. Per-class D_mult for REAR:
+##   CAVALRY  REAR: snappedf(1.50×1.09,0.01)=1.64 (unchanged — CAVALRY REAR = 1.09 in both sources)
+##   SCOUT    REAR: snappedf(1.50×1.10,0.01)=1.65 (was 1.50 — balance_entities.json had 1.00 for key "1")
+##   INFANTRY REAR: snappedf(1.50×1.10,0.01)=1.65 (was 1.50 — balance_entities.json had 1.00 for key "2")
+##   ARCHER   REAR: snappedf(1.50×0.90,0.01)=1.35 (was 1.50 — balance_entities.json had 1.00 for key "3")
+## Root cause of prior divergence: balance_entities.json CLASS_DIRECTION_MULT used
+## AttackerContext.Class enum ordering (CAVALRY=0,SCOUT=1,INFANTRY=2,ARCHER=3), while
+## unit_roles.json uses UnitRole.UnitClass ordering (CAVALRY=0,INFANTRY=1,ARCHER=2,...,SCOUT=5).
+## The per-class dual-fire sentinel values (P_mult=1.38 hypothetical) now differ per class since
+## each class has a distinct D_mult; each case carries its own dual_fire_dmg field.
 func test_stage_2_class_mutex_four_classes_p_mult_never_1_38() -> void:
-	# Arrange — parametric test cases per story-005 §AC-6
-	# D_mult for CAVALRY REAR = 1.64; SCOUT REAR = 1.50; INFANTRY REAR = 1.50; ARCHER REAR = 1.50.
+	# Arrange — parametric test cases per story-005 §AC-6 + story-009 D_mult correction
 	# base = floori(80-50*1.00) = 30 (ATK=80, DEF=50, T_def=0, no defend_stance).
 	# Expected raw = floori(base × D_mult × P_mult):
-	#   CAVALRY  (0): floori(30×1.64×1.20) = 59
-	#   SCOUT    (1): floori(30×1.50×1.15) = floori(51.75) = 51
-	#   INFANTRY (2): floori(30×1.50×1.00) = 45
-	#   ARCHER   (3): floori(30×1.50×1.15) = 51
+	#   CAVALRY  (0): D_mult=1.64, P_mult=1.20 → floori(30×1.64×1.20) = floori(59.04) = 59
+	#   SCOUT    (1): D_mult=1.65, P_mult=1.15 → floori(30×1.65×1.15) = floori(56.925) = 56
+	#   INFANTRY (2): D_mult=1.65, P_mult=1.00 → floori(30×1.65×1.00) = floori(49.5) = 49
+	#   ARCHER   (3): D_mult=1.35, P_mult=1.15 → floori(30×1.35×1.15) = floori(46.575) = 46
+	# dual_fire_dmg = hypothetical floori(base × D_mult × 1.38) (P_mult=1.38 = class-mutex violation):
+	#   CAVALRY:  floori(30×1.64×1.38) = floori(67.896) = 67
+	#   SCOUT:    floori(30×1.65×1.38) = floori(68.31) = 68
+	#   INFANTRY: floori(30×1.65×1.38) = floori(68.31) = 68
+	#   ARCHER:   floori(30×1.35×1.38) = floori(55.89) = 55
 	var cases: Array[Dictionary] = [
-		{"unit_class": AttackerContext.Class.CAVALRY,  "label": "CAVALRY",  "expected_dmg": 59},
-		{"unit_class": AttackerContext.Class.SCOUT,    "label": "SCOUT",    "expected_dmg": 51},
-		{"unit_class": AttackerContext.Class.INFANTRY, "label": "INFANTRY", "expected_dmg": 45},
-		{"unit_class": AttackerContext.Class.ARCHER,   "label": "ARCHER",   "expected_dmg": 51},
+		{"unit_class": AttackerContext.Class.CAVALRY,  "label": "CAVALRY",  "expected_dmg": 59, "dual_fire_dmg": 67},
+		{"unit_class": AttackerContext.Class.SCOUT,    "label": "SCOUT",    "expected_dmg": 56, "dual_fire_dmg": 68},
+		{"unit_class": AttackerContext.Class.INFANTRY, "label": "INFANTRY", "expected_dmg": 49, "dual_fire_dmg": 68},
+		{"unit_class": AttackerContext.Class.ARCHER,   "label": "ARCHER",   "expected_dmg": 46, "dual_fire_dmg": 55},
 	]
 
 	# Callable stub: defender has not acted (enables Ambush for eligible classes)
@@ -953,13 +969,12 @@ func test_stage_2_class_mutex_four_classes_p_mult_never_1_38() -> void:
 				% [c["label"] as String, c["expected_dmg"] as int, result.resolved_damage])
 		).is_equal(c["expected_dmg"] as int)
 
-		# Structural invariant: 1.38 dual-fire is class-mutex-impossible
-		# 1.38 dual-fire for CAVALRY REAR = floori(30×1.64×1.38) = floori(67.9) = 67
-		# 1.38 dual-fire for SCOUT/INFANTRY/ARCHER REAR = floori(30×1.50×1.38) = floori(62.1) = 62
-		# Neither 67 nor 62 should ever appear as a resolved_damage in this test.
-		assert_bool(result.resolved_damage == 67 or result.resolved_damage == 62).override_failure_message(
-				("AC-6 [%s]: resolved_damage=%d looks like a P_mult=1.38 dual-fire (class mutex violated)"
-				% [c["label"] as String, result.resolved_damage])
+		# Structural invariant: 1.38 dual-fire is class-mutex-impossible.
+		# Each class has its own dual_fire_dmg since D_mult now differs per class (story-009 refactor).
+		assert_bool(result.resolved_damage == (c["dual_fire_dmg"] as int)).override_failure_message(
+				("AC-6 [%s]: resolved_damage=%d matches dual_fire_dmg=%d — "
+				+ "P_mult=1.38 dual-fire detected (class mutex violated)")
+				% [c["label"] as String, result.resolved_damage, c["dual_fire_dmg"] as int]
 		).is_false()
 
 
@@ -1668,8 +1683,10 @@ func test_source_flags_always_new_array_no_accumulation() -> void:
 ## before_test() and after_test() restore pristine state around every test (G-15).
 func test_ac4_live_registry_read_mock_charge_bonus_returns_63() -> void:
 	# Arrange — inject mock cache with CHARGE_BONUS=1.30; all other keys at entities.json values.
-	# The full 12-key mock dict is required: every get_const() call in the resolve() path must
-	# find its key, or push_error fires and returns null (which breaks arithmetic mid-resolve).
+	# Story-009 refactor: CLASS_DIRECTION_MULT is NO LONGER in the resolve() BalanceConstants read
+	# path — _direction_multiplier now reads via UnitRole.get_class_direction_mult (unit_roles.json).
+	# The mock needs 11 keys (was 12): BASE_DIRECTION_MULT stays (it is still a BalanceConstants
+	# read); CLASS_DIRECTION_MULT is removed (no longer consumed by DamageCalc at runtime).
 	var mock_cache: Dictionary = {
 		"BASE_CEILING": 83,
 		"MIN_DAMAGE": 1,
@@ -1682,12 +1699,6 @@ func test_ac4_live_registry_read_mock_charge_bonus_returns_63() -> void:
 		"DAMAGE_CEILING": 180,
 		"COUNTER_ATTACK_MODIFIER": 0.5,
 		"BASE_DIRECTION_MULT": {"FRONT": 1.00, "FLANK": 1.20, "REAR": 1.50},
-		"CLASS_DIRECTION_MULT": {
-			"0": {"FRONT": 1.00, "FLANK": 1.05, "REAR": 1.09},
-			"1": {"FRONT": 1.00, "FLANK": 1.00, "REAR": 1.00},
-			"2": {"FRONT": 0.90, "FLANK": 1.00, "REAR": 1.00},
-			"3": {"FRONT": 1.00, "FLANK": 1.375, "REAR": 1.00},
-		},
 	}
 	_balance_constants_script.set("_cache", mock_cache)
 	_balance_constants_script.set("_cache_loaded", true)
