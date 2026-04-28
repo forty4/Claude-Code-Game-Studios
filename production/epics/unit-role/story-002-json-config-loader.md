@@ -1,11 +1,12 @@
 # Story 002: unit_roles.json schema + lazy-init JSON loader + safe-default fallback
 
 > **Epic**: unit-role
-> **Status**: Ready
+> **Status**: Complete (2026-04-28) ✅ — 15/15 new tests passing + 8/8 story-001 regression = 23/23 foundation suite green (`tests/unit/foundation/`)
 > **Layer**: Foundation
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
-> **Estimate**: 2-3 hours (S)
+> **Estimate**: 2-3 hours (S) — actual ~30min orchestrator + 1 specialist iteration round (clean run; only architectural decisions surfaced for approval, no test failures requiring re-iteration)
+> **Implementation commit**: `a018da3` (2026-04-28)
 
 ## Context
 
@@ -151,8 +152,22 @@
 ## Test Evidence
 
 **Story Type**: Logic
-**Required evidence**: `tests/unit/foundation/unit_role_config_loader_test.gd` — must exist and pass (5 ACs above; ~80-120 LoC test file with fixture file management for AC-2/AC-3/AC-4)
-**Status**: [ ] Not yet created
+**Required evidence**: `tests/unit/foundation/unit_role_config_loader_test.gd` — exists and passes (15 test functions across 5 ACs; 366 LoC actual vs ~80-120 LoC story estimate — calibration confirms ~40 LoC per AC realistic for Logic stories with comprehensive override_failure_message + per-AC dividers + thorough doc-comments. Same calibration noted for story-001 234 LoC test file).
+**Status**: [x] Created 2026-04-28 (commit `a018da3`); **15 new test cases | 0 errors | 0 failures | 0 flaky | 0 skipped | 0 orphans | PASSED + 8/8 story-001 regression = 23/23 foundation suite green** (153ms total runtime, macOS-Metal CI baseline)
+
+### Architectural improvements applied during implementation (3 specialist decisions approved by orchestrator)
+
+1. **DI pattern** — `_load_coefficients(path: String = "assets/data/config/unit_roles.json") -> void`. Optional path parameter enables clean test isolation for AC-2/AC-3/AC-4 failure-path tests via `user://` fixtures (per coding-standards.md "dependency injection over singletons"). Story Implementation Notes §2 showed const-path body; refactored to optional-param.
+
+2. **`_build_fallback_dict()` shared helper** — DRY between total-fallback path (`_populate_fallback_defaults`) and per-class schema-validation path. Avoids duplicating 60+ LoC of hardcoded GDD-CR-1+CR-4+CR-6a Dictionary literals + eliminates cross-path drift risk. Story Implementation Notes §3 described behavior, not structure; refactor preserves identical runtime behavior.
+
+3. **GDD-authoritative values** — pre-implementation cross-check caught ~20+ field-value errors in the orchestrator briefing (most significant: infantry was wrongly specified as dual-stat with stat_command secondary in briefing; GDD says single-stat with `stat_might`/`w_primary=1.0`; strategist `class_phys_def_mult=0.5` not 0.7; scout was wrongly specified as single-stat in briefing; GDD says dual-stat `stat_agility`+`stat_might`/`w=0.6+0.4`). Would have caused silent test failures in story-003 (formula tests) downstream.
+
+### Code quality notes
+- `var loaded: Dictionary = parser.data as Dictionary` — explicit cast applied (Godot 4.6 typed-assignment from `Variant` requires it; verification request honored)
+- Schema validation uses `Array[String]` typed arrays per G-16
+- G-15 honored: tests reset `_coefficients_loaded` + `_coefficients` in `before_test`
+- 15 test functions vs story's "5 ACs" — more granular per-AC breakdown for diagnostic precision
 
 ---
 
