@@ -3,9 +3,9 @@
 > **Layer**: Foundation (per ADR-0009 §Engine Compatibility — "Foundation — stateless gameplay rules calculator")
 > **GDD**: design/gdd/unit-role.md (Designed, rev 2026-04-16)
 > **Architecture Module**: Unit Role (`src/foundation/unit_role.gd` per ADR-0009 §1)
-> **Status**: Ready
+> **Status**: **Complete (2026-04-28) 🎉** — 10/10 stories done; 501/501 full-suite green; 4 G-entries codified (G-22 + G-23 + G-24 + paraphrased anti-self-trigger pattern); 3 cross-epic drifts caught + resolved
 > **Manifest Version**: 2026-04-20
-> **Stories**: 10 created (2026-04-28); see Stories table below — all Ready
+> **Stories**: 10/10 Complete 🎉 — see Stories table below; ~8 hours total orchestrator+specialist time across 21 commits
 
 ## Overview
 
@@ -111,7 +111,7 @@ This epic is complete when:
 | [007](story-007-move-budget-balance-append.md) | Unit-role global caps balance_entities.json append (8 keys) + cross-doc obligation closure | Config/Data | **Complete** (2026-04-28) ✅ | ADR-0009 §4 + §Migration Plan §4 + ADR-0006 | TR-unit-role-005 cross-doc (AC-20) |
 | [008](story-008-cost-multiplier-placeholder-retirement.md) | ADR-0008 cost_multiplier placeholder retirement (replace uniform=1 with UnitRole accessor) | Integration | **Complete** (2026-04-28) ✅ | ADR-0008 §Migration Plan + ADR-0009 §5 | TR-unit-role-006 (ratifies ADR-0008 §Context item 5) |
 | [009](story-009-damage-calc-integration.md) | Damage Calc integration test (consumes get_class_direction_mult per F-DC-3) [SCOPE EXPANDED: + DamageCalc refactor] | Integration | **Complete** (2026-04-28) ✅ | ADR-0012 §F-DC-3 + ADR-0009 §6 | TR-unit-role-007 (ratifies ADR-0012 CLASS_DIRECTION_MULT[6][3]; AC-22) |
-| [010](story-010-non-emitter-lint-perf-baseline.md) | Non-emitter static-lint + headless CI perf baseline (Polish-deferred on-device) | Logic | Ready | ADR-0009 §Validation Criteria §3-§5 + §Performance + ADR-0001 line 375 | TR-unit-role-010, 012 |
+| [010](story-010-non-emitter-lint-perf-baseline.md) | Non-emitter static-lint + headless CI perf baseline (Polish-deferred on-device) | Logic | **Complete** (2026-04-28) ✅ | ADR-0009 §Validation Criteria §3-§5 + §Performance + ADR-0001 line 375 | TR-unit-role-010, 012 |
 
 **Type breakdown**: 7 Logic / 2 Integration / 1 Config/Data
 **Implementation order** (parallelism shown):

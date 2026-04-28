@@ -3,7 +3,7 @@
 > **Last Updated**: 2026-04-28
 > **Engine**: Godot 4.6
 > **Manifest Version**: 2026-04-20 (docs/architecture/control-manifest.md)
-> **Layer coverage**: Platform (3/3 epics Complete 🎉) + Foundation (1/5 epics Complete + **1/5 Ready — unit-role**; 3 blocked on ADR-0005/0006/0007) + Core (1/4 epics Complete — 2 blocked on ADR-0010/0011 + 1 deferred to VS; unit-role reclassified to Foundation per ADR-0009 §Engine Compatibility 2026-04-28) + **Feature (1/13 epics Ready — damage-calc Sprint 1 S1-05)**
+> **Layer coverage**: Platform (3/3 epics Complete 🎉) + Foundation (**2/5 epics Complete** — map-grid + unit-role 🎉; 3 blocked on ADR-0005/0006/0007) + Core (1/4 epics Complete — 2 blocked on ADR-0010/0011 + 1 deferred to VS) + **Feature (1/13 epics Ready — damage-calc Sprint 1 S1-05)**
 
 ## Epics
 
@@ -15,7 +15,7 @@
 | [map-grid](map-grid/EPIC.md) | Foundation | Map/Grid System (#14) | design/gdd/map-grid.md | ADR-0004, ADR-0001, ADR-0002, ADR-0003 | 8/8 Complete | **Complete** (2026-04-25) 🎉 |
 | [terrain-effect](terrain-effect/EPIC.md) | Core | Terrain Effect System (#2) | design/gdd/terrain-effect.md | ADR-0008, ADR-0004 (+§5b), ADR-0001 | 8/8 Complete | **Complete** (2026-04-26) 🎉 |
 | [damage-calc](damage-calc/EPIC.md) | Feature | Damage Calc System (#11) | design/gdd/damage-calc.md (rev 2.9.3) | ADR-0012, ADR-0001, ADR-0008 | Not yet created — run `/create-stories damage-calc` | **Ready** (2026-04-26) — first Feature-layer epic |
-| [unit-role](unit-role/EPIC.md) | Foundation | Unit Role System (#5) | design/gdd/unit-role.md | ADR-0009, ADR-0001, ADR-0006, ADR-0008 | 9/10 Complete + 1 Ready (stories 001+002+007+003+004+005+006+008+009 done 2026-04-28; story-010 epic close-out remains) | **In Progress** (2026-04-28) — 2 cross-epic Integration stories shipped (TerrainEffect + DamageCalc); 492/492 full-suite green |
+| [unit-role](unit-role/EPIC.md) | Foundation | Unit Role System (#5) | design/gdd/unit-role.md | ADR-0009, ADR-0001, ADR-0006, ADR-0008 | **10/10 Complete** 🎉 (all stories done 2026-04-28) | **Complete** (2026-04-28) 🎉 — Foundation epic shipped: 6 derived-stat methods + cost matrix + direction multiplier + passive tags const + 8-cap balance append + 2 cross-epic integrations + lint + perf baseline; **501/501 full-suite green** |
 
 ## Pending (blocked on ADR)
 
