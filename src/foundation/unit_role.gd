@@ -24,6 +24,23 @@ enum UnitClass {
 }
 
 
+## Canonical passive-tag mapping (consumed by AI / Damage Calc / Battle HUD).
+## Locked per ADR-0009 §7. 6 StringName values; keys are UnitClass enum int.
+## Adding a 7th passive tag requires ADR-0009 amendment + propagate-design-change pass.
+## Array[StringName] is the mandatory typed-array form for consumers per ADR-0012
+## damage_calc_dictionary_payload precedent (Array[String] is silent-wrong-answer per G-20).
+## Dictionary type annotation is unparameterized — Godot 4.x does NOT support
+## const Dictionary[K, V] syntax; adding Dictionary[int, StringName] is a parse error.
+const PASSIVE_TAG_BY_CLASS: Dictionary = {
+	UnitClass.CAVALRY:    &"passive_charge",
+	UnitClass.INFANTRY:   &"passive_shield_wall",
+	UnitClass.ARCHER:     &"passive_high_ground_shot",
+	UnitClass.STRATEGIST: &"passive_tactical_read",
+	UnitClass.COMMANDER:  &"passive_rally",
+	UnitClass.SCOUT:      &"passive_ambush",
+}
+
+
 ## Lazy-init guard flag for the coefficient data cache.
 ## Set to true after first successful load OR after fallback population.
 ## Persists for the GDScript engine session (MVP limitation: editor restart
