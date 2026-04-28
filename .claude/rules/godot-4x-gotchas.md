@@ -808,6 +808,44 @@ func test_regression_sentinel_value_is_not_stale() -> void:
 
 ---
 
+## G-24 — GDScript `as` operator has LOWER precedence than `==` — wrap RHS cast in parens
+
+**Context**: writing a comparison expression where one side needs a type cast — typically `assert_bool(x == dict["key"] as int)` or similar `expr1 == expr2 as Type`. The natural reading suggests `as` binds tighter than `==` (treating `expr2 as Type` as a single operand). **It does not** — `as` has LOWER precedence than `==` in GDScript 4.x, so `a == b as int` parses as `(a == b) as int`.
+
+**Broken**: writing `assert_bool(result.resolved_damage == c["dual_fire_dmg"] as int).is_false()`. The `as int` cast applies to the entire `(result.resolved_damage == c["dual_fire_dmg"])` boolean expression — the `==` evaluates to `bool`, then `as int` coerces `bool → int` (true=1, false=0), then `assert_bool` receives an `int` instead of a `bool`. GdUnit4 reports `GdUnitBoolAssert inital error, unexpected type <int>` at runtime — the test fails before any logical assertion runs.
+
+```gdscript
+# BROKEN — `as int` binds to the WHOLE comparison; assert_bool receives int 0 or 1
+assert_bool(result.resolved_damage == c["dual_fire_dmg"] as int).override_failure_message(
+    "..."
+).is_false()
+# Runtime error: GdUnitBoolAssert inital error, unexpected type <int>
+```
+
+**Correct**: wrap the cast in explicit parens to bind it to the immediate operand:
+
+```gdscript
+# CORRECT — parens force `as int` to bind to the dict access only
+assert_bool(result.resolved_damage == (c["dual_fire_dmg"] as int)).override_failure_message(
+    "..."
+).is_false()
+```
+
+**Symptom checklist** — if you see GdUnit4 reporting `inital error, unexpected type <int>` (or similar type-mismatch on an assertion):
+1. The assertion expression contains an inline `as Type` cast
+2. The cast is on the right-hand side of a `==` / `!=` / `<` / `>` / `<=` / `>=` operator
+3. Parens around the cast were omitted
+
+The same precedence trap applies to `!=`, `<`, `>`, `<=`, `>=`, `is`, `in`, and probably other binary operators — `as` consistently has the LOWEST precedence in the GDScript expression grammar. When in doubt, parenthesize the cast.
+
+**Cross-references**:
+- G-9: `%` operator binds to the IMMEDIATE LEFT operand — same family of "operator precedence trap"; both call for explicit parens
+- G-23: GdUnit4 `is_not_equal_approx()` doesn't exist — different gotcha class (API hallucination vs operator precedence) but same general "test fails at runtime with confusing message" pattern
+
+**Discovered**: unit-role/story-009 (2026-04-28). Specialist agent's AC-6 dual-fire sentinel test wrote `assert_bool(result.resolved_damage == c["dual_fire_dmg"] as int).is_false()`; first test run produced `4 errors + 4 failures` with the GdUnit4 type-mismatch message; orchestrator-side mechanical fix wrapped the cast in parens. 2nd instance this session of operator-precedence trap (after G-9 `%` operator); pattern is stable enough that GDScript expression-grammar gotchas should be batched into a future "GDScript expression precedence" gotcha cluster.
+
+---
+
 ## Verification Pattern Summary
 
 When testing changes that touch any of the above areas, always:

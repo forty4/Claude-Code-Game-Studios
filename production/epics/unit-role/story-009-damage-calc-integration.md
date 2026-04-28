@@ -1,11 +1,51 @@
-# Story 009: Damage Calc integration test (consumes get_class_direction_mult per F-DC-3)
+# Story 009: Damage Calc integration test (consumes get_class_direction_mult per F-DC-3) [SCOPE EXPANDED]
 
 > **Epic**: unit-role
-> **Status**: Ready
+> **Status**: Complete (2026-04-28) ✅ — 4 new integration tests + DamageCalc refactor; 492/492 full-suite green
 > **Layer**: Foundation
 > **Type**: Integration
 > **Manifest Version**: 2026-04-20
-> **Estimate**: 2-3 hours (S)
+> **Estimate**: 2-3 hours (S) — actual ~50min orchestrator + 1 specialist round (substantive scope expansion: refactor DamageCalc + update damage_calc_test.gd + write integration test; specialist hit context budget mid-test-creation; orchestrator finished the integration test inline + 2 mechanical fixes)
+> **Implementation commit**: `b9634bb` (2026-04-28)
+
+## Post-completion notes
+
+### Story-blocking architectural discoveries (9th + 10th implementation-time discoveries this session)
+**Drift A**: ADR-0009 §6 specifies DamageCalc reads CLASS_DIRECTION_MULT via `UnitRole.get_class_direction_mult` for per-class data locality. But `damage_calc.gd` lines 77 + 202 currently used `BalanceConstants.get_const("CLASS_DIRECTION_MULT")` — read from `balance_entities.json`, NOT `unit_roles.json`.
+
+**Drift B**: `balance_entities.json` `CLASS_DIRECTION_MULT` values DIVERGED from `unit_roles.json` (CAVALRY FLANK 1.05 vs 1.10; SCOUT/INFANTRY/ARCHER REAR all wrong). DamageCalc was computing wrong damage for non-Cavalry classes — silent corruption.
+
+**Drift C (sub-finding)**: AttackerContext.Class is a SEPARATE 4-value enum (CAVALRY=0, SCOUT=1, INFANTRY=2, ARCHER=3) ≠ UnitRole.UnitClass's 6-value enum (CAVALRY=0, INFANTRY=1, ARCHER=2, STRATEGIST=3, COMMANDER=4, SCOUT=5). The class-int orderings differ — explains why balance_entities.json had a 4-key shape. Bridge dict required for translation.
+
+### Resolution (Option 1 — user-approved scope expansion)
+Refactor DamageCalc to consume UnitRole accessor + write integration test in same story. Story-009 grew from "write integration test" to "refactor DamageCalc + write integration test". Authorized scope expansion implicitly fixes the silent corruption + closes 2 cross-epic drifts.
+
+### Files modified/created
+- `src/feature/damage_calc/damage_calc.gd`: refactored lines 77+202 + `_direction_multiplier`; added `_DIR_INT` (StringName→int direction translation) + `_ATTACKER_CLASS_TO_UNIT_ROLE` (4-class enum bridge dict). +64/-25 LoC
+- `tests/unit/damage_calc/damage_calc_test.gd`: assertion updates per refactored consumption path; AC-6 dual-fire sentinel updated per-class (D_mult diverges per class now); AC-4 mock dict updated 12→11 keys (CLASS_DIRECTION_MULT removed from BalanceConstants read path). +63/-38 LoC
+- `tests/integration/foundation/unit_role_damage_calc_integration_test.gd` (NEW, ~210 LoC, 4 test functions): load-bearing sentinel propagation + Cavalry REAR rev 2.8 apex (D_mult=1.64) + class no-op invariant + G-15 reset discipline meta-test
+
+### 2 mechanical fixes (orchestrator-side)
+1. **GDScript operator precedence**: `result.resolved_damage == c["dual_fire_dmg"] as int` parsed as `(a == b) as int` (assert_bool received int 0/1). Fixed with explicit parens. → **G-24 candidate codification** (this close-out commit) — "GDScript `as` operator has LOWER precedence than `==` — wrap RHS cast in parens"
+2. **Field name corrections**: hand-written integration test used wrong AttackerContext/DefenderContext field names (`atk` vs `raw_atk`; `phys_def` vs `raw_def`; `terrain_def_bonus` vs `terrain_def`). Fixed by inspecting actual class declarations. Process insight: writing tests against an unfamiliar class API requires `Read` of the class declaration FIRST, not assumption from naming convention
+
+### AttackerContext.Class architectural limitation surfaced
+DamageCalc currently CANNOT be called with STRATEGIST or COMMANDER attackers (those classes are not in AttackerContext.Class enum). This is a real architectural limitation tied to the 4-class AttackerContext.Class shape. If those classes need to attack via DamageCalc in the future:
+- Option A: extend AttackerContext.Class to 6 values matching UnitRole.UnitClass (likely the cleanest)
+- Option B: replace AttackerContext.Class with UnitRole.UnitClass directly (per ADR-0012 §2 future migration path)
+
+Both options require ADR-0012 amendment + propagate-design-change pass. Document for future Battle Preparation epic / Grid Battle ADR planning. Track as advisory non-blocker for unit-role epic close-out.
+
+### Process insight (10 instances stable this session)
+Pattern: 7 doc/data drift catches (story-001 @abstract; story-002 GDD value transcription; story-003 DEF_CAP; story-007 missing 7 caps; story-008 cross-epic terrain_type ordering; story-009 DamageCalc cross-epic consumption + value divergence; AttackerContext.Class enum collision sub-finding) + 2 GdUnit4/GDScript API surprises (story-005 is_not_equal_approx; story-009 as-operator precedence) + 2 clean-execution baselines (story-004; story-006).
+
+The cross-epic drift catch rate (3 instances: story-007 missing caps; story-008 terrain_type ordering; story-009 DamageCalc consumption path) is the most valuable insight — it surfaces architectural inconsistencies that survived /architecture-review because the review verified ADRs against ADRs, not ADRs against existing source code. **Codification overdue for next /architecture-review iteration.**
+
+### Calibration
+- DamageCalc.gd modification: ~64 LoC
+- damage_calc_test.gd updates: ~63 LoC change
+- Integration test: 210 LoC (smaller than original 360 estimate; orchestrator wrote a focused 4-AC version after specialist context budget exhausted on the broader 18-fixture parametric)
+- Substantively the most invasive story so far this session
 
 ## Context
 

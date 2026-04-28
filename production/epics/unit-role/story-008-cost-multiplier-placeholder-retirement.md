@@ -1,11 +1,41 @@
 # Story 008: ADR-0008 cost_multiplier placeholder retirement (replace uniform=1 with UnitRole accessor)
 
 > **Epic**: unit-role
-> **Status**: Ready
+> **Status**: Complete (2026-04-28) ✅ — 7 new tests + 481 regression = 488/488 full-suite green; first cross-epic Integration story in the project
 > **Layer**: Foundation
 > **Type**: Integration
 > **Manifest Version**: 2026-04-20
-> **Estimate**: 2-3 hours (S)
+> **Estimate**: 2-3 hours (S) — actual ~45min orchestrator + 1 specialist round (story-blocking architectural decision surfaced + resolved + executed in one specialist pass)
+> **Implementation commit**: `0a0c5f0` (2026-04-28)
+
+## Post-completion notes
+
+### Story-blocking architectural discovery (8th implementation-time discovery this session)
+Pre-implementation cross-check surfaced a CROSS-EPIC drift: TerrainEffect's terrain_type ordering (PLAINS=0..ROAD=7, 8 entries) differs from UnitRole's terrain_cost_table indexing (ROAD=0..BRIDGE=5, 6 entries — per ADR-0009 §5). Without translation, Map/Grid calling `cost_multiplier(CAVALRY, MOUNTAIN=3)` would silently return UnitRole's FOREST cost (2.0→int 2), NOT MOUNTAIN cost (3.0→int 3). **Silent data corruption averted.**
+
+Resolution (Option 1 — Translate at TerrainEffect boundary, user-approved): static `_UNIT_ROLE_TERRAIN_IDX` const Dictionary in TerrainEffect maps 6 of 8 TerrainEffect terrain_types → UnitRole indices. RIVER + FORTRESS_WALL intentionally absent (impassable per CR-4a; Map/Grid short-circuits via `is_passable_base` BEFORE this call); defensive `push_error` + return 1 fallback if reached.
+
+This is the FIRST cross-epic drift this session (5 prior were intra-epic GDD/ADR/data drift). Recommend codifying as process rule for /architecture-review: "must cross-reference all enum/const integer values referenced across ADR boundaries against existing source code constants, not just other ADR text."
+
+### Latent gap caught in existing terrain_cost_migration_test.gd
+The existing test had `range(5)` instead of `range(6)` in AC-6 — only looped 5 of the 6 UnitClass values. Fixed in the in-place update. (No tracking burden — silent under-coverage now closed.)
+
+### Files modified/created
+- `src/core/terrain_effect.gd`: 3 targeted edits (translation table const + cost_multiplier body + doc-comment); +69 LoC region
+- `tests/integration/core/terrain_cost_migration_test.gd`: in-place updates (AC-1 36-cell rewrite + AC-3 split for failure-isolation + AC-4 expected-value update + AC-6 range fix + before_test UnitRole reset); +178/-186 LoC
+- `tests/integration/foundation/unit_role_terrain_cost_integration_test.gd` (NEW, ~310 LoC, 6 test functions): cross-system integration coverage including impassable-terrain push_error fallback verification
+
+### Code quality notes
+- TerrainEffect's `cost_multiplier` doc-comment now cites ADR-0009 §5 ratification + the translation table rationale + CR-4a impassability contract
+- Removed `@warning_ignore("unused_parameter")` decoration (args become live)
+- Removed `TODO(ADR-0009)` comment (obligation satisfied)
+- All 36 mapped translation cells verified in parametric test (Array[Dictionary] per G-16)
+- R-1 mitigation (PackedFloat32Array per-call copy) preserved at the integration boundary — agent extended story-004's R-1 test pattern
+
+### Calibration
+- TerrainEffect modification: ~70 LoC (consistent with single-method scope)
+- Integration test: 310 LoC vs orchestrator's 270-360 estimate (within range; ~52 LoC/AC for cross-epic Integration with parametric coverage)
+- terrain_cost_migration_test.gd updates: net-flat (~zero LoC delta; rewrites + comment updates roughly balance)
 
 ## Context
 
