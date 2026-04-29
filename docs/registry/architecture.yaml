@@ -30,7 +30,7 @@
 #   Superseded entries:     Grep pattern="status: superseded"
 
 version: 1
-last_updated: "2026-04-28"
+last_updated: "2026-04-29"
 # 2026-04-18: ADR-0003 Save/Load — added save_persistence_lifecycle interface,
 # save_serialization / save_atomic_write / save_load_cache API decisions,
 # 4 new forbidden patterns, 2 new state_ownership entries.
@@ -58,6 +58,17 @@ last_updated: "2026-04-28"
 # forbidden_patterns (unit_role_returned_array_mutation +
 # unit_role_signal_emission). Ratifies ADR-0008's cost-matrix unit-class
 # dimension placeholder + ADR-0012's locked CLASS_DIRECTION_MULT[6][3] table.
+# 2026-04-29: ADR-0007 Hero Database (Proposed) — added hero_record_table
+# state_ownership (HeroDatabase owns Dictionary[StringName, HeroData] keyed by
+# hero_id, loaded from heroes.json into session-persistent lazy-init cache; 26
+# @export fields ratified for HeroData Resource per ADR-0007 §2),
+# hero_database_queries direct_call interface (1 producer + 11 consumers + 6
+# public static methods), hero_database_module_form api_decision (5th-precedent
+# stateless-static pattern: class_name + RefCounted + @abstract + all-static +
+# lazy-init JSON config + Dictionary[StringName, HeroData] typed cache), and 2
+# forbidden_patterns (hero_database_signal_emission, hero_data_consumer_mutation).
+# Closes ADR-0009's only outstanding upstream soft-dep on provisional HeroData
+# (10 → 26 fields; UnitRole call sites parameter-stable; zero rename, zero reshape).
 
 # ─── STATE OWNERSHIP ─────────────────────────────────────────────────────────
 # Who is the authoritative owner of each piece of shared game state.
@@ -154,6 +165,19 @@ state_ownership:
       - docs/architecture/ADR-0012-damage-calc.md     # CLASS_DIRECTION_MULT[6][3] consumer; ratified by ADR-0009
       - design/gdd/unit-role.md
     added: 2026-04-28
+    revised: ""
+
+  - state: hero_record_table
+    status: active
+    owner_system: hero-database
+    adr: docs/architecture/ADR-0007-hero-database.md
+    interface: "HeroDatabase class_name (RefCounted + @abstract + all-static methods) owns Dictionary[StringName, HeroData] keyed by hero_id, loaded from assets/data/heroes/heroes.json into a session-persistent lazy-init cache. HeroData Resource (26 @export fields per ADR-0007 §2: 7 identity + 4 core stats + 2 derived seeds + 1 movement + 2 role + 4 growth + 2 skill parallel arrays + 3 scenario + 1 relationships) is the typed payload for 8+ consumers (UnitRole, HP/Status, Turn Order, Damage Calc, Formation Bonus, Story Event, Character Growth, Equipment/Item, AI, Battle Preparation, Scenario Progression). All consumers read-only — runtime stat changes belong to consumer-side base+modifier pattern per CR §Interactions '읽기 전용 계약' (see forbidden_patterns.hero_data_consumer_mutation). Zero signals, zero subscriptions (ADR-0001 non-emitter list). default_class field stored as int (cross-doc convention enforces 1:1 alignment with UnitRole.UnitClass enum 0..5)."
+    write_access: hero-database-only  # all-static; @abstract prevents .new() typed-reference instantiation
+    referenced_by:
+      - docs/architecture/ADR-0007-hero-database.md
+      - docs/architecture/ADR-0009-unit-role.md  # consumes HeroData via UnitRole.get_atk(hero, unit_class) etc.
+      - design/gdd/hero-database.md
+    added: 2026-04-29
     revised: ""
 
 # Example:
@@ -322,6 +346,39 @@ interfaces:
       - docs/architecture/ADR-0012-damage-calc.md       # CLASS_DIRECTION_MULT + Array[StringName] passive consumer
       - design/gdd/unit-role.md
     added: 2026-04-28
+    revised: ""
+
+  - contract: hero_database_queries
+    status: active
+    pattern: direct_call
+    producer: hero-database          # HeroDatabase class_name exposes 6 public static methods
+    consumers:
+      - unit-role                    # consumes HeroData via UnitRole.get_atk/get_phys_def/... parameter
+      - damage-calc                  # transitively via UnitRole + direct stat_might/intellect reads
+      - hp-status                    # consumes base_hp_seed via get_hero
+      - turn-order                   # consumes base_initiative_seed via get_hero
+      - formation-bonus              # consumes relationships + stat_command via get_hero
+      - story-event                  # consumes faction + join_chapter + join_condition_tag
+      - character-growth             # consumes growth_might/intellect/command/agility
+      - equipment-item               # consumes default_class + equipment_slot_override
+      - ai                           # consumes get_heroes_by_class + full HeroData stats for threat eval
+      - battle-preparation           # consumes get_mvp_roster for MVP roster scaffolding
+      - scenario-progression         # consumes get_all_hero_ids + get_hero(id).join_chapter
+    adr: docs/architecture/ADR-0007-hero-database.md
+    method_signatures:
+      - "HeroDatabase.get_hero(hero_id: StringName) -> HeroData                  # null + push_error on miss; SHARED reference"
+      - "HeroDatabase.get_heroes_by_faction(faction: int) -> Array[HeroData]     # per-call typed array; HeroData elements shared"
+      - "HeroDatabase.get_heroes_by_class(unit_class: int) -> Array[HeroData]    # int = UnitRole.UnitClass value [0,5]"
+      - "HeroDatabase.get_all_hero_ids() -> Array[StringName]                    # per-call typed array"
+      - "HeroDatabase.get_mvp_roster() -> Array[HeroData]                         # filter is_available_mvp == true"
+      - "HeroDatabase.get_relationships(hero_id: StringName) -> Array[Dictionary] # provisional Dict shape until Formation Bonus ADR"
+    notes: "Direct-call (NOT signal-driven) per ADR-0001 non-emitter list. Returned HeroData references are SHARED — consumers MUST NOT mutate fields (forbidden_pattern hero_data_consumer_mutation). Array[HeroData] return values are per-call typed arrays; HeroData elements within are shared references — same read-only contract applies. MVP linear-scan filters for get_heroes_by_faction/get_heroes_by_class; pre-built per-faction/per-class indices are Alpha-tier optimization (call-shape stable). Relationships return is Array[Dictionary] provisional until Formation Bonus ADR ratifies typed Array[HeroRelationship]. _heroes_loaded reset in before_test() obligation per G-15 + ADR-0006 §6 mirror. Typed-array construction inside query methods uses local `var result: Array[HeroData] = []` + `result.append(hero)` + `return result` (NOT `.duplicate()` per G-2)."
+    referenced_by:
+      - docs/architecture/ADR-0001-gamebus-autoload.md  # non-emitter list
+      - docs/architecture/ADR-0007-hero-database.md
+      - docs/architecture/ADR-0009-unit-role.md          # HeroData parameter-stable consumer
+      - design/gdd/hero-database.md
+    added: 2026-04-29
     revised: ""
 
 # Example:
@@ -509,6 +566,20 @@ api_decisions:
     added: 2026-04-18
     revised: ""
 
+  - purpose: hero_database_module_form
+    status: active
+    api: "class_name HeroDatabase extends RefCounted + @abstract decoration + all-static methods + lazy-init JSON config from assets/data/heroes/heroes.json (instance-form JSON.new().parse() for line/col diagnostics) + Dictionary[StringName, HeroData] typed cache (Godot 4.4+ typed Dictionaries). HeroData Resource (26 @export fields, locally-scoped HeroFaction enum) is the typed payload. default_class stored as int (NOT typed UnitRole.UnitClass @export) — cross-script @export typed-enum is brittle in Godot 4.x Inspector authoring (silent int fallback when typed-enum reference fails to resolve); cross-doc convention enforces 1:1 alignment with UnitRole.UnitClass [0,5]. relationships: Array[Dictionary] provisional until Formation Bonus ADR ratifies typed Array[HeroRelationship]. equipment_slot_override: Array[int] until Equipment ADR canonicalizes WEAPON/ARMOR/MOUNT/ACCESSORY enum mapping. join_condition_tag: String opaque until Scenario Progression ADR canonicalizes tag vocabulary."
+    not: "Battle-scoped Node holding heroes during battle (rejected — cross-scene consumers Battle Preparation + Scenario Progression demand session-persistent cache; stateful violates 4-precedent stateless-static pattern; cross-scene reload cost is ~50ms per JSON parse, acceptable once per session not per battle)"
+    not_also: "Per-hero .tres Resources at assets/data/heroes/[hero_id].tres × 8-10 (rejected — file management overhead vs single file; harder to PR-diff binary-ish .tres text; harder for designers using spreadsheet → JSON pipelines per balance-data.md OQ-5; ADR-0006 § Alternative C / ADR-0008 / ADR-0009 all chose JSON over per-record .tres; switching splits the data pipeline)"
+    not_also_2: "Hand-coded const class with inlined Dictionary literal `const HEROES = {...}` (rejected — violates GDD data-driven requirement; mirrors AC-DC-48/AC-20/CR-10 hardcoded-values blocker bug; designers cannot retune via JSON edit; spreadsheet pipeline integration impossible)"
+    not_also_3: "Full DataRegistry pipeline now (rejected — ADR-0006 § Alternative A already deferred Discovery/Parse/Validate/Build 4-phase pipeline + 9-category framework + hot reload + schema versioning to Alpha; reinstating contradicts ADR-0006 precedent without new evidence; over-building for 1-file-1-category MVP)"
+    adr: docs/architecture/ADR-0007-hero-database.md
+    reason: "5th-precedent stateless-static pattern (ADR-0008 → 0006 → 0012 → 0009 → 0007). Cross-Foundation/Core consistency is the load-bearing benefit; future Foundation/Core data-layer ADRs (Skill, Formation, Equipment, Character Growth) inherit the pattern. Mobile budgets (60fps / 16.6ms) handle <0.05ms per query cost comfortably for 10-hero MVP and forward-compat to 100-hero Alpha (AC-15 100ms load target). Dictionary[StringName, HeroData] typed (Godot 4.4+ typed Dictionaries) — static-typing project preference per technical-preferences.md. Lazy-init follows ADR-0006 BalanceConstants pattern: session-persistent cache, no eager-load at boot, before_test() reset obligation per G-15."
+    referenced_by:
+      - docs/architecture/ADR-0007-hero-database.md
+    added: 2026-04-29
+    revised: ""
+
   - purpose: unit_role_module_form
     status: active
     api: "class_name UnitRole extends RefCounted + @abstract decoration + all-static methods + lazy-init JSON config from assets/data/config/unit_roles.json (instance-form JSON.new().parse() for line/col diagnostics) + BalanceConstants.get_const(key) for global caps + typed UnitRole.UnitClass enum parameter binding (improvement over ADR-0008's raw int terrain_type)"
@@ -659,6 +730,20 @@ forbidden_patterns:
     why: "Signal emission would (a) violate ADR-0001's non-emitter contract, (b) introduce signal-ordering hazards into a stateless calculator with 7 consumers each reading independently, and (c) split responsibility for derived-stat reads between direct-call and signal-handler paths — which path is canonical? The stateless-deterministic invariant collapses if signal-emit shortcuts become possible. Mirrors ADR-0012 forbidden_pattern damage_calc_signal_emission for the same architectural reason. Pattern stable at 2 invocations (Damage Calc + Unit Role)."
     adr: docs/architecture/ADR-0009-unit-role.md
     added: 2026-04-28
+
+  - pattern: hero_database_signal_emission
+    status: active
+    description: "HeroDatabase MUST NOT declare any signal, MUST NOT emit any signal, MUST NOT subscribe to any signal, MUST NOT hold any signal connection. HeroDatabase is on the ADR-0001 non-emitter list. The single legal communication channel is direct call: consumers invoke the 6 public static methods (get_hero, get_heroes_by_faction, get_heroes_by_class, get_all_hero_ids, get_mvp_roster, get_relationships). Static-lint enforces zero `signal ` / `connect(` / `emit_signal(` matches in src/foundation/hero_database.gd + src/foundation/hero_data.gd."
+    why: "Mirrors ADR-0012 damage_calc_signal_emission + ADR-0009 unit_role_signal_emission for the same architectural reason. Signal emission would (a) violate ADR-0001's non-emitter contract, (b) introduce signal-ordering hazards into a stateless query layer with 11+ consumers each reading independently, (c) split responsibility for data-load between direct-call and signal-handler paths — which path is canonical? The stateless-deterministic invariant collapses if signal-emit shortcuts become possible. Pattern stable at 4 invocations across Foundation/Core stateless calculators (BalanceConstants implicit + DamageCalc + UnitRole + HeroDatabase)."
+    adr: docs/architecture/ADR-0007-hero-database.md
+    added: 2026-04-29
+
+  - pattern: hero_data_consumer_mutation
+    status: active
+    description: "Consumers of HeroDatabase.get_hero(...) / get_heroes_by_*(...) / get_mvp_roster() MUST NOT mutate any field of the returned HeroData Resource references. CR §Interactions '읽기 전용 계약' is the contract. Runtime stat changes (level-up, equipment, status effects, buffs/debuffs) belong to consumer-side base+modifier pattern: HP/Status maintains current_hp separately from HeroData.base_hp_seed; Character Growth maintains current_level + current_stats separately from HeroData.stat_might + growth_might multipliers; Equipment maintains slot fills separately from HeroData.default_class. Direct field mutation (`hero.stat_might = 99`) corrupts the shared session-persistent cache for ALL subsequent consumers — silent correctness bug surfacing as cross-system stat drift."
+    why: "GDScript has no const-reference enforcement at runtime. The shared-reference contract is convention-only; this forbidden_pattern entry + ADR-0007 §6 + source-comment in hero_database.gd above each query method are the only structural defenses. Consumer-side base+modifier pattern is the established project discipline. A consumer mutating HeroData drifts every downstream system reading the same record (HP/Status, Damage Calc, Turn Order, AI all read stat_might transitively) — the bug surfaces as 'why does Damage Calc see 99 attack but the hero card shows 50?' The R-1 documented test in tests/unit/foundation/hero_database_consumer_mutation_test.gd asserts mutation IS visible across get_hero calls, proving the convention is the only defense (the test serves as documented fail-state, not a passing protective test)."
+    adr: docs/architecture/ADR-0007-hero-database.md
+    added: 2026-04-29
 
 # Example:
 #

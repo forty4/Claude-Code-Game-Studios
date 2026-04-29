@@ -1,8 +1,8 @@
 # Hero Database (무장 데이터베이스)
 
-> **Status**: Designed
+> **Status**: Accepted via [ADR-0007](../../docs/architecture/ADR-0007-hero-database.md) (Proposed 2026-04-29)
 > **Author**: User + Claude Code agents
-> **Last Updated**: 2026-04-16
+> **Last Updated**: 2026-04-29 (Status flip same-patch with ADR-0007 Write)
 > **Implements Pillar**: Pillar 3 — 모든 무장에게 자리가 있다 (Every Hero Has a Role)
 
 ## Overview
