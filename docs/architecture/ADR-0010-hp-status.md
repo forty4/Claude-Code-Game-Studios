@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-04-30, drafted via `/architecture-decision hp-status` lean-mode authoring per `production/review-mode.txt`; design-time godot-specialist validation pending Step 4.5)
+Accepted (2026-04-30 via `/architecture-review` delta #7 — `docs/architecture/architecture-review-2026-04-30c.md`; design-time godot-specialist validation completed during `/architecture-decision hp-status` lean-mode authoring; review-time independent godot-specialist validation completed this delta — APPROVED WITH SUGGESTIONS, 3 same-patch corrections applied (Items 1/2/9) + 2 advisories carried (Items 5/8); 1 cross-doc unit_id type advisory queued for next ADR-0012 amendment)
 
 ## Date
 
@@ -10,7 +10,7 @@ Proposed (2026-04-30, drafted via `/architecture-decision hp-status` lean-mode a
 
 ## Last Verified
 
-2026-04-30
+2026-04-30 (Accepted via /architecture-review delta #7 — first Core-layer ADR; closes ADR-0012's `get_modified_stat` + `apply_damage` upstream Core soft-dep)
 
 ## Decision Makers
 
@@ -116,7 +116,7 @@ extends Node
 class_name HPStatusController
 
 # Battle-scoped per-unit state map (Godot 4.4+ typed Dictionary; production-stable in 4.6)
-var _state_by_unit: Dictionary  # Dictionary[int, UnitHPState] — first story declares the typed form; if 4.6 emits parse warning (unexpected per godot-specialist 2026-04-30 Item 2 advisory), file as tech-debt + fall back to untyped with explicit `is UnitHPState` cast guards
+var _state_by_unit: Dictionary[int, UnitHPState] = {}  # Typed Dictionary form declared directly per /architecture-review delta-#7 godot-specialist Item 1 PASS (consistency with §Architecture Diagram line 520). Tech-debt fallback path documented in Verification §2 if a 4.6 parse warning emerges at first story (unexpected per delta-#7 review).
 
 # Test seam — direct unit_turn_started dispatch without GameBus subscription
 func _apply_turn_start_tick(unit_id: int) -> void:
@@ -183,7 +183,7 @@ class_name TickEffect extends Resource
 @export var dot_max_per_turn: int             # F-3 ceiling (POISON: 20)
 ```
 
-**Resource (NOT RefCounted)** because: (a) `.tres` files are the authored content surface — designers tune POISON/DEFEND_STANCE values via editor inspector + git diff; (b) `@export` typed-field inspector visibility is the Godot-idiomatic content-authoring path (matches ADR-0004 TileData + ADR-0007 HeroData precedents); (c) `.duplicate()` on apply produces per-unit instances (mutable `remaining_turns` per instance does not affect the `.tres` template; matches Godot 4.5+ `duplicate_deep` discipline if nested resources added later — currently no nested mutable fields so shallow `.duplicate()` suffices). **Note per design-time godot-specialist 2026-04-30 Item 4 advisory**: shallow `duplicate()` is **intentional** (NOT `duplicate_deep()`) because `tick_effect: TickEffect` is read-only post-load — sharing the TickEffect Resource reference between template and instance is correct and matches the read-only sub-Resource pattern. Do NOT "fix" this to `duplicate_deep()` unnecessarily; the `deprecated-apis.md` entry only applies when nested Resources need per-instance mutable copies, which is not the case here.
+**Resource (NOT RefCounted)** because: (a) `.tres` files are the authored content surface — designers tune POISON/DEFEND_STANCE values via editor inspector + git diff; (b) `@export` typed-field inspector visibility is the Godot-idiomatic content-authoring path (matches ADR-0004 TileData + ADR-0007 HeroData precedents); (c) `.duplicate()` on apply produces per-unit instances (mutable `remaining_turns` per instance does not affect the `.tres` template; matches Godot 4.5+ `duplicate_deep` discipline if nested resources added later — currently no nested mutable fields so shallow `.duplicate()` suffices). **Note per design-time godot-specialist 2026-04-30 Item 4 advisory + /architecture-review delta-#7 review-time CONCERN Item 2 (corrected same-patch)**: shallow `duplicate()` is **intentional** (NOT `duplicate_deep()`) because `tick_effect: TickEffect` is read-only post-load — sharing the TickEffect Resource reference between template and instance is correct and matches the read-only sub-Resource pattern. Do NOT "fix" this to `duplicate_deep()` unnecessarily; the `deprecated-apis.md` entry refers to the GENERAL pattern of nested-Resource per-instance mutable copies (since 4.5), NOT to the read-only sub-Resource sharing case which is the correct pattern here. **Hot-reload behavior note (delta-#7 Item 2 added)**: in editor-mode hot-reload, edits to a `.tres` template via the Godot inspector are reflected live in all currently-applied StatusEffect instances via the shared TickEffect reference — intentional for designer iteration on POISON DoT values during playtesting. Production builds are unaffected (no hot-reload in shipped binaries). If a future status effect requires per-instance mutable sub-Resource state (e.g., a stack-counter on a buff), that effect's apply path MUST switch to `duplicate_deep()` for the affected sub-Resource — this would be a per-effect schema decision documented in the StatusEffect template's `.tres` schema, not a global pattern change.
 
 **TickEffect as separate Resource** (not inlined into StatusEffect): allows POISON-distinct DoT formula reuse for future BURN / BLEED variants without StatusEffect schema bloat per OQ-6 (DoT type extension).
 
@@ -245,12 +245,17 @@ apply_damage(unit_id, resolved_damage, attack_type, source_flags):
         post_passive = resolved_damage
 
     # F-1 Step 2: Status modifier (DEFEND_STANCE first per EC-03 bind-order rule)
+    # NOTE per /architecture-review delta-#7 godot-specialist Item 9 (corrected same-patch):
+    # `floor()` returns float in GDScript 4.x — explicit `int(...)` cast eliminates editor SAFE-mode
+    # implicit-coercion warning at the assignment site `post_passive: int = ...` and documents
+    # return-type honesty. The `100.0` literal forces float division (Variant `100` could
+    # otherwise yield integer division in GDScript). Same convention applied at §9 F-4 final.
     for effect in state.status_effects:
         if effect.effect_id == &"defend_stance":
-            post_passive = floor(post_passive * (1 - BalanceConstants.get_const("DEFEND_STANCE_REDUCTION") / 100))
+            post_passive = int(floor(post_passive * (1 - BalanceConstants.get_const("DEFEND_STANCE_REDUCTION") / 100.0)))
     for effect in state.status_effects:
         if effect.effect_id == &"vulnerable":  # post-MVP
-            post_passive = floor(post_passive * BalanceConstants.get_const("VULNERABLE_MULT"))
+            post_passive = int(floor(post_passive * BalanceConstants.get_const("VULNERABLE_MULT")))
 
     # F-1 Step 3: MIN_DAMAGE floor (dual-enforced; Damage Calc enforces same value upstream)
     final_damage = max(BalanceConstants.get_const("MIN_DAMAGE"), post_passive)
@@ -393,8 +398,11 @@ get_modified_stat(unit_id, stat_name) -> int:
                            BalanceConstants.get_const("MODIFIER_FLOOR"),
                            BalanceConstants.get_const("MODIFIER_CEILING"))
 
-    # Apply: max(1, floor(base × (1 + total_modifier / 100)))
-    return max(1, floor(base_stat * (1 + total_modifier / 100.0)))
+    # Apply: max(1, int(floor(base × (1 + total_modifier / 100.0))))
+    # NOTE per /architecture-review delta-#7 godot-specialist Item 9 (corrected same-patch):
+    # explicit `int(floor(...))` cast satisfies `-> int` return type without implicit
+    # float→int coercion warning in editor SAFE-mode; `100.0` forces float division.
+    return max(1, int(floor(base_stat * (1 + total_modifier / 100.0))))
 ```
 
 **Note on EXHAUSTED move-range special case**: CR-6 SE-5 specifies `effective_move_range -1 (최소 1)` — this is NOT a percent modifier but a flat -1. ADR-0010 represents EXHAUSTED's modifier_targets as `{&"effective_move_range": -100}` would be wrong (would multiply by 0). Instead, EXHAUSTED's `modifier_targets` is empty for move_range, and `get_modified_stat(&"effective_move_range")` checks `_has_status(state, &"exhausted")` and applies `result -= BalanceConstants.get_const("EXHAUSTED_MOVE_REDUCTION")` after the F-4 calculation, then `max(1, ...)`. This is a special-case branch documented in §9 — alternative would be a typed `flat_modifier_targets` field on StatusEffect, which adds schema complexity for one edge case. Going with the special-case branch.

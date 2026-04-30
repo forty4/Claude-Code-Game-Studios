@@ -24,7 +24,7 @@
 #
 # STATUS VALUES: active | deprecated | superseded-by: TR-[system]-NNN
 
-version: 8
+version: 9
 last_updated: "2026-04-30"
 
 requirements:
@@ -81,6 +81,159 @@ requirements:
     gdd: design/gdd/hp-status.md
     requirement: "HP/Status emits unit_died signal when a unit's HP reaches 0. Consumed by Turn Order (queue removal), Grid Battle (victory check), and AI."
     created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-hp-status-002
+    system: hp-status
+    gdd: design/gdd/hp-status.md
+    adr: docs/architecture/ADR-0010-hp-status.md
+    requirement: "§1 Module form — HPStatusController is a battle-scoped Node child of BattleScene (`class_name HPStatusController extends Node`), created on battle-init via Battle Preparation, freed automatically with BattleScene per ADR-0002 SceneManager pattern; lifecycle alignment with ADR-0004 Map/Grid (both battle-scoped, both freed with BattleScene). 5-precedent stateless-static utility class form (ADR-0008→0006→0012→0009→0007) EXPLICITLY REJECTED as Alternative 3 — engine-level structural incompatibility per ADR-0005 §Alternative 4 pattern boundary: HP/Status holds mutable per-unit state AND subscribes to GameBus signals (Turn Order); pattern boundary codified: stateless-static for systems CALLED; Node-based form for systems that LISTEN AND/OR hold mutable state. Autoload Node form (ADR-0005 InputRouter pattern) REJECTED as Alternative 1 — battle-scoped form provides cleaner CR-1b non-persistence enforcement (state freed automatically when BattleScene is freed; no manual reset between battles needed). Per-unit Component Node form REJECTED as Alternative 2 — centralized HPStatusController gives O(1) Dictionary lookup vs N-way Node traversal for cross-unit queries (DEMORALIZED radius scan, AI threat eval). ECS-style Data + System separation REJECTED as Alternative 4 — not Godot-idiomatic + frame-by-frame iteration violates ADR-0001 batching rule. **Pattern boundary precedent extended** for future stateful battle-scoped Node ADRs (Grid Battle, AI System likely candidates)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hp-status-003
+    system: hp-status
+    gdd: design/gdd/hp-status.md
+    adr: docs/architecture/ADR-0010-hp-status.md
+    requirement: "§3 Per-unit state schema — `class_name UnitHPState extends RefCounted` with 6 fields: `unit_id: int` (matches ADR-0001 unit_died(int) signal payload type per §ADR Dependencies); `max_hp: int` (cached at battle-init via UnitRole.get_max_hp(hero, unit_class) per ADR-0009 line 328 one-time-per-battle cadence); `current_hp: int` (0 ≤ current_hp ≤ max_hp invariant per CR-2; mutable via apply_damage / apply_heal / DoT tick only); `status_effects: Array` (typed Array[StatusEffect] preserves insertion order for CR-5e oldest-first eviction); `hero: HeroData` (read-only reference to ADR-0007 HeroData for unit_class lookup + future is_morale_anchor); `unit_class: int` (UnitRole.UnitClass enum value cached at battle-init for PASSIVE_TAG_BY_CLASS lookup). RefCounted (NOT Resource) chosen because: battle-scoped non-serialized per CR-1b; no @export inspector visibility required; lighter-weight than Resource (no resource_path / no ResourceLoader cache participation per ADR-0007 Item 8); matches ADR-0012 4-RefCounted-wrapper precedent (AttackerContext / DefenderContext / ResolveModifiers / ResolveResult — all per-call non-persistent)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hp-status-004
+    system: hp-status
+    gdd: design/gdd/hp-status.md
+    adr: docs/architecture/ADR-0010-hp-status.md
+    requirement: "§4 StatusEffect typed Resource schema — `class_name StatusEffect extends Resource` with 7 @export fields: effect_id (StringName, &\"poison\"/&\"demoralized\"/&\"defend_stance\"/&\"inspired\"/&\"exhausted\"); effect_type (int 0=BUFF/1=DEBUFF); duration_type (int 0=TURN_BASED/1=CONDITION_BASED/2=ACTION_LOCKED); remaining_turns (int mutable per turn-tick decrement); modifier_targets (Dictionary[StringName, int] stat_name → percent signed); tick_effect (TickEffect Resource or null for non-DoT); source_unit_id (int -1 for unsourced else attacker for attribution + DEMORALIZED recovery proximity check). 5 .tres template files authored at `assets/data/status_effects/{poison,demoralized,defend_stance,inspired,exhausted}.tres`. Separate `class_name TickEffect extends Resource` with 5 @export fields (damage_type / dot_hp_ratio / dot_flat / dot_min / dot_max_per_turn) for DoT formula reuse — allows BURN/BLEED extension via Resource addition without StatusEffect schema bloat per OQ-6. **Shallow `.duplicate()` on apply produces per-unit instances** — intentional NOT `duplicate_deep()` because TickEffect sub-Resource is read-only post-load; `deprecated-apis.md` entry refers to GENERAL pattern of nested-Resource per-instance mutable copies (since 4.5), NOT to read-only sub-Resource sharing case (godot-specialist delta-#7 Item 2 PASS with same-patch clarification). Editor-mode hot-reload: edits to `.tres` template reflected live in all currently-applied StatusEffect instances via shared TickEffect reference — intentional for designer iteration on POISON DoT values during playtesting; production builds unaffected (no hot-reload in shipped binaries)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hp-status-005
+    system: hp-status
+    gdd: design/gdd/hp-status.md
+    adr: docs/architecture/ADR-0010-hp-status.md
+    requirement: "§5 Public API — 8 public methods (initialize_unit / apply_damage / apply_heal / apply_status / get_current_hp / get_max_hp / is_alive / get_modified_stat / get_status_effects) with locked signatures: `initialize_unit(unit_id: int, hero: HeroData, unit_class: int) -> void` (Battle Preparation calls once per unit at battle-init); `apply_damage(unit_id: int, resolved_damage: int, attack_type: int, source_flags: Array) -> void` (Grid Battle sole caller per ADR-0012 line 260; NEVER Damage Calc); `apply_heal(unit_id: int, raw_heal: int, source_unit_id: int) -> int` (returns actual heal_amount for UI feedback); `apply_status(unit_id: int, effect_template_id: StringName, duration_override: int, source_unit_id: int) -> bool` (returns false on rejection — CR-7 mutex / dead unit / unknown template); read-only queries return shallow copies. **1 emitted signal**: `GameBus.unit_died(unit_id: int)` per ADR-0001 line 155 ratification — emitted in apply_damage Step 4 + DoT tick when current_hp reaches 0; emission ordering AFTER current_hp = 0 mutation per Verification §5. **1 consumed signal**: `GameBus.unit_turn_started(unit_id: int)` per ADR-0011 provisional — triggers `_apply_turn_start_tick(unit_id)` for DoT tick + duration decrement + DEFEND_STANCE/DEMORALIZED expiry checks. Non-emitter for all OTHER 21 GameBus signals (8 domains) per ADR-0001 line 365-376 — Validation §4 grep gate enforces."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hp-status-006
+    system: hp-status
+    gdd: design/gdd/hp-status.md
+    adr: docs/architecture/ADR-0010-hp-status.md
+    requirement: "§6 + F-1 + EC-03 Damage intake 4-step pipeline: Step 1 passive flat reduction (PHYSICAL + passive_shield_wall via UnitRole.PASSIVE_TAG_BY_CLASS lookup → SHIELD_WALL_FLAT subtract); Step 2 status modifier (DEFEND_STANCE first per EC-03 bind-order rule → `int(floor(post_passive * (1 - DEFEND_STANCE_REDUCTION / 100.0)))`; then VULNERABLE post-MVP — explicit `int(floor(...))` cast applied per delta-#7 godot-specialist Item 9 same-patch correction); Step 3 MIN_DAMAGE floor (`max(MIN_DAMAGE, post_passive)`) — dual-enforcement with Damage Calc per ADR-0012 line 92 (Damage Calc enforces at every floori() boundary F-DC-3/F-DC-6/F-DC-7; HP/Status enforces again at intake — defense-in-depth intentional); Step 4 HP reduction (`current_hp = max(0, current_hp - final_damage)`) + `unit_died` emit AFTER mutation if current_hp == 0 per Verification §5. Dead/unknown unit early-return with push_warning. CR-8c Commander class auto-trigger DEMORALIZED radius propagation in Step 4 death branch."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hp-status-007
+    system: hp-status
+    gdd: design/gdd/hp-status.md
+    adr: docs/architecture/ADR-0010-hp-status.md
+    requirement: "§7 + F-2 + CR-4a/b Healing 4-step pipeline: Step 1 raw_heal computed by caller (skill/item formula); Step 2 EXHAUSTED multiplier (`raw_heal = int(max(1, floor(raw_heal * EXHAUSTED_HEAL_MULT)))` per CR-4 Step 2; explicit int cast applied per delta-#7 Item 9 convention); Step 3 overheal prevention (`heal_amount = min(raw_heal, max_hp - current_hp)` per CR-4a no-overheal); Step 4 HP increase (`current_hp += heal_amount`). Returns actual heal_amount applied (0 if dead per CR-4b dead-units-cannot-be-healed; actual amount up to max_hp - current_hp). Caller can inspect return for UI feedback (skip 'healed for 0' display when return is 0 per EC-09 풀-HP target). Dead unit early-return with 0 (CR-4b)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hp-status-008
+    system: hp-status
+    gdd: design/gdd/hp-status.md
+    adr: docs/architecture/ADR-0010-hp-status.md
+    requirement: "§8 Status effect lifecycle — apply via apply_status: CR-7 mutex enforcement (EXHAUSTED → DEFEND_STANCE attempt returns false; DEFEND_STANCE → EXHAUSTED apply force-removes DEFEND_STANCE BEFORE appending EXHAUSTED); CR-5c same effect_id refresh-only (find existing → overwrite remaining_turns + source_unit_id, no stack); CR-5d different effect_id co-exist (Array.append after refresh check); CR-5e MAX_STATUS_EFFECTS_PER_UNIT slot cap with `pop_front()` insertion-order eviction; template load via `load(\"res://assets/data/status_effects/[effect_template_id].tres\")` with null-on-missing returning false + push_error; shallow `.duplicate()` per delta-#7 Item 2. Turn-start tick (`_apply_turn_start_tick`): DoT tick BEFORE duration decrement (per GDD §States and Transitions line 243-245 ordering — DoT 3-turn POISON ticks 3 times); reverse-index `while i >= 0` Array removal pattern for TURN_BASED expiry per delta-#7 godot-specialist Item 7 PASS (idiomatic Godot 4.x — forward iteration with `remove_at` would skip elements); CR-6 SE-2 DEMORALIZED CONDITION_BASED recovery check via `_has_ally_hero_within_radius` MapGrid query."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hp-status-009
+    system: hp-status
+    gdd: design/gdd/hp-status.md
+    adr: docs/architecture/ADR-0010-hp-status.md
+    requirement: "§9 + F-4 Status effect modifier application: `get_modified_stat(unit_id: int, stat_name: StringName) -> int` dispatches base_stat fetch via stat_name match (atk → UnitRole.get_atk; phys_def → UnitRole.get_phys_def; mag_def → UnitRole.get_mag_def; initiative → UnitRole.get_initiative; effective_move_range → UnitRole.get_effective_move_range; unknown → push_error + return 0 defense-in-depth); F-4 sums modifier_targets[stat_name] across active status_effects → clamps [MODIFIER_FLOOR, MODIFIER_CEILING] per CR-5f → applies `max(1, int(floor(base_stat * (1 + total_modifier / 100.0))))` (explicit int cast per delta-#7 Item 9). EXHAUSTED move-range special-case branch (flat -1 not percent — schema asymmetry documented; `_has_status(state, &\"exhausted\")` check → `result -= EXHAUSTED_MOVE_REDUCTION` after F-4 calculation → max(1, ...)). DEFEND_STANCE_ATK_PENALTY=-40 pre-folded via DEFEND_STANCE template's modifier_targets {&\"atk\": -40} per CR-6 SE-3 — Damage Calc consumes already-folded value and does NOT separately apply penalty (ADR-0012 line 89-93 'pre-folded' contract ratified verbatim)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hp-status-010
+    system: hp-status
+    gdd: design/gdd/hp-status.md
+    adr: docs/architecture/ADR-0010-hp-status.md
+    requirement: "§10 + CR-7 DEFEND_STANCE + EXHAUSTED mutex enforcement (woven into §8 apply_status flow): EXHAUSTED → DEFEND_STANCE attempt → `apply_status(unit_id, &\"defend_stance\", -1, source)` returns `false`; caller (Grid Battle action menu) surfaces '피로로 태세 유지 불가' UI feedback per AC-15. DEFEND_STANCE → EXHAUSTED apply → `apply_status(unit_id, &\"exhausted\", duration, source)` calls `_force_remove_status(state, &\"defend_stance\")` BEFORE appending EXHAUSTED per AC-16. Force-remove bypasses normal expiry pathway — does NOT trigger any 'effect expired' signal (no such signal exists; Battle HUD polls or subscribes to future hp_status_changed signal in deferred Battle HUD ADR per OQ-3)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hp-status-011
+    system: hp-status
+    gdd: design/gdd/hp-status.md
+    adr: docs/architecture/ADR-0010-hp-status.md
+    requirement: "§11 + CR-8 + R-6 Death + DEMORALIZED propagation: `unit_died` emit AFTER current_hp = 0 mutation per Verification §5 (subscribers reading get_current_hp(unit_id) in handler see 0, NOT pre-mutation value). CR-8c Commander class auto-trigger radius scan via `_propagate_demoralized_radius`: reads DEMORALIZED_RADIUS + DEMORALIZED_DEFAULT_DURATION via BalanceConstants; queries MapGrid for commander_coord + per-unit coord; manhattan distance ≤ radius + ally faction → apply_status DEMORALIZED. is_morale_anchor branch DEFERRED post-MVP per OQ-2 (HeroData 26-field schema does NOT include is_morale_anchor field — verified 2026-04-30 grep zero-match); MVP triggers ONLY via condition (a) Commander class + (c) direct skill apply; future ADR-0007 amendment OR ADR-0014 Scenario Progression resolves. **MapGrid DI**: explicit `_map_grid: MapGrid` field set by Battle Preparation (NOT autoload lookup, NOT get_parent traversal) — testability via test fixture inject; R-3 mitigation `assert(_map_grid != null)` first line of `_propagate_demoralized_radius` defense-in-depth. **R-6 mitigation**: `_propagate_demoralized_radius(state)` invoked from BOTH `apply_damage` Step 4 AND `_apply_turn_start_tick` DoT-kill branch (when state.unit_class == COMMANDER) — Validation §11 verifies DoT-killed Commander triggers radius propagation."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hp-status-012
+    system: hp-status
+    gdd: design/gdd/hp-status.md
+    adr: docs/architecture/ADR-0010-hp-status.md
+    requirement: "§12 27 BalanceConstants entries — story-level same-patch obligation: all 27 tuning knobs from GDD §Tuning Knobs read via `BalanceConstants.get_const(key) -> Variant` per ADR-0006 5-precedent JSON pattern (mirrors ADR-0007 §Migration §4 + ADR-0009 §Migration §From provisional precedents). Keys: MIN_DAMAGE / SHIELD_WALL_FLAT / HEAL_BASE / HEAL_HP_RATIO / HEAL_PER_USE_CAP / EXHAUSTED_HEAL_MULT / DOT_HP_RATIO / DOT_FLAT / DOT_MIN / DOT_MAX_PER_TURN / DEMORALIZED_ATK_REDUCTION / DEMORALIZED_RADIUS / DEMORALIZED_TURN_CAP / DEMORALIZED_RECOVERY_RADIUS / DEMORALIZED_DEFAULT_DURATION / DEFEND_STANCE_REDUCTION / DEFEND_STANCE_ATK_PENALTY / INSPIRED_ATK_BONUS / INSPIRED_DURATION / EXHAUSTED_MOVE_REDUCTION / EXHAUSTED_DEFAULT_DURATION / MODIFIER_FLOOR / MODIFIER_CEILING / MAX_STATUS_EFFECTS_PER_UNIT / ATK_CAP / DEF_CAP / POISON_DEFAULT_DURATION. First HPStatusController story appends 27 keys to `assets/data/balance/balance_entities.json` with provenance comments; CI lint `tools/ci/lint_balance_entities_hp_status.sh` validates presence + safe-range per GDD §Tuning Knobs. ATK_CAP / DEF_CAP consumed by Damage Calc (ownership transferred from ADR-0012 line 297-299); DEFEND_STANCE_ATK_PENALTY=-40 documented as **provisional INERT** per grid-battle v5.0 CR-13 rule 4 (DEFEND_STANCE units do not counter — penalty has no actual code path; reachability re-evaluation deferred to future mid-turn DEFEND skill design)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hp-status-013
+    system: hp-status
+    gdd: design/gdd/hp-status.md
+    adr: docs/architecture/ADR-0010-hp-status.md
+    requirement: "§13 + Validation §5 DI test seam — `_apply_turn_start_tick(unit_id: int)` direct call bypasses GameBus.unit_turn_started subscription for test isolation (production: called via signal subscription; tests: called directly to avoid signal infrastructure entanglement); `_map_grid` constructor-injected via Battle Preparation in production OR `MapGridStub.new()` in tests (DI seam pattern mirrors ADR-0005 `_handle_event` + ADR-0012 ResolveModifiers.rng — 4-precedent stable). `before_test()` G-15 reset obligations: `BalanceConstants._cache_loaded = false` per ADR-0006 §6 G-15 mirror; fresh `HPStatusController.new()` instance per test (no static state — forbidden_pattern `hp_status_static_var_state_addition`); `_map_grid = MapGridStub.new()` injection. Test isolation invariant: per-test fresh HPStatusController + empty `_state_by_unit` Dictionary; no leakage across test cases. Static-lint check: `grep -c '^static var' src/core/hp_status_controller.gd` returns 0 (R-4 mitigation)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hp-status-014
+    system: hp-status
+    gdd: design/gdd/hp-status.md
+    adr: docs/architecture/ADR-0010-hp-status.md
+    requirement: "§1 + R-1 Re-entrant unit_died emission during DEMORALIZED propagation: when Commander dies, `_propagate_demoralized_radius` is called from inside `apply_damage` Step 4 (after unit_died.emit). If a DEMORALIZED-recipient subscriber synchronously calls back into `apply_damage` (e.g., same-scene AI test fixture), recursion into Dictionary in active-mutation is risky. **Mitigation 1 (production)**: ADR-0001 §5 mandates `CONNECT_DEFERRED` for cross-scene subscribers — eliminates synchronous re-entrancy. **Mitigation 2 (intra-scene)**: `_state_by_unit.keys()` returns Array snapshot (NOT live view) per delta-#7 godot-specialist Item 6 PASS — Dictionary iteration safe even if subscriber appends to UnitHPState's contained Array[StatusEffect] (Dictionary key set unchanged during loop). **Mitigation 3 (tests)**: forbidden_pattern `hp_status_re_entrant_emit_without_deferred` for same-scene subscribers; unit test fixture re-entrant check (subscriber re-emits / re-applies status from within unit_died handler) MUST assert re-entrancy as either safe (deferred-only) or explicitly forbidden."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hp-status-015
+    system: hp-status
+    gdd: design/gdd/hp-status.md
+    adr: docs/architecture/ADR-0010-hp-status.md
+    requirement: "R-5 + Validation §12 Consumer mutation forbidden_pattern — `get_status_effects(unit_id)` returns shallow Array copy; the StatusEffect Resources INSIDE are shared references. Consumer mutating `effect.remaining_turns` would corrupt HPStatusController's authoritative state. Mitigation: forbidden_pattern `hp_status_consumer_mutation` (mirrors ADR-0007 hero_data_consumer_mutation precedent); `tests/unit/core/hp_status_consumer_mutation_test.gd` documents that mutating returned Array[StatusEffect] IS visible cross-call (proving convention is sole defense). Test serves as DOCUMENTED FAIL-STATE regression test, NOT a passing protective test. Source comment on `get_status_effects` reinforces 'DO NOT MUTATE'."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hp-status-016
+    system: hp-status
+    gdd: design/gdd/hp-status.md
+    adr: docs/architecture/ADR-0010-hp-status.md
+    requirement: "§Performance + Validation §8 — apply_damage <0.05ms minimum-spec mobile (Adreno 610 / Mali-G57 class): 1 Dictionary lookup O(1) + 1 PASSIVE_TAG_BY_CLASS const Dictionary read + max 3 status_effects iteration per CR-5e cap + integer arithmetic. get_modified_stat <0.05ms: 1 Dictionary lookup + 1 UnitRole accessor + max 3 status_effects iteration + 1 clamp + 1 floor. apply_status <0.10ms: slightly higher due to template `load()` + `.duplicate()`. `_apply_turn_start_tick` <0.20ms (max 3 status_effects × DoT/decrement). Memory: `_state_by_unit` Dictionary bounded by ~16-24 units × ~120-byte UnitHPState = ~3KB; StatusEffect instances ~80 bytes × max 3 per unit × 24 units = ~6KB max; status effect template `.tres` files 5 × ~500 bytes = ~2.5KB shared (loaded once, .duplicate()'d per apply); TOTAL HPStatusController heap footprint <10KB << 512MB mobile ceiling. Headless CI throughput baseline mandatory; on-device measurement deferred per damage-calc story-010 Polish-deferral pattern (stable at 6+ invocations as of ADR-0007)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hp-status-017
+    system: hp-status
+    gdd: design/gdd/hp-status.md
+    adr: docs/architecture/ADR-0010-hp-status.md
+    requirement: "§Verification §1 + §9 + Validation §9 Cross-platform determinism: same synthetic `apply_damage / apply_heal / apply_status / _apply_turn_start_tick` call sequence produces identical `current_hp` + `status_effects[]` final state on macOS Metal + Linux Vulkan + Windows D3D12 stable engine bins. F-1 / F-2 / F-3 / F-4 use only integer arithmetic + `floor()` + `clamp()` (no float-point math in HP intake; F-2 uses `ceil(max_hp × HEAL_HP_RATIO)` with HEAL_HP_RATIO loaded as float from JSON, but `ceil()` result is integer; F-3 similar with `floor(max_hp × DOT_HP_RATIO)` integer-result). Integer arithmetic + deterministic `floor()` semantics → cross-platform identical by construction. Headless CI deterministic-fixture test mandatory before Polish (test fixture: 50-step synthetic battle scenario with explicit damage/heal/status/tick sequence; assert exact final state matches macOS Metal known-good baseline). On-device cross-platform measurement deferred per damage-calc story-010 Polish-deferral pattern."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hp-status-018
+    system: hp-status
+    gdd: design/gdd/hp-status.md
+    adr: docs/architecture/ADR-0010-hp-status.md
+    requirement: "Cross-doc unit_id type advisory (delta-#7 Phase 4 Pair ADR-0010↔ADR-0012) — ADR-0001 line 155 declares `signal unit_died(unit_id: int)`; ADR-0012 lines 89/260 use `unit_id: StringName` for `get_modified_stat` and `apply_damage`. ADR-0010 LOCKS `unit_id: int` to match ADR-0001 signal-contract source-of-truth (cross-system established convention per GameBus signal Domain ownership). Auto-coercion does NOT occur in GDScript 4.x — int and StringName are not coercible; ADR-0012 line 352-353 prose pseudocode call sites need explicit `int` typing in actual implementation. **Carried advisory** (queued for next ADR-0012 amendment): line 89/260 + line 352-353 `unit_id: StringName` → `unit_id: int`. Queues with the 2 prior carried advisories: (a) ADR-0001 line 168 `action: String` → `action: StringName` (delta #6 Item 10a); (b) ADR-0001 line 372 prose drift `hero_database.get(unit_id)` → `HeroDatabase.get_hero(hero_id: StringName)` (delta #5 ADR-0007 carry). All other ADR-0012 contracts ratified verbatim by ADR-0010 (apply_damage sole-Grid-Battle-caller; get_modified_stat interface; MIN_DAMAGE/ATK_CAP/DEF_CAP/DEFEND_STANCE_ATK_PENALTY ownership transferred to ADR-0010 §12)."
+    created: 2026-04-30
     revised: ""
     status: active
 

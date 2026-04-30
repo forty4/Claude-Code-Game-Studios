@@ -1,8 +1,8 @@
 # HP/Status System (HP/상태)
 
-> **Status**: Accepted via ADR-0010 (Proposed 2026-04-30; pending /architecture-review delta for Foundation 5/5 + Core 2/2 closing)
+> **Status**: ✅ **Accepted via ADR-0010** (Proposed 2026-04-30 → Accepted 2026-04-30 via /architecture-review delta #7 — `docs/architecture/architecture-review-2026-04-30c.md`; Core layer 2/2 with HP/Status closed; Foundation 5/5 + Core 1/2 → 2/2 progression complete)
 > **Author**: user + Claude Code agents
-> **Last Updated**: 2026-04-16 (Designed); 2026-04-30 (Status header refresh + CR-5b apply_status signature sync per ADR-0010 §5 — 3-arg → 4-arg + renamed `effect_id` → `effect_template_id`, `duration` → `duration_override`. Implemented as `HPStatusController` Battle-scoped Node child of BattleScene per ADR-0010 §1; canonical class name preserved.)
+> **Last Updated**: 2026-04-16 (Designed); 2026-04-30 (Status header refresh + CR-5b apply_status signature sync per ADR-0010 §5 — 3-arg → 4-arg + renamed `effect_id` → `effect_template_id`, `duration` → `duration_override`. Implemented as `HPStatusController` Battle-scoped Node child of BattleScene per ADR-0010 §1; canonical class name preserved.); 2026-04-30 delta #7 Acceptance — 17 net-new TRs registered as TR-hp-status-002..018 in `docs/architecture/tr-registry.yaml` v9; 3 same-patch corrections applied to ADR-0010 (typed Dictionary declaration consistency + `.duplicate()` hot-reload note + `int(floor(...))` explicit cast for `-> int` return-type honesty); cross-doc unit_id type advisory queued for next ADR-0012 amendment (ADR-0010 LOCKS unit_id: int per ADR-0001 line 155 signal-contract source-of-truth).
 > **Implements Pillar**: Pillar 1 (형세의 전술) + Pillar 3 (모든 무장에게 자리가 있다)
 
 ## Overview
