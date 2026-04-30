@@ -1,7 +1,7 @@
 # Story 002: TR-traced unit test suite extension
 
 > **Epic**: Balance/Data
-> **Status**: Ready
+> **Status**: Complete (2026-05-01)
 > **Layer**: Foundation
 > **Type**: Logic
 > **Estimate**: 1.5-2h (3 new tests + cases-table audit + TR annotations on existing 7)
@@ -138,7 +138,7 @@
 - `tests/unit/balance/balance_constants_test.gd` extended (3 new test functions + TR annotations + all-keys cases expansion)
 - Full regression PASS captured in story close-out commit message
 
-**Status**: [ ] Not yet created
+**Status**: [x] Complete — `tests/unit/balance/balance_constants_test.gd` extended (240 → 370 LoC; 7 → 10 tests); regression `504 cases / 0 errors / 0 orphans / 1 failures` (1 pre-existing failure carried from story-001 close-out, orthogonal)
 
 ---
 
@@ -146,3 +146,37 @@
 
 - Depends on: Story 001 (file relocation; load path used in this story's `_BALANCE_CONSTANTS_PATH` const must point to `src/foundation/balance/`)
 - Unlocks: None (terminal in the test-coverage path; story 003-005 do not depend on this)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-01
+**Criteria**: 7/7 passing — see `/story-done` traceability table for per-AC test mapping
+**Code Review**: Complete — `/code-review` returned APPROVED 2026-05-01 (lean mode; LP-CODE-REVIEW + QL-TEST-COVERAGE skipped per `production/review-mode.txt`). All 6/6 standards passing; ADR-0006 fully compliant; G-15/G-16/G-23/G-9 disciplines applied throughout.
+**Test Evidence**: `tests/unit/balance/balance_constants_test.gd` extended in place (10 test functions; 504-case regression baseline maintained).
+**Regression result**: `504 test cases | 0 errors | 1 failures | 0 flaky | 0 skipped | 0 orphans` (501 baseline + 3 new tests; 1 pre-existing failure carried from story-001).
+
+### Locked decisions held (from /story-readiness 2026-05-01)
+
+- **AC-3 → Path B**: documented current MVP single-message behaviour as regression sentinel; embedded `# TODO TR-013` breadcrumb. **No production code change** to `balance_constants.gd`.
+- **AC-4 → Pattern A**: extended existing reflection-based pattern (set `_cache_loaded=true` + `_cache={}` via GDScript handle, two-call hardening). **No `_load_count` instrumentation** in production code.
+
+### Files changed (1)
+
+- `tests/unit/balance/balance_constants_test.gd` — extended in place (240 → 370 LoC; +130 net; 7 → 10 test functions)
+  - 3 new test functions: `test_get_const_pre_test_state_resets_static_vars` (AC-5/TR-020 — positioned first in suite as G-15 isolation canary), `test_get_const_failed_parse_does_not_re_attempt` (AC-4/TR-019), `test_get_const_file_exists_precheck_diagnostic_separation` (AC-3/TR-013)
+  - AC-1 cases-table extended 10 → 18 scalar keys; converted to typed `Array[Dictionary]` (G-16); added static count guard `is_greater_equal(18)` with comment explaining the post-ADR-0010/0011 breakdown
+  - AC-7 cases-table also typed (proactive G-16 cleanup per Implementation Notes #6 mandate)
+  - TR-balance-data-XXX docstring annotations added to all 10 test functions (AC-6)
+
+### Deviations (ADVISORY only)
+
+1. **Pre-existing failure carried from story-001 close-out (NOT introduced)**: `test_hero_data_doc_comment_contains_required_strings` in `tests/unit/foundation/unit_role_skeleton_test.gd:231`. Already documented in story-001 Completion Notes; orthogonal to story-002 scope. Recommended for triage in unit-role epic close-out follow-up OR a separate hotfix story.
+
+### Suggestions deferred (from /code-review)
+
+Three minor stylistic suggestions surfaced during /code-review; none required. Defer to future hardening:
+1. AC-3 test name clarity (`test_get_const_file_exists_precheck_diagnostic_separation` reads as positive-case but verifies happy path)
+2. AC-1 count-floor maintenance contract: bumping `is_greater_equal(18)` floor when JSON gains keys (manual pair-update with cases table)
+3. TR-013 TODO breadcrumb visibility: in docstring rather than runtime-greppable `TODO:` comment
