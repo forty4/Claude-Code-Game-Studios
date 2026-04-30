@@ -24,8 +24,8 @@
 #
 # STATUS VALUES: active | deprecated | superseded-by: TR-[system]-NNN
 
-version: 6
-last_updated: "2026-04-28"
+version: 7
+last_updated: "2026-04-30"
 
 requirements:
   - id: TR-gamebus-001
@@ -655,5 +655,140 @@ requirements:
     adr: docs/architecture/ADR-0009-unit-role.md
     requirement: "Performance budgets: each derived-stat method (get_atk, get_phys_def, get_mag_def, get_max_hp, get_initiative) <0.05ms; get_class_cost_table <0.01ms per call (single PackedFloat32Array per-call copy from cached row); get_class_direction_mult <0.01ms per call (single bracket index into cached 6×3 table); per-battle init derivation pass <0.6ms total (60 calls × 0.05ms one-time at battle init, well inside 16.6ms one-time budget). Memory <2KB for cached unit_roles.json parse + transient PackedFloat32Array copies (~24 bytes each, GC-collected per call). Headless CI throughput baseline test in tests/unit/foundation/unit_role_perf_test.gd; on-device measurement deferred per damage-calc story-010 Polish-deferral pattern (now stable at 5+ invocations)."
     created: 2026-04-28
+    revised: ""
+    status: active
+
+  - id: TR-hero-database-001
+    system: hero-database
+    gdd: design/gdd/hero-database.md
+    adr: docs/architecture/ADR-0007-hero-database.md
+    requirement: "§1 Module form — `class_name HeroDatabase extends RefCounted` + `@abstract` decoration (G-22 typed-reference parse-time block; reflective bypass non-issue) + all-static methods + `static var _heroes_loaded: bool` + `static var _heroes: Dictionary[StringName, HeroData] = {}` (Godot 4.4+ typed Dictionary syntax). Zero `_init`, zero `_ready`, zero `_process`, zero instance fields, zero signals, zero subscriptions. Source location: src/foundation/hero_database.gd. 5th-precedent stateless-static utility class pattern (ADR-0008 → 0006 → 0012 → 0009 → 0007); pattern is now load-bearing project discipline for Foundation/Core data-layer ADRs. Future Foundation/Core data-layer ADRs (Skill, Formation, Equipment, Character Growth) inherit this pattern unless a domain-specific reason justifies divergence."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hero-database-002
+    system: hero-database
+    gdd: design/gdd/hero-database.md
+    adr: docs/architecture/ADR-0007-hero-database.md
+    requirement: "§2 HeroData Resource shape ratification: `class_name HeroData extends Resource` with 26 @export fields per CR-2's 9 record blocks — Identity (7: hero_id StringName + name_ko/zh/courtesy + faction int + portrait_id + battle_sprite_id), Core Stats (4: stat_might/intellect/command/agility int [1,100]), Derived Seeds (2: base_hp_seed/base_initiative_seed int [1,100]), Movement (1: move_range int [2,6]), Role (2: default_class int + equipment_slot_override Array[int]), Growth (4: growth_might/intellect/command/agility float [0.5,2.0]), Skills (2 parallel arrays: innate_skill_ids Array[StringName] + skill_unlock_levels Array[int]), Scenario (3: join_chapter int + join_condition_tag String + is_available_mvp bool), Relationships (1: relationships Array[Dictionary] provisional). Plus 1 nested HeroFaction enum (SHU=0, WEI=1, WU=2, QUNXIONG=3, NEUTRAL=4) — locally scoped; no cross-system enum import. All-@export discipline mandatory per ADR-0003 TR-save-load-002 + Inspector authoring round-trip + ResourceSaver serialization compatibility. `Resource` base-class overhead (resource_path, resource_name, ResourceLoader cache participation) accepted at ~5KB/record × 100 cache size, negligible against 512MB mobile ceiling (godot-specialist Item 8 acknowledgement, 2026-04-30). Asymmetry with ADR-0012's RefCounted typed wrappers intentional: HeroData is content data with Inspector + ResourceSaver use cases; ADR-0012 wrappers are transient per-call computation contexts. Field deferrals to downstream ADRs: relationships → Formation Bonus typed Resource migration; equipment_slot_override int → Equipment ADR enum mapping; join_condition_tag String → Scenario Progression tag vocabulary canonicalization. The 7 UnitRole-read fields (stat_might/intellect/command/agility + base_hp_seed/base_initiative_seed + move_range) preserved verbatim from provisional shape; ADR-0009 call sites parameter-stable."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hero-database-003
+    system: hero-database
+    gdd: design/gdd/hero-database.md
+    adr: docs/architecture/ADR-0007-hero-database.md
+    requirement: "§3 Storage form ratification: single JSON file at `assets/data/heroes/heroes.json` (Dictionary keyed by hero_id String at top level; per-hero record literals as values). Lazy-loaded via instance-form `JSON.new().parse()` (line/col diagnostics on parse error per ADR-0009 §4 precedent). Each top-level Dictionary entry converted into HeroData Resource instance via field-by-field assignment + per-field range validation. Cache (Dictionary[StringName, HeroData]) persists for the GDScript engine session. Mirrors ADR-0006 balance_entities.json + ADR-0008 terrain_config.json + ADR-0009 unit_roles.json 4-precedent JSON storage pattern. Rejected Alternatives: per-hero .tres (file management overhead + PR-diff difficulty), hand-coded const class (violates data-driven GDD requirement per AC-DC-48 / AC-20 / CR-10 precedent), full DataRegistry pipeline now (over-building; ADR-0006 already deferred to Alpha). Future Alpha (30+ heroes) MAY split into faction-scoped files (heroes_shu.json etc.) for diff-locality; not a forward-compat constraint for MVP. `FileAccess.get_file_as_string()` read path is unaffected by Godot 4.4 store_* bool return change."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hero-database-004
+    system: hero-database
+    gdd: design/gdd/hero-database.md
+    adr: docs/architecture/ADR-0007-hero-database.md
+    requirement: "§4 Public API — 6 static query methods, 1:1 mapping to GDD §Interactions 'Hero DB가 외부에 노출하는 쿼리 인터페이스' table: `get_hero(hero_id: StringName) -> HeroData` (single Resource SHARED reference; null + push_error on miss treated as blocker bug NOT degrade-with-default), `get_heroes_by_faction(faction: int) -> Array[HeroData]` (per-call typed array; HeroData elements shared), `get_heroes_by_class(unit_class: int) -> Array[HeroData]` (int = UnitRole.UnitClass value [0,5]), `get_all_hero_ids() -> Array[StringName]` (per-call typed array), `get_mvp_roster() -> Array[HeroData]` (filter is_available_mvp == true), `get_relationships(hero_id: StringName) -> Array[Dictionary]` (provisional Dict shape until Formation Bonus ADR). MVP linear-scan filters for get_heroes_by_faction/get_heroes_by_class (10-hero × 5 field reads = trivial); pre-built per-faction/per-class indices deferred to Alpha when 30+ heroes ship (call-shape stable). Typed-array construction pattern (G-2 prevention) MANDATORY: `var result: Array[HeroData] = []` + `result.append(hero)` + `return result` — NOT `_heroes.values().duplicate()` which silently demotes typing per G-2."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hero-database-005
+    system: hero-database
+    gdd: design/gdd/hero-database.md
+    adr: docs/architecture/ADR-0007-hero-database.md
+    requirement: "Read-only contract per GDD §Interactions '읽기 전용 계약' + Cross-system contract 'base + modifier' pattern. Consumers of HeroDatabase.get_hero(...) MUST NOT mutate any field of the returned HeroData Resource. Runtime stat changes (level-up, equipment, status effects) belong to consumer-side base+modifier pattern — Hero DB stores only the immutable base. A consumer mutating `hero.stat_might = 99` corrupts the shared cache for subsequent consumers — silent correctness bug. Codified as forbidden_pattern hero_data_consumer_mutation in docs/registry/architecture.yaml. Source-comment in hero_database.gd above each query method: `# RETURNS SHARED REFERENCE — consumers MUST NOT mutate fields. Use base+modifier pattern.` Mandatory R-1 mitigation test: tests/unit/foundation/hero_database_consumer_mutation_test.gd documents shared-reference contract (test asserts mutation IS visible across get_hero calls — proving the convention is the only defense; GDScript has no const reference enforcement). Alternative deeper-defense `duplicate_deep()` on every get_hero rejected for performance (10× cost on hot path). hero_id string reference contract (per CR §Interactions): all systems reference heroes by hero_id string; object reference forbidden — Godot Resource cyclic-load-dependency prevention."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hero-database-006
+    system: hero-database
+    gdd: design/gdd/hero-database.md
+    adr: docs/architecture/ADR-0007-hero-database.md
+    requirement: "CR-1 Hero ID format + AC-01: hero_id format `^[a-z]+_\\d{3}_[a-z_]+$` (faction_seq_slug; e.g., shu_001_liu_bei, wei_001_cao_cao, wu_003_zhou_yu, qun_001_lu_bu). 3-digit zero-padded sequence. ID is immutable across project lifetime — faction changes (e.g., Lu Bu's independence → Cao Cao → Liu Bei) keep original hero_id; runtime faction tracked separately via faction field. Runtime FATAL severity check in `_load_heroes()` rejects entire load on first violation (matches GDD AC-01 + EC-1 strict). `push_error` lists offending hero_id + offending pattern position. Pattern matched at load-time; not re-validated at query time (immutable post-load)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hero-database-007
+    system: hero-database
+    gdd: design/gdd/hero-database.md
+    adr: docs/architecture/ADR-0007-hero-database.md
+    requirement: "CR-2 Schema range checks (AC-02 + AC-03 + AC-04 + AC-05): per-field range validation on every record at load-time. Stats (stat_might/intellect/command/agility) ∈ [1, 100] inclusive — boundary values 1 and 100 ACCEPTED, 0 and 101 REJECTED. Derived seeds (base_hp_seed, base_initiative_seed) ∈ [1, 100] inclusive. move_range ∈ [2, 6] inclusive — boundary values 2 and 6 ACCEPTED, 1 and 7 REJECTED. Growth rates (growth_might/intellect/command/agility) ∈ [0.5, 2.0] inclusive — boundary values 0.5 and 2.0 ACCEPTED, 0.4 and 2.1 REJECTED. Runtime FATAL severity per-record rejection — offending record dropped + push_error lists hero_id + offending field name + offending value + expected range; other records continue loading. Validation is pre-cache: a rejected record is NEVER inserted into _heroes Dictionary."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hero-database-008
+    system: hero-database
+    gdd: design/gdd/hero-database.md
+    adr: docs/architecture/ADR-0007-hero-database.md
+    requirement: "EC-1 Duplicate hero_id detection + AC-12: two records sharing the same hero_id reject the entire database load (FATAL severity, full-load reject — not per-record). `push_error` lists the duplicated hero_id explicitly. Silent overwrite forbidden — runtime-non-reproducible bug source. Detection via Dictionary key collision check during load: if `_heroes.has(hero_id)` returns true at insert time, reject the entire batch and clear `_heroes` (no partial state on FATAL). Distinct from EC-2 per-record FATAL (skill array mismatch only rejects offending record). _heroes_loaded remains false on FATAL load-reject; subsequent caller sees empty Dictionary + the push_error trail in debugger console."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hero-database-009
+    system: hero-database
+    gdd: design/gdd/hero-database.md
+    adr: docs/architecture/ADR-0007-hero-database.md
+    requirement: "EC-2 + EC-3 Skill parallel-array integrity + AC-07 + AC-13: `innate_skill_ids: Array[StringName]` and `skill_unlock_levels: Array[int]` MUST be equal length. Per-record FATAL severity: if `innate_skill_ids.size() != skill_unlock_levels.size()`, reject offending record only (other records continue) + push_error lists hero_id + both array sizes + offending field names. Both length 0 ACCEPTED — heroes without innate skills are valid (EC-3). Padding/truncation forbidden — always authoring error. MVP cap: max 3 innate skills per hero (CR-2 Skills Block table); enforcement via balance lint script Polish-tier follow-up."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hero-database-010
+    system: hero-database
+    gdd: design/gdd/hero-database.md
+    adr: docs/architecture/ADR-0007-hero-database.md
+    requirement: "EC-4 + EC-5 + EC-6 Relationship WARNING tier (AC-14): runtime non-fatal validation. EC-4 self-referencing relationship (hero_b_id == hero_id): drop offending relationship entry + push_warning. EC-5 orphan hero_b_id (FK target missing from _heroes): drop offending relationship entry + push_warning listing unresolved hero_b_id. MVP roster excluding Full-Vision heroes is an expected state per GDD EC-5 — FK miss is non-fatal by design. EC-6 asymmetric relationship conflict (A→B is RIVAL is_symmetric=true, B→A is SWORN_BROTHER is_symmetric=true): load BOTH relationships independently + push_warning (design-warning, not data-error) — Hero DB does NOT adjudicate; Formation Bonus ADR / Battle system owns conflict resolution. Hero record itself loads normally on any of EC-4/5/6 — only specific relationship entries are dropped or flagged."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hero-database-011
+    system: hero-database
+    gdd: design/gdd/hero-database.md
+    adr: docs/architecture/ADR-0007-hero-database.md
+    requirement: "F-1..F-4 Stat balance validation formulas — DEFERRED to Polish-tier build-time tooling (AC-08 + AC-09 + AC-10 + AC-11). F-1 stat_total ∈ [STAT_TOTAL_MIN=180, STAT_TOTAL_MAX=280] (boundary 180/280 valid, 281+ High-Risk flag). F-2 SPI = (stat_max - stat_min) / stat_avg < SPI_WARNING_THRESHOLD=0.5 design warning. F-3 stat_projected(L) = stat_base + floor(stat_base × growth_rate × (L / L_cap)) clamped to STAT_HARD_CAP=100; growth_ceiling check. F-4 MVP stat_total ∈ [190, 260] + role_coverage_check (4 distinct dominant_stat per MVP roster). Implementation: tools/ci/lint_hero_database_validation.sh (mirrors AC-DC-48 hardcoded-constants lint precedent). Validation thresholds via BalanceConstants.get_const(key) per ADR-0006 — STAT_TOTAL_MIN, STAT_TOTAL_MAX, SPI_WARNING_THRESHOLD, STAT_HARD_CAP, MVP_FLOOR_OFFSET=10, MVP_CEILING_OFFSET=20 thresholds appended to balance_entities.json same-patch with the lint story (NOT this ADR — ADR-0007's runtime pipeline does NOT consume validation thresholds; the BalanceConstants dependency is forward-compat only). Rationale (N2): out-of-range hero authored in heroes.json is designer authoring error, not runtime correctness issue — appropriately tooled at build-time where iteration loop closes faster than runtime push_error in editor console. Polish-deferral pattern stable at 5+ invocations (ADR-0008 + ADR-0006 + ADR-0009 + ADR-0012 + ADR-0007)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hero-database-012
+    system: hero-database
+    gdd: design/gdd/hero-database.md
+    adr: docs/architecture/ADR-0007-hero-database.md
+    requirement: "CR-4 default_class cross-doc convention (Item 3 corrected wording 2026-04-30): HeroData.default_class stored as `int` (NOT typed `@export var default_class: UnitRole.UnitClass`). Cross-script @export typed-enum reference creates hard load-order coupling between hero_data.gd and unit_role.gd that is brittle in Godot 4.x — risk is INSPECTOR-AUTHORING INSTABILITY: when hero_data.gd loads before unit_role.gd resolves its class_name, the cross-script enum type cannot resolve and the editor may show a bare integer field instead of an enum dropdown (NOTE: storage IS always int at binary level regardless of @export type hint resolution; risk is editor-time UX, not data corruption). Storage as int matches entities.yaml CLASS_DIRECTION_MULT key form (0..5 ints). UnitRole call sites bind unit_class: UnitRole.UnitClass at parameter level per ADR-0009 §3 — type safety preserved at boundary. Cross-doc convention: HeroData.default_class int values align 1:1 with UnitRole.UnitClass enum int values (CAVALRY=0, INFANTRY=1, ARCHER=2, STRATEGIST=3, COMMANDER=4, SCOUT=5). NOT registered as forbidden_pattern (value-alignment convention, not architectural anti-pattern). Drift surfaces as test failures in UnitRole's get_class_direction_mult test suite if values diverge."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hero-database-013
+    system: hero-database
+    gdd: design/gdd/hero-database.md
+    adr: docs/architecture/ADR-0007-hero-database.md
+    requirement: "Non-emitter invariant per ADR-0001 line 372 (Hero Database (#25) on non-emitter list as 'read-only data registry'). Zero signal declarations + zero connect()/emit_signal() calls in src/foundation/hero_database.gd + src/foundation/hero_data.gd. Codified as forbidden_pattern hero_database_signal_emission in docs/registry/architecture.yaml. Mirrors ADR-0012 forbidden_pattern damage_calc_signal_emission + ADR-0009 forbidden_pattern unit_role_signal_emission + ADR-0006 forbidden_pattern balance_constants_signal_emission precedents (4-precedent stateless-non-emitter discipline). Static-lint enforcement per §Validation Criteria §6: `grep -E '(signal\\s|connect\\(|emit_signal\\()' src/foundation/hero_database.gd src/foundation/hero_data.gd` returns zero matches. ADR-0001 line 372 prose API name (hero_database.get(unit_id)) is stale relative to ADR-0007 §4 6-method API (HeroDatabase.get_hero(hero_id: StringName) etc.) — non-blocking advisory; defer to next ADR-0001 amendment. Hero DB belongs to non-emitter discipline regardless of API form."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hero-database-014
+    system: hero-database
+    gdd: design/gdd/hero-database.md
+    adr: docs/architecture/ADR-0007-hero-database.md
+    requirement: "§1 Lazy-init lifecycle + G-15 test isolation (R-2 mitigation): first call to ANY HeroDatabase static method triggers `_load_heroes()` (FileAccess + JSON.new().parse + per-record HeroData instantiation + range validation). Subsequent calls are O(1) Dictionary[StringName, HeroData] lookups. Cache (`_heroes`) persists for GDScript engine session; survives BattleScene tear-down/instantiation (cross-scene consumer pattern: Battle Preparation reads heroes pre-battle; Scenario Progression reads heroes pre-load). Test isolation obligation: every GdUnit4 test suite that calls ANY HeroDatabase method MUST reset `HeroDatabase._heroes_loaded = false` in `before_test()` per G-15 + ADR-0006 §6 obligation. Pattern proven stable at 3-precedent (ADR-0006 _cache_loaded, ADR-0009 _coefficients_loaded, ADR-0007 _heroes_loaded). Static-lint check: `grep -L '_heroes_loaded = false' tests/unit/foundation/hero_database*.gd` returns empty. GdUnit4 v6.1.2 lifecycle hook is `before_test()` (NOT `before_each()`); this is the project-pinned GdUnit4 idiom."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-hero-database-015
+    system: hero-database
+    gdd: design/gdd/hero-database.md
+    adr: docs/architecture/ADR-0007-hero-database.md
+    requirement: "Performance budgets (AC-15 + §Performance Implications): `get_hero(id)` < 0.001ms (Dictionary[StringName, HeroData] hash lookup, O(1)). `get_heroes_by_faction` / `get_heroes_by_class` < 0.05ms for 10-hero MVP (linear scan over _heroes values × ~5 field reads); pre-built per-faction/per-class indices deferred to Alpha when 30+ heroes ship — call-shape stable, internal optimization only. `get_mvp_roster` < 0.01ms for 8-10-hero filter on is_available_mvp == true. `get_relationships` per-hero array variable size; typical < 10 entries, lookup + array copy < 0.01ms. `get_all_hero_ids` Dictionary.keys() copy via Godot 4.x typed-array COW < 0.01ms for 10-hero MVP. `_load_heroes()` one-time cost: FileAccess + JSON.parse + per-record HeroData instantiation + range validation ≈ 5-15ms for 10-hero MVP, target < 100ms for 100-hero Alpha per AC-15. Memory: ~5KB per HeroData Resource (26 fields × ~200 bytes typical) × 10 = ~50KB cache for 10-hero MVP; ~500KB at 100-hero Alpha — well under 512MB mobile ceiling. AC-15 100-hero / 100ms benchmark deferred to Alpha (10-hero MVP measured; 100-hero forward-compat extrapolation). Headless CI throughput baseline test in tests/unit/foundation/hero_database_perf_test.gd; on-device measurement deferred per damage-calc story-010 Polish-deferral pattern."
+    created: 2026-04-30
     revised: ""
     status: active

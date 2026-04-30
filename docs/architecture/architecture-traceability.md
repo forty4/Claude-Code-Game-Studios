@@ -11,15 +11,15 @@
 
 | Field | Value |
 |---|---|
-| Version | 0.5 |
-| Last Updated | 2026-04-28 |
-| Source — architecture: | `docs/architecture/architecture.md` v0.1 |
-| Source — TR registry: | `docs/architecture/tr-registry.yaml` v6 |
-| Source — /architecture-review: | `docs/architecture/architecture-review-2026-04-18.md` (PASS) + `architecture-review-2026-04-20.md` (PASS delta, ADR-0004 accepted) + `architecture-review-2026-04-25.md` (PASS delta, ADR-0008 accepted) + `architecture-review-2026-04-26.md` (PASS delta, ADR-0012 accepted) + `architecture-review-2026-04-28.md` (PASS delta, ADR-0009 accepted) |
-| GDDs scanned | 10 of 14 MVP (2026-04-18) + map-grid.md re-scan (2026-04-20) + terrain-effect.md re-scan (2026-04-25) + damage-calc.md re-scan (2026-04-26) + unit-role.md re-scan (2026-04-28) |
-| TRs extracted (this session) | 132 |
-| TRs registered (permanent IDs) | 73 |
-| ADR coverage: | 7 ADRs (all Accepted — 4 Foundation + 1 Core + 1 Feature + 1 Foundation/Core-bridge for Unit Role; per ADR-0009 §Engine Compatibility "Foundation — stateless gameplay rules calculator") |
+| Version | 0.6 |
+| Last Updated | 2026-04-30 |
+| Source — architecture: | `docs/architecture/architecture.md` v0.1 (overdue by 5 ADRs since baseline ≤4) |
+| Source — TR registry: | `docs/architecture/tr-registry.yaml` v7 |
+| Source — /architecture-review: | `docs/architecture/architecture-review-2026-04-18.md` (PASS) + `architecture-review-2026-04-20.md` (PASS delta, ADR-0004 accepted) + `architecture-review-2026-04-25.md` (PASS delta, ADR-0008 accepted) + `architecture-review-2026-04-26.md` (PASS delta, ADR-0012 accepted) + `architecture-review-2026-04-28.md` (PASS delta, ADR-0009 accepted) + `architecture-review-2026-04-30.md` (PASS delta, ADR-0007 accepted) |
+| GDDs scanned | 10 of 14 MVP (2026-04-18) + map-grid.md re-scan (2026-04-20) + terrain-effect.md re-scan (2026-04-25) + damage-calc.md re-scan (2026-04-26) + unit-role.md re-scan (2026-04-28) + hero-database.md re-scan (2026-04-30) |
+| TRs extracted (this session) | 147 |
+| TRs registered (permanent IDs) | 88 |
+| ADR coverage: | 9 ADRs (all Accepted — 4 Foundation + 1 Core + 1 Feature + 2 Foundation/Core-bridge for Unit Role + Foundation content-data layer for Hero DB; per ADR-0007 §Engine Compatibility "Foundation — content-data layer (parallel to ADR-0006 BalanceConstants for tuning constants)") |
 
 ---
 
@@ -28,19 +28,19 @@
 | Layer | TRs (est.) | ADRs existing | ADRs required | Status |
 |---|---|---|---|---|
 | Platform | — (infra) | 3 (ADR-0001..0003 Accepted) | 0 more | ✅ Complete |
-| Foundation | ~35 | 3 (ADR-0004 + ADR-0006 + ADR-0009 Accepted) | 2 more (Input, Hero DB) | ⚠️ 3/5 |
+| Foundation | ~50 | 4 (ADR-0004 + ADR-0006 + ADR-0009 + **ADR-0007** Accepted) | 1 more (Input ADR-0005 — HIGH engine risk) | ⚠️ **4/5** |
 | Core | ~30 | 1 (ADR-0008 Accepted) | 1+ more (Turn Order signal, HP/Status) | ⚠️ 1/2 |
 | Feature | ~25 | 1 (ADR-0012 Accepted) | 2+ (AI, Grid Battle, Destiny Branch) | ⚠️ 1/3 |
 | Presentation | ~10 | 0 | 1+ (Dual-focus UI pattern) | ❌ 0/1 |
 | Polish | ~2 | 0 | 1 (Accessibility, if tier committed) | ❌ 0/1 |
 
-**Net-new ADRs required before Pre-Production → Production gate**: 5–9 (ADR-0009 landed this pass; ratifies ADR-0008 cost-matrix unit-class dim + ADR-0012 CLASS_DIRECTION_MULT[6][3]).
+**Net-new ADRs required before Pre-Production → Production gate**: 4–8 (ADR-0007 landed this pass; ratifies HeroData parameter shape consumed transitively by ADR-0009 + ADR-0012; closes ADR-0009's only outstanding upstream soft-dep).
 
 ---
 
-## Registered TR-to-ADR map (source: tr-registry.yaml v6)
+## Registered TR-to-ADR map (source: tr-registry.yaml v7)
 
-These 73 requirements have permanent IDs and are already covered by an Accepted ADR.
+These 88 requirements have permanent IDs and are already covered by an Accepted ADR.
 
 | TR ID | System | ADR | Status | Summary |
 |---|---|---|---|---|
@@ -122,6 +122,21 @@ All Foundation-layer ADRs (ADR-0001..0004), the first Core-layer ADR (ADR-0008),
 | TR-unit-role-010 | unit-role | ADR-0009 | Accepted | Non-emitter invariant per ADR-0001 line 375; forbidden_pattern unit_role_signal_emission; static-lint enforcement zero `signal `/`connect(`/`emit_signal(` matches |
 | TR-unit-role-011 | unit-role | ADR-0009 | Accepted | F-1..F-5 stat derivation — clamp ranges [1,ATK_CAP], [1,DEF_CAP], [HP_FLOOR+1,HP_CAP], [1,INIT_CAP], [MOVE_RANGE_MIN,MOVE_RANGE_MAX]; 100% test coverage required per technical-preferences |
 | TR-unit-role-012 | unit-role | ADR-0009 | Accepted | Performance — derived-stat <0.05ms / cost_table <0.01ms / direction_mult <0.01ms / per-battle init <0.6ms total; headless CI baseline + on-device deferred per damage-calc story-010 Polish-deferral pattern |
+| TR-hero-database-001 | hero-database | ADR-0007 | Accepted | §1 Module form — `class_name HeroDatabase extends RefCounted` + `@abstract` (G-22 typed-reference parse-time block) + all-static + lazy-init `Dictionary[StringName, HeroData]` (Godot 4.4+); 5th-precedent stateless-static pattern (ADR-0008→0006→0012→0009→0007) |
+| TR-hero-database-002 | hero-database | ADR-0007 | Accepted | §2 HeroData Resource — 26 @export fields (7 identity + 4 core stats + 2 derived seeds + 1 movement + 2 role + 4 growth + 2 skill parallel arrays + 3 scenario + 1 relationships) + nested HeroFaction enum; Resource overhead trade-off acknowledged (Item 8 2026-04-30) |
+| TR-hero-database-003 | hero-database | ADR-0007 | Accepted | §3 Storage — single `assets/data/heroes/heroes.json`; lazy-init `JSON.new().parse()` line/col diagnostics; mirrors ADR-0006/0008/0009 4-precedent JSON pattern |
+| TR-hero-database-004 | hero-database | ADR-0007 | Accepted | §4 Public API — 6 static query methods (get_hero / get_heroes_by_faction / get_heroes_by_class / get_all_hero_ids / get_mvp_roster / get_relationships); G-2 typed-array construction MANDATORY for return values |
+| TR-hero-database-005 | hero-database | ADR-0007 | Accepted | Read-only contract — consumers MUST NOT mutate returned HeroData fields; forbidden_pattern hero_data_consumer_mutation; R-1 mitigation regression test asserts mutation IS visible (proving convention is sole defense) |
+| TR-hero-database-006 | hero-database | ADR-0007 | Accepted | CR-1 + AC-01 — hero_id format `^[a-z]+_\d{3}_[a-z_]+$` regex; FATAL severity full-load reject on violation |
+| TR-hero-database-007 | hero-database | ADR-0007 | Accepted | CR-2 + AC-02..AC-05 — schema range checks per-record FATAL: stats [1,100], seeds [1,100], move_range [2,6], growth [0.5,2.0]; pre-cache validation |
+| TR-hero-database-008 | hero-database | ADR-0007 | Accepted | EC-1 + AC-12 — duplicate hero_id FATAL full-load reject (no partial state); silent overwrite forbidden |
+| TR-hero-database-009 | hero-database | ADR-0007 | Accepted | EC-2 + EC-3 + AC-07 + AC-13 — skill parallel-array integrity per-record FATAL on length mismatch; both length 0 ACCEPTED (no innate skills valid) |
+| TR-hero-database-010 | hero-database | ADR-0007 | Accepted | EC-4 + EC-5 + EC-6 + AC-14 — relationship WARNING tier (self-ref / orphan FK / asymmetric conflict); load continues; offending entries dropped or both kept (Formation Bonus ADR adjudicates) |
+| TR-hero-database-011 | hero-database | ADR-0007 | Accepted | F-1..F-4 + AC-08..AC-11 — stat balance validation DEFERRED to Polish-tier `tools/ci/lint_hero_database_validation.sh`; thresholds via BalanceConstants per ADR-0006 (forward-compat only); Polish-deferral pattern stable at 5+ invocations |
+| TR-hero-database-012 | hero-database | ADR-0007 | Accepted | CR-4 default_class — int storage with cross-doc convention 1:1 alignment with UnitRole.UnitClass enum 0..5; inspector-authoring instability rationale (Item 3 corrected wording 2026-04-30) |
+| TR-hero-database-013 | hero-database | ADR-0007 | Accepted | Non-emitter invariant per ADR-0001 line 372; forbidden_pattern hero_database_signal_emission; 4-precedent stateless-non-emitter discipline (mirrors ADR-0006/0009/0012) |
+| TR-hero-database-014 | hero-database | ADR-0007 | Accepted | §1 Lazy-init + G-15 test isolation — `_heroes_loaded = false` reset in `before_test()` mandatory; 3-precedent G-15 mirror (ADR-0006/0009/0007) |
+| TR-hero-database-015 | hero-database | ADR-0007 | Accepted | Performance — get_hero <0.001ms / scans <0.05ms for 10-hero MVP / load <100ms target for 100-hero Alpha (AC-15 forward-compat); ~50KB cache 10-hero, ~500KB Alpha; headless CI baseline + on-device deferred |
 
 ---
 
@@ -159,19 +174,9 @@ Full extraction in the `/create-architecture` Phase 0 session log. To be folded 
 
 ### design/gdd/grid-battle.md (9 candidate TRs — GDD in MAJOR REVISION, re-scan after v5.0)
 
-### design/gdd/hero-database.md (9 candidate TRs)
+### design/gdd/hero-database.md (15 TRs — REGISTERED 2026-04-30)
 
-| Candidate | Requirement | Target ADR |
-|---|---|---|
-| hero-db.1 | ID format `{faction}_{seq}_{slug}` immutable | ⏳ ADR-0007 Hero DB |
-| hero-db.2 | Hero record schema (Identity/Stats/HP/Init/Movement/Role/Growth/Skills/Relationships/Join) | ⏳ ADR-0007 |
-| hero-db.3 | Stat total validation 180 ≤ total ≤ 280; SPI ≥ 0.5; range ≥ 30 | ⏳ ADR-0007 |
-| hero-db.4 | 6 unit roles + equipment slot override | ⏳ ADR-0007 |
-| hero-db.5 | growth_rate ∈ [0.5, 2.0], clamped to 100 at L_cap=30 | ⏳ ADR-0007 |
-| hero-db.6 | Relationships schema (hero_b_id FK, relation_type, effect_tag, is_symmetric) | ⏳ ADR-0007 |
-| hero-db.7 | 0–3 innate skills; arrays must equal length | ⏳ ADR-0007 |
-| hero-db.8 | Missing FK = WARNING; orphaned record = WARNING | ⏳ ADR-0007 |
-| hero-db.9 | Duplicate hero_id / JSON key = FATAL | ⏳ ADR-0007 |
+Registered as TR-hero-database-001..015 in tr-registry.yaml v7. See "Registered TR-to-ADR map" section above for the full table. The 15 GDD ACs (AC-01..AC-15) map to the TR layer 1:1 — hero-database's GDD is content-shaped (rather than the unit-role 23-ACs / 12-TRs sub-test ratio); most ACs are 1:1 with TR-level architectural commitments. AC-08..AC-11 (F-1..F-4 validation forms) are all deferred per ADR-0007 §5 to Polish-tier tooling and tracked by TR-hero-database-011.
 
 ### design/gdd/hp-status.md (11 candidate TRs)
 
@@ -220,3 +225,4 @@ Registered as TR-unit-role-001..012 in tr-registry.yaml v6. See "Registered TR-t
 | 2026-04-25 | 0.3 | Delta review: ADR-0008 escalated Proposed → Accepted. 18 new TR-terrain-effect-* entries registered (registry v3→v4). Core layer 0/2 → 1/2 complete. Concurrent ADR-0004 §5b erratum amendment. Source: `docs/architecture/architecture-review-2026-04-25.md`. |
 | 2026-04-26 | 0.4 | Delta review: ADR-0012 (Damage Calc) escalated Proposed → Accepted. 13 new TR-damage-calc-* entries registered (registry v4→v5). First Feature-layer ADR. Provisional-dependency strategy on ADR-0006/0009/0010/0011 mirrors ADR-0008→ADR-0006 precedent (proven 2 invocations). 2 godot-specialist text corrections applied (AF-1 + Item 3). Source: `docs/architecture/architecture-review-2026-04-26.md`. |
 | 2026-04-28 | 0.5 | Delta review: ADR-0009 (Unit Role) escalated Proposed → Accepted. 12 new TR-unit-role-* entries registered (registry v5→v6). Foundation layer 2/5 → 3/5. Ratifies ADR-0008's cost-matrix unit-class dimension placeholder + ADR-0012's CLASS_DIRECTION_MULT (corrected [4][3]→[6][3] in same patch). godot-specialist independent review-time validation: APPROVED WITH SUGGESTIONS (8/8 PASS-or-CONCERN); 2 corrections applied pre-acceptance (§1 line 130 parse-time→runtime; ADR-0012 line 42 dim amendment). Sprint-1 S1-07 closure. Source: `docs/architecture/architecture-review-2026-04-28.md`. |
+| 2026-04-30 | 0.6 | Delta review: ADR-0007 (Hero Database) escalated Proposed → Accepted. 15 new TR-hero-database-* entries registered (registry v6→v7). Foundation layer 3/5 → **4/5** (only Input Handling ADR-0005 remaining; HIGH engine risk). Closes ADR-0009's only outstanding upstream soft-dep (provisional HeroData → ratified 26-field shape). godot-specialist independent review-time validation: APPROVED WITH SUGGESTIONS (8/8 PASS-or-CONCERN); 2 wording-only corrections applied pre-acceptance (§2 default_class wording — Item 3; §2 Resource overhead acknowledgement — Item 8). 1 advisory carried for next ADR-0001 amendment (line 372 prose API name drift `hero_database.get(unit_id)` → `HeroDatabase.get_hero(hero_id: StringName)`). 5-precedent fresh-session /architecture-review pattern stable (avg 2 wording corrections / delta). Source: `docs/architecture/architecture-review-2026-04-30.md`. |

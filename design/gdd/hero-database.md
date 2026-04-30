@@ -1,8 +1,8 @@
 # Hero Database (무장 데이터베이스)
 
-> **Status**: Accepted via [ADR-0007](../../docs/architecture/ADR-0007-hero-database.md) (Proposed 2026-04-29)
+> **Status**: Accepted via [ADR-0007](../../docs/architecture/ADR-0007-hero-database.md) (Accepted 2026-04-30 via /architecture-review delta)
 > **Author**: User + Claude Code agents
-> **Last Updated**: 2026-04-29 (Status flip same-patch with ADR-0007 Write)
+> **Last Updated**: 2026-04-30 (ADR-0007 escalated Proposed → Accepted via /architecture-review; 15 TR-hero-database-* registered)
 > **Implements Pillar**: Pillar 3 — 모든 무장에게 자리가 있다 (Every Hero Has a Role)
 
 ## Overview

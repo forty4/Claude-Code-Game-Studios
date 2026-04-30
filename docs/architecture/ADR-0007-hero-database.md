@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-04-29; ratifies provisional `src/foundation/hero_data.gd` shipped 2026-04-28 under ADR-0009 §Migration Plan §3 soft-dep)
+Accepted (2026-04-30, escalated via `/architecture-review` delta — 9th Accepted ADR; first ratifies provisional `src/foundation/hero_data.gd` shipped 2026-04-28 under ADR-0009 §Migration Plan §3 soft-dep; 2 pre-acceptance wording corrections applied per godot-specialist Item 3 + Item 8 — see `docs/architecture/architecture-review-2026-04-30.md`)
 
 ## Date
 
@@ -207,9 +207,11 @@ enum HeroFaction {
 
 **All `@export` discipline**: per ADR-0003 TR-save-load-002 + `non_exported_save_field` forbidden_pattern. Hero DB is **content data** (not save data), but `@export` is mandatory for two reasons: (a) Inspector authoring round-trip, (b) `ResourceSaver`-based serialization compatibility for future content-pipeline tooling that may dump heroes to `.tres`.
 
-**`default_class: int` (NOT typed `UnitRole.UnitClass`)**: cross-script `@export` typed-enum reference creates a hard load-order coupling between `hero_data.gd` and `unit_role.gd` that is brittle in Godot 4.x Inspector authoring (silent fallback to int storage when the typed-enum reference fails to resolve). Storage as `int` matches the `entities.yaml` `CLASS_DIRECTION_MULT` key form (0..5 ints). UnitRole call sites bind `unit_class: UnitRole.UnitClass` at the parameter level (per ADR-0009 §3) — so type safety is preserved at the boundary. The cross-doc convention (HeroData.default_class int values align 1:1 with UnitRole.UnitClass enum int values) is codified as forbidden_pattern `hero_data_class_enum_drift` in §6.
+**`default_class: int` (NOT typed `UnitRole.UnitClass`)**: cross-script `@export` typed-enum reference creates a hard load-order coupling between `hero_data.gd` and `unit_role.gd` that is brittle in Godot 4.x Inspector authoring — specifically, **inspector-authoring instability when the cross-script enum type fails to resolve during editor load: the editor may show a bare integer field instead of an enum dropdown** (the binary storage is always int regardless; the risk is editor-time UX, not data corruption — corrected pre-acceptance per architecture-review-2026-04-30 godot-specialist Item 3). Storage as `int` matches the `entities.yaml` `CLASS_DIRECTION_MULT` key form (0..5 ints). UnitRole call sites bind `unit_class: UnitRole.UnitClass` at the parameter level (per ADR-0009 §3) — so type safety is preserved at the boundary. The cross-doc convention (HeroData.default_class int values align 1:1 with UnitRole.UnitClass enum int values) is codified as forbidden_pattern `hero_data_class_enum_drift` in §6.
 
 **`HeroFaction` enum locally scoped**: faction storage is HeroData's own concern; no cross-system consumer needs to import it. Locally scoped enum avoids unnecessary export pollution.
+
+**`Resource` vs `RefCounted` base-class trade-off acknowledgement** (added pre-acceptance per architecture-review-2026-04-30 godot-specialist Item 8): Resource base-class overhead (`resource_path`, `resource_name`, ResourceLoader cache participation, larger base memory footprint than RefCounted) is accepted for the 10-100 MVP/Alpha cache size at ~5KB/record; negligible against the 512MB mobile ceiling. Asymmetry with ADR-0012's `RefCounted` choice for transient typed wrappers (`AttackerContext`, `DefenderContext`, `ResolveModifiers`, `ResolveResult`) is intentional: HeroData is content data with Inspector-authoring + ResourceSaver round-trip use cases; ADR-0012 wrappers are per-call computation contexts with neither.
 
 **Field set deferrals** (downstream ADR ratification required for typed migration):
 - `relationships: Array[Dictionary]` — Formation Bonus ADR migrates to `Array[HeroRelationship]` typed Resource sub-class (4 fields per record per CR-2 §Relationships Block).
