@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-04-27, ratifies shipped code from damage-calc story-006b PR #65 + terrain-effect story-003 PR #43)
+Accepted (2026-04-30, via `/architecture-review` delta #9 — Proposed 2026-04-27 ratifies shipped code from damage-calc story-006b PR #65 + terrain-effect story-003 PR #43)
 
 ## Date
 
@@ -10,7 +10,7 @@ Proposed (2026-04-27, ratifies shipped code from damage-calc story-006b PR #65 +
 
 ## Last Verified
 
-2026-04-27
+2026-04-30
 
 ## Decision Makers
 

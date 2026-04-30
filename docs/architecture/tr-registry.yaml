@@ -24,7 +24,7 @@
 #
 # STATUS VALUES: active | deprecated | superseded-by: TR-[system]-NNN
 
-version: 10
+version: 11
 last_updated: "2026-04-30"
 
 requirements:
@@ -1277,6 +1277,196 @@ requirements:
     gdd: design/gdd/turn-order.md
     adr: docs/architecture/ADR-0011-turn-order.md
     requirement: "Cross-doc unit_id type advisory — ADR-0011 LOCKS `unit_id: int` matching ADR-0001 line 153 signal-contract source-of-truth + ADR-0010 UnitHPState Dictionary[int, UnitHPState] key consistency. ADR-0012 lines 91/109/340/343 originally declared `unit_id: StringName` (stale documentation artifact); type narrowed StringName → int via /architecture-review delta #8 same-patch advisory batch (4 spots edited; delta #7 HP/Status carry + delta #8 Turn Order carry combined). Internal Damage Calc ContextResource fields (lines 186/192/197/201) and call-site references (lines 260/352-353) retain implicit StringName semantics pending follow-up ADR-0012 amendment that will propagate `int` through AttackerContext/DefenderContext factory signatures. Note `hero_id: StringName` (per ADR-0007) vs `unit_id: int` (per ADR-0001/0010/0011) are distinct identifiers — Battle Preparation provides the mapping at BI-1 per turn-order.md §CR-5 tie-break cascade."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  # =================================================================
+  # Balance/Data — registered 2026-04-30 via /architecture-review delta #9
+  # =================================================================
+  # ADR-0006 (Accepted 2026-04-30) ratifies the SHIPPED BalanceConstants
+  # MVP wrapper (PR #65, 2026-04-27). The GDD `balance-data.md` specifies
+  # the full DataRegistry pipeline (CR-1..CR-10, 15 ACs); ADR-0006 §7
+  # explicitly defers 7 Core Rules + 13 of 15 ACs to a future Alpha-tier
+  # "DataRegistry Pipeline" ADR (no calendar commitment). MVP-deferred
+  # TRs are marked PARTIAL with rationale; this is BY DESIGN, not gap.
+
+  - id: TR-balance-data-001
+    system: balance-data
+    gdd: design/gdd/balance-data.md
+    adr: docs/architecture/ADR-0006-balance-data.md
+    requirement: "AC-01 — READY-prior consumer access blocked. **PARTIAL — Alpha-deferred per ADR-0006 §7 (CR-4 4-phase pipeline state machine deferred to Alpha)**. MVP equivalent: `BalanceConstants.get_const(key)` returns null + push_error if file missing or key absent (no explicit READY/UNINITIALIZED state machine; lazy on-first-call loading per §Decision 6). Caller stack-trace logging not implemented for MVP (push_error provides callsite context via Godot debugger)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-balance-data-002
+    system: balance-data
+    gdd: design/gdd/balance-data.md
+    adr: docs/architecture/ADR-0006-balance-data.md
+    requirement: "AC-02 — 9 data category Discovery scan with per-category logging. **PARTIAL — Alpha-deferred per ADR-0006 §7 (CR-2 9-category registry deferred to Alpha)**. MVP scope: only `balance_constants` category (1 file: `assets/data/balance/balance_entities.json`). When 2nd category file lands, the loader can transparently detect envelope-vs-flat at parse time and migrate per-file per ADR-0006 §Decision 4."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-balance-data-003
+    system: balance-data
+    gdd: design/gdd/balance-data.md
+    adr: docs/architecture/ADR-0006-balance-data.md
+    requirement: "AC-03 — JSON envelope `{schema_version, category, data}` FATAL on missing fields. **PARTIAL — Alpha-deferred per ADR-0006 §7 (CR-3 envelope deferred to Alpha)**. MVP ratifies flat JSON format (no envelope); `balance_entities.json` is `{KEY: value}` map directly per ADR-0006 §Decision 4. Documented MVP-scope deviation; CR-3 envelope migrates to Alpha when 2nd category file lands."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-balance-data-004
+    system: balance-data
+    gdd: design/gdd/balance-data.md
+    adr: docs/architecture/ADR-0006-balance-data.md
+    requirement: "AC-04 — Phase 4 (Build) FATAL-free completion gates downstream consumer init. **PARTIAL — Alpha-deferred per ADR-0006 §7 (CR-4 4-phase Discovery/Parse/Validate/Build pipeline deferred to Alpha)**. MVP scope: single-file lazy on-first-call loading (`_load_cache()` invoked on first `get_const()` call); cache persists for GDScript engine session; no explicit init phase. Forward-compat plan: when Alpha pipeline lands, `BalanceConstants` becomes a thin facade per ADR-0006 §Migration Path Forward."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-balance-data-005
+    system: balance-data
+    gdd: design/gdd/balance-data.md
+    adr: docs/architecture/ADR-0006-balance-data.md
+    requirement: "AC-05 — ERROR-level partial rejection (severity-2 records rejected; severity-0/1 records continue). **PARTIAL — Alpha-deferred per ADR-0006 §7 (CR-5 4-tier FATAL/ERROR/WARNING/INFO severity classification deferred to Alpha)**. MVP scope: `push_error()` + `null` return for missing key, treated as caller-side blocker bug (no graceful default-fallback). FATAL-on-access semantics implicitly per §Decision 2. Severity-2 partial rejection has no MVP equivalent (no record-shape data to partially reject — flat constants registry has no per-record concept)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-balance-data-006
+    system: balance-data
+    gdd: design/gdd/balance-data.md
+    adr: docs/architecture/ADR-0006-balance-data.md
+    requirement: "AC-06 — 3 access patterns (direct lookup / filtered query / constant access) all return typed containers (NOT raw Dictionary). **PARTIAL — Alpha-deferred per ADR-0006 §7 (CR-6 3-pattern access deferred to Alpha; only `constant_access` ratified for MVP)**. MVP scope: `BalanceConstants.get_const(key: String) -> Variant` per §Decision 2. `direct_lookup` (e.g., `get_hero(id)`) is owned by ADR-0007 HeroDatabase as a separate accessor; `filtered_query` (e.g., `get_heroes_by_faction(...)`) deferred to Alpha-pipeline DataRegistry."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-balance-data-007
+    system: balance-data
+    gdd: design/gdd/balance-data.md
+    adr: docs/architecture/ADR-0006-balance-data.md
+    requirement: "AC-07 — All registered BalanceConstants keys accessible via `get_const(key)` returning expected scalar/dict value (not null). **COVERED via ADR-0006 §Decision 2** (`get_const(key) -> Variant`) + `assets/data/balance/balance_entities.json` (currently 22 keys; will grow to 51 keys post-ADR-0010 27-key append + ADR-0011 2-key append per same-patch story-level obligations). MVP supersedes GDD's 16-key baseline (CR-7 table) — same-patch additions from Damage Calc + HP/Status + Turn Order have already extended the registered key surface."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-balance-data-008
+    system: balance-data
+    gdd: design/gdd/balance-data.md
+    adr: docs/architecture/ADR-0006-balance-data.md
+    requirement: "AC-08 — schema_version below MINIMUM_SCHEMA_VERSION rejected with FATAL + version diagnostics. **PARTIAL — Alpha-deferred per ADR-0006 §7 (CR-3 envelope deferred to Alpha; flat MVP has no schema_version field)**. F-1 schema-compatibility formula has no MVP applicability — `balance_entities.json` is a flat constants map, not a versioned schema document."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-balance-data-009
+    system: balance-data
+    gdd: design/gdd/balance-data.md
+    adr: docs/architecture/ADR-0006-balance-data.md
+    requirement: "AC-09 — Hot Reload disabled in release builds (HOT_RELOAD_ENABLED toggle). **PARTIAL — Alpha-deferred per ADR-0006 §7 (CR-9 hot reload deferred to Alpha)**. MVP scope: cache persists for GDScript engine session; designer iteration cadence handled by game restart. No HOT_RELOADING state transition; no manual reload trigger. Game restart suffices for MVP balance-tuning workflows."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-balance-data-010
+    system: balance-data
+    gdd: design/gdd/balance-data.md
+    adr: docs/architecture/ADR-0006-balance-data.md
+    requirement: "AC-10 — Hardcoding ban: values in JSON must NOT exist as literal constants in `.gd` files. **COVERED via ADR-0006 §Decision 7 + AC-DC-48 lint precedent** (`tools/ci/lint_damage_calc_no_hardcoded_constants.sh`). Lint greps for the literal constant names (e.g., BASE_CEILING, P_MULT_COMBINED_CAP) in `src/feature/damage_calc/`; UPPER_SNAKE_CASE key naming exception per ADR-0006 §Decision 5 enables 1:1 grep-ability across `.gd ↔ .json ↔ .md`. Pattern extends to future consumers via per-system lint script (mirrors AC-DC-48); ADR-0010 + ADR-0011 same-patch story-level obligations include lint validation per Validation §6 + §2 respectively."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-balance-data-011
+    system: balance-data
+    gdd: design/gdd/balance-data.md
+    adr: docs/architecture/ADR-0006-balance-data.md
+    requirement: "AC-F1 — F-1 Schema Compatibility 4-case correctness (loader_major=1/loader_minimum_minor=0; files 1.0/1.3 = COMPATIBLE; 2.0/0.9 = FATAL). **PARTIAL — Alpha-deferred per ADR-0006 §7 (CR-3 envelope deferred to Alpha; F-1 formula has no MVP applicability)**. Reactivates with Alpha-pipeline DataRegistry ADR."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-balance-data-012
+    system: balance-data
+    gdd: design/gdd/balance-data.md
+    adr: docs/architecture/ADR-0006-balance-data.md
+    requirement: "AC-F2 — F-2 Validation Coverage Rate (VCR) CI gate. **PARTIAL — Alpha-deferred per ADR-0006 §7 (CR-5 severity tiers deferred to Alpha; VCR depends on severity-2 ERROR partial-rejection mechanism that does not exist in MVP)**. Reactivates with Alpha-pipeline DataRegistry ADR."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-balance-data-013
+    system: balance-data
+    gdd: design/gdd/balance-data.md
+    adr: docs/architecture/ADR-0006-balance-data.md
+    requirement: "AC-EC1 — Empty file (0 bytes) → severity-3 FATAL with file path in error message. **PARTIAL — Alpha-deferred per ADR-0006 §7 (no severity-3 FATAL classification in MVP)**. MVP equivalent: `balance_constants.gd:_load_cache()` line 73-74 checks `raw.is_empty()` → `push_error()` with path + early return; `_cache_loaded = true` short-circuits subsequent calls (graceful degradation pattern, NOT FATAL pipeline halt). Advisory carried (godot-gdscript-specialist Item 4): consider `FileAccess.file_exists()` precheck for diagnostic separation between 'file not found' vs 'empty file'."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-balance-data-014
+    system: balance-data
+    gdd: design/gdd/balance-data.md
+    adr: docs/architecture/ADR-0006-balance-data.md
+    requirement: "AC-EC9 — Circular cross-reference detection (DFS) → severity-2 ERROR rejection. **PARTIAL — Alpha-deferred per ADR-0006 §7 (CR-5 severity tiers deferred + CR-4 Phase 3 Validate deferred)**. MVP scope: `balance_entities.json` is a flat scalar/dict constants map with NO cross-reference fields; circular reference detection has no MVP applicability. Reactivates when entity-shape data files (heroes, scenarios, formations) land via Alpha pipeline."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-balance-data-015
+    system: balance-data
+    gdd: design/gdd/balance-data.md
+    adr: docs/architecture/ADR-0006-balance-data.md
+    requirement: "AC-PERF — `initialize()` to READY ≤ 5000 ms PIPELINE_TIMEOUT_MS on minimum-spec mobile (512MB device). **PARTIAL — Alpha-deferred per ADR-0006 §7 (CR-4 pipeline init phase deferred to Alpha)**. MVP scope: lazy on-first-call loading; first-call cost ~0.5-2ms for `_load_cache()` (FileAccess + JSON.parse_string for 12-22-key file); subsequent calls O(1) hash lookups in nanoseconds. Mobile p99 well under any frame budget per ADR-0006 §Performance Implications. No explicit timeout enforcement (lazy-load model has no init phase to timeout)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-balance-data-016
+    system: balance-data
+    gdd: design/gdd/balance-data.md
+    adr: docs/architecture/ADR-0006-balance-data.md
+    requirement: "ADR-specific: Module Form — `class_name BalanceConstants extends RefCounted` stateless static utility class with all-static methods; NOT autoload-registered (the `class_name` global identifier provides direct access). **COVERED via ADR-0006 §Decision 1**. 5-precedent stateless-static pattern (ADR-0008 → 0006 → 0012 → 0009 → 0007); pattern boundary explicitly NOT applied to event-listening systems (ADR-0005 InputRouter Autoload Node + ADR-0010 HPStatusController battle-scoped Node + ADR-0011 TurnOrderRunner battle-scoped Node)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-balance-data-017
+    system: balance-data
+    gdd: design/gdd/balance-data.md
+    adr: docs/architecture/ADR-0006-balance-data.md
+    requirement: "ADR-specific: Data file rename + flat format + UPPER_SNAKE_CASE keys. **COVERED via ADR-0006 §Decision 3-5** (rename `entities.json` → `balance_entities.json` complies with `[system]_[name].json` pattern; flat format ratified for MVP per Q1 design pick; UPPER_SNAKE_CASE keys exception documented in `.claude/rules/data-files.md` §Constants Registry Exception). Rename complete (verified: `assets/data/balance/balance_entities.json` exists at post-rename path; `balance_constants.gd:_ENTITIES_JSON_PATH` const updated; data-files.md amendment in place per §Migration Plan §4)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-balance-data-018
+    system: balance-data
+    gdd: design/gdd/balance-data.md
+    adr: docs/architecture/ADR-0006-balance-data.md
+    requirement: "ADR-specific: Constants Registry Exception subsection in `.claude/rules/data-files.md`. **COVERED** — exception subsection documents UPPER_SNAKE_CASE key + flat-format exceptions for constant-registry files (named scope: `balance_entities.json` and structurally identical future files). Exception explicitly NON-extending: every new constant-registry file requires explicit ADR + addition to the affected-files list. Default rule (camelCase keys) preserved for entity-shape data files (heroes, maps, scenarios, equipment)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-balance-data-019
+    system: balance-data
+    gdd: design/gdd/balance-data.md
+    adr: docs/architecture/ADR-0006-balance-data.md
+    requirement: "ADR-specific: Lazy on-first-call loading + `_cache_loaded: bool` idempotent guard. **COVERED via ADR-0006 §Decision 6 + shipped `src/feature/balance/balance_constants.gd`**. `_load_cache()` invoked on first `get_const()` call; cache persists for GDScript engine session; no eager-load at boot, no `_ready()` autoload trigger, no explicit init phase. Idempotent guard short-circuits subsequent calls even if first load failed (graceful degradation: missing file → empty `_cache` → all subsequent `get_const(key)` calls return null + push_error)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-balance-data-020
+    system: balance-data
+    gdd: design/gdd/balance-data.md
+    adr: docs/architecture/ADR-0006-balance-data.md
+    requirement: "ADR-specific: G-15 test-isolation discipline — every GdUnit4 test suite calling any `BalanceConstants` method MUST reset `_cache_loaded = false` in `before_test()` via `(load(\"res://src/feature/balance/balance_constants.gd\") as GDScript).set(\"_cache_loaded\", false)`. **COVERED via ADR-0006 §6 + `.claude/rules/godot-4x-gotchas.md` G-15 entry**. Pattern proven across 53 damage-calc tests + 6 balance-constants tests + cross-suite isolation regression. Mirror obligation propagated to ADR-0007 HeroDatabase (`_heroes_loaded`), ADR-0009 UnitRole (transitive), ADR-0010 HPStatusController, ADR-0011 TurnOrderRunner test suites per each respective Validation Criteria."
     created: 2026-04-30
     revised: ""
     status: active

@@ -29,8 +29,22 @@
 #   All forbidden patterns: Grep pattern="^  - pattern:" (forbidden_patterns section)
 #   Superseded entries:     Grep pattern="status: superseded"
 
-version: 6
+version: 7
 last_updated: "2026-04-30"
+# 2026-04-30 (/architecture-review delta #9): ADR-0006 Balance/Data escalated
+# Proposed → Accepted. v6 → v7: ADR-0006 was the LAST Proposed ADR — all 12
+# ADRs now Accepted; ZERO Proposed ADRs remaining; clean architecture surface.
+# Same-patch backfill: ADR-0006 Proposed-time author had not added registry
+# entries; this delta adds 4 entries (1 state_ownership +
+# 1 interface + 1 api_decision + 1 forbidden_pattern) codifying the ADR-0006
+# ratified MVP form. Existing cross-references in turn_order_runtime_state +
+# unit_hp_state_runtime + 2 referenced_by paths to ADR-0006-balance-data.md
+# (lines 272 + 290) remain factually correct (consumer references); no edits
+# required to those existing entries. ADR-0006 Migration Plan §3's "line 262 +
+# 573-574" line-number references were stale (registry has been updated 5
+# times since ADR-0006 was authored 2026-04-27); the spirit of §3 is honored
+# by adding the 4 dedicated entries here.
+#
 # 2026-04-30 (/architecture-review delta #8): ADR-0011 Turn Order escalated
 # Proposed → Accepted. v5 → v6 prose-only refresh: line 547 hp_status_apply_dispatch
 # wording flipped "Proposed 2026-04-30; pending Acceptance via /architecture-review
@@ -293,6 +307,24 @@ state_ownership:
       - docs/architecture/ADR-0010-hp-status.md  # consumer of unit_died signal for queue removal CR-7a + ratifies HP/Status's unit_turn_started consumption at T4
       - docs/architecture/ADR-0012-damage-calc.md  # ratifies get_acted_this_turn(unit_id) Scout Ambush gate + adds get_current_round_number() round-2+ gate
       - design/gdd/turn-order.md
+    added: 2026-04-30
+    revised: ""
+
+  - state: balance_constants_runtime_cache
+    status: active
+    owner_system: balance-data
+    adr: docs/architecture/ADR-0006-balance-data.md
+    interface: "BalanceConstants (class_name X extends RefCounted, all-static, NOT autoload-registered) owns 2 module-scope static vars: `static var _cache: Dictionary = {}` (parsed JSON cache; populated once by `_load_cache()` on first `get_const()` call; UNTYPED Dictionary per balance_constants.gd line 32-33 source-comment rationale — godot-gdscript-specialist 2026-04-30 delta #9 advisory carry: G-1 attribution is misleading — G-1 is about Node signal-list filtering, not Dictionary typing; future TD candidate to verify if Godot 4.6 permits `static var _cache: Dictionary[String, Variant]` and tighten in same pass as Alpha DataRegistry migration), `static var _cache_loaded: bool = false` (idempotent guard — short-circuits subsequent `get_const()` calls after first load whether or not parse succeeded; documented graceful-degradation pattern). Cache persists for the lifetime of the GDScript engine session. Single sole public method `static func get_const(key: String) -> Variant` lazy-loads on first call. Test isolation: every GdUnit4 suite calling any BalanceConstants method MUST reset both fields in `before_test()` via `(load(\"res://src/feature/balance/balance_constants.gd\") as GDScript).set(\"_cache_loaded\", false)` per ADR-0006 §6 + G-15 codification. MVP scope ratifies SHIPPED PR #65 (2026-04-27, 90 LoC, 388/388 GdUnit4 regression-validated)."
+    write_access: balance-data-only  # `_cache` populated solely by `_load_cache()` (private helper, called once); `_cache_loaded` written only by `_load_cache()` itself; consumer-side mutation forbidden via balance_constants_consumer_mutation forbidden_pattern (returned Variant must be cast and used immediately, never stored back into BalanceConstants module state)
+    referenced_by:
+      - docs/architecture/ADR-0006-balance-data.md
+      - docs/architecture/ADR-0007-hero-database.md  # forward-compat for Polish-tier validation thresholds (STAT_TOTAL_MIN, STAT_TOTAL_MAX, SPI_WARNING_THRESHOLD, etc. — NOT consumed at runtime in MVP)
+      - docs/architecture/ADR-0008-terrain-effect.md  # ratified (was provisional pre-delta #9 — TerrainConfig direct-loading pattern is forward-compatible per ADR-0006 §Migration Path Forward)
+      - docs/architecture/ADR-0009-unit-role.md  # 10 global caps (ATK_CAP, DEF_CAP, HP_CAP, HP_SCALE, HP_FLOOR, INIT_CAP, INIT_SCALE, MOVE_RANGE_MIN, MOVE_RANGE_MAX, MOVE_BUDGET_PER_RANGE)
+      - docs/architecture/ADR-0010-hp-status.md  # 27 tuning knobs (MIN_DAMAGE / SHIELD_WALL_FLAT / HEAL_BASE / HEAL_HP_RATIO / HEAL_PER_USE_CAP / EXHAUSTED_HEAL_MULT / DOT_HP_RATIO / DOT_FLAT / DOT_MIN / DOT_MAX_PER_TURN / DEMORALIZED_ATK_REDUCTION / DEMORALIZED_RADIUS / DEMORALIZED_TURN_CAP / DEMORALIZED_RECOVERY_RADIUS / DEFEND_STANCE_REDUCTION / DEFEND_STANCE_ATK_PENALTY / INSPIRED_ATK_BONUS / INSPIRED_DURATION / EXHAUSTED_MOVE_REDUCTION / MODIFIER_FLOOR / MODIFIER_CEILING / MAX_STATUS_EFFECTS_PER_UNIT / ATK_CAP / DEF_CAP / POISON_DEFAULT_DURATION / DEMORALIZED_DEFAULT_DURATION / EXHAUSTED_DEFAULT_DURATION)
+      - docs/architecture/ADR-0011-turn-order.md  # 2 net-new tuning knobs (ROUND_CAP=30, CHARGE_THRESHOLD=40)
+      - docs/architecture/ADR-0012-damage-calc.md  # 11 constants (9 consumed: BASE_CEILING, MIN_DAMAGE, ATK_CAP, DEF_CAP, DEFEND_STANCE_ATK_PENALTY, P_MULT_COMBINED_CAP, DAMAGE_CEILING, COUNTER_ATTACK_MODIFIER, BASE_DIRECTION_MULT; 2 owned: CHARGE_BONUS=1.20, AMBUSH_BONUS=1.15)
+      - design/gdd/balance-data.md
     added: 2026-04-30
     revised: ""
 
@@ -596,6 +628,32 @@ interfaces:
     added: 2026-04-30
     revised: ""
 
+  - contract: balance_constants_const_dispatch
+    status: active
+    pattern: direct_call
+    producer: balance-data
+    consumers:
+      - terrain-effect    # forward-compat (per ADR-0008 ratified Migration Plan; current TerrainConfig direct-loading pattern; future Alpha-pipeline migration is internal-only)
+      - hero-database     # forward-compat for Polish-tier validation thresholds (per ADR-0007 §6); not consumed at runtime in MVP
+      - unit-role         # 10 global caps (ATK_CAP / DEF_CAP / HP_CAP / HP_SCALE / HP_FLOOR / INIT_CAP / INIT_SCALE / MOVE_RANGE_MIN / MOVE_RANGE_MAX / MOVE_BUDGET_PER_RANGE)
+      - hp-status         # 27 tuning knobs per ADR-0010 §12
+      - turn-order        # 2 net-new tuning knobs (ROUND_CAP=30, CHARGE_THRESHOLD=40)
+      - damage-calc       # 11 constants (9 consumed + 2 owned via TK-DC-1/2)
+    adr: docs/architecture/ADR-0006-balance-data.md
+    direct_call_signatures:
+      - "BalanceConstants.get_const(key: String) -> Variant  # Sole public accessor — lazy-loads on first call; returns null + push_error for unknown keys; caller responsible for casting Variant to expected type at the call site (e.g., `var cap: float = BalanceConstants.get_const(\"P_MULT_COMBINED_CAP\") as float`); MVP scope per ADR-0006 §Decision 2 (typed accessors `get_const_int` / `get_const_float` / `get_const_dict` deferred to TD-041 future story); future Alpha-pipeline migration to `DataRegistry.get_const(key) -> Variant` is mechanical (~5–8 call sites; no semantic change) per ADR-0006 §Migration Path Forward — BalanceConstants becomes a thin facade preserving call-site stability"
+    notes: "Direct-call (NOT signal-driven) per ADR-0001 non-emitter list. Returned Variant is read-only by convention — consumer-side mutation forbidden via balance_constants_consumer_mutation forbidden_pattern (Variant store-back into BalanceConstants module state would corrupt cache; Dictionary returns are returned as references — Godot 4.x COW handles per-call copies on Dictionary mutation but this is implementation-detail relying on engine semantics, NOT a contract). Test isolation: every consumer test suite that calls any BalanceConstants method MUST reset _cache_loaded=false in before_test() per ADR-0006 §6 + G-15 codification — pattern proven across 53 damage-calc tests + 6 balance-constants tests + cross-suite isolation regression. ADR-0006 ratifies the SHIPPED PR #65 (2026-04-27) MVP wrapper; pattern stable at 5 invocations (ADR-0008 → 0006 → 0012 → 0009 → 0007). Future Alpha-pipeline DataRegistry ADR (no calendar commitment) will preserve the call-site shape `get_const(key) -> Variant` — only the internal `_load_cache()` body changes per ADR-0006 §Migration Path Forward."
+    referenced_by:
+      - docs/architecture/ADR-0006-balance-data.md
+      - docs/architecture/ADR-0007-hero-database.md  # forward-compat validation thresholds (Polish-tier lint only; not runtime)
+      - docs/architecture/ADR-0008-terrain-effect.md  # ratified — TerrainConfig direct-loading is forward-compatible
+      - docs/architecture/ADR-0009-unit-role.md  # 10 global caps consumer
+      - docs/architecture/ADR-0010-hp-status.md  # 27 tuning knobs consumer
+      - docs/architecture/ADR-0011-turn-order.md  # 2 net-new tuning knobs consumer
+      - docs/architecture/ADR-0012-damage-calc.md  # 11 constants consumer (9 consumed + 2 owned)
+    added: 2026-04-30
+    revised: ""
+
 # Example:
 #
 # interfaces:
@@ -865,6 +923,24 @@ api_decisions:
     added: 2026-04-30
     revised: ""
 
+  - purpose: balance_constants_module_form
+    status: active
+    api: "class_name BalanceConstants extends RefCounted (stateless static utility class) + 2 module-scope `static var` (`_cache: Dictionary`, `_cache_loaded: bool`) + sole public method `static func get_const(key: String) -> Variant` + private `static func _load_cache() -> void` (called once on first get_const call) + lazy-load via FileAccess.get_file_as_string(_ENTITIES_JSON_PATH) + JSON.parse_string + _ENTITIES_JSON_PATH = \"res://assets/data/balance/balance_entities.json\" (post-rename per ADR-0006 §Decision 3) + flat JSON format (no envelope per ADR-0006 §Decision 4) + UPPER_SNAKE_CASE keys (per ADR-0006 §Decision 5 + .claude/rules/data-files.md Constants Registry Exception subsection)"
+    not_also: "Autoload at /root/BalanceConstants (rejected — no per-frame lifecycle to motivate Node form; class_name global identifier provides direct access; matches 5-precedent stateless-static pattern ADR-0008 → 0006 → 0012 → 0009 → 0007)"
+    not_also_2: "Hand-coded const class with literal values (Alternative B rejected per ADR-0006 — violates GDD CR-10 hardcoding ban + breaks AC-DC-48 lint contract + breaks 'designer iterates on JSON' workflow)"
+    not_also_3: ".tres Resource (Alternative C rejected per ADR-0006 — TRES files harder to PR-diff + harder for designers using spreadsheet→JSON pipelines per balance-data.md OQ-5; ADR-0008 + ADR-0007 + ADR-0009 all chose JSON over per-record .tres; switching splits the data pipeline)"
+    not_also_4: "Full GDD DataRegistry pipeline now (Alternative A rejected per ADR-0006 — over-builds for 1-file-1-category MVP; speculative Alpha-tier scope decisions force without consumer demand; ~3 days implementation cost for 1 file with 12-22 keys)"
+    adr: docs/architecture/ADR-0006-balance-data.md
+    reason: "5-precedent stateless-static pattern (ADR-0008 → 0006 → 0012 → 0009 → 0007) is now load-bearing project discipline for Foundation/Core data-layer ADRs. ADR-0006 ratifies SHIPPED PR #65 (2026-04-27, 90 LoC, 388/388 GdUnit4 regression-validated). Test isolation via G-15 reset pattern proven across 53 damage-calc + 6 balance-constants tests + cross-suite isolation regression. Mobile budgets: ~0.5-2ms first-call lazy-load + O(1) hash lookups thereafter — well under any frame budget (per ADR-0006 §Performance Implications). Forward-compat to Alpha DataRegistry pipeline preserves call-site shape (`get_const(key) -> Variant` unchanged across migration); only `_load_cache()` body changes. MVP scope explicitly defers GDD CR-2 (9-category registry) + CR-3 (envelope) + CR-4 (4-phase pipeline) + CR-5 (4-tier severity) + CR-6 (3 access patterns) + CR-8 (schema versioning) + CR-9 (hot reload) to a future Alpha-tier 'DataRegistry Pipeline' ADR with no calendar commitment."
+    referenced_by:
+      - docs/architecture/ADR-0006-balance-data.md
+      - docs/architecture/ADR-0007-hero-database.md  # 5-precedent stateless-static pattern reuse
+      - docs/architecture/ADR-0008-terrain-effect.md  # 5-precedent stateless-static pattern reuse
+      - docs/architecture/ADR-0009-unit-role.md  # 5-precedent stateless-static pattern reuse
+      - docs/architecture/ADR-0012-damage-calc.md  # 5-precedent stateless-static pattern reuse
+    added: 2026-04-30
+    revised: ""
+
 # Example:
 #
 # api_decisions:
@@ -1119,6 +1195,20 @@ forbidden_patterns:
     description: "TurnOrderRunner._queue: Array[int] MUST be mutated in-place via .clear() + .append_array(new_list) — MUST NOT be reassigned via _queue = new_list. Same discipline applies to TurnOrderSnapshot.queue: Array[TurnOrderEntry] (constructed once at snapshot time; never reassigned). Static lint asserts: src/core/turn_order_runner.gd contains zero occurrences of `_queue = ` (assignment to typed Array[int] field) outside `func _ready` or `func _init` initializer; codify pattern via test that asserts in-place mutation preserves Array[int] type info under repeated R3 queue rebuilds + G-15 before_test resets."
     why: "godot-specialist 2026-04-30 Item 8 + G-2 prevention pattern. Typed array reassignment in GDScript 4.4+ has documented type-info-loss hazards under specific G-15 test reset patterns (cf. ADR-0007 + ADR-0009 godot-specialist reviews — `var result: Array[T] = []` + .append() + return result discipline). For TurnOrderRunner._queue: (a) reassigning to a new Array[int] could silently drop the int type parameterization if the right-hand side originated from a typed Array operation that returned generic Array (cf. .filter() / .map() return type quirks); (b) the in-place pattern (.clear() + .append_array()) preserves the field's static type binding through R3 queue rebuilds + G-15 test resets; (c) consistent with the ADR-0010 + ADR-0005 G-15 reset discipline that uses `.clear()` for Dictionary fields. The pattern is a load-bearing project discipline for typed Array fields under repeated reset cycles."
     adr: docs/architecture/ADR-0011-turn-order.md
+    added: 2026-04-30
+
+  - pattern: balance_constants_signal_emission
+    status: active
+    description: "BalanceConstants.gd must contain ZERO `signal` declarations + ZERO `connect(` / `emit_signal(` calls + ZERO `<signal>.connect()` calls. Static lint via `grep -E '(signal\\s|connect\\(|emit_signal\\()' src/feature/balance/balance_constants.gd` returns zero matches. Mirrors damage_calc_signal_emission + unit_role_signal_emission + hero_database_signal_emission + hp_status_apply_dispatch + turn_order_signal_emission_outside_domain forbidden_pattern enforcement (5-precedent stateless-static + 1-precedent battle-scoped non-emitter discipline)."
+    why: "BalanceConstants is on the ADR-0001 non-emitter list (line 372 + 375) — zero signals emitted, zero subscriptions, zero signal connections. Signal emission would (a) violate ADR-0001's non-emitter contract for stateless calculator/registry modules, (b) introduce signal-ordering hazards into a stateless data layer with 6+ consumers each reading independently, (c) split responsibility for data-load between direct-call and signal-handler paths — which path is canonical for `get_const(key)`? The stateless-deterministic invariant collapses if signal-emit shortcuts become possible. Pattern stable at 5 invocations across Foundation/Core stateless calculators (BalanceConstants explicit + DamageCalc + UnitRole + HeroDatabase + TerrainEffect)."
+    adr: docs/architecture/ADR-0006-balance-data.md
+    added: 2026-04-30
+
+  - pattern: balance_constants_consumer_mutation
+    status: active
+    description: "Consumers of `BalanceConstants.get_const(key)` MUST cast the returned Variant to the expected type at the call site (e.g., `var cap: float = BalanceConstants.get_const(\"P_MULT_COMBINED_CAP\") as float`) and use the value immediately. MUST NOT (a) store the returned Variant or Dictionary into BalanceConstants module-scope state via reflection (`(load(...) as GDScript).set(\"_cache\", X)` is reserved for test-isolation reset only — production code must NOT call this), (b) hold long-lived references to returned Dictionary values and mutate them (Godot 4.x COW handles per-call copies on Dictionary mutation, but this is implementation-detail relying on engine semantics — convention is read-once + cast immediately). Static lint via `grep -E 'BalanceConstants\\._cache\\s*=' src/` returns zero matches outside `tests/`. Convention is the sole defense — Godot 4.6 has no compile-time `Variant` immutability; balanced against the 'designer iterates on JSON' workflow where push_error on cache corruption surfaces during dev iteration."
+    why: "ADR-0006 R-2 mitigation. Cache integrity is a load-bearing assumption — every consumer MUST see consistent values across the GDScript engine session. If a consumer mutates `BalanceConstants._cache` via reflection (production code) or holds a Dictionary reference and mutates fields, subsequent consumers see corrupt values + the bug is non-local (mutation site != bug site). Convention enforced via lint + test-isolation discipline (G-15 `_cache_loaded = false` reset in before_test()) ensures the cache is treated as read-only by every legitimate consumer. Pattern mirrors damage_calc_consumer_mutation + hero_data_consumer_mutation + hp_status_consumer_mutation + turn_order_consumer_mutation forbidden_pattern (4-precedent project discipline for read-only data layer accessors)."
+    adr: docs/architecture/ADR-0006-balance-data.md
     added: 2026-04-30
 
 # Example:

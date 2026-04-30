@@ -1,8 +1,8 @@
 # Balance/Data System (밸런스/데이터)
 
-> **Status**: Designed
+> **Status**: ✅ Accepted via ADR-0006 (Proposed 2026-04-27 → Accepted 2026-04-30 via /architecture-review delta #9)
 > **Author**: User + Claude Code agents
-> **Last Updated**: 2026-04-16
+> **Last Updated**: 2026-04-30
 > **Implements Pillar**: All (infrastructure) — directly enforces Anti-Pillar "NOT 밸런스 붕괴 허용"
 
 ## Overview

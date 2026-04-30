@@ -1,15 +1,19 @@
-## Provisional balance-data wrapper. Reads numeric tuning constants from
-## `assets/data/balance/entities.json` until ADR-0006 ratifies the
-## DataRegistry pattern. Call sites use `BalanceConstants.get_const(key)`
-## throughout; when ADR-0006 lands, only `_load_cache()` changes — all
-## call sites remain stable.
+## Balance-data MVP wrapper, ratified by ADR-0006 (Accepted 2026-04-30 via
+## /architecture-review delta #9). Reads numeric tuning constants from
+## `assets/data/balance/balance_entities.json`. Call sites use
+## `BalanceConstants.get_const(key)` throughout — call-site shape is the
+## locked contract per ADR-0006 §Decision 2.
 ##
-## Migration trigger: ADR-0006 Accepted → swap `_load_cache()` body to
-## delegate to `DataRegistry.get_const()` with the same call-site signature.
+## Future Alpha-pipeline migration trigger: when an Alpha-tier "DataRegistry
+## Pipeline" ADR lands, this module becomes a thin facade delegating to
+## `DataRegistry.get_const()` per ADR-0006 §Migration Path Forward.
+## ADR-0006 itself does NOT trigger a `_load_cache()` rewrite — it ratifies
+## this MVP form as the canonical interface.
 ##
-## ADR: ADR-0008 (TerrainConfig provisional-wrapper precedent) +
-##      ADR-0012 §6 (tuning constants in entities.json only) +
-##      ADR-0012 §8 (provisional-dependency contract).
+## ADR: ADR-0006 (Accepted 2026-04-30; this module's governing ADR) +
+##      ADR-0008 (TerrainConfig provisional-wrapper precedent, ratified by ADR-0006) +
+##      ADR-0012 §6 (tuning constants in balance_entities.json only) +
+##      ADR-0012 §8 (provisional-dependency contract, ratified by ADR-0006).
 ##
 ## TEST ISOLATION DISCIPLINE:
 ##   Every GdUnit4 test suite that calls ANY BalanceConstants method, OR

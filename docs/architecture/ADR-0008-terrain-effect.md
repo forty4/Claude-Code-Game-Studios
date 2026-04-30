@@ -32,7 +32,7 @@ Accepted (2026-04-25, via `/architecture-review` delta)
 | **Depends On** | ADR-0001 (GameBus, Accepted 2026-04-18) — `terrain_changed(coord: Vector2i)` signal emission; subscription to `tile_destroyed(coord)` if caching is later added. ADR-0004 (Map/Grid, Accepted 2026-04-20) — calls `MapGrid.get_tile(coord)` for `terrain_type` + `elevation`. |
 | **Enables** | terrain-effect epic creation (`/create-epics layer: core` re-run after this ADR is Accepted); replaces story-005's `cost_multiplier(_unit_type, _terrain_type) -> int` placeholder in `src/core/terrain_cost.gd:32` (currently returns `1` for all pairs); unblocks Damage Calc ADR (consumer of `get_combat_modifiers`); unblocks AI ADR (consumer of `get_terrain_score`); unblocks Formation Bonus shared-cap contract (`MAX_DEFENSE_REDUCTION = 30` is owned here). |
 | **Blocks** | terrain-effect epic implementation; Damage Calc Feature-layer epic; AI Feature-layer epic; Battle HUD tile tooltip implementation. None of these can begin implementation until this ADR is Accepted. |
-| **Ordering Note** | Soft-depends on ADR-0006 (Balance/Data, NOT YET WRITTEN) for the data-loading pipeline pattern. Workaround: ship with direct `FileAccess.get_file_as_string()` + `JSON.parse_string()` loading from `assets/data/terrain/terrain_config.json`; migrate to Balance/Data's pipeline call when ADR-0006 lands. The migration is API-stable (config schema and `class_name TerrainEffect` interface unchanged); only the internal `_load_config()` helper switches its implementation. Documented as TD-XXXX (numbered when registered). |
+| **Ordering Note** | Soft-dependency on ADR-0006 (Balance/Data, **Accepted 2026-04-30 via /architecture-review delta #9**) **RATIFIED**. ADR-0006 §Decision 2 locked `BalanceConstants.get_const(key)` as the canonical accessor; ADR-0006 §Decision 4 ratified the flat-JSON pattern (no `{schema_version, category, data}` envelope for MVP). The TerrainConfig `_load_config()` direct-loading pattern shipped in this ADR is forward-compatible with the future Alpha-pipeline DataRegistry rename per ADR-0006 §Migration Path Forward — call-site `get_const(key) -> Variant` shape stable across migration. No ADR-0008 amendment required. |
 
 ## Context
 
@@ -41,7 +41,7 @@ Accepted (2026-04-25, via `/architecture-review` delta)
 `design/gdd/terrain-effect.md` (Designed 2026-04-16) defines the Terrain Effect System as MVP system #2 in the Core layer. The GDD specifies 5 Core Rules (CR-1..CR-5), 14 Edge Cases (EC-1..EC-14), 3 query methods, and 21 acceptance criteria. The architecture cannot proceed without locking 5 questions:
 
 1. **Module type** — autoload Node? Battle-scoped Node? Stateless static utility class? GDD §States and Transitions explicitly states "stateless... pure query layer" — but says nothing about implementation form.
-2. **Config schema and loading** — GDD line 583 specifies `assets/data/terrain/terrain_config.json` as the config file. The schema is implicit in CR-1..CR-5; the loading mechanism is undefined and overlaps with Balance/Data (#26, ADR-0006 not yet written).
+2. **Config schema and loading** — GDD line 583 specifies `assets/data/terrain/terrain_config.json` as the config file. The schema is implicit in CR-1..CR-5; the loading mechanism is undefined and overlaps with Balance/Data (#26, ADR-0006 — was NOT YET WRITTEN at ADR-0008 authoring 2026-04-25; **Accepted 2026-04-30 via delta #9** ratifying this Direct-loading pattern as forward-compatible).
 3. **Bridge FLANK override location** — GDD CR-5 + line 263-266 defers to ADR: where does the FLANK→FRONT decoration of `MapGrid.get_attack_direction` happen — in Terrain Effect, in Damage Calc, or in Map/Grid itself?
 4. **Caching strategy** — GDD §States and Transitions §Exception clause says "If performance requires caching..." — under what conditions, and how is invalidation wired?
 5. **Terrain Cost Matrix scope** — `src/core/terrain_cost.gd:32` ships with a placeholder `cost_multiplier(_unit_type, _terrain_type) -> int: return 1` and an inline comment "REPLACED WHEN ADR-0008 Terrain Effect lands". The unit-type × terrain-type cost matrix used by Map/Grid Dijkstra is partly Terrain Effect's domain (terrain side), partly Unit Role's domain (unit-class side). This ADR must define the matrix structure even if it ships with placeholder values pending ADR-0009 Unit Role.
@@ -207,12 +207,12 @@ static var _cost_matrix: Dictionary = {}       # Dictionary[int (unit_type), Dic
 - ✅ Smaller diff footprint in version control (no Godot serialization noise).
 - ✅ Cross-tool readable (Python data validators, balance spreadsheets).
 - ⚠️ Loses Godot's typed-Resource integration (no inspector editing, no autocomplete in code references). Acceptable because the schema is small (8 terrain types) and stable.
-- ⚠️ ADR-0006 Balance/Data may standardize JSON-vs-`.tres` for the project. If ADR-0006 chooses `.tres`, ADR-0008 will require a follow-up amendment to migrate. Risk acknowledged.
+- ✅ ADR-0006 Balance/Data ratified JSON for MVP (Accepted 2026-04-30 via delta #9 — §Decision 2 locked `BalanceConstants.get_const(key)` accessor backed by flat JSON; Alternative C `.tres` was REJECTED). No ADR-0008 amendment required; the JSON pipeline strategy is now project-wide standard.
 
-**Migration to ADR-0006 Balance/Data pipeline** (when written):
-- Replace `_load_config_direct()` helper with `_load_config_via_balance_data()`.
-- The schema, the `class_name TerrainEffect` interface, and the public method signatures DO NOT change.
-- The migration is a pure internals refactor; consumer code is unaffected.
+**Migration to ADR-0006 Balance/Data pipeline** — **RESOLVED 2026-04-30 via delta #9 Acceptance of ADR-0006**:
+- ADR-0006 ratified flat-JSON + `BalanceConstants.get_const(key)` as the MVP pattern. The TerrainConfig direct-loading helper is forward-compatible.
+- Future Alpha-pipeline migration trigger is a separate Alpha-tier "DataRegistry Pipeline" ADR (no calendar commitment per ADR-0006 §Migration Path Forward) — NOT ADR-0006 itself.
+- The schema, the `class_name TerrainEffect` interface, and the public method signatures DO NOT change at the future migration; only the internal `_load_config_direct()` helper would switch.
 
 ### 3. Bridge FLANK Override — Damage Calc Orchestrator Pattern via Flag
 
@@ -560,7 +560,7 @@ extends Resource
 |------|----------|-----------|
 | **Config file missing or corrupt at game start** | MEDIUM — game still launches but with default values; player sees "wrong" terrain modifiers | `_fall_back_to_defaults()` ensures playability. `push_error` logs the issue. AC-20 test verifies fallback. |
 | **JSON integer values parsed as float by Godot** | LOW — Godot 4.6 `JSON.parse_string` returns `float` for all numbers; integer fields could carry float drift | `_validate_config()` casts via `int(value)` and rejects non-integral floats. Verification Required §3. |
-| **ADR-0006 Balance/Data lands with `.tres`-only pipeline** | LOW — would require Terrain Effect migration | Migration is API-stable (only `_load_config()` internals change). Documented in §Migration Plan. |
+| ~~**ADR-0006 Balance/Data lands with `.tres`-only pipeline**~~ **RESOLVED 2026-04-30** | RESOLVED — ADR-0006 Accepted 2026-04-30 via delta #9 ratified flat-JSON + `BalanceConstants.get_const(key)`; Alternative C `.tres` REJECTED. No migration required. | n/a — risk closed. |
 | **Cost matrix shape mismatch with ADR-0009 Unit Role** | MEDIUM — if Unit Role defines unit types differently, cost_matrix structure may need amendment | This ADR ships with the matrix shape (Dict[int, Dict[int, int]]) defined; ADR-0009 populates values. If ADR-0009 chooses a different shape (e.g., per-unit instead of per-class), this ADR receives a follow-up amendment. |
 | **g-12 class_name collision** | LOW — `TerrainEffect` is not a Godot built-in | Verified via Godot 4.6 class list; no collision. Safe. |
 | **Negative defense values produce surprising behavior** | LOW — game-design risk, not engine risk | GDD CR-3e + EC-1 explicitly address this; F-1 symmetric clamp [-30, +30] is authoritative. UI per EC-12 shows raw + cap indicator. |
@@ -619,10 +619,12 @@ static func cost_multiplier(_unit_type: int, _terrain_type: int) -> int:
 3. Run full regression suite — all map-grid tests must pass unchanged (cost values are still 1; only the indirection changes).
 4. Eventually (post-ADR-0009): delete `terrain_cost.gd` and migrate all callers to `TerrainEffect.cost_multiplier()` directly. Tracked as TD when ADR-0009 lands.
 
-### When ADR-0006 Balance/Data lands
+### When the future Alpha-pipeline DataRegistry ADR lands
 
-1. Add `_load_config_via_balance_data(path: String)` helper.
-2. Switch `load_config()` default implementation from direct JSON parse to Balance/Data pipeline call.
+ADR-0006 (Accepted 2026-04-30 via delta #9) ratified the MVP `BalanceConstants.get_const(key)` flat-JSON pattern. The TerrainEffect `_load_config_direct()` helper is forward-compatible per ADR-0006 §Migration Path Forward — no immediate migration required. When the future Alpha-tier DataRegistry pipeline ADR is authored:
+
+1. Add `_load_config_via_data_registry(path: String)` helper.
+2. Switch `load_config()` default implementation from direct JSON parse to DataRegistry pipeline call.
 3. Public API unchanged. Consumer code unchanged.
 4. Regression: AC-19 + AC-20 tests verify config loading still works.
 
@@ -648,7 +650,7 @@ This ADR is correct if:
 
 - **ADR-0001 GameBus** (Accepted) — `terrain_changed(coord: Vector2i)` signal addition (deferred to caching impl); `tile_destroyed(coord)` subscription (deferred to caching impl).
 - **ADR-0004 Map/Grid Data Model** (Accepted) — upstream data source via `MapGrid.get_tile(coord)`. ADR-0004 line 33 explicitly enables ADR-0008.
-- **ADR-0006 Balance/Data** (NOT YET WRITTEN) — config loading pipeline; soft-dependency, post-Acceptance migration documented above.
+- **ADR-0006 Balance/Data** (Accepted 2026-04-30 via /architecture-review delta #9) — RATIFIES the TerrainConfig direct-loading pattern as forward-compatible with the future Alpha-pipeline DataRegistry rename per ADR-0006 §Migration Path Forward.
 - **ADR-0009 Unit Role** (NOT YET WRITTEN) — populates the cost_matrix unit-class dimension; soft-dependency, populates placeholder values post-Acceptance.
 - **Future Damage Calc ADR** — consumes `get_combat_modifiers()`; orchestrates Bridge FLANK override per Decision §3.
 - **Future AI ADR** — consumes `get_terrain_score()` for tile ranking.
@@ -663,4 +665,4 @@ This ADR is correct if:
 - **Avoid global JSON cache**: Godot's `JSON` class is reusable; create one instance per `load_config()` call rather than a static class-scope `JSON` instance. Smaller memory footprint.
 - **Defensive copy on Resource return**: `get_terrain_modifiers()` and `get_combat_modifiers()` return new Resource instances each call to prevent caller mutation from affecting the static `_terrain_table`. Resources are `RefCounted` so allocation is cheap (~5-10 µs per call).
 - **`reset_for_tests()` discipline**: This method MUST clear all static state and set `_config_loaded = false`. Test helpers should NEVER directly mutate `_terrain_table` etc. — always go through `reset_for_tests()` + `load_config(custom_path)`.
-- **Documentation in `src/core/terrain_effect.gd` header**: Reference this ADR by ID. When future amendments land (e.g., ADR-0006 migration, ADR-0009 cost matrix population), the source-code header should be updated to reference the amendments.
+- **Documentation in `src/core/terrain_effect.gd` header**: Reference this ADR by ID. When future amendments land (e.g., future Alpha-pipeline DataRegistry migration per ADR-0006 §Migration Path Forward, ADR-0009 cost matrix population), the source-code header should be updated to reference the amendments.
