@@ -106,7 +106,7 @@ if [ -n "$MISSING_FILES" ]; then
   echo "Fix: every unit_role*.gd test file MUST reset _cache_loaded in before_test()"
   echo "     per .claude/rules/godot-4x-gotchas.md G-15 + ADR-0006 §6. The canonical"
   echo "     pattern (per stories 002-009) uses GDScript class-object reflection:"
-  echo "         var _bc_script: GDScript = load(\"res://src/feature/balance/balance_constants.gd\")"
+  echo "         var _bc_script: GDScript = load(\"res://src/foundation/balance/balance_constants.gd\")"
   echo "         func before_test() -> void:"
   echo "             _bc_script.set(\"_cache_loaded\", false)"
   echo "             _bc_script.set(\"_cache\", {})"

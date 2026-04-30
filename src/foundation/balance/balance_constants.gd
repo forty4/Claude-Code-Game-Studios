@@ -18,7 +18,7 @@
 ## TEST ISOLATION DISCIPLINE:
 ##   Every GdUnit4 test suite that calls ANY BalanceConstants method, OR
 ##   that mocks the cache, MUST reset the static state in before_test():
-##       (load("res://src/feature/balance/balance_constants.gd") as GDScript) \
+##       (load("res://src/foundation/balance/balance_constants.gd") as GDScript) \
 ##           .set("_cache_loaded", false)
 ##   Failure to do so causes static-state bleed across suites in the same
 ##   GdUnit4 session. See balance_constants_test.gd for the canonical pattern.

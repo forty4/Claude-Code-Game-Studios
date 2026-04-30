@@ -22,7 +22,7 @@ extends GdUnitTestSuite
 ##
 ## G-15: BOTH BalanceConstants AND UnitRole caches reset in before_test() — mandatory.
 
-const _BC_PATH: String = "res://src/feature/balance/balance_constants.gd"
+const _BC_PATH: String = "res://src/foundation/balance/balance_constants.gd"
 const _UR_PATH: String = "res://src/foundation/unit_role.gd"
 const _UNIT_ROLES_FIXTURE: String = "user://unit_role_damage_calc_ac1_sentinel_fixture.json"
 

@@ -140,7 +140,7 @@ class GridBattleStub:
 # ---------------------------------------------------------------------------
 
 ## BalanceConstants script handle — used to reset the cache for test isolation.
-var _balance_constants_script: GDScript = load("res://src/feature/balance/balance_constants.gd")
+var _balance_constants_script: GDScript = load("res://src/foundation/balance/balance_constants.gd")
 
 
 ## Per-test setup. Uses before_test() — the only GdUnit4 v6.1.2 lifecycle hook (G-15).

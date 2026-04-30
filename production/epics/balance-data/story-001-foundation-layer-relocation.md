@@ -1,7 +1,7 @@
 # Story 001: Foundation-layer relocation + import path audit
 
 > **Epic**: Balance/Data
-> **Status**: Ready
+> **Status**: Complete (2026-05-01)
 > **Layer**: Foundation
 > **Type**: Integration
 > **Estimate**: 2-3h (file move + path audit + G-14 cache refresh + regression verify)
@@ -127,7 +127,7 @@
 - `tests/unit/balance/balance_constants_test.gd` continues to pass post-relocation (no new test added in this story; existing 5 tests must remain green with updated load path)
 - Smoke check: `production/qa/smoke-balance-data-story-001-YYYY-MM-DD.md` documenting full regression result + grep audit output
 
-**Status**: [ ] Not yet created
+**Status**: [x] Complete — see `production/qa/smoke-balance-data-story-001-2026-05-01.md` (501 cases / 0 errors / 0 orphans; 1 pre-existing failure flagged separately)
 
 ---
 
@@ -135,3 +135,31 @@
 
 - Depends on: None (first story in epic; ADR-0006 already Accepted)
 - Unlocks: Story 002 (TR-traced test suite extension uses post-move path); Story 005 (perf baseline test references post-move path)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-01
+**Criteria**: 7/7 passing — see smoke evidence doc for per-AC verification table
+**Code Review**: Complete — `/code-review` returned APPROVED 2026-05-01 (lean mode; LP-CODE-REVIEW + QL-TEST-COVERAGE skipped per `production/review-mode.txt`)
+**Test Evidence**: Integration evidence at `production/qa/smoke-balance-data-story-001-2026-05-01.md`; existing `tests/unit/balance/balance_constants_test.gd` (7 tests) + integration test suites continue passing at the new path
+**Regression result**: 501 test cases | 0 errors | 1 failures | 0 flaky | 0 skipped | 0 orphans (baseline maintained; 0 errors introduced; 1 pre-existing failure flagged separately)
+
+### Files changed (14)
+
+- `src/{feature → foundation}/balance/balance_constants.gd` — `git mv` + doc-comment line 21 path update
+- `src/{feature → foundation}/balance/balance_constants.gd.uid` — `git mv` (sidecar follows)
+- 11 test files — single-line path string update (`_BC_PATH` const / inline `load()` / `_balance_constants_script`)
+- `tools/ci/lint_unit_role.sh:109` — developer-hint string in echo'd error message
+- `production/qa/smoke-balance-data-story-001-2026-05-01.md` — NEW smoke evidence doc
+
+### Deviations (ADVISORY — none blocking)
+
+1. **Pre-existing failure surfaced (NOT introduced)**: `test_hero_data_doc_comment_contains_required_strings` in `tests/unit/foundation/unit_role_skeleton_test.gd:231` fails because `src/foundation/hero_data.gd` is missing the literal `"ADR-0009 §Migration Plan §3"` string. `git diff --name-only` confirms story-001 made zero edits to `hero_data.gd`. Recommend triage as a follow-up hotfix story OR amend during unit-role epic close-out.
+
+2. **Process insight (codified, not blocking)**: Pre-flight `grep | head -10` truncated audit results, hiding 4 references (3 in tests/integration + 1 in tools/) that surfaced only during Run 1 regression failure. Cost: 1 wasted regression run + ~3 min triage. Codified in smoke doc; candidate for promotion to `.claude/rules/tooling-gotchas.md` TG-3 (audit-grep truncation pattern).
+
+### Unlocks
+
+Story 001 was the gate for stories 002 + 005 (both depend on the post-move path). Story 003 (lint template) and Story 004 (orphan grep gate) are also now eligible (Story 004 is recommended to land AFTER Story 005 per AC-5 TD-041 verification dependency).

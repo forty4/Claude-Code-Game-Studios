@@ -6,7 +6,7 @@ goal: "Foundation 4/5 via balance-data + hero-database ratification; scaffold hp
 start: "2026-04-30"
 end: "2026-05-13"
 generated: "2026-04-30"
-updated: "2026-04-30"
+updated: "2026-05-01"
 
 # Sprint-1 closed effective DoD 12/12 by 2026-04-30. Final state archived in
 # git history (see commit a0a3144 sprint-1 status sync) and active.md
@@ -17,11 +17,11 @@ stories:
     name: "/create-epics + /create-stories balance-data (ADR-0006 ratification)"
     file: "production/epics/balance-data/EPIC.md"
     priority: must-have
-    status: ready-for-dev
+    status: done
     owner: ""
     estimate_days: 0.5
     blocker: ""
-    completed: ""
+    completed: "2026-04-30"
 
   - id: "S2-02"
     name: "/create-epics + /create-stories hero-database (ADR-0007 ratification)"
@@ -37,11 +37,12 @@ stories:
     name: "Implement balance-data epic to Complete (~5 stories)"
     file: "production/epics/balance-data/"
     priority: must-have
-    status: backlog
+    status: in-progress
     owner: ""
     estimate_days: 2.0
-    blocker: "S2-01"
+    blocker: ""
     completed: ""
+    # 2026-05-01: story-001 (Foundation-layer relocation) Complete; 4 stories remaining (002, 003, 004, 005)
 
   - id: "S2-04"
     name: "Implement hero-database epic to Complete (~5 stories)"

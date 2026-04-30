@@ -23,7 +23,7 @@ var _passive_mul: Callable = Callable(DamageCalc, "_passive_multiplier_for_test"
 
 ## GDScript handle for BalanceConstants — used by AC-4 mock test to set/clear the cache.
 ## Stored at class scope so both before_test and after_test can reference it without reload.
-var _balance_constants_script: GDScript = load("res://src/feature/balance/balance_constants.gd")
+var _balance_constants_script: GDScript = load("res://src/foundation/balance/balance_constants.gd")
 
 
 ## Per-test setup. Uses before_test() — the only GdUnit4 v6.1.2 hook (G-15).

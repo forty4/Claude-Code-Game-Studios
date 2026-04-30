@@ -17,7 +17,7 @@ extends GdUnitTestSuite
 
 # ── G-15 cache-reset paths ────────────────────────────────────────────────────
 
-const _BC_PATH: String = "res://src/feature/balance/balance_constants.gd"
+const _BC_PATH: String = "res://src/foundation/balance/balance_constants.gd"
 const _UR_PATH: String = "res://src/foundation/unit_role.gd"
 
 var _bc_script: GDScript = load(_BC_PATH) as GDScript

@@ -19,7 +19,7 @@ extends GdUnitTestSuite
 ## either cache. Future-proofs against test additions that DO read; satisfies
 ## tools/ci/lint_unit_role.sh Check 3 (universal G-15 obligation across all
 ## unit_role*.gd test files).
-const _BC_PATH: String = "res://src/feature/balance/balance_constants.gd"
+const _BC_PATH: String = "res://src/foundation/balance/balance_constants.gd"
 const _UR_PATH: String = "res://src/foundation/unit_role.gd"
 var _bc_script: GDScript = load(_BC_PATH) as GDScript
 var _ur_script: GDScript = load(_UR_PATH) as GDScript

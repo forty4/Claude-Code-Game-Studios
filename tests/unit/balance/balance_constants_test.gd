@@ -10,7 +10,7 @@ extends GdUnitTestSuite
 # Constants + shared state
 # ---------------------------------------------------------------------------
 
-const _BALANCE_CONSTANTS_PATH: String = "res://src/feature/balance/balance_constants.gd"
+const _BALANCE_CONSTANTS_PATH: String = "res://src/foundation/balance/balance_constants.gd"
 
 ## GDScript handle used to read/write static vars for test isolation.
 ## Loaded once at class init; reused in before_test/after_test.

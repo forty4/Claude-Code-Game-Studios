@@ -18,7 +18,7 @@ const _BUDGET_MS: int = 500
 # Shared fixtures
 # ---------------------------------------------------------------------------
 
-var _balance_constants_script: GDScript = load("res://src/feature/balance/balance_constants.gd")
+var _balance_constants_script: GDScript = load("res://src/foundation/balance/balance_constants.gd")
 
 
 # ---------------------------------------------------------------------------

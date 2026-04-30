@@ -11,7 +11,7 @@
 extends GdUnitTestSuite
 
 
-const _BC_PATH: String = "res://src/feature/balance/balance_constants.gd"
+const _BC_PATH: String = "res://src/foundation/balance/balance_constants.gd"
 
 ## GDScript handle for static-state isolation per G-15.
 var _bc_script: GDScript = load(_BC_PATH)

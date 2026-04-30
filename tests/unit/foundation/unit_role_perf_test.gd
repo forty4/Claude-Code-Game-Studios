@@ -16,7 +16,7 @@ extends GdUnitTestSuite
 ## NOTE: warm-up call before timed loop excludes first JSON parse + cache fill
 ##       from the measurement (per damage-calc story-010 perf test precedent).
 
-const _BC_PATH: String = "res://src/feature/balance/balance_constants.gd"
+const _BC_PATH: String = "res://src/foundation/balance/balance_constants.gd"
 const _UR_PATH: String = "res://src/foundation/unit_role.gd"
 
 var _bc_script: GDScript = load(_BC_PATH) as GDScript
