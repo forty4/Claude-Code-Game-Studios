@@ -4,6 +4,7 @@
 > **Status**: Ready
 > **Layer**: Foundation
 > **Type**: Config/Data
+> **Estimate**: 1.5-2h (template extraction + CI wiring + silent-fail antipattern doc)
 > **Manifest Version**: 2026-04-20
 
 ## Context

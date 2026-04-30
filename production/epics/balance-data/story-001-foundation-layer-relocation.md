@@ -4,6 +4,7 @@
 > **Status**: Ready
 > **Layer**: Foundation
 > **Type**: Integration
+> **Estimate**: 2-3h (file move + path audit + G-14 cache refresh + regression verify)
 > **Manifest Version**: 2026-04-20
 
 ## Context

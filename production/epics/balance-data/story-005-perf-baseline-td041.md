@@ -4,6 +4,7 @@
 > **Status**: Ready
 > **Layer**: Foundation
 > **Type**: Logic
+> **Estimate**: 1.5-2h (2 perf tests + TD-041 entry + summary evidence; +0.5h conditional Polish-deferral doc if AC-3 deferred)
 > **Manifest Version**: 2026-04-20
 
 ## Context

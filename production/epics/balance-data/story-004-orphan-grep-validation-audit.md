@@ -4,6 +4,7 @@
 > **Status**: Ready
 > **Layer**: Foundation
 > **Type**: Config/Data
+> **Estimate**: 1.5-2h (new lint script + 6-section evidence doc + CI wiring; +AC-1 self-injection negative test)
 > **Manifest Version**: 2026-04-20
 
 ## Context

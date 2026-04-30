@@ -4,6 +4,7 @@
 > **Status**: Ready
 > **Layer**: Foundation
 > **Type**: Logic
+> **Estimate**: 1.5-2h (3 new tests + cases-table audit + TR annotations on existing 7)
 > **Manifest Version**: 2026-04-20
 
 ## Context
