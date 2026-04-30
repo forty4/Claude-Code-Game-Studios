@@ -29,8 +29,21 @@
 #   All forbidden patterns: Grep pattern="^  - pattern:" (forbidden_patterns section)
 #   Superseded entries:     Grep pattern="status: superseded"
 
-version: 3
+version: 4
 last_updated: "2026-04-30"
+# 2026-04-30 (ADR-0010 design-time): HP/Status authoring — added
+# unit_hp_state_runtime state_ownership (HPStatusController battle-scoped Node owns
+# Dictionary[int, UnitHPState] keyed by unit_id matching ADR-0001 unit_died(int)
+# payload type); hp_status_apply_dispatch interface (1 emitted signal unit_died +
+# 1 consumed signal unit_turn_started provisional ADR-0011 + 4 mutator API
+# methods + 5 read-only query methods); hp_status_module_form api_decision
+# (battle-scoped Node form; 3 alternatives rejected including stateless-static
+# per ADR-0005 §Alt 4 pattern boundary precedent); 4 forbidden_patterns
+# (hp_status_consumer_mutation, hp_status_external_current_hp_write,
+# hp_status_signal_emission_outside_unit_died, hp_status_static_var_state_addition).
+# Carried advisory for next ADR-0012 amendment: parameter type unit_id: StringName
+# at lines 89/260 → unit_id: int to match ADR-0001 + ADR-0010 (queues with
+# ADR-0001 line 168 + line 372 cross-doc advisories from ADR-0005 + ADR-0007).
 # 2026-04-30 (delta #6 review): ADR-0005 Acceptance via /architecture-review.
 # input_action_dispatch interface notes field rewritten: factual correction per
 # delta #6 godot-specialist Item 9 — prior advisory "InputRouter MUST be removed
@@ -207,6 +220,24 @@ state_ownership:
       - docs/architecture/ADR-0001-gamebus-autoload.md  # InputRouter is sole emitter of 3 Input-domain signals
       - docs/architecture/ADR-0002-scene-manager.md  # SceneManager silences via set_process_input(false) + drives S5 via ui_input_block_requested
       - design/gdd/input-handling.md
+    added: 2026-04-30
+    revised: ""
+
+  - state: unit_hp_state_runtime
+    status: active
+    owner_system: hp-status
+    adr: docs/architecture/ADR-0010-hp-status.md
+    interface: "HPStatusController (Battle-scoped Node child of BattleScene at runtime path BattleScene/HPStatusController; created at battle-init via Battle Preparation, freed automatically with BattleScene per ADR-0002 SceneManager teardown — non-persistence enforced by lifecycle alignment per CR-1b) owns Dictionary[int, UnitHPState] keyed by unit_id (int matching ADR-0001 unit_died(int) signal payload type). Per-unit UnitHPState (RefCounted, NOT Resource — battle-scoped non-persistent per CR-1b): 6 fields (unit_id: int, max_hp: int cached one-time from UnitRole.get_max_hp at initialize_unit, current_hp: int [0, max_hp] invariant per CR-2, status_effects: Array[StatusEffect] preserves insertion order for CR-5e oldest-first eviction, hero: HeroData read-only ref per ADR-0007 §6, unit_class: int cached UnitRole.UnitClass enum). 5 read-only public queries (is_alive / get_current_hp / get_max_hp / get_modified_stat / get_status_effects). 4 mutator public methods (initialize_unit / apply_damage / apply_heal / apply_status). State NEVER survives scene transitions — fresh HPStatusController.new() per battle automatically zeroes _state_by_unit. Test isolation: per-test fresh HPStatusController.new() instance; before_test() also resets BalanceConstants._cache_loaded=false (G-15 mirror per ADR-0006 §6)."
+    write_access: hp-status-only  # Grid Battle invokes apply_damage/apply_heal/apply_status (CR-2 external direct write to current_hp forbidden); skills/items/scenario-events invoke apply_status; nothing else writes UnitHPState fields
+    referenced_by:
+      - docs/architecture/ADR-0010-hp-status.md
+      - docs/architecture/ADR-0001-gamebus-autoload.md  # HPStatusController is sole emitter of unit_died(int) — line 155
+      - docs/architecture/ADR-0004-map-grid-data-model.md  # HPStatusController reads MapGrid.get_tile.occupant_id for DEMORALIZED radius scan
+      - docs/architecture/ADR-0006-balance-data.md  # 27 tuning knob reads via BalanceConstants.get_const(key)
+      - docs/architecture/ADR-0007-hero-database.md  # HeroData.base_hp_seed transitive read via UnitRole; is_morale_anchor field DEFERRED post-MVP per OQ-2
+      - docs/architecture/ADR-0009-unit-role.md  # UnitRole.get_max_hp cached at battle-init + PASSIVE_TAG_BY_CLASS for Shield Wall lookup
+      - docs/architecture/ADR-0012-damage-calc.md  # ratifies hp_status.apply_damage + get_modified_stat interface signatures (lines 89-93, 260, 297-299, 340-352)
+      - design/gdd/hp-status.md
     added: 2026-04-30
     revised: ""
 
@@ -435,6 +466,42 @@ interfaces:
       - docs/architecture/ADR-0005-input-handling.md
     added: 2026-04-30
     revised: 2026-04-30  # delta #6 Item 9 factual correction (notes field rewritten)
+
+  - contract: hp_status_apply_dispatch
+    status: active
+    pattern: hybrid  # signal (unit_died emit + unit_turn_started consume) + direct_call (apply_damage / apply_heal / apply_status / 5 read-only queries)
+    producer: hp-status  # HPStatusController sole emitter of unit_died(int) per ADR-0001 line 155
+    consumers:
+      - grid-battle           # invokes apply_damage on HIT (per ADR-0012 line 260 sole-caller contract); subscribes to unit_died for victory check
+      - damage-calc           # reads get_modified_stat(unit_id, stat_name) for AttackerContext.raw_atk / DefenderContext.raw_def per ADR-0012 lines 89-93, 340-352
+      - turn-order            # subscribes to unit_died (removes unit from queue); HP/Status consumes unit_turn_started in reverse direction (provisional ADR-0011) for DoT tick + duration decrement
+      - battle-hud            # reads get_current_hp / get_max_hp / get_status_effects per frame for HP bar + status icon rendering
+      - ai                    # reads is_alive / get_current_hp / get_max_hp ratio for threat eval + get_status_effects for buff/debuff awareness
+      - skills-items          # invokes apply_heal + apply_status (skill / item effects on hit per CR-5b)
+      - scenario-progression  # invokes apply_status for scenario-event applied effects (e.g., 강행군 → EXHAUSTED)
+      - battle-preparation    # invokes initialize_unit at battle-init for each participating unit (provisional contract)
+      - tutorial              # subscribes to unit_died for tutorial step detection (provisional)
+    adr: docs/architecture/ADR-0010-hp-status.md
+    signal_signatures:
+      - "unit_died(unit_id: int)                                   # HPStatusController → all consumers (ADR-0001 HP/Status domain line 155; single-primitive payload)"
+      - "unit_turn_started(unit_id: int)                           # Turn Order → HPStatusController (CONSUMED; provisional ADR-0011; drives DoT tick + duration decrement + DEFEND_STANCE 1-turn expiry + DEMORALIZED CONDITION_BASED recovery check per ADR-0010 §5+§8)"
+    direct_call_signatures:
+      - "HPStatusController.initialize_unit(unit_id: int, hero: HeroData, unit_class: int) -> void"
+      - "HPStatusController.apply_damage(unit_id: int, resolved_damage: int, attack_type: int, source_flags: Array) -> void  # Grid Battle sole caller per ADR-0012 line 260"
+      - "HPStatusController.apply_heal(unit_id: int, raw_heal: int, source_unit_id: int) -> int  # returns actual heal applied"
+      - "HPStatusController.apply_status(unit_id: int, effect_template_id: StringName, duration_override: int, source_unit_id: int) -> bool  # returns false on rejection (CR-7 mutex / dead unit / unknown template)"
+      - "HPStatusController.get_current_hp(unit_id: int) -> int"
+      - "HPStatusController.get_max_hp(unit_id: int) -> int"
+      - "HPStatusController.is_alive(unit_id: int) -> bool"
+      - "HPStatusController.get_modified_stat(unit_id: int, stat_name: StringName) -> int  # F-4 modifier application; DEFEND_STANCE_ATK_PENALTY pre-folded per ADR-0012 line 89-93 contract"
+      - "HPStatusController.get_status_effects(unit_id: int) -> Array  # shallow copy; consumer mutation forbidden per hp_status_consumer_mutation forbidden_pattern"
+    notes: "HPStatusController is the sole emitter of unit_died per ADR-0001 §7 Signal Contract Schema line 155; HP/Status is non-emitter by behavior for all OTHER 21 GameBus signals across 8 domains per the hp_status_signal_emission_outside_unit_died forbidden_pattern. Hybrid pattern (signal for unit_died + direct_call for query/mutation) preserves AC-DC-42 call-count discipline (ADR-0012 line 260 sole-caller contract for apply_damage cannot be satisfied via signal indirection; signal subscribers cannot be reliably counted). _apply_turn_start_tick(unit_id) is the test seam (mirrors ADR-0005 _handle_event + ADR-0012 RNG-injection pattern; mirrors damage-calc story-006 11-story track record). DEFEND_STANCE_ATK_PENALTY pre-folding into get_modified_stat means Damage Calc consumes the already-modified ATK value and does NOT separately apply the penalty (closes ADR-0012 line 89-93 'pre-folded' contract). Carried advisory for next ADR-0012 amendment: parameter type unit_id: StringName at lines 89/260 → unit_id: int to match ADR-0001 + ADR-0010 (queues with ADR-0001 line 168 + line 372 cross-doc advisories from ADR-0005 + ADR-0007)."
+    referenced_by:
+      - docs/architecture/ADR-0010-hp-status.md
+      - docs/architecture/ADR-0001-gamebus-autoload.md  # unit_died(int) signal contract source-of-truth
+      - docs/architecture/ADR-0012-damage-calc.md  # ratifies get_modified_stat + apply_damage interface signatures
+    added: 2026-04-30
+    revised: ""
 
 # Example:
 #
@@ -672,6 +739,22 @@ api_decisions:
     added: 2026-04-30
     revised: ""
 
+  - purpose: hp_status_module_form
+    status: active
+    api: "class_name HPStatusController extends Node + battle-scoped child of BattleScene (created at battle-init via Battle Preparation, freed automatically with BattleScene per ADR-0002 SceneManager teardown — non-persistence enforced by lifecycle alignment per CR-1b) + Dictionary[int, UnitHPState] keyed by unit_id (matches ADR-0001 unit_died(int) payload type) + UnitHPState RefCounted per-unit (NOT Resource — battle-scoped non-persistent) + StatusEffect/TickEffect typed Resource @export with .tres template authoring at assets/data/status_effects/{poison,demoralized,defend_stance,inspired,exhausted}.tres + 4 mutator + 5 query public methods + 1 emitted signal (unit_died on /root/GameBus per ADR-0001 line 155) + 1 consumed signal (unit_turn_started provisional ADR-0011) + 27 tuning constants via BalanceConstants.get_const(key) per ADR-0006."
+    not: "Autoload Node /root/HPStatusManager — rejected per Alternative 1: GDD CR-1b mandates HP non-persistence between battles; autoload form requires explicit reset (extra mutation, easy to forget); battle-scoped form provides cleaner non-persistence enforcement (state freed automatically when BattleScene is freed). ADR-0004 Map/Grid is the closer precedent (battle-scoped, non-persistent, freed with BattleScene)."
+    not_also: "Per-unit Component Node attached to BattleUnit nodes — rejected per Alternative 2: cross-unit queries (DEMORALIZED radius scan, AI threat eval over multiple units) become N-way Node traversals via get_node() chains or get_tree().get_nodes_in_group(); coupling HP/Status's lifecycle to BattleUnit creates tighter dependency than necessary; per-unit signals + bus relay would violate ADR-0001 sole-emitter contract for unit_died (bus relay would need to fan-in N×1 connections to GameBus). Centralized HPStatusController provides O(1) Dictionary lookup vs Node traversal + simpler test fixtures + ADR-0001 contract compliance."
+    not_also_2: "Stateless-static utility class with static var _state_by_unit (5-precedent ADR-0008→0007 pattern) — rejected per Alternative 3: ARCHITECTURALLY INCOMPATIBLE per ADR-0005 §Alternative 4 pattern boundary. (a) HP/Status holds mutable state — static var creates test-isolation hazards (G-15 reset becomes critical instead of automatic via fresh .new() per test); (b) HP/Status needs to subscribe to GameBus signals via Callable identity — static-method Callable disconnect identity is undefined in GDScript 4.x for non-Object class references (same engine-level claim that rejected this form for InputRouter in ADR-0005). Pattern boundary explicitly says: stateless-static for systems CALLED; Node-based form for systems STATEFUL AND/OR LISTENING. HP/Status is BOTH."
+    not_also_3: "ECS-style data + system separation (DOTS) — rejected per Alternative 4: not idiomatic to Godot 4.x; Godot's OO Node + Resource model fits this project's pattern (matches damage-calc / unit-role / hero-database / map-grid 4-precedent). Frame-by-frame iteration would violate ADR-0001 batching rule (line 252) — HP intake happens on attack events, not per-frame. Dictionary-per-unit map provides O(1) lookup needed for individual apply_damage calls."
+    adr: docs/architecture/ADR-0010-hp-status.md
+    reason: "Pattern boundary precedent extended from ADR-0005: stateless-static for systems CALLED (5-precedent ADR-0008→0007); Node-based form for systems STATEFUL AND/OR LISTENING (ADR-0005 InputRouter autoload Node + ADR-0010 HPStatusController battle-scoped Node). HP/Status is both stateful (per-unit current_hp + status_effects) AND listening (Turn Order signals). Battle-scoped lifecycle (vs autoload) chosen because GDD CR-1b mandates non-persistence between battles — automatic teardown alignment with BattleScene freeing is cleaner enforcement than manual reset. Reusable for future battle-scoped Node ADRs: Grid Battle (likely battle-scoped Node), AI System (likely battle-scoped Node), Battle HUD (likely battle-scoped Node Control)."
+    referenced_by:
+      - docs/architecture/ADR-0010-hp-status.md
+      - docs/architecture/ADR-0005-input-handling.md  # pattern boundary precedent (Alt 4 stateless-static rejection)
+      - docs/architecture/ADR-0004-map-grid-data-model.md  # battle-scoped Node lifecycle precedent
+    added: 2026-04-30
+    revised: ""
+
 # Example:
 #
 # api_decisions:
@@ -863,6 +946,34 @@ forbidden_patterns:
     description: "InputRouter (src/foundation/input_router.gd) MUST NOT introduce static var fields for caching, optimization, or any other purpose. All mutable state lives in instance vars (_state, _active_mode, _pre_menu_state, _undo_windows, _input_blocked_reasons, _bindings). Future caching needs MUST extend the existing instance var pattern (e.g., add _cached_action_lookup: Dictionary instance var; reset in before_test() alongside other instance vars). The 5-precedent stateless-static utility class form (ADR-0008 → 0006 → 0012 → 0009 → 0007) is explicitly NOT applicable to InputRouter (Alternative 4 rejected for engine-level structural incompatibility — see ADR-0005 §Alternatives)."
     why: "ADR-0005 R-4 mitigation. Adding static var to InputRouter would: (a) break the test-isolation contract (G-15-style obligation requires before_test() reset; static vars persist across test cases unless explicitly reset, replicating the ADR-0006 BalanceConstants test-leakage problem), (b) drift the module form away from the Autoload Node pattern (Alternatives 1/4 rejection rationale), (c) introduce a hybrid stateful-Node + stateless-static pattern that no other ADR follows. The stateless-static pattern is for systems that are CALLED (Damage Calc / Unit Role / Hero DB / Balance/Data / Terrain Effect); InputRouter is event-listening — instance vars are the correct discipline."
     adr: docs/architecture/ADR-0005-input-handling.md
+    added: 2026-04-30
+
+  - pattern: hp_status_consumer_mutation
+    status: active
+    description: "Consumers of HPStatusController.get_status_effects(unit_id) MUST NOT mutate the returned Array[StatusEffect] OR any StatusEffect instance fields (effect_id / remaining_turns / modifier_targets / tick_effect / source_unit_id). The shallow-copy returned by get_status_effects shares StatusEffect Resource references with HPStatusController's authoritative state — direct mutation (`effects[0].remaining_turns = 99`) corrupts the controller's per-unit state for ALL subsequent reads. ADR-0010 §5 'Consumer mutation forbidden' contract. Battle HUD must read remaining_turns for icon display; AI must read modifier_targets for threat eval; both are READ-ONLY consumers. Mutation must go through apply_status / apply_damage / apply_heal / _apply_turn_start_tick mutator paths only."
+    why: "Mirrors ADR-0007 hero_data_consumer_mutation precedent (Hero DB shared-reference contract). GDScript has no const-reference enforcement at runtime; the shared-reference contract is convention-only; this forbidden_pattern entry + ADR-0010 §5 source-comment + R-5 documented test (tests/unit/core/hp_status_consumer_mutation_test.gd asserts mutation IS visible across get_status_effects calls, proving the convention is the only defense) are the only structural defenses. A consumer mutating returned effects drifts every downstream system reading the same UnitHPState — the bug surfaces as 'why does Battle HUD show DEMORALIZED for 99 turns?' or 'why does Damage Calc see ATK +200% from a buff that should have been -25%?'. Static-lint check via grep is impractical (mutation can occur via any field assignment); fixture test serves as documented fail-state."
+    adr: docs/architecture/ADR-0010-hp-status.md
+    added: 2026-04-30
+
+  - pattern: hp_status_external_current_hp_write
+    status: active
+    description: "External systems MUST NOT directly write `unit_hp_state.current_hp = N` OR mutate UnitHPState fields outside HPStatusController. All HP changes MUST flow through the 4 sanctioned mutator paths: HPStatusController.apply_damage (CR-3 intake pipeline) / apply_heal (CR-4 healing pipeline) / apply_status (CR-5 status effect application; DoT may indirectly reduce HP via _apply_turn_start_tick) / initialize_unit (CR-1a battle-init only). Skills, items, scenario events, AI, Grid Battle, Damage Calc — NONE may bypass these mutators. The CR-2 invariant `0 ≤ current_hp ≤ max_hp` is enforced ONLY at the mutator boundaries; bypassing them creates state corruption (e.g., `current_hp = -5` ghost-alive unit, or `current_hp = max_hp + 50` overheal violating CR-4a)."
+    why: "ADR-0010 CR-2 HP range invariant enforcement strategy. Direct field write bypasses MIN_DAMAGE floor (CR-9), DEFEND_STANCE -50% reduction (CR-6 SE-3), Shield Wall passive (CR-3 Step 1), unit_died emission (CR-8a), DEMORALIZED radius propagation (CR-8c), overheal prevention (CR-4a), dead-unit-cannot-heal check (CR-4b). The 4 mutator methods encapsulate the invariants — direct write defeats the encapsulation and silently corrupts gameplay state. Bug surface: 'why did this unit survive a 999-damage hit?' (because external code bypassed apply_damage and just decremented current_hp without checking source_flags or attack_type). Static-lint check: `grep -E 'unit_hp_state\\.current_hp\\s*=|state\\.current_hp\\s*=' src/` must return zero matches OUTSIDE src/core/hp_status_controller.gd."
+    adr: docs/architecture/ADR-0010-hp-status.md
+    added: 2026-04-30
+
+  - pattern: hp_status_signal_emission_outside_unit_died
+    status: active
+    description: "HPStatusController (src/core/hp_status_controller.gd) MUST emit ONLY the unit_died(unit_id: int) signal on GameBus per ADR-0001 line 155. HP/Status is non-emitter by behavior for all OTHER 21 GameBus signals across 8 domains: Input (input_action_fired — NOT emitted), Combat (damage_calculated — NOT emitted), Scenario (chapter_started — NOT emitted), Persistence (save_persisted — NOT emitted), Environment (tile_destroyed — NOT emitted), Grid Battle (battle_outcome_resolved — NOT emitted), Turn Order (round_started — NOT emitted; HP/Status CONSUMES unit_turn_started but does not emit), UI-Flow (ui_input_block_requested — NOT emitted). Static lint asserts `grep -c 'GameBus\\.' src/core/hp_status_controller.gd | grep -v '^GameBus\\.unit_died'` returns 0 emit call sites; AND `grep -c 'GameBus\\.unit_died\\.emit(' src/core/hp_status_controller.gd` returns ≥2 (apply_damage Step 4 + _apply_turn_start_tick DoT-kill branch)."
+    why: "Single-emitter rule per ADR-0001 single-owner contract. HPStatusController is the sole emitter of unit_died; emitting non-HP/Status-domain signals would violate the per-domain ownership invariant. Examples of common temptations to ban: emitting damage_calculated when apply_damage processes a hit (wrong — Damage Calc is the source of truth); emitting battle_ended when last unit dies (wrong — Grid Battle owns this per ADR-0001 single-owner rule); emitting hp_changed for HUD updates (wrong — Battle HUD polls via get_current_hp query OR a future Battle HUD ADR may add hp_changed via additive ADR-0001 amendment, but ADR-0010 MVP does NOT introduce additional HP/Status-domain signals); emitting status_effect_applied for HUD updates (wrong — same polling rationale)."
+    adr: docs/architecture/ADR-0010-hp-status.md
+    added: 2026-04-30
+
+  - pattern: hp_status_static_var_state_addition
+    status: active
+    description: "HPStatusController (src/core/hp_status_controller.gd) MUST NOT introduce static var fields for caching, optimization, or any other purpose. All mutable state lives in instance vars (_state_by_unit Dictionary, plus any future _cached_X instance vars). Future caching needs MUST extend the existing instance var pattern (e.g., add _action_handler_cache: Dictionary instance var; reset implicitly via fresh HPStatusController.new() per battle). The 5-precedent stateless-static utility class form (ADR-0008 → 0006 → 0012 → 0009 → 0007) is explicitly NOT applicable to HPStatusController (Alternative 3 rejected for engine-level structural incompatibility — see ADR-0010 §Alternatives Considered)."
+    why: "ADR-0010 R-4 mitigation. Adding static var to HPStatusController would: (a) break the non-persistence contract (CR-1b mandates HP state resets between battles; battle-scoped instance vars reset automatically via fresh `.new()`; static vars would persist across battles requiring explicit `static var X = {}` reset call that is easy to forget — same hazard ADR-0006 BalanceConstants documented), (b) drift the module form away from the battle-scoped Node pattern (Alternative 3 rejection rationale: stateless-static for systems CALLED, Node-based form for systems STATEFUL AND/OR LISTENING; HP/Status is both), (c) introduce a hybrid battle-scoped-Node + stateless-static pattern that no other ADR follows. Static-lint check: `grep -c '^static var' src/core/hp_status_controller.gd` returns 0."
+    adr: docs/architecture/ADR-0010-hp-status.md
     added: 2026-04-30
 
 # Example:

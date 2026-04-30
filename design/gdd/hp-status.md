@@ -1,8 +1,8 @@
 # HP/Status System (HP/상태)
 
-> **Status**: Designed
+> **Status**: Accepted via ADR-0010 (Proposed 2026-04-30; pending /architecture-review delta for Foundation 5/5 + Core 2/2 closing)
 > **Author**: user + Claude Code agents
-> **Last Updated**: 2026-04-16
+> **Last Updated**: 2026-04-16 (Designed); 2026-04-30 (Status header refresh + CR-5b apply_status signature sync per ADR-0010 §5 — 3-arg → 4-arg + renamed `effect_id` → `effect_template_id`, `duration` → `duration_override`. Implemented as `HPStatusController` Battle-scoped Node child of BattleScene per ADR-0010 §1; canonical class name preserved.)
 > **Implements Pillar**: Pillar 1 (형세의 전술) + Pillar 3 (모든 무장에게 자리가 있다)
 
 ## Overview
@@ -134,7 +134,7 @@ Step 4 — HP increase
 | `modifier_targets` | dict | 수정하는 스탯과 수정량 |
 | `tick_effect` | dict/null | 턴 시작 시 DoT 등 틱 효과 |
 
-5b. **적용 시점**: Damage Calc이 명중 판정 후, 스킬/아이템/시스템 이벤트가 `apply_status(target, effect_id, duration)`을 호출.
+5b. **적용 시점**: Damage Calc이 명중 판정 후, 스킬/아이템/시스템 이벤트가 `apply_status(unit_id, effect_template_id, duration_override, source_unit_id)`을 호출. (Synced 2026-04-30 to ADR-0010 §5 canonical 4-arg signature; renamed from prior 3-arg `apply_status(target, effect_id, duration)`. `duration_override == -1` uses template default per ADR-0010 §5.)
 
 5c. **동일 효과 비중첩 (refresh)**: 같은 effect_id의 두 번째 적용 시, 기존 인스턴스의 지속 시간만 갱신(새 적용의 duration으로 교체). 중첩 금지.
 
