@@ -24,7 +24,7 @@
 #
 # STATUS VALUES: active | deprecated | superseded-by: TR-[system]-NNN
 
-version: 7
+version: 8
 last_updated: "2026-04-30"
 
 requirements:
@@ -89,6 +89,150 @@ requirements:
     gdd: design/gdd/input-handling.md
     requirement: "Input Handling exposes cross-system signals: input_action_fired (with typed InputContext), input_state_changed, input_mode_changed (KEYBOARD_MOUSE ↔ TOUCH)."
     created: 2026-04-18
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-002
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    adr: docs/architecture/ADR-0005-input-handling.md
+    requirement: "§1 Module form — InputRouter is an Autoload Node at /root/InputRouter (load order 4: GameBus → SceneManager → SaveManager → InputRouter); class_name InputRouter extends Node + 6 mutable fields (_state InputState, _active_mode InputMode, _pre_menu_state InputState, _undo_windows Dictionary[int,UndoEntry], _input_blocked_reasons PackedStringArray, _bindings Dictionary[StringName, Array[InputEvent]]); state survives scene transitions via Autoload lifecycle (resets between battles via test-isolation pattern). 5-precedent stateless-static utility class form (ADR-0008→0006→0012→0009→0007) is EXPLICITLY REJECTED as Alternative 4 — engine-level structural incompatibility (Node lifecycle callbacks _input/_unhandled_input cannot fire on RefCounted; signal subscription identity for static-method Callables undefined in GDScript 4.x). Battle-scoped Node form rejected because S6 MENU_OPEN must work outside battle scope. Pattern boundary codified: stateless-static for systems CALLED (calculator/lookup); Node-based form for systems that LISTEN (event-driven)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-003
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    adr: docs/architecture/ADR-0005-input-handling.md
+    requirement: "§4 + CR-1 Action vocabulary — 22 StringName actions partitioned into 4 categories (10 grid + 4 camera + 5 menu + 3 meta) declared in ACTIONS_BY_CATEGORY const Dictionary; coverage-checked via static-lint + R-5 mitigation. Every action has both PC and touch activation paths (CR-1a hover-only ban). G-2 grid_hover is PC-only by design (CR-1c); on touch, equivalent reachable via Tap Preview Protocol. ACTIONS_BY_CATEGORY const is the runtime source-of-truth for action existence; default_bindings.json is the source-of-truth for InputEvent → action mapping; both must be in parity at _ready() validation (R-5 mitigation: FATAL push_error + early-return on mismatch)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-004
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    adr: docs/architecture/ADR-0005-input-handling.md
+    requirement: "§4 + CR-1b Bindings externalization — all default bindings live in assets/data/input/default_bindings.json, never hardcoded in GDScript (forbidden_pattern hardcoded_input_bindings). Bindings load at _ready() via FileAccess.get_file_as_string() + JSON.new().parse() (mirrors ADR-0006/0007/0008/0009 4-precedent JSON loading pattern). Runtime InputMap population via InputMap.add_action(action: StringName) + InputMap.action_add_event(action: StringName, event: InputEvent) — corrected pre-Write per godot-specialist 2026-04-30 Item 8 (Input.parse_input_event() factually misused — that method is event INJECTION, not InputMap population). InputEvent matches by keycode/button-index fields, NOT by pressed state (delta #6 Item 3 verification — newly-constructed InputEvent instances have pressed=false default but does not break action matching; verify against live 4.6 InputMap source on first story). Runtime mutation API: InputRouter.set_binding(action: StringName, event: InputEvent) — Settings/Options sole caller per CR-1b."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-005
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    adr: docs/architecture/ADR-0005-input-handling.md
+    requirement: "§3 + CR-2 Last-device-wins mode determination — most-recent-event-class rule: InputEventMouseButton/Motion/Key → KEYBOARD_MOUSE; InputEventScreenTouch/Drag → TOUCH; InputEventJoypadButton/Motion → KEYBOARD_MOUSE (MVP per §6). Engine-validated 2026-04-30 by godot-specialist Item 1 PASS — Godot 4.6 dual-focus split affects Control-layer visual focus (mouse hover vs Tab/Arrow keyboard focus) but does NOT alter event-class identity; InputRouter operates BELOW the Control focus layer (_unhandled_input fires AFTER all Controls had a chance via _gui_input). Mode switch fires once per event (no debounce), invisible to player. Mode switching does NOT reset game state per CR-2c (selected unit stays selected; _state and _undo_windows preserved). HUD hint icons update on next frame via input_mode_changed signal subscription."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-006
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    adr: docs/architecture/ADR-0005-input-handling.md
+    requirement: "§5 7-state FSM with inline match dispatch — synchronous deterministic transitions per GDD §Transition Table; no external StateMachine Resource, no AnimationTree-as-FSM repurposing. States: OBSERVATION/UNIT_SELECTED/MOVEMENT_PREVIEW/ATTACK_TARGET_SELECT/ATTACK_CONFIRM/INPUT_BLOCKED/MENU_OPEN (int 0..6 wire-format for save/load forward-compat). Dispatch single path through _handle_action(action, ctx); transition emits GameBus.input_state_changed(prev, new) + GameBus.input_action_fired(action, ctx). _pre_menu_state stores prior state on S6 entry; restoration applies ST-2 demotion (S2/S4 → S1, dropping pending confirms; line 126 inline comment refresh per delta #6 Item 10c Advisory E). Re-entrancy hazard: subscribers without CONNECT_DEFERRED could synchronously re-enter _handle_event mid-dispatch (delta #6 Item 4 Advisory D); mitigation lives in ADR-0001 §5 deferred-connect mandate. ST-4 single-tap buffer: input during animation buffered + processed against post-animation state when complete; OQ-3 (queue depth) deferred to Polish."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-007
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    adr: docs/architecture/ADR-0005-input-handling.md
+    requirement: "§5 + CR-4 Touch protocol — Tap Preview Protocol (CR-4a TPP) dispatched in OBSERVATION state when active_input_mode == TOUCH (preview bubble 80-120px above touch point; second tap on same unit advances S0 → S1; tap on different element dismisses prior preview). Magnifier Panel (CR-4c) triggered when tap_edge_offset < DISAMBIG_EDGE_PX OR tile_display_px < DISAMBIG_TILE_PX per F-2 (3×3 grid zoomed 3× current scale; tap-to-tile mapping repositioned if near screen edge per EC-9). Pan-vs-tap classifier (CR-4f / F-3): touch_travel_px > PAN_ACTIVATION_PX → camera_pan; (hold_duration_ms < MIN_TOUCH_DURATION_MS=80 AND NOT pan) → rejected. Two-finger gestures (CR-4g) always camera (pinch-zoom or two-finger tap cancel); second finger cancels pending first-finger selection (EC-1 multi-touch cancel). Persistent action panel (CR-4h) updates per state with anti-occlusion repositioning."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-008
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    adr: docs/architecture/ADR-0005-input-handling.md
+    requirement: "§7 + F-1 camera_zoom_min derivation — F-1: camera_zoom_min = TOUCH_TARGET_MIN_PX (44 fixed) / tile_world_size (64 fixed) = 0.6875 → rounded to 0.70 for comfort margin (44.8px effective at zoom=0.70 above 44px floor). InputRouter computes derivation using DisplayServer.screen_get_size() — flagged for implementation-time verification §5a (returns logical DPI-aware pixels on Android — plausible per godot-specialist 2026-04-30 Item 5 but reference docs do not explicitly confirm; physical-pixel return on 3× DPR Android device would invalidate the formula). Camera (NOT YET WRITTEN — provisional contract per §9) enforces clamp [camera_zoom_min, camera_zoom_max] per Bidirectional Contract; hard floor cannot be lowered below 0.6875 without violating 44px touch target requirement (technical-preferences.md)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-009
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    adr: docs/architecture/ADR-0005-input-handling.md
+    requirement: "§1 + §5 + CR-5 Per-unit undo window — _undo_windows: Dictionary[int, UndoEntry] keyed by unit_id (per-unit, NOT per-turn per CR-5b; depth 1 move per unit). UndoEntry RefCounted holds {unit_id, pre_move_coord, pre_move_facing}. Window opens on S2 confirm → S0; closes permanently on (a) attack with that unit (S4 confirm), (b) end_unit_turn for that unit (S1 → S0), (c) end_player_turn confirmation. Pruned at battle-end (memory bounded by max units per battle ~16-24 × ~80 bytes = ~2 KB). Undo restores: unit coord + facing + has_moved=false + state to S1; does NOT restore damage dealt / status effects from terrain / enemy reactions (CR-5e). Undo blocked if pre-move tile occupied (EC-5 + CR-5f) — undo rejected with brief 'Cannot undo — tile occupied' message; queries pre-move tile occupancy via Grid Battle (provisional §9). Undo button always visible; dims when unavailable per CR-5c."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-010
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    adr: docs/architecture/ADR-0005-input-handling.md
+    requirement: "§1 + §Implementation Notes Advisory C + ADR-0002 scene_transition_lifecycle — InputRouter consumes 2 SceneManager-emitted GameBus signals: ui_input_block_requested(reason: String) drives S5 INPUT_BLOCKED entry; ui_input_unblock_requested(reason: String) drives S5 exit. _input_blocked_reasons PackedStringArray stack supports nested S5 entries (max nesting depth ~3 observed). SceneManager additionally calls InputRouter.set_process_input(false) + set_process_unhandled_input(false) directly during overworld retain (per ADR-0002 overworld_pause_during_battle api_decision); both required for Godot 4.x autoload Nodes (godot-specialist 2026-04-30 PASS Item 4). INPUT_BLOCKED dispatch arm silently drops grid actions G-1..G-10 + permits camera + read actions per EC-2 + ST-4; MUST call get_viewport().set_input_as_handled() BEFORE returning to prevent event continuing to downstream _unhandled_input handlers (forbidden_pattern input_router_input_blocked_drop_without_set_input_as_handled per Implementation Notes Advisory C)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-011
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    adr: docs/architecture/ADR-0005-input-handling.md
+    requirement: "§6 SDL3 gamepad pass-through — Joypad events (InputEventJoypadButton / InputEventJoypadMotion) route to KEYBOARD_MOUSE mode for MVP. NO 3rd GAMEPAD mode introduced. OQ-1 (Gamepad Full Support Scope) partially resolved: full gamepad support — including dedicated GAMEPAD mode + grid cursor navigation — deferred to post-MVP ADR. Settings/Options ADR may add 3rd mode without superseding ADR-0005 (additive enum value at int 2). Godot 4.5 SDL3 backend may have altered button index remapping relative to SDL2 (godot-specialist 2026-04-30 Item 3 advisory — does not affect ADR-0005 KEYBOARD_MOUSE routing; post-MVP GAMEPAD ADR must verify per-controller button mapping). Bluetooth gamepad hot-plug 1-2 frame detection latency on SDL3 (R-2 risk) is hardware-layer concern out of MVP scope."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-012
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    adr: docs/architecture/ADR-0005-input-handling.md
+    requirement: "§7 Android edge-to-edge / safe-area — Action panel positioning consults a Godot 4.5+ DisplayServer safe-area API (exact method name to be verified at implementation-time against live 4.6 docs). 3 candidates per /architecture-review delta #6: (1) DisplayServer.window_get_safe_title_margins() (plural form per design-time validation Item 5); (2) DisplayServer.get_display_safe_area() (review-time candidate Item 5 for Android notch / nav-bar insets — surfaced by independent validation; unverified against live 4.6 docs); (3) fallback DisplayServer.window_get_position_with_decorations() (desktop-windowing API — likely insufficient for Android mobile notches). Verification §5b mandatory before first story ships. Export-preset 16KB-page Android config out of scope for this ADR (build-side concern; tracked in tech-debt register if needed)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-013
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    adr: docs/architecture/ADR-0005-input-handling.md
+    requirement: "§8 DI test seam — InputRouter._handle_event(event: InputEvent) is the sole synthetic event injection seam for GdUnit4 v6.1.2 unit tests (production callers forbidden by _-prefix convention). Tests construct InputEvent subclasses directly and call _handle_event() bypassing Godot's _input/_unhandled_input dispatch. Test isolation via before_test() reset of _state = OBSERVATION + _active_mode = KEYBOARD_MOUSE + _pre_menu_state = OBSERVATION + _undo_windows.clear() + _input_blocked_reasons.clear() + _bindings.clear() then repopulate from JSON fixture (G-15 mirror pattern obligation; _bindings.clear() addition per /architecture-review delta #6 godot-specialist Item 7 — omitting it leaks set_binding() remap state across tests). Mirrors damage-calc story-006 RNG-injection seam pattern (proven 11 stories); reusable for Camera + Battle HUD. Optional: Input.parse_input_event(synthetic_event) for full engine-pipeline integration tests when isolated state-machine tests insufficient."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-014
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    adr: docs/architecture/ADR-0005-input-handling.md
+    requirement: "§9 Cross-system provisional contracts (4-precedent provisional-dependency strategy ADR-0008→0006 / ADR-0012→0009/0010/0011 / ADR-0009→0007 / ADR-0007→Formation Bonus) — InputRouter commits verbatim from GDD §Bidirectional Contracts: (1) Camera (NOT YET WRITTEN): Camera.screen_to_grid(screen_pos: Vector2) -> Vector2i for touch/click hit-testing; Camera enforces camera_zoom_min = 0.70 per F-1; Camera owns drag state (OQ-2 resolution — InputRouter does NOT gate grid input mid-drag). (2) Grid Battle (NOT YET WRITTEN): GridBattleController.is_tile_in_move_range(coord) -> bool + is_tile_in_attack_range(coord) -> bool; InputRouter NEVER computes ranges itself (queries Grid Battle for every transition gate per EC-7). (3) Battle HUD (NOT YET WRITTEN): BattleHUD.show_unit_info(unit_id: int) + show_tile_info(coord: Vector2i) for TPP preview; HUD reads InputRouter.get_active_input_mode() for hint icon updates. (4) Settings/Options (NOT YET WRITTEN): InputRouter.set_binding(action, event) for runtime remap. (5) Tutorial (NOT YET WRITTEN): subscribes to input_action_fired for step detection. Each downstream ADR can only WIDEN, never NARROW, the locked interface."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-015
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    adr: docs/architecture/ADR-0005-input-handling.md
+    requirement: "§Verification Required + CR-2e + R-3 — emulate_mouse_from_touch=false MUST be set in [input_devices.pointing] section of project.godot for ALL builds (development, debug, release) per CR-2e. Touch events MUST NOT synthesize fake mouse events (would create duplicate dispatch paths that double-fire actions and break TPP semantics). CI lint script tools/ci/lint_emulate_mouse_from_touch.sh greps project.godot per push; FAIL if setting is true OR unset (R-3 mitigation; forbidden_pattern emulate_mouse_from_touch_enabled). Project Settings → Input Devices → Pointing in-editor verification §3 + godot-specialist 2026-04-30 Item 6 (path plausible per Godot 4.x format but not explicitly confirmed in reference docs). 6 mandatory verification items before InputRouter epic ships first story: (1) Dual-focus end-to-end Android 14+ + macOS Metal; (2) SDL3 gamepad detection Android 15 / iOS 17; (3) emulate_mouse_from_touch in-editor; (4) Recursive Control disable cross-check; (5a) DisplayServer.screen_get_size logical-pixel return; (5b) Safe-area API name; (6) Touch event index stability iOS 17 + Android 14+ physical hardware (Advisory B)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-016
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    adr: docs/architecture/ADR-0005-input-handling.md
+    requirement: "§Performance Implications + Validation Criteria §8/§10 — CPU per-event dispatch < 0.05ms on minimum-spec mobile (Adreno 610 / Mali-G57 class); single dictionary lookup (ACTIONS_BY_CATEGORY membership) + match-arm dispatch + 1-3 signal emissions. _handle_event < 0.05ms; _handle_action dispatch < 0.02ms. Memory: total InputRouter heap footprint < 10 KB (_undo_windows ~2 KB / _bindings ~3 KB / _input_blocked_reasons bounded ~3 nesting depth) << 512 MB mobile ceiling. Load Time: _ready() JSON parse of default_bindings.json (~22 actions × ~150 bytes = ~3.3 KB) single-shot at autoload init < 5ms estimated. Headless CI throughput baseline; on-device measurement deferred per damage-calc story-010 Polish-deferral pattern (stable at 6+ invocations as of ADR-0007). Cross-platform determinism: same synthetic event sequence produces same FSM state transitions on macOS Metal + Linux Vulkan + Windows D3D12 (no float-point math in InputRouter; deterministic by construction)."
+    created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-017
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    adr: docs/architecture/ADR-0005-input-handling.md
+    requirement: "§4 Validation + Validation Criterion §3/§4 — Non-emitter invariant for non-Input GameBus signals: InputRouter is sole emitter of exactly 3 Input-domain signals (input_action_fired/input_state_changed/input_mode_changed) per ADR-0001 §7 Signal Contract Schema (lines 329-335). InputRouter does NOT appear on ADR-0001 lines 370-377 non-emitter list (factual correction per /architecture-review delta #6 godot-specialist Item 9). InputRouter is non-emitter by behavior for all OTHER 21 signals across 8 domains (Combat / Scenario / Persistence / Environment / Grid Battle / Turn Order / HP/Status / UI-Flow) per the input_router_signal_emission_outside_input_domain forbidden_pattern. Static lints: `grep -c 'GameBus\\.input_' src/foundation/input_router.gd` returns 3 emit call sites; `grep -c 'GameBus\\.' src/foundation/input_router.gd | grep -v '^GameBus\\.input_'` returns 0 emit call sites (allows consumption of ui_input_block/unblock_requested per ADR-0002). Carried advisory for next ADR-0001 amendment: line 168 `signal input_action_fired(action: String, context: InputContext)` should change to `action: StringName` to match ADR-0005 + GDD + ACTIONS_BY_CATEGORY hot-path StringName literal convention (delta #6 Item 10a)."
+    created: 2026-04-30
     revised: ""
     status: active
 

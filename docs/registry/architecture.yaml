@@ -29,8 +29,14 @@
 #   All forbidden patterns: Grep pattern="^  - pattern:" (forbidden_patterns section)
 #   Superseded entries:     Grep pattern="status: superseded"
 
-version: 2
+version: 3
 last_updated: "2026-04-30"
+# 2026-04-30 (delta #6 review): ADR-0005 Acceptance via /architecture-review.
+# input_action_dispatch interface notes field rewritten: factual correction per
+# delta #6 godot-specialist Item 9 — prior advisory "InputRouter MUST be removed
+# from non-emitter list" was wrong (input-handling was never on ADR-0001 lines
+# 370-377 non-emitter list). New advisory carried for next ADR-0001 amendment:
+# line 168 action: String → StringName (delta #6 Item 10a).
 # 2026-04-30: ADR-0005 Input Handling (first HIGH engine-risk ADR) — added
 # input_router_runtime_state state_ownership; input_action_dispatch (signal pattern)
 # interface; 2 api_decisions (input_map_population — corrects Input.parse_input_event
@@ -422,13 +428,13 @@ interfaces:
       - "input_mode_changed(new_mode: int)                          # InputRouter → battle-hud (ADR-0001 Input domain; single-primitive payload)"
       - "ui_input_block_requested(reason: String)                   # SceneManager → InputRouter (CONSUMED; drives S5 INPUT_BLOCKED entry per ADR-0002 scene_transition_lifecycle interface line 222)"
       - "ui_input_unblock_requested(reason: String)                 # SceneManager → InputRouter (CONSUMED; drives S5 exit per ADR-0002 line 223)"
-    notes: "InputRouter is sole emitter of the 3 Input-domain signals. Direct-call query API (get_current_state / get_active_input_mode / get_undo_window) supplements signals — read-only, no signal indirection needed. set_binding(action, event) is the sole mutation API (Settings/Options sole caller). InputRouter is on ADR-0001 non-emitter list line 372 region for all OTHER 21 signals across 8 domains (Combat / Scenario / Persistence / Environment / Grid Battle / Turn Order / HP/Status / UI-Flow). _handle_event(event) DI test seam for synthetic event injection (mirrors damage-calc story-006 RNG injection pattern; reusable for Camera + Battle HUD). ADR-0001 line 372 prose drift advisory: InputRouter MUST be removed from non-emitter list for the 3 Input-domain signals on next ADR-0001 amendment."
+    notes: "InputRouter is sole emitter of the 3 Input-domain signals per ADR-0001 §7 Signal Contract Schema (lines 329-335). Direct-call query API (get_current_state / get_active_input_mode / get_undo_window) supplements signals — read-only, no signal indirection needed. set_binding(action, event) is the sole mutation API (Settings/Options sole caller). InputRouter is non-emitter by behavior for all OTHER 21 signals across 8 domains (Combat / Scenario / Persistence / Environment / Grid Battle / Turn Order / HP/Status / UI-Flow) per the input_router_signal_emission_outside_input_domain forbidden_pattern; InputRouter is NOT on ADR-0001 lines 370-377 non-emitter list (factual correction per /architecture-review delta #6 godot-specialist Item 9 — prior advisory 'MUST be removed from non-emitter list' was incorrect; nothing to remove). _handle_event(event) DI test seam for synthetic event injection (mirrors damage-calc story-006 RNG injection pattern; reusable for Camera + Battle HUD). Carried advisory for next ADR-0001 amendment (post-Acceptance, queued with the ADR-0007 line 372 prose-drift advisory): line 168 `signal input_action_fired(action: String, context: InputContext)` should change to `action: StringName` to match ADR-0005 + GDD + ACTIONS_BY_CATEGORY hot-path StringName literal convention (delta #6 Item 10a)."
     referenced_by:
       - docs/architecture/ADR-0001-gamebus-autoload.md
       - docs/architecture/ADR-0002-scene-manager.md  # consumed-signal source per scene_transition_lifecycle line 216 entry
       - docs/architecture/ADR-0005-input-handling.md
     added: 2026-04-30
-    revised: ""
+    revised: 2026-04-30  # delta #6 Item 9 factual correction (notes field rewritten)
 
 # Example:
 #

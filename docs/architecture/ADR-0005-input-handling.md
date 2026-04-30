@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-04-30, drafted via `/architecture-decision input-handling` — first HIGH engine-risk ADR; godot-specialist validation 2026-04-30 returned APPROVED WITH SUGGESTIONS, 2 corrections applied pre-Write per Item 5 + Item 8; review-mode lean per `production/review-mode.txt`)
+Accepted (2026-04-30 via `/architecture-review` delta #6 — Foundation 4/5 → **5/5 Complete**; review-time godot-specialist independent validation returned APPROVED WITH SUGGESTIONS with 6 pre-Acceptance precision-gap corrections applied same-patch + 2 advisories carried as Implementation Notes D + E + 1 post-Acceptance ADR-0001 amendment queued (line 168 `action: String` → `action: StringName`). Originally drafted Proposed 2026-04-30 via `/architecture-decision input-handling` — first HIGH engine-risk ADR; design-time godot-specialist validation returned APPROVED WITH SUGGESTIONS with 2 corrections applied pre-Write per Item 5 + Item 8; review-mode lean per `production/review-mode.txt`)
 
 ## Date
 
@@ -10,7 +10,7 @@ Proposed (2026-04-30, drafted via `/architecture-decision input-handling` — fi
 
 ## Last Verified
 
-2026-04-30
+2026-04-30 (review-time delta #6)
 
 ## Decision Makers
 
@@ -123,7 +123,7 @@ enum InputMode {
 # Mutable owned state (justifies non-stateless-static module form)
 var _state: InputState = InputState.OBSERVATION
 var _active_mode: InputMode = InputMode.KEYBOARD_MOUSE  # platform default set in _ready
-var _pre_menu_state: InputState = InputState.OBSERVATION  # restored on S6 → prior
+var _pre_menu_state: InputState = InputState.OBSERVATION  # restored on S6 exit with ST-2 demotion (S2/S4 → S1 if pre-menu was a pending-confirm state)
 var _undo_windows: Dictionary = {}  # unit_id (int) → UndoEntry (RefCounted) — per-unit undo per CR-5b
 var _input_blocked_reasons: PackedStringArray = []  # stack of block reasons for nested S5 entries
 var _bindings: Dictionary = {}  # action StringName → Array[InputEvent] — runtime mutable for remap
@@ -184,7 +184,7 @@ const ACTIONS_BY_CATEGORY: Dictionary = {
 # Lint: total = 22; categories partition (no overlap); every action also exists in default_bindings.json
 ```
 
-Bindings load from `assets/data/input/default_bindings.json` at `_ready()` via `FileAccess.get_file_as_string()` + `JSON.new().parse()` (mirrors ADR-0006/0007/0008/0009 4-precedent JSON loading pattern). InputMap population uses `InputMap.add_action(action: StringName)` + `InputMap.action_add_event(action: StringName, event: InputEvent)`; typed `InputEvent` subclasses (`InputEventKey`, `InputEventMouseButton`, `InputEventJoypadButton`) are constructed from JSON event descriptors via direct property assignment (e.g., `var ev := InputEventKey.new(); ev.physical_keycode = KEY_ENTER`). `Input.parse_input_event()` is reserved for the §8 DI test seam (synthetic event injection through the engine's input pipeline) — **NOT for InputMap population** (which it does not perform; corrected pre-Write per godot-specialist 2026-04-30 Item 8).
+Bindings load from `assets/data/input/default_bindings.json` at `_ready()` via `FileAccess.get_file_as_string()` + `JSON.new().parse()` (mirrors ADR-0006/0007/0008/0009 4-precedent JSON loading pattern). InputMap population uses `InputMap.add_action(action: StringName)` + `InputMap.action_add_event(action: StringName, event: InputEvent)`; typed `InputEvent` subclasses (`InputEventKey`, `InputEventMouseButton`, `InputEventJoypadButton`) are constructed from JSON event descriptors via direct property assignment (e.g., `var ev := InputEventKey.new(); ev.physical_keycode = KEY_ENTER`). Note per /architecture-review delta #6 godot-specialist 2026-04-30 Item 3: `InputMap.action_add_event` matches events by keycode/button-index fields, **NOT** by `pressed` state — newly-constructed `InputEvent` instances have `pressed = false` by default but this does not break action matching; verify against live 4.6 `InputMap` source on first implementation story (added to §Verification Required as item 7). `Input.parse_input_event()` is reserved for the §8 DI test seam (synthetic event injection through the engine's input pipeline) — **NOT for InputMap population** (which it does not perform; corrected pre-Write per godot-specialist 2026-04-30 Item 8).
 
 ### §5. State Machine — Inline Match Dispatch
 
@@ -211,7 +211,7 @@ Joypad events route to `KEYBOARD_MOUSE` mode for MVP. **No 3rd `GAMEPAD` mode is
 
 ### §7. Android Edge-to-Edge / Safe-Area (Godot 4.5)
 
-InputRouter computes `camera_zoom_min` from F-1 using `DisplayServer.screen_get_size()` (returns logical DPI-aware pixels per Verification Required §5a — godot-specialist 2026-04-30 Item 5 confirms behavior is plausible but reference docs do not explicitly confirm; verify on first story implementation). Action panel positioning consults a Godot 4.5+ DisplayServer safe-area API (**exact method name to be verified at implementation-time against live 4.6 docs** — candidate names per godot-specialist 2026-04-30 Item 5: `DisplayServer.window_get_safe_title_margins()` (plural) OR a platform-specific workaround via `DisplayServer.window_get_position_with_decorations()`) to avoid clipping behind notches / nav bars. Export-preset 16KB-page Android config is **out of scope** for this ADR (build-side concern; tracked in tech-debt register if needed).
+InputRouter computes `camera_zoom_min` from F-1 using `DisplayServer.screen_get_size()` (returns logical DPI-aware pixels per Verification Required §5a — godot-specialist 2026-04-30 Item 5 confirms behavior is plausible but reference docs do not explicitly confirm; verify on first story implementation). Action panel positioning consults a Godot 4.5+ DisplayServer safe-area API (**exact method name to be verified at implementation-time against live 4.6 docs** — 3 candidates per /architecture-review delta #6 godot-specialist 2026-04-30: (1) `DisplayServer.window_get_safe_title_margins()` (plural form per design-time validation Item 5); (2) `DisplayServer.get_display_safe_area()` (review-time candidate Item 5 for Android notch / nav-bar insets — surfaced by independent validation; unverified against live 4.6 docs); (3) fallback `DisplayServer.window_get_position_with_decorations()` (desktop-windowing API — likely insufficient for Android mobile notches; use only if 4.6 lacks dedicated safe-area inset API). Verify all three against live 4.6 docs on first implementation story; confirm which returns logical-pixel insets for Android 14+ edge-to-edge mode) to avoid clipping behind notches / nav bars. Export-preset 16KB-page Android config is **out of scope** for this ADR (build-side concern; tracked in tech-debt register if needed).
 
 ### §8. Test Infrastructure — DI Seam
 
@@ -222,7 +222,7 @@ func _handle_event(event: InputEvent) -> void:
     # ... event classification + action dispatch
 ```
 
-GdUnit4 tests synthesize `InputEvent` subclasses and call `_handle_event()` directly. Mirrors damage-calc story-006 RNG-injection seam pattern (proven 11 stories). Test isolation via `before_test()` reset of `_state` + `_active_mode` + `_undo_windows` (G-15-style obligation, codified as forbidden_pattern in §Phase 6 registry update). Optional: `Input.parse_input_event(synthetic_event)` may also be used to inject events through the full engine pipeline (`_input` → `_unhandled_input` → InputRouter); use case is end-to-end integration tests when isolated state-machine tests via `_handle_event` are insufficient.
+GdUnit4 tests synthesize `InputEvent` subclasses and call `_handle_event()` directly. Mirrors damage-calc story-006 RNG-injection seam pattern (proven 11 stories). Test isolation via `before_test()` reset of **`_state` + `_active_mode` + `_pre_menu_state` + `_undo_windows.clear()` + `_input_blocked_reasons.clear()` + `_bindings.clear()`** (G-15-style obligation, codified as forbidden_pattern in §Phase 6 registry update; note: `_bindings.clear()` then repopulate from JSON fixture, otherwise `set_binding()` remap state leaks across test cases — added per /architecture-review delta #6 godot-specialist Item 7). Optional: `Input.parse_input_event(synthetic_event)` may also be used to inject events through the full engine pipeline (`_input` → `_unhandled_input` → InputRouter); use case is end-to-end integration tests when isolated state-machine tests via `_handle_event` are insufficient.
 
 ### §9. Cross-System Provisional Contracts
 
@@ -329,6 +329,8 @@ var pre_move_facing: int  # int enum from grid-battle ADR (provisional)
 - **Consumed-event inheritance (Advisory A)**: when a Control consumes an event via `accept_event()` in its `_gui_input`, the event does NOT propagate to InputRouter's `_unhandled_input` — engine-correct behavior and design-intentional (UI button taps should not also trigger unit selection). InputRouter using `_unhandled_input` (NOT `_input`) for world-space input is precisely the right pattern to inherit this consumption automatically.
 - **INPUT_BLOCKED silent-drop (Advisory C)**: when InputRouter receives an event in `INPUT_BLOCKED` state and decides to silently drop it (per GDD EC-2 + ST-4), the implementation MUST call `get_viewport().set_input_as_handled()` BEFORE returning to prevent the event from continuing to any downstream `_unhandled_input` handlers (relevant for test fixtures with additional listeners + future Tutorial / debug overlays).
 - **Touch index stability per-platform (Advisory B)**: R-6 verification must run on both iOS 17 and Android 14+ on **physical hardware** (NOT just emulator) to catch OS-specific index reuse behavior on rapid lift+touch sequences.
+- **Re-entrancy hazard for non-deferred subscribers (Advisory D — review-time Item 4)**: when `_handle_action` emits `GameBus.input_state_changed` and `GameBus.input_action_fired`, subscribers connected via `CONNECT_DEFERRED` (mandated by ADR-0001 §5 for cross-scene connects) execute on the next idle frame and cannot re-enter InputRouter mid-dispatch. However, a same-scene subscriber that connects WITHOUT `CONNECT_DEFERRED` (test fixtures, future Tutorial overlay, debug listeners) could synchronously call back into `InputRouter._handle_event` while `_state` has already mutated — recursing into the match-arm dispatch from the new state. This is a soundness hazard, NOT a deadlock. Mitigation is the ADR-0001 §5 deferred-connect mandate; future same-scene subscribers MUST use `CONNECT_DEFERRED` or document an explicit non-re-entrant call shape. No forbidden_pattern codified — the mitigation lives in ADR-0001's signal subscription discipline.
+- **`_pre_menu_state` ST-2 demotion (Advisory E — review-time Item 10c)**: the `_pre_menu_state` field's inline comment is now refreshed (line 126 in §1) to note ST-2 demotion behavior. When S6 (MENU_OPEN) exits, restoration is direct EXCEPT when `_pre_menu_state` is S2 (MOVEMENT_PREVIEW) or S4 (ATTACK_CONFIRM) — both demote to S1 (UNIT_SELECTED) per GDD ST-2 (line 339), dropping pending confirms. Implementation must NOT restore directly to S2/S4 on menu exit.
 
 ---
 
@@ -462,7 +464,7 @@ Phase 4.7 GDD sync edits applied 2026-04-30 (3 occurrences in `design/gdd/input-
 2. **22-action coverage parity**: `_ready()` validation pass — every action in `ACTIONS_BY_CATEGORY` exists in `default_bindings.json` AND vice versa; FATAL push_error + early-return on mismatch (R-5 mitigation). CI test fixture validates fresh-cloned project state.
 3. **3 GameBus signal emission contracts**: per ADR-0001 TR-gamebus-001 — InputRouter emits exactly `input_action_fired(StringName, InputContext)` + `input_state_changed(int, int)` + `input_mode_changed(int)`; static lint `grep -c 'GameBus\.input_' src/foundation/input_router.gd` returns 3 emit call sites for the 3 signal names.
 4. **Non-emitter invariant for all non-Input GameBus signals**: per ADR-0001 line 372-region — `grep -c 'GameBus\.' src/foundation/input_router.gd | grep -v '^GameBus\.input_'` returns 0 emit call sites (allows consumption of `ui_input_block_requested` / `ui_input_unblock_requested` per ADR-0002).
-5. **DI seam test isolation**: every `tests/unit/foundation/input_router_test.gd` test suite calls `InputRouter._handle_event(synthetic_event)` directly (not via Godot's `Input.parse_input_event` path); `before_test()` resets `_state = OBSERVATION` + `_active_mode = KEYBOARD_MOUSE` + `_undo_windows.clear()` + `_input_blocked_reasons.clear()` (G-15 mirror pattern obligation).
+5. **DI seam test isolation**: every `tests/unit/foundation/input_router_test.gd` test suite calls `InputRouter._handle_event(synthetic_event)` directly (not via Godot's `Input.parse_input_event` path); `before_test()` resets `_state = OBSERVATION` + `_active_mode = KEYBOARD_MOUSE` + `_pre_menu_state = OBSERVATION` + `_undo_windows.clear()` + `_input_blocked_reasons.clear()` + `_bindings.clear()` (then repopulate from JSON fixture; G-15 mirror pattern obligation — omitting `_bindings.clear()` leaks remap state from `set_binding()` test cases per /architecture-review delta #6 godot-specialist Item 7).
 6. **Dual-focus end-to-end test on Android 14+ + macOS Metal** (per Verification Required §1) — KEEP through Polish.
 7. **`emulate_mouse_from_touch` lint gate** — `tools/ci/lint_emulate_mouse_from_touch.sh` greps `project.godot`; fails if `emulate_mouse_from_touch=true` or unset (R-3 mitigation).
 8. **Per-method latency baseline** (headless CI): `_handle_event` < 0.05 ms; `_handle_action` dispatch < 0.02 ms. On-device measurement deferred to Polish per Polish-deferral pattern (stable at 6+ invocations as of ADR-0007).
@@ -473,7 +475,7 @@ Phase 4.7 GDD sync edits applied 2026-04-30 (3 occurrences in `design/gdd/input-
 
 ## Related Decisions
 
-- ADR-0001 GameBus (Accepted 2026-04-18) — non-emitter list line 375 region MUST update to remove `input-handling` (InputRouter IS an emitter for the 3 Input-domain signals, but stays on the non-emitter list for all OTHER 21 signals across 8 domains).
+- ADR-0001 GameBus (Accepted 2026-04-18) — InputRouter is the sole emitter of 3 Input-domain signals per ADR-0001 §7 Signal Contract Schema (lines 329-335). InputRouter does NOT appear on the ADR-0001 non-emitter list (lines 370-377) — no ADR-0001 amendment is required on this point (factual correction per /architecture-review delta #6 godot-specialist Item 9). InputRouter is on the non-emitter list **by behavior** for all OTHER 21 signals across 8 domains per the `input_router_signal_emission_outside_input_domain` forbidden_pattern. Carried advisory for next ADR-0001 amendment (post-Acceptance, queued with the ADR-0007 line 372 prose-drift advisory): line 168 `signal input_action_fired(action: String, context: InputContext)` should change to `action: StringName` to match ADR-0005 + GDD + ACTIONS_BY_CATEGORY hot-path StringName literal convention (delta #6 Item 10a).
 - ADR-0002 SceneManager (Accepted 2026-04-18) — `scene_transition_lifecycle` interface registry entry (line 216) lists `input-handling` as consumer of `ui_input_block_requested` / `ui_input_unblock_requested`; this ADR ratifies the consumer contract.
 - ADR-0004 Map/Grid (Accepted 2026-04-20) — `tile_grid_runtime_state` registry entry (line 260) lists `input-handling` as consumer of `get_tile`; this ADR ratifies the consumer pattern (via Camera `screen_to_grid` indirection).
 - Future: Camera ADR — will ratify `screen_to_grid` + `camera_zoom_min` enforcement.

@@ -1,8 +1,8 @@
 # Input Handling System (입력 처리)
 
-> **Status**: Designed
+> **Status**: Accepted via ADR-0005 (Proposed 2026-04-30 → Accepted 2026-04-30 via /architecture-review delta #6)
 > **Author**: user + systems-designer, game-designer, ux-designer, gameplay-programmer
-> **Last Updated**: 2026-04-16
+> **Last Updated**: 2026-04-16 (Designed); 2026-04-30 (Status header refresh post-ADR-0005 Acceptance — InputRouter Autoload Node + 7-state FSM + 16 net-new TR-input-handling-002..017 registered tr-registry.yaml v8; Foundation layer 4/5 → 5/5 Complete)
 > **Implements Pillar**: Pillar 1 (형세의 전술) — input is how players express tactical intent
 
 ## Overview
