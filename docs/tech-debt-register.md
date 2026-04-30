@@ -2292,7 +2292,7 @@ var class_dir: Dictionary = BalanceConstants.get_const_dict("CLASS_DIRECTION_MUL
 
 ### Acceptance criteria for resolution
 
-1. Add 3 typed accessors to `src/feature/balance/balance_constants.gd`:
+1. Add 3 typed accessors to `src/foundation/balance/balance_constants.gd`:
    - `get_const_int(key: String) -> int` — `as int` cast inside the wrapper
    - `get_const_float(key: String) -> float` — `as float` cast inside the wrapper
    - `get_const_dict(key: String) -> Dictionary` — `as Dictionary` cast inside the wrapper
@@ -2311,7 +2311,7 @@ var class_dir: Dictionary = BalanceConstants.get_const_dict("CLASS_DIRECTION_MUL
 - `docs/architecture/ADR-0006-balance-data.md` §Decision #2 (Public API) + §Notes N2 (Q6 decision)
 - `docs/architecture/ADR-0012-damage-calc.md` /architecture-review 2026-04-26 ADV-3 (original cast-safety advisory)
 - `design/gdd/balance-data.md` CR-6 (typed container requirement; deviated for MVP per ADR-0006)
-- `src/feature/balance/balance_constants.gd` (current implementation)
+- `src/foundation/balance/balance_constants.gd` (current implementation)
 - `tests/unit/balance/balance_constants_test.gd` (current 6-function test coverage)
 
 **Next review**: bundle into a future damage-calc cleanup or balance-data hardening story; not urgent. ~30 min effort. Logged 2026-04-27 as part of ADR-0006 acceptance.

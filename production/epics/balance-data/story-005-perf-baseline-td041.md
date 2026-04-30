@@ -1,7 +1,7 @@
 # Story 005: Perf baseline + TD-041 logging
 
 > **Epic**: Balance/Data
-> **Status**: Ready
+> **Status**: Complete (2026-05-01)
 > **Layer**: Foundation
 > **Type**: Logic
 > **Estimate**: 1.5-2h (2 perf tests + TD-041 entry + summary evidence; +0.5h conditional Polish-deferral doc if AC-3 deferred)
@@ -217,7 +217,7 @@
 - `production/qa/evidence/balance_constants_perf_mobile.md` (only if AC-3 Polish-deferred) — admin doc with reactivation trigger
 - `docs/tech-debt-register.md` — TD-041 entry appended
 
-**Status**: [ ] Not yet created
+**Status**: [x] Complete — `tests/unit/balance/balance_constants_perf_test.gd` (2 perf tests, 113 LoC) + `production/qa/evidence/balance_constants_perf_summary.md` + `production/qa/evidence/balance_constants_perf_mobile.md` (Polish-deferred admin doc) + TD-041 entry at `docs/tech-debt-register.md:2260` (pre-existed; 2 stale paths fixed). Regression `506 cases / 0 errors / 0 orphans / 1 failures` (1 pre-existing carried from story-001).
 
 ---
 
@@ -225,3 +225,36 @@
 
 - Depends on: Story 001 (file relocation; new perf test references post-move path)
 - Unlocks: Story 004 AC-5 (TD-041 verification; recommend landing 005 before 004 to avoid AC-5 BLOCKED state)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-01
+**Criteria**: 7/7 passing — see `/story-done` traceability table for per-AC test/evidence mapping
+**Code Review**: Complete — `/code-review` returned APPROVED WITH SUGGESTIONS 2026-05-01 (lean mode; LP-CODE-REVIEW + QL-TEST-COVERAGE skipped per `production/review-mode.txt`). The 1 actionable suggestion (mobile doc stale-anchor `103ms / 1000 calls` references) was applied before story closeout — effective review state is now APPROVED.
+**Test Evidence**: `tests/unit/balance/balance_constants_perf_test.gd` (2 perf functions; 506-case regression baseline maintained); plus 2 supplementary evidence docs + TD-041 register entry.
+**Regression result**: `506 test cases | 0 errors | 1 failures | 0 flaky | 0 skipped | 0 orphans` (504 baseline + 2 new perf tests; 1 pre-existing failure carried from story-001/002).
+
+### Locked decision held (from /story-readiness 2026-05-01)
+
+- **AC-3 → Path B (Polish-deferred)** per the established 5-precedent pattern (scene-manager story-007, save-manager story-007, map-grid story-007, terrain-effect story-008, damage-calc story-010). Dev environment (macOS) lacks minimum-spec mobile hardware. Admin doc with 4-element template (deferral reason / reactivation trigger / ready-to-ship fallback / estimated Polish effort) at `production/qa/evidence/balance_constants_perf_mobile.md`.
+
+### Files changed (4)
+
+- **NEW** `tests/unit/balance/balance_constants_perf_test.gd` — 2 perf test functions (~113 LoC):
+  - `test_get_const_first_call_lazy_load_cost_under_2ms` (AC-1 / TR-015(a) — cold-cache first call < 2ms via before_test G-15 cache reset reflection)
+  - `test_get_const_cached_call_throughput_10k_under_500ms` (AC-2 / TR-015(b) — 10,000 calls cycling 10 different real scalar keys < 500ms; per-call avg < 50us)
+- **NEW** `production/qa/evidence/balance_constants_perf_summary.md` — consolidated AC-1/AC-2/AC-3 evidence
+- **NEW** `production/qa/evidence/balance_constants_perf_mobile.md` — 4-element Polish-deferral admin doc (post-/code-review: stale 103ms anchors corrected to canonical ~6ms / 10,000 calls measurement)
+- **MODIFIED** `docs/tech-debt-register.md` — 2 stale-path fixes at lines 2295 + 2314 (`src/feature/balance/` → `src/foundation/balance/`); TD-041 entry pre-existed from 2026-04-27 ADR-0006 acceptance
+
+### Deviations (ADVISORY — none blocking)
+
+1. **Pre-existing failure carried from story-001 close-out**: `test_hero_data_doc_comment_contains_required_strings` (`tests/unit/foundation/unit_role_skeleton_test.gd:231`). Orthogonal to story-005 scope; same item carried through story-002 Completion Notes. Recommended for triage in unit-role epic close-out follow-up.
+
+2. **Process insight reinforced (codified, not blocking)**: First specialist write produced 10+ deviations from spec (1k vs 10k iterations; non-existent `BASE_PLAYER_HP` key; missing `before_test` cache reset; wrong autoload claim in comment; wrong JSON filename). Re-spawned with explicit canonical content embedded in brief — second attempt landed correctly. Trust-but-verify discipline reinforced: read the actual file post-write, not just the agent's report. Cost: 1 wasted regression cycle + 1 re-spawn (~3 min). Codification candidate: `.claude/rules/godot-4x-gotchas.md` G-25 (perf test missing-key hallucination + before_test cache reset omission) OR a new orchestration rule.
+
+### Unlocks
+
+Story 005 completion **unblocks Story 004** (its AC-5 verifies TD-041 entry exists, which is now satisfied — entry pre-existed + 2 stale paths fixed). Story 004 is now eligible for /story-readiness as the only remaining balance-data story (Story 003 is independent and parallelizable).
