@@ -6,7 +6,7 @@ goal: "Close last in-flight Foundation/Core story; ratify ADR-0012 Damage Calc; 
 start: "2026-04-26"
 end: "2026-05-10"
 generated: "2026-04-26"
-updated: "2026-04-26"  # S1-01..S1-05 + S1-08 closed; vertical-slice replan: S1-06/S1-07 deferred to Sprint 2 (provisional pattern unblocks damage-calc 002-007 without ADR-0009)
+updated: "2026-04-30"  # State sync: S1-06/S1-07 Complete (ADR-0009 Accepted 2026-04-28, commit 141e72e); S1-09 partial (ADR-0006 Proposed 2026-04-27 commit cc667df, Acceptance pending); S1-10 Complete (TG-2 codified 2026-04-27 PR #72). Sprint-1 effective DoD reached. Out-of-plan: 4 ADR transitions today (ADR-0005/0007/0010/0011 all Accepted) + architecture.md v0.3→v0.5 — see active.md "2026-04-30 all-Foundation+Core ADRs Accepted" checkpoint.
 
 stories:
   - id: "S1-01"
@@ -61,29 +61,23 @@ stories:
 
   - id: "S1-06"
     name: "Author ADR-0009 Unit Role"
-    file: "docs/architecture/ADR-0009-unit-role.md (to be created)"
+    file: "docs/architecture/ADR-0009-unit-role.md"
     priority: should-have
-    # Deferred to Sprint 2 per vertical-slice replan (2026-04-26):
-    # damage-calc stories 002-007 use the provisional pattern (local const tables in damage_calc.gd
-    # using unit-role.md §EC-7 locked values verbatim) per ADR-0012 §8 + EPIC.md "Provisional Dependencies".
-    # ADR-0009 ratifies (does not negotiate) when authored — Sprint 2 ratify-only pass (~half day).
-    # Rationale: prioritize first-playable damage roll demo over upstream-ADR completionism.
-    status: deferred-to-sprint-2
+    status: completed
     owner: ""
     estimate_days: 1.5
     blocker: ""
-    completed: ""
+    completed: "2026-04-28"  # commit f4f1915 — Proposed; reactivated from deferred-to-sprint-2 status when authoring slot opened
 
   - id: "S1-07"
     name: "/architecture-review ADR-0009 delta → Accepted"
     file: ""
     priority: should-have
-    # Deferred to Sprint 2 — automatically follows S1-06 (blocker chain).
-    status: deferred-to-sprint-2
+    status: completed
     owner: ""
     estimate_days: 0.5
     blocker: "S1-06"
-    completed: ""
+    completed: "2026-04-28"  # commit 141e72e — ADR-0009 Accepted via /architecture-review delta
 
   - id: "S1-08"
     name: "damage-calc story-001 — CI infrastructure prerequisite (headed CI + cross-platform matrix + gdUnit4 v6.1.2 pin)"
@@ -97,20 +91,20 @@ stories:
 
   - id: "S1-09"
     name: "Author ADR-0006 Balance/Data"
-    file: "docs/architecture/ADR-0006-balance-data.md (to be created)"
+    file: "docs/architecture/ADR-0006-balance-data.md"
     priority: nice-to-have
-    status: backlog
+    status: partially-complete  # ADR-0006 Proposed 2026-04-27 (commit cc667df); /architecture-review delta to flip → Accepted is pending in fresh session
     owner: ""
     estimate_days: 1.5
     blocker: ""
-    completed: ""
+    completed: ""  # author step done; Acceptance step is the outstanding work
 
   - id: "S1-10"
     name: "TG-2 codification: sub-agent Bash blocking pattern"
     file: ".claude/rules/tooling-gotchas.md"
     priority: nice-to-have
-    status: backlog
+    status: completed
     owner: ""
     estimate_days: 0.25
     blocker: ""
-    completed: ""
+    completed: "2026-04-27"  # PR #72 — TG-2 entry in tooling-gotchas.md (verified present)
