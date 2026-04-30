@@ -29,8 +29,33 @@
 #   All forbidden patterns: Grep pattern="^  - pattern:" (forbidden_patterns section)
 #   Superseded entries:     Grep pattern="status: superseded"
 
-version: 4
+version: 5
 last_updated: "2026-04-30"
+# 2026-04-30 (ADR-0011 design-time): Turn Order authoring — added
+# turn_order_runtime_state state_ownership (TurnOrderRunner battle-scoped Node owns
+# _queue: Array[int] + _queue_index: int + _round_number: int + _unit_states:
+# Dictionary[int, UnitTurnState] keyed by unit_id matching ADR-0001 unit_died(int)
+# payload type + _round_state: RoundState typed enum); turn_order_event_dispatch
+# interface (hybrid pattern: 4 emitted signals round_started + unit_turn_started +
+# unit_turn_ended + victory_condition_detected [latter added via same-patch ADR-0001
+# amendment] + 1 consumed signal unit_died + direct_call 8 public methods: 3 mutator
+# initialize_battle/declare_action/_advance_turn + 5 query); turn_order_module_form
+# api_decision (battle-scoped Node form per ADR-0010 precedent extension; 4 alternatives
+# rejected including stateless-static per ADR-0005 §Alt 4 + ADR-0010 §Alt 3 pattern
+# boundary); 5 forbidden_patterns (turn_order_consumer_mutation,
+# turn_order_external_queue_write, turn_order_signal_emission_outside_domain,
+# turn_order_static_var_state_addition, turn_order_typed_array_reassignment —
+# last one codifies godot-specialist 2026-04-30 Item 8 G-2 prevention pattern).
+# Same-patch hp_status_apply_dispatch interface refresh: line 487 unit_turn_started
+# signal_signature wording flipped "provisional ADR-0011" → "defined by ADR-0011
+# Proposed 2026-04-30; pending Acceptance via /architecture-review delta #8";
+# referenced_by appended with ADR-0011. Ratifies ADR-0010 unit_turn_started consumer
+# contract upon /architecture-review delta #8 Acceptance. Carried advisory for next
+# ADR-0012 amendment: parameter type unit_id: StringName at line 343 → unit_id: int
+# (4th cross-doc advisory; queues with ADR-0001 line 168 + line 372 + ADR-0010 unit_id
+# advisories from prior deltas). Same-patch ADR-0001 amendment also applied: signal
+# victory_condition_detected(result: int) declared in Turn Order Domain (line 155 area)
+# + §3 table row + Last Verified date refresh.
 # 2026-04-30 (ADR-0010 design-time): HP/Status authoring — added
 # unit_hp_state_runtime state_ownership (HPStatusController battle-scoped Node owns
 # Dictionary[int, UnitHPState] keyed by unit_id matching ADR-0001 unit_died(int)
@@ -238,6 +263,25 @@ state_ownership:
       - docs/architecture/ADR-0009-unit-role.md  # UnitRole.get_max_hp cached at battle-init + PASSIVE_TAG_BY_CLASS for Shield Wall lookup
       - docs/architecture/ADR-0012-damage-calc.md  # ratifies hp_status.apply_damage + get_modified_stat interface signatures (lines 89-93, 260, 297-299, 340-352)
       - design/gdd/hp-status.md
+    added: 2026-04-30
+    revised: ""
+
+  - state: turn_order_runtime_state
+    status: active
+    owner_system: turn-order
+    adr: docs/architecture/ADR-0011-turn-order.md
+    interface: "TurnOrderRunner (Battle-scoped Node child of BattleScene at runtime path BattleScene/TurnOrderRunner; created at battle-init via Battle Preparation, freed automatically with BattleScene per ADR-0002 SceneManager teardown — non-persistence enforced by lifecycle alignment per CR-1b matching ADR-0010 HPStatusController precedent) owns 5 instance fields: _queue: Array[int] (ordered ALIVE unit_ids for current round, rebuilt at R3 via in-place mutation .clear() + .append_array() per turn_order_typed_array_reassignment forbidden_pattern); _queue_index: int (pointer to currently ACTING unit, advances at T7); _round_number: int (initialized to 0 at BI-4, incremented at R1); _unit_states: Dictionary[int, UnitTurnState] keyed by unit_id (int matching ADR-0001 unit_died(int) signal payload type + ADR-0010 UnitHPState Dictionary keyed by unit_id lock); _round_state: RoundState typed enum {BATTLE_NOT_STARTED, BATTLE_INITIALIZING, ROUND_STARTING, ROUND_ACTIVE, ROUND_ENDING, BATTLE_ENDED}. Per-unit UnitTurnState (RefCounted, NOT Resource — battle-scoped non-persistent per CR-1b; mirrors ADR-0010 UnitHPState rationale): 6 fields (unit_id: int, move_token_spent: bool, action_token_spent: bool, accumulated_move_cost: int [reset to 0 at T4 per F-2], acted_this_turn: bool [CR-3f true iff at least one token spent during T5], turn_state: TurnOrderRunner.TurnState enum {IDLE, ACTING, DONE, DEAD}). UnitTurnState.snapshot() returns NEW UnitTurnState via explicit field-by-field copy (NOT duplicate()/duplicate_deep() — those are Resource methods; godot-specialist 2026-04-30 Item 3 RefCounted idiomatic pattern). 5 read-only public queries (get_acted_this_turn / get_current_round_number / get_turn_order_snapshot / get_charge_ready / get_unit_turn_state). 3 mutator public methods (initialize_battle / declare_action / _advance_turn TEST SEAM). State NEVER survives scene transitions — fresh TurnOrderRunner.new() per battle automatically zeroes all instance fields. Test isolation: per-test fresh TurnOrderRunner.new() instance; before_test() also resets _unit_states.clear() + _queue.clear() + _round_number = 0 + _queue_index = 0 + _round_state = BATTLE_NOT_STARTED + GameBus.unit_died.disconnect(_on_unit_died) (G-15 mirror per ADR-0006 §6 + ADR-0010 + ADR-0005 reset list patterns)."
+    write_access: turn-order-only  # Grid Battle/Player Input invokes declare_action (CR-3 external direct write to _queue or _unit_states fields forbidden); HP/Status emits unit_died via GameBus → _on_unit_died handler removes from queue (R-1 CONNECT_DEFERRED mitigation); nothing else writes _queue / _unit_states / _round_number fields directly
+    referenced_by:
+      - docs/architecture/ADR-0011-turn-order.md
+      - docs/architecture/ADR-0001-gamebus-autoload.md  # TurnOrderRunner is sole emitter of 4 Turn Order Domain signals (round_started + unit_turn_started + unit_turn_ended + victory_condition_detected; latter added 2026-04-30 via ADR-0011 same-patch amendment)
+      - docs/architecture/ADR-0002-scene-manager.md  # battle-scoped lifecycle teardown precedent
+      - docs/architecture/ADR-0006-balance-data.md  # 2 net-new tuning knob reads (ROUND_CAP, CHARGE_THRESHOLD) via BalanceConstants.get_const(key)
+      - docs/architecture/ADR-0007-hero-database.md  # stat_agility tie-break read via HeroDatabase.get_hero(hero_id: StringName).stat_agility (note hero_id: StringName vs unit_id: int — distinct identifiers; mapping via Battle Preparation BI-1)
+      - docs/architecture/ADR-0009-unit-role.md  # UnitRole.get_initiative(hero, unit_class) one-time per-unit per-battle at BI-2; UnitRole.PASSIVE_TAG_BY_CLASS for passive_charge / passive_ambush tag reads
+      - docs/architecture/ADR-0010-hp-status.md  # consumer of unit_died signal for queue removal CR-7a + ratifies HP/Status's unit_turn_started consumption at T4
+      - docs/architecture/ADR-0012-damage-calc.md  # ratifies get_acted_this_turn(unit_id) Scout Ambush gate + adds get_current_round_number() round-2+ gate
+      - design/gdd/turn-order.md
     added: 2026-04-30
     revised: ""
 
@@ -484,7 +528,7 @@ interfaces:
     adr: docs/architecture/ADR-0010-hp-status.md
     signal_signatures:
       - "unit_died(unit_id: int)                                   # HPStatusController → all consumers (ADR-0001 HP/Status domain line 155; single-primitive payload)"
-      - "unit_turn_started(unit_id: int)                           # Turn Order → HPStatusController (CONSUMED; provisional ADR-0011; drives DoT tick + duration decrement + DEFEND_STANCE 1-turn expiry + DEMORALIZED CONDITION_BASED recovery check per ADR-0010 §5+§8)"
+      - "unit_turn_started(unit_id: int)                           # Turn Order → HPStatusController (CONSUMED; defined by ADR-0011 Proposed 2026-04-30 — pending Acceptance via /architecture-review delta #8; drives DoT tick + duration decrement + DEFEND_STANCE 1-turn expiry + DEMORALIZED CONDITION_BASED recovery check per ADR-0010 §5+§8)"
     direct_call_signatures:
       - "HPStatusController.initialize_unit(unit_id: int, hero: HeroData, unit_class: int) -> void"
       - "HPStatusController.apply_damage(unit_id: int, resolved_damage: int, attack_type: int, source_flags: Array) -> void  # Grid Battle sole caller per ADR-0012 line 260"
@@ -500,6 +544,44 @@ interfaces:
       - docs/architecture/ADR-0010-hp-status.md
       - docs/architecture/ADR-0001-gamebus-autoload.md  # unit_died(int) signal contract source-of-truth
       - docs/architecture/ADR-0012-damage-calc.md  # ratifies get_modified_stat + apply_damage interface signatures
+      - docs/architecture/ADR-0011-turn-order.md  # ratifies HP/Status's unit_turn_started consumer contract (Proposed 2026-04-30; pending Acceptance via /architecture-review delta #8)
+    added: 2026-04-30
+    revised: ""
+
+  - contract: turn_order_event_dispatch
+    status: active
+    pattern: hybrid  # signal (4 emitted: round_started + unit_turn_started + unit_turn_ended + victory_condition_detected; 1 consumed: unit_died) + direct_call (8 public API methods: 3 mutator + 5 read-only query)
+    producer: turn-order  # TurnOrderRunner sole emitter of 4 Turn Order Domain signals on /root/GameBus per ADR-0001 lines 152–155 (line 155 victory_condition_detected added 2026-04-30 via ADR-0011 same-patch amendment)
+    consumers:
+      - grid-battle           # subscribes to all 4 emitted signals (round_started for HUD updates + unit_turn_started for active-unit context + unit_turn_ended for queue advance + victory_condition_detected sole consumer for RESOLUTION transition + authoritative battle_outcome_resolved emission per ADR-0001 single-owner rule); invokes declare_action via BattleController for player-input layer
+      - hp-status             # subscribes to unit_turn_started for DoT tick + duration decrement + DEFEND_STANCE expiry + DEMORALIZED recovery (per ADR-0010 §Soft/Provisional clause (1) — ratified by this contract); emits unit_died which TurnOrderRunner consumes for queue removal CR-7a
+      - damage-calc           # invokes get_acted_this_turn(unit_id: int) for Scout Ambush gate + get_current_round_number() for round-2+ gate per ADR-0012 line 343 (line 343 declares unit_id: StringName — STALE; ADR-0011 LOCKS int matching ADR-0001 line 153 + ADR-0010 lock; advisory queued for next ADR-0012 amendment)
+      - battle-hud            # invokes get_turn_order_snapshot() pull-based on round_started / unit_turn_ended / unit_died receipts; subscribes to all 4 emitted signals for active-unit highlight + queue display + victory overlay
+      - ai                    # subscribes to unit_turn_started for action delegation at T4 (Contract 5: TurnOrderRunner invokes ai_system.request_action(unit_id, queue_snapshot) -> ActionDecision); invokes get_turn_order_snapshot() for target prioritization
+      - formation-bonus       # subscribes to round_started for bonus recalculation trigger per formation-bonus.md CR-FB-5
+      - battle-preparation    # invokes initialize_battle(unit_roster: Array[BattleUnit]) at battle-init for BI-1 through BI-5 sequence (provisional contract — Battle Preparation ADR not yet written)
+    adr: docs/architecture/ADR-0011-turn-order.md
+    signal_signatures:
+      - "round_started(round_number: int)                          # TurnOrderRunner → all consumers (ADR-0001 Turn Order domain line 152; emitted at R4 after queue construction)"
+      - "unit_turn_started(unit_id: int)                           # TurnOrderRunner → all consumers including HPStatusController (ADR-0001 Turn Order domain line 153; emitted at T4 after _activate_unit_turn; ratifies ADR-0010 §Soft/Provisional clause (1) consumer contract)"
+      - "unit_turn_ended(unit_id: int, acted: bool)                # TurnOrderRunner → all consumers (ADR-0001 Turn Order domain line 154; emitted at T6 after _mark_acted)"
+      - "victory_condition_detected(result: int)                   # TurnOrderRunner → Grid Battle sole consumer (ADR-0001 Turn Order domain line 155 added 2026-04-30 via ADR-0011 same-patch amendment; emitted at T7 decisive outcome OR RE2 round cap DRAW; result enum {PLAYER_WIN=0, PLAYER_LOSE=1, DRAW=2}; Grid Battle consumes + emits authoritative battle_outcome_resolved with typed BattleOutcome Resource per ADR-0001 line 301 single-owner rule)"
+      - "unit_died(unit_id: int)                                   # HPStatusController → TurnOrderRunner (CONSUMED; subscribed with Object.CONNECT_DEFERRED per ADR-0001 §5 deferred-connect mandate + ADR-0011 R-1 mitigation for counter-attack-during-T5 re-entrancy hazard CR-7d; handler _on_unit_died removes from _queue + _unit_states with R-2 defensive _unit_states.has() check)"
+    direct_call_signatures:
+      - "TurnOrderRunner.initialize_battle(unit_roster: Array[BattleUnit]) -> void  # Battle Preparation sole caller at battle-init; executes BI-1 through BI-5; BI-6 transitions _round_state to ROUND_STARTING via _begin_round.call_deferred() Callable method-reference form (NOT string-based call_deferred; godot-specialist 2026-04-30 Item 6); idempotent GameBus.unit_died.connect(_on_unit_died, Object.CONNECT_DEFERRED) on first call only"
+      - "TurnOrderRunner.declare_action(unit_id: int, action: TurnOrderRunner.ActionType, target: ActionTarget) -> ActionResult  # Grid Battle BattleController (player input layer) OR AI System (request_action delegation at T4) sole callers; validates token availability + DEFEND_STANCE locks per CR-3 + CR-4; on success spends tokens + updates _unit_states[unit_id] + may emit unit_turn_ended at T6"
+      - "TurnOrderRunner._advance_turn(unit_id: int) -> void  # TEST SEAM — production path is internal queue advancement in _on_unit_turn_completed; tests call directly to bypass GameBus signal infrastructure; PUBLIC for tests-namespace per ADR-0005 + ADR-0010 + ADR-0012 DI seam pattern (4-precedent extension); GDScript 4.x does not enforce leading-underscore as private"
+      - "TurnOrderRunner.get_acted_this_turn(unit_id: int) -> bool  # Damage Calc per-attack call for Scout Ambush gate; returns _unit_states[unit_id].acted_this_turn or false for unknown unit_id (R-2 defensive); LOCKED unit_id: int (NOT StringName as ADR-0012 line 343 declares — advisory queued for next ADR-0012 amendment)"
+      - "TurnOrderRunner.get_current_round_number() -> int  # Damage Calc per-attack call for Scout Ambush round-2+ gate; returns _round_number or 0 before BI-4 / R1"
+      - "TurnOrderRunner.get_turn_order_snapshot() -> TurnOrderSnapshot  # Battle HUD + AI pull-based on round_started / unit_turn_ended / unit_died receipts; returns deep snapshot (TurnOrderSnapshot is RefCounted typed wrapper; consumer mutation of _queue or _unit_states via the snapshot forbidden per turn_order_consumer_mutation forbidden_pattern)"
+      - "TurnOrderRunner.get_charge_ready(unit_id: int) -> bool  # Damage Calc per-attack call for Cavalry Charge passive (ADR-0009 passive_charge); returns _unit_states[unit_id].accumulated_move_cost >= BalanceConstants.get_const('CHARGE_THRESHOLD'); reset to 0 at T4 per F-2"
+      - "TurnOrderRunner.get_unit_turn_state(unit_id: int) -> UnitTurnState  # AI System call for action selection context at T4; returns UnitTurnState.snapshot() defensive deep copy (NOT _unit_states[unit_id] directly — godot-specialist 2026-04-30 Item 3 field-by-field copy pattern, NOT duplicate()/duplicate_deep() since UnitTurnState is RefCounted not Resource)"
+    notes: "TurnOrderRunner is the sole emitter of 4 Turn Order Domain signals per ADR-0001 §3 (round_started + unit_turn_started + unit_turn_ended + victory_condition_detected). The 4th signal victory_condition_detected was added to ADR-0001 via this ADR's same-patch amendment (§Migration Plan §0). Hybrid pattern (4 signals + 8 direct_call methods) preserves the sole-caller contract for declare_action (player input + AI) AND the per-attack synchronous query path for Scout Ambush gates (Damage Calc cannot wait for signal round-trip per AC-DC-42 call-count discipline established by ADR-0012). _advance_turn(unit_id) is the test seam (mirrors ADR-0005 _handle_event + ADR-0010 _apply_turn_start_tick + ADR-0012 _resolve_with_rng — 4-precedent extension). Carried advisory for next ADR-0012 amendment: parameter type unit_id: StringName at line 343 → unit_id: int to match ADR-0001 + ADR-0010 + ADR-0011 (queues with ADR-0001 line 168 + line 372 + ADR-0010 unit_id type cross-doc advisories from prior deltas). victory_condition_detected: int parameter passed as enum value {PLAYER_WIN=0, PLAYER_LOSE=1, DRAW=2} to keep payload simple; Grid Battle constructs the typed BattleOutcome Resource on receipt (chapter_id / final_round / surviving_units that Turn Order does not have)."
+    referenced_by:
+      - docs/architecture/ADR-0011-turn-order.md
+      - docs/architecture/ADR-0001-gamebus-autoload.md  # 4 Turn Order Domain signals declared lines 152–155 (line 155 victory_condition_detected added 2026-04-30 via ADR-0011 same-patch amendment); single-emitter rule
+      - docs/architecture/ADR-0010-hp-status.md  # ratifies HP/Status's unit_turn_started consumer contract; HPStatusController emits unit_died which TurnOrderRunner consumes
+      - docs/architecture/ADR-0012-damage-calc.md  # ratifies get_acted_this_turn(unit_id: int) Scout Ambush gate (line 343 advisory carried) + adds get_current_round_number() round-2+ gate
     added: 2026-04-30
     revised: ""
 
@@ -755,6 +837,23 @@ api_decisions:
     added: 2026-04-30
     revised: ""
 
+  - purpose: turn_order_module_form
+    status: active
+    api: "class_name TurnOrderRunner extends Node + battle-scoped child of BattleScene (created at battle-init via Battle Preparation, freed automatically with BattleScene per ADR-0002 SceneManager teardown — non-persistence enforced by lifecycle alignment per CR-1b matching ADR-0010 HPStatusController precedent) + Dictionary[int, UnitTurnState] keyed by unit_id (matches ADR-0001 unit_died(int) payload type + ADR-0010 unit_id Dictionary lock) + UnitTurnState RefCounted per-unit (NOT Resource — battle-scoped non-persistent; mirrors ADR-0010 UnitHPState rationale; snapshot() returns NEW instance via explicit field-by-field copy NOT duplicate()/duplicate_deep() per godot-specialist 2026-04-30 Item 3 RefCounted idiomatic pattern) + 3 mutator + 5 query public methods + 4 emitted GameBus signals (round_started + unit_turn_started + unit_turn_ended + victory_condition_detected; latter added 2026-04-30 via ADR-0011 same-patch ADR-0001 amendment) + 1 consumed signal (unit_died subscribed with Object.CONNECT_DEFERRED per ADR-0001 §5 deferred-connect mandate; R-1 mitigation for CR-7d counter-attack-during-T5 re-entrancy hazard) + 2 net-new tuning constants (ROUND_CAP, CHARGE_THRESHOLD) via BalanceConstants.get_const(key) per ADR-0006 (INIT_SCALE + INIT_CAP already owned by ADR-0009 — no duplicate registration). BI-6 transition uses _begin_round.call_deferred() Callable method-reference form per godot-specialist 2026-04-30 Item 6 (NOT string-based call_deferred per project deprecated-apis pattern)."
+    not: "Autoload Node /root/TurnOrderRunner — rejected per Alternative 1: GDD CR-1b mandates queue + per-unit token state non-persistence between battles; autoload form requires explicit reset (extra mutation, easy to forget; failure mode if battle ends abnormally — forfeit, app suspend — leaves stale queue + per-unit states; first turn of next battle would inherit ghost data); battle-scoped form provides cleaner non-persistence enforcement (state freed automatically when BattleScene is freed). ADR-0010 HPStatusController is the closer precedent (battle-scoped, non-persistent, freed with BattleScene)."
+    not_also: "Stateless-static utility class with static var _state_by_unit (5-precedent ADR-0008→0007 pattern) — rejected per Alternative 2: ARCHITECTURALLY INCOMPATIBLE per ADR-0005 §Alternative 4 + ADR-0010 §Alternative 3 pattern boundary. (a) Turn Order holds mutable state (_queue + _queue_index + _round_number + _unit_states) — static var creates test-isolation hazards (G-15 reset becomes critical instead of automatic via fresh .new() per test); (b) Turn Order subscribes to GameBus.unit_died via Callable identity — static-method Callable disconnect identity is undefined in GDScript 4.x for non-Object class references (same engine-level claim that rejected this form for InputRouter in ADR-0005 + HPStatusController in ADR-0010); (c) _queue_index advancement requires per-call mutation of caller-side state — stateless-static decomposes into static methods with mandatory mutable-Array-passing-by-reference, which is the WORSE form of state ownership (state ownership becomes invisible at call sites). Pattern boundary explicitly says: stateless-static for systems CALLED; Node-based form for systems STATEFUL AND/OR LISTENING. Turn Order is BOTH."
+    not_also_2: "Hybrid query API as static methods + Node for state/signals — rejected per Alternative 3: bifurcates state ownership (static methods need to read _unit_states somehow — either get a Node reference at call time defeating the static API, OR duplicate state into class-level static variables triggering turn_order_static_var_state_addition forbidden_pattern + battle teardown leak risk). ADR-0005 + ADR-0010 already faced and rejected this — bifurcation creates two failure modes (stale static cache + Node not yet ready) where the unified Node form has zero. Damage Calc gets a TurnOrderRunner reference at construction time via Grid Battle's dependency injection — same pattern as how it gets HPStatusController per ADR-0012."
+    not_also_3: "Per-unit Resource (UnitTurnState extends Resource with @export fields, .tres-authored) — rejected per Alternative 4: all UnitTurnState data is BATTLE-SCOPED RUNTIME state (token spent flags, accumulated_move_cost, acted_this_turn) with no design-time content to author. .tres authoring is misuse of the Resource system (mirrors ADR-0010 UnitHPState rejection rationale — RefCounted is the correct base class for battle-scoped non-persistent runtime state)."
+    adr: docs/architecture/ADR-0011-turn-order.md
+    reason: "Pattern boundary precedent EXTENDED at 3 ADRs: stateless-static for systems CALLED (5-precedent ADR-0008→0007); Node-based form for systems STATEFUL AND/OR LISTENING (ADR-0005 InputRouter autoload Node + ADR-0010 HPStatusController battle-scoped Node + ADR-0011 TurnOrderRunner battle-scoped Node). Turn Order is both stateful (_queue + _queue_index + _round_number + _unit_states + _round_state) AND listening (GameBus.unit_died from HP/Status). Battle-scoped lifecycle (vs autoload) chosen because GDD CR-1b mandates non-persistence between battles — automatic teardown alignment with BattleScene freeing is cleaner enforcement than manual reset (matches ADR-0010 HPStatusController rationale). Reusable for future battle-scoped Node ADRs: Grid Battle (likely battle-scoped Node — main orchestrator), AI System (likely battle-scoped Node — listener-heavy), Battle HUD (likely battle-scoped Node Control). Test seam pattern stable at 4 invocations: ADR-0005 _handle_event + ADR-0010 _apply_turn_start_tick + ADR-0012 _resolve_with_rng + ADR-0011 _advance_turn."
+    referenced_by:
+      - docs/architecture/ADR-0011-turn-order.md
+      - docs/architecture/ADR-0010-hp-status.md  # battle-scoped Node lifecycle + state-holder + listener pattern precedent (Alt 3 stateless-static rejection)
+      - docs/architecture/ADR-0005-input-handling.md  # pattern boundary precedent (Alt 4 stateless-static rejection)
+      - docs/architecture/ADR-0002-scene-manager.md  # battle-scoped lifecycle teardown precedent
+    added: 2026-04-30
+    revised: ""
+
 # Example:
 #
 # api_decisions:
@@ -974,6 +1073,41 @@ forbidden_patterns:
     description: "HPStatusController (src/core/hp_status_controller.gd) MUST NOT introduce static var fields for caching, optimization, or any other purpose. All mutable state lives in instance vars (_state_by_unit Dictionary, plus any future _cached_X instance vars). Future caching needs MUST extend the existing instance var pattern (e.g., add _action_handler_cache: Dictionary instance var; reset implicitly via fresh HPStatusController.new() per battle). The 5-precedent stateless-static utility class form (ADR-0008 → 0006 → 0012 → 0009 → 0007) is explicitly NOT applicable to HPStatusController (Alternative 3 rejected for engine-level structural incompatibility — see ADR-0010 §Alternatives Considered)."
     why: "ADR-0010 R-4 mitigation. Adding static var to HPStatusController would: (a) break the non-persistence contract (CR-1b mandates HP state resets between battles; battle-scoped instance vars reset automatically via fresh `.new()`; static vars would persist across battles requiring explicit `static var X = {}` reset call that is easy to forget — same hazard ADR-0006 BalanceConstants documented), (b) drift the module form away from the battle-scoped Node pattern (Alternative 3 rejection rationale: stateless-static for systems CALLED, Node-based form for systems STATEFUL AND/OR LISTENING; HP/Status is both), (c) introduce a hybrid battle-scoped-Node + stateless-static pattern that no other ADR follows. Static-lint check: `grep -c '^static var' src/core/hp_status_controller.gd` returns 0."
     adr: docs/architecture/ADR-0010-hp-status.md
+    added: 2026-04-30
+
+  - pattern: turn_order_consumer_mutation
+    status: active
+    description: "Consumers of TurnOrderRunner read-only query API (Damage Calc + Battle HUD + AI + Formation Bonus + Grid Battle + Scenario Progression) MUST NOT mutate UnitTurnState or TurnOrderSnapshot or TurnOrderEntry instances returned by get_unit_turn_state(unit_id) / get_turn_order_snapshot() / get_turn_order_snapshot().queue[i]. The defensive snapshot pattern (UnitTurnState.snapshot() returns NEW UnitTurnState via explicit field-by-field copy per godot-specialist 2026-04-30 Item 3 RefCounted idiomatic pattern) creates value-distinct copies, but consumer-side mutation of the snapshot is still forbidden — implementation must treat returned values as immutable views. Static lint asserts: any consumer .gd file containing `unit_state.move_token_spent =` / `unit_state.action_token_spent =` / `unit_state.accumulated_move_cost =` / `unit_state.acted_this_turn =` / `unit_state.turn_state =` / `snapshot.queue = ` / `snapshot.queue.append(` / `snapshot.queue.remove_at(` outside src/core/turn_order_runner.gd flags as violation."
+    why: "ADR-0011 §Decision §Forbidden patterns + R-2 mitigation. Consumer mutation of returned snapshots would: (a) decouple consumer-side mutation from TurnOrderRunner's authoritative state (consumer mutates copy → believes state changed → next get_X call returns un-mutated original → consumer-side bug surface); (b) defeat the test-isolation guarantee (per-test fresh TurnOrderRunner.new() requires snapshots to be value-pure; consumer mutation creates implicit shared state); (c) create a shadow-state hazard mirror to ADR-0010 hp_status_consumer_mutation forbidden_pattern. Mitigation pattern: consumers that need to project / filter the snapshot should construct a NEW Array (e.g., AI's `var threats := snapshot.queue.filter(func(e): return not e.is_player_controlled)`) — never mutate the snapshot in place."
+    adr: docs/architecture/ADR-0011-turn-order.md
+    added: 2026-04-30
+
+  - pattern: turn_order_external_queue_write
+    status: active
+    description: "_queue + _unit_states + _queue_index + _round_number + _round_state instance fields of TurnOrderRunner MUST be modified ONLY inside src/core/turn_order_runner.gd. Public API exposes mutators via 3 methods only (initialize_battle / declare_action / _advance_turn). External code MUST NOT assign to TurnOrderRunner._queue / TurnOrderRunner._unit_states / TurnOrderRunner._queue_index / TurnOrderRunner._round_number / TurnOrderRunner._round_state. Static lint asserts: any .gd file outside src/core/turn_order_runner.gd containing `turn_order._queue =` / `turn_order._unit_states =` / `turn_order._queue_index =` / `turn_order._round_number =` / `turn_order._round_state =` (or capitalized variants) flags as violation."
+    why: "ADR-0011 §Decision §Forbidden patterns. External writes to Turn Order's authoritative state would: (a) break the single-writer invariant (TurnOrderRunner is the sole authority for queue order + per-unit token state + round counter; external writes create race conditions and ownership ambiguity matching forbidden_patterns.direct_cross_system_state_write); (b) bypass declare_action's validation gates (token availability + DEFEND_STANCE locks per CR-3 + CR-4) creating inconsistent state where flags say 'token spent' but no action was actually resolved; (c) violate the architecture registry state_ownership.turn_order_runtime_state.write_access: turn-order-only contract."
+    adr: docs/architecture/ADR-0011-turn-order.md
+    added: 2026-04-30
+
+  - pattern: turn_order_signal_emission_outside_domain
+    status: active
+    description: "TurnOrderRunner (src/core/turn_order_runner.gd) MUST emit ONLY the 4 Turn Order Domain signals on GameBus per ADR-0001 lines 152–155: round_started + unit_turn_started + unit_turn_ended + victory_condition_detected (latter added 2026-04-30 via ADR-0011 same-patch ADR-0001 amendment). TurnOrderRunner is non-emitter by behavior for all OTHER 21 GameBus signals across 8 domains: Input (input_action_fired — NOT emitted), Combat (damage_calculated — NOT emitted), Scenario (chapter_started — NOT emitted), Persistence (save_persisted — NOT emitted), Environment (tile_destroyed — NOT emitted), Grid Battle (battle_outcome_resolved — NOT emitted; Turn Order emits victory_condition_detected which Grid Battle consumes + emits authoritative battle_outcome_resolved per ADR-0001 line 301 single-owner rule), HP/Status (unit_died — NOT emitted; Turn Order CONSUMES unit_died for queue removal but does not emit), UI-Flow (ui_input_block_requested — NOT emitted). Static lint asserts `grep -c 'GameBus\\.' src/core/turn_order_runner.gd | grep -vE '^GameBus\\.(round_started|unit_turn_started|unit_turn_ended|victory_condition_detected)\\.emit'` returns 0 emit call sites for non-domain signals; AND `grep -c 'GameBus\\.\\(round_started\\|unit_turn_started\\|unit_turn_ended\\|victory_condition_detected\\)\\.emit(' src/core/turn_order_runner.gd` returns ≥4 (one per domain signal at R4 / T4 / T6 / T7+RE2 lifecycle points)."
+    why: "Single-emitter rule per ADR-0001 single-owner contract. TurnOrderRunner is the sole emitter of 4 Turn Order Domain signals; emitting non-Turn-Order-domain signals would violate the per-domain ownership invariant. Examples of common temptations to ban: emitting damage_calculated when an attack action resolves through declare_action (wrong — Damage Calc is the source of truth via direct_call return value); emitting battle_outcome_resolved when victory is detected (wrong — Grid Battle owns the typed BattleOutcome Resource emission per ADR-0001 line 301 single-owner rule; Turn Order emits the bridge signal victory_condition_detected only); emitting unit_died when a unit's _on_unit_died handler removes it from queue (wrong — HP/Status is the sole emitter of unit_died per ADR-0010 + ADR-0001 line 155); emitting input_action_fired when player taps DECLARE button (wrong — InputRouter owns Input domain signals per ADR-0005)."
+    adr: docs/architecture/ADR-0011-turn-order.md
+    added: 2026-04-30
+
+  - pattern: turn_order_static_var_state_addition
+    status: active
+    description: "TurnOrderRunner (src/core/turn_order_runner.gd) MUST NOT introduce static var fields for caching, optimization, or any other purpose. All mutable state lives in instance vars (_queue Array[int], _queue_index int, _round_number int, _unit_states Dictionary[int, UnitTurnState], _round_state RoundState enum, plus any future _cached_X instance vars). Future caching needs MUST extend the existing instance var pattern (e.g., add _initiative_cache: Dictionary[int, int] instance var; reset implicitly via fresh TurnOrderRunner.new() per battle). The 5-precedent stateless-static utility class form (ADR-0008 → 0006 → 0012 → 0009 → 0007) is explicitly NOT applicable to TurnOrderRunner (Alternative 2 rejected for engine-level structural incompatibility — see ADR-0011 §Alternatives Considered)."
+    why: "ADR-0011 R-3 + R-5 mitigation. Adding static var to TurnOrderRunner would: (a) break the non-persistence contract (CR-1b mandates queue + per-unit token state + round counter reset between battles; battle-scoped instance vars reset automatically via fresh `.new()`; static vars would persist across battles requiring explicit `static var X = {}` reset call that is easy to forget — same hazard ADR-0006 BalanceConstants documented + ADR-0010 hp_status_static_var_state_addition forbidden_pattern), (b) drift the module form away from the battle-scoped Node pattern (Alternative 2 rejection rationale: stateless-static for systems CALLED, Node-based form for systems STATEFUL AND/OR LISTENING; Turn Order is both per ADR-0010 + ADR-0005 pattern boundary), (c) introduce a hybrid battle-scoped-Node + stateless-static pattern that no other ADR follows. Static-lint check: `grep -c '^static var' src/core/turn_order_runner.gd` returns 0."
+    adr: docs/architecture/ADR-0011-turn-order.md
+    added: 2026-04-30
+
+  - pattern: turn_order_typed_array_reassignment
+    status: active
+    description: "TurnOrderRunner._queue: Array[int] MUST be mutated in-place via .clear() + .append_array(new_list) — MUST NOT be reassigned via _queue = new_list. Same discipline applies to TurnOrderSnapshot.queue: Array[TurnOrderEntry] (constructed once at snapshot time; never reassigned). Static lint asserts: src/core/turn_order_runner.gd contains zero occurrences of `_queue = ` (assignment to typed Array[int] field) outside `func _ready` or `func _init` initializer; codify pattern via test that asserts in-place mutation preserves Array[int] type info under repeated R3 queue rebuilds + G-15 before_test resets."
+    why: "godot-specialist 2026-04-30 Item 8 + G-2 prevention pattern. Typed array reassignment in GDScript 4.4+ has documented type-info-loss hazards under specific G-15 test reset patterns (cf. ADR-0007 + ADR-0009 godot-specialist reviews — `var result: Array[T] = []` + .append() + return result discipline). For TurnOrderRunner._queue: (a) reassigning to a new Array[int] could silently drop the int type parameterization if the right-hand side originated from a typed Array operation that returned generic Array (cf. .filter() / .map() return type quirks); (b) the in-place pattern (.clear() + .append_array()) preserves the field's static type binding through R3 queue rebuilds + G-15 test resets; (c) consistent with the ADR-0010 + ADR-0005 G-15 reset discipline that uses `.clear()` for Dictionary fields. The pattern is a load-bearing project discipline for typed Array fields under repeated reset cycles."
+    adr: docs/architecture/ADR-0011-turn-order.md
     added: 2026-04-30
 
 # Example:

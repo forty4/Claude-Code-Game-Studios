@@ -10,7 +10,7 @@ Accepted (2026-04-18, via `/architecture-review`)
 
 ## Last Verified
 
-2026-04-18
+2026-04-30 (via ADR-0011 same-patch amendment — added Turn Order Domain signal `victory_condition_detected(result: int)` declaration + §3 table row)
 
 ## Decision Makers
 
@@ -152,6 +152,7 @@ signal battle_outcome_resolved(outcome: BattleOutcome)
 signal round_started(round_number: int)
 signal unit_turn_started(unit_id: int)
 signal unit_turn_ended(unit_id: int, acted: bool)
+signal victory_condition_detected(result: int)  # int enum {PLAYER_WIN=0, PLAYER_LOSE=1, DRAW=2} — Turn Order detects, Grid Battle consumes + emits authoritative battle_outcome_resolved per single-owner rule (added 2026-04-30 via ADR-0011 same-patch amendment)
 signal unit_died(unit_id: int)
 
 # ═══ DOMAIN: Destiny (emitter: DestinyBranchJudge / DestinyStateStore) ═════════
@@ -297,8 +298,9 @@ This is the authoritative contract. Scenario Progression GDD v2.0 cites this tab
 | `round_started` | `int` | `round_number: int` | TurnOrderRunner (R1) | Grid Battle, Formation Bonus (#3 MVP), Battle HUD | burst |
 | `unit_turn_started` | `int` | `unit_id: int` | TurnOrderRunner (T0) | Grid Battle, AI (#8 MVP), Battle HUD | burst |
 | `unit_turn_ended` | `int, bool` | `unit_id: int`, `acted: bool` | TurnOrderRunner (T7) | Grid Battle, AI | burst |
+| `victory_condition_detected` | `int` | `result: int` (enum {PLAYER_WIN=0, PLAYER_LOSE=1, DRAW=2}) | TurnOrderRunner (T7 decisive outcome OR RE2 round cap DRAW) | Grid Battle (sole consumer; transitions to RESOLUTION + emits authoritative `battle_outcome_resolved`) | discrete |
 
-> **Note**: Turn Order GDD declares `battle_ended(result)` but that responsibility moves to Grid Battle's `battle_outcome_resolved` per this ADR — a single system owns battle termination to prevent the dual-emitter edge case (Turn Order GDD EC-03 and Grid Battle EC-GB-23 agree Grid Battle is authoritative).
+> **Note**: Turn Order GDD declares `battle_ended(result)` but that responsibility moves to Grid Battle's `battle_outcome_resolved` per this ADR — a single system owns battle termination to prevent the dual-emitter edge case (Turn Order GDD EC-03 and Grid Battle EC-GB-23 agree Grid Battle is authoritative). Turn Order's role is to DETECT the terminal condition and emit `victory_condition_detected(result)` (added 2026-04-30 via ADR-0011 same-patch amendment); Grid Battle consumes the bridge signal and emits the authoritative `battle_outcome_resolved` with the typed `BattleOutcome` Resource payload (chapter_id / final_round / surviving_units that Turn Order does not have).
 
 #### 4. HP/Status domain (Emitter: HPStatusController per unit, relayed via GameBus)
 
