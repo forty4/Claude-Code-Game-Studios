@@ -332,6 +332,7 @@ Criteria의 성능 제약으로 명시한다 (AC 섹션 참조).
 | Map/Grid | Hard | 전투별 단일 로드 | `maps/{map_id}.json` |
 | Unit Role System | Hard | 초기화 시 단일 로드 | `config/unit_roles.json` |
 | Damage/Combat Calc | Hard | 계산 시 상수 접근 | `balance_constants.json` |
+| Turn Order | Hard | 전투별 단일 로드 | `balance_constants.json` (ROUND_CAP=30, CHARGE_THRESHOLD=40 — 2 net-new keys per ADR-0011 §Migration Plan §2 / ADR-0006 §6 same-patch story-level obligation; backfill 2026-04-30 via /architecture-review delta #8 per turn-order.md line 715 GAP) |
 | Character Growth | Hard | 초기화 시 단일 로드 | `config/growth.json` |
 | Skill/Ability System | Hard | 초기화 시 일괄 로드 | `skills/*.json` |
 | Formation Bonus | Hard | 초기화 시 단일 로드 | `config/formations.json` |

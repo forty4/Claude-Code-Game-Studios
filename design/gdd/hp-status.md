@@ -505,10 +505,11 @@ modified_stat  = max(1, floor(base_stat × (1 + total_modifier / 100)))
 
 | System | 의존 유형 | 사용 데이터 | GDD Status |
 |--------|----------|-----------|------------|
-| **Damage/Combat Calc** | Hard | `modified_atk`, `modified_def`(상태 수정자 반영) | Not Started |
+| **Damage/Combat Calc** | Hard | `modified_atk`, `modified_def`(상태 수정자 반영) | Accepted via ADR-0012 |
 | **Grid Battle System** | Hard | `unit_died` signal, `is_alive()`, `modified_move_range` | Not Started |
 | **Battle HUD** | Hard | `current_hp`, `max_hp`, `status_effects[]` | Not Started |
 | **AI System** | Soft | HP 비율, 상태 효과 현황(위협 평가) | Not Started |
+| **Turn Order** | Hard | `unit_turn_started(unit_id: int)` 신호 구독 — DoT tick(F-3 POISON) + status effect duration decrement(TURN_BASED) + DEFEND_STANCE 1-turn ACTION_LOCKED expiry(CR-6 SE-3) + DEMORALIZED CONDITION_BASED recovery check(CR-6 SE-2 ally hero ≤ 2 manhattan distance) 트리거. Backfill 2026-04-30 via /architecture-review delta #8 (turn-order.md line 714 GAP). | Accepted via ADR-0011 |
 | **Character Growth** | Soft | 전투 후 생존 여부(VS scope) | Not Started |
 
 ### 크로스 시스템 계약

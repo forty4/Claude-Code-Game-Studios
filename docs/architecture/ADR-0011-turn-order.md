@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-04-30)
+Accepted (2026-04-30, via `/architecture-review` delta #8)
 
 ## Date
 
@@ -10,7 +10,7 @@ Proposed (2026-04-30)
 
 ## Last Verified
 
-2026-04-30
+2026-04-30 (via /architecture-review delta #8 — Proposed → Accepted; 0 substantive corrections; 21 net-new TR-turn-order-002..022 registered in tr-registry.yaml v9 → v10; cross-doc obligations applied same-patch — ADR-0010 §Soft/Provisional clause (1) Soft → Ratified; ADR-0012 §Dependencies line 42 ADR-0010 + ADR-0011 clauses Soft → Ratified; ADR-0012 unit_id type batch lines 91/109/340/343 `StringName` → `int` per ADR-0001 line 153 signal-contract source-of-truth; design/gdd/turn-order.md Status flipped Designed → Accepted; design/gdd/hp-status.md + design/gdd/balance-data.md §Dependencies 하위 의존성 backfilled with Turn Order rows)
 
 ## Engine Compatibility
 

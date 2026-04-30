@@ -1,8 +1,8 @@
 # Turn Order/Action Management (턴 순서/행동 관리)
 
-> **Status**: Designed
+> **Status**: ✅ Accepted via ADR-0011 (Proposed 2026-04-30 → Accepted 2026-04-30 via /architecture-review delta #8)
 > **Author**: User + Claude Code agents
-> **Last Updated**: 2026-04-17
+> **Last Updated**: 2026-04-30 (Status flip per /architecture-review delta #8 — Turn Order ratified Foundation 5/5 + Core 3/3 Complete; prior 2026-04-17 design baseline)
 > **Implements Pillar**: Pillar 1 (형세의 전술) + Pillar 3 (모든 무장에게 자리가 있다)
 
 ## Overview

@@ -29,8 +29,19 @@
 #   All forbidden patterns: Grep pattern="^  - pattern:" (forbidden_patterns section)
 #   Superseded entries:     Grep pattern="status: superseded"
 
-version: 5
+version: 6
 last_updated: "2026-04-30"
+# 2026-04-30 (/architecture-review delta #8): ADR-0011 Turn Order escalated
+# Proposed → Accepted. v5 → v6 prose-only refresh: line 547 hp_status_apply_dispatch
+# wording flipped "Proposed 2026-04-30; pending Acceptance via /architecture-review
+# delta #8" → "Accepted 2026-04-30 via /architecture-review delta #8 — RATIFIED";
+# turn_order_event_dispatch + turn_order_runtime_state + turn_order_module_form
+# entries already present from ADR-0011 Proposed-time write (commit b11ef20 v4 → v5);
+# 0 net-new state/interface/api_decision/forbidden_pattern entries this delta.
+# Cross-doc advisory carry: same as v5 prose — ADR-0012 line 343 unit_id: StringName
+# → unit_id: int batch applied to ADR-0012 same-patch via delta #8 advisory batch
+# (carry queue reduced 4 → 2: ADR-0001 line 168 + line 372 still pending).
+
 # 2026-04-30 (ADR-0011 design-time): Turn Order authoring — added
 # turn_order_runtime_state state_ownership (TurnOrderRunner battle-scoped Node owns
 # _queue: Array[int] + _queue_index: int + _round_number: int + _unit_states:
@@ -544,7 +555,7 @@ interfaces:
       - docs/architecture/ADR-0010-hp-status.md
       - docs/architecture/ADR-0001-gamebus-autoload.md  # unit_died(int) signal contract source-of-truth
       - docs/architecture/ADR-0012-damage-calc.md  # ratifies get_modified_stat + apply_damage interface signatures
-      - docs/architecture/ADR-0011-turn-order.md  # ratifies HP/Status's unit_turn_started consumer contract (Proposed 2026-04-30; pending Acceptance via /architecture-review delta #8)
+      - docs/architecture/ADR-0011-turn-order.md  # ratifies HP/Status's unit_turn_started consumer contract (Accepted 2026-04-30 via /architecture-review delta #8 — RATIFIED parameter-stable per ADR-0010 §Soft/Provisional clause (1) flip)
     added: 2026-04-30
     revised: ""
 
@@ -555,7 +566,7 @@ interfaces:
     consumers:
       - grid-battle           # subscribes to all 4 emitted signals (round_started for HUD updates + unit_turn_started for active-unit context + unit_turn_ended for queue advance + victory_condition_detected sole consumer for RESOLUTION transition + authoritative battle_outcome_resolved emission per ADR-0001 single-owner rule); invokes declare_action via BattleController for player-input layer
       - hp-status             # subscribes to unit_turn_started for DoT tick + duration decrement + DEFEND_STANCE expiry + DEMORALIZED recovery (per ADR-0010 §Soft/Provisional clause (1) — ratified by this contract); emits unit_died which TurnOrderRunner consumes for queue removal CR-7a
-      - damage-calc           # invokes get_acted_this_turn(unit_id: int) for Scout Ambush gate + get_current_round_number() for round-2+ gate per ADR-0012 line 343 (line 343 declares unit_id: StringName — STALE; ADR-0011 LOCKS int matching ADR-0001 line 153 + ADR-0010 lock; advisory queued for next ADR-0012 amendment)
+      - damage-calc           # invokes get_acted_this_turn(unit_id: int) for Scout Ambush gate + get_current_round_number() for round-2+ gate per ADR-0012 lines 109/343 (type narrowed StringName → int via /architecture-review delta #8 same-patch advisory batch matching ADR-0001 line 153 + ADR-0010 lock)
       - battle-hud            # invokes get_turn_order_snapshot() pull-based on round_started / unit_turn_ended / unit_died receipts; subscribes to all 4 emitted signals for active-unit highlight + queue display + victory overlay
       - ai                    # subscribes to unit_turn_started for action delegation at T4 (Contract 5: TurnOrderRunner invokes ai_system.request_action(unit_id, queue_snapshot) -> ActionDecision); invokes get_turn_order_snapshot() for target prioritization
       - formation-bonus       # subscribes to round_started for bonus recalculation trigger per formation-bonus.md CR-FB-5
