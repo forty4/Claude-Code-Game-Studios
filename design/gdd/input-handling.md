@@ -375,7 +375,7 @@ completes. Discard if invalid.
 
 #### Integration contract
 
-- **Singleton**: `InputHandlingSystem` — Autoload or scene singleton
+- **Class**: `InputRouter` — Autoload Node at `/root/InputRouter`, load order 4 (after GameBus → SceneManager → SaveManager). `class_name` is canonical per ADR-0005 §2; "InputHandlingSystem" name is preserved in this GDD as a documentation alias only.
 - **Signal**: `input_action_fired(action: StringName, context: Dictionary)` —
   emitted for every consumed action with context (target coord, unit ID, etc.)
 - **Signal**: `input_state_changed(from: InputState, to: InputState)`
@@ -705,7 +705,7 @@ GIVEN a battle scene is loaded, WHEN the player uses keyboard/mouse to:
 select a unit, preview movement, confirm move, select attack target, confirm
 attack, end turn, pan camera, zoom, open unit info — THEN each fires exactly
 one `input_action_fired` signal with the correct action name. No raw
-InputEvent is consumed by any system other than InputHandlingSystem.
+InputEvent is consumed by any system other than InputRouter (per ADR-0005 §2 canonical name; "InputHandlingSystem" GDD prose alias).
 
 **AC-2. Binding externalization.**
 GIVEN `assets/data/input/default_bindings.json` maps `action_confirm` to
@@ -808,7 +808,7 @@ discrete). Defer to Camera System GDD and Settings/Options GDD.
 
 ### OQ-2. Camera Pan Ownership
 
-Does the Camera System own its own drag state, or does InputHandlingSystem need
+Does the Camera System own its own drag state, or does InputRouter need
 a dedicated `CameraPanning` state that gates grid input during a drag? Current
 design keeps camera actions pass-through (no state change), but if camera pan
 needs to block grid selections mid-drag, the state machine needs adjustment.

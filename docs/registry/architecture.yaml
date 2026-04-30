@@ -29,8 +29,18 @@
 #   All forbidden patterns: Grep pattern="^  - pattern:" (forbidden_patterns section)
 #   Superseded entries:     Grep pattern="status: superseded"
 
-version: 1
-last_updated: "2026-04-29"
+version: 2
+last_updated: "2026-04-30"
+# 2026-04-30: ADR-0005 Input Handling (first HIGH engine-risk ADR) — added
+# input_router_runtime_state state_ownership; input_action_dispatch (signal pattern)
+# interface; 2 api_decisions (input_map_population — corrects Input.parse_input_event
+# misuse caught by godot-specialist 2026-04-30 Item 8; input_router_test_seam — DI
+# pattern reusable for Camera + Battle HUD); 6 forbidden_patterns
+# (hardcoded_input_bindings, emulate_mouse_from_touch_enabled,
+# input_router_raw_event_consumer_outside_router,
+# input_router_signal_emission_outside_input_domain,
+# input_router_input_blocked_drop_without_set_input_as_handled,
+# input_router_static_var_state_addition). Foundation 4/5 → 5/5 Complete.
 # 2026-04-18: ADR-0003 Save/Load — added save_persistence_lifecycle interface,
 # save_serialization / save_atomic_write / save_load_cache API decisions,
 # 4 new forbidden patterns, 2 new state_ownership entries.
@@ -178,6 +188,20 @@ state_ownership:
       - docs/architecture/ADR-0009-unit-role.md  # consumes HeroData via UnitRole.get_atk(hero, unit_class) etc.
       - design/gdd/hero-database.md
     added: 2026-04-29
+    revised: ""
+
+  - state: input_router_runtime_state
+    status: active
+    owner_system: input-handling
+    adr: docs/architecture/ADR-0005-input-handling.md
+    interface: "InputRouter (Autoload Node at /root/InputRouter, load order 4 — after GameBus → SceneManager → SaveManager) owns 6 mutable state fields: _state (typed enum InputState 0..6 — OBSERVATION/UNIT_SELECTED/MOVEMENT_PREVIEW/ATTACK_TARGET_SELECT/ATTACK_CONFIRM/INPUT_BLOCKED/MENU_OPEN), _active_mode (typed enum InputMode 0..1 — KEYBOARD_MOUSE/TOUCH; gamepad routes to KEYBOARD_MOUSE for MVP per ADR-0005 §6), _pre_menu_state (InputState — restored on S6 → prior with ST-2 demotion S2/S4 → S1), _undo_windows (Dictionary[int, UndoEntry] — per-unit undo per CR-5b; pruned at battle-end), _input_blocked_reasons (PackedStringArray — stack of nested S5 entry reasons via ui_input_block_requested), _bindings (Dictionary[StringName, Array[InputEvent]] — runtime mutable for Settings/Options remap). 3 read-only query methods: get_current_state / get_active_input_mode / get_undo_window. State survives scene transitions (Autoload lifecycle); resets between battles via test-isolation pattern in before_test()."
+    write_access: input-handling-only  # Settings/Options uses public set_binding(action, event); no other system writes
+    referenced_by:
+      - docs/architecture/ADR-0005-input-handling.md
+      - docs/architecture/ADR-0001-gamebus-autoload.md  # InputRouter is sole emitter of 3 Input-domain signals
+      - docs/architecture/ADR-0002-scene-manager.md  # SceneManager silences via set_process_input(false) + drives S5 via ui_input_block_requested
+      - design/gdd/input-handling.md
+    added: 2026-04-30
     revised: ""
 
 # Example:
@@ -379,6 +403,31 @@ interfaces:
       - docs/architecture/ADR-0009-unit-role.md          # HeroData parameter-stable consumer
       - design/gdd/hero-database.md
     added: 2026-04-29
+    revised: ""
+
+  - contract: input_action_dispatch
+    status: active
+    pattern: signal
+    producer: input-handling  # InputRouter sole emitter of 3 Input-domain signals on /root/GameBus
+    consumers:
+      - grid-battle  # subscribes to input_action_fired for unit_select/move_target_select/attack_target_select/action_confirm/action_cancel/end_unit_turn/end_player_turn/undo_last_move
+      - camera  # subscribes to camera_pan/camera_zoom_in/camera_zoom_out/camera_snap_to_unit (via input_action_fired filter)
+      - battle-hud  # subscribes to input_state_changed (contextual UI updates) + input_mode_changed (HUD hint icons)
+      - settings  # consumes input_state_changed for menu UI; calls InputRouter.set_binding for runtime remap
+      - tutorial  # subscribes to input_action_fired for tutorial step detection
+    adr: docs/architecture/ADR-0005-input-handling.md
+    signal_signatures:
+      - "input_action_fired(action: StringName, ctx: InputContext)  # InputRouter → all consumers (ADR-0001 Input domain; ≥2-field typed Resource payload per TR-gamebus-001)"
+      - "input_state_changed(from_state: int, to_state: int)        # InputRouter → grid-battle/camera/battle-hud (ADR-0001 Input domain; 2-primitive payload)"
+      - "input_mode_changed(new_mode: int)                          # InputRouter → battle-hud (ADR-0001 Input domain; single-primitive payload)"
+      - "ui_input_block_requested(reason: String)                   # SceneManager → InputRouter (CONSUMED; drives S5 INPUT_BLOCKED entry per ADR-0002 scene_transition_lifecycle interface line 222)"
+      - "ui_input_unblock_requested(reason: String)                 # SceneManager → InputRouter (CONSUMED; drives S5 exit per ADR-0002 line 223)"
+    notes: "InputRouter is sole emitter of the 3 Input-domain signals. Direct-call query API (get_current_state / get_active_input_mode / get_undo_window) supplements signals — read-only, no signal indirection needed. set_binding(action, event) is the sole mutation API (Settings/Options sole caller). InputRouter is on ADR-0001 non-emitter list line 372 region for all OTHER 21 signals across 8 domains (Combat / Scenario / Persistence / Environment / Grid Battle / Turn Order / HP/Status / UI-Flow). _handle_event(event) DI test seam for synthetic event injection (mirrors damage-calc story-006 RNG injection pattern; reusable for Camera + Battle HUD). ADR-0001 line 372 prose drift advisory: InputRouter MUST be removed from non-emitter list for the 3 Input-domain signals on next ADR-0001 amendment."
+    referenced_by:
+      - docs/architecture/ADR-0001-gamebus-autoload.md
+      - docs/architecture/ADR-0002-scene-manager.md  # consumed-signal source per scene_transition_lifecycle line 216 entry
+      - docs/architecture/ADR-0005-input-handling.md
+    added: 2026-04-30
     revised: ""
 
 # Example:
@@ -594,6 +643,29 @@ api_decisions:
     added: 2026-04-28
     revised: ""
 
+  - purpose: input_map_population
+    status: active
+    api: "InputMap.add_action(action: StringName) + InputMap.action_add_event(action: StringName, event: InputEvent) for runtime InputMap population from assets/data/input/default_bindings.json. Typed InputEvent subclasses (InputEventKey, InputEventMouseButton, InputEventJoypadButton) constructed from JSON event descriptors via direct property assignment (e.g., var ev := InputEventKey.new(); ev.physical_keycode = KEY_ENTER)."
+    not: "Input.parse_input_event(event) — that method is event INJECTION (sends synthetic event through engine pipeline triggering _input/_unhandled_input), NOT InputMap population. Use it only for the §8 DI test seam — see input_router_test_seam api_decision."
+    adr: docs/architecture/ADR-0005-input-handling.md
+    reason: "Distinct API roles confused in ADR draft pre-Write — godot-specialist 2026-04-30 Item 8 caught the factual error. InputMap.add_action + action_add_event is the canonical runtime population path (verified against Godot 4.6 modules/input.md). Input.parse_input_event is reserved for synthetic injection use cases (test seam OR force-firing an action programmatically)."
+    referenced_by:
+      - docs/architecture/ADR-0005-input-handling.md
+    added: 2026-04-30
+    revised: ""
+
+  - purpose: input_router_test_seam
+    status: active
+    api: "InputRouter._handle_event(event: InputEvent) -> void — sole DI test seam for synthetic event injection in unit tests. GdUnit4 tests construct InputEvent subclasses directly and call _handle_event(synthetic_event) without going through Godot's _input/_unhandled_input dispatch. Production callers forbidden by _-prefix convention."
+    not: "Input.parse_input_event(synthetic_event) — that goes through the full engine pipeline (_input → _unhandled_input → InputRouter); slower and couples test to engine-version event-routing semantics. Use only for end-to-end integration tests when isolated state-machine tests are insufficient."
+    not_also: "Reflectively calling private dispatch methods (_transition_from_observation, etc.) — bypasses the event-classification + active_mode update + signal emission centralized in _handle_event."
+    adr: docs/architecture/ADR-0005-input-handling.md
+    reason: "Mirrors damage-calc story-006 RNG-injection seam pattern (proven 11 stories). Reusable for future event-listening systems (Camera + Battle HUD); pattern stable at 1 invocation pre-Camera ADR. Test isolation requires before_test() reset of _state + _active_mode + _undo_windows + _input_blocked_reasons (G-15 mirror obligation per forbidden_patterns.input_router_static_var_state_addition entry)."
+    referenced_by:
+      - docs/architecture/ADR-0005-input-handling.md
+    added: 2026-04-30
+    revised: ""
+
 # Example:
 #
 # api_decisions:
@@ -744,6 +816,48 @@ forbidden_patterns:
     why: "GDScript has no const-reference enforcement at runtime. The shared-reference contract is convention-only; this forbidden_pattern entry + ADR-0007 §6 + source-comment in hero_database.gd above each query method are the only structural defenses. Consumer-side base+modifier pattern is the established project discipline. A consumer mutating HeroData drifts every downstream system reading the same record (HP/Status, Damage Calc, Turn Order, AI all read stat_might transitively) — the bug surfaces as 'why does Damage Calc see 99 attack but the hero card shows 50?' The R-1 documented test in tests/unit/foundation/hero_database_consumer_mutation_test.gd asserts mutation IS visible across get_hero calls, proving the convention is the only defense (the test serves as documented fail-state, not a passing protective test)."
     adr: docs/architecture/ADR-0007-hero-database.md
     added: 2026-04-29
+
+  - pattern: hardcoded_input_bindings
+    status: active
+    description: "Input action bindings (which keyboard keys / mouse buttons / touch gestures map to which 22-action vocabulary entries) MUST live in assets/data/input/default_bindings.json. NEVER hardcoded in any GDScript file. Runtime remap goes through InputRouter.set_binding(action: StringName, event: InputEvent) — Settings/Options sole caller. Tutorial / debug / dev-mode code MUST use set_binding (NOT direct InputMap.action_add_event mutation) so that InputRouter is the single source of truth for the live binding state."
+    why: "ADR-0005 CR-1b: 'All default bindings live in assets/data/input/default_bindings.json. They are never hardcoded in GDScript. The system reads this file at startup and populates Godot's InputMap accordingly.' Hardcoding bypasses the JSON-as-source-of-truth contract, breaks AC-2 binding externalization (changing JSON should re-bind without code changes), and silently breaks Settings/Options remap (a remap modifies live bindings but hardcoded entries persist independently — silent stat-drift surfacing as 'why does Z still trigger when I rebound it?')."
+    adr: docs/architecture/ADR-0005-input-handling.md
+    added: 2026-04-30
+
+  - pattern: emulate_mouse_from_touch_enabled
+    status: active
+    description: "[input_devices.pointing] emulate_mouse_from_touch=false MUST be set in project.godot for ALL builds (development, debug, release). Touch events MUST NOT synthesize fake mouse events. CI lint script tools/ci/lint_emulate_mouse_from_touch.sh greps project.godot per push; FAIL if the setting is true OR unset. The project's last-device-wins mode auto-detection (CR-2) requires unambiguous per-device-class events — emulation creates duplicate dispatch paths that double-fire actions and break TPP (Tap Preview Protocol) semantics."
+    why: "ADR-0005 CR-2e + R-3 mitigation. Godot's IDE default for new projects is false but a project preset import or accidental UI-toggle in Project Settings can re-enable. The duplicate-event-firing surfaces as: a single touch tap fires unit_select TWICE (once via touch path, once via synthesized mouse path) — the second fire transitions OBSERVATION → UNIT_SELECTED → OBSERVATION on a second-tap interpretation, leaving the unit deselected. Silent correctness bug with no error log."
+    adr: docs/architecture/ADR-0005-input-handling.md
+    added: 2026-04-30
+
+  - pattern: input_router_raw_event_consumer_outside_router
+    status: active
+    description: "Only InputRouter (src/foundation/input_router.gd) may consume raw InputEvent objects via _input(event) / _unhandled_input(event) / _gui_input(event)-based action interpretation. Other game systems MUST subscribe to GameBus.input_action_fired(action: StringName, ctx: InputContext) to receive interpreted actions. The single exception is Control nodes implementing _gui_input for their own UI interactions (button clicks, dialog confirms) — those events are handled by Control + may be marked accept_event() to prevent propagation to InputRouter."
+    why: "ADR-0005 AC-1: 'No raw InputEvent is consumed by any system other than InputHandlingSystem [InputRouter].' Splitting raw event consumption across multiple systems creates: (a) duplicate dispatch paths (two systems both reacting to the same tap), (b) inconsistent state-machine awareness (system X reads raw event without checking _state == OBSERVATION; fires action during INPUT_BLOCKED), (c) breaks the 22-action vocabulary contract (system X invents its own action interpretation). All gameplay systems use the single GameBus signal subscription path. UI Controls are exempt because Control._gui_input is the engine's officially-sanctioned UI input path AND consumed Control events do NOT propagate to InputRouter (godot-specialist 2026-04-30 Implementation Notes Advisory A — engine-correct inheritance)."
+    adr: docs/architecture/ADR-0005-input-handling.md
+    added: 2026-04-30
+
+  - pattern: input_router_signal_emission_outside_input_domain
+    status: active
+    description: "InputRouter (src/foundation/input_router.gd) MUST emit ONLY the 3 Input-domain signals on GameBus: input_action_fired / input_state_changed / input_mode_changed. InputRouter is on the ADR-0001 non-emitter list (line 372 region) for all 21 OTHER GameBus signals across 8 domains: Combat (e.g., damage_calculated — NOT emitted), Scenario (chapter_started — NOT emitted), Persistence (save_persisted — NOT emitted), Environment (tile_destroyed — NOT emitted), Grid Battle (battle_outcome_resolved — NOT emitted), Turn Order (round_started — NOT emitted), HP/Status (unit_died — NOT emitted), UI-Flow (ui_input_block_requested — CONSUMED, NOT emitted). Static lint asserts grep -c 'GameBus\\.' src/foundation/input_router.gd | grep -v 'GameBus\\.input_' returns 0 emit call sites."
+    why: "Single-emitter rule per ADR-0001 single-owner contract. InputRouter is the sole emitter of Input-domain signals; emitting non-Input signals would violate the per-domain ownership invariant. Examples of common temptations to ban: emitting damage_calculated when the player's tap initiates an attack (wrong — Damage Calc is the source of truth); emitting battle_ended when the player presses end-game (wrong — Grid Battle owns this per ADR-0001 single-owner rule); emitting save_checkpoint_requested when the player opens the save menu (wrong — Scenario Progression / SceneManager are the canonical emitters per ADR-0003)."
+    adr: docs/architecture/ADR-0005-input-handling.md
+    added: 2026-04-30
+
+  - pattern: input_router_input_blocked_drop_without_set_input_as_handled
+    status: active
+    description: "When InputRouter receives an InputEvent in INPUT_BLOCKED state (S5) and decides to silently drop it (per GDD EC-2 — grid actions G-1..G-10 silently dropped during enemy phase / animations), the implementation MUST call get_viewport().set_input_as_handled() BEFORE returning from _handle_event. Camera actions (C-1..C-4), open_unit_info (U-4), and overlay toggles (M-2, M-3) are NOT dropped in S5 — they continue to dispatch and DO NOT call set_input_as_handled (the engine forwards them to subsequent _unhandled_input handlers normally)."
+    why: "godot-specialist 2026-04-30 Implementation Notes Advisory C. Without set_input_as_handled, a silently-dropped event in INPUT_BLOCKED state continues to propagate to ANY downstream _unhandled_input handler (test fixtures with additional listeners, future Tutorial overlay nodes, debug overlay). This breaks the 'silent drop' contract — the event was NOT silent, it was visibly relayed to other handlers. The set_input_as_handled call is the engine's official 'event consumed, do not propagate further' marker. Static lint asserts the INPUT_BLOCKED arm of _handle_event contains the call."
+    adr: docs/architecture/ADR-0005-input-handling.md
+    added: 2026-04-30
+
+  - pattern: input_router_static_var_state_addition
+    status: active
+    description: "InputRouter (src/foundation/input_router.gd) MUST NOT introduce static var fields for caching, optimization, or any other purpose. All mutable state lives in instance vars (_state, _active_mode, _pre_menu_state, _undo_windows, _input_blocked_reasons, _bindings). Future caching needs MUST extend the existing instance var pattern (e.g., add _cached_action_lookup: Dictionary instance var; reset in before_test() alongside other instance vars). The 5-precedent stateless-static utility class form (ADR-0008 → 0006 → 0012 → 0009 → 0007) is explicitly NOT applicable to InputRouter (Alternative 4 rejected for engine-level structural incompatibility — see ADR-0005 §Alternatives)."
+    why: "ADR-0005 R-4 mitigation. Adding static var to InputRouter would: (a) break the test-isolation contract (G-15-style obligation requires before_test() reset; static vars persist across test cases unless explicitly reset, replicating the ADR-0006 BalanceConstants test-leakage problem), (b) drift the module form away from the Autoload Node pattern (Alternatives 1/4 rejection rationale), (c) introduce a hybrid stateful-Node + stateless-static pattern that no other ADR follows. The stateless-static pattern is for systems that are CALLED (Damage Calc / Unit Role / Hero DB / Balance/Data / Terrain Effect); InputRouter is event-listening — instance vars are the correct discipline."
+    adr: docs/architecture/ADR-0005-input-handling.md
+    added: 2026-04-30
 
 # Example:
 #
