@@ -2498,3 +2498,43 @@ ADR-0007 §Performance + GDD AC-15 specify a 100-hero load + Dictionary build pe
 - Mirrors damage-calc story-010 Polish-deferral precedent (on-device measurement deferred until target device available)
 
 **Next review**: bundle with Alpha-tier hero-database expansion OR mobile-build polish milestone. Not urgent. Logged 2026-05-01 as part of hero-database story-005 close-out.
+
+---
+
+## TD-046 — Turn Order story-003 AC-9 `acted=true` synthetic-state coverage gap
+
+**Severity**: LOW (story doc QA Test Case is structurally untestable in story-003 scope; production correctness is asserted via the OR-formula visible in `_mark_acted`)
+**Origin**: turn-order story-003 /code-review qa-tester gap finding (2026-05-01)
+**Owner**: turn-order story-004 (declare_action implementation)
+
+### Problem
+
+Story-003 §QA Test Cases AC-9 specifies: "Given pre-call state with `move_token_spent = true, action_token_spent = false`; When `_advance_turn` reaches T6; Then `acted_this_turn == true`; signal `{acted: true}`."
+
+This path is structurally untestable through `_advance_turn` in story-003 scope because:
+1. T4 (`_activate_unit_turn`) UNCONDITIONALLY resets `move_token_spent=false` + `action_token_spent=false` per CR-3 (token reset at turn start).
+2. T5 (`_execute_action_budget`) is a no-op stub in story-003 — story-005 wires the Callable controller, story-004 wires `declare_action` token-spend semantics.
+3. Therefore between T4 reset and T6 mark-acted, no production code path exists in story-003 scope that can set `move_token_spent=true`.
+
+The test file's 9 tests assert the `acted=false` default path correctly. The OR-formula in `_mark_acted` (`state.acted_this_turn = state.move_token_spent or state.action_token_spent`) is structurally visible in source but lacks executable coverage of the true-path branch.
+
+### Resolution path
+
+Add an `acted=true` assertion when story-004 lands `declare_action()` token-spend semantics:
+1. After story-004's `declare_action(uid, MOVE, target)` spends `move_token_spent`, add a test path that calls `_advance_turn(uid)` AFTER seeding/spending a token via the production seam, asserting `unit_turn_ended.acted == true` and `acted_this_turn == true`.
+2. OR add a step-by-step test in story-003 that bypasses `_advance_turn`: `_runner._activate_unit_turn(uid)` → `_runner._unit_states[uid].move_token_spent = true` → `_runner._mark_acted(uid)` → assert `acted == true`. (Synthetic but matches the QA test case spec verbatim.)
+
+Path 1 is preferred because it exercises the production token-spend pathway end-to-end. Path 2 is an acceptable interim if story-004 lands later than expected.
+
+### Cost
+
+~15-30 min: add 1 test function in `turn_order_advance_turn_test.gd` (path 2) OR fold into story-004's declare_action test suite (path 1).
+
+### References
+
+- `production/epics/turn-order/story-003-advance-turn-t1-t7-sequence.md` §QA Test Cases AC-9 (line ~166-170; story doc erratum candidate)
+- `src/core/turn_order_runner.gd` lines 403-407 (`_mark_acted` OR-formula)
+- `tests/unit/core/turn_order_advance_turn_test.gd` (9 tests covering the acted=false default path; gap is the true-path branch)
+- ADR-0011 §Decision §UnitTurnState semantics CR-3f (`acted_this_turn` derivation rule)
+
+**Next review**: at /story-readiness for turn-order story-004 (declare_action). Roll into story-004 ACs to close the coverage gap. Logged 2026-05-01 as part of turn-order story-003 /code-review close-out.

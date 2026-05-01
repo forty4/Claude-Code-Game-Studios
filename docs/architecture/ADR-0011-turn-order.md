@@ -268,6 +268,9 @@ var action_token_spent: bool = false     # FRESH → spent at ATTACK / SKILL / D
 var accumulated_move_cost: int = 0       # F-2 charge budget; reset to 0 at T4
 var acted_this_turn: bool = false        # CR-3f: true iff at least one token spent during T5
 var turn_state: TurnOrderRunner.TurnState = TurnOrderRunner.TurnState.IDLE
+var initiative: int = 0                  # cached at BI-2 via UnitRole.get_initiative; static per CR-6
+var stat_agility: int = 0                # cached at BI-3 from HeroDatabase.get_hero(hero_id).stat_agility; F-1 Step 1
+var is_player_controlled: bool = false   # cached at BI-3 from BattleUnit.is_player_controlled; F-1 Step 2
 
 func snapshot() -> UnitTurnState:
     """Defensive deep copy for query API consumers. Returns a NEW UnitTurnState
@@ -282,8 +285,13 @@ func snapshot() -> UnitTurnState:
     copy.accumulated_move_cost = accumulated_move_cost
     copy.acted_this_turn = acted_this_turn
     copy.turn_state = turn_state
+    copy.initiative = initiative
+    copy.stat_agility = stat_agility
+    copy.is_player_controlled = is_player_controlled
     return copy
 ```
+
+**Same-patch amendment 2026-05-01 (story-002 — initialize_battle BI-1..BI-6 + F-1 tie-break cascade)**: UnitTurnState extended from 6 → 9 fields with `initiative: int`, `stat_agility: int`, `is_player_controlled: bool` cached at BI-2/BI-3 to support the F-1 sort-time comparator without re-querying HeroDatabase per O(N log N) comparison. CR-6 static-initiative rule structurally enforced by storage location — values cached once at BI-2/BI-3, never recomputed at R3. TR-turn-order-004 revised to 9 fields same-patch (`docs/architecture/tr-registry.yaml` `revised: "2026-05-01"`). Field count remains within RefCounted-wrapper-as-typed-data-carrier discipline; no functional change to TurnOrderSnapshot or TurnOrderEntry. The F-1 cascade comparator reads these 3 fields directly from `_unit_states[unit_id]` (no extra Dictionary lookup), satisfying the §Performance Implications < 1 ms 20-unit sort budget per AC-23.
 
 ```gdscript
 class_name TurnOrderSnapshot extends RefCounted

@@ -13,9 +13,9 @@
 
 | # | Story | Type | Status | Governing ADR | Depends on |
 |---|-------|------|--------|---------------|------------|
-| 001 | [TurnOrderRunner module skeleton + 5 instance fields + 3 RefCounted wrappers](story-001-module-skeleton.md) | Logic | Ready | ADR-0011 | None (gates 002+003+004+005+006+007) |
-| 002 | [initialize_battle BI-1..BI-6 + F-1 tie-break cascade + queue construction](story-002-initialize-battle-and-f1-cascade.md) | Logic | Ready | ADR-0011 + ADR-0007 + ADR-0009 | 001 |
-| 003 | [_advance_turn T1..T7 sequence + state machine + 3 emitted signals](story-003-advance-turn-t1-t7-sequence.md) | Logic | Ready | ADR-0011 + ADR-0001 + ADR-0010 | 001, 002 |
+| 001 | [TurnOrderRunner module skeleton + 5 instance fields + 3 RefCounted wrappers](story-001-module-skeleton.md) | Logic | Complete (2026-05-01) | ADR-0011 | None (gates 002+003+004+005+006+007) |
+| 002 | [initialize_battle BI-1..BI-6 + F-1 tie-break cascade + queue construction](story-002-initialize-battle-and-f1-cascade.md) | Logic | Complete (2026-05-01) | ADR-0011 + ADR-0007 + ADR-0009 | 001 |
+| 003 | [_advance_turn T1..T7 sequence + state machine + 3 emitted signals](story-003-advance-turn-t1-t7-sequence.md) | Logic | Complete (2026-05-01) | ADR-0011 + ADR-0001 + ADR-0010 | 001, 002 |
 | 004 | [declare_action + token validation + DEFEND_STANCE locks + 5 ActionType enum](story-004-declare-action-tokens-and-defend-stance.md) | Logic | Ready | ADR-0011 | 001, 002, 003 |
 | 005 | [Death handling (CR-7/CR-7d) + R-1 CONNECT_DEFERRED + R-2 + Charge F-2 + CHARGE_THRESHOLD append](story-005-death-handling-and-charge-accumulation.md) | Integration | Ready | ADR-0011 + ADR-0001 + ADR-0010 + ADR-0006 + ADR-0009 | 001, 002, 003, 004 |
 | 006 | [Victory detection (T7+RE2 DRAW + AC-18 mutual kill + AC-22 T7-beats-RE2) + ROUND_CAP append](story-006-victory-detection-and-precedence-rules.md) | Logic | Ready | ADR-0011 + ADR-0001 + ADR-0006 | 001, 002, 003, 005 |

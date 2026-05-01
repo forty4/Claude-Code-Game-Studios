@@ -1,7 +1,7 @@
 # Story 001: TurnOrderRunner module skeleton + 5 instance fields + 3 RefCounted wrappers
 
 > **Epic**: Turn Order
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: 3-4h
@@ -137,3 +137,50 @@
 
 - Depends on: ADR-0011 ✅ Accepted 2026-04-30; turn-order GDD ✅ Accepted via ADR-0011 + Contract 5 prose addition 2026-05-01 (S2-06)
 - Unlocks: Stories 002, 003, 004, 005, 006, 007 (all consume the type system + 5-instance-field shape established here)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-01
+**Criteria**: 8/8 passing (100% covered — 7 auto-verified via test functions + AC-7 implicit via successful instantiation + G-14 import pass + AC-8 verified via full-suite regression)
+**Test Evidence**: `tests/unit/core/turn_order_runner_skeleton_test.gd` — 9 test functions / 9 PASS standalone; full regression 564 → **573 / 0 errors / 1 carried failure / 0 orphans** (carried failure = pre-existing orthogonal `test_hero_data_doc_comment_contains_required_strings` from hero-database; not introduced)
+**Code Review**: APPROVED WITH SUGGESTIONS (4 advisory items, none blocking — 1 style nit + 1 idiom + 2 forward-look for story-002+)
+
+### Files Created (5 new, 626 LoC)
+
+- `src/core/turn_order_runner.gd` (194 LoC) — `class_name TurnOrderRunner extends Node` + 2 nested enums (RoundState 6-value + TurnState 4-value) + 5 instance fields exactly + 8 stubbed public methods (3 mutator + 5 query) + 1 private `_on_unit_died` stub. All non-void stubs use explicit zero-value returns (`return false` / `return 0` / `return null`) to avoid implicit-null-return warnings under typed return.
+- `src/core/unit_turn_state.gd` (64 LoC) — `class_name UnitTurnState extends RefCounted` + 6 fields + `snapshot()` field-by-field copy (NOT `.duplicate()` — RefCounted has no duplicate; NOT `.duplicate_deep()` — Resource method) per godot-specialist 2026-04-30 Item 3 idiom.
+- `src/core/turn_order_snapshot.gd` (24 LoC) — `class_name TurnOrderSnapshot extends RefCounted` + 2 fields (`round_number: int` + `queue: Array[TurnOrderEntry]`).
+- `src/core/turn_order_entry.gd` (34 LoC) — `class_name TurnOrderEntry extends RefCounted` + 5 fields.
+- `tests/unit/core/turn_order_runner_skeleton_test.gd` (310 LoC, 9 tests) — pattern mirrors `tests/unit/core/terrain_effect_skeleton_test.gd` precedent (FileAccess.get_file_as_string + content.contains for AC-1..AC-5 structural; direct instantiation + 3 separate tests for AC-6 identity/parity/independence). Includes G-15 `before_test()` no-op stub with forward-compat reset list as embedded comment for story-002+.
+
+### Deviations
+
+- **MINOR (sanctioned)**: `initialize_battle(unit_roster: Array)` typed as untyped Array instead of ADR-0011 line 154's `Array[BattleUnit]`. Sanctioned by ADR-0011 §Migration Plan §3 (BattleUnit class doesn't exist yet — Battle Preparation ADR unwritten). Story-002 promotes when Battle Preparation ADR ships. NOT a violation.
+
+### Code Review Suggestions Captured (forward-looking; non-blocking)
+
+- **S-1 (style)**: `_advance_turn(unit_id: int)` parameter not underscored despite unused stub body — minor inconsistency with sibling stubs that use `_unit_id` for warning suppression. May surface as unused-parameter warning under default Godot settings; resolves naturally when story-003 implements the body.
+- **S-2 (idiom)**: AC-6 identity test uses `assert_bool(copy != original)` — GdUnit4's `assert_object(copy).is_not_same(original)` would more idiomatically express reference-distinctness intent. Working code; idiom-only.
+- **S-3 (forward-look story-002+)**: AC-6 mutation-independence test only flips `acted_this_turn` (bool). Future strengthening could extend to `turn_state` (enum) + `accumulated_move_cost` (int) for cross-type independence proof.
+- **S-4 (forward-look story-002+)**: TurnOrderSnapshot.queue assignment paths in story-002 must use `.assign()` per G-2 when populating from another typed array — `.duplicate()` would silently demote `Array[TurnOrderEntry]` → untyped `Array`.
+
+### Engineering Discipline
+
+- **G-2** typed-array preservation pattern documented (forward-look S-4 for story-002)
+- **G-7** verified Overall Summary count grew (564 → 573, +9 new tests; 0 silent skips)
+- **G-12** pre-check confirmed: 4/4 class names non-colliding with Godot 4.6 built-ins
+- **G-14** import refresh executed post-write (`godot --headless --import --path .`); 4 .uid files auto-generated; no parse errors
+- **G-15** `before_test()` (canonical hook) used + forward-compat reset list embedded as comment
+- **G-22** reflective static-state reset N/A (skeleton has no static state)
+- **G-23** safe assertions only (no `is_not_equal_approx`)
+- **G-9** paren-wrapped `%` format strings throughout test file
+
+### Out-of-Scope Deviations
+
+NONE. No method bodies; no signal connect/emit; no GameBus references; no ActionType/VictoryResult enums; no BattleUnit references; no other src/ or tests/ files modified.
+
+### Sprint Impact
+
+Turn-order epic story 1/7 Complete. First real Core-layer feature implementation of sprint-2 (preceded by hero-database Foundation-layer ratification + admin closures + GDD revisions + epic creation). Unblocks story-002 (`initialize_battle` + F-1 cascade, Logic, 3-4h) — the 7-story turn-order chain implements sequentially per ADR-0011 dependency order.
