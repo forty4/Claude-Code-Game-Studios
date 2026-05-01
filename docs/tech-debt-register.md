@@ -2417,3 +2417,84 @@ Estimated effort: ~30 min (new test functions; no production code change require
 - `production/epics/hero-database/story-003-mvp-roster-authoring.md` Completion Notes ADVISORY (raw-JSON dedup E2E)
 
 **Next review**: bundle into hero-database story-005 (perf baseline + lints) Polish-tier scope, OR a dedicated test-hardening story. Not urgent. Logged 2026-05-01 as part of hero-database story-003 close-out.
+
+---
+
+## TD-044 — `lint_hero_database_validation.sh` Polish-tier full implementation (F-1..F-4 stat-balance + SPI + growth-ceiling + MVP-roster lint)
+
+**Severity**: LOW (Polish-deferral by design; scaffold exists at `tools/ci/lint_hero_database_validation.sh` exit 0 stub)
+**Origin**: hero-database story-005 (TR-hero-database-011 Polish-tier scope per ADR-0007 §11 + N2)
+**Owner**: Polish phase
+
+### Problem
+
+ADR-0007 §11 + N2 defer the F-1..F-4 stat-balance / SPI / growth-ceiling / MVP-roster validation to Polish-tier build-time tooling. Story-005 ships the scaffold script (`tools/ci/lint_hero_database_validation.sh`) as an exit-0 stub with documentation; full implementation requires (a) BalanceConstants threshold append to `balance_entities.json` per ADR-0006 forward-compat, and (b) ≥30 hero records authored (Alpha-tier roster milestone).
+
+### Reactivation triggers (BOTH must be true)
+
+1. `assets/data/balance/balance_entities.json` gains 6 keys: `STAT_TOTAL_MIN`, `STAT_TOTAL_MAX`, `SPI_WARNING_THRESHOLD`, `STAT_HARD_CAP`, `MVP_FLOOR_OFFSET`, `MVP_CEILING_OFFSET` (per ADR-0006 forward-compat clause)
+2. ≥30 hero records authored in `assets/data/heroes/heroes.json` (Alpha-tier roster milestone — current MVP has 9 records)
+
+### Resolution path
+
+When both triggers fire, replace the scaffold's exit-0 stub with 4 validation passes:
+
+- **F-1** `stat_total` boundary check: parse heroes.json → for each record, sum 4 core stats → assert `STAT_TOTAL_MIN ≤ sum ≤ STAT_TOTAL_MAX` (read thresholds via `BalanceConstants.get_const`)
+- **F-2** SPI specialization check: per record, compute `(max_stat - min_stat) / avg_stat` → assert `< SPI_WARNING_THRESHOLD`
+- **F-3** Growth-ceiling overshoot detection: per record, project `stat + growth × L_cap` per stat → assert `≤ STAT_HARD_CAP` (L_cap from Character Growth ADR — soft-dep)
+- **F-4** MVP roster role-coverage: filter `is_available_mvp == true` → count distinct dominant_stat values → assert `≥ 4`
+
+Wire into `.github/workflows/tests.yml` once reactivated.
+
+### Cost
+
+~2-3h: 4 validation pass implementations + JSON parse + BalanceConstants integration + CI step wiring + tests for the lint script itself.
+
+### References
+
+- `docs/architecture/ADR-0007-hero-database.md` §11 + N2 (Polish-deferral rationale)
+- `docs/architecture/ADR-0006-balance-data.md` (BalanceConstants threshold accessor)
+- `tools/ci/lint_hero_database_validation.sh` (current exit-0 scaffold — story-005)
+- `production/epics/hero-database/story-005-perf-baseline-lints-td-entry.md` (origin story)
+
+**Next review**: bundle into Alpha-tier hero-database expansion story (when ≥30 hero records ship). Not urgent. Logged 2026-05-01 as part of hero-database story-005 close-out.
+
+---
+
+## TD-045 — Hero Database `_load_heroes()` 100-hero / 100ms benchmark on target device (Polish-tier on-device measurement)
+
+**Severity**: LOW (forward-compat extrapolation; current 9-record MVP measured well within budget)
+**Origin**: hero-database story-005 (TR-hero-database-015 + GDD AC-15 forward-compat scope)
+**Owner**: Polish phase
+
+### Problem
+
+ADR-0007 §Performance + GDD AC-15 specify a 100-hero load + Dictionary build performance budget of <100ms on PC minimum spec. Story-005's perf test measures the 10-hero MVP roster (`assets/data/heroes/heroes.json` with 9 records) — extrapolation to 100 records is design-time arithmetic, not on-device measurement. Mobile target devices (Snapdragon 7-gen baseline per ADR-0001 perf budgets) have not been benchmarked.
+
+### Reactivation triggers (EITHER is sufficient)
+
+1. ≥30 hero records authored in `heroes.json` (Alpha-tier roster milestone — current MVP has 9)
+2. Target device available for benchmarking (mid-range Android device for mobile budget verification)
+
+### Resolution path
+
+1. Author or simulate a 100-hero `heroes.json` fixture (test-only — production roster grows organically per epic schedule).
+2. Run `_load_heroes()` cold-start measurement on:
+   - Headless CI Linux x86_64 (existing perf test environment)
+   - Target Android device (mid-range Snapdragon 7-gen reference)
+3. Verify measurements stay within: PC minimum spec ≤100ms / mobile ≤500ms (5× tolerance per ADR-0001 mobile baseline).
+4. If overruns: pre-built per-faction / per-class indices (per ADR-0007 §4 N4 forward-compat) become a hard requirement, not optional.
+5. Update story-005's perf test gate values OR fold into a new Alpha-tier benchmark story.
+
+### Cost
+
+~1-2h: fixture authoring + headless run + on-device run + report. Mostly waiting on device + Alpha-roster authoring milestones.
+
+### References
+
+- `docs/architecture/ADR-0007-hero-database.md` §Performance Implications (10-hero MVP measured; 100-hero forward-compat extrapolation)
+- `design/gdd/hero-database.md` AC-15 (100-hero / 100ms PC minimum spec budget)
+- `tests/unit/foundation/hero_database_perf_test.gd` (current 10-hero perf test — story-005)
+- Mirrors damage-calc story-010 Polish-deferral precedent (on-device measurement deferred until target device available)
+
+**Next review**: bundle with Alpha-tier hero-database expansion OR mobile-build polish milestone. Not urgent. Logged 2026-05-01 as part of hero-database story-005 close-out.

@@ -68,6 +68,9 @@ jobs:
       - name: Lint no orphan balance-data paths (TR-balance-data-017 / story-004 AC-1)
         run: bash tools/ci/lint_no_orphan_balance_data_paths.sh
 
+      - name: Lint HeroDatabase non-emitter + G-15 isolation (TR-hero-database-013 / story-005 AC-2 AC-3)
+        run: bash tools/ci/lint_hero_database_no_signal_emission.sh
+
       - name: Lint provisional formula retired (AC-DC-44 TR-damage-calc-009)
         run: bash tools/ci/lint_fgb_prov_removed.sh
 

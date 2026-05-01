@@ -1,7 +1,7 @@
 # Story 005: Perf baseline + non-emitter lint + Polish-tier validation lint scaffold
 
 > **Epic**: Hero Database
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Config/Data
 > **Estimate**: 2-3h (perf test + 2 lint scripts + CI step + tech-debt entry)
@@ -249,3 +249,29 @@
 
 - Depends on: Story 001 (module + test isolation) + Story 002 (validation pipeline) + Story 003 (MVP roster for perf measurement) + Story 004 (test files exist for the G-15 grep gate to scan)
 - Unlocks: **EPIC CLOSE-OUT** — story 005 is the terminal step per implementation order `001 → 002 → 003 → {004, 005 parallel}`. Post-close-out: epic flips from Ready → Complete in `production/epics/index.md` + sprint-status.yaml S2-04 done.
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-01
+**Criteria**: 10/10 passing — 9 auto-verified + 1 ADVISORY (smoke check deferred to sprint-level `/smoke-check sprint`)
+**Regression**: 560 → **564 / 0 errors / 1 carried failure / 0 orphans** ✅ (sole failure = pre-existing carried orthogonal `unit_role_skeleton_test::test_hero_data_doc_comment_contains_required_strings`; not introduced by story-005)
+**Test Evidence**:
+- `tests/unit/foundation/hero_database_perf_test.gd` (143 LoC, 4 tests, all PASS) — TR-015 perf gates verified at canonical path
+- `tools/ci/lint_hero_database_no_signal_emission.sh` (NEW, exec, 56 LoC) — TR-013 non-emitter + G-15 isolation, both clean-pass + negative-path verified
+- `tools/ci/lint_hero_database_validation.sh` (NEW, exec, 32 LoC) — Polish-tier scaffold exit-0 stub with §11+N2 + 6-key reactivation triggers
+- `.github/workflows/tests.yml:71` — non-emitter lint wired into CI pipeline
+- `docs/tech-debt-register.md` — TD-044 (Polish validation lint full implementation) + TD-045 (100-hero/100ms on-device benchmark); register count 43 → 45
+**Code Review**: APPROVED WITH SUGGESTIONS (lean mode, orchestrator-direct review against ADR-0007 §11+N2 + ADR-0001 line 372 + ADR-0006 forward-compat + godot-4x-gotchas G-2/G-9/G-15/G-22/G-23 + test-standards). 5 forward-looking suggestions captured (none blocking):
+- **S-1** (cosmetic): lint script uses `set -uo pipefail` matching dominant precedent (~10/14 lints) where spec text wrote `-euo`
+- **S-2** (cosmetic): perf test name embeds "median" but uses single-call cold-start measurement; consider rename to `..._under_50ms_cold_start` on next cleanup pass
+- **S-3** (forward-looking): when TD-044 fires, add comment near AC-2 lint step indicating where to insert validation lint step
+- **S-4** (forward-looking): TD-045 cites `ADR-0001 mobile baseline` — verify ADR text current at benchmark time
+- **S-5** (forward-looking): lint glob `tests/integration/foundation/hero_database*.gd` will silently match nothing if file rename ever decouples the prefix; consider widening to `*hero_database*.gd`
+**Deviations**:
+- ADVISORY: lint shell flags `-uo` vs spec's `-euo` (precedent-following; no impact)
+- ADVISORY: perf test sum-based assertions vs spec's "median" wording (mirrors `balance_constants_perf_test.gd` precedent)
+- ADVISORY: 5 forward-looking code-review suggestions captured above
+**Sprint impact**: S2-04 epic-level done flag flips with this close-out (5/5 stories Complete). Sprint-2 must-have advances 3/5 → 4/5. EPIC.md status flip + index.md refresh handled by S2-05 admin task.
+**Tech debt logged**: 0 new (TD-044 + TD-045 added during /dev-story per AC-7 + AC-8 — already committed; no additional debt from code-review suggestions).

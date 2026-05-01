@@ -6,7 +6,7 @@ goal: "Foundation 4/5 via balance-data + hero-database ratification; scaffold hp
 start: "2026-04-30"
 end: "2026-05-13"
 generated: "2026-04-30"
-updated: "2026-05-01"
+updated: "2026-05-01"  # S2-04 hero-database epic Complete (5/5); sprint-2 must-have 3/5 → 4/5
 
 # Sprint-1 closed effective DoD 12/12 by 2026-04-30. Final state archived in
 # git history (see commit a0a3144 sprint-1 status sync) and active.md
@@ -48,12 +48,12 @@ stories:
     name: "Implement hero-database epic to Complete (~5 stories)"
     file: "production/epics/hero-database/"
     priority: must-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 2.0
     blocker: "S2-02"
-    completed: ""
-    # 2026-05-01: 4/5 stories Complete (story-001 module skeleton + story-002 validation pipeline FATAL + story-003 MVP roster + happy-path integration + story-004 WARNING tier EC-4/5/6 + R-1 consumer-mutation regression; 506→560 baseline / 0 errors / 1 carried failure / 0 orphans). Story-005 (perf baseline + non-emitter lint + Polish-tier validation lint scaffold) is the epic terminal step — its close-out flips S2-04 to done. Story-005 may incorporate S-2 _parse_heroes_json memoization (story-003), TD-043 raw-JSON dedup E2E test, S-4 3-pass extraction (story-004) per orchestrator discretion. TD-042 (data-files.md Entity Data File Exception) + TD-043 (raw-JSON dedup E2E gap) logged at story-003 close-out.
+    completed: "2026-05-01"
+    # 2026-05-01: 5/5 stories Complete (story-001 module skeleton + story-002 validation pipeline FATAL + story-003 MVP roster + happy-path integration + story-004 WARNING tier EC-4/5/6 + R-1 consumer-mutation regression + story-005 perf baseline + non-emitter lint + Polish-tier validation lint scaffold; 506→564 baseline / 0 errors / 1 carried failure / 0 orphans). Epic terminal step landed via story-005. TD-042 (data-files.md Entity Data File Exception) + TD-043 (raw-JSON dedup E2E gap) + TD-044 (Polish validation lint full implementation) + TD-045 (100-hero/100ms on-device benchmark) logged across stories 003 + 005. Sprint-2 must-have advances 3/5 → 4/5.
 
   - id: "S2-05"
     name: "Admin: refresh production/epics/index.md post-sprint-2"
