@@ -191,11 +191,13 @@ func _reset_domain_counts() -> void:
 ## Note: the story's Implementation Notes §2 example omits scene_ — this is a
 ## spec gap; the ADR §Signal Contract Schema §8 is authoritative.
 func _route_to_domain(sig_name: String) -> String:
-	# battle_prepare_requested and battle_launch_requested carry the "battle_" prefix
-	# but belong to Scenario Progression domain per ADR-0001 §Signal Contract Schema §1
-	# (emitter: ScenarioRunner). Explicit name matches MUST precede the prefix rule.
+	# Explicit name matches for signals that don't follow their domain's prefix pattern:
+	# - battle_prepare_requested / battle_launch_requested have "battle_" prefix but belong to Scenario domain (ADR-0001 §1)
+	# - victory_condition_detected belongs to Turn Order domain (ADR-0011) but has no "turn_" prefix
 	if sig_name == "battle_prepare_requested" or sig_name == "battle_launch_requested":
 		return "scenario"
+	if sig_name == "victory_condition_detected":
+		return "turn"
 	if sig_name.begins_with("scenario_") or sig_name.begins_with("chapter_"):
 		return "scenario"
 	if sig_name.begins_with("battle_"):

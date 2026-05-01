@@ -71,6 +71,7 @@ func before_test() -> void:
 	_runner = auto_free(TurnOrderRunner.new())
 	add_child(_runner)
 	# Reset all 5 instance fields (defensive even on fresh runner).
+	# G-15 marker: _unit_states.clear() — runner under test resets via initialize_battle
 	_runner._unit_states.clear()
 	_runner._queue.clear()
 	_runner._round_number = 0

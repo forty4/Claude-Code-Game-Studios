@@ -38,8 +38,8 @@ extends GdUnitTestSuite
 
 const GAME_BUS_PATH: String = "res://src/core/game_bus.gd"
 
-## Authoritative reference list — ADR-0001 §Signal Contract Schema (all 27 signals).
-## Source of truth: docs/architecture/ADR-0001-gamebus-autoload.md
+## Authoritative reference list — ADR-0001 §Signal Contract Schema (all 28 signals, incl. ADR-0011 victory_condition_detected).
+## Source of truth: docs/architecture/ADR-0001-gamebus-autoload.md + ADR-0011-turn-order
 ##
 ## DO NOT reorder within a domain group — must match ADR §Signal Contract Schema
 ## table row order so a reader can trace this file row-by-row against the ADR.
@@ -118,6 +118,12 @@ const EXPECTED_SIGNALS: Array[Dictionary] = [
 		"args": [
 			{"name": "unit_id", "type": TYPE_INT},
 			{"name": "acted", "type": TYPE_BOOL},
+		],
+	},
+	{
+		"name": "victory_condition_detected",
+		"args": [
+			{"name": "result", "type": TYPE_INT},
 		],
 	},
 	# ── Domain: HP/Status (ADR-0001 §Signal Contract Schema §4) ───────────────────

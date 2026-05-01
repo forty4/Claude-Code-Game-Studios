@@ -1,7 +1,7 @@
 # Story 006: Victory detection (T7 + RE2 round-cap DRAW + AC-18 mutual kill PLAYER_WIN precedence + AC-22 T7-beats-RE2) + ROUND_CAP append
 
 > **Epic**: Turn Order
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Logic
 > **Estimate**: 2-3h
@@ -211,3 +211,25 @@
 
 - Depends on: Story 001 (5 fields + RefCounted + RoundState/TurnState enums) + Story 002 (initialize_battle for setup) + Story 003 (T1-T7 sequence wiring + T7 stub site) + Story 005 (death-handled queue state for AC-9 mutual kill scenario)
 - Unlocks: Story 007 (lint validates ROUND_CAP append + 4-signal whitelist + perf baseline includes _evaluate_victory)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-01
+**Criteria**: 11/11 passing — all acceptance criteria covered by 16 integration tests
+**Deviations**: None
+**Test Evidence**: `tests/integration/core/turn_order_victory_detection_test.gd` (16 test functions, all passing; 644 total tests / 0 errors / 1 pre-existing carried failure / 0 orphans)
+**Code Review**: Complete — APPROVED by lead-programmer (no required changes; 2 advisory doc-comment suggestions left for future cleanup)
+
+**Files changed**:
+- `src/core/turn_order_runner.gd` — VictoryResult enum, `_evaluate_victory()`, `_emit_victory()` with BATTLE_ENDED guard, T7 hook replacing story-003 stub, RE2 round-cap DRAW logic
+- `src/core/action_target.gd` — `movement_cost: int` field (story-005..007 progressive)
+- `src/core/game_bus.gd` — `victory_condition_detected(result: int)` signal declaration (28th signal)
+- `src/core/game_bus_diagnostics.gd` — explicit routing rule for victory_condition_detected → "turn" domain
+- `assets/data/balance/balance_entities.json` — `"ROUND_CAP": 30` same-patch obligation
+- `src/foundation/hero_data.gd` — ADR-0009 §Migration Plan §3 soft-dependency citation
+- `tests/integration/core/turn_order_victory_detection_test.gd` — new file (~617 LoC, 16 tests)
+- `tests/unit/core/game_bus_declaration_test.gd` — 27→28 signals, added victory_condition_detected
+- `tests/unit/core/signal_contract_test.gd` — added victory_condition_detected to ADR-0001 reference list
+- `tests/unit/core/game_bus_diagnostics_test.gd` — 27→28 signals, routing map updated

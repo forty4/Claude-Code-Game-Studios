@@ -1,5 +1,6 @@
 ## hero_data.gd
 ## Ratified by ADR-0007 (Hero Database, Accepted 2026-04-29).
+## Soft-dependency: ADR-0009 §Migration Plan §3 — UnitRole.get_max_hp parameter expects HeroData typed arg.
 ## All fields are @export-annotated for ResourceSaver round-trip + Inspector authoring
 ## (non-@export fields are silently dropped — ADR-0003 TR-save-load-002).
 ## Consumed read-only by 8+ systems via HeroDatabase static query layer; runtime

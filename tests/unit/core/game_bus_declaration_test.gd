@@ -7,7 +7,7 @@ extends GdUnitTestSuite
 const GAME_BUS_PATH: String = "res://src/core/game_bus.gd"
 const PROJECT_GODOT_PATH: String = "res://project.godot"
 
-## The 27 signal names declared in game_bus.gd — authoritative list per ADR-0001.
+## The 28 signal names declared in game_bus.gd — authoritative list per ADR-0001 (+ ADR-0011 victory_condition_detected).
 const EXPECTED_SIGNALS: Array[String] = [
 	"chapter_started",
 	"battle_prepare_requested",
@@ -36,6 +36,7 @@ const EXPECTED_SIGNALS: Array[String] = [
 	"save_persisted",
 	"save_load_failed",
 	"tile_destroyed",
+	"victory_condition_detected",
 ]
 
 ## Expected Resource class_name for signals that carry a Resource payload.
@@ -95,8 +96,8 @@ func test_gamebus_extends_node_and_has_no_class_name() -> void:
 		assert_bool(class_name_regex.search(line) == null).is_true()
 
 
-## AC-2 + AC-3: game_bus.gd declares exactly 27 user signals.
-func test_gamebus_declares_exactly_27_signals() -> void:
+## AC-2 + AC-3: game_bus.gd declares exactly 28 user signals (27 + victory_condition_detected per ADR-0011).
+func test_gamebus_declares_exactly_28_signals() -> void:
 	# Arrange
 	var script: GDScript = load(GAME_BUS_PATH)
 	var instance: Node = auto_free(script.new())
@@ -109,11 +110,11 @@ func test_gamebus_declares_exactly_27_signals() -> void:
 		if not (sig["name"] as String) in inherited:
 			user_signals.append(sig)
 
-	# Assert — exactly 27
-	assert_int(user_signals.size()).is_equal(27)
+	# Assert — exactly 28 (27 + victory_condition_detected per ADR-0011)
+	assert_int(user_signals.size()).is_equal(28)
 
 
-## AC-3: All 27 declared signals match the authoritative name list from ADR-0001.
+## AC-3: All 28 declared signals match the authoritative name list from ADR-0001 + ADR-0011.
 func test_gamebus_signal_names_match_spec() -> void:
 	# Arrange
 	var script: GDScript = load(GAME_BUS_PATH)

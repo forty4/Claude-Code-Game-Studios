@@ -30,6 +30,7 @@ signal battle_outcome_resolved(outcome: BattleOutcome)
 signal round_started(round_number: int)
 signal unit_turn_started(unit_id: int)
 signal unit_turn_ended(unit_id: int, acted: bool)
+signal victory_condition_detected(result: int)
 
 # ═══ DOMAIN: HP/Status (emitter: HPStatusController) ═══════════════════════════
 signal unit_died(unit_id: int)

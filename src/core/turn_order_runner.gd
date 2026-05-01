@@ -56,6 +56,18 @@ enum ActionType {
 	WAIT,
 }
 
+## Victory result codes for victory_condition_detected signal payload.
+## int backing values 0/1/2 — passed as int via GameBus.victory_condition_detected(result: int)
+## per ADR-0001 line 155 typed-signal contract.
+## AC-18 precedence rule: PLAYER_WIN (0) is checked BEFORE PLAYER_LOSE (1) in
+## _evaluate_victory() — ensures mutual-kill scenario emits PLAYER_WIN.
+## Ratified by TR-turn-order-007/018/020 (story-006 same-patch).
+enum VictoryResult {
+	PLAYER_WIN = 0,
+	PLAYER_LOSE = 1,
+	DRAW = 2,
+}
+
 ## Failure error codes for declare_action() validation rejection paths.
 ## NONE=0 sentinel for success; non-zero values are mutually exclusive failure modes.
 ## Ratified by TR-turn-order-013 (story-004 same-patch).
@@ -171,7 +183,10 @@ func initialize_battle(unit_roster: Array[BattleUnit]) -> void:
 	# BI-6: transition to ROUND_STARTING, build initial queue, trigger round start.
 	_round_state = RoundState.ROUND_STARTING
 	_rebuild_queue()
-	# TODO story-005: GameBus.unit_died.connect(_on_unit_died, Object.CONNECT_DEFERRED)
+	# BI-6 (story-005): subscribe to GameBus.unit_died with CONNECT_DEFERRED (R-1 mitigation).
+	# is_connected guard makes this idempotent — safe for test isolation reset patterns.
+	if not GameBus.unit_died.is_connected(_on_unit_died):
+		GameBus.unit_died.connect(_on_unit_died, Object.CONNECT_DEFERRED)
 	_begin_round.call_deferred()
 
 
@@ -206,7 +221,11 @@ func _advance_turn(unit_id: int) -> void:
 	_mark_acted(unit_id)
 
 	# T7: victory check — story-006 implements full _evaluate_victory().
-	_evaluate_victory_stub()
+	# AC-7/AC-22: T7 emit fires BEFORE RE2 round-cap check (synchronous order).
+	var victory_result: Variant = _evaluate_victory()
+	if victory_result != null:
+		_emit_victory(victory_result as int)
+		return   # AC-3: suppress _advance_to_next_queued_unit after decisive condition
 
 	# Advance queue or end round.
 	_advance_to_next_queued_unit()
@@ -270,6 +289,10 @@ func declare_action(unit_id: int, action: int, target: ActionTarget) -> ActionRe
 			if state.defend_stance_active:
 				return ActionResult.make_failure(ActionError.MOVE_LOCKED_BY_DEFEND_STANCE as int)
 			state.move_token_spent = true
+			# F-2 accumulation (story-005, TR-017): capture movement cost for charge threshold.
+			# target.movement_cost is the aggregate cost of the entire move path.
+			if target != null:
+				state.accumulated_move_cost += target.movement_cost
 			return ActionResult.make_success()
 
 		ActionType.ATTACK, ActionType.USE_SKILL:
@@ -344,8 +367,10 @@ func get_turn_order_snapshot() -> TurnOrderSnapshot:
 ##
 ## Usage:
 ##     var ready: bool = runner.get_charge_ready(unit_id)
-func get_charge_ready(_unit_id: int) -> bool:
-	return false
+func get_charge_ready(unit_id: int) -> bool:
+	if not _unit_states.has(unit_id):
+		return false   # R-2 defensive — dead unit removed from _unit_states
+	return _unit_states[unit_id].accumulated_move_cost >= (BalanceConstants.get_const("CHARGE_THRESHOLD") as int)
 
 
 ## Returns a defensive copy of the per-unit state via UnitTurnState.snapshot().
@@ -504,24 +529,70 @@ func _mark_acted(unit_id: int) -> void:
 	GameBus.unit_turn_ended.emit(unit_id, state.acted_this_turn)
 
 
-## Evaluates victory condition at T7.
-## Story-003 STUB — body intentionally empty.
-## Story-006 implements full T7 victory check + GameBus.victory_condition_detected emit
-## per ADR-0011 §Decision §Emitted signals (signal #4 added 2026-04-30 via §Migration Plan §0).
-## NOTE: GameBus.victory_condition_detected signal declaration also pending — same-patch
-## amendment to game_bus.gd is owned by story-006.
-func _evaluate_victory_stub() -> void:
-	pass
+## Evaluates victory condition — O(N) single pass over _unit_states.
+## Returns int VictoryResult enum value if a decisive condition is met, null otherwise.
+## AC-18 player-side precedence: PLAYER_WIN checked BEFORE PLAYER_LOSE — mutual-kill
+## scenario (both faction counts hit 0 in the same T7) → PLAYER_WIN, NOT PLAYER_LOSE.
+## Called at T7 (decisive unit conditions) and is referenced from _end_round (RE2 cap).
+## Implements TR-turn-order-007 / TR-turn-order-020.
+func _evaluate_victory() -> Variant:
+	var player_alive: int = 0
+	var enemy_alive: int = 0
+	for state: UnitTurnState in _unit_states.values():
+		if state.turn_state == TurnState.DEAD:
+			continue
+		# is_player_controlled cached in UnitTurnState at BI-3 (story-002).
+		if state.is_player_controlled:
+			player_alive += 1
+		else:
+			enemy_alive += 1
+	# AC-18 player-side precedence: PLAYER_WIN check BEFORE PLAYER_LOSE.
+	# Covers mutual-kill: enemy_alive == 0 AND player_alive == 0 → PLAYER_WIN.
+	if enemy_alive == 0:
+		return VictoryResult.PLAYER_WIN
+	if player_alive == 0:
+		return VictoryResult.PLAYER_LOSE
+	return null   # battle continues
+
+
+## Emits GameBus.victory_condition_detected(result) once per battle.
+## Single-emit guard: if _round_state == BATTLE_ENDED, returns immediately (AC-3).
+## On first call: transitions _round_state to BATTLE_ENDED then emits.
+## Implements TR-turn-order-007 §AC-2/AC-3.
+func _emit_victory(result: int) -> void:
+	if _round_state == RoundState.BATTLE_ENDED:
+		return   # AC-3 single-emit guard
+	_round_state = RoundState.BATTLE_ENDED
+	GameBus.victory_condition_detected.emit(result)
+
+
+## Executes RE1..RE3 round-end sequence after all queued units have completed turns.
+## RE1: (deferred to consumers via signal — no direct call here; out-of-scope for story-006)
+## RE2: round-cap DRAW check — AC-22 T7 precedence already enforced (T7 ran before this).
+##      If _round_number >= ROUND_CAP, emit victory_condition_detected(DRAW) and halt.
+## RE3: trigger next round via _begin_round.call_deferred() (Callable method-reference form
+##      per godot-specialist 2026-04-30 Item 6; NOT string-based call_deferred).
+## Implements TR-turn-order-018 / F-3 round cap.
+func _end_round() -> void:
+	# Single-emit guard: if BATTLE_ENDED (T7 already emitted), skip all RE phases.
+	if _round_state == RoundState.BATTLE_ENDED:
+		return
+	_round_state = RoundState.ROUND_ENDING
+	# RE2: round-cap DRAW — reads ROUND_CAP via BalanceConstants per ADR-0006 (no hardcoded 30).
+	if _round_number >= (BalanceConstants.get_const("ROUND_CAP") as int):
+		_emit_victory(VictoryResult.DRAW)
+		return   # RE3 suppressed — battle ended
+	# RE3: start the next round.
+	_begin_round.call_deferred()
 
 
 ## Advances to next queued unit OR transitions to ROUND_ENDING at queue exhaustion.
-## At queue exhaustion: state transitions ROUND_ACTIVE → ROUND_ENDING. Does NOT auto-call
-## _begin_round() — keeps round transitions explicit for test determinism.
-## Story-006 will add RE1..RE3 round-end logic (alive count → victory check → emit OR next round).
+## At queue exhaustion: transitions ROUND_ACTIVE → ROUND_ENDING then calls _end_round().
+## _end_round() owns RE1..RE3 (round-cap victory check → DRAW OR next round).
 func _advance_to_next_queued_unit() -> void:
 	_queue_index += 1
 	if _queue_index >= _queue.size():
-		_round_state = RoundState.ROUND_ENDING
+		_end_round()
 	else:
 		_advance_turn.call_deferred(_queue[_queue_index])
 
@@ -531,5 +602,18 @@ func _advance_to_next_queued_unit() -> void:
 ## Removes unit from _queue immediately (CR-7a); removes from _unit_states.
 ## Short-circuits with no-op if unit_id not in _unit_states (R-2 double-death guard).
 ## Full implementation in story-005.
-func _on_unit_died(_unit_id: int) -> void:
-	pass
+func _on_unit_died(unit_id: int) -> void:
+	if not _unit_states.has(unit_id):
+		return   # R-2 defensive — double-death no-op; second call is safe
+	_unit_states.erase(unit_id)
+	var queue_pos: int = _queue.find(unit_id)
+	if queue_pos != -1:
+		_queue.remove_at(queue_pos)
+		# _queue_index adjustment: if removal was at-or-before current index, decrement
+		# to keep _queue_index pointing at the same logical "next acting" unit.
+		if queue_pos <= _queue_index and _queue_index > 0:
+			_queue_index -= 1
+	# CR-7d: if the dead unit was ACTING (T5 in flight), the deferred delivery of
+	# _on_unit_died (CONNECT_DEFERRED) means this runs AFTER the T5 call stack unwinds.
+	# The next _advance_turn call will find _unit_states.has(unit_id) == false at T2
+	# and short-circuit — T6 is skipped, _advance_to_next_queued_unit runs naturally.

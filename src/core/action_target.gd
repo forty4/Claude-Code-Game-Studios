@@ -25,3 +25,9 @@ var target_unit_id: int = 0
 ## The grid position being targeted, or Vector2i.ZERO if targeting a unit.
 ## Story-007+ will validate range / LoS / terrain from this coordinate.
 var target_position: Vector2i = Vector2i.ZERO
+
+## Movement cost consumed by this MOVE action for F-2 Cavalry Charge accumulation.
+## Story-005: read by declare_action(MOVE) path to accumulate accumulated_move_cost.
+## Story-007+ Grid Battle integration will populate from terrain cost at the target cell.
+## Default 0 = no movement cost (stub state; tests pass explicit values).
+var movement_cost: int = 0
