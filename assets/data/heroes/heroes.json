@@ -1,0 +1,137 @@
+{
+  "shu_001_liu_bei": {
+    "hero_id": "shu_001_liu_bei",
+    "name_ko": "유비", "name_zh": "刘备", "name_courtesy": "玄德",
+    "faction": 0,
+    "portrait_id": "portrait_shu_liu_bei", "battle_sprite_id": "sprite_shu_liu_bei",
+    "stat_might": 70, "stat_intellect": 75, "stat_command": 90, "stat_agility": 65,
+    "base_hp_seed": 80, "base_initiative_seed": 65,
+    "move_range": 4,
+    "default_class": 4, "equipment_slot_override": [],
+    "growth_might": 1.0, "growth_intellect": 1.1, "growth_command": 1.4, "growth_agility": 0.9,
+    "innate_skill_ids": ["skill_inspire", "skill_benevolence"], "skill_unlock_levels": [1, 5],
+    "join_chapter": 1, "join_condition_tag": "story_ch1_intro", "is_available_mvp": true,
+    "relationships": [
+      {"hero_b_id": "shu_002_guan_yu", "relation_type": "SWORN_BROTHER", "effect_tag": "bond_oath_peach_garden", "is_symmetric": true},
+      {"hero_b_id": "shu_003_zhang_fei", "relation_type": "SWORN_BROTHER", "effect_tag": "bond_oath_peach_garden", "is_symmetric": true}
+    ]
+  },
+  "shu_002_guan_yu": {
+    "hero_id": "shu_002_guan_yu",
+    "name_ko": "관우", "name_zh": "关羽", "name_courtesy": "云长",
+    "faction": 0,
+    "portrait_id": "portrait_shu_guan_yu", "battle_sprite_id": "sprite_shu_guan_yu",
+    "stat_might": 95, "stat_intellect": 60, "stat_command": 80, "stat_agility": 70,
+    "base_hp_seed": 90, "base_initiative_seed": 70,
+    "move_range": 4,
+    "default_class": 0, "equipment_slot_override": [],
+    "growth_might": 1.5, "growth_intellect": 0.9, "growth_command": 1.1, "growth_agility": 1.0,
+    "innate_skill_ids": ["skill_dragon_blade", "skill_loyalty"], "skill_unlock_levels": [1, 5],
+    "join_chapter": 1, "join_condition_tag": "story_ch1_intro", "is_available_mvp": true,
+    "relationships": [
+      {"hero_b_id": "shu_001_liu_bei", "relation_type": "SWORN_BROTHER", "effect_tag": "bond_oath_peach_garden", "is_symmetric": true},
+      {"hero_b_id": "shu_003_zhang_fei", "relation_type": "SWORN_BROTHER", "effect_tag": "bond_oath_peach_garden", "is_symmetric": true}
+    ]
+  },
+  "shu_003_zhang_fei": {
+    "hero_id": "shu_003_zhang_fei",
+    "name_ko": "장비", "name_zh": "张飞", "name_courtesy": "翼德",
+    "faction": 0,
+    "portrait_id": "portrait_shu_zhang_fei", "battle_sprite_id": "sprite_shu_zhang_fei",
+    "stat_might": 92, "stat_intellect": 50, "stat_command": 70, "stat_agility": 60,
+    "base_hp_seed": 95, "base_initiative_seed": 60,
+    "move_range": 4,
+    "default_class": 1, "equipment_slot_override": [],
+    "growth_might": 1.5, "growth_intellect": 0.7, "growth_command": 0.9, "growth_agility": 0.9,
+    "innate_skill_ids": ["skill_thunder_roar"], "skill_unlock_levels": [1],
+    "join_chapter": 1, "join_condition_tag": "story_ch1_intro", "is_available_mvp": true,
+    "relationships": [
+      {"hero_b_id": "shu_001_liu_bei", "relation_type": "SWORN_BROTHER", "effect_tag": "bond_oath_peach_garden", "is_symmetric": true},
+      {"hero_b_id": "shu_002_guan_yu", "relation_type": "SWORN_BROTHER", "effect_tag": "bond_oath_peach_garden", "is_symmetric": true}
+    ]
+  },
+  "wei_001_cao_cao": {
+    "hero_id": "wei_001_cao_cao",
+    "name_ko": "조조", "name_zh": "曹操", "name_courtesy": "孟德",
+    "faction": 1,
+    "portrait_id": "portrait_wei_cao_cao", "battle_sprite_id": "sprite_wei_cao_cao",
+    "stat_might": 75, "stat_intellect": 85, "stat_command": 92, "stat_agility": 70,
+    "base_hp_seed": 80, "base_initiative_seed": 75,
+    "move_range": 4,
+    "default_class": 4, "equipment_slot_override": [],
+    "growth_might": 1.1, "growth_intellect": 1.3, "growth_command": 1.5, "growth_agility": 1.0,
+    "innate_skill_ids": ["skill_command_aura", "skill_strategist"], "skill_unlock_levels": [1, 5],
+    "join_chapter": 1, "join_condition_tag": "", "is_available_mvp": true,
+    "relationships": []
+  },
+  "wei_005_xiahou_dun": {
+    "hero_id": "wei_005_xiahou_dun",
+    "name_ko": "하후돈", "name_zh": "夏侯惇", "name_courtesy": "元让",
+    "faction": 1,
+    "portrait_id": "portrait_wei_xiahou_dun", "battle_sprite_id": "sprite_wei_xiahou_dun",
+    "stat_might": 88, "stat_intellect": 55, "stat_command": 75, "stat_agility": 65,
+    "base_hp_seed": 88, "base_initiative_seed": 65,
+    "move_range": 4,
+    "default_class": 1, "equipment_slot_override": [],
+    "growth_might": 1.4, "growth_intellect": 0.8, "growth_command": 1.0, "growth_agility": 0.9,
+    "innate_skill_ids": ["skill_iron_grip"], "skill_unlock_levels": [1],
+    "join_chapter": 1, "join_condition_tag": "", "is_available_mvp": true,
+    "relationships": []
+  },
+  "wu_001_sun_quan": {
+    "hero_id": "wu_001_sun_quan",
+    "name_ko": "손권", "name_zh": "孙权", "name_courtesy": "仲谋",
+    "faction": 2,
+    "portrait_id": "portrait_wu_sun_quan", "battle_sprite_id": "sprite_wu_sun_quan",
+    "stat_might": 70, "stat_intellect": 70, "stat_command": 88, "stat_agility": 70,
+    "base_hp_seed": 78, "base_initiative_seed": 68,
+    "move_range": 4,
+    "default_class": 4, "equipment_slot_override": [],
+    "growth_might": 1.0, "growth_intellect": 1.1, "growth_command": 1.4, "growth_agility": 1.0,
+    "innate_skill_ids": ["skill_naval_command", "skill_alliance"], "skill_unlock_levels": [1, 5],
+    "join_chapter": 2, "join_condition_tag": "", "is_available_mvp": true,
+    "relationships": []
+  },
+  "wu_003_zhou_yu": {
+    "hero_id": "wu_003_zhou_yu",
+    "name_ko": "주유", "name_zh": "周瑜", "name_courtesy": "公瑾",
+    "faction": 2,
+    "portrait_id": "portrait_wu_zhou_yu", "battle_sprite_id": "sprite_wu_zhou_yu",
+    "stat_might": 60, "stat_intellect": 95, "stat_command": 80, "stat_agility": 70,
+    "base_hp_seed": 65, "base_initiative_seed": 80,
+    "move_range": 4,
+    "default_class": 3, "equipment_slot_override": [],
+    "growth_might": 0.8, "growth_intellect": 1.5, "growth_command": 1.2, "growth_agility": 1.0,
+    "innate_skill_ids": ["skill_fire_attack", "skill_naval_strategy", "skill_chibi_burn"], "skill_unlock_levels": [1, 5, 10],
+    "join_chapter": 2, "join_condition_tag": "", "is_available_mvp": true,
+    "relationships": []
+  },
+  "qun_001_lu_bu": {
+    "hero_id": "qun_001_lu_bu",
+    "name_ko": "여포", "name_zh": "吕布", "name_courtesy": "奉先",
+    "faction": 3,
+    "portrait_id": "portrait_qun_lu_bu", "battle_sprite_id": "sprite_qun_lu_bu",
+    "stat_might": 100, "stat_intellect": 50, "stat_command": 70, "stat_agility": 90,
+    "base_hp_seed": 95, "base_initiative_seed": 85,
+    "move_range": 5,
+    "default_class": 0, "equipment_slot_override": [],
+    "growth_might": 1.6, "growth_intellect": 0.7, "growth_command": 0.9, "growth_agility": 1.4,
+    "innate_skill_ids": ["skill_invincible", "skill_horse_master"], "skill_unlock_levels": [1, 5],
+    "join_chapter": 1, "join_condition_tag": "", "is_available_mvp": true,
+    "relationships": []
+  },
+  "qun_004_diao_chan": {
+    "hero_id": "qun_004_diao_chan",
+    "name_ko": "초선", "name_zh": "貂蝉", "name_courtesy": "",
+    "faction": 3,
+    "portrait_id": "portrait_qun_diao_chan", "battle_sprite_id": "sprite_qun_diao_chan",
+    "stat_might": 50, "stat_intellect": 75, "stat_command": 60, "stat_agility": 95,
+    "base_hp_seed": 60, "base_initiative_seed": 90,
+    "move_range": 4,
+    "default_class": 5, "equipment_slot_override": [],
+    "growth_might": 0.8, "growth_intellect": 1.2, "growth_command": 0.9, "growth_agility": 1.5,
+    "innate_skill_ids": ["skill_charm", "skill_dance"], "skill_unlock_levels": [1, 5],
+    "join_chapter": 1, "join_condition_tag": "", "is_available_mvp": true,
+    "relationships": []
+  }
+}

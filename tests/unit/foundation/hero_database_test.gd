@@ -65,30 +65,17 @@ func test_module_form_abstract_decorator_present_in_source() -> void:
 	).is_true()
 
 
-# ── AC-3: lazy-init handles missing heroes.json gracefully ────────────────────
-
-
-## AC-3 (FileAccess miss path): _load_heroes() on a missing heroes.json file
-## emits push_error + leaves _heroes_loaded = false (does not crash, does not
-## flip the loaded flag). Story 003 will create assets/data/heroes/heroes.json;
-## until then, this test verifies the missing-file fallback contract.
-func test_load_heroes_handles_missing_file_gracefully() -> void:
-	# Arrange — pristine state (before_test already reset)
-	# heroes.json does NOT exist on disk yet (story 003 creates it).
-
-	# Act — trigger lazy-init via any query method
-	var result: HeroData = HeroDatabase.get_hero(&"any_id")
-
-	# Assert — push_error path: result is null AND _heroes_loaded stays false
-	assert_object(result).override_failure_message(
-		"AC-3: get_hero call on missing heroes.json must return null"
-	).is_null()
-
-	var loaded_flag: bool = _hd_script.get("_heroes_loaded")
-	assert_bool(loaded_flag).override_failure_message(
-		"AC-3: _heroes_loaded must STAY false on FileAccess failure (file missing) — "
-		+ "next call retries the load. Pre-Story-002 contract."
-	).is_false()
+# ── AC-3: lazy-init missing-file contract — REMOVED in story-003 ──────────────
+#
+# The original test_load_heroes_handles_missing_file_gracefully asserted
+# _heroes_loaded stayed false when heroes.json was absent. Story-003 creates
+# assets/data/heroes/heroes.json, so the missing-file premise is no longer
+# reachable without a production-code test seam (the path is a const). The
+# defensive miss-path in hero_database.gd:_load_heroes() (FileAccess.get_file_as_string
+# returns "" → push_error → early return) remains intact; the integration
+# test tests/integration/foundation/hero_database_mvp_roster_test.gd exercises
+# the file-present happy path on every CI run, so a missing/corrupted file
+# would surface there.
 
 
 # ── AC-4: get_hero null + push_error on miss ─────────────────────────────────

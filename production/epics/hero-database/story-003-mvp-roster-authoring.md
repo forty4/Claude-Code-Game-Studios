@@ -1,7 +1,7 @@
 # Story 003: MVP roster authoring (`heroes.json`) + happy-path integration test
 
 > **Epic**: Hero Database
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Integration
 > **Estimate**: 2-3h (8-10 record authoring + 4-faction coverage + happy-path integration test)
@@ -191,3 +191,43 @@
 
 - Depends on: Story 001 (module skeleton) + Story 002 (validation pipeline must gate the authored records cleanly)
 - Unlocks: Story 004 (WARNING-tier validators need real records with relationships authored to exercise drop-paths); Story 005 (perf measurement needs the real roster loaded)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-01
+**Criteria**: 11/11 passing (100% test coverage; no UNTESTED ACs)
+**Test Evidence**: Integration BLOCKING gate satisfied — `tests/integration/foundation/hero_database_mvp_roster_test.gd` (375 LoC / 13 tests / all passing). Smoke check optional and not required (no FATAL trips during authoring; AC-7 pass-through confirms full pipeline).
+**Regression**: 539 → **551 / 0 errors / 1 failures / 0 orphans** ✅
+- Math: 539 baseline + 13 new (mvp_roster integration) − 1 deleted (obsolete missing-file test from story-001) = 551
+- Sole failure = pre-existing carried orthogonal `test_hero_data_doc_comment_contains_required_strings` (in `tests/unit/foundation/unit_role_skeleton_test.gd`) — NOT introduced by story-003
+
+**Code Review**: Complete — APPROVED WITH SUGGESTIONS (lean mode; manual review). 4 forward-looking suggestions S-1..S-4 captured below.
+
+**Files changed**:
+- `assets/data/heroes/heroes.json` (NEW, 7551 bytes, 9 records) — 4-faction × 4-distinct-dominant-stat coverage; Three-Brothers Peach Garden Oath bond on shu_001/002/003 (mutual SWORN_BROTHER, all symmetric, shared `bond_oath_peach_garden` effect_tag)
+- `tests/integration/foundation/hero_database_mvp_roster_test.gd` (NEW, 375 LoC, 13 tests) — covers AC-1..AC-9 against the real heroes.json; uses `_hd_script.set("_heroes_loaded", false)` reflective pattern + `_parse_heroes_json()` private helper
+- `tests/unit/foundation/hero_database_test.gd` (MODIFIED) — deleted obsolete `test_load_heroes_handles_missing_file_gracefully` (story-001 author tagged it as transient: "until then, this test verifies the missing-file fallback contract"); replaced with explanatory comment block (lines 68-78) citing rationale + production defensive miss-path stays intact + integration test as file-present canary
+
+**Engine gotchas applied**: G-2 typed arrays (`Array[HeroData]` / `Array[StringName]` / `Array[Dictionary]` / `Array[String]`), G-7 verified Overall Summary count grew (539 → 552 → 551 after stale-test deletion) + zero parse errors, G-14 ran `godot --headless --import --path .` post-write to refresh class cache + register heroes.json `.uid` sidecar, G-15 `before_test()` (NOT `before_each`) reset both `_heroes_loaded` AND `_heroes` typed Dictionary, G-16 typed `Array[Dictionary]`, G-20 implicit StringName/String coercion noted; tests assert structural shape not type-rejection at `==`, G-22 `_hd_script.set()` reflective pattern, G-23 used only `is_equal`/`is_not_null`/`is_null`/`is_between`/`is_greater_equal`/`is_less_equal` (no `is_not_equal_approx`), G-24 wrapped `as bool` cast in parens
+
+**Deviations** (advisory, none blocking):
+
+- **OUT OF SCOPE (user-approved)**: Modified story-001's test file to delete obsolete `test_load_heroes_handles_missing_file_gracefully`. Original author tagged the test as transient ("until then, this test verifies the missing-file fallback contract" + "story 003 will create assets/data/heroes/heroes.json"). User selected Option A at orchestrator decision point — rationale: heroes.json existence is the DIRECT and EXPECTED consequence of story-003's deliverable; production defensive miss-path (FileAccess "" → push_error → early return) stays intact in source; integration test is the file-present canary on every CI run.
+
+- **ADVISORY (S-1, forward-looking, deferred to TD-042)**: heroes.json uses snake_case keys (`hero_id`, `stat_might`, `name_ko`, ...) which conflicts with `.claude/rules/data-files.md` "Entity-shape data files (heroes, maps, scenarios, equipment) — these MUST follow camelCase per the default rule." ADR-0007 §3 explicitly designs snake_case for cross-doc grep-ability with HeroData @export field names; pattern is established at 4-precedent (`terrain_config.json`, `unit_roles.json`, heroes.json, plus the existing Constants Registry Exception for `balance_entities.json`). Resolution path: amend `data-files.md` to add an "Entity Data File Exception" enumerating the affected files. **Logged as TD-042**.
+
+- **ADVISORY (S-2, test perf — minor)**: `_parse_heroes_json()` re-reads + re-parses heroes.json on every test invocation (~5-10ms × 11 of 13 tests ≈ 55-110ms of redundant I/O). Consider memoizing via a `var _cached_json: Dictionary` lazy-init in `before_test`. Defer to story-005 perf baseline if budget allows.
+
+- **ADVISORY (S-3, default_class missing-field detection)**: `record.get("default_class", -1) as int` followed by `assert_bool(cls >= 0)` would print "default_class -1 must be >= 0" on a missing-field record (misleading vs the actual cause). AC-5's exact-26-key check catches missing fields directly with a clearer message; cosmetic.
+
+- **ADVISORY (S-4, test naming consistency — cosmetic)**: per `.claude/rules/test-standards.md` the canonical pattern is `test_[system]_[scenario]_[expected_result]`. Most integration test names omit the leading `[system]` segment (project precedent now stable at "system context implied by file location" — story-002 uses the same pattern). Future test-standards.md clarification opportunity.
+
+- **ADVISORY (raw-JSON dedup E2E — story-002 AC-7 follow-up, deferred to TD-043)**: Story-002's AC-7 was structural+functional-non-collision only; story-003's AC-7 fold-in (`test_load_heroes_pipeline_passes_for_authored_roster`) exercises the real-file happy path. Literal duplicate-keys-at-JSON-text-level remains untestable through normal `JSON.parse` (silent dedup at parse time + Dictionary collapse). The `seen_ids` guard remains structurally tested via story-002's reflective bypass. **Logged as TD-043**.
+
+**Story-001 forward-looking S-4 (test seam) closure status**: story-002 added the `_load_heroes_from_dict` test seam; story-003's AC-7 integration test exercises the real-file end-to-end path on top of that seam. Story-001's S-4 is now closed by composition.
+
+**Sprint impact**: S2-04 progress 3/5 stories Complete; sprint-status.yaml updated with progress comment. S2-04 stays `backlog` per established precedent (epic-level done = all 5 stories Complete).
+
+**Next**: story-004 (WARNING-tier validators: EC-4 self-ref, EC-5 orphan FK, EC-6 asymmetric conflict) — story-003's Peach Garden Oath bond fixture in heroes.json provides the well-formed-relationship baseline for story-004's drop-path tests. Story-005 (perf baseline + lints) is parallel-eligible after story-003.

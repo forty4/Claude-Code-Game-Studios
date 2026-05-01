@@ -2315,3 +2315,105 @@ var class_dir: Dictionary = BalanceConstants.get_const_dict("CLASS_DIRECTION_MUL
 - `tests/unit/balance/balance_constants_test.gd` (current 6-function test coverage)
 
 **Next review**: bundle into a future damage-calc cleanup or balance-data hardening story; not urgent. ~30 min effort. Logged 2026-04-27 as part of ADR-0006 acceptance.
+
+---
+
+## TD-042 — `data-files.md` Entity Data File Exception amendment (snake_case JSON keys for typed-Resource-mapped data files)
+
+**Severity**: LOW (documentation drift; no runtime impact)
+**Origin**: hero-database story-003 /code-review (S-1, 2026-05-01)
+**Owner**: documentation/architecture (resolution by amending `.claude/rules/data-files.md`)
+
+### Problem
+
+`.claude/rules/data-files.md` mandates camelCase keys for entity-shape JSON data files (heroes, maps, scenarios, equipment). However, the established 4-precedent project pattern uses snake_case keys for cross-doc grep-ability with GDScript `@export` field names (which are snake_case per `technical-preferences.md` naming convention). Affected files:
+
+- `assets/data/heroes/heroes.json` (ADR-0007 §3, Accepted 2026-04-30) — keys: `hero_id`, `stat_might`, `name_ko`, etc., 1:1 with `HeroData` @export field names
+- `assets/data/terrain/terrain_config.json` (ADR-0008) — same pattern
+- `assets/data/units/unit_roles.json` (ADR-0009) — same pattern
+- `assets/data/balance/balance_entities.json` (ADR-0006) — already exempted via the existing "Constants Registry Exception"
+
+The conflict is doc-rule-vs-ADR-precedent: each ADR explicitly designed snake_case JSON keys for its data file, and production code (`_build_hero_data`, `_load_terrain_config`, `_load_unit_roles`) reads snake_case keys directly without a translation layer. Renaming JSON keys to camelCase would require either (a) editing 3+ ADRs and the corresponding production code to use a translation layer, or (b) accepting cross-doc identifier divergence and breaking grep-based audit lints.
+
+### Resolution path
+
+Amend `.claude/rules/data-files.md` to add an "Entity Data File Exception" section structured analogously to the existing "Constants Registry Exception":
+
+1. **Affected files** (exhaustive list):
+   - `assets/data/heroes/heroes.json` (ADR-0007 §3)
+   - `assets/data/terrain/terrain_config.json` (ADR-0008)
+   - `assets/data/units/unit_roles.json` (ADR-0009)
+
+2. **Why the exception**: cross-doc grep-ability between `.gd ↔ .json ↔ .md` for typed-Resource-backed data files where JSON keys map 1:1 with GDScript @export field names. Renaming would require translation layers that obscure the mapping.
+
+3. **Limited scope**: applies ONLY to entity-shape data files where every JSON top-level entry is a record whose nested keys are 1:1 with a typed Resource's @export field set. Does NOT apply to heterogeneous data files, opaque blob data, or files without typed-Resource backing.
+
+4. **Future ADRs** introducing typed-Resource-backed entity data files MUST add their data file to this list explicitly.
+
+### Cost
+
+~15-20 min: read existing "Constants Registry Exception" section as template; add new "Entity Data File Exception" section; cross-link from each affected ADR's §Decision (or §Notes) section.
+
+### References
+
+- `.claude/rules/data-files.md` (current rule + Constants Registry Exception precedent)
+- `docs/architecture/ADR-0007-hero-database.md` §3 (snake_case JSON schema)
+- `docs/architecture/ADR-0008-terrain-effect.md` (terrain_config.json snake_case)
+- `docs/architecture/ADR-0009-unit-role.md` (unit_roles.json snake_case)
+- `assets/data/heroes/heroes.json` (story-003 implementation)
+- `production/epics/hero-database/story-003-mvp-roster-authoring.md` Completion Notes ADVISORY S-1
+
+**Next review**: bundle into a future docs-housekeeping story or address opportunistically when next entity-shape data file lands. Not urgent. Logged 2026-05-01 as part of hero-database story-003 close-out.
+
+---
+
+## TD-043 — Hero Database raw-JSON literal-duplicate-keys E2E test gap (story-002 EC-1 AC-7 follow-up)
+
+**Severity**: LOW (test-coverage gap on a known-untestable path; production guard remains structurally tested)
+**Origin**: hero-database story-002 /story-done close-out (AC-7 ADVISORY) + story-003 /code-review (S-3, 2026-05-01)
+**Owner**: tests/integration/foundation (resolution: a future story authoring a custom-string raw-JSON fixture)
+
+### Problem
+
+`HeroDatabase._load_heroes_from_dict` (production code at `src/foundation/hero_database.gd:58-105`) implements a `seen_ids` Dictionary[StringName, bool] guard against EC-1 duplicate-hero_id load-reject. However, this guard is **unreachable through the standard JSON.parse pathway** because:
+
+1. GDScript Dictionary cannot hold duplicate keys — JSON.parse silently dedupes literal duplicate keys at parse time, collapsing them to the last-occurrence value.
+2. After parse, `raw_records: Dictionary` has unique keys by construction; iterating `for hero_id_str in raw_records` cannot produce a duplicate seen_ids hit.
+
+Story-002's AC-7 was structurally tested via reflective bypass (pre-populating `_heroes` with one record, then calling `_load_heroes_from_dict` with the same key — but this exercises a cross-call collision, not the literal-duplicate-keys-in-source case the EC-1 contract was originally framed around).
+
+Story-003's AC-7 fold-in (`test_load_heroes_pipeline_passes_for_authored_roster`) exercises the real-file happy path — useful regression sentinel, but doesn't close the literal-duplicate-keys gap either (since the authored heroes.json has 9 distinct keys).
+
+### What's missing
+
+A test that:
+1. Constructs a raw JSON text with literal duplicate keys (e.g., `{"shu_001_liu_bei": {...}, "shu_001_liu_bei": {...}}`) — must be built via `String + String` concat at test time, since `Dictionary[StringName, Dictionary]` literal would deduplicate at GDScript construction.
+2. Calls `JSON.new().parse(raw_text)` directly to confirm the parser dedup behavior (and that `json.data` has only N-1 entries).
+3. Documents the gap explicitly: the EC-1 `seen_ids` guard is reachable only via the `_load_heroes_from_dict` path with a pre-constructed Dictionary that already has the conflict. The literal-duplicate-keys path is unreachable.
+
+This is a **known-limitation test** (asserts the gap exists rather than asserts the guard fires), similar to story-001's `test_module_form_abstract_decorator_present_in_source` G-22 structural pattern.
+
+### Resolution path
+
+Author a new integration test (or extend `hero_database_validation_test.gd`) with:
+- `test_json_parse_dedupes_literal_duplicate_keys_silently` — proves the parse-time dedup behavior (asserts `json.data.size() == 1` for a 2-key duplicate input)
+- `test_seen_ids_guard_unreachable_via_json_parse_path` — documents the gap explicitly (proves EC-1 contract framing must rely on cross-call collision OR a Dictionary-bypass seam, not literal source duplicates)
+
+Estimated effort: ~30 min (new test functions; no production code change required).
+
+### Why deferred
+
+1. The `seen_ids` guard is structurally tested via story-002's reflective bypass.
+2. The story-003 AC-7 happy-path test catches any regression in real-file loading.
+3. Production code is unchanged; the gap is a test-coverage clarity issue, not a defect.
+4. Story-003's primary scope is roster authoring + happy-path integration; appending a known-limitation test would expand scope.
+
+### References
+
+- `src/foundation/hero_database.gd:58-105` (`_load_heroes_from_dict` with `seen_ids` guard)
+- `tests/unit/foundation/hero_database_validation_test.gd` (story-002's structural test)
+- `tests/integration/foundation/hero_database_mvp_roster_test.gd::test_load_heroes_pipeline_passes_for_authored_roster` (story-003's happy-path test)
+- `production/epics/hero-database/story-002-validation-pipeline-fatal.md` Completion Notes (AC-7 ADVISORY framing)
+- `production/epics/hero-database/story-003-mvp-roster-authoring.md` Completion Notes ADVISORY (raw-JSON dedup E2E)
+
+**Next review**: bundle into hero-database story-005 (perf baseline + lints) Polish-tier scope, OR a dedicated test-hardening story. Not urgent. Logged 2026-05-01 as part of hero-database story-003 close-out.
