@@ -1,7 +1,7 @@
 # Story 001: HeroDatabase module skeleton + lazy-init + 6 query API
 
 > **Epic**: Hero Database
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Logic
 > **Estimate**: 3-4h (new module ~200 LoC + lazy-init contract + 6 stub query methods + skeleton test suite)
@@ -207,3 +207,29 @@
 
 - Depends on: None (`hero_data.gd` already shipped 2026-04-30 with 26 @export fields per ADR-0007 §Migration Plan §1)
 - Unlocks: Story 002 (validation pipeline needs the `_load_heroes()` skeleton to inject validation into); Story 003 (MVP roster authoring needs the module to load); Story 004 (WARNING tier extends `_load_heroes()`); Story 005 (perf + lint scripts target this file)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-01
+**Criteria**: 8/8 passing (AC-1 + AC-3 + AC-4 covered by 9 explicit tests; AC-2 + AC-5 + AC-6 + AC-7 + AC-8 structurally enforced and grep/regression verified)
+**Test Evidence**: `tests/unit/foundation/hero_database_test.gd` (228 LoC, 9 tests, all PASS) — Logic story BLOCKING gate satisfied
+**Regression**: 506 → **515 / 0 errors / 1 failures / 0 orphans** ✅
+  - The 1 failure = carried-forward orthogonal `test_hero_data_doc_comment_contains_required_strings` (in `tests/unit/foundation/unit_role_skeleton_test.gd`) — pre-existing baseline; NOT introduced by this story
+  - All 9 new hero_database tests PASSED
+  - Exit code 100 = GdUnit4's "≥1 failure" signal, not infra fatal
+**Files shipped**:
+  - `src/foundation/hero_database.gd` (NEW, 170 LoC) — `@abstract class_name HeroDatabase extends RefCounted` + 6 static query methods + `_load_heroes()` placeholder + `_build_hero_data_minimal()` field-by-field helper
+  - `tests/unit/foundation/hero_database_test.gd` (NEW, 228 LoC, 9 tests)
+**ADR-0007 §Validation Criteria**: §1-§9 all green for story-001 scope (validation pipeline §5 explicitly deferred to story-002 per ADR-0007 §Migration Plan)
+**Engine gotchas applied**: G-2 typed-array discipline, G-7 verified Overall Summary count grew, G-12 class_name non-colliding, G-14 ran `godot --headless --import --path .` before first test run, G-15 `before_test()` resets both static vars, G-22 structural source-file assertion for `@abstract`, G-23 used `is_equal`/`is_not_null`/`is_null` (no `is_not_equal_approx`)
+**Code Review** (`/code-review` 2026-05-01): APPROVED WITH SUGGESTIONS — 0 BLOCKING; 5 NON-BLOCKING suggestions are forward-looking story-002 prep, NOT story-001 defects:
+  - S-1 doc-comment / `# RETURNS SHARED REFERENCE` ordering swap (cosmetic)
+  - S-2 silent-coercion hazard comment in `_build_hero_data_minimal()` for story-002 implementer
+  - S-3 `get_relationships` vs `get_hero` miss-return asymmetry inline comment
+  - S-4 story-002 will need NEW test seam (current `_populate_synthetic_fixture()` always sets `_heroes_loaded=true`; validation tests need `_heroes_loaded=false` + injectable bad raw_text — file-path injection or `_load_heroes_from_dict` test seam)
+  - S-5 AC-2 + AC-5 + AC-3-parse-error + AC-7-empty-cache source-assertion tests would harden test-traceability (deferred — current 9 tests + grep-verified structural compliance is adequate per lean-mode)
+**Same-patch §4 GDD Status verification**: GDD `design/gdd/hero-database.md` already reads "Accepted via [ADR-0007] (Accepted 2026-04-30 via /architecture-review delta)" — no flip needed (verified pre-implementation)
+**Deviations**: NONE blocking. NONE out-of-scope.
+**Sprint impact**: S2-04 progress 1/5 stories Complete; epic-level done flag awaits story-005.

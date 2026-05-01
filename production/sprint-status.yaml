@@ -53,6 +53,7 @@ stories:
     estimate_days: 2.0
     blocker: "S2-02"
     completed: ""
+    # 2026-05-01: 1/5 stories Complete (story-001 module skeleton + lazy-init + 6 query API; 506→515 baseline / 0 errors / 1 carried failure / 0 orphans). Story-002 validation pipeline FATAL is next per implementation order 001 → 002 → 003 → {004, 005 parallel}.
 
   - id: "S2-05"
     name: "Admin: refresh production/epics/index.md post-sprint-2"
