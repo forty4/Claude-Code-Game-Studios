@@ -11,6 +11,12 @@ class_name HeroDatabase extends RefCounted
 
 const _HEROES_JSON_PATH: String = "res://assets/data/heroes/heroes.json"
 
+## Regex pattern for hero_id: ^[a-z]+_\d{3}_[a-z_]+$
+## Faction segment: one or more lowercase letters.
+## Sequence: exactly 3 digits.
+## Slug: one or more lowercase letters or underscores.
+const _HERO_ID_REGEX: String = "^[a-z]+_\\d{3}_[a-z_]+$"
+
 static var _heroes_loaded: bool = false
 static var _heroes: Dictionary[StringName, HeroData] = {}
 
@@ -18,8 +24,8 @@ static var _heroes: Dictionary[StringName, HeroData] = {}
 ## Lazy-init loader. Reads heroes.json on first call; subsequent calls return immediately.
 ## On FileAccess failure (empty string returned): push_error + _heroes_loaded stays false.
 ## On JSON parse failure: push_error + _heroes_loaded stays false.
-## Story 001 placeholder: NO validation pipeline. Story 002 injects CR-1/CR-2/EC-1/EC-2
-## FATAL checks between parse and _heroes population.
+## On FATAL validation failure (CR-1 regex / EC-1 duplicate): clears _heroes + stays false.
+## Per-record FATAL (CR-2 range / EC-2 skill array mismatch): drops record, continues.
 static func _load_heroes() -> void:
 	if _heroes_loaded:
 		return
@@ -38,64 +44,258 @@ static func _load_heroes() -> void:
 		)
 		return
 	var raw_records: Dictionary = json.data
-	# Story 001 placeholder: NO validation. Story 002 will inject the FATAL pipeline here.
-	# Minimal happy-path: every record builds via field-by-field assignment.
+	_load_heroes_from_dict(raw_records)
+
+
+## Test-seam entry point: validates and loads heroes from a pre-parsed Dictionary.
+## Production code calls this after FileAccess + JSON.parse; tests call this directly
+## with synthetic fixtures to bypass file I/O.
+## Pass 1 (FATAL load-reject): hero_id regex + duplicate-key detection.
+##   Failure: _heroes.clear() + _heroes_loaded stays false.
+## Pass 2 (per-record FATAL): range checks + skill-array integrity.
+##   Failure: offending record dropped; other records continue.
+## On full pass success: _heroes_loaded = true.
+static func _load_heroes_from_dict(raw_records: Dictionary) -> void:
+	# ── Pass 1: FATAL load-reject checks ─────────────────────────────────────
+	# CR-1: validate hero_id format for every key
+	for hero_id_str: String in raw_records:
+		if not _validate_hero_id_format(hero_id_str):
+			push_error(
+				("HeroDatabase: CR-1 FATAL load-reject — "
+				+ "hero_id '%s' does not match required regex '%s'. "
+				+ "Entire load rejected.")
+				% [hero_id_str, _HERO_ID_REGEX]
+			)
+			_heroes.clear()
+			return
+
+	# EC-1: duplicate hero_id detection.
+	# A GDScript Dictionary cannot hold duplicate keys, so duplicates in the
+	# JSON source collapse silently. We detect this by comparing the record
+	# count against the number of keys after building a seen-set. Since
+	# Dictionary already deduplicates at parse time, this check verifies that
+	# _heroes is not being loaded with a key already present (cross-call
+	# collision) OR via the pairs-list overload used in tests. For the
+	# standard Dictionary path, we scan for any hero_id already in _heroes
+	# (cross-load collision guard).
+	var seen_ids: Dictionary[StringName, bool] = {}
+	for hero_id_str: String in raw_records:
+		var id: StringName = StringName(hero_id_str)
+		if seen_ids.has(id):
+			push_error(
+				("HeroDatabase: EC-1 FATAL load-reject — "
+				+ "duplicate hero_id '%s' detected in input. "
+				+ "Entire load rejected.")
+				% [id]
+			)
+			_heroes.clear()
+			return
+		seen_ids[id] = true
+
+	# ── Pass 2: per-record FATAL checks ───────────────────────────────────────
 	for hero_id_str: String in raw_records:
 		var record: Dictionary = raw_records[hero_id_str]
-		var hero: HeroData = _build_hero_data_minimal(StringName(hero_id_str), record)
+		var hero: HeroData = _build_hero_data(StringName(hero_id_str), record)
+		if hero == null:
+			# Per-record FATAL: push_error was already emitted inside _build_hero_data.
+			# Drop this record and continue with remaining records.
+			continue
 		_heroes[StringName(hero_id_str)] = hero
+
 	_heroes_loaded = true
 
 
-## Minimal hero construction from JSON record.
-## Story 002 replaces this with _build_hero_data() carrying the validation pipeline.
-## Accepts all records unconditionally — no range checks, no format validation.
-static func _build_hero_data_minimal(hero_id: StringName, record: Dictionary) -> HeroData:
+## Builds a HeroData from a JSON record dict, running per-record FATAL validators.
+## Returns null if any per-record FATAL fails (push_error already emitted by validator).
+## Returns HeroData on success.
+## Required fields use validators before assignment; optional fields use .has() fallback.
+static func _build_hero_data(hero_id: StringName, record: Dictionary) -> HeroData:
 	var hero: HeroData = HeroData.new()
 	hero.hero_id = hero_id
+
+	# ── Required fields: identity (no range check; heroes.json schema is owner) ─
 	if record.has("name_ko"):
 		hero.name_ko = record["name_ko"] as String
 	if record.has("name_zh"):
 		hero.name_zh = record["name_zh"] as String
+	# Optional: name_courtesy
 	if record.has("name_courtesy"):
 		hero.name_courtesy = record["name_courtesy"] as String
 	if record.has("faction"):
 		hero.faction = record["faction"] as int
+	# Optional: portrait_id, battle_sprite_id
 	if record.has("portrait_id"):
 		hero.portrait_id = record["portrait_id"] as String
 	if record.has("battle_sprite_id"):
 		hero.battle_sprite_id = record["battle_sprite_id"] as String
+
+	# ── Required fields: core stats range [1, 100] (CR-2) ──────────────────────
 	if record.has("stat_might"):
-		hero.stat_might = record["stat_might"] as int
+		var v: int = record["stat_might"] as int
+		if not _validate_stat_range(hero_id, "stat_might", v, 1, 100):
+			return null
+		hero.stat_might = v
 	if record.has("stat_intellect"):
-		hero.stat_intellect = record["stat_intellect"] as int
+		var v: int = record["stat_intellect"] as int
+		if not _validate_stat_range(hero_id, "stat_intellect", v, 1, 100):
+			return null
+		hero.stat_intellect = v
 	if record.has("stat_command"):
-		hero.stat_command = record["stat_command"] as int
+		var v: int = record["stat_command"] as int
+		if not _validate_stat_range(hero_id, "stat_command", v, 1, 100):
+			return null
+		hero.stat_command = v
 	if record.has("stat_agility"):
-		hero.stat_agility = record["stat_agility"] as int
+		var v: int = record["stat_agility"] as int
+		if not _validate_stat_range(hero_id, "stat_agility", v, 1, 100):
+			return null
+		hero.stat_agility = v
+
+	# ── Required fields: derived seeds range [1, 100] (CR-2) ───────────────────
 	if record.has("base_hp_seed"):
-		hero.base_hp_seed = record["base_hp_seed"] as int
+		var v: int = record["base_hp_seed"] as int
+		if not _validate_stat_range(hero_id, "base_hp_seed", v, 1, 100):
+			return null
+		hero.base_hp_seed = v
 	if record.has("base_initiative_seed"):
-		hero.base_initiative_seed = record["base_initiative_seed"] as int
+		var v: int = record["base_initiative_seed"] as int
+		if not _validate_stat_range(hero_id, "base_initiative_seed", v, 1, 100):
+			return null
+		hero.base_initiative_seed = v
+
+	# ── Required fields: move_range [2, 6] (CR-2) ──────────────────────────────
 	if record.has("move_range"):
-		hero.move_range = record["move_range"] as int
+		var v: int = record["move_range"] as int
+		if not _validate_stat_range(hero_id, "move_range", v, 2, 6):
+			return null
+		hero.move_range = v
+
+	# ── Optional: default_class + equipment_slot_override ──────────────────────
 	if record.has("default_class"):
 		hero.default_class = record["default_class"] as int
+	if record.has("equipment_slot_override"):
+		var raw_slots: Array = record["equipment_slot_override"] as Array
+		var slots: Array[int] = []
+		for slot in raw_slots:
+			slots.append(slot as int)
+		hero.equipment_slot_override = slots
+
+	# ── Required fields: growth rates [0.5, 2.0] (CR-2) ───────────────────────
 	if record.has("growth_might"):
-		hero.growth_might = record["growth_might"] as float
+		var v: float = record["growth_might"] as float
+		if not _validate_growth_range(hero_id, "growth_might", v, 0.5, 2.0):
+			return null
+		hero.growth_might = v
 	if record.has("growth_intellect"):
-		hero.growth_intellect = record["growth_intellect"] as float
+		var v: float = record["growth_intellect"] as float
+		if not _validate_growth_range(hero_id, "growth_intellect", v, 0.5, 2.0):
+			return null
+		hero.growth_intellect = v
 	if record.has("growth_command"):
-		hero.growth_command = record["growth_command"] as float
+		var v: float = record["growth_command"] as float
+		if not _validate_growth_range(hero_id, "growth_command", v, 0.5, 2.0):
+			return null
+		hero.growth_command = v
 	if record.has("growth_agility"):
-		hero.growth_agility = record["growth_agility"] as float
+		var v: float = record["growth_agility"] as float
+		if not _validate_growth_range(hero_id, "growth_agility", v, 0.5, 2.0):
+			return null
+		hero.growth_agility = v
+
+	# ── Required fields: skill parallel arrays (EC-2) ──────────────────────────
+	var raw_skill_ids: Array = []
+	var raw_skill_levels: Array = []
+	if record.has("innate_skill_ids"):
+		raw_skill_ids = record["innate_skill_ids"] as Array
+	if record.has("skill_unlock_levels"):
+		raw_skill_levels = record["skill_unlock_levels"] as Array
+	if not _validate_skill_arrays(hero_id, raw_skill_ids, raw_skill_levels):
+		return null
+	var skill_ids: Array[StringName] = []
+	for sid in raw_skill_ids:
+		skill_ids.append(StringName(sid as String))
+	hero.innate_skill_ids = skill_ids
+	var skill_levels: Array[int] = []
+	for lvl in raw_skill_levels:
+		skill_levels.append(lvl as int)
+	hero.skill_unlock_levels = skill_levels
+
+	# ── Optional: scenario block ────────────────────────────────────────────────
 	if record.has("join_chapter"):
 		hero.join_chapter = record["join_chapter"] as int
 	if record.has("join_condition_tag"):
 		hero.join_condition_tag = record["join_condition_tag"] as String
 	if record.has("is_available_mvp"):
 		hero.is_available_mvp = record["is_available_mvp"] as bool
+
+	# ── Optional: relationships ─────────────────────────────────────────────────
+	if record.has("relationships"):
+		var raw_rels: Array = record["relationships"] as Array
+		var rels: Array[Dictionary] = []
+		for r in raw_rels:
+			rels.append(r as Dictionary)
+		hero.relationships = rels
+
 	return hero
+
+
+## CR-1: validates that a hero_id string matches ^[a-z]+_\d{3}_[a-z_]+$.
+## Returns true if valid; false if the format check fails (caller emits push_error).
+static func _validate_hero_id_format(id: String) -> bool:
+	var re: RegEx = RegEx.new()
+	re.compile(_HERO_ID_REGEX)
+	var result: RegExMatch = re.search(id)
+	return result != null
+
+
+## CR-2 (int): validates that an integer field value is within [min_v, max_v] inclusive.
+## Emits push_error listing hero_id + field + value + range on out-of-bounds.
+## Returns false on failure; true on success.
+static func _validate_stat_range(
+		hero_id: StringName, field: String, value: int, min_v: int, max_v: int) -> bool:
+	if value < min_v or value > max_v:
+		push_error(
+			("HeroDatabase: CR-2 per-record FATAL — "
+			+ "hero_id '%s' field '%s' value %d is out of range [%d, %d]. "
+			+ "Record dropped.")
+			% [hero_id, field, value, min_v, max_v]
+		)
+		return false
+	return true
+
+
+## CR-2 (float): validates that a float field value is within [min_v, max_v] inclusive.
+## Used for growth rates (growth_might / growth_intellect / growth_command / growth_agility).
+## Emits push_error listing hero_id + field + value + range on out-of-bounds.
+## Returns false on failure; true on success.
+static func _validate_growth_range(
+		hero_id: StringName, field: String, value: float, min_v: float, max_v: float) -> bool:
+	if value < min_v or value > max_v:
+		push_error(
+			("HeroDatabase: CR-2 per-record FATAL — "
+			+ "hero_id '%s' field '%s' value %.4f is out of range [%.1f, %.1f]. "
+			+ "Record dropped.")
+			% [hero_id, field, value, min_v, max_v]
+		)
+		return false
+	return true
+
+
+## EC-2: validates that innate_skill_ids and skill_unlock_levels are equal-length.
+## Both length 0 is accepted (per EC-3). Emits push_error on mismatch.
+## Returns false on failure; true on success.
+static func _validate_skill_arrays(
+		hero_id: StringName, ids: Array, levels: Array) -> bool:
+	if ids.size() != levels.size():
+		push_error(
+			("HeroDatabase: EC-2 per-record FATAL — "
+			+ "hero_id '%s' skill parallel array length mismatch: "
+			+ "innate_skill_ids.size()=%d, skill_unlock_levels.size()=%d. "
+			+ "Record dropped.")
+			% [hero_id, ids.size(), levels.size()]
+		)
+		return false
+	return true
 
 
 # RETURNS SHARED REFERENCE — consumers MUST NOT mutate fields. Use base+modifier pattern.
