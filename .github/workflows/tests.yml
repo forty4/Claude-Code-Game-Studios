@@ -71,6 +71,15 @@ jobs:
       - name: Lint HeroDatabase non-emitter + G-15 isolation (TR-hero-database-013 / story-005 AC-2 AC-3)
         run: bash tools/ci/lint_hero_database_no_signal_emission.sh
 
+      - name: Lint Turn Order 4-signal whitelist + G-15 reset list (TR-turn-order-007 + TR-019 / story-007 AC-2 AC-3)
+        run: bash tools/ci/lint_turn_order_no_signal_emission.sh
+
+      - name: Lint Turn Order external queue write ban (TR-turn-order-009 / story-007 AC-4)
+        run: bash tools/ci/lint_turn_order_external_queue_write.sh
+
+      - name: Lint Turn Order AI symbol reference ban (TR-turn-order-009 + S2-06 / story-007 AC-5)
+        run: bash tools/ci/lint_turn_order_no_ai_symbol_reference.sh
+
       - name: Lint provisional formula retired (AC-DC-44 TR-damage-calc-009)
         run: bash tools/ci/lint_fgb_prov_removed.sh
 

@@ -1,7 +1,7 @@
 # Story 007: Epic terminal — perf baseline + 5 forbidden_patterns lint + G-15 6-element reset list lint + Polish-tier scaffolds + TD entries
 
 > **Epic**: Turn Order
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Config/Data
 > **Estimate**: 2-3h
@@ -242,3 +242,54 @@
 
 - Depends on: Stories 001 + 002 + 003 + 004 + 005 + 006 — all production functionality must exist for the perf tests to measure + the lints to scan a representative source state
 - Unlocks: **EPIC CLOSE-OUT** — story-007 is the terminal step. Post-close-out: epic flips from Ready → Complete in `production/epics/index.md` + sprint-status.yaml S2-08 done.
+
+---
+
+## Completion Notes (2026-05-02)
+
+**Verdict**: COMPLETE — all 12 ACs satisfied.
+
+### AC mapping
+
+| AC | Evidence |
+|----|----------|
+| AC-1 (TR-021 perf budgets) | `tests/unit/core/turn_order_perf_test.gd` (282 LoC, 4 perf tests at ×3-25 generous gates over ADR-0011 §AC-23 1ms headline) |
+| AC-2 (TR-009 4-signal whitelist) | `tools/ci/lint_turn_order_no_signal_emission.sh` Part 1; exit 0 |
+| AC-3 (TR-019 G-15 reset list) | Same script Part 2; exit 0 |
+| AC-4 (TR-009 external queue write ban) | `tools/ci/lint_turn_order_external_queue_write.sh`; exit 0 |
+| AC-5 (TR-009 + S2-06 AI symbol ban) | `tools/ci/lint_turn_order_no_ai_symbol_reference.sh`; exit 0 |
+| AC-6 (TR-009 typed-array Polish scaffold) | `tools/ci/lint_turn_order_typed_array_reassignment.sh`; exit 0 stub with deferral message |
+| AC-7 (6 forbidden_patterns registered) | `docs/registry/architecture.yaml` lines 1165-1212 — all 6 patterns active: turn_order_consumer_mutation, turn_order_external_queue_write, turn_order_signal_emission_outside_domain, turn_order_static_var_state_addition, turn_order_typed_array_reassignment, turn_order_ai_system_direct_symbol_reference (6th added 2026-05-02 same-patch with story-007) |
+| AC-8 (CI workflow wiring) | `.github/workflows/tests.yml` 3 new lint steps inserted between hero-database lint (line 71-72) and damage-calc fgb_prov_removed lint (line 80-81) |
+| AC-9 (typed-array NOT in CI) | Confirmed — typed-array Polish scaffold is the only lint script not invoked from tests.yml |
+| AC-10 (3 TD entries) | `docs/tech-debt-register.md`: TD-047 (typed-array Polish full impl), TD-048 (cross-system Integration AC-17/19/20/21), TD-049 (mobile perf budget AC-23) |
+| AC-11 (mobile perf via TD-049) | TD-049 logged with reactivation triggers + resolution path |
+| AC-12 (regression baseline) | **648 cases / 0 errors / 1 unique failed testcase / 0 orphans** — sole failure = pre-existing carried `test_round_lifecycle_emit_order_two_units` (NOT introduced by story-007); gdunit4 summary "2 failures" reflects 2 assertion failures within that one testcase. All 4 active lint scripts exit 0 cleanly. |
+
+### Regression progression
+
+644 (post-story-006) → **648** (+4 perf tests) / 0 errors / 1 carried failure (pre-existing) / 0 orphans.
+
+### Out-of-scope deviations
+
+NONE.
+
+### Tech debt logged
+
+- **TD-047** — `lint_turn_order_typed_array_reassignment.sh` Polish-tier full implementation (currently exit-0 scaffold)
+- **TD-048** — Turn Order cross-system Integration tests AC-17/AC-19/AC-20/AC-21 (require HP/Status epic + Damage Calc Alpha + Grid Battle convergence)
+- **TD-049** — Turn Order AC-23 mobile perf budget on-device measurement (Polish-tier on-device measurement; mirrors damage-calc story-010 + hero-database TD-045 precedent)
+
+### Same-patch obligations satisfied
+
+- **S2-06 AI symbol reference forbidden_pattern** (deferred from S2-06 turn-order GDD revision) — `turn_order_ai_system_direct_symbol_reference` registered in architecture.yaml + lint script wired into CI. S2-06 same-patch obligation now CLOSED.
+
+### Manifest staleness check
+
+PASS (story 2026-04-20 = current 2026-04-20 manifest).
+
+### Epic close-out
+
+**Turn Order epic 7/7 stories COMPLETE**. Story-001 (skeleton) → 002 (initialize_battle) → 003 (advance_turn T1-T7) → 004 (declare_action + tokens) → 005 (death + charge accumulation) → 006 (victory detection) → 007 (epic terminal). 23/23 GDD ACs covered (AC-01..AC-16 + AC-18 + AC-22 + AC-23) or deferred via TD-048 (AC-17 + AC-19 + AC-20 + AC-21 cross-system).
+
+**Sprint impact**: turn-order epic = bonus throughput beyond sprint-2 commitment (S2-08 was /create-epics + /create-stories only; full implementation was unscheduled scope-up). Sprint-2 must-have 5/5 + should-have 2/4 + bonus turn-order epic 7/7 stories Complete.

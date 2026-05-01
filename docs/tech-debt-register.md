@@ -2540,3 +2540,130 @@ Path 1 is preferred because it exercises the production token-spend pathway end-
 - ADR-0011 §Decision §UnitTurnState semantics CR-3f (`acted_this_turn` derivation rule)
 
 **Next review**: at /story-readiness for turn-order story-004 (declare_action). Roll into story-004 ACs to close the coverage gap. Logged 2026-05-01 as part of turn-order story-003 /code-review close-out.
+
+---
+
+## TD-047 — `lint_turn_order_typed_array_reassignment.sh` Polish-tier full implementation
+
+**Severity**: LOW (scaffold exit-0 stub published; production correctness asserted via godot-specialist 2026-04-30 Item 8 review + in-place .clear()/.append_array() discipline visible in src/core/turn_order_runner.gd; lint enforcement is defense-in-depth)
+**Origin**: turn-order story-007 AC-6 + AC-9 (Polish-tier scaffold per ADR-0011 §11 + 6-precedent Polish-deferral pattern: ADR-0008 → 0006 → 0012 → 0009 → 0007 → 0011)
+**Owner**: Polish phase
+
+### Problem
+
+ADR-0011 §Decision §Forbidden patterns lists `turn_order_typed_array_reassignment` (forbid `_queue = new_list` reassignment of typed Array[int] field). Story-007 ships the lint script as an exit-0 scaffold per AC-6: matching `_queue = ` assignments outside `_ready`/`_init` initializer requires either (a) AST-level static analysis (gdscript-toolkit ast walker) or (b) comprehensive grep heuristics that handle multiline strings, escaped quotes inside string literals, comments, and the legitimate `_ready`/`_init` initializer exception. Per AC-9 the scaffold is NOT wired into CI (exit-0 stub adds noise without value — mirrors hero-database story-005 Polish-deferral precedent).
+
+### Reactivation triggers (EITHER is sufficient)
+
+1. Polish-tier lint sweep milestone (bundle with ≥3 other Polish-tier scaffold full-impl tasks for batched CI wiring)
+2. A Turn Order regression introduced via typed-array reassignment that the runtime caught instead of the lint catching it (signals lint-gap hardening priority)
+
+### Resolution path
+
+1. Pick implementation strategy:
+   - **Option A** (preferred): gdscript-toolkit AST walker — parse src/core/turn_order_runner.gd, walk for `Assignment` nodes with target `_queue`/`TurnOrderSnapshot.queue`, exclude when inside `_ready` or `_init` function scope. Matches damage_calc Polish-tier AST lint pattern (TD-040 precedent).
+   - **Option B**: refined grep — multi-pass with state machine for multiline string detection (`"""..."""`), comment stripping (`#` to EOL, but not inside strings), then assignment match. Approximate; may flag false positives.
+2. Wire the lint script into CI between the existing turn-order lints (after `lint_turn_order_no_ai_symbol_reference.sh`, before `lint_fgb_prov_removed.sh`).
+3. Add neg-path test fixtures (synthetic `_queue = []` line) to verify exit-1 detection.
+4. Update ADR-0011 §11 + AC-6 to mark scaffold → active.
+
+### Cost
+
+~2-4h: AST option = ~3-4h (gdscript-toolkit setup + walker logic + test); grep option = ~1-2h (regex + multiline state machine + test). AST is more durable.
+
+### References
+
+- `docs/architecture/ADR-0011-turn-order.md` §Decision §Forbidden patterns + §11 Polish-tier deferrals
+- `tools/ci/lint_turn_order_typed_array_reassignment.sh` (current scaffold — exit-0 stub with deferral message + reactivation trigger doc)
+- TD-040 (`lint_damage_calc_no_stub_copy.sh` — same multiline-string-handling gotcha; Polish-tier resolution approach precedent)
+- 6-precedent Polish-deferral pattern: ADR-0008 → 0006 → 0012 → 0009 → 0007 → 0011
+
+**Next review**: Polish phase scaffold sweep. Not urgent. Logged 2026-05-02 as part of turn-order story-007 /story-done close-out.
+
+---
+
+## TD-048 — Turn Order cross-system Integration tests AC-17 / AC-19 / AC-20 / AC-21 deferred
+
+**Severity**: MEDIUM (AC-17 + AC-19 + AC-20 + AC-21 are GDD-validated cross-system Integration coverage gaps; production correctness asserted via R-1/R-2/CR-7d implementation + per-system unit tests but end-to-end Integration coverage is missing)
+**Origin**: turn-order story-007 AC-10 + epic terminal scope-cut (4 GDD ACs deferred at story-creation time per `production/epics/turn-order/EPIC.md` AC coverage table)
+**Owner**: HP/Status epic + Damage Calc Alpha-tier reactivation + Grid Battle epic (3-system convergence)
+
+### Problem
+
+Turn-order GDD §Validation specifies 23 ACs. Stories 002-006 covered AC-01..AC-16 + AC-18 + AC-22 directly. Story-007 covers AC-23 (perf ADVISORY). The remaining 4 ACs require systems that have not yet shipped:
+
+- **AC-17** "POISON DoT death between turns triggers queue removal mid-round" — requires HP/Status epic ratification (`apply_damage_over_time` + tick scheduling) + `unit_died` signal emission from POISON DoT path.
+- **AC-19** "Battle ends mid-round via POISON-induced victory" — requires HP/Status DoT death path + Turn Order T7 victory detection (already shipped story-006) + integration test combining both.
+- **AC-20** "Scout Ambush gate: Scout-class unit gets free first action before queue rotation kicks in" — requires Damage Calc Alpha-tier scope (Scout class modifier table) + Grid Battle ambush detection trigger.
+- **AC-21** "Grid Battle scenario integration: 4-unit roster + 6-tile map + 3-round playthrough fires correct lifecycle signal sequence" — requires Grid Battle epic ratification (BattleScene + tile map + scenario controller).
+
+Each of these is structurally untestable today because the dependent systems do not exist as code.
+
+### Reactivation triggers (ALL must be satisfied for full coverage)
+
+1. HP/Status epic stories complete — `apply_damage_over_time` + DoT tick scheduling + `unit_died` emission from DoT path (unblocks AC-17 + AC-19)
+2. Damage Calc Alpha-tier reactivation — Scout class modifier table loaded into Damage Calc resolve() (unblocks AC-20 component)
+3. Grid Battle epic stories complete — BattleScene wiring + tile map setup + scenario controller (unblocks AC-20 + AC-21)
+4. Battle Preparation flow ratified — connects all 4 systems at battle-start (final integration substrate)
+
+### Resolution path
+
+1. Author 4 Integration tests under `tests/integration/core/turn_order_cross_system_*.gd`:
+   - `turn_order_cross_system_poison_dot_death_test.gd` (AC-17): seed unit with POISON DoT → tick → assert queue removal mid-round
+   - `turn_order_cross_system_dot_victory_test.gd` (AC-19): combine AC-17 setup → assert T7 emits victory_condition_detected
+   - `turn_order_cross_system_scout_ambush_test.gd` (AC-20): seed Scout-class unit → assert free-first-action gate
+   - `turn_order_cross_system_grid_battle_lifecycle_test.gd` (AC-21): full 4-unit + 6-tile + 3-round playthrough → assert signal sequence
+2. Update `production/epics/turn-order/EPIC.md` AC coverage table to flip 4 ACs from "deferred" → "covered by Integration test X".
+3. Verify regression: ≥4 new Integration tests; full suite ≥648 cases / 0 errors / ≤1 carried failure / 0 orphans.
+
+### Cost
+
+~6-10h total (1.5-2.5h per AC): test authoring + multi-system fixture setup + assertions + regression verification. Mostly waiting on HP/Status + Damage Calc Alpha + Grid Battle epic completion.
+
+### References
+
+- `design/gdd/turn-order.md` §Validation §17, §19, §20, §21 (acceptance criteria text)
+- `docs/architecture/ADR-0011-turn-order.md` §Validation Criteria (cross-references HP/Status + Damage Calc + Grid Battle dependencies)
+- `production/epics/turn-order/EPIC.md` AC coverage table (current "deferred" status for these 4 ACs)
+- HP/Status epic (not yet created — sprint-3 candidate per sprint-2 backlog)
+
+**Next review**: when HP/Status epic stories begin shipping. Bundle the 4 test authoring tasks into a single Integration story under whichever epic ships last (likely Grid Battle). Logged 2026-05-02 as part of turn-order story-007 /story-done close-out.
+
+---
+
+## TD-049 — Turn Order AC-23 mobile perf budget on-device measurement (Polish-tier on-device measurement)
+
+**Severity**: LOW (forward-compat; current 20-unit headless CI measurements ship at story-007 with ×3-25 generous gates over ADR-0011 §AC-23 1ms headline; on-device measurement is verification, not validation gap)
+**Origin**: turn-order story-007 AC-11 (TR-turn-order-021 + ADR-0011 §AC-23 perf ADVISORY)
+**Owner**: Polish phase
+
+### Problem
+
+ADR-0011 §AC-23 specifies a 1ms headline budget for `initialize_battle(20-unit roster)` queue sort + ≤O(1) per-attack queries on minimum mobile spec. Story-007's perf test (`tests/unit/core/turn_order_perf_test.gd`) measures on headless CI Linux x86_64 with ×3-25 generous gates: <50ms for initialize_battle 20-unit cold-start, <5/10/25ms for 1000-call cached query throughput. Mobile target devices (Snapdragon 7-gen baseline per ADR-0001 perf budgets) have not been benchmarked.
+
+### Reactivation triggers (EITHER is sufficient)
+
+1. Target Android device available for benchmarking (mid-range Snapdragon 7-gen reference)
+2. Vertical Slice scene wiring complete — Turn Order driving real BattleScene with mobile profile run
+
+### Resolution path
+
+1. Run `turn_order_perf_test.gd` measurement on:
+   - Headless CI Linux x86_64 (existing perf test environment — already shipped story-007)
+   - Target Android device (mid-range Snapdragon 7-gen reference — Pixel 6a / equivalent)
+2. Verify measurements stay within: PC minimum spec ≤1ms initialize_battle / ≤1µs per-attack query / mobile ≤5ms initialize_battle (5× tolerance per ADR-0001 mobile baseline) / ≤5µs per-attack query.
+3. If overruns: F-1 sort algorithm review (current bubble-sort acceptable at 20 units; quicksort or pre-sorted merge becomes hard requirement at 50+ units).
+4. Update story-007's perf test gate values OR fold into a new Polish-tier benchmark story.
+
+### Cost
+
+~1-2h: device setup + run + report. Mostly waiting on device + VS milestone.
+
+### References
+
+- `docs/architecture/ADR-0011-turn-order.md` §AC-23 (1ms PC minimum spec budget)
+- `design/gdd/turn-order.md` §Validation §23 (ADVISORY perf budget)
+- `tests/unit/core/turn_order_perf_test.gd` (current 20-unit headless perf test — story-007)
+- Mirrors damage-calc story-010 + hero-database TD-045 Polish-deferral precedent (on-device measurement deferred until target device available)
+
+**Next review**: bundle with mobile-build polish milestone or VS scene-wiring milestone. Not urgent. Logged 2026-05-02 as part of turn-order story-007 /story-done close-out.

@@ -1197,6 +1197,13 @@ forbidden_patterns:
     adr: docs/architecture/ADR-0011-turn-order.md
     added: 2026-04-30
 
+  - pattern: turn_order_ai_system_direct_symbol_reference
+    status: active
+    description: "TurnOrderRunner (src/core/turn_order_runner.gd) MUST NOT reference AI subsystem symbols by class_name (ScoutAI / CavalryAI / InfantryAI / NormalAI / SpecialAI), MUST NOT load() AI .gd files (load(\"res://src/ai/...\")), and MUST NOT call AI-specific methods (invoke_ai / get_ai_decision / etc.). TurnOrderRunner is pure turn-order scheduling — AI decision-making subscribes to the generic unit_turn_started signal and resolves its own action declaration via the same declare_action() entry point used by player input. Static lint via tools/ci/lint_turn_order_no_ai_symbol_reference.sh asserts: `grep -E '(ScoutAI|CavalryAI|InfantryAI|NormalAI|SpecialAI)' src/core/turn_order_runner.gd` returns zero matches AND `grep 'load.*res://src/ai/' src/core/turn_order_runner.gd` returns zero matches."
+    why: "S2-06 turn-order GDD §Domain Boundary same-patch obligation deferred from S2-06 to story-007. AI symbol references in TurnOrderRunner would: (a) couple turn-order scheduling to AI subsystem class structure, breaking the substitutability invariant (any subsystem subscribing to unit_turn_started can take an AI's place — input router, scripted scenario, AI, replay system); (b) introduce a circular import hazard if AI subscribes to TurnOrderRunner queries while TurnOrderRunner imports AI types; (c) violate the single-responsibility partition where TurnOrderRunner owns scheduling + AI subsystems own decision-making. Pattern mirrors damage_calc_signal_emission + hp_status_apply_dispatch + turn_order_signal_emission_outside_domain domain-boundary discipline (4-precedent project pattern for cross-system import isolation)."
+    adr: docs/architecture/ADR-0011-turn-order.md
+    added: 2026-05-02
+
   - pattern: balance_constants_signal_emission
     status: active
     description: "BalanceConstants.gd must contain ZERO `signal` declarations + ZERO `connect(` / `emit_signal(` calls + ZERO `<signal>.connect()` calls. Static lint via `grep -E '(signal\\s|connect\\(|emit_signal\\()' src/feature/balance/balance_constants.gd` returns zero matches. Mirrors damage_calc_signal_emission + unit_role_signal_emission + hero_database_signal_emission + hp_status_apply_dispatch + turn_order_signal_emission_outside_domain forbidden_pattern enforcement (5-precedent stateless-static + 1-precedent battle-scoped non-emitter discipline)."

@@ -19,7 +19,7 @@
 | 004 | [declare_action + token validation + DEFEND_STANCE locks + 5 ActionType enum](story-004-declare-action-tokens-and-defend-stance.md) | Logic | Complete (2026-05-01) | ADR-0011 | 001, 002, 003 |
 | 005 | [Death handling (CR-7/CR-7d) + R-1 CONNECT_DEFERRED + R-2 + Charge F-2 + CHARGE_THRESHOLD append](story-005-death-handling-and-charge-accumulation.md) | Integration | Complete (2026-05-01) | ADR-0011 + ADR-0001 + ADR-0010 + ADR-0006 + ADR-0009 | 001, 002, 003, 004 |
 | 006 | [Victory detection (T7+RE2 DRAW + AC-18 mutual kill + AC-22 T7-beats-RE2) + ROUND_CAP append](story-006-victory-detection-and-precedence-rules.md) | Logic | Complete (2026-05-01) | ADR-0011 + ADR-0001 + ADR-0006 | 001, 002, 003, 005 |
-| 007 | [Epic terminal — perf baseline + 5+1 forbidden_patterns lint + G-15 6-element reset list lint + Polish-tier scaffolds + 3 TD entries](story-007-perf-lints-g15-and-td-entries.md) | Config/Data | Ready | ADR-0011 + ADR-0001 + ADR-0006 | 001, 002, 003, 004, 005, 006 |
+| 007 | [Epic terminal — perf baseline + 5+1 forbidden_patterns lint + G-15 6-element reset list lint + Polish-tier scaffolds + 3 TD entries](story-007-perf-lints-g15-and-td-entries.md) | Config/Data | Complete (2026-05-02) | ADR-0011 + ADR-0001 + ADR-0006 | 001, 002, 003, 004, 005, 006 |
 
 **Stories total**: 7 — 5 Logic, 1 Integration, 1 Config/Data.
 
