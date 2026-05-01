@@ -6,7 +6,7 @@ goal: "Foundation 4/5 via balance-data + hero-database ratification; scaffold hp
 start: "2026-04-30"
 end: "2026-05-13"
 generated: "2026-04-30"
-updated: "2026-05-01"  # S2-04 hero-database epic Complete (5/5) + S2-05 admin + S2-02 admin closure + S2-06 turn-order GDD revision; sprint-2 must-have 5/5 + 1 should-have done
+updated: "2026-05-01"  # S2-04 hero-database Complete (5/5) + S2-05 admin + S2-02 closure + S2-06 turn-order GDD revision + S2-08 /create-epics + /create-stories turn-order DONE (7 stories Ready); sprint-2 must-have 5/5 + 2 should-have done
 
 # Sprint-1 closed effective DoD 12/12 by 2026-04-30. Final state archived in
 # git history (see commit a0a3144 sprint-1 status sync) and active.md
@@ -91,11 +91,12 @@ stories:
     name: "/create-epics + /create-stories turn-order (ADR-0011, Core layer)"
     file: "production/epics/turn-order/EPIC.md"
     priority: should-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.5
     blocker: "S2-06"
-    completed: ""
+    completed: "2026-05-01"
+    # 2026-05-01: BOTH /create-epics + /create-stories turn-order DONE. EPIC.md created (3rd Core battle-scoped Node epic; 22/22 TRs traced TR-turn-order-001..022 to ADR-0011 + 6 supporting ADRs ADR-0001/0002/0006/0007/0009/0010; 0 untraced; LOW engine risk). 7 story files created — story-001 module skeleton + story-002 initialize_battle/F-1 cascade + story-003 _advance_turn T1-T7 + story-004 declare_action + story-005 death-handling/CR-7d/Charge-F-2 (Integration) + story-006 victory detection (AC-18/AC-22 precedence) + story-007 epic terminal (perf+lints+G-15+TD entries). 23/23 GDD ACs assigned across 7 stories; 4 cross-system Integration ACs (AC-17/19/20/21 — POISON DoT + battle-end-via-DoT + Scout Ambush) deferred via story-007 TD-047 to Vertical Slice once HP/Status + Damage Calc + Grid Battle ship. Estimated ~18-24h total implementation across 7 stories. Status flips Core 1/4 + 1 Ready (turn-order Ready → 7 stories Ready).
 
   - id: "S2-09"
     name: "/create-epics + /create-stories input-handling (ADR-0005, Foundation, HIGH engine risk)"
