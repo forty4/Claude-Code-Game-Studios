@@ -37,12 +37,12 @@ stories:
     name: "Implement balance-data epic to Complete (~5 stories)"
     file: "production/epics/balance-data/"
     priority: must-have
-    status: in-progress
+    status: done
     owner: ""
     estimate_days: 2.0
     blocker: ""
-    completed: ""
-    # 2026-05-01: story-001 (Foundation-layer relocation) Complete; 4 stories remaining (002, 003, 004, 005)
+    completed: "2026-05-01"
+    # 2026-05-01: 5/5 stories Complete (001 + 002 + 003 + 004 + 005); epic terminal step landed via story-004 (orphan grep gate + Validation §1-§5 audit)
 
   - id: "S2-04"
     name: "Implement hero-database epic to Complete (~5 stories)"

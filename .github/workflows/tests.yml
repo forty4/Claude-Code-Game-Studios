@@ -65,6 +65,9 @@ jobs:
       - name: Lint Foundation Balance no hardcoded constants (TR-balance-data-010 / story-003 AC-3)
         run: bash tools/ci/lint_foundation_balance_no_hardcoded_constants.sh
 
+      - name: Lint no orphan balance-data paths (TR-balance-data-017 / story-004 AC-1)
+        run: bash tools/ci/lint_no_orphan_balance_data_paths.sh
+
       - name: Lint provisional formula retired (AC-DC-44 TR-damage-calc-009)
         run: bash tools/ci/lint_fgb_prov_removed.sh
 

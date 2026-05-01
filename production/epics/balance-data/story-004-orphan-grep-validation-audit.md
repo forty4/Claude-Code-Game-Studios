@@ -1,7 +1,7 @@
 # Story 004: Orphan reference grep gate + Validation §1-§5 audit
 
 > **Epic**: Balance/Data
-> **Status**: Ready
+> **Status**: Complete (2026-05-01)
 > **Layer**: Foundation
 > **Type**: Config/Data
 > **Estimate**: 1.5-2h (new lint script + 6-section evidence doc + CI wiring; +AC-1 self-injection negative test)
@@ -178,7 +178,7 @@
 - `tools/ci/lint_no_orphan_balance_data_paths.sh` — new CI lint script
 - `.github/workflows/tests.yml` updated with new lint step
 
-**Status**: [ ] Not yet created
+**Status**: [x] Complete — see `production/qa/evidence/balance-data-validation-audit-2026-05-01.md`
 
 ---
 
@@ -188,3 +188,38 @@
   - Story 001 (file relocation; AC-1's `res://src/feature/balance/` orphan check requires the move to have happened)
   - Story 005 (TD-041 entry; AC-5 verification needs the entry to exist) — recommend ordering 005 BEFORE 004 OR landing both together
 - Unlocks: None (terminal in the validation-audit path)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-01
+**Criteria**: 8/8 passing (all auto-verified via evidence doc + lint runs)
+**Deviations**: None
+**Test Evidence**: `production/qa/evidence/balance-data-validation-audit-2026-05-01.md` (6-section audit + AC summary table + AC-1 negative-path manual verification + tooling-gotcha cross-references)
+**Code Review**: APPROVED WITH SUGGESTIONS (3 minor stylistic suggestions, all deferable; reviewed inline before close)
+
+### Files changed (3)
+
+1. **NEW** `tools/ci/lint_no_orphan_balance_data_paths.sh` (~95 LoC; bash + grep; AC-1) — 2 fixed-string URI patterns assembled from fragments per anti-self-trigger discipline; `set -uo pipefail` + `2>/dev/null || true` capture pattern (story-008 codified guard); exit codes 0/1/≥2 documented and implemented
+2. **MODIFIED** `.github/workflows/tests.yml` (+3 lines at line 68; AC-7) — new gdunit4-job step inserted between foundation-hardcoded-constants lint (story-003) and provisional-formula lint (AC-DC-44)
+3. **NEW** `production/qa/evidence/balance-data-validation-audit-2026-05-01.md` (~165 LoC; AC-2 through AC-8) — 6 sections (regression / lint scripts audit / delta-#9 obligations / TD-041 / orphan grep gate / CI wiring) + AC summary table + out-of-scope confirmation + tooling-gotcha methodology
+
+**Zero production code, test, or design-doc changes** — story is purely additive (lint + CI step + evidence doc); all delta-#9 documentation obligations were already landed at ADR-0006 acceptance time (2026-04-30).
+
+### Verifications captured
+
+- **AC-1 lint script**: positive run exit 0; negative-path injection with literal URIs → exit 1 with both patterns flagged + Resolution text → cleanup → exit 0
+- **AC-2 + AC-8 regression**: `506 / 0 errors / 1 failures / 0 flaky / 0 skipped / 0 orphans` (G-7 verified — Overall Summary count + zero parse errors); 1 failure is the carried-forward `test_hero_data_doc_comment_contains_required_strings` (orthogonal; pre-existing since story-001/002/005)
+- **AC-3 audit**: `grep -rn "entities\.json" tools/ci/lint_*.sh | grep -v "balance_entities\.json"` → 0 matches across 14 lint scripts
+- **AC-4 §1-§4 obligations**: all 4 PRESENT (data-files.md §50; ADR-0008 RATIFIED §35; ADR-0012 RATIFIED §42; registry/architecture.yaml 7 ADR-0006 refs)
+- **AC-5 TD-041**: present at `docs/tech-debt-register.md:2260` (pre-existing per Story-005)
+- **AC-6 + AC-7**: pre-write audit clean + post-write lint exit 0; yml step at line 68; first-run validation deferred to PR merge by design
+
+### Process insight (codification candidate)
+
+First AC-1 injection attempt used fragment-concat in the test fixture (mirroring the lint's anti-self-trigger). The lint correctly did NOT match the fragmented form — ironic false-negative. Re-ran with literal URIs to validate positive-detection. **Lesson**: anti-self-trigger via fragment-concat in lints is structurally sound, BUT injection tests verifying the lint must use the LITERAL anti-pattern, not the sanitized form. Candidate for `.claude/rules/test-standards.md` codification.
+
+### Sprint-2 balance-data progress
+
+**5/5 stories COMPLETE — epic ready for close-out** (001 + 002 + 003 + 004 + 005). Story-004 was the explicit terminal step per EPIC.md implementation order `001 → {002, 003, 005 parallel} → 004`.
