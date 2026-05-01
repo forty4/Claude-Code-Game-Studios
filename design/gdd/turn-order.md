@@ -2,7 +2,7 @@
 
 > **Status**: ✅ Accepted via ADR-0011 (Proposed 2026-04-30 → Accepted 2026-04-30 via /architecture-review delta #8)
 > **Author**: User + Claude Code agents
-> **Last Updated**: 2026-04-30 (Status flip per /architecture-review delta #8 — Turn Order ratified Foundation 5/5 + Core 3/3 Complete; prior 2026-04-17 design baseline)
+> **Last Updated**: 2026-05-01 (Sprint 2 S2-06 — Contract 5 layer-invariant resolution prose added; resolves architecture.md §1 invariant #4 reading per ADR-0011 §Why-this-form Callable-delegation rationale; prior 2026-04-30 ADR-0011 acceptance baseline)
 > **Implements Pillar**: Pillar 1 (형세의 전술) + Pillar 3 (모든 무장에게 자리가 있다)
 
 ## Overview
@@ -455,11 +455,55 @@ signal victory_condition_detected(result: enum {PLAYER_WIN, PLAYER_LOSE, DRAW})
 # `grid-battle.md` §CR-7 and §Dependencies (Turn Order row, CLEANUP ownership annotation).
 ```
 
-**Contract 5: Turn Order → AI System** (on AI turn)
+**Contract 5: Turn Order → Controller delegation** (per-unit at T4)
 ```
-ai_system.request_action(unit_id, queue_snapshot) → ActionDecision
+controller.request_action(unit_id, queue_snapshot) → ActionDecision
 ```
-AI returns action; Turn Order executes within T5.
+Per-unit `controller: Callable` reference is injected by Battle Preparation at
+BI-1 (one Callable per `unit_roster` entry — the player's input layer for
+`is_player_controlled = true` units, the AI System for `is_player_controlled =
+false` units). At T4 Turn Order calls `controller.call(unit_id,
+queue_snapshot)` and awaits the returned `ActionDecision`; T5 executes the
+decision within the same call frame (synchronous delegation preserves F-DC-5
+Ambush-gate timing semantics).
+
+> **Layer-invariant resolution** (ratified 2026-04-30 by ADR-0011 §Decision §Why
+> this form, reconfirmed by ADR-0011 §Cross-Document Consistency Mapping
+> `turn-order.md` §CR-1 "interleaved queue" entry; GDD prose added 2026-05-01
+> via Sprint 2 S2-06).
+>
+> `architecture.md` §1 invariant #4 forbids Core → Feature direct symbol
+> references. Turn Order satisfies #4 here NOT by signal-inverting the AI
+> hand-off (the natural reading) but by depending on a generic `Callable`
+> abstraction at the call site: **Turn Order has zero symbol knowledge of the
+> AI System.** The `controller` Callable is injected at BI-1 by Battle
+> Preparation, which IS allowed to know about both Turn Order (Core) and AI
+> System (Feature) per its Feature-layer placement. Turn Order's own type
+> signatures, imports, and tests reference only `Callable` — a Godot built-in
+> primitive — never `AISystem` or any Feature-layer class.
+>
+> The interleaved queue (CR-1) makes player vs AI ownership invisible to Turn
+> Order queue logic: `is_player_controlled` is metadata for HUD presentation
+> and CR-7d counter-attack interrupt evaluation only, never a branch
+> predicate inside Turn Order's own queue mutation, tie-breaking, or round-
+> lifecycle code paths.
+>
+> Signal-inversion (Turn Order emits `ai_turn_started` → AI subscribes → AI
+> emits `ai_action_decided` back → Turn Order subscribes) was explicitly
+> evaluated and rejected in ADR-0011 §Alternatives Considered: it would add
+> round-trip latency (two GameBus deferred-emit cycles per AI turn), require
+> a temporary "awaiting AI" state in `_round_state` (RoundState enum bloat),
+> and create double-emit semantics for what is fundamentally synchronous
+> control delegation. The Callable-delegation form preserves T4→T5
+> sequential semantics with zero asynchronous boundary, while keeping
+> Turn Order invariant-#4-blind.
+>
+> **Forbidden patterns enforced**: Turn Order source code MUST NOT contain
+> `import AISystem` / `class_name AI...` symbol references / `preload(".../ai_*.gd")`
+> directives. Codified in `docs/registry/architecture.yaml` as
+> `turn_order_ai_system_direct_symbol_reference` (registration deferred to
+> /create-stories turn-order at S2-08 epic creation; ADR-0011 §Decision +
+> this resolution prose are the authoritative spec until then).
 
 ## Formulas
 

@@ -6,7 +6,7 @@ goal: "Foundation 4/5 via balance-data + hero-database ratification; scaffold hp
 start: "2026-04-30"
 end: "2026-05-13"
 generated: "2026-04-30"
-updated: "2026-05-01"  # S2-04 hero-database epic Complete (5/5) + S2-05 admin pass; sprint-2 must-have 4/5
+updated: "2026-05-01"  # S2-04 hero-database epic Complete (5/5) + S2-05 admin + S2-02 admin closure + S2-06 turn-order GDD revision; sprint-2 must-have 5/5 + 1 should-have done
 
 # Sprint-1 closed effective DoD 12/12 by 2026-04-30. Final state archived in
 # git history (see commit a0a3144 sprint-1 status sync) and active.md
@@ -27,11 +27,11 @@ stories:
     name: "/create-epics + /create-stories hero-database (ADR-0007 ratification)"
     file: "production/epics/hero-database/EPIC.md"
     priority: must-have
-    status: ready-for-dev
+    status: done
     owner: ""
     estimate_days: 0.5
     blocker: ""
-    completed: ""
+    completed: ""  # Effective completion 2026-05-01 — work product (5-story decomposition) absorbed entirely into S2-04 implementation track; no separate /create-stories invocation needed since stories were authored in-flight at /dev-story time. Closure is admin housekeeping, not new work.
 
   - id: "S2-03"
     name: "Implement balance-data epic to Complete (~5 stories)"
@@ -70,11 +70,12 @@ stories:
     name: "turn-order.md GDD revision — resolve architecture.md §1 invariant #4 violation"
     file: "design/gdd/turn-order.md"
     priority: should-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.75
     blocker: ""
-    completed: ""
+    completed: "2026-05-01"
+    # 2026-05-01: Contract 5 §Layer-invariant resolution prose added (~50-line block) explaining ADR-0011 §Why-this-form Callable-delegation rationale: Turn Order depends on generic Callable abstraction (Godot built-in primitive); zero AI System symbol references; Battle Preparation injects per-unit controller Callable at BI-1; interleaved queue (CR-1) makes player vs AI ownership invisible to queue logic; signal-inversion explicitly evaluated + rejected (round-trip latency + double-emit semantics + RoundState enum bloat). Also updated GDD Last Updated header (2026-04-30 → 2026-05-01) + index.md turn-order pending row (removed "Needs Revision" tag, marked Architecture.md blocker RESOLVED). Forbidden_pattern `turn_order_ai_system_direct_symbol_reference` registration deferred to S2-08 /create-stories turn-order epic creation. Top-level updated annotated.
 
   - id: "S2-07"
     name: "/create-epics + /create-stories hp-status (ADR-0010, Core layer)"
