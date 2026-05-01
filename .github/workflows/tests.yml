@@ -62,6 +62,9 @@ jobs:
       - name: Lint DamageCalc no hardcoded balance constants (AC-DC-48 TR-damage-calc-006)
         run: bash tools/ci/lint_damage_calc_no_hardcoded_constants.sh
 
+      - name: Lint Foundation Balance no hardcoded constants (TR-balance-data-010 / story-003 AC-3)
+        run: bash tools/ci/lint_foundation_balance_no_hardcoded_constants.sh
+
       - name: Lint provisional formula retired (AC-DC-44 TR-damage-calc-009)
         run: bash tools/ci/lint_fgb_prov_removed.sh
 

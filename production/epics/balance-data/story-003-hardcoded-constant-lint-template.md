@@ -1,7 +1,7 @@
 # Story 003: Per-system hardcoded-constant lint template
 
 > **Epic**: Balance/Data
-> **Status**: Ready
+> **Status**: Complete (2026-05-01)
 > **Layer**: Foundation
 > **Type**: Config/Data
 > **Estimate**: 1.5-2h (template extraction + CI wiring + silent-fail antipattern doc)
@@ -156,7 +156,7 @@
 - Reusable lint template/parameterized script in `tools/ci/`
 - `.github/workflows/tests.yml` updated to invoke generalized lint
 
-**Status**: [ ] Not yet created
+**Status**: [x] Complete — `production/qa/smoke-balance-data-story-003-2026-05-01.md` + 2 NEW lint scripts (`tools/ci/lint_no_hardcoded_balance_constants.sh.template` + `tools/ci/lint_foundation_balance_no_hardcoded_constants.sh`) + CI workflow extension. Both lints verified PASS post-write (exit 0); regression `506 cases / 0 errors / 0 orphans / 1 failures` (1 pre-existing carried).
 
 ---
 
@@ -164,3 +164,38 @@
 
 - Depends on: None (independent of stories 001 + 002 — could parallelize, but recommended to land after Story 001 so foundation-layer scope (AC-3) targets the post-move location)
 - Unlocks: future consumer adoption in hp-status / turn-order / hero-database / input-handling epics
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-01
+**Criteria**: 7/7 passing — see `/story-done` traceability table for per-AC mapping
+**Code Review**: Complete — `/code-review` returned APPROVED 2026-05-01 (lean mode; LP-CODE-REVIEW + QL-TEST-COVERAGE skipped per `production/review-mode.txt`). 3 minor stylistic suggestions deferred (drift-detection date stamps / non-Foundation forward-reference / template invalid-grep informational note) — none required.
+**Test Evidence**: `production/qa/smoke-balance-data-story-003-2026-05-01.md` — Config/Data story; smoke check serves as evidence. Plus 2 NEW lint scripts (`tools/ci/lint_no_hardcoded_balance_constants.sh.template` + `tools/ci/lint_foundation_balance_no_hardcoded_constants.sh`) and CI workflow extension (`.github/workflows/tests.yml` +3 lines).
+**Regression result**: `506 test cases | 0 errors | 1 failures | 0 flaky | 0 skipped | 0 orphans` (no test infrastructure changes from this story; baseline unchanged from story-005).
+
+### Locked decisions held (from /story-readiness 2026-05-01)
+
+- **AC-1 → Approach B (template file)**: AC-DC-48 instance-per-system pattern; revisit Approach A (parameterized) when 3+ consumers exist
+- **Implementation Notes §3 → Option β (hardcoded subset)**: jq is NOT in `.github/workflows/tests.yml`; Option α deferred until jq is added
+- **Implementation Notes §6 → Option (a) extend existing step**: tests.yml gdunit4 job linear lint sequence preserved
+
+### Files changed (4)
+
+- **NEW** `tools/ci/lint_no_hardcoded_balance_constants.sh.template` (~75 LoC) — Approach B reusable template; 2 INSTANTIATION points (TARGET + PATTERN); doc-comment covers AC-DC-48 origin + 3-step instantiation procedure + story-008 silent-fail antipattern guard + exit-code convention (0 pass / 1 domain / ≥2 tool) + cross-references
+- **NEW** `tools/ci/lint_foundation_balance_no_hardcoded_constants.sh` (~50 LoC) — first instance from template; scope `src/foundation/` excluding allow-listed `balance/` source-of-truth; 20-key PATTERN (12 damage_calc original + 3 ADR-0010 HP_* + 2 ADR-0011 INIT_* + 3 map-grid MOVE_*)
+- **MODIFIED** `.github/workflows/tests.yml` (+3 lines) — new "Lint Foundation Balance no hardcoded constants" step inserted in gdunit4 job after the existing damage_calc no-hardcoded-constants step
+- **NEW** `production/qa/smoke-balance-data-story-003-2026-05-01.md` (~70 LoC) — AC-6 smoke evidence doc covering all 7 ACs with verbatim lint exit codes + regression Overall Summary
+
+### Deviations (ADVISORY only — none blocking)
+
+1. **Pre-existing failure carried from story-001 close-out (NOT introduced)**: `test_hero_data_doc_comment_contains_required_strings` in `tests/unit/foundation/unit_role_skeleton_test.gd:231`. Orthogonal to story-003 scope; already documented in story-001/002/005 Completion Notes.
+2. **3 minor /code-review suggestions deferred (stylistic, none required)**:
+   - Drift-detection date stamp on damage_calc lint's PATTERN (currently only foundation-layer lint has `# verified 2026-05-01`)
+   - Forward-reference about non-Foundation consumer scope in foundation-layer lint header
+   - Template's `<TODO: KEY_1|KEY_2|KEY_3>` is invalid grep PATTERN if executed directly (file existence check exits 2 first; intended template-not-runnable behaviour)
+
+### Unlocks
+
+Story 003 unlocks future consumer adoption: hp-status, turn-order, hero-database, and input-handling epics will instantiate the template per their own story files when they land. Within balance-data epic: no downstream stories depend on Story 003 (it was always independent).
