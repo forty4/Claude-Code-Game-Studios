@@ -3,8 +3,9 @@
 > **Layer**: Foundation
 > **GDD**: `design/gdd/hero-database.md` (Approved; ratified by ADR-0007)
 > **Architecture Module**: HeroDatabase + HeroData — Foundation-layer data infrastructure (`src/foundation/hero_database.gd` to-be-created + `src/foundation/hero_data.gd` shipped 2026-04-28 under ADR-0009 §Migration Plan §3 soft-dep)
-> **Status**: Ready
-> **Stories**: 5/5 created (2026-05-01) — see Stories table below
+> **Status**: Complete
+> **Completed**: 2026-05-01 (Sprint 2 S2-04 — 5/5 stories shipped)
+> **Stories**: 5/5 Complete (2026-05-01) — see Stories table below
 > **Manifest Version**: 2026-04-20 (`docs/architecture/control-manifest.md`)
 > **Created**: 2026-05-01 (Sprint 2 S2-02)
 
@@ -12,11 +13,11 @@
 
 | # | Story | Type | Status | Governing ADR | Depends on |
 |---|-------|------|--------|---------------|------------|
-| 001 | [HeroDatabase module skeleton + lazy-init + 6 query API](story-001-database-module-skeleton.md) | Logic | Ready | ADR-0007 | None (gates 002+003+004+005) |
-| 002 | [Validation pipeline FATAL severity (CR-1 + CR-2 + EC-1 + EC-2)](story-002-validation-pipeline-fatal.md) | Integration | Ready | ADR-0007 | 001 |
-| 003 | [MVP roster authoring (`heroes.json`) + happy-path integration test](story-003-mvp-roster-authoring.md) | Integration | Ready | ADR-0007 | 001, 002 |
-| 004 | [Relationship WARNING tier (EC-4/5/6) + R-1 consumer-mutation regression](story-004-warning-tier-and-r1-mitigation.md) | Logic | Ready | ADR-0007 | 001, 002, 003 |
-| 005 | [Perf baseline + non-emitter lint + Polish-tier validation lint scaffold](story-005-perf-baseline-lints-td-entry.md) | Config/Data | Ready | ADR-0007 + ADR-0001 + ADR-0006 | 001, 002, 003, 004 |
+| 001 | [HeroDatabase module skeleton + lazy-init + 6 query API](story-001-database-module-skeleton.md) | Logic | Complete | ADR-0007 | None (gates 002+003+004+005) |
+| 002 | [Validation pipeline FATAL severity (CR-1 + CR-2 + EC-1 + EC-2)](story-002-validation-pipeline-fatal.md) | Integration | Complete | ADR-0007 | 001 |
+| 003 | [MVP roster authoring (`heroes.json`) + happy-path integration test](story-003-mvp-roster-authoring.md) | Integration | Complete | ADR-0007 | 001, 002 |
+| 004 | [Relationship WARNING tier (EC-4/5/6) + R-1 consumer-mutation regression](story-004-warning-tier-and-r1-mitigation.md) | Logic | Complete | ADR-0007 | 001, 002, 003 |
+| 005 | [Perf baseline + non-emitter lint + Polish-tier validation lint scaffold](story-005-perf-baseline-lints-td-entry.md) | Config/Data | Complete | ADR-0007 + ADR-0001 + ADR-0006 | 001, 002, 003, 004 |
 
 **Stories total**: 5 — 2 Logic, 2 Integration, 1 Config/Data.
 
