@@ -7,7 +7,7 @@ goal: "Close last Core epic (hp-status) to Complete; resolve carried turn-order 
 start: "2026-05-03"
 end: "2026-05-09"
 generated: "2026-05-02"
-updated: "2026-05-02"  # Sprint-3 plan generated; sprint-2 archived (commit 66144d9 turn-order epic terminal — see retro at production/retrospectives/retro-sprint-2-2026-05-02.md).
+updated: "2026-05-02"  # S3-00 carry-fix done (turn-order test adapted to story-006 RE3 chain); 648/0/0/0 regression PASS; first-failure-free baseline since story-005.
 
 # Sprint-2 closed effective DoD must-have 5/5 + should-have 2/3 + bonus turn-order
 # epic 7/7 by 2026-05-02. Final state archived in git history (commit 66144d9) and
@@ -18,11 +18,12 @@ stories:
     name: "Carry-fix: turn_order_advance_turn_test::test_round_lifecycle_emit_order_two_units"
     file: "tests/unit/core/turn_order_advance_turn_test.gd"
     priority: must-have
-    status: ready-for-dev
+    status: done
     owner: ""
     estimate_days: 0.25
     blocker: ""
-    completed: ""
+    completed: "2026-05-02"
+    # 2026-05-02: test adapted to story-006 RE3 chain reality (size==5 → ≥5; round_state==ROUND_ENDING assertion dropped — chain auto-loops to ROUND_CAP=30 DRAW). Test-side only; production unchanged. Full regression 648/0/0/0/0 PASS.
 
   - id: "S3-01"
     name: "/create-epics + /create-stories hp-status (ADR-0010, Core layer, greenfield)"

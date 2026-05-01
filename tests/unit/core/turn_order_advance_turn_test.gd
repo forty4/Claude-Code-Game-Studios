@@ -543,7 +543,9 @@ func test_round_lifecycle_emit_order_two_units() -> void:
 	# Frame 2: _advance_turn(queue[0]) runs → emits unit_turn_started(a) + unit_turn_ended(a)
 	#           → call_deferred(_advance_turn, queue[1])
 	# Frame 3: _advance_turn(queue[1]) runs → emits unit_turn_started(b) + unit_turn_ended(b)
-	#           → ROUND_ENDING
+	#           → ROUND_ENDING; story-006 RE3 then chains _begin_round.call_deferred()
+	#           and the chain auto-loops until ROUND_CAP=30 fires DRAW (RE2). This test
+	#           validates round 1's emit order only — chain side effects ignored.
 	_runner._begin_round()
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -556,13 +558,18 @@ func test_round_lifecycle_emit_order_two_units() -> void:
 	var uid_a: int = _runner._queue[0]
 	var uid_b: int = _runner._queue[1]
 
-	# Assert signal count: exactly 5 signals in total
+	# Assert signal count: at least 5 signals (round 1's full emit set).
+	# Pre-story-006 this was exactly 5 because _begin_round() terminated at ROUND_ENDING.
+	# Post-story-006 _end_round → _begin_round.call_deferred() chains rounds until
+	# ROUND_CAP=30 (RE2 DRAW), so the log holds 5 × N signals where N is the round
+	# count reached within the awaited frame budget. Per-index assertions below
+	# validate that the first 5 entries (round 1) are still correctly ordered.
 	assert_int(_signal_log.size()).override_failure_message(
-		("AC-11: full 2-unit round must produce exactly 5 signals "
+		("AC-11: round 1 must produce at least 5 signals "
 		+ "[round_started, turn_started(a), turn_ended(a), turn_started(b), turn_ended(b)]; "
 		+ "got %d signals in log: %s")
 		% [_signal_log.size(), str(_signal_log)]
-	).is_equal(5)
+	).is_greater_equal(5)
 
 	# Assert signal[0]: round_started(1)
 	assert_str(
@@ -651,12 +658,12 @@ func test_round_lifecycle_emit_order_two_units() -> void:
 		"AC-11: signal[4] unit_turn_ended.acted must be false (T5 stub, no tokens spent)"
 	).is_false()
 
-	# Assert final round_state == ROUND_ENDING (queue exhausted after 2 units)
-	assert_int(
-		_runner._round_state as int
-	).override_failure_message(
-		("AC-11: after both units complete, _round_state must be ROUND_ENDING (%d); "
-		+ "got %d — _advance_to_next_queued_unit did not transition on queue exhaustion")
-		% [TurnOrderRunner.RoundState.ROUND_ENDING as int,
-			(_runner._round_state as int)]
-	).is_equal(TurnOrderRunner.RoundState.ROUND_ENDING as int)
+	# Final-state assertion intentionally OMITTED. Pre-story-006 this asserted
+	# `_round_state == ROUND_ENDING` after queue exhaustion. Post-story-006, RE3
+	# (`_begin_round.call_deferred()` from `_end_round`) chains the next round
+	# immediately, so `_round_state` does not stay at ROUND_ENDING — it cycles
+	# ROUND_ENDING → ROUND_STARTING → ROUND_ACTIVE on each chained round, and
+	# terminally lands on BATTLE_ENDED when ROUND_CAP=30 fires DRAW. Round-end
+	# state-transition coverage now lives in story-006's victory-detection tests
+	# and the dedicated `_end_round` unit tests; this test focuses solely on the
+	# round-1 in-order signal sequence.
