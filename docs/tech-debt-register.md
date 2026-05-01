@@ -2501,7 +2501,9 @@ ADR-0007 §Performance + GDD AC-15 specify a 100-hero load + Dictionary build pe
 
 ---
 
-## TD-046 — Turn Order story-003 AC-9 `acted=true` synthetic-state coverage gap
+## TD-046 — Turn Order story-003 AC-9 `acted=true` synthetic-state coverage gap — RESOLVED 2026-05-01
+
+**Status**: RESOLVED 2026-05-01 via turn-order story-004 (declare_action + token validation). Story-004's `test_declare_action_attack_then_move_both_succeed_acted_true_at_t6` exercises the production declare_action → _mark_acted seam to verify acted_this_turn=true after both tokens are spent — closes the structural untestability that originated this debt. Original entry preserved below for historical record.
 
 **Severity**: LOW (story doc QA Test Case is structurally untestable in story-003 scope; production correctness is asserted via the OR-formula visible in `_mark_acted`)
 **Origin**: turn-order story-003 /code-review qa-tester gap finding (2026-05-01)

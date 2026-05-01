@@ -8,12 +8,17 @@ class_name UnitTurnState
 ## BI-2/BI-3 to support the F-1 sort-time comparator without re-querying HeroDatabase
 ## per O(N log N) comparison. CR-6 static-initiative rule structurally enforced by
 ## storage location — values cached once at BI-2/BI-3, never recomputed.
+## Same-patch amendment 2026-05-01 (story-004): extended from 9 → 10 fields with
+## `defend_stance_active: bool` (reset to false at T4 per _activate_unit_turn; set to
+## true by declare_action(DEFEND); read by declare_action(MOVE) for CR-4c lock).
+## Cross-reference ADR-0011 §Decision §Typed Resource (orchestrator lands ADR amendment
+## same-patch).
 ##
 ## RefCounted (NOT Resource) — battle-scoped non-persistent runtime state per
 ## ADR-0011 CR-1b lifecycle alignment (mirrors ADR-0010 UnitHPState rationale).
 ##
 ## RULES:
-##  - All 9 fields are public (no getters/setters) — owned exclusively by
+##  - All 10 fields are public (no getters/setters) — owned exclusively by
 ##    TurnOrderRunner; consumers MUST NOT mutate via snapshot()
 ##    (forbidden_pattern: turn_order_consumer_mutation; ADR-0011 §Decision).
 ##  - snapshot() uses field-by-field copy; MUST NOT call .duplicate() or
@@ -21,6 +26,8 @@ class_name UnitTurnState
 ##  - unit_id type is int per ADR-0001 line 153 + ADR-0011 lock.
 ##  - initiative, stat_agility, is_player_controlled are cached at BI-2/BI-3
 ##    and MUST NOT be written after initialization (CR-6 static-initiative rule).
+##  - defend_stance_active is reset to false at T4 and set by declare_action(DEFEND)
+##    within T5; cross-turn HP/Status SE-3 persistence is DEFERRED to story-005+.
 ##
 ## See ADR-0011 §Decision §Typed Resource / wrapper definitions for full spec.
 extends RefCounted
@@ -65,6 +72,13 @@ var stat_agility: int = 0
 ## both initiative and stat_agility are tied.
 var is_player_controlled: bool = false
 
+## True iff this unit has DEFEND_STANCE applied (via declare_action(DEFEND) this turn
+## or carried from a prior turn). Story-004: set by declare_action(DEFEND); checked by
+## declare_action(MOVE) for CR-4c lock. T4 reset CLEARS to false (cross-turn HP/Status
+## SE-3 persistence DEFERRED to story-005+ HP/Status integration — within-turn semantics
+## is what story-004 covers).
+var defend_stance_active: bool = false
+
 # ── Public methods ─────────────────────────────────────────────────────────────
 
 ## Returns a defensive deep copy via explicit field-by-field assignment.
@@ -75,7 +89,8 @@ var is_player_controlled: bool = false
 ## NOT .duplicate() / .duplicate_deep() — those are Resource methods;
 ## UnitTurnState is RefCounted, NOT Resource. Field-by-field is idiomatic.
 ##
-## Copies all 9 fields (6 original + 3 metadata added 2026-05-01 story-002).
+## Copies all 10 fields (6 original + 3 metadata added 2026-05-01 story-002
+## + 1 defend_stance_active added 2026-05-01 story-004).
 ##
 ## Usage:
 ##     var copy: UnitTurnState = original.snapshot()
@@ -91,4 +106,5 @@ func snapshot() -> UnitTurnState:
 	copy.initiative = initiative
 	copy.stat_agility = stat_agility
 	copy.is_player_controlled = is_player_controlled
+	copy.defend_stance_active = defend_stance_active
 	return copy

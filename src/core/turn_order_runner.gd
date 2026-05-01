@@ -45,6 +45,29 @@ enum TurnState {
 	DEAD,
 }
 
+## Action types per ADR-0011 §Key Interfaces line 151 + GDD §CR-4 (5 actions).
+## Consumers reference as TurnOrderRunner.ActionType.MOVE etc.
+## Ratified by TR-turn-order-013 (story-004 same-patch).
+enum ActionType {
+	MOVE,
+	ATTACK,
+	USE_SKILL,
+	DEFEND,
+	WAIT,
+}
+
+## Failure error codes for declare_action() validation rejection paths.
+## NONE=0 sentinel for success; non-zero values are mutually exclusive failure modes.
+## Ratified by TR-turn-order-013 (story-004 same-patch).
+enum ActionError {
+	NONE,
+	INVALID_ACTION_TYPE,
+	TOKEN_ALREADY_SPENT,
+	MOVE_LOCKED_BY_DEFEND_STANCE,
+	UNIT_NOT_FOUND,
+	NOT_UNIT_TURN,
+}
+
 # ── Private variables ──────────────────────────────────────────────────────────
 
 ## Ordered list of ALIVE unit_ids for the current round. Rebuilt at R3 each round.
@@ -192,20 +215,90 @@ func _advance_turn(unit_id: int) -> void:
 ## Called by the player input layer (via Grid Battle BattleController) OR AI System
 ## (via request_action delegation at T4). Validates token availability + DEFEND_STANCE
 ## locks + range/cooldown gates per ADR-0011 §CR-3 + §CR-4. On success: spends the
-## appropriate token(s), updates _unit_states[unit_id], may emit unit_turn_ended at
-## T6 if the action is turn-completing.
+## appropriate token(s), updates _unit_states[unit_id].
 ##
-## TODO (story-004): action parameter type will be ActionType enum once declared.
-##   For now typed as int (int-compatible with enum values; no cast required).
-## TODO (story-004): target parameter type will be ActionTarget once declared.
-##   For now typed as Variant to avoid forward-reference.
-## TODO (story-004): return type will be ActionResult once declared.
-##   For now returns null (Variant stub).
+## VALIDATION ORDER (validate-then-mutate — no half-validated state per Control Manifest):
+##   1. UNIT_NOT_FOUND — unit_id not in _unit_states
+##   2. NOT_UNIT_TURN   — unit's turn_state is not ACTING (only valid during T4-T5)
+##   3. INVALID_ACTION_TYPE — action int is out of ActionType enum range
+##   4. Per-ActionType token + DEFEND_STANCE validation + mutation
+##
+## Parameter `action` is typed int (not ActionType enum) to allow tests to pass
+## invalid out-of-range ints (AC-1 INVALID_ACTION_TYPE path). Production callers
+## SHOULD pass TurnOrderRunner.ActionType.MOVE etc.; the int typing is for
+## test-rejection paths only.
+##
+## Parameter `target` is ActionTarget (nullable — tests pass null throughout
+## story-004 since ActionTarget validation is deferred to story-007+ per IN-2).
+##
+## Returns ActionResult typed RefCounted wrapper:
+##   success=true  → action accepted + token spent; error_code == NONE.
+##   success=false → action rejected; error_code == reason; state UNCHANGED.
 ##
 ## Usage:
-##     var result = runner.declare_action(unit_id, ActionType.MOVE, target)
-func declare_action(_unit_id: int, _action: int, _target: Variant) -> Variant:
-	return null
+##     var result: ActionResult = runner.declare_action(
+##         unit_id, TurnOrderRunner.ActionType.MOVE, target)
+##     if result.success:
+##         # token was spent
+##     else:
+##         # result.error_code as TurnOrderRunner.ActionError
+func declare_action(unit_id: int, action: int, target: ActionTarget) -> ActionResult:
+	# Validation 1: UNIT_NOT_FOUND — guard before any state read.
+	if not _unit_states.has(unit_id):
+		return ActionResult.make_failure(ActionError.UNIT_NOT_FOUND as int)
+
+	var state: UnitTurnState = _unit_states[unit_id]
+
+	# Validation 2: NOT_UNIT_TURN — declare_action only valid during T4-T5 (ACTING phase).
+	# CR-3: action budget is active only while turn_state == ACTING.
+	if state.turn_state != TurnState.ACTING:
+		return ActionResult.make_failure(ActionError.NOT_UNIT_TURN as int)
+
+	# Validation 3: INVALID_ACTION_TYPE — reject out-of-range int values.
+	# ActionType.size() returns the count of enum members (5 for story-004).
+	if action < 0 or action >= ActionType.size():
+		return ActionResult.make_failure(ActionError.INVALID_ACTION_TYPE as int)
+
+	# Validation 4 + Mutation: per-ActionType token check + state mutation.
+	# match operates on the int backing value — all ActionType ints are in [0, 4].
+	match action:
+		ActionType.MOVE:
+			# CR-3: MOVE token re-spend check FIRST (AC-7 takes precedence over DEFEND lock).
+			if state.move_token_spent:
+				return ActionResult.make_failure(ActionError.TOKEN_ALREADY_SPENT as int)
+			# CR-4c: DEFEND_STANCE locks subsequent MOVE declarations this turn.
+			if state.defend_stance_active:
+				return ActionResult.make_failure(ActionError.MOVE_LOCKED_BY_DEFEND_STANCE as int)
+			state.move_token_spent = true
+			return ActionResult.make_success()
+
+		ActionType.ATTACK, ActionType.USE_SKILL:
+			# CR-3: ACTION token re-spend check.
+			if state.action_token_spent:
+				return ActionResult.make_failure(ActionError.TOKEN_ALREADY_SPENT as int)
+			state.action_token_spent = true
+			return ActionResult.make_success()
+
+		ActionType.DEFEND:
+			# CR-3e: DEFEND spends ACTION token.
+			# CR-4c: DEFEND_STANCE applied — subsequent MOVE declarations rejected.
+			if state.action_token_spent:
+				return ActionResult.make_failure(ActionError.TOKEN_ALREADY_SPENT as int)
+			state.action_token_spent = true
+			state.defend_stance_active = true
+			return ActionResult.make_success()
+
+		ActionType.WAIT:
+			# CR-8: WAIT spends NO token; sets turn_state = DONE (no queue repositioning).
+			# acted_this_turn stays false — T6 _mark_acted computes: false OR false = false.
+			# Both tokens remain FRESH (move_token_spent=false, action_token_spent=false).
+			state.turn_state = TurnState.DONE
+			return ActionResult.make_success()
+
+		_:
+			# Unreachable: ActionType.size() guard above catches all out-of-range ints.
+			# Defensive fallthrough in case the enum is extended without updating this match.
+			return ActionResult.make_failure(ActionError.INVALID_ACTION_TYPE as int)
 
 # ── Public methods — read-only queries ────────────────────────────────────────
 
@@ -376,12 +469,17 @@ func _begin_round() -> void:
 ## Emits GameBus.unit_turn_started — canonical T4 emit point per ADR-0011 §Emitted signals.
 ## HP/Status consumes for DoT tick + status decrement + DEFEND_STANCE/DEMORALIZED expiry
 ## per ADR-0010 §Soft/Provisional clause (1) ratified by ADR-0011 acceptance.
+##
+## Story-004 same-patch UnitTurnState 10-field reset:
+##   defend_stance_active is CLEARED to false at T4 (within-turn semantics only).
+##   Cross-turn HP/Status SE-3 persistence is DEFERRED to story-005+ HP/Status integration.
 func _activate_unit_turn(unit_id: int) -> void:
 	var state: UnitTurnState = _unit_states[unit_id]
 	state.move_token_spent = false
 	state.action_token_spent = false
 	state.accumulated_move_cost = 0
 	state.acted_this_turn = false
+	state.defend_stance_active = false
 	state.turn_state = TurnState.ACTING
 	GameBus.unit_turn_started.emit(unit_id)
 
