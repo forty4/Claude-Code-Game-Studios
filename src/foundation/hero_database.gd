@@ -1,5 +1,5 @@
 ## hero_database.gd
-## Ratified by ADR-0007 (Accepted 2026-04-30).
+## Ratified by ADR-0007 (Accepted 2026-04-30). Pass 3 WARNING-tier relationship validation added story-004.
 ##
 ## TEST ISOLATION: every test that calls any HeroDatabase method MUST reset
 ##   HeroDatabase._heroes_loaded = false
@@ -101,6 +101,15 @@ static func _load_heroes_from_dict(raw_records: Dictionary) -> void:
 			# Drop this record and continue with remaining records.
 			continue
 		_heroes[StringName(hero_id_str)] = hero
+
+	# ── Pass 3 (story-004): WARNING-tier relationship validation ─────────────
+	# 3a: per-hero filter — drop EC-4 self-refs + EC-5 orphan FKs (push_warning each)
+	# 3b: cross-pair detection — EC-6 asymmetric conflict (push_warning, keep both entries)
+	for hero_id_p3: StringName in _heroes:
+		var hero_p3: HeroData = _heroes[hero_id_p3]
+		hero_p3.relationships = _filter_relationships_with_warnings(
+				hero_id_p3, hero_p3.relationships, _heroes)
+	_detect_asymmetric_conflicts(_heroes)
 
 	_heroes_loaded = true
 
@@ -368,3 +377,83 @@ static func get_relationships(hero_id: StringName) -> Array[Dictionary]:
 		)
 		return []
 	return _heroes[hero_id].relationships
+
+
+## EC-4 + EC-5 WARNING-tier filter (story-004 Pass 3a).
+## Returns a new Array[Dictionary] with self-refs and orphan-FK entries removed.
+## Emits push_warning per drop with hero_id + offending hero_b_id + reason.
+static func _filter_relationships_with_warnings(
+		hero_id: StringName,
+		relationships: Array[Dictionary],
+		all_heroes: Dictionary[StringName, HeroData]) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for rel: Dictionary in relationships:
+		var hero_b_str: String = rel.get("hero_b_id", "") as String
+		var hero_b_id: StringName = StringName(hero_b_str)
+		# EC-4: self-reference (hero_b_id == hero_id)
+		if hero_b_id == hero_id:
+			push_warning(
+				("HeroDatabase: EC-4 WARNING — hero_id '%s' has self-referencing "
+				+ "relationship (hero_b_id == hero_id). Entry dropped.") % hero_id
+			)
+			continue
+		# EC-5: orphan FK (hero_b_id not present in _heroes post-Pass-2)
+		if not all_heroes.has(hero_b_id):
+			push_warning(
+				("HeroDatabase: EC-5 WARNING — hero_id '%s' relationship references "
+				+ "unresolved hero_b_id '%s'. Entry dropped.") % [hero_id, hero_b_str]
+			)
+			continue
+		result.append(rel)
+	return result
+
+
+## EC-6 WARNING-tier asymmetric conflict detection (story-004 Pass 3b).
+## For each ordered pair (a, b) where both have a reciprocal relationship with
+## is_symmetric=true but conflicting relation_type, emits push_warning. Both
+## entries kept; Hero DB does NOT adjudicate (Formation Bonus / Battle owns it).
+## De-duplicated via order-independent pair key.
+static func _detect_asymmetric_conflicts(
+		all_heroes: Dictionary[StringName, HeroData]) -> void:
+	var seen_pairs: Dictionary[String, bool] = {}
+	for hero_a_id: StringName in all_heroes:
+		var hero_a: HeroData = all_heroes[hero_a_id]
+		for rel_a: Dictionary in hero_a.relationships:
+			var hero_b_id: StringName = StringName(rel_a.get("hero_b_id", "") as String)
+			var pair_key: String = _pair_key_unordered(hero_a_id, hero_b_id)
+			if seen_pairs.has(pair_key):
+				continue
+			if not (rel_a.get("is_symmetric", false) as bool):
+				continue
+			if not all_heroes.has(hero_b_id):
+				continue  # defensive — EC-5 already filtered
+			var hero_b: HeroData = all_heroes[hero_b_id]
+			# Find B's reciprocal entry pointing back to A
+			for rel_b: Dictionary in hero_b.relationships:
+				var rel_b_target: StringName = StringName(rel_b.get("hero_b_id", "") as String)
+				if rel_b_target != hero_a_id:
+					continue
+				if not (rel_b.get("is_symmetric", false) as bool):
+					continue
+				var rel_a_type: String = rel_a.get("relation_type", "") as String
+				var rel_b_type: String = rel_b.get("relation_type", "") as String
+				if rel_a_type != rel_b_type:
+					push_warning(
+						("HeroDatabase: EC-6 WARNING — asymmetric conflict between "
+						+ "'%s' and '%s': %s says '%s', %s says '%s' "
+						+ "(both is_symmetric=true). Both entries kept; "
+						+ "Formation Bonus / Battle owns conflict resolution.")
+						% [hero_a_id, hero_b_id, hero_a_id, rel_a_type,
+							hero_b_id, rel_b_type]
+					)
+				seen_pairs[pair_key] = true
+				break  # found reciprocal; move on
+
+
+## Order-independent pair key for EC-6 de-duplication.
+static func _pair_key_unordered(a: StringName, b: StringName) -> String:
+	var a_str: String = String(a)
+	var b_str: String = String(b)
+	if a_str <= b_str:
+		return a_str + "::" + b_str
+	return b_str + "::" + a_str

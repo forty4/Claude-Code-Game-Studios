@@ -1,7 +1,7 @@
 # Story 004: Relationship WARNING tier (EC-4/5/6) + R-1 consumer-mutation regression
 
 > **Epic**: Hero Database
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Logic
 > **Estimate**: 2-3h (3 WARNING-tier branches + R-1 mitigation regression test + forbidden_pattern verification)
@@ -207,3 +207,51 @@
 
 - Depends on: Story 001 (module skeleton) + Story 002 (FATAL pipeline) + Story 003 (MVP roster + integration test pattern)
 - Unlocks: Story 005 (lint scripts will reference all WARNING-tier branches when generating coverage report)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-01
+**Criteria**: 10/10 passing (100% test coverage; no UNTESTED ACs)
+**Test Evidence**: Logic BLOCKING gate satisfied —
+- `tests/unit/foundation/hero_database_warning_tier_test.gd` (341 LoC / 8 tests covering AC-1..AC-5, AC-7, AC-8)
+- `tests/unit/foundation/hero_database_consumer_mutation_test.gd` (65 LoC / 1 test covering AC-6)
+
+**Regression**: 551 → **560 / 0 errors / 1 failures / 0 orphans** ✅
+- Math: 551 baseline + 9 new tests (8 warning_tier + 1 consumer_mutation) = 560
+- Sole failure = pre-existing carried orthogonal `test_hero_data_doc_comment_contains_required_strings` (in `tests/unit/foundation/unit_role_skeleton_test.gd`) — NOT introduced by story-004
+
+**Code Review**: Complete — APPROVED WITH SUGGESTIONS (lean mode; manual review). 5 forward-looking suggestions S-1..S-5 captured below; none blocking.
+
+**Files changed**:
+- `src/foundation/hero_database.gd` (370 → 459 LoC, +89) — ADDED Pass 3 block in `_load_heroes_from_dict` (between Pass 2 and `_heroes_loaded = true`); ADDED 3 private static helpers (`_filter_relationships_with_warnings` for EC-4 + EC-5 drops, `_detect_asymmetric_conflicts` for EC-6 cross-pair detection, `_pair_key_unordered` for de-duplication); header doc-comment updated to note story-004 addition; query methods unchanged
+- `tests/unit/foundation/hero_database_warning_tier_test.gd` (NEW, 341 LoC, 8 tests) — covers AC-1..AC-5 + AC-7 + AC-8; uses `_make_test_record(faction, rels)` private fixture helper mirroring story-002's `_make_valid_record`
+- `tests/unit/foundation/hero_database_consumer_mutation_test.gd` (NEW, 65 LoC, 1 test) — covers AC-6 R-1 mitigation; pre-populates `_heroes` directly + asserts mutation-visible-across-calls; failure message guides future maintainers if convention defense lands
+
+**Engine gotchas applied**: G-2 + G-16 typed-array discipline (`Array[Dictionary]`, `Dictionary[StringName, HeroData]`, `Dictionary[String, bool]`), G-7 verified Overall Summary count grew (551 → 560), G-9 multi-line `%` format strings wrapped in outer parens for `push_warning` calls (specialist proactive bonus), G-14 ran `godot --headless --import --path .` post-write to refresh class cache + register .uid sidecars, G-15 `before_test()` (NOT `before_each`) reset both static vars + `after_test()` mirror, G-22 `_hd_script.set/get/call` reflective pattern (mirror of story-002/003), G-23 only `is_equal`/`is_true`/`is_false` assertions (no `is_not_equal_approx`), G-24 wrapped `as bool` casts in parens
+
+**Pass 3 design notes**:
+- Pass 3 mutates `hero.relationships` at LOAD TIME (NOT a consumer mutation — load pipeline is allowed to write before `_heroes_loaded = true` flips); query methods stay read-only post-load
+- EC-6 detection uses order-independent `_pair_key_unordered(a, b) = sorted_min + "::" + sorted_max` to emit at most one warning per (a, b) pair regardless of Dictionary iteration order
+- EC-4 + EC-5 run in Pass 3a BEFORE EC-6 (Pass 3b) — defensive against EC-5-orphan references accidentally tripping EC-6
+- Pass 3 does NOT reject any hero record (only drops/flags relationship entries); record-load resilience guaranteed by design
+- Defensive belt-and-braces guard in `_detect_asymmetric_conflicts:428` (`if not all_heroes.has(hero_b_id): continue`) even though EC-5 already filtered
+
+**AC-7 architecture.yaml verification result**: `hero_data_consumer_mutation` and `hero_database_signal_emission` both present (8 grep hits at story-readiness; structural test in warning_tier_test.gd makes this a regression-resistant assertion). Same-patch obligation from ADR-0007 §Migration Plan §6 was satisfied at ADR acceptance time (2026-04-30).
+
+**Deviations** (advisory, none blocking):
+
+- **ADVISORY (S-1, cosmetic)**: AC-5 test function name says `_3_record_fixture_` but uses a 4-record fixture (story spec was loose: "A, B, C with EC-6 conflict pair to A" — implementation reasonably expanded to A+B+C+D for the EC-6 pair). Either rename to `_4_record_` OR leave as semantic-not-literal indicator.
+
+- **ADVISORY (S-2, design observation)**: EC-6 unilateral-symmetric-claim edge case not detected by design — `_detect_asymmetric_conflicts` only fires when BOTH sides have a reciprocal rel with `is_symmetric=true` AND types differ. A unilateral symmetric-claim (A says symmetric, B has no rel back OR B's rel is `is_symmetric=false`) is silently treated as a one-way relationship. ADR-0007 §5 doesn't enumerate this case; story design accepts it implicitly.
+
+- **ADVISORY (S-3, idiom)**: Pass 3 test seam uses `HeroDatabase._load_heroes_from_dict(fixture)` — accessing the underscore-prefixed private helper. Established story-002 idiom; required for the test seam.
+
+- **ADVISORY (S-4, method length watch)**: `_load_heroes_from_dict` grew from ~47 to ~57 LoC. Approaches but does not exceed the 40-line guideline (data-orchestration glue, acceptable). If story-005 extends the pipeline (e.g., Pass 4 lint), consider extracting `_run_pass_1_fatal_load`, `_run_pass_2_per_record_fatal`, `_run_pass_3_warning_tier` to keep the orchestration method short.
+
+- **ADVISORY (S-5, complexity — micro)**: `_detect_asymmetric_conflicts` triple-nested loop with 5 early-`continue` branches makes the happy-path harder to follow at first read. Could refactor to use guard clauses + a `_find_reciprocal_rel(hero_b, hero_a_id) -> Dictionary` extraction. Cosmetic; current implementation is correct and idiomatic GDScript.
+
+**Sprint impact**: S2-04 progress 4/5 stories Complete; sprint-status.yaml updated. S2-04 stays `backlog` until story-005 (epic terminal step) lands.
+
+**Next**: story-005 (perf baseline + non-emitter lint + Polish-tier validation lint scaffold) — Logic + Config/Data mix. Story-005 is the epic terminal step; on its close-out S2-04 flips to `done`. Story-005 may incorporate S-2 (`_parse_heroes_json` memoization from story-003), TD-043 (raw-JSON dedup E2E test), and/or S-4 (3-pass extraction) into scope per orchestrator discretion.

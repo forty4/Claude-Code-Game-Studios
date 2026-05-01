@@ -53,7 +53,7 @@ stories:
     estimate_days: 2.0
     blocker: "S2-02"
     completed: ""
-    # 2026-05-01: 3/5 stories Complete (story-001 module skeleton + story-002 validation pipeline FATAL + story-003 MVP roster + happy-path integration; 506→551 baseline / 0 errors / 1 carried failure / 0 orphans). Story-004 (WARNING-tier validators) + story-005 (perf baseline + lints) are parallel-eligible — story-004 exercises the Peach Garden Oath relationship fixture authored in story-003. Story-003 raw-JSON dedup E2E follow-up logged as TD-043 (out of scope; story-002 seen_ids guard remains structurally tested). data-files.md Entity Data File Exception amendment logged as TD-042.
+    # 2026-05-01: 4/5 stories Complete (story-001 module skeleton + story-002 validation pipeline FATAL + story-003 MVP roster + happy-path integration + story-004 WARNING tier EC-4/5/6 + R-1 consumer-mutation regression; 506→560 baseline / 0 errors / 1 carried failure / 0 orphans). Story-005 (perf baseline + non-emitter lint + Polish-tier validation lint scaffold) is the epic terminal step — its close-out flips S2-04 to done. Story-005 may incorporate S-2 _parse_heroes_json memoization (story-003), TD-043 raw-JSON dedup E2E test, S-4 3-pass extraction (story-004) per orchestrator discretion. TD-042 (data-files.md Entity Data File Exception) + TD-043 (raw-JSON dedup E2E gap) logged at story-003 close-out.
 
   - id: "S2-05"
     name: "Admin: refresh production/epics/index.md post-sprint-2"
