@@ -7,7 +7,7 @@ goal: "Close last Core epic (hp-status) to Complete; resolve carried turn-order 
 start: "2026-05-03"
 end: "2026-05-09"
 generated: "2026-05-02"
-updated: "2026-05-02"  # S3-04 PARTIAL: input-handling Foundation epic created via /create-epics (17/17 TRs traced + 6 verification items + 5 provisional contracts + ~9-11 stories preview); /create-stories + /qa-plan still pending.
+updated: "2026-05-02"  # S3-04 DONE: input-handling Foundation epic + 10 stories scaffolded (6 Logic + 3 Integration + 1 Config/Data; ~32-40h est; 17/17 TRs + 6 verification items + 5 provisional contracts). /qa-plan input-handling pending (separate pre-implementation discipline).
 
 # Sprint-2 closed effective DoD must-have 5/5 + should-have 2/3 + bonus turn-order
 # epic 7/7 by 2026-05-02. Final state archived in git history (commit 66144d9) and
@@ -62,12 +62,12 @@ stories:
     name: "/create-epics + /create-stories input-handling (ADR-0005, Foundation, HIGH engine risk)"
     file: "production/epics/input-handling/EPIC.md"
     priority: should-have
-    status: in-progress
+    status: done
     owner: ""
     estimate_days: 0.75
     blocker: ""
-    completed: ""
-    # 2026-05-02: /create-epics input-handling DONE — EPIC.md authored (~270 LoC) + production/epics/index.md updated (input-handling row added to Epics table; Foundation Pending list 1→0; layer coverage Foundation 4/5 → 4/5 + 1 Ready; new changelog entry). 17/17 TRs traced (TR-001 → ADR-0001 + TR-002..017 → ADR-0005 explicit). Pattern boundary precedent codified — InputRouter is establishing precedent + autoload variant of Node-based form. /create-stories input-handling + /qa-plan input-handling pending (estimated ~9-11 stories ~28-36h; HIGH engine risk + 6 mandatory verification items as per-story acceptance gates + touch protocol breadth + 5 provisional cross-system contracts).
+    completed: "2026-05-02"
+    # 2026-05-02: /create-epics + /create-stories input-handling DONE. EPIC.md (~310 LoC after Stories table populate) + 10 stories scaffolded (6 Logic + 3 Integration + 1 Config/Data Polish-tier epic terminal). Total ~32-40h estimate (larger than turn-order/hp-status precedent due to HIGH engine risk + 6 mandatory verification items + touch protocol breadth + 5 provisional cross-system contracts requiring tests/helpers/ stubs). Story breakdown: 001 module skeleton + autoload + InputState/InputMode enums + InputContext + UndoEntry payloads + project.godot autoload registration; 002 22-action ACTIONS_BY_CATEGORY const + default_bindings.json schema + JSON load + InputMap population + R-5 parity validation; 003 7-state FSM core S0/S1/S2 move flow + transition signal emit; 004 FSM extended S3/S4 attack flow + ST-2 demotion + end-player-turn safety gate; 005 last-device-wins mode determination + state preservation + verification #1+#2; 006 per-unit undo window CR-5 + EC-5 occupied-tile rejection; 007 S5 INPUT_BLOCKED + S6 MENU_OPEN + ADR-0002 GameBus subscriptions + verification #4; 008 touch part A TPP+Magnifier+F-1 zoom + verification #3+#5a + Battle HUD/Camera/MapGrid stubs; 009 touch part B pan-vs-tap+gestures+panel + verification #5b+#6; 010 epic terminal — perf baseline + 9 CI lints (7 input-handling + emulate_mouse + balance_entities) + 6-item verification summary + TD-054/055/056. /qa-plan input-handling pending (separate pre-implementation discipline per established per-epic QA plan strategy).
 
   - id: "S3-05"
     name: "sprint-status.yaml hygiene refactor + /story-done skill amendment (retro AI #3)"
