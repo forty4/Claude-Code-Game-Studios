@@ -1,0 +1,13 @@
+; PROTOTYPE - NOT FOR PRODUCTION
+; Question: see chapter.gd header
+
+[gd_scene load_steps=2 format=3 uid="uid://prototype_chapter_scene"]
+
+[ext_resource type="Script" path="res://prototypes/chapter-prototype/chapter.gd" id="1_chapter"]
+
+[node name="Chapter" type="Control"]
+layout_mode = 3
+anchors_preset = 0
+offset_right = 820.0
+offset_bottom = 720.0
+script = ExtResource("1_chapter")
