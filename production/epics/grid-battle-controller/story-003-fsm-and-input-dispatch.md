@@ -1,7 +1,9 @@
 # Story 003: 2-state FSM + input action dispatch + click hit-test routing
 
-> **Epic**: Grid Battle Controller | **Status**: Ready | **Layer**: Feature | **Type**: Logic | **Estimate**: 3h
+> **Epic**: Grid Battle Controller | **Status**: Complete (2026-05-03) | **Layer**: Feature | **Type**: Logic | **Estimate**: 3h
 > **ADR**: ADR-0014 §2, §4
+>
+> **Implementation note**: handle_grid_click param type changed from `action: StringName` (per ADR-0014 §10 sketch) to `action: String` to match shipped GameBus.input_action_fired signal signature (per ADR-0001 line 168 advisory delta #6 still pending). Move/attack dispatch wires call to is_tile_in_move_range / is_tile_in_attack_range which return false until story-004/005 — _handle_move + _handle_attack stubs declared for stories 004/005.
 
 ## Acceptance Criteria
 

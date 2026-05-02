@@ -11,7 +11,7 @@ goal: "Ship grid-battle-controller end-to-end (qa-plan + 10 stories) + author Ba
 start: "2026-05-17"
 end: "2026-05-23"
 generated: "2026-05-02"
-updated: "2026-05-03"  # Sprint-5 IN PROGRESS: S5-01..S5-03 done (qa-plan + story-001 skeleton + story-002 BattleUnit Resource). 766 PASS (11th failure-free).
+updated: "2026-05-03"  # Sprint-5 IN PROGRESS: S5-01..S5-04 done (qa-plan + stories 001-003). 778 PASS (12th failure-free). FSM 2-state + 10-action filter shipped.
 
 # Sprint-4 closed 5/7 (must-have 4/4 + should 1/2 + nice 0/1) by 2026-05-02 — 8 calendar days
 # ahead of 2026-05-16 deadline. 9th consecutive failure-free baseline (757/0/0/0). First
@@ -56,11 +56,12 @@ stories:
     name: "story-003: 2-state FSM + 10-grid-action filter + _handle_grid_click dispatch"
     file: "production/epics/grid-battle-controller/story-003-fsm-and-input-dispatch.md"
     priority: must-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.4
     blocker: "S5-03"
-    completed: ""
+    completed: "2026-05-03"
+    # 2026-05-03: 2-state FSM + 10-grid-action const + _on_input_action_fired filter + Camera fallback + 12 fsm tests. 766→778 PASS (12th failure-free).
 
   - id: "S5-05"
     name: "story-004: MOVE action — is_tile_in_move_range + _do_move + unit_moved signal"

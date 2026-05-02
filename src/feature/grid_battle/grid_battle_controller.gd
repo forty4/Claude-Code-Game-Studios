@@ -50,6 +50,35 @@ enum BattleState {
 }
 
 
+# ─── Constants ───────────────────────────────────────────────────────────────
+
+## The 10 grid-domain actions emitted by InputRouter that this controller filters
+## per ADR-0014 §4 + input-handling GDD §93. Actions outside this list
+## (camera_pan / camera_zoom_in / etc.) are silently ignored.
+##
+## Action semantics (MVP):
+##  - unit_select: toggle unit selection (OBSERVATION→SELECTED on own unit; SELECTED→OBSERVATION on same)
+##  - move_target_select / move_confirm: commit move action if tile is in move range
+##  - move_cancel: deselect (return to OBSERVATION)
+##  - attack_target_select / attack_confirm: commit attack action if tile is in attack range
+##  - attack_cancel: deselect
+##  - undo_last_move: MVP silent (post-MVP undo system)
+##  - end_unit_turn: explicit player-turn-end button
+##  - grid_hover: PC-only hover preview; silently ignored per CR-1c (touch parity)
+const _GRID_ACTIONS: Array[String] = [
+	"unit_select",
+	"move_target_select",
+	"move_confirm",
+	"move_cancel",
+	"attack_target_select",
+	"attack_confirm",
+	"attack_cancel",
+	"undo_last_move",
+	"end_unit_turn",
+	"grid_hover",
+]
+
+
 # ─── Signals (Battle-domain per ADR-0014 §8) ────────────────────────────────
 
 ## Emitted when unit selection changes. was_selected == -1 for deselect.
@@ -240,18 +269,39 @@ func end_player_turn() -> void:
 
 ## Direct-callable entry point for grid click dispatch (also called by signal handler).
 ## Exposed as public so integration tests can drive it without emitting GameBus signals.
-## TODO(story-003): implement 2-state FSM dispatch.
-func handle_grid_click(action: StringName, coord: Vector2i, unit_id: int) -> void:
-	# TODO(story-003): FSM dispatch via match _state { OBSERVATION, UNIT_SELECTED }
-	pass
+## Per ADR-0014 §4 + story-003 AC-5: 2-state FSM dispatch via match _state.
+##
+## NOTE: action parameter type is `String` (not StringName per ADR-0014 §10 sketch)
+## to match shipped GameBus.input_action_fired signal signature (String per ADR-0001
+## line 168 + ADR-0001 amendment advisory delta #6 Item 10a still pending).
+func handle_grid_click(action: String, coord: Vector2i, unit_id: int) -> void:
+	match _state:
+		BattleState.OBSERVATION:
+			_handle_grid_click_observation(action, coord, unit_id)
+		BattleState.UNIT_SELECTED:
+			_handle_grid_click_unit_selected(action, coord, unit_id)
 
 
 # ─── Signal handlers (stubs — logic in stories 003-008) ─────────────────────
 
-func _on_input_action_fired(action: String, _ctx: InputContext) -> void:
-	# TODO(story-003): FSM dispatch implementation
-	# Filter non-grid actions first; resolve coord via BattleCamera if ctx.target_coord == ZERO
-	pass
+## Subscribed to GameBus.input_action_fired via CONNECT_DEFERRED in _ready().
+## Per ADR-0014 §4 + story-003 AC-3, AC-4, AC-6:
+##   1. Filter via _is_grid_action(action) — non-grid actions silently ignored
+##   2. Resolve coord from ctx.target_coord; fallback to camera.screen_to_grid()
+##      if ctx.target_coord == Vector2i.ZERO (sentinel from InputRouter when
+##      raw event couldn't resolve)
+##   3. Off-grid sentinel Vector2i(-1, -1) → silent return
+##   4. Dispatch to handle_grid_click with the resolved coord + ctx.target_unit_id
+func _on_input_action_fired(action: String, ctx: InputContext) -> void:
+	if not _is_grid_action(action):
+		return
+	var coord: Vector2i = ctx.target_coord
+	if coord == Vector2i.ZERO and _camera != null:
+		# Camera fallback per ADR-0014 §4 — re-resolve via viewport mouse position.
+		coord = _camera.screen_to_grid(get_viewport().get_mouse_position())
+	if coord == Vector2i(-1, -1):
+		return  # off-grid sentinel from BattleCamera.screen_to_grid
+	handle_grid_click(action, coord, ctx.target_unit_id)
 
 
 func _on_unit_died(unit_id: int) -> void:
@@ -283,3 +333,100 @@ func _find_unit_by_tag(tag: StringName) -> int:
 		if unit.tag == tag:
 			return unit.unit_id
 	return -1
+
+
+## Returns true if the given action is one of the 10 grid-domain actions per
+## ADR-0014 §4 + input-handling GDD §93. Non-grid actions (camera_pan,
+## camera_zoom_in, etc.) are silently ignored by _on_input_action_fired.
+func _is_grid_action(action: String) -> bool:
+	return action in _GRID_ACTIONS
+
+
+# ─── FSM dispatch helpers (story-003 AC-5) ───────────────────────────────────
+
+## Dispatches a grid click in OBSERVATION state. Only `unit_select` on an own
+## unit (side == 0) that has not acted-this-turn produces a state transition.
+## Per ADR-0014 §4 + story-003 AC-5 + AC-7.
+func _handle_grid_click_observation(action: String, _coord: Vector2i, unit_id: int) -> void:
+	if action != "unit_select":
+		return  # only unit_select transitions out of OBSERVATION (MVP scope)
+	if unit_id == -1:
+		return  # off-grid or non-unit click (e.g., empty tile)
+	if not _units.has(unit_id):
+		return  # invalid unit_id (defensive — shouldn't happen if InputRouter is correct)
+	var unit: BattleUnit = _units[unit_id]
+	if unit.side != 0:
+		return  # only own units (player side) can be selected (MVP — no enemy inspection)
+	if _acted_this_turn.get(unit_id, false):
+		return  # acted-this-turn click guard per AC-7 (silent no-op)
+	_select_unit(unit_id)
+
+
+## Dispatches a grid click in UNIT_SELECTED state. Per ADR-0014 §4 + story-003 AC-5:
+##  - unit_select on selected unit again → deselect
+##  - move_cancel / attack_cancel → deselect
+##  - move_target_select / move_confirm + valid move target → handoff to _handle_move (story-004)
+##  - attack_target_select / attack_confirm + valid attack target → handoff to _handle_attack (story-005)
+##  - end_unit_turn → end_player_turn (story-006 stub)
+##  - other actions in this state → silent
+func _handle_grid_click_unit_selected(action: String, coord: Vector2i, unit_id: int) -> void:
+	match action:
+		"unit_select":
+			# Clicking the selected unit again deselects (toggle semantic).
+			# Clicking a DIFFERENT own unit is silent in MVP — must deselect first.
+			if unit_id == _selected_unit_id:
+				_deselect()
+		"move_cancel", "attack_cancel":
+			_deselect()
+		"move_target_select", "move_confirm":
+			# is_tile_in_move_range stubs to false until story-004; dispatch is wired
+			# but downstream _handle_move is a no-op until story-004 fills it.
+			if is_tile_in_move_range(coord, _selected_unit_id):
+				_handle_move(_selected_unit_id, coord)
+		"attack_target_select", "attack_confirm":
+			# Same pattern as move — wire dispatch; defer handler body to story-005.
+			if is_tile_in_attack_range(coord, _selected_unit_id):
+				_handle_attack(_selected_unit_id, unit_id)
+		"end_unit_turn":
+			end_player_turn()
+		_:
+			# undo_last_move / grid_hover / unrecognized → silent (MVP scope)
+			return
+
+
+## Selects a unit. Transitions state to UNIT_SELECTED + emits unit_selected_changed
+## with (new_unit_id, prev_selected_unit_id). Per ADR-0014 §8 + story-003 AC-5.
+func _select_unit(unit_id: int) -> void:
+	var prev: int = _selected_unit_id
+	_selected_unit_id = unit_id
+	_state = BattleState.UNIT_SELECTED
+	unit_selected_changed.emit(unit_id, prev)
+
+
+## Deselects the current unit. Transitions state to OBSERVATION + emits
+## unit_selected_changed(-1, prev_selected_unit_id) per ADR-0014 §8.
+func _deselect() -> void:
+	var prev: int = _selected_unit_id
+	_selected_unit_id = -1
+	_state = BattleState.OBSERVATION
+	unit_selected_changed.emit(-1, prev)
+
+
+# ─── Action handler stubs (filled by stories 004-005) ───────────────────────
+
+## Handles a move action — validates + applies + emits unit_moved.
+## TODO(story-004): full body — _do_move + _consume_unit_action + signal emit.
+func _handle_move(_unit_id: int, _dest: Vector2i) -> void:
+	# TODO(story-004): position update + facing update + occupancy bookkeeping +
+	# unit_moved signal + _consume_unit_action(_unit_id) handoff to story-006.
+	pass
+
+
+## Handles an attack action — runs the resolve chain + applies damage + emits.
+## TODO(story-005): full body — _resolve_attack + DamageCalc.resolve +
+## HPStatusController.apply_damage + apply_death_consequences + damage_applied.
+func _handle_attack(_attacker_id: int, _defender_id: int) -> void:
+	# TODO(story-005): formation/angle/aura math + DamageCalc static-call +
+	# HPStatusController.apply_damage(4-param) + apply_death_consequences +
+	# damage_applied signal + fate-counter increments (story-008 hooks).
+	pass
