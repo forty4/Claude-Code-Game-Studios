@@ -273,10 +273,13 @@ func _on_round_started(round_num: int) -> void:
 
 # ─── Private helpers ─────────────────────────────────────────────────────────
 
-## Scans _units for the first unit whose BattleUnit carries the given tag.
-## Tags are stored on BattleUnit fields post story-002; MVP returns -1 always
-## until BattleUnit gains a `tags: Array[StringName]` field in story-002.
-## TODO(story-002): implement tag lookup once BattleUnit.tags field exists.
+## Scans _units for the first unit whose BattleUnit.tag matches the given tag.
+## Returns -1 if no matching unit found per ADR-0014 §3 + story-002 AC-4.
+## Tag is singular (StringName) on BattleUnit per ADR-0014 §3 (NOT Array of tags
+## — MVP scope. Future Rally ADR may need multi-tag, e.g., "commander+tank";
+## additive amendment to BattleUnit at that point per CR-1d schema-evolution rules).
 func _find_unit_by_tag(tag: StringName) -> int:
-	# TODO(story-002): iterate _units.values() and check u.tags.has(tag)
+	for unit: BattleUnit in _units.values():
+		if unit.tag == tag:
+			return unit.unit_id
 	return -1

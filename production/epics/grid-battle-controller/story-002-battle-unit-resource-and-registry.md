@@ -1,7 +1,9 @@
 # Story 002: BattleUnit typed Resource + unit registry + tag-based fate-counter detection
 
-> **Epic**: Grid Battle Controller | **Status**: Ready | **Layer**: Feature | **Type**: Logic | **Estimate**: 2h
-> **ADR**: ADR-0014 §3
+> **Epic**: Grid Battle Controller | **Status**: Complete (2026-05-03) | **Layer**: Feature | **Type**: Logic | **Estimate**: 2h
+> **ADR**: ADR-0014 §3 + amended ADR-0011 §"MUST NOT add fields" boundary (ADR-0014 §3 IS the de-facto Battle Preparation contract for MVP; field additions trace 1:1 to that section)
+>
+> **Implementation note**: BattleUnit existed at `src/core/battle_unit.gd` from ADR-0011 (4-field RefCounted). Story-002 modified IN PLACE: RefCounted → Resource conversion + 7 new ADR-0014 §3 fields added (name + side + position + facing + passive + tag + move_range + attack_range), original 4 fields converted to @export. NOT created at `src/feature/grid_battle/battle_unit.gd` per AC-1 spec (would have caused G-12 collision). All 84 turn_order tests still pass post-conversion.
 
 ## Acceptance Criteria
 
