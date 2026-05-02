@@ -13,8 +13,16 @@ var skill_id: String = ""                  # "" = not a skill stub
 var rng: RandomNumberGenerator             # typed; never Variant — null triggers invariant_violation:rng_null
 var round_number: int = 1                  # >= 1; gate asserts in DamageCalc.resolve() (story-003)
 var rally_bonus: float = 0.0               # [0.0, 0.10] — upstream-capped in Grid Battle CR-15
-var formation_atk_bonus: float = 0.0       # [0.0, 0.05] — upstream-capped in Formation Bonus F-FB-3
+var formation_atk_bonus: float = 0.0       # [0.0, 0.20] under ADR-0014 §5 controller-MVP usage; [0.0, 0.05] under future Formation Bonus ADR. P_MULT_COMBINED_CAP (1.31) provides DamageCalc-side safety.
 var formation_def_bonus: float = 0.0       # [0.0, 0.05] — upstream-capped in Formation Bonus F-FB-3
+## NEW per story-005 + ADR-0014 §5 same-patch obligation. Consumed by
+## GridBattleController._resolve_attack POST-DamageCalc as a controller-side
+## post-multiplier (NOT consumed by DamageCalc). Future Formation Bonus ADR may
+## migrate consumption into DamageCalc; today fields are forward-compat documentation.
+## angle_mult: 1.0 (FRONT) / 1.25 (SIDE) / 1.50 (REAR) / 1.75 (REAR + rear_specialist passive).
+## aura_mult: 1.15 (command_aura ally adjacent to attacker) / 1.0 otherwise.
+var angle_mult: float = 1.0
+var aura_mult: float = 1.0
 
 ## Turn Order interface stub — provisional ADR-0011 workaround per ADR-0012 §8.
 ## Defaults to a no-op returning false (defender has not acted this turn).

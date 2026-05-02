@@ -135,6 +135,15 @@ var _last_attacker_id: int = -1
 var _max_turns: int = 0
 
 
+# ─── Combat resolution (story-005) ───────────────────────────────────────────
+
+## RNG instance for DamageCalc.resolve evasion roll consumption (1 randi_range
+## per non-counter call per ADR-0012 AC-DC-26 replay determinism). Fresh
+## RandomNumberGenerator per battle; deterministic seeding deferred to
+## scenario-progression ADR (sprint-6).
+var _rng: RandomNumberGenerator = null
+
+
 # ─── Hidden fate-condition counters (ADR-0014 §2 / R-8) ─────────────────────
 
 ## unit_id of the 장비-tagged unit (tank). -1 if none found in roster.
@@ -201,6 +210,10 @@ func _ready() -> void:
 		"GridBattleController.setup() must be called before adding to scene tree — _unit_role is null")
 
 	_max_turns = int(BalanceConstants.get_const("MAX_TURNS_PER_BATTLE"))
+	# Story-005: RNG instance for DamageCalc.resolve evasion roll consumption.
+	# Deterministic seeding deferred to Scenario Progression ADR (sprint-6).
+	_rng = RandomNumberGenerator.new()
+	_rng.randomize()
 
 	# CRITICAL: CONNECT_DEFERRED on unit_died is NOT merely advisory — it is
 	# load-bearing reentrance prevention. Without it, _on_unit_died could fire
@@ -264,11 +277,27 @@ func is_tile_in_move_range(tile: Vector2i, unit_id: int) -> bool:
 	return true
 
 
-## Checks whether a tile is in a unit's attack range.
-## Implements input-handling §9 Bidirectional Contract (R-5).
-## TODO(story-004): replace stub with real adjacency / 황충 range-2 check.
+## Checks whether a tile is a valid attack target for the given unit. Implements
+## input-handling §9 Bidirectional Contract (R-5) + grid-battle.md §612 + §198.
+##
+## Per ADR-0014 §10 + story-005 AC-1: tile must contain an ENEMY unit (different
+## side) AND be within attacker's attack_range (Manhattan distance; 1 for melee,
+## 2 for 황충 ranged_specialist). MVP simplification — no line-of-sight or
+## terrain modifiers.
 func is_tile_in_attack_range(tile: Vector2i, unit_id: int) -> bool:
-	# TODO(story-004): implement adjacency + 황충 range-2 exception
+	if not _units.has(unit_id):
+		return false
+	var attacker: BattleUnit = _units[unit_id]
+	# Manhattan distance check
+	var dx: int = absi(tile.x - attacker.position.x)
+	var dy: int = absi(tile.y - attacker.position.y)
+	var manhattan: int = dx + dy
+	if manhattan == 0 or manhattan > attacker.attack_range:
+		return false
+	# Tile must contain an enemy unit (different side) per AC-1
+	for defender: BattleUnit in _units.values():
+		if defender.position == tile and defender.side != attacker.side:
+			return true
 	return false
 
 
@@ -455,14 +484,26 @@ func _handle_move(unit: BattleUnit, dest: Vector2i) -> void:
 	_consume_unit_action(unit.unit_id)  # story-006 stub
 
 
-## Handles an attack action — runs the resolve chain + applies damage + emits.
-## TODO(story-005): full body — _resolve_attack + DamageCalc.resolve +
-## HPStatusController.apply_damage + apply_death_consequences + damage_applied.
-func _handle_attack(_attacker_id: int, _defender_id: int) -> void:
-	# TODO(story-005): formation/angle/aura math + DamageCalc static-call +
-	# HPStatusController.apply_damage(4-param) + apply_death_consequences +
-	# damage_applied signal + fate-counter increments (story-008 hooks).
-	pass
+## Handles an attack action per story-005 AC-2: validates via is_tile_in_attack_range,
+## runs _resolve_attack chain (multipliers + DamageCalc + HPStatusController),
+## consumes the unit's turn action via _consume_unit_action.
+##
+## DEVIATION from ADR-0014 §5 step 9: apply_death_consequences NOT called —
+## the method does not exist on shipped HPStatusController; DEMORALIZED
+## propagation auto-fires inside HPStatusController.apply_damage via
+## _propagate_demoralized_radius (private). ADR-0014 Implementation Notes
+## amended same-patch documenting the drift.
+func _handle_attack(attacker_id: int, defender_id: int) -> void:
+	if _acted_this_turn.get(attacker_id, false):
+		return  # re-entrancy guard (mirrors story-004 _handle_move pattern)
+	if not _units.has(attacker_id) or not _units.has(defender_id):
+		return  # defensive — shouldn't happen if dispatch is correct
+	var attacker: BattleUnit = _units[attacker_id]
+	var defender: BattleUnit = _units[defender_id]
+	if not is_tile_in_attack_range(defender.position, attacker_id):
+		return  # invalid target — silent
+	_resolve_attack(attacker, defender)
+	_consume_unit_action(attacker_id)
 
 
 # ─── Action implementations (story-004) ──────────────────────────────────────
@@ -508,3 +549,199 @@ func _consume_unit_action(unit_id: int) -> void:
 	# on second-call within same turn. Story-006 will add TurnOrderRunner token
 	# spend + auto-handoff logic.
 	_acted_this_turn[unit_id] = true
+
+
+# ─── Combat resolution helpers (story-005) ──────────────────────────────────
+
+## Counts same-side non-dead units within Manhattan distance 1 of the given unit.
+## Per ADR-0014 §5 + story-005 AC-4. Used by _compute_formation_mult and by
+## _on_round_started (story-008 _fate_formation_turns counter).
+func _count_adjacent_allies(unit: BattleUnit) -> int:
+	var count: int = 0
+	for other: BattleUnit in _units.values():
+		if other.unit_id == unit.unit_id:
+			continue  # skip self
+		if other.side != unit.side:
+			continue  # skip enemies
+		if not _hp_controller.is_alive(other.unit_id):
+			continue  # skip dead units
+		var dx: int = absi(other.position.x - unit.position.x)
+		var dy: int = absi(other.position.y - unit.position.y)
+		if dx + dy == 1:  # Manhattan adjacency
+			count += 1
+	return count
+
+
+## Returns true if any same-side non-dead unit with passive == &"command_aura"
+## (유비) is within Manhattan distance 1 of the attacker. Per ADR-0014 §5 +
+## story-005 AC-5.
+func _has_adjacent_command_aura(attacker: BattleUnit) -> bool:
+	for other: BattleUnit in _units.values():
+		if other.unit_id == attacker.unit_id:
+			continue
+		if other.side != attacker.side:
+			continue
+		if not _hp_controller.is_alive(other.unit_id):
+			continue
+		if other.passive != &"command_aura":
+			continue
+		var dx: int = absi(other.position.x - attacker.position.x)
+		var dy: int = absi(other.position.y - attacker.position.y)
+		if dx + dy == 1:
+			return true
+	return false
+
+
+## Classifies the attack angle relative to defender's facing per ADR-0014 §5
+## step 3 + story-005 AC-3. Returns "front" / "side" / "rear".
+##
+## attacker_dir is the cardinal direction FROM defender TO attacker (i.e., where
+## the attacker is sitting from the defender's perspective). If attacker is in
+## the direction the defender is FACING → "front". If attacker is BEHIND the
+## defender (opposite direction of facing) → "rear". Otherwise → "side".
+func _attack_angle(attacker: BattleUnit, defender: BattleUnit) -> String:
+	var attacker_dir: int = _direction_from_to(defender.position, attacker.position)
+	if attacker_dir == defender.facing:
+		return "front"
+	if attacker_dir == (defender.facing + 2) % 4:
+		return "rear"
+	return "side"
+
+
+## Computes formation multiplier per chapter-prototype shape + ADR-0014 §5 step 2:
+## 1.0 + 0.05 * adjacent_ally_count, capped at 1.20 (max 4 adjacent contributing).
+func _compute_formation_mult(attacker: BattleUnit) -> float:
+	var formation_count: int = _count_adjacent_allies(attacker)
+	return minf(1.0 + 0.05 * float(formation_count), 1.20)
+
+
+## Computes angle multiplier per chapter-prototype shape + ADR-0014 §5 step 4:
+## front=1.00, side=1.25, rear=1.50, rear+rear_specialist passive (황충)=1.75.
+func _compute_angle_mult(attacker: BattleUnit, defender: BattleUnit) -> float:
+	var angle: String = _attack_angle(attacker, defender)
+	match angle:
+		"side":
+			return 1.25
+		"rear":
+			if attacker.passive == &"rear_specialist":
+				return 1.75
+			return 1.50
+		_:
+			return 1.0  # front (default)
+
+
+## Computes aura multiplier per chapter-prototype shape + ADR-0014 §5 step 5:
+## 1.15 if any 유비 (command_aura passive) ally is adjacent to attacker, else 1.0.
+func _compute_aura_mult(attacker: BattleUnit) -> float:
+	if _has_adjacent_command_aura(attacker):
+		return 1.15
+	return 1.0
+
+
+## Maps controller-local angle string to ResolveModifiers.direction_rel StringName
+## per ADR-0012 ResolveModifiers contract: {FRONT, FLANK, REAR}.
+##
+## NOTE: ADR-0014 §5 uses "side" terminology; ADR-0012 ResolveModifiers uses
+## "FLANK" StringName. They map 1:1 — translation lives at controller-DamageCalc
+## boundary per Migration Plan §13.
+func _angle_to_direction_rel(angle: String) -> StringName:
+	match angle:
+		"front":
+			return &"FRONT"
+		"side":
+			return &"FLANK"
+		"rear":
+			return &"REAR"
+		_:
+			return &"FRONT"  # defensive default
+
+
+## Runs the full attack resolve chain per ADR-0014 §5 + story-005 AC-2:
+## 1. Compute formation_mult (±0..0.20)
+## 2. Compute angle ("front"/"side"/"rear")
+## 3. Compute angle_mult (1.0/1.25/1.50/1.75)
+## 4. Compute aura_mult (1.0/1.15)
+## 5. Construct AttackerContext + DefenderContext + ResolveModifiers
+## 6. Call DamageCalc.resolve → ResolveResult (consumes RNG once for evasion roll)
+## 7. Post-multiply controller-side multipliers (angle_mult × aura_mult — NOT
+##    consumed by DamageCalc; formation_atk_bonus IS consumed via P_mult formula)
+## 8. Track _last_attacker_id for story-008 fate-counter attribution
+## 9. Track rear-attack fate counter (story-008 partial — ADR-0014 §5 step 6 +
+##    grid-battle.md §198 hook for Destiny Branch)
+## 10. _hp_controller.apply_damage (4-param signature per ADR-0010 + ADR-0014 §10)
+## 11. Emit damage_applied(attacker_id, defender_id, damage)
+##
+## Returns the final damage dealt (post-multipliers); 0 on MISS.
+##
+## DEVIATION from ADR-0014 §5 step 9: apply_death_consequences NOT called —
+## method not on shipped HPStatusController; DEMORALIZED propagation is internal
+## to apply_damage via _propagate_demoralized_radius. Documented in commit +
+## ADR-0014 Implementation Notes amendment.
+func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
+	# Stage 1: compute multipliers
+	var formation_mult: float = _compute_formation_mult(attacker)
+	var angle: String = _attack_angle(attacker, defender)
+	var angle_mult: float = _compute_angle_mult(attacker, defender)
+	var aura_mult: float = _compute_aura_mult(attacker)
+
+	# Stage 2: build DamageCalc inputs
+	var passives: Array[StringName] = []
+	if attacker.passive != &"":
+		passives.append(attacker.passive)
+	var attacker_ctx: AttackerContext = AttackerContext.make(
+		attacker.hero_id,
+		attacker.unit_class,
+		attacker.raw_atk,
+		false,  # charge_active — MVP no charge
+		false,  # defend_stance_active — MVP no defend
+		passives,
+	)
+	var defender_ctx: DefenderContext = DefenderContext.make(
+		defender.hero_id,
+		defender.raw_def,
+		0,  # terrain_def — MVP no terrain bonus
+		0,  # terrain_evasion — MVP no evasion
+	)
+	var modifiers: ResolveModifiers = ResolveModifiers.make(
+		ResolveModifiers.AttackType.PHYSICAL,
+		_rng,
+		_angle_to_direction_rel(angle),
+		1,  # round_number — MVP placeholder; story-007 wires real round
+		false,  # is_counter — MVP no counter
+		"",  # skill_id — MVP no skills
+		[],  # source_flags — populated by DamageCalc
+		0.0,  # rally_bonus — MVP no rally
+		formation_mult - 1.0,  # formation_atk_bonus (consumed by DamageCalc P_mult)
+		0.0,  # formation_def_bonus — MVP no def bonus
+		Callable(),  # acted_this_turn_callable — MVP no counter eligibility
+	)
+	# Set NEW story-005 fields (not in make() factory yet — additive same-patch).
+	# These are CONTROLLER-side post-multipliers (NOT consumed by DamageCalc).
+	modifiers.angle_mult = angle_mult
+	modifiers.aura_mult = aura_mult
+
+	# Stage 3: track attacker for story-008 fate-counter attribution
+	_last_attacker_id = attacker.unit_id
+
+	# Stage 4: call DamageCalc.resolve
+	var result: ResolveResult = DamageCalc.resolve(attacker_ctx, defender_ctx, modifiers)
+	var base_damage: int = result.resolved_damage  # 0 on MISS; 1+ on HIT
+
+	# Stage 5: apply controller-side post-multipliers (angle_mult × aura_mult).
+	# NOTE: formation_atk_bonus already consumed by DamageCalc in P_mult formula.
+	var final_damage: int = roundi(float(base_damage) * angle_mult * aura_mult)
+	if result.kind == ResolveResult.Kind.HIT and final_damage < 1:
+		final_damage = 1  # ensure HIT delivers minimum 1 damage post-rounding
+
+	# Stage 6: rear-attack fate counter (story-008 partial — full impl in story-008)
+	if angle == "rear":
+		_fate_rear_attacks += 1
+		hidden_fate_condition_progressed.emit(&"rear_attacks", _fate_rear_attacks)
+
+	# Stage 7: apply via HPStatusController (sole writer of HP per ADR-0010)
+	_hp_controller.apply_damage(defender.unit_id, final_damage, modifiers.attack_type, modifiers.source_flags)
+
+	# Stage 8: emit damage_applied per ADR-0014 §8
+	damage_applied.emit(attacker.unit_id, defender.unit_id, final_damage)
+
+	return final_damage

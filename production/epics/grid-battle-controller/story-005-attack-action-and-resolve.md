@@ -1,7 +1,9 @@
 # Story 005: Attack action — _resolve_attack chain + DamageCalc + HPStatusController integration
 
-> **Epic**: Grid Battle Controller | **Status**: Ready | **Layer**: Feature | **Type**: Logic | **Estimate**: 4h (largest single story in epic)
+> **Epic**: Grid Battle Controller | **Status**: Complete (2026-05-03) | **Layer**: Feature | **Type**: Logic | **Estimate**: 4h (largest single story in epic)
 > **ADR**: ADR-0014 §5 + Implementation Notes + grid-battle.md §198
+>
+> **Implementation note**: Full DamageCalc integration shipped (option A per user decision 2026-05-03). Same-patch obligations: BattleUnit +2 fields (raw_atk + raw_def); ResolveModifiers +2 fields (angle_mult + aura_mult); MapGridStub no-op overrides for set_occupant/clear_occupant (carry-fwd from story-004). DEVIATION from ADR-0014 §5 step 9: apply_death_consequences NOT called — method does not exist on shipped HPStatusController; DEMORALIZED propagation auto-fires inside apply_damage via _propagate_demoralized_radius. Documented in ADR-0014 Implementation Notes amendment same-patch.
 
 ## Acceptance Criteria
 

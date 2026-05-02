@@ -95,3 +95,15 @@ extends Resource
 ## Attack range (Manhattan distance): 1 = melee, 2 = 황충 ranged exception.
 ## MVP: most units = 1; only 황충 (rear_specialist passive) = 2.
 @export var attack_range: int = 1
+
+## Pre-DamageCalc-clamp ATK from HP/Status. Set at battle init from
+## HeroDatabase + UnitRole derived stats; consumed by GridBattleController._resolve_attack
+## when constructing AttackerContext per ADR-0012 §8 + CR-3 (DamageCalc applies
+## clampi(raw_atk, 1, ATK_CAP) per AC-DC-11/15). Story-005 addition.
+@export var raw_atk: int = 10
+
+## Pre-DamageCalc-clamp DEF from HP/Status. Set at battle init from
+## HeroDatabase + UnitRole derived stats; consumed by GridBattleController._resolve_attack
+## when constructing DefenderContext per ADR-0012 §8 + CR-3 (DamageCalc applies
+## clampi(raw_def, 1, DEF_CAP) per AC-DC-11/15). Story-005 addition.
+@export var raw_def: int = 5
