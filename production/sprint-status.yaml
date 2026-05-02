@@ -142,21 +142,23 @@ stories:
     # 2026-05-03: 4 perf tests at tests/unit/feature/grid_battle/grid_battle_controller_perf_test.gd PASS under permissive CI gates (×3-200 over ADR headlines). 4 lints chmod +x + CI wired (signal_emission_outside_battle_domain + static_state + external_combat_math + BalanceConstants keys). 5 NEW BalanceConstants keys (FATE_TANK_HP_THRESHOLD/FATE_ASSASSIN_KILLS_THRESHOLD/FATE_REAR_ATTACKS_THRESHOLD/FATE_FORMATION_TURNS_THRESHOLD/FATE_BOSS_KILLED_REQUIRED). Verification summary shipped. EPIC.md + epics/index.md updated. 837→841 PASS (19th failure-free). EPIC 10/10 COMPLETE.
 
   - id: "S5-12"
-    name: "ADR-0015 Battle HUD — battle-scoped Control consuming 5 LOCAL signals + Camera state queries"
+    name: "ADR-0015 Battle HUD — battle-scoped Control consuming 4 of 5 LOCAL signals + Camera state queries"
     file: "docs/architecture/ADR-0015-battle-hud.md"
     priority: should-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.4
     blocker: "S5-11"
-    completed: ""
+    completed: "2026-05-03"
+    # 2026-05-03: ADR-0015 ~620 LoC at Proposed status. Battle-scoped Control under CanvasLayer (5th invocation of pattern: HPStatus + Turn Order + Camera + GridBattleController + this). 9-param setup() DI seam; mandatory _exit_tree() with 11 GameBus disconnects. Subscribes to 4 of 5 ADR-0014 controller-LOCAL signals + 7 cross-domain (HP/Status unit_died + Turn Order round_started/unit_turn_started/unit_turn_ended + InputRouter input_state_changed/input_mode_changed + Grid Battle formation_bonuses_updated). EXPLICITLY NOT subscribed: hidden_fate_condition_progressed (Pillar 2 lock — Destiny Branch sole consumer; codified as forbidden_pattern + CI lint). Non-emitter discipline (zero GameBus emits). Public API: show_unit_info(int) + show_tile_info(Vector2i) ratifies ADR-0005 lines 235-236. Closes 5 prior provisional contracts (ADR-0005 + ADR-0010 + ADR-0011 + ADR-0013 + ADR-0014). godot-specialist PASS WITH 3 REVISIONS resolved same-patch (§3 _exit_tree() guard rationale comment, §4 _handle_signal args: Array rationale, §6 _process set_process(false) gating doc). HIGH engine risk (UI domain Godot 4.6: dual-focus + AccessKit + recursive Control disable + typed Dictionary) — 7 Verification items kept through implementation. Registry updated: +1 state_ownership (battle_hud_runtime_state) + 1 interface (battle_hud_consumer_interface) + 1 performance_budget (1.0ms steady-state + 120ms forecast burst) + 1 api_decision (battle_hud_module_form) + 5 forbidden_patterns (battle_hud_signal_emission + battle_hud_subscribes_to_hidden_fate_signal CRITICAL Pillar 2 lock + battle_hud_missing_exit_tree_disconnect + battle_hud_touch_target_below_44pt + battle_hud_hardcoded_localized_strings). Registry version 7→8. Sprint-5 12/13 done; only S5-13 (epic scaffold) remains. ADR Acceptance via /architecture-review delta in fresh session pending.
 
   - id: "S5-13"
-    name: "Battle HUD epic + 5-8 stories scaffold (impl carries to sprint-6)"
+    name: "Battle HUD Presentation epic created (5-8 stories scaffold; impl carries to sprint-6)"
     file: "production/epics/battle-hud/EPIC.md"
     priority: should-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.25
     blocker: "S5-12"
-    completed: ""
+    completed: "2026-05-03"
+    # 2026-05-03: First Presentation-layer epic in the project + 5th invocation of battle-scoped Node pattern. Created via /create-epics battle-hud after S5-12 ADR-0015 authoring. EPIC.md ~530 lines covering: MVP Scope (14 UI-GB-* elements + 9 AC-UX-HUD-* ACs all covered architecturally; TR backfill deferred to /architecture-review delta), Pattern Boundary Precedent (5 invocations), Pillar 2 Architectural Lock (3-layer enforcement), Governing ADRs table (ADR-0015 Proposed + 11 supporting ADRs Accepted), Same-Patch Obligations (1 BalanceConstants + 5 forbidden_patterns + 6 CI lint scripts + verification summary doc + 14 child element scenes), Cross-System Dependencies (9 backends — 8 Complete + 1 Ready InputRouter; battle-hud impl stories may need stubs for InputRouter integration tests until input-handling ships), Stories preview (~5-8 stories ~12-20h estimated; sprint-6 implementation), Definition of Done (10+ items including all 7 Engine Compatibility verification items + ADR-0015 Acceptance prerequisite + Pillar 2 lint zero-occurrences gate + TR registry backfill), Test Baseline target (≥870-880 from 841 baseline), Engine Compatibility Verification Items table (7 items mapped to anticipated stories), Risks (R-1 to R-7 — R-1 ADR Acceptance blocker, R-3 InputRouter not yet shipped, R-4 Pillar 2 lint multi-file split fragility, R-7 forecast burst budget on minimum-spec mobile). Updated production/epics/index.md: Layer coverage line refreshed (Presentation 0/6 → 1/6 Ready); new battle-hud row added; comprehensive 2026-05-03 changelog entry covering grid-battle-controller close + S5-12 + S5-13. Sprint-5 closed at 13/13. Next: /architecture-review in fresh session to escalate ADR-0015 Proposed → Accepted; then /create-stories battle-hud + /qa-plan battle-hud (sprint-6).

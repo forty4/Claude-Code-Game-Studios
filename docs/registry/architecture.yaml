@@ -29,8 +29,33 @@
 #   All forbidden patterns: Grep pattern="^  - pattern:" (forbidden_patterns section)
 #   Superseded entries:     Grep pattern="status: superseded"
 
-version: 7
-last_updated: "2026-04-30"
+version: 8
+last_updated: "2026-05-03"
+# 2026-05-03 (ADR-0015 Battle HUD design-time): Battle HUD authoring at
+# Proposed status — adds 1 state_ownership (battle_hud_runtime_state — 12
+# instance fields + 14 UI element refs + 9 DI'd backend refs; battle-scoped
+# 5th invocation of pattern after ADR-0010/0011/0013/0014); 1 interface
+# (battle_hud_consumer_interface — 2 public methods show_unit_info(int) +
+# show_tile_info(Vector2i) ratifying ADR-0005 lines 235-236 provisional
+# contract + 9-param setup() DI seam); 1 performance_budget (battle-hud
+# 1.0ms steady-state + 120ms forecast burst per UI-GB-04 FORECAST_RENDER_BUDGET_MS
+# knob); 1 api_decision (battle_hud_module_form — battle-scoped Control
+# under CanvasLayer; 4 alternatives rejected); 5 forbidden_patterns
+# (battle_hud_signal_emission, battle_hud_subscribes_to_hidden_fate_signal
+# [Pillar 2 lock — CRITICAL], battle_hud_missing_exit_tree_disconnect,
+# battle_hud_touch_target_below_44pt, battle_hud_hardcoded_localized_strings).
+# Closes 5 prior provisional contracts at design-time (ADR-0005 lines 235-236
+# + ADR-0010 line 43 #4 + ADR-0011 registry line 635 + ADR-0013 line 33 #3 +
+# ADR-0014 registry line 712 + 729 + line 729 — RATIFIED on Acceptance via
+# next /architecture-review delta). godot-specialist PASS WITH 3 REVISIONS
+# resolved same-patch (§3 _exit_tree() guard rationale comment, §4
+# _handle_signal args: Array rationale comment, §6 _process set_process(false)
+# gating documentation). TD-ADR PHASE-GATE skipped per production/review-mode.txt
+# = lean. Pillar 2 hidden semantic preservation enforced at 3 layers: test
+# (story-008 connection-count) + source-grep lint (lint_battle_hud_hidden_fate_non_subscription.sh)
+# + this registry forbidden_pattern. ADR-0015 status: Proposed (not yet Accepted —
+# /architecture-review delta required in fresh session next).
+#
 # 2026-04-30 (/architecture-review delta #9): ADR-0006 Balance/Data escalated
 # Proposed → Accepted. v6 → v7: ADR-0006 was the LAST Proposed ADR — all 12
 # ADRs now Accepted; ZERO Proposed ADRs remaining; clean architecture surface.
@@ -359,6 +384,26 @@ state_ownership:
       - docs/architecture/ADR-0009-unit-role.md  # DI'd for class-based derived stats
       - docs/architecture/ADR-0005-input-handling.md  # provides callbacks per §9 Bidirectional Contract
     added: 2026-05-02
+    revised: ""
+
+  - state: battle_hud_runtime_state
+    status: active
+    owner_system: battle-hud (Presentation layer; battle-scoped; 5th invocation of pattern after ADR-0010/0011/0013/0014)
+    adr: docs/architecture/ADR-0015-battle-hud.md
+    interface: "BattleHUD (class_name X extends Control, mounted under CanvasLayer in scenes/battle/battle_hud.tscn — battle-scoped 5th invocation of battle-scoped Node pattern) owns ~12 instance fields: 9 DI'd backend refs (_camera + _hp_controller + _turn_runner + _grid_controller + _input_router + _map_grid + _terrain_effect + _unit_role + _hero_db); _ui_elements (Dictionary[StringName, Control] — 14 UI-GB-* element references filled at _ready via @onready or @export NodePath resolution); _active_status_panel_unit_id (int; -1 sentinel — UI-GB-03 polling gate per OQ-3 deferred design); _last_zoom (float; per-frame zoom-poll baseline for UI-GB-12/13/14 grid-layer overlays); _two_tap_timer + _two_tap_target_action (Two-tap ATTACK/DEFEND confirm flow per battle-hud.md §5 — owned per OQ-4 resolution). MANDATORY _exit_tree() that disconnects all 11 GameBus subscriptions per ADR-0014 R-4 + ADR-0013 R-6 + camera_missing_exit_tree_disconnect + battle_hud_missing_exit_tree_disconnect forbidden_patterns. NO static class-level vars (battle-scoped Node lifecycle precludes; mirrors hp_status_static_state + turn_order_static_state + grid_battle_controller_static_state 3-precedent forbidden pattern)."
+    write_access: battle-hud-only  # _ui_elements / _active_status_panel_unit_id / _last_zoom / _two_tap_* mutated only by BattleHUD; HP / unit positions / battle state delegated to ADR-0010 / ADR-0014 owners (HUD reads, never writes)
+    referenced_by:
+      - docs/architecture/ADR-0015-battle-hud.md
+      - docs/architecture/ADR-0014-grid-battle-controller.md  # 4 of 5 controller-LOCAL signal subscriptions + get_selected_unit_id query
+      - docs/architecture/ADR-0013-camera.md  # get_zoom_value() consumer
+      - docs/architecture/ADR-0011-turn-order.md  # get_turn_order_snapshot() pull-based query + 4 emitted signal subscriptions
+      - docs/architecture/ADR-0010-hp-status.md  # get_current_hp / get_max_hp / get_status_effects + unit_died subscription
+      - docs/architecture/ADR-0005-input-handling.md  # show_unit_info / show_tile_info Tap Preview Protocol consumer + input_state_changed / input_mode_changed subscription
+      - docs/architecture/ADR-0004-map-grid-data-model.md  # get_tile for UI-GB-06 tile info tooltip
+      - docs/architecture/ADR-0008-terrain-effect.md  # get_modifier for UI-GB-06 terrain modifier display
+      - docs/architecture/ADR-0009-unit-role.md  # get_max_hp + class-based stats for UI-GB-03 unit info panel
+      - docs/architecture/ADR-0007-hero-database.md  # get_hero for UI-GB-03 unit name + portrait reference
+    added: 2026-05-03
     revised: ""
 
 # Example:
@@ -736,6 +781,23 @@ interfaces:
     added: 2026-05-02
     revised: ""
 
+  - contract: battle_hud_consumer_interface
+    status: active
+    pattern: direct_call
+    description: "BattleHUD exposes 2 public methods callable by InputRouter for the Touch Tap Preview Protocol per ADR-0005 lines 235-236 (CR-4a): (1) show_unit_info(unit_id: int) -> void — renders UI-GB-03 unit info panel for unit_id (PC mouse hover routes through the same path; if unit_id == -1, dismisses the panel). (2) show_tile_info(coord: Vector2i) -> void — renders UI-GB-06 tile info tooltip for coord (terrain type / elevation / defense bonus / evasion bonus per battle-hud.md §3 UI-GB-06; if coord == Vector2i(-1, -1), dismisses the tooltip). Both methods are direct-call (NOT signal-driven) per the ADR-0001 non-emitter-by-behavior pattern shared with calculator-tier systems. Internal state (_camera / _hp_controller / _turn_runner / _grid_controller / _input_router / _map_grid / _terrain_effect / _unit_role / _hero_db / _ui_elements / _active_status_panel_unit_id / _last_zoom / _two_tap_*) is private; consumers do NOT directly read these. setup(camera: BattleCamera, hp_controller: HPStatusController, turn_runner: TurnOrderRunner, grid_controller: GridBattleController, input_router: InputRouter, map_grid: MapGrid, terrain_effect: TerrainEffect, unit_role: UnitRole, hero_db: HeroDatabase) -> void is the DI seam (must be called BEFORE add_child per ADR-0010/0011/0013/0014 pattern; _ready() asserts all 9 backend deps non-null + connects all 11 GameBus subscriptions with CONNECT_DEFERRED). _handle_signal(signal_name: StringName, args: Array) -> void is the test seam (mirrors ADR-0014 + ADR-0005 + ADR-0010 + ADR-0012 DI test seam 5-precedent pattern; args: Array intentionally untyped — 11 handlers have heterogeneous arg shapes per godot-specialist 2026-05-03 review revision #2)."
+    emitter: none  # BattleHUD is a pure consumer — does NOT emit any GameBus signal (forbidden_pattern battle_hud_signal_emission); 11 GameBus subscriptions across 4 domains (Battle / Turn Order / HP/Status / Input) all use Object.CONNECT_DEFERRED per ADR-0001 §5
+    consumers:
+      - input-handling (InputRouter calls show_unit_info / show_tile_info on touch tap-preview per CR-4a + PC mouse hover)
+      - battle-scene-wiring (BattleScene mount calls setup(...) BEFORE add_child(); freed automatically with BattleScene per ADR-0002)
+    adr: docs/architecture/ADR-0015-battle-hud.md
+    notes: "BattleHUD subscribes to 11 GameBus signals across 4 domains: 4 from ADR-0014 GridBattleController (unit_selected_changed / unit_moved / damage_applied / battle_outcome_resolved) — EXPLICITLY NOT the 5th hidden_fate_condition_progressed per Pillar 2 lock + battle_hud_subscribes_to_hidden_fate_signal forbidden_pattern; 1 from ADR-0010 HPStatusController (unit_died); 3 from ADR-0011 TurnOrderRunner (round_started / unit_turn_started / unit_turn_ended); 2 from ADR-0005 InputRouter (input_state_changed / input_mode_changed); 1 from ADR-0014 GridBattleController Formation Bonus path (formation_bonuses_updated). Reads state from 9 DI'd backends (BattleCamera.get_zoom_value + HPStatusController.get_current_hp/get_max_hp/get_status_effects + TurnOrderRunner.get_turn_order_snapshot + GridBattleController.get_selected_unit_id + InputRouter.get_active_input_mode + MapGrid.get_tile + TerrainEffect.get_modifier + UnitRole.get_max_hp + HeroDatabase.get_hero). Battle-scoped Node form (5th invocation after ADR-0010 + ADR-0011 + ADR-0013 + ADR-0014) means MANDATORY explicit _exit_tree() that disconnects all 11 GameBus subscriptions (per godot-specialist 2026-05-03 review + battle_hud_missing_exit_tree_disconnect forbidden_pattern). Carried advisory for next ADR-0010 amendment: post-MVP hp_status_changed(unit_id) signal would close OQ-3 polling deferral (HUD subscription is non-breaking additive change)."
+    referenced_by:
+      - docs/architecture/ADR-0015-battle-hud.md
+      - docs/architecture/ADR-0005-input-handling.md  # ratifies BattleHUD provisional contract from lines 235-236
+      - docs/architecture/ADR-0014-grid-battle-controller.md  # 4 of 5 controller-LOCAL signal subscriber + get_selected_unit_id consumer
+    added: 2026-05-03
+    revised: ""
+
 # Example:
 #
 # interfaces:
@@ -782,6 +844,16 @@ performance_budgets:
     referenced_by:
       - docs/architecture/ADR-0014-grid-battle-controller.md
     added: 2026-05-02
+    revised: ""
+
+  - system: battle-hud (BattleHUD)
+    status: active
+    budget_ms: 1.0
+    adr: docs/architecture/ADR-0015-battle-hud.md
+    notes: "Per-frame steady-state HUD update ≈ 0.1ms (no _process body except optional grid-overlay zoom-poll which is gated via _has_active_grid_overlay() OR set_process(false) per godot-specialist 2026-05-03 review revision #3). Per-event signal handler costs: 11 handlers × ~0.05ms each = 0.55ms peak (only one fires per signal emit; realistic peak ≈ 0.05ms per event). Forecast burst budget: ≤ 120ms one-shot per UI-GB-04 FORECAST_RENDER_BUDGET_MS knob (registry-owned in BalanceConstants per ADR-0006 pattern; not per-frame — only on attack-target-hover). UI-GB-09 end-of-battle results render: ≤ 200ms one-shot (single occurrence per battle). Total budget consumption ≈ 1.0ms peak per battle action steady-state; well under 16.6ms frame budget. Combined with ADR-0013 BattleCamera (0.05ms) + ADR-0014 GridBattleController (0.5ms) the battle-scene Node-set with HUD consumes ~1.55ms = 9.3% of frame budget on Pixel 7-class hardware (Adreno 610 / Mali-G57 reference). Verified by per-story Performance.get_monitor(Performance.TIME_PROCESS) instrumentation gate. Forecast burst is the worst-case path; soak-test in Polish stage to confirm steady-state on minimum-spec mobile."
+    referenced_by:
+      - docs/architecture/ADR-0015-battle-hud.md
+    added: 2026-05-03
     revised: ""
 
 # Example:
@@ -1110,6 +1182,20 @@ api_decisions:
       - docs/architecture/ADR-0014-grid-battle-controller.md
       - docs/architecture/ADR-0001-gamebus-autoload.md
     added: 2026-05-02
+    revised: ""
+
+  - purpose: battle_hud_module_form
+    status: active
+    using: "class_name BattleHUD extends Control mounted under CanvasLayer in scenes/battle/battle_hud.tscn — battle-scoped 5th invocation of pattern (HPStatusController + TurnOrderRunner + BattleCamera + GridBattleController + this). Control occupies full viewport via set_anchors_preset(Control.PRESET_FULL_RECT) in _ready(). 9-param setup() DI seam. Mandatory _exit_tree() that disconnects all 11 GameBus subscriptions. Non-emitter discipline (zero GameBus.*.emit calls). Pillar 2 lock (zero hidden_fate_condition_progressed references)."
+    not_also_1: "extends CanvasLayer directly — would lose Control's built-in input routing + focus management + theme inheritance + AccessKit auto-exposure (per godot-specialist 2026-05-03 review note #4). Control under CanvasLayer wrapper is idiomatic Godot 4.6 pattern."
+    not_also_2: "Autoload BattleHUD — rejected per Alternative 2: HUD state is fundamentally battle-scoped (overworld + main menu + pause have no Battle HUD consumer); autoloads cannot be parameterized per-scene without ugly set_battle(...) calls; AccessKit + theme + tween state would need per-battle reset logic easy to forget; battle-scoped Node form mirrors 4-precedent pattern."
+    not_also_3: "Multiple separate Control children of BattleScene root (no HUD wrapper) — rejected per Alternative 3: 14 UI-GB-* elements form a coordinated surface consuming the same 11 GameBus signals + 9 backend refs; signal-subscription fan-out becomes 50+ subscriptions across HUD; DI fan-out + show/hide coordination + theme coordination all benefit from a wrapper. Wrapper is NOT a God-Object (delegates to per-element render methods)."
+    not_also_4: "Two ADRs split (HUD Layout + HUD Logic) — rejected per Alternative 4: layout and logic tightly coupled; signal handlers reference specific element node paths; theme overrides depend on Control subclass choice. ADR-0014 §Alt 4 Controller+Combat-Resolver split rejection precedent."
+    adr: docs/architecture/ADR-0015-battle-hud.md
+    reason: "Per ADR-0015 §1 + §2 + Alternatives 1-4. Battle HUD is a state-holder + signal-listener + UI-tree-renderer, not a calculator. Stateless-static rejected (RefCounted has no node lifecycle, can't subscribe to GameBus, can't use Godot UI subsystem); autoload rejected (battle-scoped lifecycle is the natural fit; mirrors 4-precedent battle-scoped Node pattern). Mirrors ADR-0010/0011/0013/0014 module-form decision rationale — pattern stable at 5 invocations. Future presentation-layer Nodes (Battle Results screen, Tutorial overlay, Pause menu within battle) should follow the same DI + _exit_tree() discipline + non-emitter pattern + AccessKit-via-Control inheritance."
+    referenced_by:
+      - docs/architecture/ADR-0015-battle-hud.md
+    added: 2026-05-03
     revised: ""
 
 # Example:
@@ -1449,6 +1535,41 @@ forbidden_patterns:
     why: "Per ADR-0014 R-2 + §0 deferral row #2 (FormationBonusSystem orchestration deferred). When Formation Bonus ADR ships (post-MVP), formation calc moves from GridBattleController to FormationBonusSystem per CR-FB-6 + grid-battle.md CR-16. If MULTIPLE classes implement formation math during the migration window, the two implementations could drift and produce different damage results for the same battle state — silent bug class. Forbidden pattern is the migration safety rail: the lint will fire when FormationBonusSystem code lands AND this controller still has inline math, forcing clean cutover. Same precedent as external_screen_to_grid_implementation forbidden_pattern (ADR-0013 — single source-of-truth for cross-system contract surface)."
     adr: docs/architecture/ADR-0014-grid-battle-controller.md
     added: 2026-05-02
+
+  - pattern: battle_hud_signal_emission
+    status: active
+    description: "BattleHUD (src/feature/battle_hud/battle_hud.gd) MUST NOT emit any GameBus signal — non-emitter discipline. HUD is a pure consumer + state-reader; cross-system communication FROM HUD goes through method calls on DI'd backends (e.g., Undo button click invokes InputRouter._handle_event(synthetic_undo_event), HUD does not emit undo_requested itself). Lint enforces via grep -c 'GameBus\\..*\\.emit' src/feature/battle_hud/battle_hud.gd returns 0. The \\.emit anchor distinguishes emit calls from subscription / disconnect / is_connected lines (per ADR-0013 + ADR-0014 lint shape precedent)."
+    why: "Per ADR-0015 §5 R-5 + ADR-0001 §445 50-emits/frame budget. HUD adds 0 new signals to the GameBus contract — keeps signal namespace lean and avoids signal-ordering hazards (HUD-emitted signals could re-enter HUD itself via subscriber chains). Mirrors 4-precedent project discipline (camera_signal_emission + balance_constants_signal_emission + grid_battle_controller_signal_emission_outside_battle_domain + damage_calc_signal_emission). Pattern boundary: cross-system events that HUD initiates (Undo button click) flow back through InputRouter as synthetic events; HUD itself never authors the cross-system payload."
+    adr: docs/architecture/ADR-0015-battle-hud.md
+    added: 2026-05-03
+
+  - pattern: battle_hud_subscribes_to_hidden_fate_signal
+    status: active
+    description: "BattleHUD (src/feature/battle_hud/battle_hud.gd) MUST NEVER contain the literal token 'hidden_fate_condition_progressed' — neither as connect call, variable name, comment, nor any other source-code occurrence. Lint enforces via grep -q 'hidden_fate_condition_progressed' src/feature/battle_hud/battle_hud.gd returning 0 matches (build fails on any match). Pillar 2 hidden semantic preservation lock — Destiny Branch is the SOLE consumer of this signal per ADR-0014 line 335 + design/gdd/destiny-branch.md Section B (wordless pre-linguistic realization at Beat 7). If a future Battle HUD designer believes they need to surface fate progress to the player, they MUST first revise this ADR (Superseded-by) AND design/gdd/destiny-branch.md Section B AND design/gdd/game-concept.md Pillar 2 — three coordinated revisions are intentionally hard."
+    why: "**CRITICAL — Pillar 2 architectural lock**, NOT a stylistic preference. design/gdd/game-concept.md Pillar 2 (운명은 바꿀 수 있다 — Destiny Can Be Rewritten) ratifies that fate progress is HIDDEN from the player during battle and surfaces only at Beat 7 reserved-color reveal per design/gdd/destiny-branch.md. If HUD subscribes to hidden_fate_condition_progressed and renders any visual at Beat 6 results screen (or any other point), the Pillar 2 contrast collapses — players see fate progress accumulating during battle, eliminating the surprise / weight / recognition that destiny-branch.md OQ-DB-10 makes a >10% miss-rate Pillar 2 failure threshold against. 3-layer enforcement: (1) test-layer story-008 connection-count assertion on controller signal channel (hidden_fate_condition_progressed.get_connections().size() == 0 on fresh controller); (2) source-layer this lint (zero token occurrences in HUD source); (3) architecture-layer this forbidden_pattern (registry blocks future ADRs from adding HUD subscription). Mirrors no other forbidden_pattern in scale of game-design-pillar enforcement — first project precedent of pillar-anchored lint pattern."
+    adr: docs/architecture/ADR-0015-battle-hud.md
+    added: 2026-05-03
+
+  - pattern: battle_hud_missing_exit_tree_disconnect
+    status: active
+    description: "BattleHUD (src/feature/battle_hud/battle_hud.gd) MUST have an explicit _exit_tree() implementation that disconnects all 11 GameBus subscriptions: 4 from ADR-0014 GridBattleController (unit_selected_changed / unit_moved / damage_applied / battle_outcome_resolved) + 1 from ADR-0010 HPStatusController (unit_died) + 3 from ADR-0011 TurnOrderRunner (round_started / unit_turn_started / unit_turn_ended) + 2 from ADR-0005 InputRouter (input_state_changed / input_mode_changed) + 1 from ADR-0014 GridBattleController Formation Bonus path (formation_bonuses_updated). Lint enforces via grep -E '^func _exit_tree\\(' + grep -c 'GameBus\\..*\\.disconnect' src/feature/battle_hud/battle_hud.gd returns ≥ 11 disconnect calls within the _exit_tree body. is_connected guard usage is recommended for defensive hygiene per godot-specialist 2026-05-03 review revision #1 but Godot 4.x disconnect() is a safe no-op when not connected — guards are NOT a correctness requirement."
+    why: "Per ADR-0015 R-7 + TD-057 retrofit pattern (story-009 turn-order audit) + ADR-0013 R-6 + ADR-0014 R-4 + camera_missing_exit_tree_disconnect 4-precedent project discipline. Without _exit_tree() disconnect, GameBus autoload retains Callable references pointing at freed BattleHUD instance after BattleScene queue_free → SOURCE-outlives-TARGET leak + potential crash on next signal emit (autoload tries to invoke a freed Object). Battle-scoped Node form (5th invocation) inherits the same lifecycle hazard as ADR-0010 HPStatusController + ADR-0011 TurnOrderRunner + ADR-0013 BattleCamera + ADR-0014 GridBattleController. Pattern stable at 5 invocations; cross-ADR audit story-009 confirmed all 4 prior battle-scoped Nodes ship _exit_tree() correctly — HUD is the 5th and lint enforces same."
+    adr: docs/architecture/ADR-0015-battle-hud.md
+    added: 2026-05-03
+
+  - pattern: battle_hud_touch_target_below_44pt
+    status: active
+    description: "Every interactive Control (Button / TextureButton / any Control with mouse_filter != MOUSE_FILTER_IGNORE) in scenes/battle/battle_hud.tscn AND its child element scenes (scenes/battle/elements/ui_gb_*.tscn) MUST have custom_minimum_size.x ≥ 44 AND custom_minimum_size.y ≥ 44 on touch viewport. Lint enforces via tools/ci/lint_battle_hud_touch_target_size.sh which parses the .tscn files for Control nodes with input-receiving mouse_filter and asserts size threshold. Exemption: read-only / decorative Controls (Label without focus_mode, ColorRect overlays) are exempt — only interactive elements receive the 44pt minimum gate."
+    why: "Per .claude/docs/technical-preferences.md (44px touch target minimum for mobile parity) + design/ux/accessibility-requirements.md WCAG 2.5.5 Target Size + design/ux/battle-hud.md §6 Palette & Accessibility. Sub-44pt touch targets fail accessibility on mobile (Pixel 7-class Adreno 610 / Mali-G57 reference hardware) and exclude players with motor accessibility needs. Touch target enforcement at lint level (not just convention) is mandatory per project-wide accessibility commitment. Mirrors no prior forbidden_pattern for accessibility (this is the first dedicated accessibility lint in the project) — establishes precedent for future UI ADRs (Battle Results screen, Tutorial overlay, Settings panel)."
+    adr: docs/architecture/ADR-0015-battle-hud.md
+    added: 2026-05-03
+
+  - pattern: battle_hud_hardcoded_localized_strings
+    status: active
+    description: "BattleHUD source code (src/feature/battle_hud/battle_hud.gd) AND child element scripts (src/feature/battle_hud/elements/ui_gb_*.gd) MUST NOT contain hardcoded localized strings. All visible text must route through tr(key) — Godot's localization function — with the key declared in the project's locale .po / .csv files. Lint enforces via grep -E 'text\\s*=\\s*\"[^\"]+\"|set_text\\(\"[^\"]+\"\\)' on src/feature/battle_hud/ returning 0 matches outside whitelisted constants (e.g., empty string, debug-only push_error / push_warning calls, format placeholders like '%d HP'). Korean / English literal strings in production code = build fail."
+    why: "Per .claude/docs/technical-preferences.md (i18n via tr() obligation) + design/ux/battle-hud.md (locale keys explicitly named throughout — e.g., forecast.no_counter.defend_stance, forecast.passive.rally) + design/gdd/destiny-branch.md (locale keys for Beat 7 reveal text). Hardcoded strings break locale switching at runtime + force HUD code changes for every new locale + miss the live-translation-preview Godot 4.5 feature. Mirrors no prior forbidden_pattern for i18n (first dedicated i18n lint in the project) — establishes precedent for future UI ADRs. The lint exempts format placeholders (e.g., '%d HP') which are concatenation patterns, not localized strings; the key + format obligation is on the tr() call site, not the format string itself."
+    adr: docs/architecture/ADR-0015-battle-hud.md
+    added: 2026-05-03
 
 # Example:
 #
