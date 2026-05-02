@@ -11,7 +11,7 @@ goal: "MVP First Chapter (sprint-4 of 3-sprint arc) — Camera ADR + Grid Battle
 start: "2026-05-10"
 end: "2026-05-16"
 generated: "2026-05-02"
-updated: "2026-05-02"  # S4-04 DONE: grid-battle-controller epic + 10 stories scaffolded (MVP-scoped, 4 deferrals; impl carries to sprint-5; ~26h estimate). See history S4-04.
+updated: "2026-05-02"  # Sprint-4 CLOSED: 5/7 done (must-have 4/4 + should 1/2 + nice 0/1). 2 asset items DEFERRED to user. Retro: retro-sprint-4-2026-05-02.md.
 
 # Sprint-3 closed effective DoD must-have 3/3 + should-have 2/2 + nice-to-have 1/1 = 7/7
 # by 2026-05-02 (1 calendar day vs 7-day window). Final state archived in git history
@@ -78,18 +78,20 @@ stories:
     name: "Asset gathering — 8 hero portraits (public-domain or CC) at assets/art/heroes/portraits/"
     file: "assets/art/heroes/portraits/"
     priority: should-have
-    status: backlog
-    owner: ""
+    status: deferred
+    owner: "user (curation requires human taste + license review)"
     estimate_days: 0.5
     blocker: ""
     completed: ""
+    # 2026-05-02: DEFERRED to user — asset curation is taste-driven + license review needs human eye. Carry to sprint-5/6 user-side prep work. See sprint-4 retro.
 
   - id: "S4-06"
     name: "BGM candidate gathering — 2-3 free/CC tracks at assets/audio/bgm/candidates/"
     file: "assets/audio/bgm/candidates/"
     priority: nice-to-have
-    status: backlog
-    owner: ""
+    status: deferred
+    owner: "user (taste-driven curation)"
     estimate_days: 0.25
     blocker: ""
     completed: ""
+    # 2026-05-02: DEFERRED to user — BGM selection is subjective. Carry to sprint-6 (when first chapter scene needs music to test under). See sprint-4 retro.

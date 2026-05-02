@@ -98,7 +98,11 @@
 
 ### Top-level `updated:` field — rolling history
 
-#### 2026-05-02 (current after S4-04 close-out)
+#### 2026-05-02 (current after Sprint-4 close-out)
+
+> Sprint-4 CLOSED: 5/7 done (must-have 4/4 + should 1/2 + nice 0/1). 2 asset items DEFERRED to user. Retro: retro-sprint-4-2026-05-02.md.
+
+#### 2026-05-02 (rotated when Sprint-4 closed)
 
 > S4-04 DONE: grid-battle-controller epic + 10 stories scaffolded (MVP-scoped, 4 deferrals; impl carries to sprint-5; ~26h estimate). See history S4-04.
 
