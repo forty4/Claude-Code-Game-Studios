@@ -1,20 +1,20 @@
 # Story 007: 5-turn limit + battle_outcome_resolved emission + victory check
 
-> **Epic**: Grid Battle Controller | **Status**: Ready | **Layer**: Feature | **Type**: Logic | **Estimate**: 2h
+> **Epic**: Grid Battle Controller | **Status**: Complete (2026-05-03) | **Layer**: Feature | **Type**: Logic | **Estimate**: 2h
 > **ADR**: ADR-0014 §7
 
 ## Acceptance Criteria
 
-- [ ] **AC-1** `_max_turns: int = 0` instance field; populated in `_ready()` from `BalanceConstants.get_const("MAX_TURNS_PER_BATTLE")` (added by story-010 = 5 default)
-- [ ] **AC-2** `_on_round_started(round_num: int) -> void` subscribed to `_turn_runner.round_started` via CONNECT_DEFERRED in story-001
-- [ ] **AC-3** `_on_round_started` body: if `round_num > _max_turns` → call `_emit_battle_outcome("TURN_LIMIT_REACHED")` (per ADR-0014 §7); also handles formation_turns counter increment (story-008)
-- [ ] **AC-4** `_emit_battle_outcome(outcome: StringName) -> void`: gathers fate_data Dictionary snapshot from current 5 fate counters (story-008) + emits `battle_outcome_resolved(outcome, fate_data)` controller-LOCAL signal
-- [ ] **AC-5** Victory check on `_on_unit_died(unit_id)` (story-008 wires this handler): if all enemies dead → `_emit_battle_outcome("VICTORY_ANNIHILATION")`; if all players dead → `_emit_battle_outcome("DEFEAT_ANNIHILATION")`. Per grid-battle.md CR-7 evaluation order: VICTORY_ANNIHILATION → DEFEAT_ANNIHILATION (first to resolve wins per EC-GB-02)
-- [ ] **AC-6** `_check_battle_end() -> bool` helper: iterates `_units.values()` filtered by alive (HPStatusController.is_alive); returns true if either side has 0 alive units; used by victory check above
-- [ ] **AC-7** Once `battle_outcome_resolved` emitted, controller enters terminal state — no further input handling (per `_battle_over: bool` flag set in `_emit_battle_outcome`)
-- [ ] **AC-8** Test: simulate 5 rounds → 6th round_started fires → assert exactly 1 `battle_outcome_resolved("TURN_LIMIT_REACHED", fate_data)` emitted with correct fate_data snapshot
-- [ ] **AC-9** Test: simulate lethal damage to last enemy → `_on_unit_died` → assert exactly 1 `battle_outcome_resolved("VICTORY_ANNIHILATION", fate_data)` emitted; defender HP 0 → cascade properly via CONNECT_DEFERRED (no reentrance)
-- [ ] **AC-10** Regression baseline maintained: ≥757 + new tests / 0 errors / 0 orphans / Exit 0; new test file `tests/unit/feature/grid_battle/grid_battle_controller_turn_limit_test.gd` adds ≥4 tests covering AC-3..AC-9
+- [x] **AC-1** `_max_turns: int = 0` instance field; populated in `_ready()` from `BalanceConstants.get_const("MAX_TURNS_PER_BATTLE")` (already shipped in story-001)
+- [x] **AC-2** `_on_round_started(round_num: int) -> void` subscribed to `GameBus.round_started` via CONNECT_DEFERRED in story-001 (drift #1: GameBus autoload, not instance signal)
+- [x] **AC-3** `_on_round_started` body: if `round_num > _max_turns` → call `_emit_battle_outcome(&"TURN_LIMIT_REACHED")`; story-008 will add formation_turns counter increment alongside this body
+- [x] **AC-4** `_emit_battle_outcome(outcome: StringName) -> void`: gathers fate_data Dictionary snapshot from 7 fate fields (tank/assassin/boss unit_ids + 4 counters) + emits `battle_outcome_resolved(outcome, fate_data)` controller-LOCAL signal + sets `_battle_over = true` (idempotent — early-returns if already set)
+- [x] **AC-5** Victory check on `_on_unit_died(unit_id)`: calls `_check_battle_end()` after every unit death. Story-008 will add fate counter updates alongside this body
+- [x] **AC-6** `_check_battle_end() -> bool` helper: iterates `_units.values()` filtered by `_hp_controller.is_alive`; emits VICTORY_ANNIHILATION (enemy_alive==0) before DEFEAT_ANNIHILATION (player_alive==0) per grid-battle.md CR-7 / EC-GB-02 player-side precedence on mutual-kill
+- [x] **AC-7** Once `battle_outcome_resolved` emitted, controller enters terminal state — `handle_grid_click` early-returns if `_battle_over`; `_on_round_started` + `_on_unit_died` early-return if `_battle_over`; `_emit_battle_outcome` itself is idempotent
+- [x] **AC-8** Test: round 6 round_started fires → exactly 1 `battle_outcome_resolved(&"TURN_LIMIT_REACHED", fate_data)` emit (covered: `test_on_round_started_over_limit_emits_turn_limit_reached` + `test_emit_battle_outcome_includes_fate_data_snapshot`)
+- [x] **AC-9** Test: simulate lethal damage to last enemy → `_on_unit_died` → exactly 1 `battle_outcome_resolved(&"VICTORY_ANNIHILATION", fate_data)` emit (covered: `test_check_battle_end_all_enemies_dead_emits_victory` + DEFEAT counterpart + mutual-kill precedence test)
+- [x] **AC-10** Regression baseline maintained: 825 PASS / 0 errors / 0 failures / 0 orphans / Exit 0 (was 815 → +10 new tests; 16th consecutive failure-free baseline). New test file `tests/unit/feature/grid_battle/grid_battle_controller_turn_limit_test.gd` adds 10 tests covering AC-3..AC-9
 
 ## Implementation Notes
 
@@ -30,7 +30,7 @@
 
 **Story Type**: Logic (turn counter + outcome dispatch — pure deterministic)
 **Required evidence**: `tests/unit/feature/grid_battle/grid_battle_controller_turn_limit_test.gd` — must exist + ≥4 tests + must pass
-**Status**: [ ] Not yet created
+**Status**: [x] Shipped 2026-05-03 — 10 tests, all passing (≥4 required). Coverage: turn-limit threshold (under/at/over), fate_data snapshot shape, VICTORY/DEFEAT/mutual-kill annihilation, terminal-state idempotency on second emit, terminal guards on `handle_grid_click` + `_on_round_started`.
 
 ## Dependencies
 

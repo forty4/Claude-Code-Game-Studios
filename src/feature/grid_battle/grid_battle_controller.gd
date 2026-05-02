@@ -158,6 +158,14 @@ var _fate_assassin_kills: int = 0
 var _fate_boss_killed: bool = false
 
 
+# ─── Terminal state (story-007 AC-7) ─────────────────────────────────────────
+
+## Set true the moment battle_outcome_resolved is emitted. All input + signal
+## handlers early-return when set, preventing duplicate outcome emission on
+## edge cases (e.g., turn-limit firing simultaneously with last-enemy-death).
+var _battle_over: bool = false
+
+
 # ─── DI seam (BattleScene calls before add_child per ADR-0014 §3) ───────────
 
 ## Injects all 8 DI dependencies. MUST be called before add_child().
@@ -333,10 +341,15 @@ func end_player_turn() -> void:
 ## Exposed as public so integration tests can drive it without emitting GameBus signals.
 ## Per ADR-0014 §4 + story-003 AC-5: 2-state FSM dispatch via match _state.
 ##
+## Story-007 AC-7: terminal-state guard — once `_battle_over == true`, all click
+## input is silently ignored (prevents post-resolution interaction).
+##
 ## NOTE: action parameter type is `String` (not StringName per ADR-0014 §10 sketch)
 ## to match shipped GameBus.input_action_fired signal signature (String per ADR-0001
 ## line 168 + ADR-0001 amendment advisory delta #6 Item 10a still pending).
 func handle_grid_click(action: String, coord: Vector2i, unit_id: int) -> void:
+	if _battle_over:
+		return  # AC-7 terminal-state guard — no input handling after outcome resolved
 	match _state:
 		BattleState.OBSERVATION:
 			_handle_grid_click_observation(action, coord, unit_id)
@@ -367,9 +380,11 @@ func _on_input_action_fired(action: String, ctx: InputContext) -> void:
 
 
 func _on_unit_died(unit_id: int) -> void:
+	if _battle_over:
+		return  # AC-7 terminal-state guard — no further outcome processing
 	# TODO(story-008): update fate counters (boss kill, assassin kill attribution)
-	# TODO(story-007): call _check_battle_end()
-	pass
+	# Story-007 AC-5: victory check on every unit death.
+	_check_battle_end()
 
 
 func _on_unit_turn_started(unit_id: int) -> void:
@@ -377,10 +392,17 @@ func _on_unit_turn_started(unit_id: int) -> void:
 	pass
 
 
+## Subscribed to GameBus.round_started via CONNECT_DEFERRED in _ready().
+## Per ADR-0014 §7 + story-007 AC-3: when round_num exceeds _max_turns, emit
+## battle_outcome_resolved with TURN_LIMIT_REACHED outcome. _max_turns is
+## loaded from BalanceConstants(MAX_TURNS_PER_BATTLE)=5 in _ready().
 func _on_round_started(round_num: int) -> void:
-	# TODO(story-007): check turn limit (round_num > _max_turns → emit battle_outcome_resolved)
+	if _battle_over:
+		return  # AC-7 terminal-state guard
 	# TODO(story-008): update _fate_formation_turns counter
-	pass
+	# Story-007 AC-3: round 6 (>5) triggers TURN_LIMIT_REACHED.
+	if round_num > _max_turns:
+		_emit_battle_outcome(&"TURN_LIMIT_REACHED")
 
 
 # ─── Private helpers ─────────────────────────────────────────────────────────
@@ -784,3 +806,62 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 	damage_applied.emit(attacker.unit_id, defender.unit_id, final_damage)
 
 	return final_damage
+
+
+# ─── Battle outcome resolution (story-007) ──────────────────────────────────
+
+## Builds the fate_data Dictionary snapshot from current 5 fate counters and
+## emits battle_outcome_resolved + sets _battle_over terminal-state flag.
+## Per ADR-0014 §7 + story-007 AC-4 + AC-7.
+##
+## fate_data shape (consumed by Destiny Branch ADR — sprint-6):
+##   - tank_unit_id / assassin_unit_id / boss_unit_id (int): roster identity
+##   - rear_attacks (int): cumulative rear-strike count (story-005 + story-008)
+##   - formation_turns (int): rounds with active formation (story-008)
+##   - assassin_kills (int): kills attributed to assassin (story-008)
+##   - boss_killed (bool): boss-tagged enemy killed flag (story-008)
+##
+## Idempotency: this method early-returns if _battle_over is already true,
+## guaranteeing exactly-once outcome emission per battle (CR-7 / AC-7).
+func _emit_battle_outcome(outcome: StringName) -> void:
+	if _battle_over:
+		return  # AC-7: idempotent — outcome already resolved
+	_battle_over = true
+	var fate_data: Dictionary = {
+		"tank_unit_id": _fate_tank_unit_id,
+		"assassin_unit_id": _fate_assassin_unit_id,
+		"boss_unit_id": _fate_boss_unit_id,
+		"rear_attacks": _fate_rear_attacks,
+		"formation_turns": _fate_formation_turns,
+		"assassin_kills": _fate_assassin_kills,
+		"boss_killed": _fate_boss_killed,
+	}
+	battle_outcome_resolved.emit(outcome, fate_data)
+
+
+## Checks alive-unit counts on each side. If either side has 0 alive units,
+## emits the corresponding annihilation outcome and returns true. Returns false
+## if both sides still have at least one alive unit. Per ADR-0014 §7 +
+## story-007 AC-5 + AC-6 + grid-battle.md CR-7 evaluation order.
+##
+## CR-7 evaluation order: VICTORY_ANNIHILATION checked BEFORE DEFEAT_ANNIHILATION
+## per grid-battle.md EC-GB-02 mutual-kill precedence (player-side wins ties).
+## Called from _on_unit_died (CONNECT_DEFERRED — no reentrance per ADR-0014 R-8).
+func _check_battle_end() -> bool:
+	var player_alive: int = 0
+	var enemy_alive: int = 0
+	for unit: BattleUnit in _units.values():
+		if not _hp_controller.is_alive(unit.unit_id):
+			continue
+		if unit.side == 0:
+			player_alive += 1
+		else:
+			enemy_alive += 1
+	# CR-7 + EC-GB-02: VICTORY_ANNIHILATION precedence over DEFEAT.
+	if enemy_alive == 0:
+		_emit_battle_outcome(&"VICTORY_ANNIHILATION")
+		return true
+	if player_alive == 0:
+		_emit_battle_outcome(&"DEFEAT_ANNIHILATION")
+		return true
+	return false

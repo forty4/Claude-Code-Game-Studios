@@ -97,12 +97,14 @@ stories:
     # 2026-05-03: _consume_unit_action (acted flag + declare_action(ATTACK) + deselect + auto-handoff) + _any_player_unit_can_act (alive-and-unacted scan) + end_player_turn (clear + deselect). Drift #9 (spend_action_token → declare_action) + drift #10 (no _turn_runner.end_player_turn) catalogued in ADR-0014 Implementation Notes. +9 tests. 806→815 PASS (15th failure-free).
 
   - id: "S5-08"
-    name: "story-007: 5-turn limit + MAX_TURNS_PER_BATTLE + battle_outcome_resolved on round 6"
+    name: "story-007: 5-turn limit + battle_outcome_resolved + _check_battle_end + terminal state"
     file: "production/epics/grid-battle-controller/story-007-five-turn-limit.md"
     priority: must-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.25
+    completed: "2026-05-03"
+    # 2026-05-03: _emit_battle_outcome (fate_data snapshot + idempotent + _battle_over) + _check_battle_end (CR-7 VICTORY-before-DEFEAT) + _on_round_started (TURN_LIMIT_REACHED at round > _max_turns) + _on_unit_died (victory check) + handle_grid_click terminal guard. +10 tests. 815→825 PASS (16th failure-free).
     blocker: "S5-07"
     completed: ""
 
