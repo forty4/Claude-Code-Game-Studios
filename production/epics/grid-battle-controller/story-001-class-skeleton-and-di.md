@@ -1,7 +1,7 @@
 # Story 001: GridBattleController class skeleton + 8-param DI + 6-backend assertion + _exit_tree
 
-> **Epic**: Grid Battle Controller | **Status**: Ready | **Layer**: Feature | **Type**: Logic (skeleton) | **Estimate**: 2h
-> **ADR**: ADR-0014 §1, §3, §10 + R-4 + R-8
+> **Epic**: Grid Battle Controller | **Status**: Complete (2026-05-03) | **Layer**: Feature | **Type**: Logic (skeleton) | **Estimate**: 2h
+> **ADR**: ADR-0014 §1, §3, §10 + R-4 + R-8 (Implementation Notes amended same-patch with signal-routing-via-GameBus drift fix + BattleUnit pre-existing class note + DI cleanup candidate)
 
 ## Acceptance Criteria
 

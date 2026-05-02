@@ -11,7 +11,7 @@ goal: "Ship grid-battle-controller end-to-end (qa-plan + 10 stories) + author Ba
 start: "2026-05-17"
 end: "2026-05-23"
 generated: "2026-05-02"
-updated: "2026-05-02"  # Sprint-5 OPEN: 11 must-have (qa-plan + 10 grid-battle-controller stories) + 2 should (Battle HUD ADR + scaffold).
+updated: "2026-05-03"  # Sprint-5 IN PROGRESS: S5-01 qa-plan done; S5-02 story-001 done (skeleton+DI+GameBus routing fix). 761 PASS (10th failure-free).
 
 # Sprint-4 closed 5/7 (must-have 4/4 + should 1/2 + nice 0/1) by 2026-05-02 — 8 calendar days
 # ahead of 2026-05-16 deadline. 9th consecutive failure-free baseline (757/0/0/0). First
@@ -21,24 +21,25 @@ updated: "2026-05-02"  # Sprint-5 OPEN: 11 must-have (qa-plan + 10 grid-battle-c
 stories:
   - id: "S5-01"
     name: "/qa-plan grid-battle-controller — per-epic QA discipline before first /dev-story"
-    file: "production/qa/qa-plan-grid-battle-controller.md"
+    file: "production/qa/qa-plan-grid-battle-controller-2026-05-02.md"
     priority: must-have
-    status: ready-for-dev
+    status: done
     owner: ""
     estimate_days: 0.15
     blocker: ""
-    completed: ""
-    # Per per-epic QA discipline locked sprint-2 Phase 5 — mandatory before first /dev-story on this epic.
+    completed: "2026-05-02"
+    # 2026-05-02: qa-plan-grid-battle-controller-2026-05-02.md (~290 LoC) shipped. 10 stories classified; +47-51 tests projected; integration test recommended for story-005.
 
   - id: "S5-02"
     name: "grid-battle-controller story-001: class skeleton + 8-param setup() DI + _exit_tree() with CONNECT_DEFERRED comment"
     file: "production/epics/grid-battle-controller/story-001-class-skeleton-and-di.md"
     priority: must-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.25
     blocker: "S5-01"
-    completed: ""
+    completed: "2026-05-03"
+    # 2026-05-03: skeleton ~280LoC + 4 lifecycle tests + 6 backend stubs + MAX_TURNS_PER_BATTLE. ADR §3 signal-routing drift fix → GameBus. 757→761 PASS (10th failure-free).
 
   - id: "S5-03"
     name: "story-002: BattleUnit Resource + _units registry + tag-based fate-counter detection"
