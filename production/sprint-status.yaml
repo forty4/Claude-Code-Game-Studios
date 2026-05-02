@@ -6,91 +6,86 @@
 #   - Verify with: awk '{if (length($0) > 200) print NR}' production/sprint-status.yaml
 #   - Enforced by /story-done Phase 7 step 4.
 
-sprint: 3
-goal: "Close last Core epic (hp-status) to Complete; resolve carried turn-order test failure; scaffold input-handling to Ready; apply sprint-status.yaml hygiene."
-start: "2026-05-03"
-end: "2026-05-09"
+sprint: 4
+goal: "MVP First Chapter (sprint-4 of 3-sprint arc) — Camera ADR + Grid Battle Controller ADR + assets. Pivot from prototype iteration to production."
+start: "2026-05-10"
+end: "2026-05-16"
 generated: "2026-05-02"
-updated: "2026-05-02"  # S3-06 DONE: TD-042 RESOLVED. data-files.md §Entity Data File Exception +~75 LoC. Sprint-3 7/7 closed. See sprint-status-history.md (Top-level updated).
+updated: "2026-05-02"  # Sprint-4 kickoff: post-prototype pivot. See sprint-status-history.md (Sprint 3 close-out + Top-level updated history).
 
-# Sprint-2 closed effective DoD must-have 5/5 + should-have 2/3 + bonus turn-order
-# epic 7/7 by 2026-05-02. Final state archived in git history (commit 66144d9) and
-# production/retrospectives/retro-sprint-2-2026-05-02.md.
+# Sprint-3 closed effective DoD must-have 3/3 + should-have 2/2 + nice-to-have 1/1 = 7/7
+# by 2026-05-02 (1 calendar day vs 7-day window). Final state archived in git history
+# (commits 753ce2d → a28615f) + production/retrospectives/retro-sprint-3-2026-05-02.md.
+# Two prototypes shipped (vertical-slice + chapter-prototype) prompted pivot to MVP First Chapter.
 
 stories:
-  - id: "S3-00"
-    name: "Carry-fix: turn_order_advance_turn_test::test_round_lifecycle_emit_order_two_units"
-    file: "tests/unit/core/turn_order_advance_turn_test.gd"
+  - id: "S4-00"
+    name: "Sprint-3 retrospective (lean — pivot decision capture)"
+    file: "production/retrospectives/retro-sprint-3-2026-05-02.md"
     priority: must-have
     status: done
     owner: ""
     estimate_days: 0.25
     blocker: ""
     completed: "2026-05-02"
-    # 2026-05-02: turn-order test adapted to story-006 RE3 chain reality (size≥5; ROUND_ENDING assertion dropped). Full notes → sprint-status-history.md S3-00.
+    # 2026-05-02: retro doc written; 4 action items logged (playable-surface delta line + sprint-4..6 arc + no-3rd-prototype + estimate tightening).
 
-  - id: "S3-01"
-    name: "/create-epics + /create-stories hp-status + /qa-plan hp-status (ADR-0010, Core layer, greenfield, 8 stories)"
-    file: "production/epics/hp-status/EPIC.md"
+  - id: "S4-01"
+    name: "ADR-0013 Camera — /architecture-decision (Camera2D + zoom + pan + screen_to_grid)"
+    file: "docs/architecture/ADR-0013-camera.md"
     priority: must-have
-    status: done
+    status: backlog
     owner: ""
     estimate_days: 0.5
     blocker: ""
-    completed: "2026-05-02"
-    # 2026-05-02: hp-status Core epic + 8 stories (4 Logic + 2 Integration + 1 skeleton + 1 Config/Data; ~22-30h) + qa-plan. Full notes → sprint-status-history.md S3-01.
+    completed: ""
 
-  - id: "S3-02"
-    name: "Implement hp-status epic to Complete (8 stories, greenfield)"
-    file: "production/epics/hp-status/"
+  - id: "S4-02"
+    name: "Camera epic + stories + implementation (src/feature/camera/)"
+    file: "production/epics/camera/EPIC.md"
     priority: must-have
-    status: done
+    status: backlog
     owner: ""
-    estimate_days: 2.0
-    blocker: ""
-    completed: "2026-05-02"  # ALL 8/8 stories Complete (001-008 + epic-terminal closed)
-    # 2026-05-02: ALL 8/8 stories Complete (001-008 + epic terminal). 735→743 PASS (8th failure-free baseline). 13th lean review APPROVED. Full notes → sprint-status-history.md S3-02.
+    estimate_days: 1.5
+    blocker: "S4-01"
+    completed: ""
 
-  - id: "S3-03"
-    name: "Admin: refresh production/epics/index.md post-sprint-3"
-    file: "production/epics/index.md"
+  - id: "S4-03"
+    name: "ADR-0014 Grid Battle Controller — /architecture-decision (battle-scoped Node owning units + signals)"
+    file: "docs/architecture/ADR-0014-grid-battle-controller.md"
     priority: must-have
-    status: done
-    owner: ""
-    estimate_days: 0.25
-    blocker: ""
-    completed: "2026-05-02"
-    # 2026-05-02: minimal admin pass — header + layer coverage + hp-status row + Core-pending heading + S3-02 changelog. Deeper rewrite deferred. Full notes → sprint-status-history.md S3-03.
-
-  - id: "S3-04"
-    name: "/create-epics + /create-stories input-handling (ADR-0005, Foundation, HIGH engine risk)"
-    file: "production/epics/input-handling/EPIC.md"
-    priority: should-have
-    status: done
+    status: backlog
     owner: ""
     estimate_days: 0.75
-    blocker: ""
-    completed: "2026-05-02"
-    # 2026-05-02: /create-epics + /create-stories + /qa-plan input-handling DONE. EPIC.md + 10 stories + 462-line plan; pre-impl closed. See sprint-status-history.md S3-04.
+    blocker: "S4-01"
+    completed: ""
 
-  - id: "S3-05"
-    name: "sprint-status.yaml hygiene refactor + /story-done skill amendment (retro AI #3)"
-    file: "production/sprint-status.yaml"
+  - id: "S4-04"
+    name: "Grid Battle Controller epic + stories scaffold (8-12 stories Ready; impl carries to sprint-5)"
+    file: "production/epics/grid-battle-controller/EPIC.md"
+    priority: must-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.75
+    blocker: "S4-03"
+    completed: ""
+
+  - id: "S4-05"
+    name: "Asset gathering — 8 hero portraits (public-domain or CC) at assets/art/heroes/portraits/"
+    file: "assets/art/heroes/portraits/"
     priority: should-have
-    status: done
+    status: backlog
     owner: ""
     estimate_days: 0.5
     blocker: ""
-    completed: "2026-05-02"
-    # 2026-05-02: 200-byte cap active. 6 over-cap lines truncated; sprint-status-history.md created (101 lines, 6 archived sections); /story-done Phase 7 step 4 amended.
+    completed: ""
 
-  - id: "S3-06"
-    name: "TD-042 close-out: data-files.md Entity Data File Exception amendment"
-    file: ".claude/rules/data-files.md"
+  - id: "S4-06"
+    name: "BGM candidate gathering — 2-3 free/CC tracks at assets/audio/bgm/candidates/"
+    file: "assets/audio/bgm/candidates/"
     priority: nice-to-have
-    status: done
+    status: backlog
     owner: ""
-    estimate_days: 0.5
+    estimate_days: 0.25
     blocker: ""
-    completed: "2026-05-02"
-    # 2026-05-02: data-files.md +~75 LoC §Entity Data File Exception. ADR-0007 §3 + ADR-0008 §2 + ADR-0009 §4 cross-linked. TD-042 RESOLVED. See sprint-status-history.md S3-06.
+    completed: ""

@@ -20,7 +20,11 @@
 
 ### Top-level `updated:` field — rolling history
 
-#### 2026-05-02 (current after S3-06 close-out)
+#### 2026-05-02 (current after Sprint-4 kickoff)
+
+> Sprint-4 kickoff: post-prototype pivot. See sprint-status-history.md (Sprint 3 close-out + Top-level updated history).
+
+#### 2026-05-02 (rotated when Sprint-4 started)
 
 > S3-06 DONE: TD-042 RESOLVED. data-files.md §Entity Data File Exception +~75 LoC. Sprint-3 7/7 closed. See sprint-status-history.md (Top-level updated).
 
