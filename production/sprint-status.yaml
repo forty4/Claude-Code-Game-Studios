@@ -7,7 +7,7 @@ goal: "Close last Core epic (hp-status) to Complete; resolve carried turn-order 
 start: "2026-05-03"
 end: "2026-05-09"
 generated: "2026-05-02"
-updated: "2026-05-02"  # S3-02 DONE 8/8: hp-status epic Complete; story-008 epic terminal (perf + 5 lints + CI + determinism + 3 TD); 743/0/0/0/0/0 Exit 0; 8th green.
+updated: "2026-05-02"  # S3-03 DONE: epics/index.md minimal admin pass (hp-status row Ready→Complete + layer coverage Core 2/4→3/4 + new changelog entry); sprint-3 must-have 3/3 done.
 
 # Sprint-2 closed effective DoD must-have 5/5 + should-have 2/3 + bonus turn-order
 # epic 7/7 by 2026-05-02. Final state archived in git history (commit 66144d9) and
@@ -51,11 +51,12 @@ stories:
     name: "Admin: refresh production/epics/index.md post-sprint-3"
     file: "production/epics/index.md"
     priority: must-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.25
-    blocker: "S3-02"
-    completed: ""
+    blocker: ""
+    completed: "2026-05-02"
+    # 2026-05-02: minimal admin pass — header + layer coverage line + Note line + hp-status row (Status Ready→Complete + Stories 8/8) + Core-pending heading + new changelog entry for S3-02 close-out. Deeper rewrite (Implementation Order historical list, Outstanding ADRs section, Next Steps Sprint-1→Sprint-3, Gate Readiness re-check) deferred per S2-04 close-out note (still scoped as dedicated follow-up story).
 
   - id: "S3-04"
     name: "/create-epics + /create-stories input-handling (ADR-0005, Foundation, HIGH engine risk)"
