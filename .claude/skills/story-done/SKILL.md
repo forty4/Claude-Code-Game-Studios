@@ -344,7 +344,25 @@ If yes, edit the story file:
 4. **Update `production/sprint-status.yaml`** (if it exists):
    - Find the entry matching this story's file path or ID
    - Set `status: done` and `completed: [today's date]`
-   - Update the top-level `updated` field
+   - Add or update the per-story `#` changelog comment with completion notes
+   - Update the top-level `updated` field with the latest sprint-wide context
+
+   **200-byte cap discipline** (sprint-3 retro AI #3, enforced from S3-05):
+   - The top-level `updated:` field MUST be ≤200 bytes (line length).
+   - Each per-story `#` changelog comment MUST be ≤200 bytes (line length).
+   - Before writing either, count line length. If the new value would exceed 200 bytes:
+     a. Append the FULL new text (with date + story ID + priority + estimate header)
+        to `production/sprint-status-history.md` under the matching `## Sprint N` section.
+        For per-story changelogs: place under the existing `### S{N}-NN` subsection if
+        present (replacing the prior entry), or create a new subsection. Most recent
+        entry first within each sprint.
+        For top-level `updated:` rotations: place under the `### Top-level updated:` subsection.
+     b. Truncate the YAML value to ≤200 bytes with a "See sprint-status-history.md S{N}-NN"
+        pointer at the end (or "Sprint N → Top-level updated history" for the `updated:` field).
+   - Verify with `awk '{if (length($0) > 200) print NR}' production/sprint-status.yaml` —
+     should print no line numbers.
+   - Note: `length()` in awk measures bytes, not characters. Multi-byte UTF-8 sequences
+     (`→`, `≥`, `↔`, etc.) count as 3 bytes each — budget accordingly when including them.
    - This is a silent update — no extra approval needed (already approved in step above)
 
 ### Session State Update
