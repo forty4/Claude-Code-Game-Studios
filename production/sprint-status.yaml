@@ -6,92 +6,146 @@
 #   - Verify with: awk '{if (length($0) > 200) print NR}' production/sprint-status.yaml
 #   - Enforced by /story-done Phase 7 step 4.
 
-sprint: 4
-goal: "MVP First Chapter (sprint-4 of 3-sprint arc) — Camera ADR + Grid Battle Controller ADR + assets. Pivot from prototype iteration to production."
-start: "2026-05-10"
-end: "2026-05-16"
+sprint: 5
+goal: "Ship grid-battle-controller end-to-end (qa-plan + 10 stories) + author Battle HUD ADR + scaffold. Playable-surface delta target +1."
+start: "2026-05-17"
+end: "2026-05-23"
 generated: "2026-05-02"
-updated: "2026-05-02"  # Sprint-4 CLOSED: 5/7 done (must-have 4/4 + should 1/2 + nice 0/1). 2 asset items DEFERRED to user. Retro: retro-sprint-4-2026-05-02.md.
+updated: "2026-05-02"  # Sprint-5 OPEN: 11 must-have (qa-plan + 10 grid-battle-controller stories) + 2 should (Battle HUD ADR + scaffold).
 
-# Sprint-3 closed effective DoD must-have 3/3 + should-have 2/2 + nice-to-have 1/1 = 7/7
-# by 2026-05-02 (1 calendar day vs 7-day window). Final state archived in git history
-# (commits 753ce2d → a28615f) + production/retrospectives/retro-sprint-3-2026-05-02.md.
-# Two prototypes shipped (vertical-slice + chapter-prototype) prompted pivot to MVP First Chapter.
+# Sprint-4 closed 5/7 (must-have 4/4 + should 1/2 + nice 0/1) by 2026-05-02 — 8 calendar days
+# ahead of 2026-05-16 deadline. 9th consecutive failure-free baseline (757/0/0/0). First
+# user-visible-surface code shipped (BattleCamera). 2 asset items DEFERRED to user-owner.
+# Sprint-4 history archived: production/sprint-status-history.md (S4-01..S4-04 + 5 rotations).
 
 stories:
-  - id: "S4-00"
-    name: "Sprint-3 retrospective (lean — pivot decision capture)"
-    file: "production/retrospectives/retro-sprint-3-2026-05-02.md"
+  - id: "S5-01"
+    name: "/qa-plan grid-battle-controller — per-epic QA discipline before first /dev-story"
+    file: "production/qa/qa-plan-grid-battle-controller.md"
     priority: must-have
-    status: done
+    status: ready-for-dev
+    owner: ""
+    estimate_days: 0.15
+    blocker: ""
+    completed: ""
+    # Per per-epic QA discipline locked sprint-2 Phase 5 — mandatory before first /dev-story on this epic.
+
+  - id: "S5-02"
+    name: "grid-battle-controller story-001: class skeleton + 8-param setup() DI + _exit_tree() with CONNECT_DEFERRED comment"
+    file: "production/epics/grid-battle-controller/story-001-class-skeleton-and-di.md"
+    priority: must-have
+    status: backlog
     owner: ""
     estimate_days: 0.25
-    blocker: ""
-    completed: "2026-05-02"
-    # 2026-05-02: retro doc written; 4 action items logged (playable-surface delta line + sprint-4..6 arc + no-3rd-prototype + estimate tightening).
+    blocker: "S5-01"
+    completed: ""
 
-  - id: "S4-01"
-    name: "ADR-0013 Camera — /architecture-decision (Camera2D + zoom + pan + screen_to_grid)"
-    file: "docs/architecture/ADR-0013-camera.md"
+  - id: "S5-03"
+    name: "story-002: BattleUnit Resource + _units registry + tag-based fate-counter detection"
+    file: "production/epics/grid-battle-controller/story-002-battle-unit-resource-and-registry.md"
     priority: must-have
-    status: done
+    status: backlog
+    owner: ""
+    estimate_days: 0.25
+    blocker: "S5-02"
+    completed: ""
+
+  - id: "S5-04"
+    name: "story-003: 2-state FSM + 10-grid-action filter + _handle_grid_click dispatch"
+    file: "production/epics/grid-battle-controller/story-003-fsm-and-input-dispatch.md"
+    priority: must-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.4
+    blocker: "S5-03"
+    completed: ""
+
+  - id: "S5-05"
+    name: "story-004: MOVE action — is_tile_in_move_range + _do_move + unit_moved signal"
+    file: "production/epics/grid-battle-controller/story-004-move-action.md"
+    priority: must-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.4
+    blocker: "S5-04"
+    completed: ""
+
+  - id: "S5-06"
+    name: "story-005: ATTACK + _resolve_attack chain + DamageCalc.resolve static-call + apply_damage(4-param) + damage_applied signal + ResolveModifiers extension"
+    file: "production/epics/grid-battle-controller/story-005-attack-action-and-resolve.md"
+    priority: must-have
+    status: backlog
     owner: ""
     estimate_days: 0.5
+    blocker: "S5-05"
+    completed: ""
+
+  - id: "S5-07"
+    name: "story-006: per-turn action consumption + spend_action_token + auto-end-turn"
+    file: "production/epics/grid-battle-controller/story-006-per-turn-action-consumption.md"
+    priority: must-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.4
+    blocker: "S5-06"
+    completed: ""
+
+  - id: "S5-08"
+    name: "story-007: 5-turn limit + MAX_TURNS_PER_BATTLE + battle_outcome_resolved on round 6"
+    file: "production/epics/grid-battle-controller/story-007-five-turn-limit.md"
+    priority: must-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.25
+    blocker: "S5-07"
+    completed: ""
+
+  - id: "S5-09"
+    name: "story-008: 5 hidden fate counters + hidden_fate_condition_progressed signal (Battle HUD NOT subscribed)"
+    file: "production/epics/grid-battle-controller/story-008-hidden-fate-condition-tracking.md"
+    priority: must-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.4
+    blocker: "S5-07"
+    completed: ""
+
+  - id: "S5-10"
+    name: "story-009: cross-ADR _exit_tree audit (HPStatusController + TurnOrderRunner) + TD-057 final close"
+    file: "production/epics/grid-battle-controller/story-009-cross-adr-exit-tree-audit.md"
+    priority: must-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.15
     blocker: ""
-    completed: "2026-05-02"
-    # 2026-05-02: ADR-0013 Accepted (BattleCamera not Camera per G-12; _exit_tree disconnect mandatory). 11 registry entries. godot-specialist CONCERNS resolved. R-6/R-7 logged.
+    completed: ""
 
-  - id: "S4-02"
-    name: "Camera epic + stories + implementation (src/feature/camera/)"
-    file: "production/epics/camera/EPIC.md"
+  - id: "S5-11"
+    name: "story-010: epic-terminal — perf + 3 forbidden lints + 6 BalanceConstants + CI wiring; epic Complete"
+    file: "production/epics/grid-battle-controller/story-010-epic-terminal-perf-lints-evidence.md"
     priority: must-have
-    status: done
+    status: backlog
     owner: ""
-    estimate_days: 1.5
-    blocker: "S4-01"
-    completed: "2026-05-02"
-    # 2026-05-02: BattleCamera shipped (~140 LoC) + 14 unit tests + 5 lints + 6 BalanceConstants + 7 stories. 743→757 PASS (9th failure-free baseline). See history S4-02.
+    estimate_days: 0.4
+    blocker: "S5-02,S5-03,S5-04,S5-05,S5-06,S5-07,S5-08,S5-09,S5-10"
+    completed: ""
 
-  - id: "S4-03"
-    name: "ADR-0014 Grid Battle Controller — /architecture-decision (battle-scoped Node owning units + signals)"
-    file: "docs/architecture/ADR-0014-grid-battle-controller.md"
-    priority: must-have
-    status: done
-    owner: ""
-    estimate_days: 0.75
-    blocker: "S4-01"
-    completed: "2026-05-02"
-    # 2026-05-02: ADR-0014 Accepted (MVP-scoped; 4 deferrals). 2 godot-specialist revisions (DamageCalc static-call; CONNECT_DEFERRED load-bearing). 10 registry entries. See history S4-03.
-
-  - id: "S4-04"
-    name: "Grid Battle Controller epic + stories scaffold (8-12 stories Ready; impl carries to sprint-5)"
-    file: "production/epics/grid-battle-controller/EPIC.md"
-    priority: must-have
-    status: done
-    owner: ""
-    estimate_days: 0.75
-    blocker: "S4-03"
-    completed: "2026-05-02"
-    # 2026-05-02: EPIC.md ~250 LoC + 10 stories scaffolded (6 Logic + 1 skeleton + 2 Config/Data; ~26h sprint-5 impl est). MVP-scoped 4 deferral slots. See history S4-04.
-
-  - id: "S4-05"
-    name: "Asset gathering — 8 hero portraits (public-domain or CC) at assets/art/heroes/portraits/"
-    file: "assets/art/heroes/portraits/"
+  - id: "S5-12"
+    name: "ADR-0015 Battle HUD — battle-scoped Control consuming 5 LOCAL signals + Camera state queries"
+    file: "docs/architecture/ADR-0015-battle-hud.md"
     priority: should-have
-    status: deferred
-    owner: "user (curation requires human taste + license review)"
-    estimate_days: 0.5
-    blocker: ""
+    status: backlog
+    owner: ""
+    estimate_days: 0.4
+    blocker: "S5-11"
     completed: ""
-    # 2026-05-02: DEFERRED to user — asset curation is taste-driven + license review needs human eye. Carry to sprint-5/6 user-side prep work. See sprint-4 retro.
 
-  - id: "S4-06"
-    name: "BGM candidate gathering — 2-3 free/CC tracks at assets/audio/bgm/candidates/"
-    file: "assets/audio/bgm/candidates/"
-    priority: nice-to-have
-    status: deferred
-    owner: "user (taste-driven curation)"
+  - id: "S5-13"
+    name: "Battle HUD epic + 5-8 stories scaffold (impl carries to sprint-6)"
+    file: "production/epics/battle-hud/EPIC.md"
+    priority: should-have
+    status: backlog
+    owner: ""
     estimate_days: 0.25
-    blocker: ""
+    blocker: "S5-12"
     completed: ""
-    # 2026-05-02: DEFERRED to user — BGM selection is subjective. Carry to sprint-6 (when first chapter scene needs music to test under). See sprint-4 retro.
