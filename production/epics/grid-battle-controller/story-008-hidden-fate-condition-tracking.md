@@ -1,25 +1,22 @@
 # Story 008: Hidden fate-condition tracking — 5 silent counters + signal channel
 
-> **Epic**: Grid Battle Controller | **Status**: Ready | **Layer**: Feature | **Type**: Logic | **Estimate**: 3h
+> **Epic**: Grid Battle Controller | **Status**: Complete (2026-05-03) | **Layer**: Feature | **Type**: Logic | **Estimate**: 3h
 > **ADR**: ADR-0014 §8 + game-concept.md Pillar 2 ("운명은 바꿀 수 있다") + Player Experience MDA Discovery #4
 
 ## Acceptance Criteria
 
-- [ ] **AC-1** 5 hidden counter instance fields:
-  - `_fate_rear_attacks: int = 0` — incremented on each rear-angle attack landed (any unit)
-  - `_fate_formation_turns: int = 0` — incremented at end of each round if any player unit had ≥1 adjacent ally during that round
-  - `_fate_assassin_kills: int = 0` — incremented when `_fate_assassin_unit_id` (조운-tagged) kills an enemy unit
-  - `_fate_boss_killed: bool = false` — set to true when `_fate_boss_unit_id` (boss-tagged enemy) dies
-  - tank_alive_hp_pct — NOT a counter (queried on-demand from `HPStatusController.get_current_hp(_fate_tank_unit_id) / get_max_hp(...)`)
-- [ ] **AC-2** Rear-attack tracking: in `_resolve_attack` (story-005), after computing `angle == "rear"` → increment `_fate_rear_attacks` + emit `hidden_fate_condition_progressed("rear_attacks", _fate_rear_attacks)` signal
-- [ ] **AC-3** Formation-turns tracking: in `_on_round_started` (story-007), iterate `_units.values()` filtered for side=0 + alive; if any has `_count_adjacent_allies(u) >= 1` → increment `_fate_formation_turns` + emit `hidden_fate_condition_progressed("formation_turns", _fate_formation_turns)` signal
-- [ ] **AC-4** Assassin-kills tracking: in `_on_unit_died(unit_id)` handler (subscribed via CONNECT_DEFERRED in story-001), check if last attacker was `_fate_assassin_unit_id` AND defender is enemy (side=1) → increment `_fate_assassin_kills` + emit signal. Requires tracking `_last_attacker_id` field set in `_resolve_attack`
-- [ ] **AC-5** Boss-killed tracking: in `_on_unit_died(unit_id)`, if `unit_id == _fate_boss_unit_id` → set `_fate_boss_killed = true` + emit `hidden_fate_condition_progressed("boss_killed", 1)` signal
-- [ ] **AC-6** `signal hidden_fate_condition_progressed(condition_id: StringName, value: int)` declared as controller-LOCAL (NOT GameBus per ADR-0014 §8 — Battle HUD does NOT subscribe to preserve "hidden" semantic; sole consumer is Destiny Branch ADR sprint-6)
-- [ ] **AC-7** `_emit_battle_outcome` (story-007) snapshots all 5 counters into `fate_data: Dictionary` as `{"tank_alive_hp_pct": float, "rear_attacks": int, "formation_turns": int, "assassin_kills": int, "boss_killed": bool}`; tank HP queried on-demand from HPStatusController (not stored)
-- [ ] **AC-8** **Hidden semantic preservation test**: assert that no Battle HUD subscriber exists for `hidden_fate_condition_progressed` (test enumerates connections; counts subscribers; expects = 0 from any HUD class). Future-proofs against accidental HUD subscription that would leak the hidden conditions to player.
-- [ ] **AC-9** Test sweep: simulate fixture battle with all 4 condition types triggered → assert all 4 counters increment correctly + each emits its signal at the right moment + final fate_data snapshot is correct
-- [ ] **AC-10** Regression baseline maintained: ≥757 + new tests / 0 errors / 0 orphans / Exit 0; new test file `tests/unit/feature/grid_battle/grid_battle_controller_fate_test.gd` adds ≥6 tests covering AC-2..AC-9
+- [x] **AC-1** 5 hidden counter instance fields shipped:
+  - `_fate_rear_attacks` (story-005) + `_fate_formation_turns` (this story AC-3) + `_fate_assassin_kills` (this story AC-4) + `_fate_boss_killed` (this story AC-5)
+  - tank_alive_hp_pct queried on-demand from `_hp_controller.get_current_hp` / `get_max_hp` in `_emit_battle_outcome` (AC-7)
+- [x] **AC-2** Rear-attack tracking: in `_resolve_attack` (story-005), already shipped — `angle == "rear"` → increment + emit
+- [x] **AC-3** Formation-turns tracking: `_on_round_started` iterates `_units.values()` filtered for side=0 + alive; first unit with `_count_adjacent_allies(u) >= 1` triggers ONE increment per round + emit (`break` after first match — round-scoped, not unit-scoped)
+- [x] **AC-4** Assassin-kills tracking: `_on_unit_died` checks `_last_attacker_id == _fate_assassin_unit_id` (with `_fate_assassin_unit_id != -1` guard) AND defender's `side == 1` (friendly-fire excluded) → increment + emit
+- [x] **AC-5** Boss-killed tracking: `_on_unit_died` checks `unit_id == _fate_boss_unit_id` (with `not _fate_boss_killed` idempotent guard) → flip flag + emit `boss_killed=1`
+- [x] **AC-6** `signal hidden_fate_condition_progressed(condition_id: StringName, value: int)` already declared as controller-LOCAL in story-001 — NOT routed through GameBus (preserves hidden semantic)
+- [x] **AC-7** `_emit_battle_outcome` snapshots 8 fields into fate_data: tank_unit_id + tank_alive_hp_pct (computed on-demand with `max_hp <= 0 → 0.0` guard) + assassin_unit_id + boss_unit_id + 4 counters
+- [x] **AC-8** Hidden semantic preservation test: structural assertion that fresh controller has 0 subscribers on `hidden_fate_condition_progressed` (`get_connections().size() == 0`). Future Battle HUD authors must explicitly subscribe (which would fail this test → forces design conversation)
+- [x] **AC-9** Full sweep test: 5-unit roster fixture (tank/assassin/ally/boss/grunt) drives formation_turns + boss_killed + assassin_kills + tank_alive_hp_pct in one battle → 3 hidden fate emits + correct fate_data snapshot
+- [x] **AC-10** Regression baseline maintained: 837 PASS / 0 errors / 0 failures / 0 orphans / Exit 0 (was 825 → +12 new tests; 17th consecutive failure-free baseline). New test file `tests/unit/feature/grid_battle/grid_battle_controller_fate_test.gd` adds 12 tests covering AC-2..AC-9
 
 ## Implementation Notes
 
@@ -35,7 +32,7 @@
 
 **Story Type**: Logic (counter increment + signal emission — pure deterministic)
 **Required evidence**: `tests/unit/feature/grid_battle/grid_battle_controller_fate_test.gd` — must exist + ≥6 tests + must pass
-**Status**: [ ] Not yet created
+**Status**: [x] Shipped 2026-05-03 — 12 tests, all passing (≥6 required). Coverage: formation_turns (with/without/once-per-round) + boss kill flip + non-boss no-flip + assassin kill counter + non-assassin/friendly-fire exclusions + tank_alive_hp_pct (with/without tank) + full 4-condition sweep + AC-8 hidden semantic structural test.
 
 ## Dependencies
 

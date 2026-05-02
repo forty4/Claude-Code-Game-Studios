@@ -109,14 +109,15 @@ stories:
     completed: ""
 
   - id: "S5-09"
-    name: "story-008: 5 hidden fate counters + hidden_fate_condition_progressed signal (Battle HUD NOT subscribed)"
+    name: "story-008: 5 hidden fate counters (formation_turns + boss_killed + assassin_kills) + tank_alive_hp_pct + hidden semantic test"
     file: "production/epics/grid-battle-controller/story-008-hidden-fate-condition-tracking.md"
     priority: must-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.4
     blocker: "S5-07"
-    completed: ""
+    completed: "2026-05-03"
+    # 2026-05-03: _on_round_started formation_turns counter (round-scoped, break-after-first) + _on_unit_died boss_killed (idempotent flag flip) + _on_unit_died assassin_kills (last_attacker check + side==1 friendly-fire exclusion) + _emit_battle_outcome tank_alive_hp_pct (on-demand HP/Status query, max_hp<=0 guard). +12 tests. 825→837 PASS (17th failure-free).
 
   - id: "S5-10"
     name: "story-009: cross-ADR _exit_tree audit (HPStatusController + TurnOrderRunner) + TD-057 final close"

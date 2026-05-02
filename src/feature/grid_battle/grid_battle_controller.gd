@@ -382,7 +382,18 @@ func _on_input_action_fired(action: String, ctx: InputContext) -> void:
 func _on_unit_died(unit_id: int) -> void:
 	if _battle_over:
 		return  # AC-7 terminal-state guard — no further outcome processing
-	# TODO(story-008): update fate counters (boss kill, assassin kill attribution)
+	# Story-008 AC-5: boss-killed flag (idempotent — only first kill flips it).
+	if unit_id == _fate_boss_unit_id and not _fate_boss_killed:
+		_fate_boss_killed = true
+		hidden_fate_condition_progressed.emit(&"boss_killed", 1)
+	# Story-008 AC-4: assassin-kill attribution. Last attacker is set by
+	# _resolve_attack pre-apply_damage; CONNECT_DEFERRED guarantees it's
+	# already populated by the time this handler fires. Defender must be
+	# enemy (side==1) — friendly-fire kills don't count.
+	if _last_attacker_id == _fate_assassin_unit_id and _fate_assassin_unit_id != -1:
+		if _units.has(unit_id) and _units[unit_id].side == 1:
+			_fate_assassin_kills += 1
+			hidden_fate_condition_progressed.emit(&"assassin_kills", _fate_assassin_kills)
 	# Story-007 AC-5: victory check on every unit death.
 	_check_battle_end()
 
@@ -399,7 +410,18 @@ func _on_unit_turn_started(unit_id: int) -> void:
 func _on_round_started(round_num: int) -> void:
 	if _battle_over:
 		return  # AC-7 terminal-state guard
-	# TODO(story-008): update _fate_formation_turns counter
+	# Story-008 AC-3: formation_turns counter. If any alive player unit had
+	# ≥1 adjacent ally during this round, increment + emit. Per ADR-0014 §7
+	# sketch + chapter-prototype's formation-active scan.
+	for unit: BattleUnit in _units.values():
+		if unit.side != 0:
+			continue  # player-side only
+		if not _hp_controller.is_alive(unit.unit_id):
+			continue  # dead units don't form formations
+		if _count_adjacent_allies(unit) >= 1:
+			_fate_formation_turns += 1
+			hidden_fate_condition_progressed.emit(&"formation_turns", _fate_formation_turns)
+			break  # one increment per round, not per qualifying unit
 	# Story-007 AC-3: round 6 (>5) triggers TURN_LIMIT_REACHED.
 	if round_num > _max_turns:
 		_emit_battle_outcome(&"TURN_LIMIT_REACHED")
@@ -827,8 +849,16 @@ func _emit_battle_outcome(outcome: StringName) -> void:
 	if _battle_over:
 		return  # AC-7: idempotent — outcome already resolved
 	_battle_over = true
+	# Story-008 AC-7: tank_alive_hp_pct queried on-demand (NOT a stored counter).
+	# 0.0 if no tank unit in roster, dead, or HP/Status returns 0 max_hp.
+	var tank_pct: float = 0.0
+	if _fate_tank_unit_id != -1:
+		var max_hp: int = _hp_controller.get_max_hp(_fate_tank_unit_id)
+		if max_hp > 0:
+			tank_pct = float(_hp_controller.get_current_hp(_fate_tank_unit_id)) / float(max_hp)
 	var fate_data: Dictionary = {
 		"tank_unit_id": _fate_tank_unit_id,
+		"tank_alive_hp_pct": tank_pct,
 		"assassin_unit_id": _fate_assassin_unit_id,
 		"boss_unit_id": _fate_boss_unit_id,
 		"rear_attacks": _fate_rear_attacks,
