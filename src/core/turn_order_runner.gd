@@ -102,6 +102,29 @@ var _unit_states: Dictionary[int, UnitTurnState] = {}
 ## Current battle round lifecycle state.
 var _round_state: RoundState = RoundState.BATTLE_NOT_STARTED
 
+# ── Lifecycle ──────────────────────────────────────────────────────────────────
+
+## Disconnects all GameBus subscriptions when the BattleScene is freed.
+##
+## RATIONALE (per ADR-0013 R-6 + ADR-0014 R-7 + grid-battle-controller story-009
+## audit, 2026-05-03): GameBus is an autoload (load order 1) that outlives every
+## BattleScene instance. When BattleScene queue_frees, this Node is freed with it,
+## but Godot 4.x does NOT auto-disconnect signals where the SOURCE outlives the
+## TARGET — only the reverse. Without this disconnect, GameBus retains a callable
+## pointing at a freed Node = leak + crash on next emit.
+##
+## The connection is set up in initialize_battle (BI-6, idempotent via
+## is_connected guard); this disconnect is symmetric. Idempotent — safe whether
+## initialize_battle was ever called (e.g., test fixtures that skip BI-*).
+##
+## Pattern stable at 4 invocations: ADR-0010 HPStatusController, ADR-0013
+## BattleCamera (input_action_fired), ADR-0014 GridBattleController
+## (4 GameBus subs), now ADR-0011 TurnOrderRunner (this retrofit).
+func _exit_tree() -> void:
+	if GameBus.unit_died.is_connected(_on_unit_died):
+		GameBus.unit_died.disconnect(_on_unit_died)
+
+
 # ── Public methods — mutators ──────────────────────────────────────────────────
 
 ## Called once by Battle Preparation at battle-init. Executes BI-1 through BI-5

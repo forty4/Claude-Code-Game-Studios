@@ -2823,3 +2823,47 @@ Variations across the 10 files (e.g., the propagation test's faction parameter, 
 - Forward-look chain: story-005 S-3 → story-007 S-1 → story-008 /code-review S-1 (threshold escalation across 3 review cycles)
 
 **Next review**: bundle into the next sprint that touches hp_status test files (sprint-4 anticipated after grid-battle epic closes) OR roll into a "test-suite hygiene" sprint task. Logged 2026-05-02 as part of hp-status story-008 /story-done close-out per Decision F deferral.
+
+---
+
+## TD-057 — TurnOrderRunner missing `_exit_tree()` autoload-disconnect (RESOLVED 2026-05-03)
+
+**Severity**: HIGH (latent leak in production-shipped code; fired silently because BattleScene tear-down is rare in test fixtures)
+**Status**: RESOLVED 2026-05-03 via grid-battle-controller epic story-009 audit
+**Original logged**: ADR-0013 BattleCamera authoring (2026-05-02) as cross-ADR audit obligation; carried through ADR-0014 R-7 + ADR-0014 Implementation Notes "verification pending in story-009"
+**Numbering note**: TD-054 through TD-056 are reserved for in-flight epic findings; TD-057 was pre-allocated in ADR-0013 R-6 + ADR-0014 R-7 prose at authoring time.
+
+### Symptom
+
+GameBus is autoload (load order 1) that outlives BattleScene. When BattleScene queue_frees, battle-scoped Nodes (HPStatusController, BattleCamera, GridBattleController, TurnOrderRunner) are freed with it. Godot 4.x does NOT auto-disconnect signals where SOURCE outlives TARGET — only the reverse. Without `_exit_tree()` cleanup, GameBus retains callables pointing at freed Nodes → memory leak + crash on next emit.
+
+### Audit findings (2026-05-03 grid-battle-controller story-009)
+
+Before audit (4 candidate systems × autoload subscriptions in `_ready()` or comparable):
+
+| System | ADR | `_exit_tree()` status pre-audit | Autoload subs |
+|---|---|---|---|
+| HPStatusController | ADR-0010 | ✅ Present (line 45) — disconnects `unit_turn_started` | 1 |
+| BattleCamera | ADR-0013 | ✅ Present (`input_action_fired` disconnect) | 1 |
+| GridBattleController | ADR-0014 | ✅ Present (story-001 — disconnects 4 subs) | 4 |
+| TurnOrderRunner | ADR-0011 | ❌ **MISSING** (latent leak) | 1 (`unit_died` via `initialize_battle`) |
+
+3 of 4 systems were already clean (false-alarm portion); TurnOrderRunner needed retrofit.
+
+### Resolution
+
+`src/core/turn_order_runner.gd`: added `_exit_tree()` body that calls `GameBus.unit_died.disconnect(_on_unit_died)` with `is_connected` idempotent guard. Mirrors the HPStatusController pattern (line 45 reference).
+
+Pattern stable at **4 invocations** post-retrofit. Future battle-scoped Nodes that subscribe to GameBus must include `_exit_tree()` autoload-disconnect (the `camera_missing_exit_tree_disconnect` forbidden_pattern lint extends to this constraint).
+
+### Cross-references updated
+
+- `docs/architecture/ADR-0013-camera.md` R-6 → "RESOLVED via grid-battle-controller story-009 audit"
+- `docs/architecture/ADR-0014-grid-battle-controller.md` R-7 → "RESOLVED 2026-05-03"
+- `docs/architecture/ADR-0014-grid-battle-controller.md` §Implementation Notes → audit outcome appended
+
+### Verification
+
+Full regression suite POST-retrofit: **837 PASS / 0 errors / 0 failures / 0 orphans / Exit 0** (18th consecutive failure-free baseline). Retrofit is non-breaking. No new test file added per story-009 AC-7 (smoke check via full regression is the canonical evidence for autoload-disconnect retrofits — matches the pattern HPStatusController + BattleCamera shipped without dedicated `_exit_tree` tests).
+
+**Future hardening** (optional, out of scope for TD-057): a CI lint script could grep all `class_name` files in `src/core/` + `src/feature/` for `extends Node` files containing `GameBus.X.connect` and require a matching `_exit_tree` disconnect. Current pattern stability (4 invocations clean) makes the lint advisory rather than blocking.

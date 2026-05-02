@@ -1,17 +1,20 @@
 # Story 009: Cross-ADR _exit_tree audit — TD-057 final resolution
 
-> **Epic**: Grid Battle Controller | **Status**: Ready | **Layer**: Feature | **Type**: Config/Data (audit) | **Estimate**: 1h
-> **ADR**: ADR-0013 R-7 follow-up + ADR-0014 R-7 + TD-057 candidate
+> **Epic**: Grid Battle Controller | **Status**: Complete (2026-05-03) | **Layer**: Feature | **Type**: Config/Data (audit + Path B retrofit) | **Estimate**: 1h
+> **ADR**: ADR-0013 R-7 follow-up + ADR-0014 R-7 + TD-057
 
 ## Acceptance Criteria
 
-- [ ] **AC-1** Verify ADR-0010 HPStatusController `_exit_tree()` exists with autoload-disconnect (already verified at ADR-0014 authoring 2026-05-02 — line 45 of `src/core/hp_status_controller.gd` has `GameBus.unit_turn_started.disconnect(_on_unit_turn_started)`); story-009 confirms still present and properly disconnects ALL autoload-source subscriptions (not just unit_turn_started — check entire `_ready()` body for connect calls and verify each has matching disconnect)
-- [ ] **AC-2** Verify ADR-0011 TurnOrderRunner `_exit_tree()` exists with autoload-disconnect — read `src/core/turn_order_runner.gd` (line 115 mentions "test isolation reset must disconnect" but actual `_exit_tree` body status unverified at ADR-0014 authoring); confirm body present + all autoload subscriptions disconnected
-- [ ] **AC-3** If TurnOrderRunner missing `_exit_tree()` autoload-disconnect: log TD-057 entry in `docs/tech-debt-register.md` with HIGH severity (latent leak in production-shipped code; battle-scene-end frees TurnOrderRunner but GameBus retains callable); resolution path = retrofit `_exit_tree()` body in same patch as story-009
-- [ ] **AC-4** If TurnOrderRunner has `_exit_tree()` already: close TD-057 candidate as "false alarm — both battle-scoped Nodes (HPStatusController + TurnOrderRunner) ALREADY have _exit_tree autoload-disconnect cleanup; no retrofit needed; pattern stable at 4 invocations including ADR-0013 BattleCamera + ADR-0014 GridBattleController"
-- [ ] **AC-5** Update `docs/tech-debt-register.md`: TD-057 status → either "RESOLVED 2026-05-02 (false alarm)" OR "RESOLVED 2026-05-XX (TurnOrderRunner retrofit shipped in story-009)" depending on AC-2 outcome
-- [ ] **AC-6** Cross-link audit result back to ADR-0013 R-7 + ADR-0014 R-7 + ADR-0014 §Implementation Notes (the section that flagged "HPStatusController._exit_tree ALREADY EXISTS — partial false alarm; only TurnOrderRunner audit remains"); update each ADR's §Risks subsection with "RESOLVED via grid-battle-controller story-009 audit"
-- [ ] **AC-7** No new test file required — this is an audit story producing documentation updates only. Existing regression suite must remain ≥757/0/0/0/0/0 PASS
+- [x] **AC-1** Verified ADR-0010 HPStatusController `_exit_tree()` exists at `src/core/hp_status_controller.gd:45-47` with `GameBus.unit_turn_started.disconnect(_on_unit_turn_started)`. `_ready()` (line 40-42) connects exactly 1 autoload signal (`unit_turn_started`); disconnect set is COMPLETE (1 connect → 1 disconnect)
+- [x] **AC-2** Verified ADR-0011 TurnOrderRunner `_exit_tree()` was **MISSING pre-audit**. Connection at `initialize_battle:188` (`GameBus.unit_died.connect(_on_unit_died, CONNECT_DEFERRED)`) had no symmetric disconnect — latent leak confirmed
+- [x] **AC-3** **Path B taken**: TurnOrderRunner retrofitted in same patch — added `_exit_tree()` body at `src/core/turn_order_runner.gd` (after `_round_state` field, before `initialize_battle`) calling `GameBus.unit_died.disconnect(_on_unit_died)` with `is_connected` idempotent guard. TD-057 entry logged in `docs/tech-debt-register.md`
+- [x] **AC-4** N/A — Path A not taken (TurnOrderRunner did need retrofit)
+- [x] **AC-5** `docs/tech-debt-register.md` TD-057 entry: status RESOLVED 2026-05-03 with full audit findings table (4 systems × disconnect status) + verification report
+- [x] **AC-6** Cross-links updated:
+  - ADR-0013 R-6 → "RESOLVED 2026-05-03 via grid-battle-controller story-009 audit"
+  - ADR-0014 R-7 → "RESOLVED 2026-05-03"
+  - ADR-0014 §Implementation Notes (HPStatusController._exit_tree entry) → "Story-009 audit outcome" + retrofit summary + 4-invocation pattern stability marker
+- [x] **AC-7** No new test file added per story spec. Smoke check (full regression suite) PASS post-retrofit: **837 / 0 errors / 0 failures / 0 orphans / Exit 0** (18th consecutive failure-free baseline)
 
 ## Implementation Notes
 
@@ -29,7 +32,7 @@
 
 **Story Type**: Config/Data (audit producing documentation updates; no production code change in Path A; small `_exit_tree` retrofit in Path B)
 **Required evidence**: smoke check (full regression PASS post-audit) + tech-debt-register entry update + cross-ADR doc updates
-**Status**: [ ] Not yet executed
+**Status**: [x] Shipped 2026-05-03 — Path B retrofit. 837 PASS / 0 errors / 0 failures / 0 orphans / Exit 0 (18th failure-free baseline). TD-057 RESOLVED. Cross-ADR markers updated.
 
 ## Dependencies
 

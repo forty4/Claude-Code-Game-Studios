@@ -120,14 +120,15 @@ stories:
     # 2026-05-03: _on_round_started formation_turns counter (round-scoped, break-after-first) + _on_unit_died boss_killed (idempotent flag flip) + _on_unit_died assassin_kills (last_attacker check + side==1 friendly-fire exclusion) + _emit_battle_outcome tank_alive_hp_pct (on-demand HP/Status query, max_hp<=0 guard). +12 tests. 825→837 PASS (17th failure-free).
 
   - id: "S5-10"
-    name: "story-009: cross-ADR _exit_tree audit (HPStatusController + TurnOrderRunner) + TD-057 final close"
+    name: "story-009: cross-ADR _exit_tree audit — Path B retrofit shipped (TurnOrderRunner) + TD-057 RESOLVED"
     file: "production/epics/grid-battle-controller/story-009-cross-adr-exit-tree-audit.md"
     priority: must-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.15
     blocker: ""
-    completed: ""
+    completed: "2026-05-03"
+    # 2026-05-03: Audit found 3/4 systems clean (HPStatusController + BattleCamera + GridBattleController already had _exit_tree autoload-disconnect). TurnOrderRunner was missing — Path B retrofit shipped (added _exit_tree disconnect for GameBus.unit_died with idempotent is_connected guard). TD-057 logged + RESOLVED in same patch. Pattern stable at 4 invocations. No new tests (audit story); 837 PASS held (18th failure-free).
 
   - id: "S5-11"
     name: "story-010: epic-terminal — perf + 3 forbidden lints + 6 BalanceConstants + CI wiring; epic Complete"
