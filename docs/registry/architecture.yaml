@@ -328,6 +328,19 @@ state_ownership:
     added: 2026-04-30
     revised: ""
 
+  - state: battle_camera_view_state
+    status: active
+    owner_system: camera (Feature layer; battle-scoped)
+    adr: docs/architecture/ADR-0013-camera.md
+    interface: "BattleCamera (class_name X extends Camera2D, battle-scoped Node — 3rd invocation of pattern after ADR-0010 HPStatusController + ADR-0011 TurnOrderRunner) owns mutable view state via 4 instance fields: _map_grid (DI'd via setup() before add_child), _drag_active (bool — pan-vs-tap state), _drag_start_screen_pos (Vector2 — captured at drag-start), _drag_start_camera_pos (Vector2 — for delta computation). Engine state (Camera2D.zoom + Camera2D.position) is mutated only by BattleCamera methods (_apply_zoom_delta / _on_input_action_fired / _apply_pan_clamp). Sole getter: get_zoom_value() -> float (Battle HUD consumes for HUD scale-matching). screen_to_grid(Vector2) -> Vector2i is the cross-system contract per ADR-0005 §9 Bidirectional Contract. Camera owns drag state per ADR-0005 OQ-2 resolution — InputRouter does NOT gate grid input mid-drag. MANDATORY _exit_tree() that disconnects GameBus.input_action_fired callable (per godot-specialist 2026-05-02 review concern #2; without disconnect, autoload retains callable pointing at freed Node = leak)."
+    write_access: camera-only  # zoom + position mutated only by BattleCamera; consumers query via getters or screen_to_grid; external mutation forbidden via camera_signal_emission + external_screen_to_grid_implementation forbidden patterns
+    referenced_by:
+      - docs/architecture/ADR-0013-camera.md
+      - docs/architecture/ADR-0005-input-handling.md  # screen_to_grid contract from §9 Bidirectional Contract; F-1 zoom floor consumed for camera_zoom_min derivation
+      - docs/architecture/ADR-0014-grid-battle-controller.md  # NOT YET WRITTEN — sprint-4 S4-03; primary consumer of screen_to_grid for unit-tap hit-testing
+    added: 2026-05-02
+    revised: ""
+
 # Example:
 #
 # state_ownership:
@@ -654,6 +667,22 @@ interfaces:
     added: 2026-04-30
     revised: ""
 
+  - contract: battle_camera_public_api
+    status: active
+    pattern: direct_call
+    description: "BattleCamera exposes 2 public methods callable by other systems: (1) screen_to_grid(screen_pos: Vector2) -> Vector2i — converts screen-space pixel coords to grid coords using get_canvas_transform().affine_inverse() + tile_world_size; returns Vector2i(-1,-1) sentinel for off-grid. SOLE implementation in project (forbidden_pattern external_screen_to_grid_implementation enforces single source). (2) get_zoom_value() -> float — read-only zoom query for HUD scale-matching by Battle HUD. Both methods are direct-call (NOT signal-driven) per the ADR-0001 non-emitter-by-behavior pattern shared with calculator-tier systems. Internal state (_map_grid, _drag_*, Camera2D.zoom, Camera2D.position) is private; consumers do NOT directly read these. setup(map_grid: MapGrid) -> void is the DI seam (must be called BEFORE add_child per ADR-0010/0011 pattern; _ready() asserts map_grid is non-null)."
+    emitter: none  # BattleCamera is a pure consumer of GameBus.input_action_fired (filtered for ACTIONS_BY_CATEGORY[&"camera"] 4 actions); does NOT emit any GameBus signal (forbidden_pattern camera_signal_emission)
+    consumers:
+      - grid-battle-controller (Feature; primary consumer of screen_to_grid; ADR-0014 NOT YET WRITTEN — sprint-4 S4-03)
+      - battle-hud (Presentation; consumer of get_zoom_value; Battle HUD ADR NOT YET WRITTEN — sprint-5)
+    adr: docs/architecture/ADR-0013-camera.md
+    notes: "BattleCamera owns drag state per ADR-0005 OQ-2 resolution: &\"camera_pan\" action received via GameBus is a TRIGGER (\"user wants to pan\"), not a delta source. Camera reads get_viewport().get_mouse_position() directly to compute delta from its own _drag_start_screen_pos anchor. This keeps cross-system coupling to the 4 camera actions only (camera_pan / camera_zoom_in / camera_zoom_out / camera_snap_to_unit) without needing InputContext schema extension. Battle-scoped Node form (3rd invocation after ADR-0010 + ADR-0011) means MANDATORY explicit _exit_tree() that disconnects GameBus.input_action_fired callback (per godot-specialist 2026-05-02 review concern #2 — without disconnect, autoload retains callable pointing at freed Node = leak + potential crash; enforced via camera_missing_exit_tree_disconnect forbidden_pattern). Cursor-stable zoom recipe: 2 affine_inverse() calls per zoom event for cursor-world-position invariance (engine-agnostic vector math; verified at impl-time per ADR §Validation Criteria item 4)."
+    referenced_by:
+      - docs/architecture/ADR-0013-camera.md
+      - docs/architecture/ADR-0005-input-handling.md
+    added: 2026-05-02
+    revised: ""
+
 # Example:
 #
 # interfaces:
@@ -681,7 +710,16 @@ interfaces:
 # Register a budget when an ADR explicitly claims a frame time allocation.
 # The registry lets /architecture-review verify the total doesn't exceed the target.
 
-performance_budgets: []
+performance_budgets:
+  - system: camera (BattleCamera)
+    status: active
+    budget_ms: 0.05
+    adr: docs/architecture/ADR-0013-camera.md
+    notes: "Per-frame Camera update is engine-internal (Camera2D transform application) ≈ 0.001ms negligible. Custom code runs only on input events: _on_input_action_fired < 0.005ms per call (single match arm + ~3 vector ops). Headless throughput baseline target: 1000 synthetic camera events < 10ms (avg < 0.01ms per event). Pan clamp computation is O(1) — single tile_size multiply + 4 clampf calls. Cursor-stable zoom recipe runs 2 affine_inverse() calls per zoom event; Godot 4.6 affine_inverse() on Transform2D is ~10ns. Verified by /architecture-review at next invocation against the 16.6ms full-frame budget — Camera consumes 0.3% of budget, well within margin."
+    referenced_by:
+      - docs/architecture/ADR-0013-camera.md
+    added: 2026-05-02
+    revised: ""
 
 # Example:
 #
@@ -939,6 +977,41 @@ api_decisions:
       - docs/architecture/ADR-0009-unit-role.md  # 5-precedent stateless-static pattern reuse
       - docs/architecture/ADR-0012-damage-calc.md  # 5-precedent stateless-static pattern reuse
     added: 2026-04-30
+    revised: ""
+
+  - purpose: camera_module_form
+    status: active
+    using: "battle-scoped Node (class_name BattleCamera extends Camera2D)"
+    not: "stateless-static (Alternative 1 rejected) | autoload (Alternative 2 rejected) | composite Node+Helper (Alternative 3 rejected)"
+    adr: docs/architecture/ADR-0013-camera.md
+    reason: "3rd invocation of battle-scoped Node pattern after ADR-0010 HPStatusController + ADR-0011 TurnOrderRunner. Camera state is fundamentally battle-scoped (overworld + main menu have no Camera consumer; battle-scene-end frees Camera). Stateless-static rejected because Camera is state-holder + signal-listener (not calculator) — same justification as ADR-0005 InputRouter Alternative 4 rejection. Autoload rejected because cross-scene survival not needed AND would require ugly per-scene set_map() calls before each scene-load. Composite Node+Helper over-engineered for MVP. Class name BattleCamera (NOT Camera) avoids G-12 ClassDB collision with built-in Camera base class (parent of Camera2D + Camera3D). Pattern stable at 3 invocations; future battle-scoped Node systems (Battle HUD ADR — sprint-5) should follow same form for same lifecycle reason."
+    referenced_by:
+      - docs/architecture/ADR-0013-camera.md
+    added: 2026-05-02
+    revised: ""
+
+  - purpose: camera_owns_drag_state
+    status: active
+    using: "internal _drag_start_screen_pos + _drag_start_camera_pos fields; reads get_viewport().get_mouse_position() directly within signal handler"
+    not: "InputContext schema extension with drag_delta + cursor_screen_pos fields (ADR-0005 CR-1d additive-evolution path; rejected for cohesion)"
+    adr: docs/architecture/ADR-0013-camera.md
+    reason: "Resolves ADR-0005 OQ-2 (Camera Pan Ownership). InputRouter does NOT gate grid input mid-drag — Camera independently tracks its own drag state. The &\"camera_pan\" action becomes a TRIGGER (\"user wants to pan\") rather than a complete drag-delta source. This keeps the cross-system coupling minimal (4 camera actions only) without needing InputContext schema extension that would propagate to all other systems consuming InputContext (Grid Battle, Battle HUD, etc.). Subtle coupling to viewport mouse query (get_viewport().get_mouse_position() called from Camera signal handler) is acceptable trade because Camera2D already owns view-related state. Touch event ordering (R-5 mitigation) handled via _drag_active flag false-default + first-event-anchor capture pattern."
+    referenced_by:
+      - docs/architecture/ADR-0013-camera.md
+      - docs/architecture/ADR-0005-input-handling.md  # OQ-2 resolution
+    added: 2026-05-02
+    revised: ""
+
+  - purpose: camera_zoom_constants
+    status: active
+    using: "4 BalanceConstants entries: CAMERA_ZOOM_MIN=0.70 (F-1 derived: TOUCH_TARGET_MIN_PX 44 / TILE_WORLD_SIZE 64 = 0.6875 → 0.70 with comfort margin), CAMERA_ZOOM_MAX=2.00 (PC tactical readability ceiling), CAMERA_ZOOM_DEFAULT=1.00 (tile = 64px native), CAMERA_ZOOM_STEP=0.10 (wheel-zoom delta per camera_zoom_in/out event)"
+    not: "hardcoded float literals in source (forbidden_pattern hardcoded_zoom_literals)"
+    adr: docs/architecture/ADR-0013-camera.md
+    reason: "Mirrors ADR-0006 BalanceConstants pattern — all camera zoom constants externalized for designer iteration without code change. CAMERA_ZOOM_MIN is locked by input-handling F-1 floor (cannot be lowered without violating 44px touch target requirement on mobile). CAMERA_ZOOM_MAX/DEFAULT/STEP are tunable. Single same-patch addition to assets/data/balance/balance_entities.json with 4 keys (story-007 epic-terminal). Lint via tools/ci/lint_balance_entities_camera.sh (story-007 addition; mirrors lint_balance_entities_input_handling.sh from input-handling epic). Pattern stable across 5+ Foundation/Core systems (5-precedent extends to 6 with this addition)."
+    referenced_by:
+      - docs/architecture/ADR-0013-camera.md
+      - docs/architecture/ADR-0006-balance-data.md
+    added: 2026-05-02
     revised: ""
 
 # Example:
@@ -1229,6 +1302,34 @@ forbidden_patterns:
     why: "ADR-0006 R-2 mitigation. Cache integrity is a load-bearing assumption — every consumer MUST see consistent values across the GDScript engine session. If a consumer mutates `BalanceConstants._cache` via reflection (production code) or holds a Dictionary reference and mutates fields, subsequent consumers see corrupt values + the bug is non-local (mutation site != bug site). Convention enforced via lint + test-isolation discipline (G-15 `_cache_loaded = false` reset in before_test()) ensures the cache is treated as read-only by every legitimate consumer. Pattern mirrors damage_calc_consumer_mutation + hero_data_consumer_mutation + hp_status_consumer_mutation + turn_order_consumer_mutation forbidden_pattern (4-precedent project discipline for read-only data layer accessors)."
     adr: docs/architecture/ADR-0006-balance-data.md
     added: 2026-04-30
+
+  - pattern: camera_signal_emission
+    status: active
+    description: "BattleCamera (src/feature/camera/battle_camera.gd) MUST NOT emit any GameBus signal in MVP. Lint enforces via grep -c 'GameBus\\..*\\.emit' src/feature/camera/battle_camera.gd returns 0. The \\.emit anchor distinguishes emit calls from subscription / disconnect / is_connected lines (per godot-specialist 2026-05-02 advisory). Camera is a pure consumer of GameBus.input_action_fired (filtered for ACTIONS_BY_CATEGORY[&\"camera\"] 4 actions). Future Battle HUD subscriptions consume Camera state via direct method calls (get_zoom_value() getter), not via signals. If a future MVP++ feature requires Camera to emit (e.g., camera_pan_completed for screen-shake systems), this forbidden_pattern must be relaxed via ADR amendment, NOT silently violated."
+    why: "ADR-0001 non-emitter-by-behavior discipline + ADR-0013 §Decision §7. BattleCamera does NOT add new signals to ADR-0001 §7 schema for MVP. Single-direction consumer pattern keeps the 50-emits/frame cap (ADR-0001 line 445) safe. Direct-call API (get_zoom_value, screen_to_grid) is more cohesive than signal indirection for read-only state queries. Mirrors balance_constants_signal_emission + hp_status_consumer_mutation 4-precedent project discipline for read-only data layer accessors."
+    adr: docs/architecture/ADR-0013-camera.md
+    added: 2026-05-02
+
+  - pattern: camera_missing_exit_tree_disconnect
+    status: active
+    description: "BattleCamera MUST include _exit_tree() body that explicitly disconnects GameBus.input_action_fired callback when BattleScene exits. Lint enforces via tools/ci/lint_camera_exit_tree_disconnect.sh: grep '_exit_tree' src/feature/camera/battle_camera.gd MUST appear AND must contain literal 'GameBus.input_action_fired.disconnect'. Without this disconnect, GameBus (autoload at load order 1) retains a callable pointing at the freed BattleCamera Node, causing (a) memory leak (callable ref + closure capture) and (b) potential crash on next emit if dispatcher attempts to invoke the freed callable."
+    why: "Per godot-specialist 2026-05-02 ADR-0013 review (CONCERNS — required revision #2). Godot 4.x signal mechanics: when SOURCE outlives TARGET, connection becomes dangling — only the reverse (target outlives source) auto-disconnects. GameBus is autoload (never freed); BattleCamera is battle-scoped (freed every battle exit). Cross-ADR follow-up: same mitigation should be present in ADR-0010 HPStatusController and ADR-0011 TurnOrderRunner (also battle-scoped Nodes subscribing to autoloads); camera epic story-006 audits both and logs TD-057 if missing. The leak is silent in tests because BattleScene tear-down is rare in test fixtures — production-only failure mode."
+    adr: docs/architecture/ADR-0013-camera.md
+    added: 2026-05-02
+
+  - pattern: hardcoded_zoom_literals
+    status: active
+    description: "BattleCamera source code (src/feature/camera/battle_camera.gd) MUST NOT contain any of the literal float values 0.70, 2.00, 1.00, 0.10 used as zoom thresholds. These values must come from BalanceConstants.get_const(&\"CAMERA_ZOOM_MIN/MAX/DEFAULT/STEP\"). Lint enforces via tools/ci/lint_camera_no_hardcoded_zoom.sh (story-007 epic-terminal addition) — grep for these literal floats in zoom-related lines and fails if found. False-positive control: lint allows comments referencing the values (e.g., '# F-1 derived: 44/64=0.70' is OK; '# zoom = 0.70' in active code is NOT)."
+    why: "Mirrors damage_calc_no_hardcoded_constants forbidden_pattern (4-precedent project discipline for tunable values). CAMERA_ZOOM_MIN is locked by input-handling F-1 floor — designer changing tile_world_size or TOUCH_TARGET_MIN_PX must propagate via BalanceConstants single source-of-truth. Hardcoded literals would silently drift when constants are re-tuned, breaking 44px touch target requirement (R-3 mitigation from ADR-0013)."
+    adr: docs/architecture/ADR-0013-camera.md
+    added: 2026-05-02
+
+  - pattern: external_screen_to_grid_implementation
+    status: active
+    description: "BattleCamera.screen_to_grid(screen_pos: Vector2) -> Vector2i is the SOLE implementation of screen-to-grid coordinate conversion in the project. No other class (Grid Battle Controller, Battle HUD, MapGrid, etc.) MAY implement a function with this name or this conversion responsibility. Lint enforces via grep -rn 'func screen_to_grid' src/ returning at most 1 match (in src/feature/camera/battle_camera.gd). Test helpers (tests/helpers/camera_stub.gd) are exempt — they implement the SAME interface for stub injection per established stub-strategy precedent."
+    why: "Single source-of-truth for the cross-system contract from ADR-0005 §9 Bidirectional Contract. If multiple implementations exist, they will drift and produce different results for the same screen click — silent bug class. The interface is locked by ADR-0005 + ADR-0013; downstream consumers (Grid Battle Controller, Battle HUD) call BattleCamera.screen_to_grid via DI'd reference, not their own implementation. Camera2D's get_canvas_transform().affine_inverse() is the engine-correct conversion mechanism — duplicating this elsewhere risks computing world-from-screen with wrong/missing zoom + position application (silent bug surface during pan/zoom)."
+    adr: docs/architecture/ADR-0013-camera.md
+    added: 2026-05-02
 
 # Example:
 #

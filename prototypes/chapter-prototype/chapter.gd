@@ -210,13 +210,14 @@ func _build_party_panel() -> Control:
 		var is_forced: bool = bool(hero.get("forced", false))
 		var is_selectable: bool = bool(hero.get("selectable", true))
 		card.disabled = not is_selectable or is_forced
-		card.button_pressed = is_forced or (String(hero["id"]) in _selected_party)
 		card.text = "%s [%s]\n%s" % [hero["name"], hero["role"], hero["desc"]]
 		card.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		card.add_theme_font_size_override("font_size", 14)
 		if not is_selectable:
 			card.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+		# Connect FIRST, then set initial state with set_pressed_no_signal to avoid spurious toggle fires
 		card.toggled.connect(_on_party_toggle.bind(String(hero["id"])))
+		card.set_pressed_no_signal(is_forced or (String(hero["id"]) in _selected_party))
 		panel.add_child(card)
 
 	# Status + start button
@@ -328,16 +329,17 @@ func _show_party_phase() -> void:
 	_party_panel.visible = true
 	_refresh_party_status()
 
-func _on_party_toggle(hero_id: String, pressed: bool) -> void:
+func _on_party_toggle(toggled_on: bool, hero_id: String) -> void:
+	# Godot 4.x toggled signal emits (toggled_on: bool); bound args follow.
 	if _phase != 1: return
-	if pressed and not (hero_id in _selected_party):
+	if toggled_on and not (hero_id in _selected_party):
 		if _selected_party.size() >= 4:
 			# Reject — cap at 4
 			var card: Button = _party_panel.get_node("Card_" + hero_id)
-			card.button_pressed = false
+			card.set_pressed_no_signal(false)
 			return
 		_selected_party.append(hero_id)
-	elif not pressed and (hero_id in _selected_party):
+	elif not toggled_on and (hero_id in _selected_party):
 		_selected_party.erase(hero_id)
 	_refresh_party_status()
 

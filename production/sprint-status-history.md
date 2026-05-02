@@ -16,11 +16,33 @@
 
 ---
 
+## Sprint 4
+
+### S4-01 — ADR-0013 Camera /architecture-decision (2026-05-02)
+
+**Completed**: 2026-05-02
+**Estimate**: 0.5d
+**Priority**: must-have
+
+> 2026-05-02: ADR-0013 Camera Accepted in lean mode. (1) godot-specialist (Pass 1+2+3 review) returned CONCERNS: 2 BLOCKING + 1 ADVISORY. Required revisions applied: §1 `class_name Camera` → `BattleCamera` (G-12 ClassDB collision with built-in Camera base class — parent of Camera2D + Camera3D); §5 added `_exit_tree()` body explicitly disconnecting `GameBus.input_action_fired` callback (Godot 4.x signal mechanic: when SOURCE outlives TARGET, no auto-disconnect; without explicit cleanup, autoload retains callable pointing at freed Node = leak + potential crash). Advisory R-7 added: `process_mode` ambiguity for pause-menu (deferred resolution to camera epic story-001 once pause-menu pattern decided). Lint shape correction in §Validation Criteria item 2: `\.emit` suffix anchor distinguishes emit calls from subscribe/disconnect/is_connected. (2) Registry update: 11 entries appended to `docs/registry/architecture.yaml` (1252→1353 lines): 1 state_ownership (`battle_camera_view_state`), 1 interface (`battle_camera_public_api`), 1 performance_budget (camera 0.05ms), 3 api_decisions (`camera_module_form` 3rd battle-scoped Node invocation + `camera_owns_drag_state` ADR-0005 OQ-2 resolution + `camera_zoom_constants` 4 BalanceConstants), 4 forbidden_patterns (`camera_signal_emission` + `camera_missing_exit_tree_disconnect` + `hardcoded_zoom_literals` + `external_screen_to_grid_implementation`). (3) Cross-ADR follow-up logged: ADR-0010 + ADR-0011 (battle-scoped Nodes also subscribing to autoloads) need same `_exit_tree()` audit; carried as TD-057 candidate by camera epic story-006. ADR ~280 lines after revisions; covers 7 GDD requirements addressed (input-handling F-1 + §9 + OQ-2 + CR-1 + EC-9 + map-grid get_map_dimensions); LOW engine risk confirmed (no post-cutoff Camera2D APIs).
+
+**Files touched**:
+- `docs/architecture/ADR-0013-camera.md` (NEW, ~280 lines)
+- `docs/registry/architecture.yaml` (1252→1353 lines, +11 entries all referencing ADR-0013)
+
+**Note**: Status set to Accepted in-file per lean mode (no PHASE-GATE TD-ADR per `production/review-mode.txt`). godot-specialist review (Pass 1+2+3) was the substitute review — found 2 blocking issues, both resolved before commit. Pattern: spawn engine specialist for Pass 1 API correctness, accept their concerns as blocking pre-write fixes.
+
+---
+
 ## Sprint 3
 
 ### Top-level `updated:` field — rolling history
 
-#### 2026-05-02 (current after Sprint-4 kickoff)
+#### 2026-05-02 (current after S4-01 close-out)
+
+> S4-01 DONE: ADR-0013 Camera Accepted (BattleCamera + _exit_tree disconnect mandatory; 11 registry entries). See sprint-status-history.md S4-01.
+
+#### 2026-05-02 (rotated when S4-01 landed)
 
 > Sprint-4 kickoff: post-prototype pivot. See sprint-status-history.md (Sprint 3 close-out + Top-level updated history).
 

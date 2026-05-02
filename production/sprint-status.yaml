@@ -11,7 +11,7 @@ goal: "MVP First Chapter (sprint-4 of 3-sprint arc) — Camera ADR + Grid Battle
 start: "2026-05-10"
 end: "2026-05-16"
 generated: "2026-05-02"
-updated: "2026-05-02"  # Sprint-4 kickoff: post-prototype pivot. See sprint-status-history.md (Sprint 3 close-out + Top-level updated history).
+updated: "2026-05-02"  # S4-01 DONE: ADR-0013 Camera Accepted (BattleCamera + _exit_tree disconnect mandatory; 11 registry entries). See sprint-status-history.md S4-01.
 
 # Sprint-3 closed effective DoD must-have 3/3 + should-have 2/2 + nice-to-have 1/1 = 7/7
 # by 2026-05-02 (1 calendar day vs 7-day window). Final state archived in git history
@@ -34,11 +34,12 @@ stories:
     name: "ADR-0013 Camera — /architecture-decision (Camera2D + zoom + pan + screen_to_grid)"
     file: "docs/architecture/ADR-0013-camera.md"
     priority: must-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.5
     blocker: ""
-    completed: ""
+    completed: "2026-05-02"
+    # 2026-05-02: ADR-0013 Accepted (BattleCamera not Camera per G-12; _exit_tree disconnect mandatory). 11 registry entries. godot-specialist CONCERNS resolved. R-6/R-7 logged.
 
   - id: "S4-02"
     name: "Camera epic + stories + implementation (src/feature/camera/)"
