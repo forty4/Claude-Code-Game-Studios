@@ -18,6 +18,27 @@
 
 ## Sprint 4
 
+### S4-04 — Grid Battle Controller epic + 10 stories scaffold (2026-05-02)
+
+**Completed**: 2026-05-02
+**Estimate**: 0.75d
+**Priority**: must-have
+
+> 2026-05-02: grid-battle-controller Feature epic + 10 stories scaffolded (~26h sprint-5 implementation estimate). Pattern follows input-handling S3-04 epic-scaffold structure. **MVP-scoped per ADR-0014 §0** with 4 explicit deferral slots reserved for future ADRs (Battle AI / Formation Bonus / Rally / Skill). EPIC.md ~250 LoC referencing ADR-0014 + 10 governing ADRs (largest cross-system integration in project — 6 backends DI'd + DamageCalc static-call + BattleCamera DI'd + GameBus). 10 story breakdown: 001 GridBattleController class skeleton + 8-param DI + 6-backend assertion + _exit_tree cleanup with explicit CONNECT_DEFERRED-load-bearing comment per godot-specialist revision #1 (2h); 002 BattleUnit typed Resource ~10 fields + Dictionary[int, BattleUnit] registry + tag-based fate-counter unit detection (2h); 003 2-state FSM (OBSERVATION/UNIT_SELECTED) + 10-grid-action filter + click hit-test routing via BattleCamera.screen_to_grid (3h); 004 is_tile_in_move_range callback + _handle_move + _do_move + facing update + unit_moved signal (3h); 005 LARGEST story (4h) — attack chain: is_tile_in_attack_range + _resolve_attack (formation/angle/aura math inline) + DamageCalc.resolve(...) STATIC call per godot-specialist revision #2 + HPStatusController.apply_damage 4-PARAM signature per shipped + apply_death_consequences EXPLICIT call per grid-battle.md line 198 + damage_applied signal + ResolveModifiers extension 3 fields; 006 _acted_this_turn Dictionary + _consume_unit_action + auto-end-turn-when-all-acted + TurnOrderRunner.spend_action_token simplified single-token MVP (3h); 007 5-turn limit + _on_round_started + battle_outcome_resolved emission + victory check (CR-7 evaluation order: VICTORY_ANNIHILATION → DEFEAT_ANNIHILATION; commander-kill deferred to Scenario Progression sprint-6) (2h); 008 5 hidden fate counters (rear_attacks + formation_turns + assassin_kills + boss_killed + tank_alive_hp_pct on-demand) + hidden_fate_condition_progressed signal + HIDDEN SEMANTIC PRESERVATION TEST (Battle HUD MUST NOT subscribe — preserves Pillar 2 "어렵지만 가능하게" UX) (3h); 009 cross-ADR _exit_tree audit (TD-057 final close — HPStatusController already verified clean; story-009 verifies TurnOrderRunner) (1h); 010 epic terminal (3h) — 4 perf tests (per-event < 0.05ms / per-attack < 0.5ms / 100 actions < 100ms / setup < 0.01ms) + 4 lint scripts (signal_emission_outside_battle_domain + static_state + external_combat_math + balance_entities key-presence) + 6 BalanceConstants additions (MAX_TURNS_PER_BATTLE + 5 fate thresholds — placement may shift to Destiny Branch ADR sprint-6) + ResolveModifiers extension verified + epic-terminal commit. Implementation order: 001 → 002 → 003 → {004, 005, 006, 008 parallel} → 007 → 009 → 010. Impl entirely deferred to sprint-5; sprint-4 S4-04 ships scaffold only. epics/index.md updated: header date refresh + grid-battle-controller row added (Feature 2/13 + 1 Ready). Cap discipline maintained (all sprint-status.yaml lines ≤200 bytes verified).
+
+**Files touched** (single scaffold commit):
+- production/epics/grid-battle-controller/EPIC.md (NEW, ~250 LoC referencing ADR-0014 + 10 governing ADRs + cross-system stub strategy)
+- production/epics/grid-battle-controller/story-{001..010}-*.md (NEW, 10 stories ~80-200 LoC each)
+- production/epics/index.md (header timestamp + grid-battle-controller row added; Foundation 4/5+1Ready + Core 3/4 + Feature 2/13+1Ready)
+- production/sprint-status.yaml (S4-04 done; top-level updated rotated)
+- production/sprint-status-history.md (this entry + S4-04 history rotation)
+
+**Sprint-4 progress: 5/7 done** (S4-00 retro + S4-01 ADR-0013 + S4-02 camera Complete + S4-03 ADR-0014 + S4-04 grid-battle scaffold). 2 remaining: S4-05 hero portraits gather (should-have, 0.5d) + S4-06 BGM candidates (nice-to-have, 0.25d).
+
+**Note**: This is a SCAFFOLD-only epic — no code shipped. Implementation deferred to sprint-5 per sprint-4 plan. Pattern mirrors sprint-3 S3-04 input-handling scaffold (10 stories scaffolded; 0/10 implemented).
+
+---
+
 ### S4-02 — Camera epic Complete: BattleCamera implementation (2026-05-02)
 
 **Completed**: 2026-05-02
@@ -77,7 +98,11 @@
 
 ### Top-level `updated:` field — rolling history
 
-#### 2026-05-02 (current after S4-02 close-out)
+#### 2026-05-02 (current after S4-04 close-out)
+
+> S4-04 DONE: grid-battle-controller epic + 10 stories scaffolded (MVP-scoped, 4 deferrals; impl carries to sprint-5; ~26h estimate). See history S4-04.
+
+#### 2026-05-02 (rotated when S4-04 landed)
 
 > S4-02 DONE: camera epic Complete — BattleCamera + 14 tests + 5 lints + 6 BalanceConstants + 7 stories. 757/757 PASS (9th failure-free baseline). See history S4-02.
 
