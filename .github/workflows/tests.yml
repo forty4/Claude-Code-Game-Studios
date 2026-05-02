@@ -100,6 +100,17 @@ jobs:
       - name: Lint DamageCalc no stub-copy in user-facing strings (AC-DC-45 TR-damage-calc-010)
         run: bash tools/ci/lint_damage_calc_no_stub_copy.sh
 
+      - name: 'Lint Camera signal emission ban (ADR-0013 / camera_signal_emission)'
+        run: bash tools/ci/lint_camera_signal_emission.sh
+      - name: 'Lint Camera _exit_tree disconnect (ADR-0013 R-6 / camera_missing_exit_tree_disconnect)'
+        run: bash tools/ci/lint_camera_exit_tree_disconnect.sh
+      - name: 'Lint Camera no hardcoded zoom literals (ADR-0013 / hardcoded_zoom_literals)'
+        run: bash tools/ci/lint_camera_no_hardcoded_zoom.sh
+      - name: 'Lint Camera external screen_to_grid ban (ADR-0013 / external_screen_to_grid_implementation)'
+        run: bash tools/ci/lint_camera_external_screen_to_grid.sh
+      - name: 'Lint Camera + F-1 BalanceConstants keys present (ADR-0013 §Decision §2)'
+        run: bash tools/ci/lint_balance_entities_camera.sh
+
       - name: Run GdUnit4 tests
         uses: MikeSchulze/gdUnit4-action@v1
         env:

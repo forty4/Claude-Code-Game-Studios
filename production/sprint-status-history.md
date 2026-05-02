@@ -18,6 +18,29 @@
 
 ## Sprint 4
 
+### S4-02 — Camera epic Complete: BattleCamera implementation (2026-05-02)
+
+**Completed**: 2026-05-02
+**Estimate**: 1.5d (actual: ~6h equivalent in single session)
+**Priority**: must-have
+
+> 2026-05-02: Camera Feature epic shipped in single epic-terminal commit — **first Feature-layer Node-based system + 3rd invocation of battle-scoped Node pattern** (after ADR-0010 HPStatusController + ADR-0011 TurnOrderRunner). (1) Implementation: `src/feature/camera/battle_camera.gd` ~140 LoC implementing `class_name BattleCamera extends Camera2D` (NOT `Camera` per G-12 ClassDB collision verified at ADR-0013 godot-specialist review); 4 instance fields (_map_grid + _drag_active + _drag_start_screen_pos + _drag_start_camera_pos); `setup(map_grid)` DI seam called BEFORE add_child; `_ready()` with assertion + `make_current()` + zoom from BalanceConstants + GameBus subscribe via Object.CONNECT_DEFERRED + initial pan_clamp; MANDATORY `_exit_tree()` body explicitly disconnecting `GameBus.input_action_fired` (per ADR-0013 R-6 + godot-specialist concern #2 — without this, autoload retains callable on freed Node = leak); `screen_to_grid(Vector2) -> Vector2i` with `Vector2i(-1,-1)` sentinel for off-grid; `_apply_zoom_delta()` with cursor-stable recipe + range clamp [0.70, 2.00] + early-return at floor/ceiling (R-4 mitigation); `_handle_camera_pan()` with Camera-owns-drag-state per ADR-0005 OQ-2 resolution (`&"camera_pan"` is TRIGGER not delta source; Camera reads viewport mouse position itself); `_apply_pan_clamp()` keeps map visible (centers if smaller than viewport, clamps if larger). (2) Implementation contracts honored: GameBus signal signature uses `String` (not `StringName`) per shipped ADR-0001 line 49; InputContext fields are `target_coord`/`target_unit_id`/`source_device` per shipped src/core/payloads/input_context.gd (NOT `coord`/`unit_id` per ADR sketches — implementation uses shipped names). (3) Tests: 3 test files at tests/unit/feature/camera/ — `battle_camera_screen_to_grid_test.gd` (4 tests: sentinel + valid coord + 3-zoom invariance), `battle_camera_zoom_test.gd` (6 tests: default + step + floor/ceiling clamp + no-op-at-floor), `battle_camera_lifecycle_test.gd` (4 tests: setup field + _ready guard + _exit_tree subscription verification + zoom-from-BalanceConstants). 14/14 tests PASS / 0 errors / 0 orphans. Reuses existing tests/helpers/map_grid_stub.gd (from hp-status epic). (4) Same-patch BalanceConstants additions to assets/data/balance/balance_entities.json: 6 new keys (TILE_WORLD_SIZE=64 + TOUCH_TARGET_MIN_PX=44 + CAMERA_ZOOM_MIN=0.70 + CAMERA_ZOOM_MAX=2.00 + CAMERA_ZOOM_DEFAULT=1.00 + CAMERA_ZOOM_STEP=0.10) — TILE_WORLD_SIZE + TOUCH_TARGET_MIN_PX bundled per camera epic (also input-handling F-1 prerequisites — input-handling epic does NOT need to re-add). (5) Lints: 5 scripts at tools/ci/lint_camera_signal_emission.sh + lint_camera_exit_tree_disconnect.sh + lint_camera_no_hardcoded_zoom.sh + lint_camera_external_screen_to_grid.sh + lint_balance_entities_camera.sh — all chmod +x, all PASS against shipped code. (6) CI wiring: 5 new lint steps in .github/workflows/tests.yml after lint_damage_calc_no_stub_copy.sh. (7) 7 story files at production/epics/camera/story-{001..007}-*.md (concise stubs per single-session epic-terminal pattern). EPIC.md authored ~150 LoC. (8) production/epics/index.md updated: Feature layer 1/13 → 2/13 (camera Complete); header timestamp + camera row added. (9) Cross-ADR R-7 + TD-057 partial resolution: HPStatusController._exit_tree ALREADY EXISTS at src/core/hp_status_controller.gd:45 with GameBus.unit_turn_started.disconnect — partial false alarm (no retrofit needed for ADR-0010); TurnOrderRunner audit DEFERRED to grid-battle-controller epic story-009 (sprint-5+). (10) Final regression: **757 testcases / 0 errors / 0 failures / 0 flaky / 0 skipped / 0 orphans / Exit 0** (was 743 → +14 from camera tests = **9th consecutive failure-free baseline**).
+
+**Files touched** (single epic-terminal commit):
+- src/feature/camera/battle_camera.gd (NEW, ~140 LoC)
+- tests/unit/feature/camera/battle_camera_{screen_to_grid,zoom,lifecycle}_test.gd (NEW, 3 files / 14 tests)
+- assets/data/balance/balance_entities.json (+6 keys)
+- tools/ci/lint_camera_*.sh + lint_balance_entities_camera.sh (NEW, 5 scripts chmod +x)
+- .github/workflows/tests.yml (+5 lint steps)
+- production/epics/camera/EPIC.md (NEW, ~150 LoC) + 7 story stubs
+- production/epics/index.md (Feature 1/13 → 2/13; header date + camera row)
+- production/sprint-status.yaml (S4-02 done; top-level updated rotated)
+- production/sprint-status-history.md (this entry + S4-02 history rotation)
+
+**Key precedent established**: First Feature-layer Node-based system. 3rd invocation of battle-scoped Node pattern stable. Pattern boundary: future battle-scoped Node systems (Battle HUD ADR sprint-5; GridBattleController ADR-0014 implementation sprint-5) follow same DI + _exit_tree() + 200-byte cap discipline. Cap discipline maintained throughout: all sprint-status.yaml lines ≤200 bytes verified.
+
+---
+
 ### S4-03 — ADR-0014 Grid Battle Controller /architecture-decision (2026-05-02)
 
 **Completed**: 2026-05-02
@@ -54,7 +77,11 @@
 
 ### Top-level `updated:` field — rolling history
 
-#### 2026-05-02 (current after S4-03 close-out)
+#### 2026-05-02 (current after S4-02 close-out)
+
+> S4-02 DONE: camera epic Complete — BattleCamera + 14 tests + 5 lints + 6 BalanceConstants + 7 stories. 757/757 PASS (9th failure-free baseline). See history S4-02.
+
+#### 2026-05-02 (rotated when S4-02 landed)
 
 > S4-03 DONE: ADR-0014 Grid Battle Controller Accepted (MVP-scoped, 4 deferrals; 10 registry entries; 2 godot-specialist revisions). See sprint-status-history.md S4-03.
 
