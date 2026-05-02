@@ -165,14 +165,18 @@ func test_direction_from_to_resolves_4_cardinal_directions() -> void:
 
 func test_handle_move_full_chain_valid_target() -> void:
 	var unit: BattleUnit = _make_unit(1, Vector2i(1, 2), 3)
-	var bag: Dictionary = _setup([unit])
+	# Story-006: 2nd alive player unit gates auto-handoff so _acted_this_turn
+	# persists for assertion. Without it, _any_player_unit_can_act returns false
+	# after unit 1 acts → end_player_turn → _acted_this_turn cleared.
+	var ally: BattleUnit = _make_unit(2, Vector2i(7, 7), 1)
+	var bag: Dictionary = _setup([unit, ally])
 	var controller: GridBattleController = bag["controller"]
 
 	controller._handle_move(unit, Vector2i(2, 3))
 
 	# Position updated
 	assert_vector(unit.position).is_equal(Vector2i(2, 3))
-	# Acted-this-turn populated by _consume_unit_action (story-004 partial impl)
+	# Acted-this-turn populated by _consume_unit_action
 	assert_bool(controller._acted_this_turn.get(1, false)).is_true()
 
 
@@ -203,7 +207,10 @@ func test_handle_move_invalid_target_silent_no_op() -> void:
 func test_handle_move_re_entrancy_guard_silent_after_act() -> void:
 	# First call moves successfully; second call same turn → silent no-op.
 	var unit: BattleUnit = _make_unit(1, Vector2i(1, 2), 3)
-	var bag: Dictionary = _setup([unit])
+	# Story-006: 2nd alive player unit gates auto-handoff so _acted_this_turn
+	# is preserved between the two _handle_move calls.
+	var ally: BattleUnit = _make_unit(2, Vector2i(7, 7), 1)
+	var bag: Dictionary = _setup([unit, ally])
 	var controller: GridBattleController = bag["controller"]
 	controller._handle_move(unit, Vector2i(2, 3))  # first move OK
 	assert_vector(unit.position).is_equal(Vector2i(2, 3))

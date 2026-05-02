@@ -313,11 +313,20 @@ func get_battle_state_snapshot() -> Dictionary:
 	return {}
 
 
-## Ends the player turn early. Also auto-called when all alive player units have acted.
-## TODO(story-006): implement full token-based end-of-turn logic.
+## Ends the player turn early. Also auto-called from _consume_unit_action when
+## all alive player units have acted (AC-4 auto-handoff). Per ADR-0014 §6 +
+## story-006 AC-5: clears _acted_this_turn for the next round + deselects.
+##
+## DEVIATION from ADR-0014 §6 sketch + AC-5 wording "_turn_runner.end_player_turn()":
+## the shipped TurnOrderRunner has NO `end_player_turn()` method (drift #10 — see
+## Implementation Notes amendment). Round advance is signal-driven via
+## GameBus.round_started → _on_round_started; this method is controller-side
+## bookkeeping ONLY. Full Battle Scene wiring (sprint-6+) will replace this with
+## a synchronous Callable injection per ADR-0011 §Decision Contract 5.
 func end_player_turn() -> void:
-	# TODO(story-006): call TurnOrderRunner to advance round
-	pass
+	_acted_this_turn.clear()
+	if _selected_unit_id != -1:
+		_deselect()
 
 
 ## Direct-callable entry point for grid click dispatch (also called by signal handler).
@@ -541,14 +550,44 @@ func _direction_from_to(from: Vector2i, to: Vector2i) -> int:
 
 
 ## Marks the unit as having acted this turn + spends action token via
-## TurnOrderRunner per ADR-0011 Contract 4.
-## TODO(story-006): fill body — token spend + auto-end-turn-when-all-acted.
-## Story-004 calls this stub after successful move per AC-3.
+## TurnOrderRunner + deselects + auto-handoff if all player units acted.
+## Per ADR-0014 §6 + story-006 AC-1..AC-4.
+##
+## DEVIATION from ADR-0014 §6 sketch (drift #9 — see Implementation Notes
+## amendment): sketch shows `_turn_runner.spend_action_token(unit_id)` but the
+## shipped TurnOrderRunner public API is `declare_action(unit_id, action,
+## target) -> ActionResult` per ADR-0011 §Key Interfaces. Map to
+## ActionType.ATTACK for the MVP single-token simplification — when full
+## Contract 4 (move + action token split) lands post-MVP, only this single
+## call site changes. ActionTarget is null for MVP per ADR-0011 story-004
+## "ActionTarget validation deferred to story-007+".
 func _consume_unit_action(unit_id: int) -> void:
-	# Story-004 partial: populate _acted_this_turn so AC-8 re-entrancy guard fires
-	# on second-call within same turn. Story-006 will add TurnOrderRunner token
-	# spend + auto-handoff logic.
 	_acted_this_turn[unit_id] = true
+	# Single-token MVP: ATTACK token represents "this unit acted this turn"
+	# regardless of whether the underlying action was a MOVE or ATTACK.
+	_turn_runner.declare_action(unit_id, TurnOrderRunner.ActionType.ATTACK, null)
+	if _selected_unit_id != -1:
+		_deselect()
+	if not _any_player_unit_can_act():
+		end_player_turn()
+
+
+## Returns true if any player-side (side==0) alive unit has NOT acted this turn.
+## Per ADR-0014 §6 + story-006 AC-3. Used by _consume_unit_action for the
+## auto-handoff gate (AC-4): all-player-units-acted → end_player_turn.
+##
+## Dead-unit exclusion via _hp_controller.is_alive(unit_id) per Implementation
+## Notes #4 (`is_alive` is canonical query per shipped HPStatusController:219;
+## `is_dead` is NOT a shipped API — drift catalogued at ADR-0014 review).
+func _any_player_unit_can_act() -> bool:
+	for unit: BattleUnit in _units.values():
+		if unit.side != 0:
+			continue  # only player-side units count for the handoff gate
+		if not _hp_controller.is_alive(unit.unit_id):
+			continue  # dead units excluded per Implementation Notes #4
+		if not _acted_this_turn.get(unit.unit_id, false):
+			return true
+	return false
 
 
 # ─── Combat resolution helpers (story-005) ──────────────────────────────────

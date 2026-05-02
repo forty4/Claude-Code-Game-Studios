@@ -86,14 +86,15 @@ stories:
     # 2026-05-03: full DamageCalc integration + 6 multiplier helpers + 17 attack tests. BattleUnit +2 fields + ResolveModifiers +2 fields. 789→806 PASS (14th failure-free).
 
   - id: "S5-07"
-    name: "story-006: per-turn action consumption + spend_action_token + auto-end-turn"
+    name: "story-006: per-turn action consumption + declare_action(ATTACK) + auto-end-turn"
     file: "production/epics/grid-battle-controller/story-006-per-turn-action-consumption.md"
     priority: must-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.4
     blocker: "S5-06"
-    completed: ""
+    completed: "2026-05-03"
+    # 2026-05-03: _consume_unit_action (acted flag + declare_action(ATTACK) + deselect + auto-handoff) + _any_player_unit_can_act (alive-and-unacted scan) + end_player_turn (clear + deselect). Drift #9 (spend_action_token → declare_action) + drift #10 (no _turn_runner.end_player_turn) catalogued in ADR-0014 Implementation Notes. +9 tests. 806→815 PASS (15th failure-free).
 
   - id: "S5-08"
     name: "story-007: 5-turn limit + MAX_TURNS_PER_BATTLE + battle_outcome_resolved on round 6"

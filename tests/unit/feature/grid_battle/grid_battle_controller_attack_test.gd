@@ -247,7 +247,10 @@ func test_handle_attack_full_chain_emits_damage_applied() -> void:
 	# Verify: damage_applied signal emitted exactly once with positive damage.
 	var attacker: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)  # player
 	var defender: BattleUnit = _make_unit(2, Vector2i(2, 3), 1, 0)  # enemy facing N
-	var bag: Dictionary = _setup([attacker, defender])
+	# Story-006: 2nd alive player unit gates auto-handoff so _acted_this_turn
+	# persists for assertion. Placed at (7, 7) — out of attack range.
+	var ally: BattleUnit = _make_unit(3, Vector2i(7, 7), 0)  # player
+	var bag: Dictionary = _setup([attacker, defender, ally])
 	var controller: GridBattleController = bag["controller"]
 	var captures: Array = []
 	controller.damage_applied.connect(func(att_id: int, def_id: int, dmg: int) -> void:
