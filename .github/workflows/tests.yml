@@ -111,6 +111,15 @@ jobs:
       - name: 'Lint Camera + F-1 BalanceConstants keys present (ADR-0013 §Decision §2)'
         run: bash tools/ci/lint_balance_entities_camera.sh
 
+      - name: 'Lint GridBattleController signal emission ban (ADR-0014 §8 / grid_battle_controller_signal_emission_outside_battle_domain)'
+        run: bash tools/ci/lint_grid_battle_controller_signal_emission_outside_battle_domain.sh
+      - name: 'Lint GridBattleController no static state (ADR-0014 / grid_battle_controller_static_state)'
+        run: bash tools/ci/lint_grid_battle_controller_static_state.sh
+      - name: 'Lint GridBattleController external combat math ban (ADR-0014 R-2 / grid_battle_controller_external_combat_math)'
+        run: bash tools/ci/lint_grid_battle_controller_external_combat_math.sh
+      - name: 'Lint Grid Battle Controller BalanceConstants keys present (ADR-0014 §7 + §8)'
+        run: bash tools/ci/lint_balance_entities_grid_battle_controller.sh
+
       - name: Run GdUnit4 tests
         uses: MikeSchulze/gdUnit4-action@v1
         env:

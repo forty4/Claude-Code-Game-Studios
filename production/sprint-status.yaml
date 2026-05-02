@@ -131,14 +131,15 @@ stories:
     # 2026-05-03: Audit found 3/4 systems clean (HPStatusController + BattleCamera + GridBattleController already had _exit_tree autoload-disconnect). TurnOrderRunner was missing — Path B retrofit shipped (added _exit_tree disconnect for GameBus.unit_died with idempotent is_connected guard). TD-057 logged + RESOLVED in same patch. Pattern stable at 4 invocations. No new tests (audit story); 837 PASS held (18th failure-free).
 
   - id: "S5-11"
-    name: "story-010: epic-terminal — perf + 3 forbidden lints + 6 BalanceConstants + CI wiring; epic Complete"
+    name: "story-010: epic-terminal — 4 perf tests + 4 lints + 5 BalanceConstants + verification summary + epic Complete"
     file: "production/epics/grid-battle-controller/story-010-epic-terminal-perf-lints-evidence.md"
     priority: must-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.4
     blocker: "S5-02,S5-03,S5-04,S5-05,S5-06,S5-07,S5-08,S5-09,S5-10"
-    completed: ""
+    completed: "2026-05-03"
+    # 2026-05-03: 4 perf tests at tests/unit/feature/grid_battle/grid_battle_controller_perf_test.gd PASS under permissive CI gates (×3-200 over ADR headlines). 4 lints chmod +x + CI wired (signal_emission_outside_battle_domain + static_state + external_combat_math + BalanceConstants keys). 5 NEW BalanceConstants keys (FATE_TANK_HP_THRESHOLD/FATE_ASSASSIN_KILLS_THRESHOLD/FATE_REAR_ATTACKS_THRESHOLD/FATE_FORMATION_TURNS_THRESHOLD/FATE_BOSS_KILLED_REQUIRED). Verification summary shipped. EPIC.md + epics/index.md updated. 837→841 PASS (19th failure-free). EPIC 10/10 COMPLETE.
 
   - id: "S5-12"
     name: "ADR-0015 Battle HUD — battle-scoped Control consuming 5 LOCAL signals + Camera state queries"
