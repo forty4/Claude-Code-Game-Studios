@@ -337,7 +337,27 @@ state_ownership:
     referenced_by:
       - docs/architecture/ADR-0013-camera.md
       - docs/architecture/ADR-0005-input-handling.md  # screen_to_grid contract from §9 Bidirectional Contract; F-1 zoom floor consumed for camera_zoom_min derivation
-      - docs/architecture/ADR-0014-grid-battle-controller.md  # NOT YET WRITTEN — sprint-4 S4-03; primary consumer of screen_to_grid for unit-tap hit-testing
+      - docs/architecture/ADR-0014-grid-battle-controller.md  # primary consumer of screen_to_grid for unit-tap hit-testing — Accepted 2026-05-02
+    added: 2026-05-02
+    revised: ""
+
+  - state: battle_runtime_state
+    status: active
+    owner_system: grid-battle-controller (Feature layer; battle-scoped; MVP-scoped per ADR-0014 §0)
+    adr: docs/architecture/ADR-0014-grid-battle-controller.md
+    interface: "GridBattleController (class_name X extends Node, battle-scoped — 4th invocation of pattern after ADR-0010/0011/0013) owns mutable battle state via 11+ instance fields: _units (Dictionary[int, BattleUnit] — sole writer of unit roster + position; HP delegated to HPStatusController per ADR-0010 ownership), _state (BattleState enum 2-value: OBSERVATION / UNIT_SELECTED), _selected_unit_id (int; -1 sentinel), _acted_this_turn (Dictionary[int, bool] — per-turn action consumption tracking; redundant with TurnOrderRunner Contract 4 token state in MVP simplification), _max_turns (int — derived from BalanceConstants.MAX_TURNS_PER_BATTLE at _ready), 5 hidden fate-condition counters (_fate_tank_unit_id / _fate_assassin_unit_id / _fate_boss_unit_id / _fate_rear_attacks / _fate_formation_turns / _fate_assassin_kills / _fate_boss_killed). DI'd backend references (8 fields: _map_grid + _camera + _hero_db + _turn_runner + _hp_controller + _terrain_effect + _unit_role; DamageCalc NOT in DI per godot-specialist 2026-05-02 review revision #2 — methods are static func, called via DamageCalc.resolve() directly). MANDATORY _exit_tree() that disconnects all 4 GameBus subscriptions per ADR-0013 R-6 + camera_missing_exit_tree_disconnect forbidden_pattern precedent."
+    write_access: grid-battle-controller-only  # _units / _state / _acted_this_turn / fate counters mutated only by GridBattleController; HP NOT in this state surface (delegated to HPStatusController per ADR-0010 ownership)
+    referenced_by:
+      - docs/architecture/ADR-0014-grid-battle-controller.md
+      - docs/architecture/ADR-0013-camera.md  # consumed via screen_to_grid for click hit-test routing
+      - docs/architecture/ADR-0010-hp-status.md  # delegated HP writer
+      - docs/architecture/ADR-0011-turn-order.md  # delegated initiative + token API per Contract 4 (MVP simplification — single action-token in MVP)
+      - docs/architecture/ADR-0012-damage-calc.md  # static-call sole-caller per damage-calc.md line 260
+      - docs/architecture/ADR-0007-hero-database.md  # DI'd at battle init for roster lookup
+      - docs/architecture/ADR-0004-map-grid-data-model.md  # DI'd for terrain queries + dimensions
+      - docs/architecture/ADR-0008-terrain-effect.md  # DI'd for per-tile modifier query
+      - docs/architecture/ADR-0009-unit-role.md  # DI'd for class-based derived stats
+      - docs/architecture/ADR-0005-input-handling.md  # provides callbacks per §9 Bidirectional Contract
     added: 2026-05-02
     revised: ""
 
@@ -683,6 +703,39 @@ interfaces:
     added: 2026-05-02
     revised: ""
 
+  - contract: grid_battle_controller_signal_emission
+    status: active
+    pattern: signal
+    description: "GridBattleController emits 5 Battle-domain signals declared LOCALLY on the class (not via GameBus autoload registration — see ADR-0014 §8 + R-1; signals are class-local declarations consumed by Battle HUD + Scenario Progression + Destiny Branch via direct connect to the controller instance reference). Signals: (1) unit_selected_changed(unit_id: int, was_selected: int) — emitted on FSM OBSERVATION ↔ UNIT_SELECTED transitions; was_selected=-1 for deselect. (2) unit_moved(unit_id: int, from: Vector2i, to: Vector2i) — emitted after _do_move applies position change. (3) damage_applied(attacker_id: int, defender_id: int, damage: int) — emitted after _resolve_attack chain (controller multipliers → DamageCalc.resolve → HPStatusController.apply_damage). (4) battle_outcome_resolved(outcome: StringName, fate_data: Dictionary) — emitted on victory / defeat / TURN_LIMIT_REACHED; fate_data carries the 5 hidden counter snapshot for Destiny Branch consumption. (5) hidden_fate_condition_progressed(condition_id: StringName, value: int) — emitted on each fate-counter increment (rear_attacks / formation_turns / assassin_kills / boss_killed). Signal namespace consumption: 4 of 5 consumed by Battle HUD (sprint-5; signal 5 NOT subscribed by HUD per design — preserves the 'hidden' semantic for Destiny Branch ONLY)."
+    emitter: grid-battle-controller
+    consumers:
+      - battle-hud (Presentation; subscribes to signals 1-4; sprint-5 ADR pending)
+      - scenario-progression (Feature; subscribes to battle_outcome_resolved for chapter advancement; sprint-6 ADR pending)
+      - destiny-branch (Feature; SOLE consumer of hidden_fate_condition_progressed; sprint-6 ADR pending)
+    adr: docs/architecture/ADR-0014-grid-battle-controller.md
+    notes: "Signals are LOCAL to GridBattleController (not GameBus signals) because they are battle-scoped — Battle HUD subscribes via direct reference to the controller instance (DI'd by BattleScene). This is a deliberate divergence from ADR-0001 §7 GameBus-only signal model: cross-scene events go through GameBus; battle-internal events go through controller-local signals. Justification: the 5 signals fire only during battle; subscribers are also battle-scoped Nodes; routing through GameBus autoload would add 1 indirection level + 50-emits/frame budget pressure (line 445 cap) without architectural benefit. Pattern stable at 1 invocation; future battle-scoped Node systems may follow same controller-local signal pattern. Forbidden pattern grid_battle_controller_signal_emission_outside_battle_domain enforces: GridBattleController MUST NOT emit any GameBus signal (only controller-local signals)."
+    referenced_by:
+      - docs/architecture/ADR-0014-grid-battle-controller.md
+    added: 2026-05-02
+    revised: ""
+
+  - contract: grid_battle_controller_query_api
+    status: active
+    pattern: direct_call
+    description: "GridBattleController exposes 4 public query methods callable by other systems: (1) is_tile_in_move_range(tile: Vector2i, unit_id: int) -> bool — returns true if tile is within unit's MOV range AND unoccupied AND non-river-impassable. (2) is_tile_in_attack_range(tile: Vector2i, unit_id: int) -> bool — returns true if tile contains an enemy AND within unit's ATK range (1 melee for most units; 2 for 황충 ranged). Both methods are honored per input-handling.md §9 + grid-battle.md §612 contract — InputRouter calls these for FSM dispatch (S0 → S1 unit-select; S1 → S2 move-target). (3) get_selected_unit_id() -> int — returns current selected unit ID; -1 if none selected. (4) get_battle_state_snapshot() -> Dictionary — opaque shape consumed by Battle AI ADR (sprint-7+; NOT YET WRITTEN); MVP returns only fields the AI consumer can act on; concrete shape locked at Battle AI ADR authoring time. setup() is the DI seam (must be called BEFORE add_child per ADR-0010/0011/0013 pattern; _ready() asserts all 8 backend deps non-null)."
+    emitter: none  # query API; not signal-driven
+    consumers:
+      - input-handling (InputRouter calls is_tile_in_*_range for FSM dispatch per §9 contract)
+      - battle-hud (subscribes to controller-local signals AND queries get_selected_unit_id for HUD; sprint-5)
+      - battle-ai (NOT YET WRITTEN — sprint-7+; queries get_battle_state_snapshot for decision input)
+    adr: docs/architecture/ADR-0014-grid-battle-controller.md
+    notes: "DamageCalc consumed via DamageCalc.resolve(...) static-method call site — NOT through this query API (per godot-specialist 2026-05-02 review revision #2: DamageCalc methods are `static func`, not instance methods; DI of static class is misleading). Sole-caller contract per damage-calc.md line 260 still honored by GridBattleController (only this controller calls resolve in production code; lint enforces)."
+    referenced_by:
+      - docs/architecture/ADR-0014-grid-battle-controller.md
+      - docs/architecture/ADR-0005-input-handling.md
+    added: 2026-05-02
+    revised: ""
+
 # Example:
 #
 # interfaces:
@@ -718,6 +771,16 @@ performance_budgets:
     notes: "Per-frame Camera update is engine-internal (Camera2D transform application) ≈ 0.001ms negligible. Custom code runs only on input events: _on_input_action_fired < 0.005ms per call (single match arm + ~3 vector ops). Headless throughput baseline target: 1000 synthetic camera events < 10ms (avg < 0.01ms per event). Pan clamp computation is O(1) — single tile_size multiply + 4 clampf calls. Cursor-stable zoom recipe runs 2 affine_inverse() calls per zoom event; Godot 4.6 affine_inverse() on Transform2D is ~10ns. Verified by /architecture-review at next invocation against the 16.6ms full-frame budget — Camera consumes 0.3% of budget, well within margin."
     referenced_by:
       - docs/architecture/ADR-0013-camera.md
+    added: 2026-05-02
+    revised: ""
+
+  - system: grid-battle-controller
+    status: active
+    budget_ms: 0.5
+    adr: docs/architecture/ADR-0014-grid-battle-controller.md
+    notes: "Per-frame controller update = 0ms (no _process body in MVP). Per-event signal handler costs: _on_input_action_fired < 0.05ms (FSM dispatch + 1-2 backend queries); _resolve_attack < 0.5ms (formation count + angle calc + DamageCalc.resolve + HPStatusController.apply_damage chain — peak per battle action). Per-round overhead _on_round_started < 0.1ms (formation_turns counter update + TURN_LIMIT_REACHED check). Total budget consumption ≈ 0.5ms peak per battle action; well under 16.6ms frame budget. Combined with ADR-0013 BattleCamera (0.05ms) the battle-scene Node-set consumes ~0.55ms = 3.3% of frame budget. Verified by /architecture-review at next invocation. Headless throughput baseline: 100 synthetic battle actions < 100ms (avg < 1ms per action including all 7 backend invocations)."
+    referenced_by:
+      - docs/architecture/ADR-0014-grid-battle-controller.md
     added: 2026-05-02
     revised: ""
 
@@ -1011,6 +1074,41 @@ api_decisions:
     referenced_by:
       - docs/architecture/ADR-0013-camera.md
       - docs/architecture/ADR-0006-balance-data.md
+    added: 2026-05-02
+    revised: ""
+
+  - purpose: grid_battle_controller_module_form
+    status: active
+    using: "battle-scoped Node (class_name GridBattleController extends Node)"
+    not: "stateless-static (Alternative 1 rejected) | autoload (Alternative 2 rejected) | full-GDD-scope ADR (Alternative 3 rejected) | split into Controller + Combat-Resolver (Alternative 4 rejected)"
+    adr: docs/architecture/ADR-0014-grid-battle-controller.md
+    reason: "4th invocation of battle-scoped Node pattern after ADR-0010 HPStatusController + ADR-0011 TurnOrderRunner + ADR-0013 BattleCamera. Battle-scoped lifecycle (freed with BattleScene). Stateless-static rejected because controller is state-holder + signal-listener (not calculator) — same justification as ADR-0005 InputRouter Alternative 4 + ADR-0013 BattleCamera Alternative 1 rejection. Autoload rejected because cross-scene survival not needed AND DI of 8 backend deps + 1 unit roster makes autoload form ugly. Full-GDD-scope ADR rejected (1259-line GDD scope = 800+ LoC ADR, beyond sprint-4 capacity); MVP-scoped per §0 with 4 explicit deferral slots (Battle AI / FormationBonusSystem / Rally / USE_SKILL) — each gets its own ADR when gameplay needs land. Split into Controller + Combat-Resolver rejected as over-decomposition for MVP. Pattern stable at 4 invocations; future battle-scoped Node systems should follow same DI + _exit_tree() + 200-byte cap discipline."
+    referenced_by:
+      - docs/architecture/ADR-0014-grid-battle-controller.md
+    added: 2026-05-02
+    revised: ""
+
+  - purpose: damage_calc_static_call_not_DI
+    status: active
+    using: "DamageCalc.resolve(attacker, defender, modifiers) — direct static-method call site; NOT injected as instance reference"
+    not: "instance DI pattern var _damage_calc: DamageCalc = null + _damage_calc.compute(...) — misleading because DamageCalc methods are `static func` (per src/feature/damage_calc/damage_calc.gd line 69)"
+    adr: docs/architecture/ADR-0014-grid-battle-controller.md
+    reason: "Per godot-specialist 2026-05-02 ADR-0014 review revision #2. DamageCalc is `class_name X extends RefCounted` with all `static func` methods (resolve / _stage_1_base_damage / _apply_defend_stance_penalty / _compute_defense_mul / _consume_formation_def_bonus / _direction_multiplier / _passive_multiplier / _charge_factor / _ambush_factor — all static). Holding a DamageCalc instance reference and calling _damage_calc.resolve(...) on the instance is misleading: in Godot 4.6 you can call static methods through an instance variable, but the instance is unused at the call site, creating reader confusion. Cleaner pattern: drop DamageCalc from DI signature; call DamageCalc.resolve(...) directly as static-method invocation. Sole-caller contract per damage-calc.md line 260 still honored (only GridBattleController invokes resolve in production code; lint enforces). Tests that need to mock DamageCalc behavior use the existing damage-calc test fixture pattern (tests/unit/feature/damage_calc/), not DI through this controller. The 'stateless' quality of DamageCalc means no mutable fields; methods are declared static, NOT instance methods."
+    referenced_by:
+      - docs/architecture/ADR-0014-grid-battle-controller.md
+      - docs/architecture/ADR-0012-damage-calc.md
+    added: 2026-05-02
+    revised: ""
+
+  - purpose: unit_died_connect_deferred_load_bearing
+    status: active
+    using: "GameBus.unit_died.connect(_on_unit_died, Object.CONNECT_DEFERRED) — DEFERRED flag REQUIRED, not stylistic"
+    not: "default direct-mode connect or CONNECT_ONE_SHOT — both would allow synchronous reentrance"
+    adr: docs/architecture/ADR-0014-grid-battle-controller.md
+    reason: "Per godot-specialist 2026-05-02 ADR-0014 review revision #1. Without the CONNECT_DEFERRED flag, _on_unit_died fires synchronously inside HPStatusController.apply_damage() called from _resolve_attack(), producing reentrant _check_battle_end() invocation mid-resolve. The DEFERRED flag queues the callback to end-of-frame, breaking the reentrance chain — _resolve_attack returns cleanly before _on_unit_died fires. Mirrors ADR-0001 §5 deferred-connect mandate at the project-wide level. Future maintainers MUST NOT remove the DEFERRED flag without superseding ADR amendment — it is load-bearing reentrance prevention, not a perf knob. Regression test asserts behavior — repeatedly trigger lethal damage and assert no reentrance crash + correct event ordering. Pattern enforced via explicit comment at the connect() call site (not lint-able statically because the flag value is a runtime constant)."
+    referenced_by:
+      - docs/architecture/ADR-0014-grid-battle-controller.md
+      - docs/architecture/ADR-0001-gamebus-autoload.md
     added: 2026-05-02
     revised: ""
 
@@ -1329,6 +1427,27 @@ forbidden_patterns:
     description: "BattleCamera.screen_to_grid(screen_pos: Vector2) -> Vector2i is the SOLE implementation of screen-to-grid coordinate conversion in the project. No other class (Grid Battle Controller, Battle HUD, MapGrid, etc.) MAY implement a function with this name or this conversion responsibility. Lint enforces via grep -rn 'func screen_to_grid' src/ returning at most 1 match (in src/feature/camera/battle_camera.gd). Test helpers (tests/helpers/camera_stub.gd) are exempt — they implement the SAME interface for stub injection per established stub-strategy precedent."
     why: "Single source-of-truth for the cross-system contract from ADR-0005 §9 Bidirectional Contract. If multiple implementations exist, they will drift and produce different results for the same screen click — silent bug class. The interface is locked by ADR-0005 + ADR-0013; downstream consumers (Grid Battle Controller, Battle HUD) call BattleCamera.screen_to_grid via DI'd reference, not their own implementation. Camera2D's get_canvas_transform().affine_inverse() is the engine-correct conversion mechanism — duplicating this elsewhere risks computing world-from-screen with wrong/missing zoom + position application (silent bug surface during pan/zoom)."
     adr: docs/architecture/ADR-0013-camera.md
+    added: 2026-05-02
+
+  - pattern: grid_battle_controller_signal_emission_outside_battle_domain
+    status: active
+    description: "GridBattleController (src/feature/grid_battle/grid_battle_controller.gd) MUST NOT emit any GameBus signal — all 5 emitted signals (unit_selected_changed / unit_moved / damage_applied / battle_outcome_resolved / hidden_fate_condition_progressed) are LOCAL signals declared on the GridBattleController class itself, consumed via direct connect to the controller instance reference (DI'd by BattleScene). Lint enforces via grep -c 'GameBus\\..*\\.emit' src/feature/grid_battle/grid_battle_controller.gd returns 0. The \\.emit anchor distinguishes emit calls from subscription / disconnect / is_connected lines (per ADR-0013 lint shape precedent)."
+    why: "Per ADR-0014 §8 + R-1 + ADR-0001 §445 50-emits/frame budget. GridBattleController is battle-scoped and its consumers (Battle HUD + Scenario Progression + Destiny Branch) are also battle-scoped Nodes — routing 5 high-frequency signals through the GameBus autoload would consume cross-system signal budget without architectural benefit. Mirrors balance_constants_signal_emission + camera_signal_emission 4-precedent project discipline (read-only / battle-internal events stay local; cross-scene events go through GameBus). Future Battle-domain signals that need cross-scene reach (e.g., scenario-end battle outcome → main menu) should be re-routed via GameBus at the consumer's boundary, not at GridBattleController's boundary."
+    adr: docs/architecture/ADR-0014-grid-battle-controller.md
+    added: 2026-05-02
+
+  - pattern: grid_battle_controller_static_state
+    status: active
+    description: "GridBattleController (src/feature/grid_battle/grid_battle_controller.gd) MUST NOT declare any class-level (static) variable. All state is instance-bound via 11+ instance fields (per ADR-0014 §3 + state_ownership.battle_runtime_state). Lint enforces via grep -E '^static var ' src/feature/grid_battle/grid_battle_controller.gd returns 0. Static var would survive across battle scene transitions (autoload-like persistence in a battle-scoped Node form) — directly contradicts the battle-scoped lifecycle that defines this Node pattern."
+    why: "Per ADR-0014 §1 + §3 (battle-scoped Node 4th invocation). Static state in a battle-scoped Node defeats the lifecycle contract — between battles, players see stale unit lists / fate counters / FSM state from prior session. Mirrors hp_status_static_state + turn_order_static_state 2-precedent forbidden patterns from ADR-0010/0011. The battle-scoped lifecycle (BattleScene queue_free → all instance state freed; new battle = fresh GridBattleController instance via setup()) is load-bearing for hidden-fate-condition isolation — Destiny Branch ADR (sprint-6) would silently consume cross-battle state if static var leak existed."
+    adr: docs/architecture/ADR-0014-grid-battle-controller.md
+    added: 2026-05-02
+
+  - pattern: grid_battle_controller_external_combat_math
+    status: active
+    description: "Combat math (formation +5%/adj-ally cap +20%; angle 1.25/1.50/1.75-for-rear-specialist; command_aura +15%) lives in TWO places only: (a) GridBattleController._resolve_attack() inline math (per ADR-0014 §5 MVP scope), and (b) DamageCalc.resolve() (per ADR-0012 sole-caller contract — invoked by GridBattleController). No other class in src/ may implement formation count, angle classification, aura check, or these 3 multipliers. Lint enforces via grep -rn 'formation_atk_bonus\\|attack_angle\\|adjacent_command_aura' src/ returning matches ONLY in src/feature/grid_battle/grid_battle_controller.gd OR src/feature/damage_calc/damage_calc.gd. Test helpers (tests/helpers/grid_battle_controller_stub.gd) are exempt — they implement the same interface for stub injection per established stub-strategy precedent."
+    why: "Per ADR-0014 R-2 + §0 deferral row #2 (FormationBonusSystem orchestration deferred). When Formation Bonus ADR ships (post-MVP), formation calc moves from GridBattleController to FormationBonusSystem per CR-FB-6 + grid-battle.md CR-16. If MULTIPLE classes implement formation math during the migration window, the two implementations could drift and produce different damage results for the same battle state — silent bug class. Forbidden pattern is the migration safety rail: the lint will fire when FormationBonusSystem code lands AND this controller still has inline math, forcing clean cutover. Same precedent as external_screen_to_grid_implementation forbidden_pattern (ADR-0013 — single source-of-truth for cross-system contract surface)."
+    adr: docs/architecture/ADR-0014-grid-battle-controller.md
     added: 2026-05-02
 
 # Example:

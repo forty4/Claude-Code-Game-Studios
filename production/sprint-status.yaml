@@ -11,7 +11,7 @@ goal: "MVP First Chapter (sprint-4 of 3-sprint arc) — Camera ADR + Grid Battle
 start: "2026-05-10"
 end: "2026-05-16"
 generated: "2026-05-02"
-updated: "2026-05-02"  # S4-01 DONE: ADR-0013 Camera Accepted (BattleCamera + _exit_tree disconnect mandatory; 11 registry entries). See sprint-status-history.md S4-01.
+updated: "2026-05-02"  # S4-03 DONE: ADR-0014 Grid Battle Controller Accepted (MVP-scoped, 4 deferrals; 10 registry entries; 2 godot-specialist revisions). See sprint-status-history.md S4-03.
 
 # Sprint-3 closed effective DoD must-have 3/3 + should-have 2/2 + nice-to-have 1/1 = 7/7
 # by 2026-05-02 (1 calendar day vs 7-day window). Final state archived in git history
@@ -55,11 +55,12 @@ stories:
     name: "ADR-0014 Grid Battle Controller — /architecture-decision (battle-scoped Node owning units + signals)"
     file: "docs/architecture/ADR-0014-grid-battle-controller.md"
     priority: must-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.75
     blocker: "S4-01"
-    completed: ""
+    completed: "2026-05-02"
+    # 2026-05-02: ADR-0014 Accepted (MVP-scoped; 4 deferrals). 2 godot-specialist revisions (DamageCalc static-call; CONNECT_DEFERRED load-bearing). 10 registry entries. See history S4-03.
 
   - id: "S4-04"
     name: "Grid Battle Controller epic + stories scaffold (8-12 stories Ready; impl carries to sprint-5)"

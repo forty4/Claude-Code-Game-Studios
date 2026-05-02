@@ -18,6 +18,22 @@
 
 ## Sprint 4
 
+### S4-03 — ADR-0014 Grid Battle Controller /architecture-decision (2026-05-02)
+
+**Completed**: 2026-05-02
+**Estimate**: 0.75d
+**Priority**: must-have
+
+> 2026-05-02: ADR-0014 Grid Battle Controller Accepted in lean mode. **Critical scope decision in §0**: MVP-scoped explicitly because grid-battle.md GDD is 1259 lines with full Alpha-tier scope (AI substate machine + FormationBonusSystem orchestration + Rally + USE_SKILL counter + AOE_ALL + closed-signal-set assertions). Faithful full-scope ADR would be 800+ LoC and 4-6h beyond sprint-4 capacity. **4 explicit deferral slots** reserved: Battle AI ADR (sprint-7+) + Formation Bonus ADR (post-MVP) + Rally ADR (post-MVP) + Skill ADR (post-MVP). Each gets its own ADR when gameplay needs land. (1) godot-specialist (Pass 1+2+3 review) returned **PASS WITH 2 REVISIONS**: revision #1 (CONNECT_DEFERRED on `unit_died` is load-bearing reentrance prevention — without it, `_on_unit_died` fires synchronously inside `HPStatusController.apply_damage()` from `_resolve_attack`, causing reentrant `_check_battle_end`; added explicit comment in §3 + R-8) + revision #2 (DamageCalc methods are `static func` — confirmed by reading shipped code at `src/feature/damage_calc/damage_calc.gd:69 static func resolve(...)`; dropped DamageCalc from DI signature, drop instance field, change to `DamageCalc.resolve(...)` direct static-call site; updated §3/§5/§10/§Diagram/§ADR-Dependencies + R-3 8-param). (2) Implementation Notes section added to ADR for 3 fresh-from-shipped-code findings: `apply_damage` is 4-param not 2-param; `is_alive` not `is_dead` is canonical query; HPStatusController._exit_tree() ALREADY EXISTS (good news — TD-057 partial false alarm, only TurnOrderRunner audit remains). (3) Registry update: 10 entries appended to `docs/registry/architecture.yaml` (1353→1472 lines): 1 state_ownership (`battle_runtime_state` — 11+ fields incl 5 hidden fate counters), 2 interfaces (`grid_battle_controller_signal_emission` 5 controller-local signals + `grid_battle_controller_query_api` 4 public methods), 1 performance_budget (0.5ms peak per battle action), 3 api_decisions (`grid_battle_controller_module_form` 4th battle-scoped Node + `damage_calc_static_call_not_DI` revision #2 + `unit_died_connect_deferred_load_bearing` revision #1), 3 forbidden_patterns (`grid_battle_controller_signal_emission_outside_battle_domain` + `grid_battle_controller_static_state` + `grid_battle_controller_external_combat_math` migration safety rail). (4) Cross-ADR follow-up partially resolved: ADR-0013 R-7 + TD-057 candidate verified — HPStatusController already has `_exit_tree()` cleanup (line 45 of shipped code); only TurnOrderRunner audit remains for grid-battle-controller epic story-009. ADR ~510 lines after revisions; covers 13 GDD requirements addressed; LOW engine risk confirmed.
+
+**Files touched**:
+- `docs/architecture/ADR-0014-grid-battle-controller.md` (NEW, ~510 lines after godot-specialist revisions)
+- `docs/registry/architecture.yaml` (1353→1472 lines, +10 entries all referencing ADR-0014; 28 ADR-0014 references total)
+
+**Note**: Status set to Accepted in-file per lean mode. godot-specialist Pass 1+2+3 was the substitute review — found 2 revisions both resolved before commit. Pattern stable at 2 invocations (ADR-0013 + ADR-0014); engine specialist as substitute for TD-ADR PHASE-GATE in lean mode is the discipline going forward.
+
+---
+
 ### S4-01 — ADR-0013 Camera /architecture-decision (2026-05-02)
 
 **Completed**: 2026-05-02
@@ -38,7 +54,11 @@
 
 ### Top-level `updated:` field — rolling history
 
-#### 2026-05-02 (current after S4-01 close-out)
+#### 2026-05-02 (current after S4-03 close-out)
+
+> S4-03 DONE: ADR-0014 Grid Battle Controller Accepted (MVP-scoped, 4 deferrals; 10 registry entries; 2 godot-specialist revisions). See sprint-status-history.md S4-03.
+
+#### 2026-05-02 (rotated when S4-03 landed)
 
 > S4-01 DONE: ADR-0013 Camera Accepted (BattleCamera + _exit_tree disconnect mandatory; 11 registry entries). See sprint-status-history.md S4-01.
 
