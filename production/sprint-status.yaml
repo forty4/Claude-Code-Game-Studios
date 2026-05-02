@@ -11,7 +11,7 @@ goal: "Ship grid-battle-controller end-to-end (qa-plan + 10 stories) + author Ba
 start: "2026-05-17"
 end: "2026-05-23"
 generated: "2026-05-02"
-updated: "2026-05-03"  # Sprint-5 IN PROGRESS: S5-01..S5-04 done (qa-plan + stories 001-003). 778 PASS (12th failure-free). FSM 2-state + 10-action filter shipped.
+updated: "2026-05-03"  # Sprint-5 IN PROGRESS: S5-01..S5-05 done (qa-plan + stories 001-004). 789 PASS (13th failure-free). MOVE action shipped — 1st firing controller-LOCAL signal.
 
 # Sprint-4 closed 5/7 (must-have 4/4 + should 1/2 + nice 0/1) by 2026-05-02 — 8 calendar days
 # ahead of 2026-05-16 deadline. 9th consecutive failure-free baseline (757/0/0/0). First
@@ -67,11 +67,12 @@ stories:
     name: "story-004: MOVE action — is_tile_in_move_range + _do_move + unit_moved signal"
     file: "production/epics/grid-battle-controller/story-004-move-action.md"
     priority: must-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.4
     blocker: "S5-04"
-    completed: ""
+    completed: "2026-05-03"
+    # 2026-05-03: Manhattan range + occupancy + passability + _do_move (position+facing+MapGrid bookkeeping) + unit_moved emit + 11 tests. 778→789 PASS (13th failure-free).
 
   - id: "S5-06"
     name: "story-005: ATTACK + _resolve_attack chain + DamageCalc.resolve static-call + apply_damage(4-param) + damage_applied signal + ResolveModifiers extension"

@@ -1,7 +1,9 @@
 # Story 004: Move action — is_tile_in_move_range + _handle_move + unit_moved signal
 
-> **Epic**: Grid Battle Controller | **Status**: Ready | **Layer**: Feature | **Type**: Logic | **Estimate**: 3h
+> **Epic**: Grid Battle Controller | **Status**: Complete (2026-05-03) | **Layer**: Feature | **Type**: Logic | **Estimate**: 3h
 > **ADR**: ADR-0014 §10 + grid-battle.md §123 + §612 (input-handling §9 partner contract)
+>
+> **Implementation note**: `_consume_unit_action` PARTIAL body added in story-004 (`_acted_this_turn[unit_id] = true`) to enable AC-8 re-entrancy guard test. Story-006 will EXTEND this stub with TurnOrderRunner.spend_action_token + auto-end-turn-when-all-acted; the partial body is a strict subset (additive). MapGridStub extended with `set_passable_for_test` + no-op overrides for `set_occupant` / `clear_occupant` (avoid push_error from production class on null _map field).
 
 ## Acceptance Criteria
 

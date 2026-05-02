@@ -232,12 +232,36 @@ func _exit_tree() -> void:
 
 # ─── Public API: cross-system contract surface (ADR-0014 §10) ────────────────
 
-## Checks whether a tile is in the selected unit's movement range.
-## Implements input-handling §9 Bidirectional Contract (R-5).
-## TODO(story-004): replace stub with real BFS range check.
+## Checks whether a tile is in the given unit's movement range. Implements
+## input-handling §9 Bidirectional Contract (R-5) + grid-battle.md §612 + §123.
+##
+## MVP simplification per ADR-0014 §0 + story-004 Implementation Note #1:
+## Manhattan distance check (no BFS pathfinding). Future Pathfinding ADR will
+## refine to "reachable path exists" via Dijkstra against terrain cost matrix
+## per UnitRole.get_class_cost_table; this method's interface stays stable.
+##
+## Returns false if: unit_id not in registry, tile out of unit's move_range,
+## tile occupied by another unit, OR tile not passable (RIVER / MOUNTAIN per
+## MapTileData.is_passable_base — set at MapResource load by ADR-0008 contract).
 func is_tile_in_move_range(tile: Vector2i, unit_id: int) -> bool:
-	# TODO(story-004): implement BFS + UnitRole.get_effective_move_range
-	return false
+	if not _units.has(unit_id):
+		return false
+	var unit: BattleUnit = _units[unit_id]
+	# Manhattan distance check (MVP per AC-2)
+	var dx: int = absi(tile.x - unit.position.x)
+	var dy: int = absi(tile.y - unit.position.y)
+	var manhattan: int = dx + dy
+	if manhattan == 0 or manhattan > unit.move_range:
+		return false  # zero-distance (current tile) or out-of-range
+	# Passability + occupancy via MapGrid.get_tile (single source of truth)
+	var tile_data: MapTileData = _map_grid.get_tile(tile)
+	if tile_data == null:
+		return false  # out of bounds (defensive — get_tile may return null at edges)
+	if not tile_data.is_passable_base:
+		return false  # RIVER / MOUNTAIN / impassable terrain
+	if tile_data.occupant_id != 0:
+		return false  # tile occupied by some unit
+	return true
 
 
 ## Checks whether a tile is in a unit's attack range.
@@ -379,10 +403,11 @@ func _handle_grid_click_unit_selected(action: String, coord: Vector2i, unit_id: 
 		"move_cancel", "attack_cancel":
 			_deselect()
 		"move_target_select", "move_confirm":
-			# is_tile_in_move_range stubs to false until story-004; dispatch is wired
-			# but downstream _handle_move is a no-op until story-004 fills it.
+			# is_tile_in_move_range + _handle_move are story-004 implementations.
+			# _handle_move signature takes BattleUnit (not unit_id) per AC-3 —
+			# caller resolves _selected_unit_id → BattleUnit via _units lookup.
 			if is_tile_in_move_range(coord, _selected_unit_id):
-				_handle_move(_selected_unit_id, coord)
+				_handle_move(_units[_selected_unit_id], coord)
 		"attack_target_select", "attack_confirm":
 			# Same pattern as move — wire dispatch; defer handler body to story-005.
 			if is_tile_in_attack_range(coord, _selected_unit_id):
@@ -414,12 +439,20 @@ func _deselect() -> void:
 
 # ─── Action handler stubs (filled by stories 004-005) ───────────────────────
 
-## Handles a move action — validates + applies + emits unit_moved.
-## TODO(story-004): full body — _do_move + _consume_unit_action + signal emit.
-func _handle_move(_unit_id: int, _dest: Vector2i) -> void:
-	# TODO(story-004): position update + facing update + occupancy bookkeeping +
-	# unit_moved signal + _consume_unit_action(_unit_id) handoff to story-006.
-	pass
+## Handles a move action per story-004 AC-3: validates via is_tile_in_move_range,
+## applies via _do_move, consumes the unit's turn action via _consume_unit_action.
+## Re-entrancy guard per AC-8: silent no-op if unit already acted this turn.
+##
+## Signature uses BattleUnit (not unit_id) per story-004 AC-3 — caller in
+## handle_grid_click resolves unit_id → BattleUnit before dispatch.
+func _handle_move(unit: BattleUnit, dest: Vector2i) -> void:
+	if _acted_this_turn.get(unit.unit_id, false):
+		return  # AC-8 re-entrancy guard
+	if not is_tile_in_move_range(dest, unit.unit_id):
+		return  # invalid target — silent (validation already happened at dispatch
+		        # but this defense is per AC-3: _handle_move validates internally)
+	_do_move(unit, dest)
+	_consume_unit_action(unit.unit_id)  # story-006 stub
 
 
 ## Handles an attack action — runs the resolve chain + applies damage + emits.
@@ -430,3 +463,48 @@ func _handle_attack(_attacker_id: int, _defender_id: int) -> void:
 	# HPStatusController.apply_damage(4-param) + apply_death_consequences +
 	# damage_applied signal + fate-counter increments (story-008 hooks).
 	pass
+
+
+# ─── Action implementations (story-004) ──────────────────────────────────────
+
+## Applies a move per story-004 AC-4: updates position + facing + MapGrid
+## occupancy bookkeeping + emits unit_moved AFTER all mutations complete (AC-5).
+##
+## Sole-writer of unit.position + unit.facing per ADR-0014 §3 (story-002
+## sole-writer contract on _units extends to BattleUnit field mutations during
+## battle). MapGrid occupancy bookkeeping per shipped clear_occupant +
+## set_occupant API contract (strict-sync per §EC-6 — clear before set).
+func _do_move(unit: BattleUnit, dest: Vector2i) -> void:
+	var old_pos: Vector2i = unit.position
+	# 1. MapGrid occupancy clear (must precede set per strict-sync EC-6)
+	_map_grid.clear_occupant(old_pos)
+	# 2. Mutate unit fields
+	unit.position = dest
+	unit.facing = _direction_from_to(old_pos, dest)
+	# 3. MapGrid occupancy set with faction derived from side (0→ALLY, 1→ENEMY)
+	var faction: int = MapGrid.FACTION_ALLY if unit.side == 0 else MapGrid.FACTION_ENEMY
+	_map_grid.set_occupant(dest, unit.unit_id, faction)
+	# 4. Emit unit_moved signal AFTER position update per AC-5
+	unit_moved.emit(unit.unit_id, old_pos, dest)
+
+
+## Computes cardinal facing (0=N, 1=E, 2=S, 3=W) from movement vector per
+## chapter-prototype pattern. Larger axis wins; on tie, X-axis wins.
+## Used by _do_move (story-004) and consumed by _attack_angle (story-005).
+func _direction_from_to(from: Vector2i, to: Vector2i) -> int:
+	var dx: int = to.x - from.x
+	var dy: int = to.y - from.y
+	if absi(dx) >= absi(dy):
+		return 1 if dx > 0 else 3  # E or W
+	return 2 if dy > 0 else 0  # S or N
+
+
+## Marks the unit as having acted this turn + spends action token via
+## TurnOrderRunner per ADR-0011 Contract 4.
+## TODO(story-006): fill body — token spend + auto-end-turn-when-all-acted.
+## Story-004 calls this stub after successful move per AC-3.
+func _consume_unit_action(unit_id: int) -> void:
+	# Story-004 partial: populate _acted_this_turn so AC-8 re-entrancy guard fires
+	# on second-call within same turn. Story-006 will add TurnOrderRunner token
+	# spend + auto-handoff logic.
+	_acted_this_turn[unit_id] = true
