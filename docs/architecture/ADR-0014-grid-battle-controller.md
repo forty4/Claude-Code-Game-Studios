@@ -30,9 +30,9 @@ Accepted (2026-05-02 — lean mode authoring + godot-specialist PASS WITH 2 REVI
 | Field | Value |
 |-------|-------|
 | **Depends On** | **ADR-0013 BattleCamera** (Accepted 2026-05-02) — primary consumer of `screen_to_grid` for click-to-grid hit-testing. **ADR-0001 GameBus** (Accepted 2026-04-18) — subscribes to `input_action_fired(action: StringName, ctx: InputContext)` filtered for `ACTIONS_BY_CATEGORY[&"grid"]` 10 actions; emits 4-6 Battle-domain signals (TBD per Battle HUD ADR). **ADR-0010 HPStatusController** (Accepted 2026-05-02) — DI dependency; sole writer of unit HP per ownership contract. **ADR-0011 TurnOrderRunner** (Accepted 2026-05-02) — DI dependency; consumes initiative queue + token API per Contract 4. **ADR-0012 DamageCalc** (Accepted 2026-04-30) — direct static-method consumption (`DamageCalc.resolve(attacker, defender, modifiers)` — NOT DI'd because all methods are `static func`); sole-caller contract per `damage-calc.md` line 260 still honored. **ADR-0007 HeroDatabase** (Accepted 2026-04-30) — DI dependency; roster lookup at battle init. **ADR-0004 MapGrid** (Accepted 2026-04-20) — DI dependency; terrain queries + dimensions for clamp. **ADR-0008 TerrainEffect** (Accepted 2026-04-25) — DI dependency; per-tile modifier query for combat. **ADR-0009 UnitRole** (Accepted 2026-04-30) — DI dependency; class-based derived-stat queries. **ADR-0006 BalanceConstants** (Accepted 2026-04-30) — 6 new entries: formation/angle multipliers + MAX_TURNS_PER_BATTLE + hidden-fate-condition thresholds. |
-| **Enables** | (1) **grid-battle-controller epic** (sprint-4 S4-04 — author after this ADR Accepted); (2) **Battle Scene wiring** (sprint-6 — first scene that mounts Camera + GridBattleController + 7 backends); (3) **Battle HUD ADR** (NOT YET WRITTEN — sprint-5 — consumes Battle-domain signals emitted by this ADR for HUD updates); (4) **Scenario Progression ADR** (NOT YET WRITTEN — sprint-6 — consumes battle_outcome_resolved signal from this ADR for chapter advancement); (5) **Destiny Branch ADR** (NOT YET WRITTEN — sprint-6 — consumes hidden_fate_condition_progressed signal from this ADR). |
-| **Blocks** | grid-battle-controller Feature epic implementation (cannot start any story until this ADR is Accepted); BattleScene mount in `scenes/battle/battle_scene.tscn`; sprint-5 + sprint-6 gameplay scope. |
-| **Ordering Note** | **4th invocation** of battle-scoped Node pattern after ADR-0010 HPStatusController + ADR-0011 TurnOrderRunner + ADR-0013 BattleCamera. **Largest** Feature-layer Node-based system in the project — central orchestrator for the 7-backend integration. Pattern stable at 4 invocations; future battle-scoped Nodes (Battle HUD, Scenario Progression — sprint-5/6) should follow the same DI + `_exit_tree()` discipline. |
+| **Enables** | (1) **grid-battle-controller epic** (sprint-5 epic 10/10 Complete 2026-05-03 — closed); (2) **Battle Scene wiring** (sprint-6 — first scene that mounts Camera + GridBattleController + 7 backends); (3) **ADR-0015 Battle HUD** (Accepted 2026-05-03 via /architecture-review delta #10) — RATIFIED parameter-stable; subscribes to 4 of 5 controller-LOCAL signals (`unit_selected_changed` / `unit_moved` / `damage_applied` / `battle_outcome_resolved`) + queries `get_selected_unit_id` per ADR-0015 §3 + §5; **EXPLICITLY does NOT subscribe** to `hidden_fate_condition_progressed` per Pillar 2 lock 3-layer enforcement (test layer story-008 connection-count + source-grep lint per ADR-0015 §8 + architecture-layer registry forbidden_pattern `battle_hud_subscribes_to_hidden_fate_signal`); (4) **Scenario Progression ADR** (NOT YET WRITTEN — sprint-6 — consumes battle_outcome_resolved signal from this ADR for chapter advancement); (5) **Destiny Branch ADR** (NOT YET WRITTEN — sprint-6 — sole consumer of hidden_fate_condition_progressed signal per Pillar 2 lock; ADR-0015 §8 codifies the source-grep lint enforcing HUD non-subscription). |
+| **Blocks** | grid-battle-controller Feature epic implementation (sprint-5 epic 10/10 Complete 2026-05-03 — unblocked); BattleScene mount in `scenes/battle/battle_scene.tscn`; sprint-5 + sprint-6 gameplay scope. |
+| **Ordering Note** | **4th invocation** of battle-scoped Node pattern after ADR-0010 HPStatusController + ADR-0011 TurnOrderRunner + ADR-0013 BattleCamera. **Largest** Feature-layer Node-based system in the project — central orchestrator for the 7-backend integration. Pattern stable at 4 invocations at authoring time; **extended to 5 invocations** by ADR-0015 Battle HUD (Accepted 2026-05-03 via /architecture-review delta #10 — first Presentation-layer ADR following the same DI + `_exit_tree()` discipline). |
 
 ## Context
 
@@ -73,7 +73,7 @@ After ADR-0013 BattleCamera Accepted, the MVP First Chapter (sprint-4..6 arc) ne
 - **R-6**: Combat resolution per chapter-prototype's proven shape: formation +5%/adj-ally (cap +20%), angle 1.25/1.50/1.75-for-rear-specialist, command_aura +15% (유비 adjacent), then DamageCalc.resolve() then HPStatusController.apply_damage().
 - **R-7**: 5-turn limit per BalanceConstants.MAX_TURNS_PER_BATTLE; on turn-out, emit battle_outcome_resolved with outcome=TURN_LIMIT_REACHED.
 - **R-8**: Track 5 hidden fate-condition counters silently per chapter-prototype pattern: tank_alive_hp_pct (장비-tagged unit), assassin_kills (조운-tagged), rear_attacks (any), formation_turns (any player ≥1 adj-ally), boss_killed (boss-tagged enemy).
-- **R-9**: Emit Battle-domain GameBus signals (4-6 total — exact set TBD per Battle HUD ADR sprint-5; this ADR pre-commits the wire format for the 4 essentials: unit_selected_changed / unit_moved / damage_applied / battle_outcome_resolved).
+- **R-9**: Emit Battle-domain controller-LOCAL signals (5 total — set ratified by ADR-0015 Battle HUD Accepted 2026-05-03 via /architecture-review delta #10; subscribes to 4 of 5: unit_selected_changed / unit_moved / damage_applied / battle_outcome_resolved + EXPLICITLY NOT hidden_fate_condition_progressed per Pillar 2 lock).
 - **R-10**: MANDATORY `_exit_tree()` body explicitly disconnecting ALL GameBus subscriptions (per ADR-0013 R-6 godot-specialist mandate; same Godot 4.x SOURCE-outlives-TARGET leak pattern).
 - **R-11**: Forbidden-pattern compliance — sole emitter of Battle-domain signals; no static state; no external combat math (formation/angle/aura math lives here + DamageCalc only).
 
@@ -320,7 +320,7 @@ func _on_unit_died(unit_id: int) -> void:
     _check_battle_end()
 ```
 
-### 8. GameBus signal emission (MVP set; Battle HUD ADR may extend)
+### 8. GameBus signal emission (MVP set ratified by ADR-0015 Battle HUD Accepted 2026-05-03 via /architecture-review delta #10)
 
 This ADR pre-commits 4 Battle-domain signals to ADR-0001 §7 Signal Contract Schema (additive amendment per ADR-0001 §445 future-extension provision):
 
@@ -586,7 +586,7 @@ This ADR is correct when (validation in grid-battle-controller epic story-010 ep
 - **ADR-0011** (Turn Order) — DI dependency + Contract 4 token API
 - **ADR-0012** (Damage Calc) — DI dependency + sole-caller contract honored
 - **ADR-0013** (BattleCamera) — DI dependency + screen_to_grid hit-test partner
-- **Battle HUD ADR** (NOT YET WRITTEN — sprint-5) — primary consumer of 4 of 5 emitted signals
+- **ADR-0015 Battle HUD** (Accepted 2026-05-03 via /architecture-review delta #10) — primary consumer of 4 of 5 controller-LOCAL signals (5th explicitly NOT subscribed per Pillar 2 lock 3-layer enforcement; ADR-0015 §8 codifies the source-grep lint)
 - **Scenario Progression ADR** (NOT YET WRITTEN — sprint-6) — consumer of `battle_outcome_resolved`
 - **Destiny Branch ADR** (NOT YET WRITTEN — sprint-6) — sole consumer of `hidden_fate_condition_progressed`
 - **Battle AI ADR** (NOT YET WRITTEN — sprint-7+) — supersedes player-only-turns assumption; consumes `get_battle_state_snapshot()` opaque API

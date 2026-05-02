@@ -29,8 +29,45 @@
 #   All forbidden patterns: Grep pattern="^  - pattern:" (forbidden_patterns section)
 #   Superseded entries:     Grep pattern="status: superseded"
 
-version: 8
+version: 9
 last_updated: "2026-05-03"
+# 2026-05-03 (/architecture-review delta #10): ADR-0015 Battle HUD escalated
+# Proposed → Accepted same-day. v8 → v9 prose-only refresh: lines 741-742
+# (battle_camera_public_api consumers) flipped "ADR-0014 NOT YET WRITTEN
+# sprint-4" + "Battle HUD ADR NOT YET WRITTEN sprint-5" → ADR-0014 + ADR-0015
+# RATIFIED Accepted; line 757 (grid_battle_controller_signal_emission consumers)
+# flipped "battle-hud sprint-5 ADR pending" → ADR-0015 Accepted 2026-05-03;
+# line 774 (grid_battle_controller_query_api consumers) flipped "battle-hud
+# sprint-5" → ADR-0015 Accepted 2026-05-03. Same-patch wording flips also
+# applied to ADR-0005 (Battle HUD provisional contract → RATIFIED + Camera/Grid
+# Battle "NOT YET WRITTEN" backfill — delta #9 lesson honored: backfill stale-ref
+# qualifiers each delta to keep close-out bills linear), ADR-0010 (lines 737 +
+# 780 future Battle HUD past-tense), ADR-0013 (lines 33 + 35 + 71-72 + 371 Battle
+# HUD past-tense), ADR-0014 (lines 33 + 35 + 76 + 323 + 589 Battle HUD past-tense).
+# Total 11 same-patch wording flips across 5 ADRs (within delta-#6 6-correction
+# HIGH-risk anomaly range, well below delta-#9 24-correction close-out anomaly).
+# Review-time godot-specialist PASS WITH 1 CORRECTION + 2 ADVISORIES (10th
+# invocation; correction count fits delta-pattern mean range for HIGH-risk UI):
+# A-4 same-patch correction (§Engine Compatibility §Post-Cutoff item 4 typed
+# Dictionary "stable in 4.6" → "syntax verified at first-story implementation");
+# B-4 ADVISORY (replace Performance.TIME_PROCESS with Time.get_ticks_usec()
+# start/end delta for forecast dismiss latency measurement); D ADVISORY (use
+# _camera.get_canvas_transform() * world_pos directly — Godot 4.6 Camera2D
+# does NOT expose world_to_screen() method; the original "anticipated drift
+# surfaces" fallback IS the primary path). Both advisories carried as
+# Implementation Notes in ADR-0015 for first-story implementation. ADR-0015
+# status: ACCEPTED. 0 BLOCKING cross-ADR conflicts; 0 GDD revision flags.
+# Pattern stable at 5 invocations of battle-scoped Node form; first
+# Presentation-layer ADR establishes layer pattern. Pillar 2 hidden semantic
+# preservation enforced at 3 layers (test story-008 connection-count + source-grep
+# lint lint_battle_hud_hidden_fate_non_subscription.sh + registry forbidden_pattern
+# battle_hud_subscribes_to_hidden_fate_signal — first project precedent of
+# pillar-anchored lint pattern). Source: docs/architecture/architecture-review-2026-05-03.md.
+# Structural backfill DEFERRED to a future explicit run: tr-registry.yaml
+# (~45 candidate TR-camera + TR-grid-battle-controller + TR-battle-hud entries)
+# + architecture.md (12 → 15 ADRs Layer Map refresh; Presentation 0/6 → 1/6)
+# + architecture-traceability.md (delta #10 row + ADR-0013/0014/0015 backfill).
+#
 # 2026-05-03 (ADR-0015 Battle HUD design-time): Battle HUD authoring at
 # Proposed status — adds 1 state_ownership (battle_hud_runtime_state — 12
 # instance fields + 14 UI element refs + 9 DI'd backend refs; battle-scoped
@@ -47,14 +84,11 @@ last_updated: "2026-05-03"
 # Closes 5 prior provisional contracts at design-time (ADR-0005 lines 235-236
 # + ADR-0010 line 43 #4 + ADR-0011 registry line 635 + ADR-0013 line 33 #3 +
 # ADR-0014 registry line 712 + 729 + line 729 — RATIFIED on Acceptance via
-# next /architecture-review delta). godot-specialist PASS WITH 3 REVISIONS
-# resolved same-patch (§3 _exit_tree() guard rationale comment, §4
-# _handle_signal args: Array rationale comment, §6 _process set_process(false)
-# gating documentation). TD-ADR PHASE-GATE skipped per production/review-mode.txt
-# = lean. Pillar 2 hidden semantic preservation enforced at 3 layers: test
-# (story-008 connection-count) + source-grep lint (lint_battle_hud_hidden_fate_non_subscription.sh)
-# + this registry forbidden_pattern. ADR-0015 status: Proposed (not yet Accepted —
-# /architecture-review delta required in fresh session next).
+# /architecture-review delta #10 same-day, see entry above). godot-specialist
+# PASS WITH 3 REVISIONS resolved same-patch at authoring time (§3 _exit_tree()
+# guard rationale comment, §4 _handle_signal args: Array rationale comment,
+# §6 _process set_process(false) gating documentation). TD-ADR PHASE-GATE
+# skipped per production/review-mode.txt = lean.
 #
 # 2026-04-30 (/architecture-review delta #9): ADR-0006 Balance/Data escalated
 # Proposed → Accepted. v6 → v7: ADR-0006 was the LAST Proposed ADR — all 12
@@ -738,8 +772,8 @@ interfaces:
     description: "BattleCamera exposes 2 public methods callable by other systems: (1) screen_to_grid(screen_pos: Vector2) -> Vector2i — converts screen-space pixel coords to grid coords using get_canvas_transform().affine_inverse() + tile_world_size; returns Vector2i(-1,-1) sentinel for off-grid. SOLE implementation in project (forbidden_pattern external_screen_to_grid_implementation enforces single source). (2) get_zoom_value() -> float — read-only zoom query for HUD scale-matching by Battle HUD. Both methods are direct-call (NOT signal-driven) per the ADR-0001 non-emitter-by-behavior pattern shared with calculator-tier systems. Internal state (_map_grid, _drag_*, Camera2D.zoom, Camera2D.position) is private; consumers do NOT directly read these. setup(map_grid: MapGrid) -> void is the DI seam (must be called BEFORE add_child per ADR-0010/0011 pattern; _ready() asserts map_grid is non-null)."
     emitter: none  # BattleCamera is a pure consumer of GameBus.input_action_fired (filtered for ACTIONS_BY_CATEGORY[&"camera"] 4 actions); does NOT emit any GameBus signal (forbidden_pattern camera_signal_emission)
     consumers:
-      - grid-battle-controller (Feature; primary consumer of screen_to_grid; ADR-0014 NOT YET WRITTEN — sprint-4 S4-03)
-      - battle-hud (Presentation; consumer of get_zoom_value; Battle HUD ADR NOT YET WRITTEN — sprint-5)
+      - grid-battle-controller (Feature; primary consumer of screen_to_grid; ADR-0014 Accepted 2026-05-02 — RATIFIED via delta #10 backfill)
+      - battle-hud (Presentation; consumer of get_zoom_value; ADR-0015 Accepted 2026-05-03 via /architecture-review delta #10 — RATIFIED parameter-stable per ADR-0015 §6 _process zoom-poll gated on _has_active_grid_overlay)
     adr: docs/architecture/ADR-0013-camera.md
     notes: "BattleCamera owns drag state per ADR-0005 OQ-2 resolution: &\"camera_pan\" action received via GameBus is a TRIGGER (\"user wants to pan\"), not a delta source. Camera reads get_viewport().get_mouse_position() directly to compute delta from its own _drag_start_screen_pos anchor. This keeps cross-system coupling to the 4 camera actions only (camera_pan / camera_zoom_in / camera_zoom_out / camera_snap_to_unit) without needing InputContext schema extension. Battle-scoped Node form (3rd invocation after ADR-0010 + ADR-0011) means MANDATORY explicit _exit_tree() that disconnects GameBus.input_action_fired callback (per godot-specialist 2026-05-02 review concern #2 — without disconnect, autoload retains callable pointing at freed Node = leak + potential crash; enforced via camera_missing_exit_tree_disconnect forbidden_pattern). Cursor-stable zoom recipe: 2 affine_inverse() calls per zoom event for cursor-world-position invariance (engine-agnostic vector math; verified at impl-time per ADR §Validation Criteria item 4)."
     referenced_by:
@@ -754,7 +788,7 @@ interfaces:
     description: "GridBattleController emits 5 Battle-domain signals declared LOCALLY on the class (not via GameBus autoload registration — see ADR-0014 §8 + R-1; signals are class-local declarations consumed by Battle HUD + Scenario Progression + Destiny Branch via direct connect to the controller instance reference). Signals: (1) unit_selected_changed(unit_id: int, was_selected: int) — emitted on FSM OBSERVATION ↔ UNIT_SELECTED transitions; was_selected=-1 for deselect. (2) unit_moved(unit_id: int, from: Vector2i, to: Vector2i) — emitted after _do_move applies position change. (3) damage_applied(attacker_id: int, defender_id: int, damage: int) — emitted after _resolve_attack chain (controller multipliers → DamageCalc.resolve → HPStatusController.apply_damage). (4) battle_outcome_resolved(outcome: StringName, fate_data: Dictionary) — emitted on victory / defeat / TURN_LIMIT_REACHED; fate_data carries the 5 hidden counter snapshot for Destiny Branch consumption. (5) hidden_fate_condition_progressed(condition_id: StringName, value: int) — emitted on each fate-counter increment (rear_attacks / formation_turns / assassin_kills / boss_killed). Signal namespace consumption: 4 of 5 consumed by Battle HUD (sprint-5; signal 5 NOT subscribed by HUD per design — preserves the 'hidden' semantic for Destiny Branch ONLY)."
     emitter: grid-battle-controller
     consumers:
-      - battle-hud (Presentation; subscribes to signals 1-4; sprint-5 ADR pending)
+      - battle-hud (Presentation; subscribes to signals 1-4 per ADR-0015 §3 + §5; ADR-0015 Accepted 2026-05-03 via /architecture-review delta #10; signal 5 hidden_fate_condition_progressed EXPLICITLY NOT subscribed per Pillar 2 lock 3-layer enforcement)
       - scenario-progression (Feature; subscribes to battle_outcome_resolved for chapter advancement; sprint-6 ADR pending)
       - destiny-branch (Feature; SOLE consumer of hidden_fate_condition_progressed; sprint-6 ADR pending)
     adr: docs/architecture/ADR-0014-grid-battle-controller.md
@@ -771,7 +805,7 @@ interfaces:
     emitter: none  # query API; not signal-driven
     consumers:
       - input-handling (InputRouter calls is_tile_in_*_range for FSM dispatch per §9 contract)
-      - battle-hud (subscribes to controller-local signals AND queries get_selected_unit_id for HUD; sprint-5)
+      - battle-hud (subscribes to controller-local signals AND queries get_selected_unit_id for HUD; ADR-0015 Accepted 2026-05-03 via /architecture-review delta #10 — RATIFIED parameter-stable)
       - battle-ai (NOT YET WRITTEN — sprint-7+; queries get_battle_state_snapshot for decision input)
     adr: docs/architecture/ADR-0014-grid-battle-controller.md
     notes: "DamageCalc consumed via DamageCalc.resolve(...) static-method call site — NOT through this query API (per godot-specialist 2026-05-02 review revision #2: DamageCalc methods are `static func`, not instance methods; DI of static class is misleading). Sole-caller contract per damage-calc.md line 260 still honored by GridBattleController (only this controller calls resolve in production code; lint enforces)."

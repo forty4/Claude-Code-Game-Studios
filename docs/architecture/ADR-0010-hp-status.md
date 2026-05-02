@@ -734,7 +734,7 @@ Single-line addition; no schema change to UnitHPState.
 
 ### Cross-system contract migration paths
 - When ADR-0011 Turn Order lands: `unit_turn_started(unit_id: int)` consumer contract ratified; no code change.
-- When Battle HUD ADR lands: `get_current_hp / get_max_hp / get_status_effects` query API ratified; no code change. HUD may request additional signals (`hp_changed` / `status_effect_applied` / `status_effect_expired`) — additive ADR-0001 amendment if signal-based HUD ergonomics are preferred over polling.
+- **ADR-0015 Battle HUD (Accepted 2026-05-03 via /architecture-review delta #10)**: `get_current_hp / get_max_hp / get_status_effects` query API RATIFIED parameter-stable per ADR-0015 §3 + §5; no code change required. ADR-0015 chose POLL path (gated on `_active_status_panel_unit_id != -1`) per OQ-3 deferral. Future ADR-0010 amendment may add `hp_status_changed(unit_id)` signal — additive, non-breaking; HUD subscription would be a 1-line poll-path replacement (carried as advisory for next ADR-0010 amendment).
 - When AI System ADR lands: `is_alive / get_current_hp / get_max_hp / get_status_effects` query API ratified; no code change.
 - When Grid Battle ADR lands: `apply_damage / apply_heal / apply_status` mutator call sites ratified; sole-caller contract per ADR-0012 line 260.
 
@@ -777,6 +777,6 @@ First HPStatusController story appends 27 keys to `assets/data/balance/balance_e
 - **ADR-0012 Damage Calc** (Accepted 2026-04-26) — `hp_status.apply_damage` (line 260) sole-caller-Grid-Battle contract ratified; `hp_status.get_modified_stat` (lines 89-93, 340-352) interface ratified; MIN_DAMAGE / ATK_CAP / DEF_CAP / DEFEND_STANCE_ATK_PENALTY ownership transferred to ADR-0010 §12. Carried advisory for next ADR-0012 amendment: parameter type `unit_id: StringName` (ADR-0012 lines 89/260) → `unit_id: int` to match ADR-0001 + ADR-0010 (queues with ADR-0001 line 168 + line 372 + ADR-0010-introduced cross-doc advisories).
 - **Future ADR-0011 Turn Order** — will ratify `unit_turn_started(unit_id: int)` consumer contract this ADR commits to.
 - **Future Battle Preparation ADR** — will ratify `initialize_unit(unit_id, hero, unit_class)` lifecycle hook + `_map_grid` DI injection contract.
-- **Future Battle HUD ADR** — will ratify `get_current_hp / get_max_hp / get_status_effects` query API; may add `hp_changed / status_effect_applied / status_effect_expired` signals via additive ADR-0001 amendment.
+- **ADR-0015 Battle HUD (Accepted 2026-05-03 via /architecture-review delta #10)** — RATIFIED `get_current_hp / get_max_hp / get_status_effects` query API parameter-stable; HUD chose POLL path per OQ-3 deferral; future `hp_changed / status_effect_applied / status_effect_expired` signals carried as advisory for next ADR-0010 amendment (additive, non-breaking).
 - **Future AI System ADR** — will ratify `is_alive / get_current_hp / get_max_hp / get_status_effects` query API for threat eval + buff/debuff awareness.
 - **Future Grid Battle ADR** — will ratify `apply_damage / apply_heal / apply_status` mutator sole-caller contract per ADR-0012 line 260.

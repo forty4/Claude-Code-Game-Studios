@@ -30,9 +30,9 @@ Accepted (2026-05-02 — lean mode authoring + godot-specialist CONCERNS resolve
 | Field | Value |
 |-------|-------|
 | **Depends On** | **ADR-0001 GameBus** (Accepted 2026-04-18) — Camera is a pure consumer of `input_action_fired(action: StringName, ctx: InputContext)` filtered for `ACTIONS_BY_CATEGORY[&"camera"]` 4 actions; subscription via `Object.CONNECT_DEFERRED` per ADR-0001 §5 mandate; Camera does NOT add new signals to ADR-0001 §7 schema for MVP. **ADR-0004 Map/Grid** (Accepted 2026-04-20) — Camera consumes `MapGrid.get_map_dimensions() -> Vector2i` for pan-clamp world-extent computation. **ADR-0005 Input Handling** (Accepted 2026-04-30) — Camera honors the 5 cross-system provisional contracts §9 commit verbatim: `Camera.screen_to_grid(screen_pos: Vector2) -> Vector2i` + Camera owns drag state (OQ-2 resolution — InputRouter does NOT gate grid input mid-drag) + `camera_zoom_min = 0.70` enforcement (F-1). |
-| **Enables** | (1) **ADR-0014 Grid Battle Controller** (NOT YET WRITTEN — pending sprint-4 S4-03; parallel to this ADR) — consumes `Camera.screen_to_grid` for unit-tap hit-testing and `Camera.world_to_screen` for unit-position display. (2) **Battle Scene wiring** (sprint-6) — first scene that includes a real Camera2D + Grid Battle Controller + 11 backend epics integrated. (3) **Battle HUD ADR** (NOT YET WRITTEN — sprint-5) — consumes `Camera.get_zoom() -> float` for HUD scale-with-camera (UI elements that should counter-scale to remain readable). |
+| **Enables** | (1) **ADR-0014 Grid Battle Controller** (Accepted 2026-05-02 — RATIFIED parameter-stable per delta #10 backfill) — consumes `Camera.screen_to_grid` for unit-tap hit-testing; `world_to_screen` derivation uses `get_canvas_transform() * world_pos` directly (no separate `world_to_screen()` method on Godot 4.6 `Camera2D` per delta #10 godot-specialist advisory D). (2) **Battle Scene wiring** (sprint-6) — first scene that includes a real Camera2D + Grid Battle Controller + 11 backend epics integrated. (3) **ADR-0015 Battle HUD** (Accepted 2026-05-03 via /architecture-review delta #10) — consumes `BattleCamera.get_zoom_value() -> float` for HUD scale-with-camera (UI-GB-12/13/14 grid-layer overlays counter-scale per ADR-0015 §6 `_process` poll gated on `_has_active_grid_overlay()`). |
 | **Blocks** | camera Foundation/Feature epic creation (cannot start any story until this ADR is Accepted); `assets/data/camera/camera_defaults.json` (NOT YET AUTHORED — single-file config for default zoom + clamp behavior, pending camera epic story-001). |
-| **Ordering Note** | First Feature-layer Node-based system. Joins the **2-precedent battle-scoped Node lineage** (ADR-0010 HPStatusController + ADR-0011 TurnOrderRunner) as the **3rd invocation** of the pattern. Distinct from ADR-0005 InputRouter's autoload-Node form because Camera state is battle-bounded (overworld + main menu have no Camera consumer; battle-scene-end frees the Camera with the rest of the BattleScene). When Battle HUD ADR ships (sprint-5), it should follow this same battle-scoped Node form for the same lifecycle reason. |
+| **Ordering Note** | First Feature-layer Node-based system. Joins the **2-precedent battle-scoped Node lineage** (ADR-0010 HPStatusController + ADR-0011 TurnOrderRunner) as the **3rd invocation** of the pattern. Distinct from ADR-0005 InputRouter's autoload-Node form because Camera state is battle-bounded (overworld + main menu have no Camera consumer; battle-scene-end frees the Camera with the rest of the BattleScene). **ADR-0015 Battle HUD (Accepted 2026-05-03 via /architecture-review delta #10)** followed this same battle-scoped Node form (5th invocation) for the same lifecycle reason. |
 
 ## Context
 
@@ -69,7 +69,7 @@ The first production decision is **how to render the battle grid at appropriate 
 - **R-4**: Enforce pan clamp via `MapGrid.get_map_dimensions()` — Camera position bounded so map edges remain visible (with viewport-half offset).
 - **R-5**: Zoom-toward-cursor — preserve the cursor's world position across zoom mutations.
 - **R-6**: DI test seam — `setup(map_grid: MapGrid) -> void` callable by BattleScene before `_ready()` finishes, allowing tests to inject a stub MapGrid.
-- **R-7**: Non-emitter discipline — Camera does NOT emit any GameBus signal in MVP (forbidden_pattern `camera_signal_emission`). Future Battle HUD subscriptions consume Camera state via direct method calls (`get_zoom()` getter), not via signals.
+- **R-7**: Non-emitter discipline — Camera does NOT emit any GameBus signal in MVP (forbidden_pattern `camera_signal_emission`). ADR-0015 Battle HUD (Accepted 2026-05-03 via delta #10) consumes Camera state via direct method calls (`get_zoom_value()` getter polled per-frame on grid-overlay-active gating per ADR-0015 §6), not via signals — pattern ratified.
 
 ## Decision
 
@@ -367,6 +367,6 @@ This ADR is correct when (validation in camera epic story-006 epic-terminal):
 - **ADR-0006** (Balance/Data) — 4 new BalanceConstants entries follow this ADR's authoring pattern
 - **ADR-0010** (HPStatusController) — battle-scoped Node precedent #1
 - **ADR-0011** (TurnOrderRunner) — battle-scoped Node precedent #2
-- **ADR-0014** (Grid Battle Controller, NOT YET WRITTEN — sprint-4 S4-03) — primary consumer of `screen_to_grid`; will be authored in parallel with this ADR
-- **Battle HUD ADR** (NOT YET WRITTEN — sprint-5) — consumer of `get_zoom_value()` for HUD scale matching
+- **ADR-0014** (Grid Battle Controller, Accepted 2026-05-02) — primary consumer of `screen_to_grid`; was authored in parallel with this ADR; delta #10 backfill ratified
+- **ADR-0015** (Battle HUD, Accepted 2026-05-03 via /architecture-review delta #10) — consumer of `get_zoom_value()` for HUD scale matching per ADR-0015 §6 grid-overlay polling
 - **Future Camera ADR amendment** — may add `&"camera_recenter_on_selection"` action when first multi-unit selection feature ships (post-MVP)
