@@ -11,7 +11,7 @@ goal: "Close last Core epic (hp-status) to Complete; resolve carried turn-order 
 start: "2026-05-03"
 end: "2026-05-09"
 generated: "2026-05-02"
-updated: "2026-05-02"  # S3-05 DONE: 200-byte cap active, sprint-status-history.md created, /story-done Phase 7 amended. See sprint-status-history.md (Top-level updated).
+updated: "2026-05-02"  # S3-06 DONE: TD-042 RESOLVED. data-files.md §Entity Data File Exception +~75 LoC. Sprint-3 7/7 closed. See sprint-status-history.md (Top-level updated).
 
 # Sprint-2 closed effective DoD must-have 5/5 + should-have 2/3 + bonus turn-order
 # epic 7/7 by 2026-05-02. Final state archived in git history (commit 66144d9) and
@@ -86,10 +86,11 @@ stories:
 
   - id: "S3-06"
     name: "TD-042 close-out: data-files.md Entity Data File Exception amendment"
-    file: "design/data-files.md"
+    file: ".claude/rules/data-files.md"
     priority: nice-to-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.5
     blocker: ""
-    completed: ""
+    completed: "2026-05-02"
+    # 2026-05-02: data-files.md +~75 LoC §Entity Data File Exception. ADR-0007 §3 + ADR-0008 §2 + ADR-0009 §4 cross-linked. TD-042 RESOLVED. See sprint-status-history.md S3-06.

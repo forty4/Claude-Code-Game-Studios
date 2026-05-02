@@ -195,6 +195,8 @@ const PASSIVE_TAG_BY_CLASS: Dictionary = {
 
 **Per-class coefficients** are loaded from `assets/data/config/unit_roles.json` (this system's config, parallel to ADR-0008's `assets/data/terrain/terrain_config.json`). Schema (top-level: 6 class entries keyed by lowercase class name):
 
+**Key naming**: `snake_case` per `.claude/rules/data-files.md` §Entity Data File Exception (added 2026-05-02 per TD-042 close-out). JSON keys are 1:1 with the per-class coefficient field names consumed by `UnitRole` static methods; see that section for full rationale.
+
 ```json
 {
   "cavalry": {

@@ -20,7 +20,11 @@
 
 ### Top-level `updated:` field — rolling history
 
-#### 2026-05-02 (current after S3-05 close-out)
+#### 2026-05-02 (current after S3-06 close-out)
+
+> S3-06 DONE: TD-042 RESOLVED. data-files.md §Entity Data File Exception +~75 LoC. Sprint-3 7/7 closed. See sprint-status-history.md (Top-level updated).
+
+#### 2026-05-02 (rotated when S3-06 landed)
 
 > S3-05 DONE: 200-byte cap active, sprint-status-history.md created, /story-done Phase 7 amended. See sprint-status-history.md (Top-level updated).
 
@@ -35,6 +39,25 @@
 #### Earlier sprint-3 `updated:` values
 
 (Not retained — were overwritten in-place during S3-00..S3-04 work before this hygiene refactor landed. Future updates rotate through this section.)
+
+---
+
+### S3-06 — TD-042 close-out: data-files.md Entity Data File Exception amendment (2026-05-02)
+
+**Completed**: 2026-05-02
+**Estimate**: 0.5d
+**Priority**: nice-to-have
+
+> 2026-05-02: TD-042 (LOW severity, doc drift) RESOLVED. (1) Amended `.claude/rules/data-files.md` with new §Entity Data File Exception section (~75 LoC, parallel structure to existing §Constants Registry Exception): exhaustive affected-files list (heroes.json + terrain_config.json + unit_roles.json), 4-point rationale (cross-doc grep-ability + @export discipline + domain shape + project-wide naming coherence), limited-scope clause (4 explicit non-targets), entity file format example with heroes.json excerpt, review-on-Alpha-DataRegistry trigger, origin trace. (2) Cross-linked from each of the 3 affected ADRs (ADR-0007 §3 + ADR-0008 §2 + ADR-0009 §4) — single-line "Key naming: snake_case per data-files.md §Entity Data File Exception (added 2026-05-02 per TD-042 close-out)" placed at the JSON-schema decision spot in each. (3) Marked TD-042 RESOLVED in `docs/tech-debt-register.md` with resolution-summary line at top. Cited by future entity-data ADRs as the canonical exception authority. Sprint-3 nice-to-have 1/1 done.
+
+**Files touched**:
+- `.claude/rules/data-files.md` — +~75 LoC (new §Entity Data File Exception section after existing §Constants Registry Exception)
+- `docs/architecture/ADR-0007-hero-database.md` — +1 paragraph at §3 (heroes.json schema decision)
+- `docs/architecture/ADR-0008-terrain-effect.md` — +1 paragraph at §2 (terrain_config.json schema decision)
+- `docs/architecture/ADR-0009-unit-role.md` — +1 paragraph at §4 (unit_roles.json schema decision)
+- `docs/tech-debt-register.md` — TD-042 marked RESOLVED with summary line
+
+**Note**: `unit_roles.json` doesn't yet exist on disk (ADR-0009 unit-role epic implementation pending). Listed in affected files exhaustively so the rule applies the moment the file lands.
 
 ---
 

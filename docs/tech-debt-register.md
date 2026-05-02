@@ -2320,6 +2320,8 @@ var class_dir: Dictionary = BalanceConstants.get_const_dict("CLASS_DIRECTION_MUL
 
 ## TD-042 — `data-files.md` Entity Data File Exception amendment (snake_case JSON keys for typed-Resource-mapped data files)
 
+**Status**: **RESOLVED 2026-05-02** (sprint-3 S3-06). `.claude/rules/data-files.md` amended with §Entity Data File Exception (~75 new lines, parallel structure to existing §Constants Registry Exception); ADR-0007 §3 + ADR-0008 §2 + ADR-0009 §4 each cross-linked to the new section via brief "Key naming: snake_case per data-files.md §Entity Data File Exception (added 2026-05-02 per TD-042 close-out)" line at the JSON-schema decision spot. Resolution commit: see git history for sprint-3 S3-06.
+
 **Severity**: LOW (documentation drift; no runtime impact)
 **Origin**: hero-database story-003 /code-review (S-1, 2026-05-01)
 **Owner**: documentation/architecture (resolution by amending `.claude/rules/data-files.md`)

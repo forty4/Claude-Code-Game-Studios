@@ -222,6 +222,8 @@ enum HeroFaction {
 
 **File path**: `assets/data/heroes/heroes.json`
 
+**Key naming**: `snake_case` per `.claude/rules/data-files.md` §Entity Data File Exception (added 2026-05-02 per TD-042 close-out). JSON keys are 1:1 with `HeroData` `@export` field names; this is the canonical exception authority — see that section for full rationale.
+
 **Schema** (top-level: Dictionary keyed by hero_id String, values are HeroData record literals):
 
 ```json

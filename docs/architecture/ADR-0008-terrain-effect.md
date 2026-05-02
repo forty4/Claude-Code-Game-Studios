@@ -151,6 +151,8 @@ static var _cost_matrix: Dictionary = {}       # Dictionary[int (unit_type), Dic
 
 **Decision**: Load configuration from a single JSON file at `assets/data/terrain/terrain_config.json` using `FileAccess.get_file_as_string()` + `JSON.parse_string()`. The file is owned by Terrain Effect and follows the schema below. **No** typed Resource (`.tres`) for MVP — this is a deliberate divergence from ADR-0003 / ADR-0004 patterns, justified by GDD line 583 specifying JSON and the design-tuning workflow benefit (designers edit JSON without launching Godot editor).
 
+**Key naming**: `snake_case` per `.claude/rules/data-files.md` §Entity Data File Exception (added 2026-05-02 per TD-042 close-out). JSON keys are 1:1 with `TerrainModifiers` `@export` field names; see that section for full rationale.
+
 **Schema** (`assets/data/terrain/terrain_config.json`):
 
 ```json
