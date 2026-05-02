@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="StatusEffect" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/core/payloads/status_effect.gd" id="1_defend_stance"]
+
+[resource]
+script = ExtResource("1_defend_stance")
+effect_id = &"defend_stance"
+effect_type = 0
+duration_type = 2
+remaining_turns = 1
+modifier_targets = {&"atk": -40}
+tick_effect = null
+source_unit_id = -1

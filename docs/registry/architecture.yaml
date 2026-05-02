@@ -1140,6 +1140,7 @@ forbidden_patterns:
     why: "Mirrors ADR-0007 hero_data_consumer_mutation precedent (Hero DB shared-reference contract). GDScript has no const-reference enforcement at runtime; the shared-reference contract is convention-only; this forbidden_pattern entry + ADR-0010 §5 source-comment + R-5 documented test (tests/unit/core/hp_status_consumer_mutation_test.gd asserts mutation IS visible across get_status_effects calls, proving the convention is the only defense) are the only structural defenses. A consumer mutating returned effects drifts every downstream system reading the same UnitHPState — the bug surfaces as 'why does Battle HUD show DEMORALIZED for 99 turns?' or 'why does Damage Calc see ATK +200% from a buff that should have been -25%?'. Static-lint check via grep is impractical (mutation can occur via any field assignment); fixture test serves as documented fail-state."
     adr: docs/architecture/ADR-0010-hp-status.md
     added: 2026-04-30
+    lint_script: tools/ci/lint_hp_status_consumer_mutation.sh
 
   - pattern: hp_status_external_current_hp_write
     status: active
@@ -1147,6 +1148,7 @@ forbidden_patterns:
     why: "ADR-0010 CR-2 HP range invariant enforcement strategy. Direct field write bypasses MIN_DAMAGE floor (CR-9), DEFEND_STANCE -50% reduction (CR-6 SE-3), Shield Wall passive (CR-3 Step 1), unit_died emission (CR-8a), DEMORALIZED radius propagation (CR-8c), overheal prevention (CR-4a), dead-unit-cannot-heal check (CR-4b). The 4 mutator methods encapsulate the invariants — direct write defeats the encapsulation and silently corrupts gameplay state. Bug surface: 'why did this unit survive a 999-damage hit?' (because external code bypassed apply_damage and just decremented current_hp without checking source_flags or attack_type). Static-lint check: `grep -E 'unit_hp_state\\.current_hp\\s*=|state\\.current_hp\\s*=' src/` must return zero matches OUTSIDE src/core/hp_status_controller.gd."
     adr: docs/architecture/ADR-0010-hp-status.md
     added: 2026-04-30
+    lint_script: tools/ci/lint_hp_status_external_current_hp_write.sh
 
   - pattern: hp_status_signal_emission_outside_unit_died
     status: active
@@ -1154,6 +1156,7 @@ forbidden_patterns:
     why: "Single-emitter rule per ADR-0001 single-owner contract. HPStatusController is the sole emitter of unit_died; emitting non-HP/Status-domain signals would violate the per-domain ownership invariant. Examples of common temptations to ban: emitting damage_calculated when apply_damage processes a hit (wrong — Damage Calc is the source of truth); emitting battle_ended when last unit dies (wrong — Grid Battle owns this per ADR-0001 single-owner rule); emitting hp_changed for HUD updates (wrong — Battle HUD polls via get_current_hp query OR a future Battle HUD ADR may add hp_changed via additive ADR-0001 amendment, but ADR-0010 MVP does NOT introduce additional HP/Status-domain signals); emitting status_effect_applied for HUD updates (wrong — same polling rationale)."
     adr: docs/architecture/ADR-0010-hp-status.md
     added: 2026-04-30
+    lint_script: tools/ci/lint_hp_status_signal_emission_outside_unit_died.sh
 
   - pattern: hp_status_static_var_state_addition
     status: active
@@ -1161,6 +1164,15 @@ forbidden_patterns:
     why: "ADR-0010 R-4 mitigation. Adding static var to HPStatusController would: (a) break the non-persistence contract (CR-1b mandates HP state resets between battles; battle-scoped instance vars reset automatically via fresh `.new()`; static vars would persist across battles requiring explicit `static var X = {}` reset call that is easy to forget — same hazard ADR-0006 BalanceConstants documented), (b) drift the module form away from the battle-scoped Node pattern (Alternative 3 rejection rationale: stateless-static for systems CALLED, Node-based form for systems STATEFUL AND/OR LISTENING; HP/Status is both), (c) introduce a hybrid battle-scoped-Node + stateless-static pattern that no other ADR follows. Static-lint check: `grep -c '^static var' src/core/hp_status_controller.gd` returns 0."
     adr: docs/architecture/ADR-0010-hp-status.md
     added: 2026-04-30
+    lint_script: tools/ci/lint_hp_status_static_var_state_addition.sh
+
+  - pattern: hp_status_re_entrant_emit_without_deferred
+    status: active
+    description: "HPStatusController.unit_died.emit() call frame MUST NOT synchronously re-enter apply_damage (or any other mutator). Subscribers of GameBus.unit_died MUST use Object.CONNECT_DEFERRED per ADR-0001 §5 cross-scene re-entrancy mandate. The emitter (HPStatusController) cannot block re-entrant subscribers, but production code must not call apply_damage within the synchronous unit_died.emit() frame. Heuristic: if apply_damage appears within 5 lines after GameBus.unit_died.emit( in hp_status_controller.gd, the lint flags it as a potential synchronous re-entry pattern."
+    why: "ADR-0010 R-1 mitigation. Synchronous re-entry of apply_damage from within the unit_died.emit() call frame would: (a) mutate _state_by_unit while the HP reduction step is still on the call stack — creating stack-depth issues and potential double-death emission; (b) fire unit_died a second time for the same unit if the re-entrant apply_damage also brings HP to 0, violating the single-emission contract; (c) violate the post-mutation ordering guarantee (Verification §5: unit_died fires AFTER current_hp = 0). Subscriber-side CONNECT_DEFERRED is the correct mitigation per ADR-0001 §5 — deferred callbacks run after the current frame exits, preventing re-entry entirely. The lint is a soft-warning for CONNECT_DEFERRED documentation presence + a hard-fail for detected synchronous re-entry patterns."
+    adr: docs/architecture/ADR-0010-hp-status.md
+    added: 2026-05-02
+    lint_script: tools/ci/lint_hp_status_re_entrant_emit_without_deferred.sh
 
   - pattern: turn_order_consumer_mutation
     status: active

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="StatusEffect" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/core/payloads/status_effect.gd" id="1_inspired"]
+
+[resource]
+script = ExtResource("1_inspired")
+effect_id = &"inspired"
+effect_type = 0
+duration_type = 0
+remaining_turns = 2
+modifier_targets = {&"atk": 20}
+tick_effect = null
+source_unit_id = -1

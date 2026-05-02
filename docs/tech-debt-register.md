@@ -2667,3 +2667,157 @@ ADR-0011 §AC-23 specifies a 1ms headline budget for `initialize_battle(20-unit 
 - Mirrors damage-calc story-010 + hero-database TD-045 Polish-deferral precedent (on-device measurement deferred until target device available)
 
 **Next review**: bundle with mobile-build polish milestone or VS scene-wiring milestone. Not urgent. Logged 2026-05-02 as part of turn-order story-007 /story-done close-out.
+
+---
+
+## TD-050 — HPStatusController coord_to_unit reverse cache (Polish-tier)
+
+**Severity**: LOW
+**Origin**: hp-status story-007 (`_propagate_demoralized_radius` MapGrid coord scan O(W*H))
+**Owner**: godot-gdscript-specialist at Polish phase
+**Status**: open
+
+### Problem
+
+`_propagate_demoralized_radius` currently performs an O(W*H) tile scan over the full MapGrid to find units within a demoralization radius. At typical map sizes (16×16 = 256 tiles) this is acceptable for MVP, but at 32+ unit battles the compound scan-per-demoralized-unit cost becomes measurable.
+
+### Reactivation triggers (EITHER is sufficient)
+
+1. 32+ unit battle scenario planned or benchmarked
+2. `_propagate_demoralized_radius` measured >0.30ms on minimum-spec mobile (Adreno 610 / Mali-G57)
+
+### Resolution path
+
+1. Add `coord_to_unit_id: Dictionary[Vector2i, int]` cache field in HPStatusController
+2. Rebuild cache on `unit_turn_started` signal OR via Battle Preparation hook (similar coord-cache pattern established in turn-order epic)
+3. Replace O(W*H) tile scan in `_propagate_demoralized_radius` with O(1) dictionary lookup per radius candidate
+4. Verify regression: all hp_status tests still green; `_propagate_demoralized_radius` measurement under gate
+
+### Cost
+
+~2-3h
+
+### References
+
+- `docs/architecture/ADR-0010-hp-status.md` §11 + §Performance
+- Turn-order epic Complete (coord-cache pattern precedent)
+
+**Next review**: when 32+ unit battle scenario is planned OR on-device perf baseline (TD-052) flags `_propagate_demoralized_radius` overrun. Logged 2026-05-02 as part of hp-status story-008 /story-done close-out.
+
+---
+
+## TD-051 — is_morale_anchor field migration (post-MVP)
+
+**Severity**: MEDIUM
+**Origin**: ADR-0010 §ADR Dependencies Soft / Provisional (2); GDD CR-6 SE-2 condition (b)
+**Owner**: narrative-director + ai-programmer (Battle Preparation ADR or ADR-0007 amendment)
+**Status**: open
+
+### Problem
+
+ADR-0010 §CR-6 SE-2 condition (b) specifies that a named hero's death can suppress demoralization propagation if `is_morale_anchor` is true. The `is_morale_anchor: bool` field does not yet exist in HeroData (current schema: 26 fields). `_propagate_demoralized_radius` currently cannot branch on condition (b) because the field is absent — it uses a stub/OQ-2 placeholder path.
+
+### Reactivation triggers (ANY is sufficient)
+
+1. ADR-0007 amendment adding `is_morale_anchor` to HeroData schema lands
+2. Battle Preparation ADR ratified (scenario-level hero configuration)
+3. ADR-0014 Scenario Progression authoring begins (narrative branching on named-hero death)
+
+### Resolution path
+
+1. Add `is_morale_anchor: bool = false` field to HeroData (`design/data/hero_data.gd` / resource schema) — 26 → 27 fields
+2. Update `_propagate_demoralized_radius` to branch: `if state.hero.is_morale_anchor: skip_propagation_for_this_death()`
+3. Single-line story migration (per ADR-0010 Migration Plan — field addition only)
+4. Add/update test: demoralization does NOT propagate when `is_morale_anchor = true` on the deceased hero
+5. Update tr-registry with new requirement ID if ADR-0007 amendment adds one
+
+### Cost
+
+~4-6h (cross-doc impact: HeroData schema + tr-registry update + migration test)
+
+### References
+
+- `docs/architecture/ADR-0010-hp-status.md` OQ-2
+- `design/gdd/hp-status.md` CR-6 SE-2 condition (b); OQ-4 is_morale_anchor criteria
+
+**Next review**: when ADR-0007 amendment OR Battle Preparation ADR lands. Logged 2026-05-02 as part of hp-status story-008 /story-done close-out.
+
+---
+
+## TD-052 — HP/Status on-device perf baseline
+
+**Severity**: MEDIUM
+**Origin**: hp-status story-008 + ADR-0010 §Performance Polish-deferral pattern (stable at 6+ invocations)
+**Owner**: performance-analyst at Polish phase
+**Status**: open
+
+### Problem
+
+ADR-0010 §Performance specifies headline per-call budgets: `apply_damage` <0.05ms, `get_modified_stat` <0.05ms, `apply_status` <0.10ms, `_apply_turn_start_tick` <0.20ms. Story-008's perf test (`tests/unit/core/hp_status_perf_test.gd`) measures on headless CI with ×3-25 generous gates (consistent with damage-calc story-010, hero-database story-005, turn-order story-007 Polish-deferral precedent). Minimum-spec mobile devices (Adreno 610 / Mali-G57) have not been benchmarked.
+
+### Reactivation triggers (EITHER is sufficient)
+
+1. First Android export build green AND on-device profiler available
+2. Vertical Slice scene wiring complete — HP/Status driving real BattleScene with mobile profile run
+
+### Resolution path
+
+1. Run `hp_status_perf_test.gd` measurement on:
+   - Headless CI Linux x86_64 (existing perf test environment — already shipped story-008)
+   - Target Android device (minimum-spec Adreno 610 / Mali-G57 reference)
+2. Assert per ADR-0010 §Performance headline budget: `apply_damage` <0.05ms / `get_modified_stat` <0.05ms / `apply_status` <0.10ms / `_apply_turn_start_tick` <0.20ms
+3. On-device baseline replaces headless CI gate as the authoritative measurement
+4. If overruns: profile hot path (likely `_apply_turn_start_tick` tick iteration or `get_modified_stat` status stack scan); optimize or escalate to GDExtension boundary
+
+### Cost
+
+~2-3h: device setup + run + report + gate update if needed
+
+### References
+
+- `docs/architecture/ADR-0010-hp-status.md` §Performance + Validation §8
+- `tests/unit/core/hp_status_perf_test.gd` (current headless perf test — story-008)
+- Mirrors damage-calc story-010 + hero-database TD-045 + turn-order TD-049 Polish-deferral precedent
+
+**Next review**: bundle with mobile-build polish milestone or VS scene-wiring milestone. Logged 2026-05-02 as part of hp-status story-008 /story-done close-out.
+
+---
+
+## TD-053 — `hp_status_*_test.gd` test factory hoisting (`_make_hero` consolidation)
+
+**Severity**: Low
+**Origin**: hp-status story-005 forward-look S-3 (3-occurrence threshold) → story-007 forward-look S-1 (6-occurrence ESCALATING) → story-008 /code-review S-1 (10-occurrence STRONGLY ESCALATING; threshold firmly crossed)
+**Owner**: godot-gdscript-specialist (next available test-suite touch on hp_status_*)
+**Reactivation**: any future hp_status test addition pushing to 11 files OR any other Core-layer test suite developing similar duplication pressure (pattern transferable to turn_order_*_test.gd if/when that suite grows past 6 files)
+
+### Context
+
+10 hp_status_*_test.gd files now duplicate the `_make_hero(p_base_hp_seed: int = 50)` factory inline. Each variant ships ~10 lines of HeroData construction with mostly identical defaults. The cumulative duplication is ~100 LoC of test scaffolding that should be hoisted to a shared helper.
+
+The S-3 forward-look from story-005 noted this would be eligible for codification once 3+ files duplicated the pattern. By story-007, 6 files duplicated it (S-1 escalating). Story-008's 4 new test files brought the total to **10 files** — firmly past the codification threshold.
+
+Per Decision F at story-008 /dev-story spawn: hoisting was DEFERRED from story-008 to a dedicated tech-debt-repayment story since the AC list did not mandate factory consolidation. This TD entry is the explicit deferral record.
+
+### Resolution
+
+1. Create `tests/unit/core/hp_status_test_helpers.gd` with `class_name HPStatusTestHelpers extends RefCounted`
+2. Hoist `_make_hero` factory to a static function: `static func make_hero(base_hp_seed: int = 50, faction: int = 0) -> HeroData`
+3. Hoist common stat seeds (`stat_might = 80`, `stat_command = 80`, etc.) into the static factory
+4. Update all 10 hp_status_*_test.gd files to call `HPStatusTestHelpers.make_hero(50)` instead of inline `_make_hero(50)`
+5. Remove the inline `_make_hero` function from each test file
+6. Verify full regression remains 743/0/0/0/0/0 Exit 0 post-refactor
+
+Variations across the 10 files (e.g., the propagation test's faction parameter, the determinism test's explicit stat seeds) should be parameterized into the helper signature. Avoid over-generalization — keep the helper at the minimum surface area needed for the existing call sites.
+
+### Cost
+
+~30 minutes: create helper file + refactor 10 test files + run full regression. Low-risk: refactor preserves existing behavior; failures would surface immediately as test regressions.
+
+### References
+
+- `docs/architecture/ADR-0010-hp-status.md` §13 DI test seam pattern
+- `tests/unit/core/hp_status_skeleton_test.gd` + `_initialize_unit_test.gd` + `_apply_damage_test.gd` + `_apply_heal_test.gd` + `_apply_status_test.gd` + `_consumer_mutation_test.gd` + `_determinism_test.gd` + `_no_counter_attack_test.gd` + `_perf_test.gd` (9 unit-level files)
+- `tests/integration/core/hp_status_turn_start_tick_test.gd` + `_demoralized_propagation_test.gd` (2 integration-level files — extension target for helper consolidation if scope expands)
+- Forward-look chain: story-005 S-3 → story-007 S-1 → story-008 /code-review S-1 (threshold escalation across 3 review cycles)
+
+**Next review**: bundle into the next sprint that touches hp_status test files (sprint-4 anticipated after grid-battle epic closes) OR roll into a "test-suite hygiene" sprint task. Logged 2026-05-02 as part of hp-status story-008 /story-done close-out per Decision F deferral.

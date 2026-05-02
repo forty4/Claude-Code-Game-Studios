@@ -80,6 +80,17 @@ jobs:
       - name: Lint Turn Order AI symbol reference ban (TR-turn-order-009 + S2-06 / story-007 AC-5)
         run: bash tools/ci/lint_turn_order_no_ai_symbol_reference.sh
 
+      - name: 'Lint hp_status no static var state addition (ADR-0010 R-4 / TR-hp-status-013)'
+        run: bash tools/ci/lint_hp_status_static_var_state_addition.sh
+      - name: 'Lint hp_status consumer mutation (ADR-0010 R-5 / TR-hp-status-015)'
+        run: bash tools/ci/lint_hp_status_consumer_mutation.sh
+      - name: 'Lint hp_status re-entrant emit without deferred (ADR-0010 R-1 / TR-hp-status-014)'
+        run: bash tools/ci/lint_hp_status_re_entrant_emit_without_deferred.sh
+      - name: 'Lint hp_status signal emission outside unit_died (ADR-0010 Validation §3 §4 / TR-hp-status-005)'
+        run: bash tools/ci/lint_hp_status_signal_emission_outside_unit_died.sh
+      - name: 'Lint hp_status external current_hp write (ADR-0010 R-5 / TR-hp-status-015)'
+        run: bash tools/ci/lint_hp_status_external_current_hp_write.sh
+
       - name: Lint provisional formula retired (AC-DC-44 TR-damage-calc-009)
         run: bash tools/ci/lint_fgb_prov_removed.sh
 
