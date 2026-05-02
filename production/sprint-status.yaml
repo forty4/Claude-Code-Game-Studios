@@ -7,7 +7,7 @@ goal: "Close last Core epic (hp-status) to Complete; resolve carried turn-order 
 start: "2026-05-03"
 end: "2026-05-09"
 generated: "2026-05-02"
-updated: "2026-05-02"  # S3-03 DONE: epics/index.md minimal admin pass (hp-status row Ready→Complete + layer coverage Core 2/4→3/4 + new changelog entry); sprint-3 must-have 3/3 done.
+updated: "2026-05-02"  # S3-04 PARTIAL: input-handling Foundation epic created via /create-epics (17/17 TRs traced + 6 verification items + 5 provisional contracts + ~9-11 stories preview); /create-stories + /qa-plan still pending.
 
 # Sprint-2 closed effective DoD must-have 5/5 + should-have 2/3 + bonus turn-order
 # epic 7/7 by 2026-05-02. Final state archived in git history (commit 66144d9) and
@@ -62,11 +62,12 @@ stories:
     name: "/create-epics + /create-stories input-handling (ADR-0005, Foundation, HIGH engine risk)"
     file: "production/epics/input-handling/EPIC.md"
     priority: should-have
-    status: backlog
+    status: in-progress
     owner: ""
     estimate_days: 0.75
     blocker: ""
     completed: ""
+    # 2026-05-02: /create-epics input-handling DONE — EPIC.md authored (~270 LoC) + production/epics/index.md updated (input-handling row added to Epics table; Foundation Pending list 1→0; layer coverage Foundation 4/5 → 4/5 + 1 Ready; new changelog entry). 17/17 TRs traced (TR-001 → ADR-0001 + TR-002..017 → ADR-0005 explicit). Pattern boundary precedent codified — InputRouter is establishing precedent + autoload variant of Node-based form. /create-stories input-handling + /qa-plan input-handling pending (estimated ~9-11 stories ~28-36h; HIGH engine risk + 6 mandatory verification items as per-story acceptance gates + touch protocol breadth + 5 provisional cross-system contracts).
 
   - id: "S3-05"
     name: "sprint-status.yaml hygiene refactor + /story-done skill amendment (retro AI #3)"
