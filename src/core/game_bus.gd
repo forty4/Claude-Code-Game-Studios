@@ -26,6 +26,14 @@ signal scenario_beat_retried(mark: EchoMark)
 # ═══ DOMAIN: Grid Battle (emitter: BattleController) ═══════════════════════════
 signal battle_outcome_resolved(outcome: BattleOutcome)
 
+## formation_bonuses_updated — emitted by GridBattleController on Formation Bonus
+## state changes per ADR-0014 CR-12 + ADR-0015 §3 R-3. Emission site is owned by
+## the Grid Battle epic; this declaration lands first to unblock battle-hud
+## story-002 subscription. The emission contract (when fired, snapshot shape)
+## will be ratified when GridBattleController formation-bonus path is implemented
+## per the Grid Battle epic.
+signal formation_bonuses_updated(snapshot: Dictionary)
+
 # ═══ DOMAIN: Turn Order (emitter: TurnOrderRunner) ═════════════════════════════
 signal round_started(round_number: int)
 signal unit_turn_started(unit_id: int)

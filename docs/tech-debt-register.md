@@ -2952,3 +2952,157 @@ The spec gap is real but structural — no in-test-runner solution exists at GdU
 - battle-hud story-008 (`production/epics/battle-hud/story-008-epic-terminal-lints-and-verification.md`) — receiving scope
 - ADR-0015 §3 R-2 (`docs/architecture/ADR-0015-battle-hud.md`) — 9-backend DI assertion contract source-of-truth
 
+---
+
+## TD-060 — `formation_bonuses_updated` GameBus signal placeholder + ADR-0001 §Signal Contract Schema text update deferred (carry-forward to next /architecture-review delta)
+
+**Severity**: LOW (signal declaration is in place + 4 contract test files updated; ADR-0001 schema document text is the only outstanding paperwork)
+**Status**: open — close when next /architecture-review delta lands the ADR-0001 schema row + RESOLVED marker
+**Origin**: battle-hud story-002 (`/dev-story` Phase 2 — signal absent from GameBus + GridBattleController; story explicitly required `GameBus.formation_bonuses_updated` per ADR-0015 §3 R-3 + ADR-0014 CR-12; Option A approved per story-001 cross-epic forward-prep precedent)
+**Category**: docs (cross-epic structural debt)
+
+### Problem
+
+`BattleHUD._ready()` per ADR-0015 §3 R-3 subscribes to **11 GameBus signals across 4 domains**, including `formation_bonuses_updated(snapshot: Dictionary)` (Grid Battle CR-12 emission domain via GameBus channel). At /dev-story execution time (2026-05-03), the signal was **declared nowhere** in the codebase — `src/core/game_bus.gd` had 28 user-declared signals + GridBattleController had 5 controller-LOCAL signals; neither included `formation_bonuses_updated`. Without the declaration, `GameBus.formation_bonuses_updated.connect(...)` cannot parse → battle-hud story-002 blocks.
+
+### Resolution at battle-hud story-002 close
+
+Added **3-line signal declaration** to `src/core/game_bus.gd` (lines 29-35):
+
+```gdscript
+## formation_bonuses_updated — emitted by GridBattleController on Formation Bonus
+## state changes per ADR-0014 CR-12 + ADR-0015 §3 R-3. Emission site is owned by
+## the Grid Battle epic; this declaration lands first to unblock battle-hud
+## story-002 subscription. The emission contract (when fired, snapshot shape)
+## will be ratified when GridBattleController formation-bonus path is implemented
+## per the Grid Battle epic.
+signal formation_bonuses_updated(snapshot: Dictionary)
+```
+
+Plus 3 cascading test-contract updates triggered by GameBus signal-contract regression tests (the gate worked exactly as designed):
+
+1. `tests/unit/core/signal_contract_test.gd` — added entry to EXPECTED_SIGNALS under §2 Grid Battle domain (`{"name": "formation_bonuses_updated", "args": [{"name": "snapshot", "type": TYPE_DICTIONARY}]}`); doc count "28 signals" → "29 signals"
+2. `tests/unit/core/game_bus_declaration_test.gd` — added `formation_bonuses_updated` to EXPECTED_SIGNALS string list; renamed test function `test_gamebus_declares_exactly_28_signals` → `..._29_signals`; updated count assertion 28→29
+3. `tests/unit/core/game_bus_diagnostics_test.gd` — added `formation_bonuses_updated → "battle"` entry to expected routing map under §2 Grid Battle; renamed test function `..._covers_all_28_signals` → `..._29_signals`
+
+Plus 1 production-code touch in `src/core/game_bus_diagnostics.gd::_route_to_domain` — added explicit name guard `if sig_name == "formation_bonuses_updated" → return "battle"` (G-5 explicit-name-precedes-prefix pattern; signal lacks "battle_" prefix but belongs to Grid Battle domain).
+
+### Required follow-up
+
+Two threads, one paperwork + one production-side:
+
+**Paperwork (next /architecture-review delta — ADR-0001 §Signal Contract Schema text update)**:
+
+`docs/architecture/ADR-0001-gamebus-autoload.md` §Signal Contract Schema currently enumerates 28 signals across 10 domains. The §2 Grid Battle row needs 1 new entry for `formation_bonuses_updated(snapshot: Dictionary)` matching the EXPECTED_SIGNALS const in `signal_contract_test.gd`. Single-row table edit; ~5 minutes nominal effort.
+
+Suggested table row text (paste into ADR-0001 §Signal Contract Schema §2 Grid Battle, after `battle_outcome_resolved`):
+
+```markdown
+| `formation_bonuses_updated` | `snapshot: Dictionary` | GridBattleController | Battle HUD | per CR-12 — fired when formation bonus state changes (entered/exited, modifiers updated). Snapshot keys per `design/gdd/grid-battle.md` formation-bonus rules — implementation-time ratification deferred to Grid Battle epic emission story. |
+```
+
+**Production-side (Grid Battle epic — formation-bonus path emission story)**:
+
+When the Grid Battle epic implements the formation-bonus emission path (story TBD; not on sprint-6 plan), the implementer must:
+
+1. Add the emission site in `src/feature/grid_battle/grid_battle_controller.gd` (or wherever the formation-bonus state lives) per ADR-0014 CR-12.
+2. Verify the snapshot Dictionary shape matches what `_on_formation_bonuses_updated` consumers expect (Battle HUD UI-GB-10/11/12/13/14 elements per ADR-0015).
+3. Mark TD-060 RESOLVED in this register.
+
+### Verification at follow-up
+
+After next /architecture-review delta:
+1. `docs/architecture/ADR-0001-gamebus-autoload.md` §Signal Contract Schema §2 Grid Battle table includes the new `formation_bonuses_updated` row.
+2. `tools/ci/lint_signal_contract_completeness.sh` (if it exists) PASSES; otherwise `tests/unit/core/signal_contract_test.gd` Overall Summary remains 0 failures.
+3. battle-hud regression suite (`tests/unit/feature/battle_hud/battle_hud_signals_test.gd` + `tests/integration/feature/battle_hud/battle_hud_recursive_filter_test.gd`) — 13/13 PASS preserved.
+
+### Cross-references
+
+- ADR-0015 §3 R-3 (`docs/architecture/ADR-0015-battle-hud.md`) — 11-signal subscription contract source-of-truth
+- ADR-0014 CR-12 (`docs/architecture/ADR-0014-grid-battle-controller.md`) — formation-bonus emission obligation
+- ADR-0001 §Signal Contract Schema (`docs/architecture/ADR-0001-gamebus-autoload.md`) — paperwork target
+- battle-hud story-002 Completion Notes (`production/epics/battle-hud/story-002-gamebus-signal-subscriptions.md`) — ADVISORY deviation #2
+
+---
+
+## TD-061 — battle-hud story-002 file documentation defects (AC-3 type drift + AC-4 re-add wording)
+
+**Severity**: LOW (story-doc-only; implementation + tests are correct)
+**Status**: open — fix when next battle-hud story authoring touches the file (or as a one-shot doc cleanup before story-008 close)
+**Origin**: battle-hud story-002 (`/code-review` qa-tester finding + specialist signal-signature drift halt)
+**Category**: docs
+
+### Problem
+
+Two documentation-only defects in `production/epics/battle-hud/story-002-gamebus-signal-subscriptions.md` discovered during /code-review:
+
+1. **AC-3 type drift** — story file lists handler signature `_on_unit_selected_changed(unit_id: int, was_selected: bool)` (line 44) but production declaration in `src/feature/grid_battle/grid_battle_controller.gd:85` is `signal unit_selected_changed(unit_id: int, was_selected: int)`. The implementation correctly uses `int` per ADR-0014 §8 line 85; story-doc lists `bool`. This was the first of 4 signal-signature drift findings the specialist halted on at /dev-story Phase 2.
+
+2. **AC-4 re-add wording** — story file edge case (line 148) says "re-add same hud back → `_ready()` re-subscribes". This implies a production code path. Reality: Godot only fires `_ready()` once per Node lifetime by default; `request_ready()` is required to opt back in. Test correctly uses `hud.request_ready()` before second `add_child()` (test-only mechanism). The story wording would mislead a future reader looking for production behavior.
+
+### Resolution at story-002 close
+
+NOT FIXED — story-doc patches deemed cosmetic (story-002 implementation + tests are correct; signal signatures match production verbatim; AC-4 test correctly uses `request_ready()`).
+
+### Required follow-up
+
+Story-doc patch (~5 minutes, batch-able with other story-doc fixes):
+
+1. **AC-3 line 44 fix**: change `was_selected: bool` → `was_selected: int`. Add note: "(int per ADR-0014 §8 — was originally documented as bool; corrected post-implementation)"
+
+2. **AC-4 line 148 fix**: change "re-add same hud back → `_ready()` re-subscribes" to "re-add via `request_ready()` (test-only — Godot fires `_ready()` once per Node lifetime by default)"
+
+### Verification at follow-up
+
+After fix:
+- `production/epics/battle-hud/story-002-gamebus-signal-subscriptions.md` AC-3 line 44 lists `was_selected: int` (matches production)
+- AC-4 line 148 references `request_ready()` and notes once-per-lifetime constraint
+
+### Cross-references
+
+- ADR-0014 §8 line 85 (`docs/architecture/ADR-0014-grid-battle-controller.md`) — `was_selected: int` source-of-truth
+- battle-hud story-002 Completion Notes (`production/epics/battle-hud/story-002-gamebus-signal-subscriptions.md`) — ADVISORY deviation #5
+- /code-review qa-tester finding (this session) — Specific Question Answer #4 (`request_ready()` is test-only)
+
+---
+
+## TD-062 — Engine Verification Item 5 (recursive MOUSE_FILTER_IGNORE) needs formal `production/qa/evidence/` checklist entry
+
+**Severity**: LOW (engine behavior is documented + Godot 4.5+ guarantees the recursive disable; risk is forgetting cross-platform validation)
+**Status**: open — formalize before sprint-6 close OR defer to Polish gate per ADR-0015 Verification Item 5 KEEP marker
+**Origin**: battle-hud story-002 (/code-review qa-tester recommendation + /dev-story AC-6 synthetic-click test infeasibility discovery)
+**Category**: process (manual verification gate)
+
+### Problem
+
+ADR-0015 §Verification Required Item 5 says: "Recursive `MOUSE_FILTER_IGNORE` propagation (4.5) — verify setting `mouse_filter = MOUSE_FILTER_IGNORE` on the BattleHUD root disables ALL child Control interactions in one call (not per-child); regression test via integration test asserting Button.pressed signal does not emit while root is set IGNORE." Marked "KEEP through Polish".
+
+Empirical finding at /dev-story execution time (2026-05-03): both `Input.parse_input_event` and `Viewport.push_input` empirically bypass the Control mouse_filter chain in GdUnit4 headless mode (Button.pressed fires regardless of root's IGNORE state). Recursive disable IS engine-guaranteed per Godot 4.5+ docs but the BEHAVIORAL test is infeasible automated in headless.
+
+Resolution: dropped synthetic-click variant; retained chain test (signal → mouse_filter property) + structural test (descendant relationship). Behavioral verification is documented as a manual cross-platform gate per ADR-0015 — but no formal QA checklist entry exists yet.
+
+### Resolution at story-002 close
+
+NOT FORMALIZED — task deferred per qa-tester recommendation. The chain + structural automated tests run on every CI build; the behavioral verification is a documented gap requiring a manual cross-platform pass on macOS Metal + Linux Vulkan + Windows D3D12.
+
+### Required follow-up
+
+Create a manual QA checklist file at `production/qa/evidence/battle-hud-recursive-mouse-filter-2026-XX-XX.md` using the standard test-evidence template. The file should include:
+
+1. **Pre-conditions**: BattleScene mounted with BattleHUD; HUD has child interactive Controls (Button, etc.); InputRouter S5 trigger available.
+2. **Test steps**: enter S5 (e.g. via combat log overlay or pause menu); attempt mouse click on each interactive child Control; verify NO interaction fires (Button.pressed counter remains 0; tooltip does not show; focus does not change). Exit S5; repeat clicks; verify interactions resume.
+3. **Sign-off table**: 3 rows for macOS Metal / Linux Vulkan / Windows D3D12; columns for tester / date / pass-fail / notes.
+4. **Failure response**: if any platform fails, escalate to godot-specialist for engine-version verification; check `docs/engine-reference/godot/breaking-changes.md` for regression notes.
+
+### Verification at follow-up
+
+- File exists at `production/qa/evidence/battle-hud-recursive-mouse-filter-*.md`
+- 3 platform rows have sign-off (or BLOCKING note + escalation)
+- Cross-link from ADR-0015 §Verification Required Item 5 to the evidence file
+
+### Cross-references
+
+- ADR-0015 §Verification Required Item 5 (`docs/architecture/ADR-0015-battle-hud.md`) — manual gate source-of-truth
+- battle-hud story-002 integration test header (`tests/integration/feature/battle_hud/battle_hud_recursive_filter_test.gd`) — documents the headless-bypass empirical finding
+- /code-review qa-tester finding (this session) — Manual Verification Debt section
+

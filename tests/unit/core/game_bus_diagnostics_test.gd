@@ -437,7 +437,7 @@ func test_diagnostics_is_deterministic() -> void:
 ##
 ## If a new signal is added to GameBus without updating this map, the test will
 ## detect the mismatch when it iterates all user-declared signals on the bus.
-func test_diagnostics_route_to_domain_covers_all_28_signals() -> void:
+func test_diagnostics_route_to_domain_covers_all_29_signals() -> void:
 	# Arrange — expected signal → domain per ADR-0001 §Signal Contract Schema
 	# Ordered by schema section to make ADR → test tracing straightforward.
 	var expected: Dictionary = {
@@ -450,8 +450,11 @@ func test_diagnostics_route_to_domain_covers_all_28_signals() -> void:
 		"chapter_completed":         "scenario",
 		"scenario_complete":         "scenario",
 		"scenario_beat_retried":     "scenario",
-		# §2 Grid Battle (emitter: BattleController)
+		# §2 Grid Battle (emitter: BattleController + GridBattleController formation-bonus path)
 		"battle_outcome_resolved":   "battle",
+		# formation_bonuses_updated lacks "battle_" prefix — routed via explicit name guard
+		# in _route_to_domain (cross-epic addition landed in battle-hud story-002).
+		"formation_bonuses_updated": "battle",
 		# §3 Turn Order (emitter: TurnOrderRunner)
 		"round_started":             "turn",
 		"unit_turn_started":         "turn",
@@ -502,7 +505,7 @@ func test_diagnostics_route_to_domain_covers_all_28_signals() -> void:
 			missing_from_expected.append(sname)
 	assert_array(missing_from_expected).override_failure_message(
 		("Signal(s) on GameBus not covered by routing regression map: %s\n"
-		+ "Add the signal and its expected domain to test_diagnostics_route_to_domain_covers_all_28_signals.") % str(missing_from_expected)
+		+ "Add the signal and its expected domain to test_diagnostics_route_to_domain_covers_all_29_signals.") % str(missing_from_expected)
 	).is_empty()
 
 	# Assert — every expected signal routes to the correct domain

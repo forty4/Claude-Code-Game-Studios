@@ -198,6 +198,10 @@ func _route_to_domain(sig_name: String) -> String:
 		return "scenario"
 	if sig_name == "victory_condition_detected":
 		return "turn"
+	# formation_bonuses_updated belongs to Grid Battle domain (ADR-0014 CR-12 +
+	# ADR-0015 §3 R-3) but has no "battle_" prefix — explicit name guard.
+	if sig_name == "formation_bonuses_updated":
+		return "battle"
 	if sig_name.begins_with("scenario_") or sig_name.begins_with("chapter_"):
 		return "scenario"
 	if sig_name.begins_with("battle_"):

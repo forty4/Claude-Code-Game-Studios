@@ -1,10 +1,11 @@
 # Story 002: 11 GameBus Signal Subscriptions + DI Test Seam + S5 Input-Blocked Filter
 
 > **Epic**: Battle HUD
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
+> **Completed**: 2026-05-03
 
 ## Context
 
@@ -166,9 +167,9 @@
 **Story Type**: Logic + Integration (recursive Control disable)
 **Required evidence**:
 - Logic: `tests/unit/feature/battle_hud/battle_hud_signals_test.gd` — covers AC-1 through AC-5
-- Integration: `tests/integration/feature/battle_hud/battle_hud_recursive_filter_test.gd` — covers AC-6 (Engine Verification Item 5)
+- Integration: `tests/integration/feature/battle_hud/battle_hud_recursive_filter_test.gd` — covers AC-6 chain + structural
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created 2026-05-03 — 13 tests pass (10 unit + 3 integration); 865/865 baseline preserved
 
 ---
 
@@ -176,3 +177,26 @@
 
 - Depends on: Story 001 (BattleHUD class skeleton + 9-param DI seam)
 - Unlocks: Stories 003 + 004 (parallel; both consume the signal-handler hooks)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-03
+**Criteria**: 8/8 passing — all ACs covered (AC-7 S5 mouse_filter chain automated; AC-7 behavioral recursive descendant disable scoped as manual cross-platform gate per ADR-0015 Verification Item 5)
+**Test Evidence**:
+- Logic: `tests/unit/feature/battle_hud/battle_hud_signals_test.gd` — 10 tests covering AC-1..AC-5 incl. AC-1 typo regression + AC-2 Pillar 2 runtime + AC-3 capture subclass + AC-4 disconnect + re-add via `request_ready()` + AC-5 three-branch S5 toggle
+- Integration: `tests/integration/feature/battle_hud/battle_hud_recursive_filter_test.gd` — 3 tests covering AC-6 chain (input_state_changed → mouse_filter property) + chain inverse + structural descendant property
+- Helper: `tests/helpers/battle_hud_capture_subclass.gd` — AC-3 capture seam (Array[Dictionary] received log + super delegation for production side-effects)
+**Code Review**: Complete — APPROVED WITH SUGGESTIONS (godot-gdscript-specialist: COMPLIANT on all ADRs + 6/6 standards + 0 G-N violations; qa-tester: 8/8 ACs COVERED, 4 non-blocking suggestions)
+**Test result**: 865/865 PASS / 0 errors / 0 failures / 0 flaky / 0 skipped / 0 orphans (delta +13 vs S6-05 baseline 852; 21st consecutive failure-free regression baseline)
+**Deviations**: 5 advisory (none blocking):
+1. Cross-epic forward-prep: InputRouter.InputState enum (ADR-0005 §1 ratified surface) — front-loaded so battle_hud uses InputState.INPUT_BLOCKED instead of literal `5`; input-handling epic story-001 will keep the enum verbatim
+2. Cross-epic forward-prep: GameBus.formation_bonuses_updated(snapshot: Dictionary) signal — required by ADR-0015 §3 R-3 + ADR-0014 CR-12; emission site lands in future Grid Battle epic story
+3. Cross-epic forward-prep: explicit name guard in game_bus_diagnostics.gd::_route_to_domain for formation_bonuses_updated — G-5 explicit-name-precedes-prefix pattern
+4. Deferred: ADR-0001 §Signal Contract Schema text update (paperwork — EXPECTED_SIGNALS in 3 test files satisfied the runtime gate; ADR document text update lands in next /architecture-review delta)
+5. Story file documentation defects to fix in next sprint (non-blocking):
+   - AC-3 lists `_on_unit_selected_changed(was_selected: bool)` but production is `int` per ADR-0014 §8 line 85
+   - AC-4 wording "re-add hud back → _ready re-subscribes" is misleading — Godot only fires _ready once per Node lifetime; test uses `request_ready()` (test-only mechanism)
+
+**Engine Verification Item 5 manual gate** (KEEP through Polish): synthetic-input behavioral test for recursive MOUSE_FILTER_IGNORE blocking child Button input was DROPPED because both `Input.parse_input_event` and `Viewport.push_input` empirically bypass the Control mouse_filter chain in GdUnit4 headless mode. Recommended next step: formalize as `production/qa/evidence/` checklist entry per qa-tester recommendation; producer / qa-lead decision on whether to gate before sprint-6 close or defer to Polish per ADR.

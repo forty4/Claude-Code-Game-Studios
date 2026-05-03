@@ -38,7 +38,9 @@ extends GdUnitTestSuite
 
 const GAME_BUS_PATH: String = "res://src/core/game_bus.gd"
 
-## Authoritative reference list — ADR-0001 §Signal Contract Schema (all 28 signals, incl. ADR-0011 victory_condition_detected).
+## Authoritative reference list — ADR-0001 §Signal Contract Schema (all 29 signals,
+## incl. ADR-0011 victory_condition_detected + ADR-0014 CR-12 / ADR-0015 §3 R-3
+## formation_bonuses_updated cross-epic addition landed in battle-hud story-002).
 ## Source of truth: docs/architecture/ADR-0001-gamebus-autoload.md + ADR-0011-turn-order
 ##
 ## DO NOT reorder within a domain group — must match ADR §Signal Contract Schema
@@ -98,6 +100,17 @@ const EXPECTED_SIGNALS: Array[Dictionary] = [
 		"name": "battle_outcome_resolved",
 		"args": [
 			{"name": "outcome", "type": TYPE_OBJECT, "class_name": "BattleOutcome"},
+		],
+	},
+	{
+		# Cross-epic addition landed in battle-hud story-002 per ADR-0014 CR-12 +
+		# ADR-0015 §3 R-3. Emission site is owned by GridBattleController formation-
+		# bonus path (future Grid Battle epic story); subscription side ships here.
+		# ADR-0001 §Signal Contract Schema §2 text update deferred to next
+		# /architecture-review delta.
+		"name": "formation_bonuses_updated",
+		"args": [
+			{"name": "snapshot", "type": TYPE_DICTIONARY},
 		],
 	},
 	# ── Domain: Turn Order (ADR-0001 §Signal Contract Schema §3) ──────────────────

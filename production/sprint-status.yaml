@@ -11,7 +11,7 @@ goal: "Ship first runnable BattleScene mounting 5 systems + ADR-0016 Battle Scen
 start: "2026-05-24"
 end: "2026-05-30"
 generated: "2026-05-03"
-updated: "2026-05-03"  # S6-05 done 2026-05-03 — battle-hud story-001 BattleHUD skeleton+9-param DI (6 files, 852/852 PASS preserved, 5/12 sprint-6 done = 41.7%, S6-06+S6-08 unblocked).
+updated: "2026-05-03"  # S6-06 done 2026-05-03 — battle-hud story-002 11-signal subs+S5 mouse_filter (10 files, 865/865 PASS=+13, 6/12 sprint-6=50%, S6-09 needs S6-08).
 
 # Sprint-5 closed 13/13 (must-have 11/11 + should 2/2 + nice 0/0) by 2026-05-03 — 14-21 calendar
 # days ahead of 2026-05-23 deadline. 19th consecutive failure-free baseline (757 → 841 / +84 tests).
@@ -84,11 +84,12 @@ stories:
     name: "battle-hud story-002: 11 GameBus signal subscriptions all CONNECT_DEFERRED + per-handler stub bodies + _handle_signal DI test seam"
     file: "production/epics/battle-hud/story-002-gamebus-signal-subscriptions.md"
     priority: must-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.3
     blocker: "S6-05"
-    completed: ""
+    completed: "2026-05-03"
+    # S6-06 done 2026-05-03 — 10 files, 865/865 PASS=+13, 8/8 ACs, 21st failure-free baseline, 3 TDs (060/061/062). See sprint-status-history.md S6-06.
 
   - id: "S6-07"
     name: "battle-scene story-001: BattleScene root + battle_scene.tscn + mount 5 systems + 4-unit mock encounter — +1 playable-surface delta"

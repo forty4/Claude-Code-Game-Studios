@@ -16,6 +16,48 @@
 
 ---
 
+## Sprint 6
+
+### S6-06 — battle-hud story-002: 11 GameBus signal subscriptions + DI test seam + S5 mouse_filter toggle (2026-05-03)
+
+**Date**: 2026-05-03 (sprint-6 day 1; per-story rotation)
+**Files (10)**: 4 production + 3 contract-test cascade + 2 NEW test files + 1 NEW test helper:
+- `src/feature/battle_hud/battle_hud.gd` (M) — 11 single-line CONNECT_DEFERRED subscriptions + 11 is_connected-guarded disconnects + 11 _on_* forwarding handlers + S5 mouse_filter toggle inside _on_input_state_changed
+- `src/foundation/input_router.gd` (M) — InputState enum per ADR-0005 §1 (cross-epic forward-prep #1; replaces story-001 placeholder doc-comment-only state)
+- `src/core/game_bus.gd` (M) — formation_bonuses_updated(snapshot: Dictionary) signal (cross-epic forward-prep #2 per ADR-0015 §3 R-3 + ADR-0014 CR-12)
+- `src/core/game_bus_diagnostics.gd` (M) — explicit name guard for formation_bonuses_updated → "battle" routing (G-5 explicit-name-precedes-prefix; cross-epic forward-prep #3)
+- `tests/unit/core/signal_contract_test.gd` + `game_bus_declaration_test.gd` + `game_bus_diagnostics_test.gd` (M) — EXPECTED_SIGNALS / routing-map +1 entry each, count 28→29
+- `tests/unit/feature/battle_hud/battle_hud_signals_test.gd` (NEW, ~430 LoC, 10 tests) — AC-1..AC-5 incl. AC-1 typo regression + AC-2 Pillar 2 runtime + AC-3 capture subclass + AC-4 disconnect/re-add via request_ready + AC-5 three-branch S5 toggle
+- `tests/integration/feature/battle_hud/battle_hud_recursive_filter_test.gd` (NEW, ~150 LoC, 3 tests) — AC-6 chain + chain inverse + structural descendant property (synthetic-click variant DROPPED — both Input.parse_input_event + Viewport.push_input bypass Control mouse_filter chain in headless GdUnit4 → behavioral verification = manual cross-platform gate per ADR-0015 Verification Item 5 → TD-062)
+- `tests/helpers/battle_hud_capture_subclass.gd` (NEW, ~40 LoC) — AC-3 capture seam (Array[Dictionary] received log + super delegation for production side-effects)
+
+**Test result**: 865/865 PASS / 0 errors / 0 failures / 0 flaky / 0 skipped / 0 orphans (Exit 0). Delta = +13 vs S6-05 baseline 852. **21st consecutive failure-free regression baseline.**
+
+**ACs**: 8/8 covered (5 by automated tests, 3 by code-review verification + automated cross-checks).
+
+**Code review** (lean mode — done in same /code-review skill invocation): APPROVED WITH SUGGESTIONS
+- godot-gdscript-specialist: COMPLIANT on ADR-0015 + ADR-0001 + ADR-0005; 6/6 standards; 0 G-N gotcha violations; CLEAN architecture; SOLID compliant; 5 non-blocking suggestions
+- qa-tester: 8/8 ACs COVERED; no blocking gaps; 4 suggested test additions (non-blocking); 3 ADVISORY items → TD-061 + TD-062
+
+**Tech debt logged (3 items)**:
+- TD-060: formation_bonuses_updated GameBus signal placeholder + ADR-0001 §Signal Contract Schema text update deferred (paperwork — next /architecture-review delta) + future Grid Battle epic emission story
+- TD-061: story-002 file documentation defects (AC-3 lists `was_selected: bool` but production is `int` per ADR-0014 + AC-4 re-add wording omits `request_ready()` test-only constraint)
+- TD-062: Engine Verification Item 5 (recursive MOUSE_FILTER_IGNORE) needs formal `production/qa/evidence/` checklist entry — manual cross-platform gate (macOS Metal + Linux Vulkan + Windows D3D12)
+
+**Mid-stream findings**:
+1. Specialist signal-signature drift halt (PASS — caught 4 mismatches: was_selected bool→int, battle_outcome_resolved int→StringName, unit_turn_ended 1→2 args, formation_bonuses_updated absent → cross-epic add)
+2. Initial agent timeout at ~125min after 4-file write but before tests; resumed via direct authoring + post-test fix of invented State enum names (TOUCH_DOWN/DRAG/etc → ADR-0005 §1 canonical OBSERVATION/UNIT_SELECTED/MOVEMENT_PREVIEW/ATTACK_TARGET_SELECT/ATTACK_CONFIRM/INPUT_BLOCKED/MENU_OPEN); enum renamed `State` → `InputState` per ADR
+3. AC-4 re-add edge required `request_ready()` (Godot fires _ready once per Node lifetime)
+4. AC-6 synthetic-click test infeasible headless → dropped variant; retained chain + structural tests
+5. AC-9 source-content lint regression caught mid-stream — literal `hidden_fate_condition_progressed` re-introduced in subscription comment; replaced with ADR-coordinate reference (story-001 fix precedent)
+6. GameBus signal-contract regression chain — adding formation_bonuses_updated to game_bus.gd cascaded into 4 file updates; contract gate worked exactly as designed
+
+**Sprint-6 progress (post-S6-06)**: 6/12 done = 50%. Critical-path advances: S6-09 (battle-hud story-003) blocked only by S6-08; S6-08 was UNBLOCKED at S6-04; S6-07 (battle-scene story-001) gains HUD prerequisite via S6-06.
+
+**Cross-references**: ADR-0015 / ADR-0014 §8 line 85 / ADR-0005 §1 / TD-060 / TD-061 / TD-062 (`docs/tech-debt-register.md`)
+
+---
+
 ## Sprint 5
 
 ### Sprint-5 close summary (2026-05-03 — 13/13 done)
