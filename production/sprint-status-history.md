@@ -16,6 +16,55 @@
 
 ---
 
+## Sprint 5
+
+### Sprint-5 close summary (2026-05-03 — 13/13 done)
+
+**Completed**: 2026-05-03 (single-day rotation; sprint window 2026-05-17 → 2026-05-23 nominal; 14-21 calendar days ahead of deadline)
+**Total stories**: 13 (Must-have 11/11 + Should-have 2/2 + Nice-to-have 0/0)
+**Test baseline**: 757 → 841 (+84) / 0 errors / 0 failures / 0 orphans / Exit 0 (**19th consecutive failure-free baseline**)
+**Commits**: 13 (all pushed to origin/main; per-story commit cadence held)
+
+**What shipped** (per-story status preserved in story files at `production/epics/grid-battle-controller/story-{001..010}-*.md` + `docs/architecture/ADR-0015-battle-hud.md` + `production/epics/battle-hud/EPIC.md`):
+
+| ID | Story | Files |
+|---|---|---|
+| S5-01 | qa-plan grid-battle-controller (per-epic discipline) | production/qa/qa-plan-grid-battle-controller-2026-05-02.md (~290 LoC) |
+| S5-02 | story-001: skeleton + 8-param DI + 4 GameBus subs + _exit_tree | grid_battle_controller.gd ~280 LoC + 6 backend stubs + MAX_TURNS_PER_BATTLE BalanceConstants |
+| S5-03 | story-002: BattleUnit Resource +7 fields + tag-based fate detection | src/core/battle_unit.gd RefCounted→Resource +7 fields + 5 registry tests |
+| S5-04 | story-003: 2-state FSM + 10-grid-action filter + click dispatch | 12 fsm tests; G-7 silent-skip caught + recovered |
+| S5-05 | story-004: MOVE action + is_tile_in_move_range + unit_moved | 11 move tests; Manhattan range + occupancy + passability + facing update |
+| S5-06 | story-005: ATTACK chain + DamageCalc integration + damage_applied (LARGEST story) | 17 attack tests; 6 multiplier helpers; BattleUnit + ResolveModifiers extensions |
+| S5-07 | story-006: per-turn action consumption + auto-handoff (drift #9/#10) | 9 turn-consumption tests; declare_action/end_player_turn drift documented in ADR-0014 Implementation Notes |
+| S5-08 | story-007: 5-turn limit + battle_outcome_resolved + terminal state | 10 turn-limit tests; G-4 lambda primitive-capture trap caught + recovered |
+| S5-09 | story-008: hidden fate counters + boss/assassin attribution + tank_hp_pct | 12 fate tests; AC-8 hidden-semantic-preservation structural test (zero connections enforcement) |
+| S5-10 | story-009: cross-ADR _exit_tree audit + TurnOrderRunner Path B retrofit + TD-057 RESOLVED | 0 new tests (audit story); 4 systems audited; pattern stable at 4 invocations |
+| S5-11 | story-010: epic terminal — 4 perf + 4 lints + 5 BalanceConstants + verification summary + epic Complete | 4 perf tests under permissive CI gates (×3-200 over headlines); EPIC 10/10 COMPLETE |
+| S5-12 | ADR-0015 Battle HUD authoring (should-have) | ~620 LoC at Proposed status; 5th invocation of battle-scoped Node pattern; first Presentation-layer ADR |
+| S5-13 | battle-hud Presentation epic + 5-8 stories scaffold preview (should-have) | ~530 LoC EPIC.md; first Presentation-layer epic; Pillar 2 hidden-semantic lock at 3 layers |
+
+**Patterns established** (codified in `production/retrospectives/retro-sprint-5-2026-05-03.md`):
+
+1. **5th invocation of battle-scoped Node pattern** stable (HPStatus + TurnOrder + Camera + GridBattleController + BattleHUD)
+2. **First Pillar 2 hidden semantic lock** — `battle_hud_subscribes_to_hidden_fate_signal` forbidden_pattern (CRITICAL, KEEP forever) — first project precedent of pillar-anchored lint
+3. **10 architectural drifts** surfaced + fixed in-line via ADR-0014 Implementation Notes amendment pattern (zero carry-forward debt)
+4. **Audit-then-retrofit Path B** validated as canonical cross-ADR audit pattern (story-009 caught actual latent leak in TurnOrderRunner; TD-057 RESOLVED same patch)
+5. **Per-story commit cadence** held all 13 stories (mirrors sprint-4 camera epic pattern)
+6. **godot-specialist 3-pass review as TD-ADR substitute** (sprint-4 retro AI #3) used in production for first UI-domain ADR; pattern stable at 3 invocations (ADR-0013 + ADR-0014 + ADR-0015)
+7. **`/clear` + active.md resume** pattern stable at 3 invocations within sprint-5 alone
+
+**Sprint-5 retro action items carrying to sprint-6** (`production/sprints/sprint-6.md` AI #1-5):
+
+- AI #1: Continue tightening estimation (3rd consecutive ratchet — sprint-6 plans 2.4d Must nominal, down from sprint-5's 3.55d)
+- AI #2: Schedule explicit `/architecture-review` structural-backfill session (~45 TRs + ~15 file edits) — bundled into sprint-6 S6-02
+- AI #3: Sprint-6 primary work = Battle Scene wiring (the +1 playable-surface delta target)
+- AI #4: battle-hud `/create-stories` + `/qa-plan` early in sprint-6 (S6-04 + S6-08)
+- AI #5: Procedural fix for G-class gotcha re-hits (skim-reference at start of each /dev-story)
+
+**Architecture-review delta #10** (2026-05-03; same-day with S5-12 + S5-13 ship): ADR-0015 Proposed → Accepted; PASS WITH 1 SAME-PATCH CORRECTION + 2 IMPLEMENTATION ADVISORIES; 11 same-patch wording flips applied across ADR-0005/0010/0013/0014 + registry/architecture.yaml v8 → v9; structural backfill (~45 TRs + 15 file edits) explicitly DEFERRED to sprint-6 S6-02. Report: `docs/architecture/architecture-review-2026-05-03.md`.
+
+---
+
 ## Sprint 4
 
 ### S4-04 — Grid Battle Controller epic + 10 stories scaffold (2026-05-02)

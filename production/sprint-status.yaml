@@ -6,159 +6,138 @@
 #   - Verify with: awk '{if (length($0) > 200) print NR}' production/sprint-status.yaml
 #   - Enforced by /story-done Phase 7 step 4.
 
-sprint: 5
-goal: "Ship grid-battle-controller end-to-end (qa-plan + 10 stories) + author Battle HUD ADR + scaffold. Playable-surface delta target +1."
-start: "2026-05-17"
-end: "2026-05-23"
-generated: "2026-05-02"
-updated: "2026-05-03"  # Sprint-5 IN PROGRESS: S5-01..S5-06 done (qa-plan + stories 001-005). 806 PASS (14th failure-free). ATTACK chain shipped — full DamageCalc + HPStatusController integration.
+sprint: 6
+goal: "Ship first runnable BattleScene mounting 5 systems + ADR-0016 Battle Scene Wiring + arch-review structural backfill + battle-hud first 2 impl stories. +1 playable-surface delta target."
+start: "2026-05-24"
+end: "2026-05-30"
+generated: "2026-05-03"
+updated: "2026-05-03"  # Sprint-6 NEWLY KICKED OFF post-sprint-5 retro write. 7 must + 3 should + 2 nice = 12 stories. AI #1-5 from sprint-5 retro all addressed in plan structure.
 
-# Sprint-4 closed 5/7 (must-have 4/4 + should 1/2 + nice 0/1) by 2026-05-02 — 8 calendar days
-# ahead of 2026-05-16 deadline. 9th consecutive failure-free baseline (757/0/0/0). First
-# user-visible-surface code shipped (BattleCamera). 2 asset items DEFERRED to user-owner.
-# Sprint-4 history archived: production/sprint-status-history.md (S4-01..S4-04 + 5 rotations).
+# Sprint-5 closed 13/13 (must-have 11/11 + should 2/2 + nice 0/0) by 2026-05-03 — 14-21 calendar
+# days ahead of 2026-05-23 deadline. 19th consecutive failure-free baseline (757 → 841 / +84 tests).
+# Grid Battle Controller Feature epic Complete (10/10) + battle-hud Presentation epic Ready (first
+# Presentation-layer epic) + ADR-0015 Battle HUD Proposed → Accepted via /architecture-review delta #10.
+# First Pillar 2 hidden-semantic lock shipped (battle_hud_subscribes_to_hidden_fate_signal CRITICAL).
+# Sprint-5 history archive: production/sprint-status-history.md ## Sprint 5 section (single rotation).
+# Sprint-5 retro: production/retrospectives/retro-sprint-5-2026-05-03.md (AI #1-5 carry to sprint-6).
 
 stories:
-  - id: "S5-01"
-    name: "/qa-plan grid-battle-controller — per-epic QA discipline before first /dev-story"
-    file: "production/qa/qa-plan-grid-battle-controller-2026-05-02.md"
+  - id: "S6-01"
+    name: "ADR-0016 Battle Scene Wiring authoring — BattleScene root + 5-system mount + scene tree topology"
+    file: "docs/architecture/ADR-0016-battle-scene-wiring.md"
     priority: must-have
-    status: done
+    status: ready-for-dev
     owner: ""
-    estimate_days: 0.15
+    estimate_days: 0.4
     blocker: ""
-    completed: "2026-05-02"
-    # 2026-05-02: qa-plan-grid-battle-controller-2026-05-02.md (~290 LoC) shipped. 10 stories classified; +47-51 tests projected; integration test recommended for story-005.
-
-  - id: "S5-02"
-    name: "grid-battle-controller story-001: class skeleton + 8-param setup() DI + _exit_tree() with CONNECT_DEFERRED comment"
-    file: "production/epics/grid-battle-controller/story-001-class-skeleton-and-di.md"
-    priority: must-have
-    status: done
-    owner: ""
-    estimate_days: 0.25
-    blocker: "S5-01"
-    completed: "2026-05-03"
-    # 2026-05-03: skeleton ~280LoC + 4 lifecycle tests + 6 backend stubs + MAX_TURNS_PER_BATTLE. ADR §3 signal-routing drift fix → GameBus. 757→761 PASS (10th failure-free).
-
-  - id: "S5-03"
-    name: "story-002: BattleUnit Resource + _units registry + tag-based fate-counter detection"
-    file: "production/epics/grid-battle-controller/story-002-battle-unit-resource-and-registry.md"
-    priority: must-have
-    status: done
-    owner: ""
-    estimate_days: 0.25
-    blocker: "S5-02"
-    completed: "2026-05-03"
-    # 2026-05-03: BattleUnit RefCounted→Resource +7 fields (in-place at src/core/, not src/feature/). 5 registry tests + _find_unit_by_tag impl. 84 turn_order tests still pass.
-
-  - id: "S5-04"
-    name: "story-003: 2-state FSM + 10-grid-action filter + _handle_grid_click dispatch"
-    file: "production/epics/grid-battle-controller/story-003-fsm-and-input-dispatch.md"
-    priority: must-have
-    status: done
-    owner: ""
-    estimate_days: 0.4
-    blocker: "S5-03"
-    completed: "2026-05-03"
-    # 2026-05-03: 2-state FSM + 10-grid-action const + _on_input_action_fired filter + Camera fallback + 12 fsm tests. 766→778 PASS (12th failure-free).
-
-  - id: "S5-05"
-    name: "story-004: MOVE action — is_tile_in_move_range + _do_move + unit_moved signal"
-    file: "production/epics/grid-battle-controller/story-004-move-action.md"
-    priority: must-have
-    status: done
-    owner: ""
-    estimate_days: 0.4
-    blocker: "S5-04"
-    completed: "2026-05-03"
-    # 2026-05-03: Manhattan range + occupancy + passability + _do_move (position+facing+MapGrid bookkeeping) + unit_moved emit + 11 tests. 778→789 PASS (13th failure-free).
-
-  - id: "S5-06"
-    name: "story-005: ATTACK + _resolve_attack chain + DamageCalc.resolve static-call + apply_damage(4-param) + damage_applied signal + ResolveModifiers extension"
-    file: "production/epics/grid-battle-controller/story-005-attack-action-and-resolve.md"
-    priority: must-have
-    status: done
-    owner: ""
-    estimate_days: 0.5
-    blocker: "S5-05"
-    completed: "2026-05-03"
-    # 2026-05-03: full DamageCalc integration + 6 multiplier helpers + 17 attack tests. BattleUnit +2 fields + ResolveModifiers +2 fields. 789→806 PASS (14th failure-free).
-
-  - id: "S5-07"
-    name: "story-006: per-turn action consumption + declare_action(ATTACK) + auto-end-turn"
-    file: "production/epics/grid-battle-controller/story-006-per-turn-action-consumption.md"
-    priority: must-have
-    status: done
-    owner: ""
-    estimate_days: 0.4
-    blocker: "S5-06"
-    completed: "2026-05-03"
-    # 2026-05-03: _consume_unit_action (acted flag + declare_action(ATTACK) + deselect + auto-handoff) + _any_player_unit_can_act (alive-and-unacted scan) + end_player_turn (clear + deselect). Drift #9 (spend_action_token → declare_action) + drift #10 (no _turn_runner.end_player_turn) catalogued in ADR-0014 Implementation Notes. +9 tests. 806→815 PASS (15th failure-free).
-
-  - id: "S5-08"
-    name: "story-007: 5-turn limit + battle_outcome_resolved + _check_battle_end + terminal state"
-    file: "production/epics/grid-battle-controller/story-007-five-turn-limit.md"
-    priority: must-have
-    status: done
-    owner: ""
-    estimate_days: 0.25
-    completed: "2026-05-03"
-    # 2026-05-03: _emit_battle_outcome (fate_data snapshot + idempotent + _battle_over) + _check_battle_end (CR-7 VICTORY-before-DEFEAT) + _on_round_started (TURN_LIMIT_REACHED at round > _max_turns) + _on_unit_died (victory check) + handle_grid_click terminal guard. +10 tests. 815→825 PASS (16th failure-free).
-    blocker: "S5-07"
     completed: ""
 
-  - id: "S5-09"
-    name: "story-008: 5 hidden fate counters (formation_turns + boss_killed + assassin_kills) + tank_alive_hp_pct + hidden semantic test"
-    file: "production/epics/grid-battle-controller/story-008-hidden-fate-condition-tracking.md"
+  - id: "S6-02"
+    name: "/architecture-review fresh session — escalate ADR-0016 Proposed → Accepted + structural backfill (~45 TRs + ~15 files)"
+    file: "docs/architecture/architecture-review-2026-05-XX.md"
     priority: must-have
-    status: done
+    status: backlog
+    owner: ""
+    estimate_days: 0.5
+    blocker: "S6-01"
+    completed: ""
+
+  - id: "S6-03"
+    name: "/create-epics battle-scene — first user-visible-surface integration epic; preview ~3-5 stories"
+    file: "production/epics/battle-scene/EPIC.md"
+    priority: must-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.3
+    blocker: "S6-02"
+    completed: ""
+
+  - id: "S6-04"
+    name: "/create-stories battle-hud — break EPIC.md preview into 5-8 implementable stories (sprint-5 retro AI #4)"
+    file: "production/epics/battle-hud/"
+    priority: must-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.2
+    blocker: "S6-02"
+    completed: ""
+
+  - id: "S6-05"
+    name: "battle-hud story-001: BattleHUD class skeleton + 9-param setup() DI + _ready() 9-backend assertion + _exit_tree() 11-disconnect"
+    file: "production/epics/battle-hud/story-001-class-skeleton-and-di.md"
+    priority: must-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.3
+    blocker: "S6-04"
+    completed: ""
+
+  - id: "S6-06"
+    name: "battle-hud story-002: 11 GameBus signal subscriptions all CONNECT_DEFERRED + per-handler stub bodies + _handle_signal DI test seam"
+    file: "production/epics/battle-hud/story-002-gamebus-signal-subscriptions.md"
+    priority: must-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.3
+    blocker: "S6-05"
+    completed: ""
+
+  - id: "S6-07"
+    name: "battle-scene story-001: BattleScene root + battle_scene.tscn + mount 5 systems + 4-unit mock encounter — +1 playable-surface delta"
+    file: "production/epics/battle-scene/story-001-battle-scene-mount.md"
+    priority: must-have
+    status: backlog
     owner: ""
     estimate_days: 0.4
-    blocker: "S5-07"
-    completed: "2026-05-03"
-    # 2026-05-03: _on_round_started formation_turns counter (round-scoped, break-after-first) + _on_unit_died boss_killed (idempotent flag flip) + _on_unit_died assassin_kills (last_attacker check + side==1 friendly-fire exclusion) + _emit_battle_outcome tank_alive_hp_pct (on-demand HP/Status query, max_hp<=0 guard). +12 tests. 825→837 PASS (17th failure-free).
+    blocker: "S6-06,S6-03"
+    completed: ""
 
-  - id: "S5-10"
-    name: "story-009: cross-ADR _exit_tree audit — Path B retrofit shipped (TurnOrderRunner) + TD-057 RESOLVED"
-    file: "production/epics/grid-battle-controller/story-009-cross-adr-exit-tree-audit.md"
-    priority: must-have
-    status: done
-    owner: ""
-    estimate_days: 0.15
-    blocker: ""
-    completed: "2026-05-03"
-    # 2026-05-03: Audit found 3/4 systems clean (HPStatusController + BattleCamera + GridBattleController already had _exit_tree autoload-disconnect). TurnOrderRunner was missing — Path B retrofit shipped (added _exit_tree disconnect for GameBus.unit_died with idempotent is_connected guard). TD-057 logged + RESOLVED in same patch. Pattern stable at 4 invocations. No new tests (audit story); 837 PASS held (18th failure-free).
-
-  - id: "S5-11"
-    name: "story-010: epic-terminal — 4 perf tests + 4 lints + 5 BalanceConstants + verification summary + epic Complete"
-    file: "production/epics/grid-battle-controller/story-010-epic-terminal-perf-lints-evidence.md"
-    priority: must-have
-    status: done
-    owner: ""
-    estimate_days: 0.4
-    blocker: "S5-02,S5-03,S5-04,S5-05,S5-06,S5-07,S5-08,S5-09,S5-10"
-    completed: "2026-05-03"
-    # 2026-05-03: 4 perf tests at tests/unit/feature/grid_battle/grid_battle_controller_perf_test.gd PASS under permissive CI gates (×3-200 over ADR headlines). 4 lints chmod +x + CI wired (signal_emission_outside_battle_domain + static_state + external_combat_math + BalanceConstants keys). 5 NEW BalanceConstants keys (FATE_TANK_HP_THRESHOLD/FATE_ASSASSIN_KILLS_THRESHOLD/FATE_REAR_ATTACKS_THRESHOLD/FATE_FORMATION_TURNS_THRESHOLD/FATE_BOSS_KILLED_REQUIRED). Verification summary shipped. EPIC.md + epics/index.md updated. 837→841 PASS (19th failure-free). EPIC 10/10 COMPLETE.
-
-  - id: "S5-12"
-    name: "ADR-0015 Battle HUD — battle-scoped Control consuming 4 of 5 LOCAL signals + Camera state queries"
-    file: "docs/architecture/ADR-0015-battle-hud.md"
+  - id: "S6-08"
+    name: "/qa-plan battle-hud — per-epic QA discipline before story-003 onward (sprint-2 Phase 5 standard)"
+    file: "production/qa/qa-plan-battle-hud-2026-05-XX.md"
     priority: should-have
-    status: done
+    status: backlog
+    owner: ""
+    estimate_days: 0.2
+    blocker: "S6-04"
+    completed: ""
+
+  - id: "S6-09"
+    name: "battle-hud story-003: UI-GB-03 Unit Info Panel + UI-GB-11 DEFEND Stance Badge — closes verification gate #2 AccessKit"
+    file: "production/epics/battle-hud/story-003-unit-info-panel-and-defend-badge.md"
+    priority: should-have
+    status: backlog
     owner: ""
     estimate_days: 0.4
-    blocker: "S5-11"
-    completed: "2026-05-03"
-    # 2026-05-03: ADR-0015 ~620 LoC at Proposed status. Battle-scoped Control under CanvasLayer (5th invocation of pattern: HPStatus + Turn Order + Camera + GridBattleController + this). 9-param setup() DI seam; mandatory _exit_tree() with 11 GameBus disconnects. Subscribes to 4 of 5 ADR-0014 controller-LOCAL signals + 7 cross-domain (HP/Status unit_died + Turn Order round_started/unit_turn_started/unit_turn_ended + InputRouter input_state_changed/input_mode_changed + Grid Battle formation_bonuses_updated). EXPLICITLY NOT subscribed: hidden_fate_condition_progressed (Pillar 2 lock — Destiny Branch sole consumer; codified as forbidden_pattern + CI lint). Non-emitter discipline (zero GameBus emits). Public API: show_unit_info(int) + show_tile_info(Vector2i) ratifies ADR-0005 lines 235-236. Closes 5 prior provisional contracts (ADR-0005 + ADR-0010 + ADR-0011 + ADR-0013 + ADR-0014). godot-specialist PASS WITH 3 REVISIONS resolved same-patch (§3 _exit_tree() guard rationale comment, §4 _handle_signal args: Array rationale, §6 _process set_process(false) gating doc). HIGH engine risk (UI domain Godot 4.6: dual-focus + AccessKit + recursive Control disable + typed Dictionary) — 7 Verification items kept through implementation. Registry updated: +1 state_ownership (battle_hud_runtime_state) + 1 interface (battle_hud_consumer_interface) + 1 performance_budget (1.0ms steady-state + 120ms forecast burst) + 1 api_decision (battle_hud_module_form) + 5 forbidden_patterns (battle_hud_signal_emission + battle_hud_subscribes_to_hidden_fate_signal CRITICAL Pillar 2 lock + battle_hud_missing_exit_tree_disconnect + battle_hud_touch_target_below_44pt + battle_hud_hardcoded_localized_strings). Registry version 7→8. Sprint-5 12/13 done; only S5-13 (epic scaffold) remains. ADR Acceptance via /architecture-review delta in fresh session pending.
+    blocker: "S6-06,S6-08"
+    completed: ""
 
-  - id: "S5-13"
-    name: "Battle HUD Presentation epic created (5-8 stories scaffold; impl carries to sprint-6)"
-    file: "production/epics/battle-hud/EPIC.md"
+  - id: "S6-10"
+    name: "ADR-0017 Scenario Progression authoring — Beat 1 → Beat N data structure + chapter file format"
+    file: "docs/architecture/ADR-0017-scenario-progression.md"
     priority: should-have
-    status: done
+    status: backlog
     owner: ""
-    estimate_days: 0.25
-    blocker: "S5-12"
-    completed: "2026-05-03"
-    # 2026-05-03: First Presentation-layer epic in the project + 5th invocation of battle-scoped Node pattern. Created via /create-epics battle-hud after S5-12 ADR-0015 authoring. EPIC.md ~530 lines covering: MVP Scope (14 UI-GB-* elements + 9 AC-UX-HUD-* ACs all covered architecturally; TR backfill deferred to /architecture-review delta), Pattern Boundary Precedent (5 invocations), Pillar 2 Architectural Lock (3-layer enforcement), Governing ADRs table (ADR-0015 Proposed + 11 supporting ADRs Accepted), Same-Patch Obligations (1 BalanceConstants + 5 forbidden_patterns + 6 CI lint scripts + verification summary doc + 14 child element scenes), Cross-System Dependencies (9 backends — 8 Complete + 1 Ready InputRouter; battle-hud impl stories may need stubs for InputRouter integration tests until input-handling ships), Stories preview (~5-8 stories ~12-20h estimated; sprint-6 implementation), Definition of Done (10+ items including all 7 Engine Compatibility verification items + ADR-0015 Acceptance prerequisite + Pillar 2 lint zero-occurrences gate + TR registry backfill), Test Baseline target (≥870-880 from 841 baseline), Engine Compatibility Verification Items table (7 items mapped to anticipated stories), Risks (R-1 to R-7 — R-1 ADR Acceptance blocker, R-3 InputRouter not yet shipped, R-4 Pillar 2 lint multi-file split fragility, R-7 forecast burst budget on minimum-spec mobile). Updated production/epics/index.md: Layer coverage line refreshed (Presentation 0/6 → 1/6 Ready); new battle-hud row added; comprehensive 2026-05-03 changelog entry covering grid-battle-controller close + S5-12 + S5-13. Sprint-5 closed at 13/13. Next: /architecture-review in fresh session to escalate ADR-0015 Proposed → Accepted; then /create-stories battle-hud + /qa-plan battle-hud (sprint-6).
+    estimate_days: 0.5
+    blocker: "S6-02"
+    completed: ""
+
+  - id: "S6-11"
+    name: "ADR-0018 Destiny Branch authoring — sole consumer of hidden_fate_condition_progressed + Beat 7 reveal"
+    file: "docs/architecture/ADR-0018-destiny-branch.md"
+    priority: nice-to-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.5
+    blocker: "S6-10"
+    completed: ""
+
+  - id: "S6-12"
+    name: "battle-hud story-004: UI-GB-01 Initiative Queue + UI-GB-07 Turn/Round Counter + UI-GB-08 Victory Condition Display"
+    file: "production/epics/battle-hud/story-004-initiative-queue-counters.md"
+    priority: nice-to-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.4
+    blocker: "S6-06"
+    completed: ""
