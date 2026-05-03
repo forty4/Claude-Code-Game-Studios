@@ -11,7 +11,7 @@ goal: "Ship first runnable BattleScene mounting 5 systems + ADR-0016 Battle Scen
 start: "2026-05-24"
 end: "2026-05-30"
 generated: "2026-05-03"
-updated: "2026-05-03"  # S6-01 done 2026-05-03 — ADR-0016 Battle Scene Wiring Proposed shipped (547 LoC, godot-specialist 12th PASS w/ 2 REVISIONS + 5 IN advisories).
+updated: "2026-05-03"  # S6-05 done 2026-05-03 — battle-hud story-001 BattleHUD skeleton+9-param DI (6 files, 852/852 PASS preserved, 5/12 sprint-6 done = 41.7%, S6-06+S6-08 unblocked).
 
 # Sprint-5 closed 13/13 (must-have 11/11 + should 2/2 + nice 0/0) by 2026-05-03 — 14-21 calendar
 # days ahead of 2026-05-23 deadline. 19th consecutive failure-free baseline (757 → 841 / +84 tests).
@@ -73,11 +73,12 @@ stories:
     name: "battle-hud story-001: BattleHUD class skeleton + 9-param setup() DI + _ready() 9-backend assertion + _exit_tree() 11-disconnect"
     file: "production/epics/battle-hud/story-001-class-skeleton-and-di.md"
     priority: must-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.3
     blocker: "S6-04"
-    completed: ""
+    completed: "2026-05-03"
+    # S6-05 done 2026-05-03 — 6 files (5 in scope + 1 OOS InputRouter placeholder TD-058) + 852/852 PASS preserved + 9/9 ACs covered + 2 REQ /code-review fixes + TD-059 AC-3 escalation
 
   - id: "S6-06"
     name: "battle-hud story-002: 11 GameBus signal subscriptions all CONNECT_DEFERRED + per-handler stub bodies + _handle_signal DI test seam"

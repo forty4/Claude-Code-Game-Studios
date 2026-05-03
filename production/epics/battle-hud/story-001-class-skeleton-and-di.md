@@ -1,10 +1,11 @@
 # Story 001: BattleHUD Class Skeleton + 9-Param DI Setup
 
 > **Epic**: Battle HUD
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: Logic
 > **Manifest Version**: 2026-04-20
+> **Completed**: 2026-05-03
 
 ## Context
 
@@ -156,3 +157,17 @@
 
 - Depends on: None (first story in epic; ADR-0015 Accepted, ADR-0001/0004/0005/0006/0007/0008/0009/0010/0011/0013/0014 all Accepted, all 9 backend stubs available from prior epics — verify `tests/helpers/{battle_camera,grid_battle_controller,input_router,hp_status_controller,turn_order_runner}_stub.gd` at first-author time)
 - Unlocks: Story 002 (signal subscriptions need the skeleton + DI seam)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-03
+**Criteria**: 9/9 passing (AC-3 via accepted proxy pattern — direct assert-crash testing structurally impossible without terminating GdUnit4 v6.1.2 runner; escalated to story-008 CI lint scope per TD-059)
+**Test Evidence**: Logic — `tests/unit/feature/battle_hud/battle_hud_skeleton_test.gd` (16 KB, 10 test functions covering AC-1..AC-9; 852/852 PASS regression baseline preserved post-/code-review fixes; 0 errors / 0 failures / 0 orphans; 20th consecutive failure-free baseline)
+**Code Review**: Complete — godot-gdscript-specialist (verdict APPROVED WITH SUGGESTIONS, 2 REQUIRED + 5 advisory) + qa-tester (verdict GAPS, 5 partial-coverage findings + 5 advisory) spawned in parallel via /code-review. Both REQUIRED items applied inline (REQ-1 GridBattleControllerStub swap + REQ-2 AC-7 time-bomb prevention comment); 8 advisory items deferred (most belong with story-002 test naming pattern + story-008 CI lint scope).
+**Deviations**:
+- OUT OF SCOPE (1): `src/foundation/input_router.gd` placeholder (10 LoC `class_name InputRouter extends Node` + doc-comment) created during /dev-story Phase 2 context-load — input-handling epic 0/10 Complete, BattleHUD setup() typed parameter cannot parse without the class. Logged as TD-058 (cross-epic carry-forward — input-handling story-001 will REPLACE per ADR-0005 §2).
+- ADVISORY (1): AC-3 proxy pattern (asserts pre-setup null fields rather than 9 parameterised crash sub-cases). Caused by Godot 4.6 + GdUnit4 v6.1.2 having no intercept mechanism for `assert()` runtime termination. Logged as TD-059 — track for story-008 CI lint scope.
+- ADVISORY (1): `show_unit_info()` + `show_tile_info()` empty-body stubs (lines 146-157 of `battle_hud.gd`) — out of scope per story but accepted per godot-gdscript-specialist (commits to ADR-0015 §4 API surface contract early; story-003 + story-007 own the bodies). No action.
+- Mid-stream finding (RESOLVED): Pillar 2 doc-comment trap — original comment named the literal forbidden token `hidden_fate_condition_progressed`; AC-9 grep test correctly caught it; fixed by replacing with ADR-coordinate reference. Pattern lesson worth carrying to story-008 CI lint design (lint must apply to whole-source grep including comments).

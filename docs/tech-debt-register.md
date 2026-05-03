@@ -2867,3 +2867,88 @@ Pattern stable at **4 invocations** post-retrofit. Future battle-scoped Nodes th
 Full regression suite POST-retrofit: **837 PASS / 0 errors / 0 failures / 0 orphans / Exit 0** (18th consecutive failure-free baseline). Retrofit is non-breaking. No new test file added per story-009 AC-7 (smoke check via full regression is the canonical evidence for autoload-disconnect retrofits — matches the pattern HPStatusController + BattleCamera shipped without dedicated `_exit_tree` tests).
 
 **Future hardening** (optional, out of scope for TD-057): a CI lint script could grep all `class_name` files in `src/core/` + `src/feature/` for `extends Node` files containing `GameBus.X.connect` and require a matching `_exit_tree` disconnect. Current pattern stability (4 invocations clean) makes the lint advisory rather than blocking.
+
+---
+
+## TD-058 — InputRouter cross-epic placeholder at `src/foundation/input_router.gd` (carry-forward to input-handling epic story-001)
+
+**Severity**: LOW (placeholder is intentional + well-documented; risk is forgetting to replace)
+**Status**: open — replace when input-handling epic story-001 ("module skeleton and autoload registration") ships
+**Origin**: battle-hud story-001 (`/dev-story` Phase 2 mid-stream blocker resolution; godot-gdscript-specialist Option A approved by orchestrator per user autonomy preference)
+**Category**: code (cross-epic structural debt)
+
+### Problem
+
+`BattleHUD.setup(input_router: InputRouter, ...)` 9-param DI seam in `src/feature/battle_hud/battle_hud.gd` requires `InputRouter` as a typed parameter per ADR-0015 §3 R-2. At /dev-story execution time (2026-05-03), the input-handling epic at `production/epics/input-handling/` has 10 story files drafted but **0 Complete** (only story-009 shows "Ready" status). Production `InputRouter` class did not exist anywhere in `src/`. Without the class, the typed parameter cannot parse → BattleHUD story-001 blocks.
+
+### Resolution at battle-hud story-001 close
+
+Created **minimal placeholder** at `src/foundation/input_router.gd` (10 LoC):
+
+```gdscript
+class_name InputRouter
+extends Node
+```
+
+Plus 8-line doc-comment header explaining placeholder context + naming the future-replacing story (input-handling epic story-001 per ADR-0005 §2). Constraints applied:
+- ZERO behavior, ZERO methods beyond inherited Node lifecycle
+- ZERO autoload registration in `project.godot` (input-handling epic owns that — TR-input-handling-001 per ADR-0001)
+- ZERO GameBus signal emissions
+- File path `src/foundation/input_router.gd` matches ADR-0005 §2 expected production location → no relocation needed when production class lands
+
+### Required follow-up
+
+When input-handling epic story-001 implements per ADR-0005 §2, the implementer must:
+
+1. **AUGMENT** the placeholder file (do NOT replace from scratch) — `class_name InputRouter extends Node` line stays stable. Add the 7-state FSM (S0..S6), GameBus emissions (`input_state_changed` + `input_mode_changed`), action vocabulary, autoload registration line in `project.godot`, etc.
+2. **Remove the placeholder doc-comment header** (lines 1-13 of current file) — the header explicitly says "this file will be REPLACED with the production InputRouter class per ADR-0005 §2"; replace with the production InputRouter class header.
+3. **Update `tests/helpers/input_router_stub.gd`** — current stub (1 KB) has empty `_ready()` because the placeholder InputRouter has none. After production InputRouter ships with `_ready()` body (autoload registration + signal connections), the stub must add `func _ready() -> void: pass` override to suppress production behavior during tests (analogous to `tests/helpers/battle_camera_stub.gd` which suppresses production `make_current()` + `GameBus.input_action_fired` subscription).
+
+### Verification at follow-up
+
+After input-handling epic story-001 ships, run battle-hud regression: `tests/unit/feature/battle_hud/battle_hud_skeleton_test.gd` — must remain 10/10 PASS. If any test fails, the InputRouter swap-in regressed the skeleton's typed-parameter contract.
+
+### Cross-references
+
+- ADR-0005 InputRouter (Accepted 2026-04-30) `docs/architecture/ADR-0005-input-handling.md` §2 — production class shape
+- battle-hud story-001 Completion Notes (`production/epics/battle-hud/story-001-class-skeleton-and-di.md`) — OUT OF SCOPE deviation #1
+- input-handling EPIC.md `production/epics/input-handling/EPIC.md` — 10 stories drafted
+
+---
+
+## TD-059 — battle-hud AC-3 9-sub-case parameterised null-injection coverage gap (escalate to story-008 CI lint scope)
+
+**Severity**: LOW (proxy pattern in place catches the precondition; per-dep fail-message specificity is the gap)
+**Status**: open — design into story-008 epic-terminal CI lint scope
+**Origin**: battle-hud story-001 `/code-review` (qa-tester recommendation) + `/story-done` Phase 3 traceability gap
+**Category**: infra (test framework limitation workaround)
+
+### Problem
+
+battle-hud story-001 AC-3 spec text says: "test confirms one assertion fails per missing backend (parameterised: 9 sub-cases, one per backend null)". The implementation has 9 sequential `assert(_<backend> != null, "...")` calls in `_ready()`, but **GdUnit4 v6.1.2 + Godot 4.6 has no mechanism to intercept `assert()` runtime termination** without killing the test runner. Direct testing of "AC-3 sub-case 1: only `_camera` null fires the camera assertion" would crash the entire test process.
+
+### Workaround (in place at story-001)
+
+`tests/unit/feature/battle_hud/battle_hud_skeleton_test.gd::test_setup_skipped_fields_are_all_null` uses **proxy pattern**: asserts that all 9 fields are null pre-`setup()` call. Confirms the precondition for the 9 asserts is satisfied. Does NOT confirm:
+- Each individual `assert()` has the correct message text
+- Each individual backend null fires its own distinct assertion (vs. the first one masking the rest)
+- Reordering the 9 asserts in `_ready()` (e.g., `_hp_controller` before `_camera`) would not be caught by any test
+
+### Tracking artifact
+
+The spec gap is real but structural — no in-test-runner solution exists at GdUnit4 v6.1.2. Two viable resolution paths:
+
+1. **CI lint approach (preferred)**: story-008 `/qa-plan battle-hud` + epic-terminal CI lints already includes 6 lints. Add a 7th lint: `tools/ci/lint_battle_hud_di_assertion_completeness.sh` — greps `src/feature/battle_hud/battle_hud.gd` for `assert(_<backend> != null` patterns, asserts exactly 9 occurrences (one per backend per ADR-0015 §3 R-2), asserts each backend name appears once. This catches reorder regressions and adds/drops at lint time without runtime assertion intercept.
+
+2. **Subprocess test approach (high-effort, low-value)**: spawn a subprocess per sub-case via `OS.execute()`, capture exit code + stderr. Each sub-case test takes ~2 sec to spawn → 9 × 2 = 18 sec added test time per regression run. Not justified for AC-3's structural-only coverage.
+
+### Recommended resolution
+
+**Story-008 implementer**: include `lint_battle_hud_di_assertion_completeness.sh` in the 6-lint CI block per ADR-0015 §Migration Plan + EPIC.md verification table. Mark TD-059 RESOLVED at story-008 close.
+
+### Cross-references
+
+- battle-hud story-001 Completion Notes (`production/epics/battle-hud/story-001-class-skeleton-and-di.md`) — ADVISORY deviation #1 (AC-3 proxy pattern)
+- battle-hud story-008 (`production/epics/battle-hud/story-008-epic-terminal-lints-and-verification.md`) — receiving scope
+- ADR-0015 §3 R-2 (`docs/architecture/ADR-0015-battle-hud.md`) — 9-backend DI assertion contract source-of-truth
+
