@@ -3,8 +3,8 @@
 > **Layer**: Presentation (first Presentation-layer epic in the project — establishes the layer)
 > **GDD**: `design/ux/battle-hud.md` v1.1 (744 lines — UX spec; UI specs live in `design/ux/` not `design/gdd/`)
 > **Architecture Module**: `BattleHUD` — battle-scoped Control mounted under `CanvasLayer` at `BattleScene/HUDLayer/BattleHUD` (**5th invocation** of battle-scoped Node pattern)
-> **Status**: **Ready** (Pending ADR-0015 Acceptance via `/architecture-review` delta in fresh session)
-> **Stories**: Not yet created — run `/create-stories battle-hud`
+> **Status**: **Ready** (ADR-0015 Accepted 2026-05-03 via /architecture-review delta #10; ADR-0016 Accepted 2026-05-03 via delta #11)
+> **Stories**: 8 stories created 2026-05-03 (Sprint 6 S6-04) — see Stories table below
 > **Created**: 2026-05-03 (Sprint 5 S5-13)
 > **Manifest Version**: 2026-04-20 (`docs/architecture/control-manifest.md`)
 
@@ -155,24 +155,29 @@ The 9 DI'd backends are **all already shipped to production** — this epic is t
 
 ## Stories
 
-> Not yet created — run `/create-stories battle-hud` to break this epic into implementable stories.
+| # | Story | Type | Status | ADR | TR-IDs |
+|---|-------|------|--------|-----|--------|
+| 001 | [BattleHUD class skeleton + 9-param DI setup](story-001-class-skeleton-and-di.md) | Logic | Ready | ADR-0015 | TR-battle-hud-001, -002, -014 (perf ref) |
+| 002 | [11 GameBus signal subscriptions + DI test seam + S5 INPUT_BLOCKED filter](story-002-gamebus-signal-subscriptions.md) | Logic | Ready | ADR-0015 | TR-battle-hud-003, -010 |
+| 003 | [UI-GB-03 Unit Info Panel + UI-GB-11 DEFEND Stance Badge + show_unit_info()](story-003-unit-info-panel-and-defend-badge.md) | UI | Ready | ADR-0015 | TR-battle-hud-005 (partial), -006 (show_unit_info), -012 (i18n first), -016 (AccessKit) |
+| 004 | [UI-GB-01 Initiative Queue + UI-GB-07 Turn/Round Counter + UI-GB-08 Victory Condition](story-004-initiative-queue-counters.md) | UI | Ready | ADR-0015 | TR-battle-hud-005 (partial) |
+| 005 | [UI-GB-02 Action Menu + UI-GB-05 Skill List + UI-GB-10 Undo + Two-Tap ATTACK/DEFEND](story-005-action-menu-skill-list-undo-two-tap.md) | UI + Integration | Ready | ADR-0015 | TR-battle-hud-005 (partial), -017 (two-tap timer) |
+| 006 | [UI-GB-04 Combat Forecast (80ms dismiss + FORECAST_RENDER_BUDGET_MS)](story-006-combat-forecast.md) | UI + Performance | Ready | ADR-0015 | TR-battle-hud-005 (partial), -008 (80ms instr.), -009 (BalanceConstants) |
+| 007 | [UI-GB-06 Tile Tooltip + show_tile_info() + UI-GB-09 Results + UI-GB-12/13/14 Grid Overlays](story-007-tile-tooltip-results-grid-overlays.md) | UI + Integration | Ready | ADR-0015 | TR-battle-hud-005 (partial), -006 (show_tile_info), -015 (cross-tree NodePath) |
+| 008 | [Epic terminal — 6 CI lints + verification summary + 7 Engine Verification items closure](story-008-epic-terminal-lints-and-verification.md) | Config/Data + Audit | Ready | ADR-0015 | TR-battle-hud-004 (Pillar 2 CRITICAL), -007 (non-emitter), -011 (44pt), -012 (i18n), -013 (5 forbidden_patterns) |
 
-**Estimated story count**: 5-8 stories (~12-20h total). Larger than typical Core/Foundation epics due to (a) 14 UI-GB-* elements requiring per-element scenes + scripts, (b) HIGH engine risk requiring 7 verification items as per-story acceptance gates, (c) Pillar 2 lock requiring dedicated lint story + dedicated test story, (d) cross-platform render verification (macOS Metal + Linux Vulkan + Windows D3D12 + Android Vulkan + iOS Metal — post-MVP).
-
-**Anticipated story shape** (final decomposition during `/create-stories`):
-
-| # | Story (anticipated) | Type | TR-IDs | Estimate |
-|---|---|---|---|---|
-| 001 | BattleHUD class skeleton + 9-param `setup()` DI + `_ready()` 9-backend assertion + `_exit_tree()` 11-disconnect cleanup + scene mount under CanvasLayer | Logic (skeleton) | (ADR-0015 §1, §3, §10) | 2-3h |
-| 002 | 11 GameBus signal subscriptions with CONNECT_DEFERRED + per-handler stub bodies + DI test seam `_handle_signal(name, args)` | Logic | (ADR-0015 §3, §5) | 2-3h |
-| 003 | UI-GB-03 Unit Info Panel (full populate via `_on_unit_selected_changed` + `_hp_controller.get_*` queries + `_hero_db.get_hero`) + UI-GB-11 DEFEND Stance Badge | UI | (ADR-0015 §5 + battle-hud.md §3 UI-GB-03/11) | 3h |
-| 004 | UI-GB-01 Initiative Queue + UI-GB-07 Turn/Round Counter + UI-GB-08 Victory Condition Display | UI | (ADR-0015 §5 + battle-hud.md §3 UI-GB-01/07/08) | 3h |
-| 005 | UI-GB-02 Action Menu + UI-GB-05 Skill List + UI-GB-10 Undo Indicator + Two-tap ATTACK/DEFEND confirm flows (HUD owns timer) | UI + Integration | (ADR-0015 §4, §OQ-4 + battle-hud.md §3 UI-GB-02/05/10 + §5) | 4h |
-| 006 | UI-GB-04 Combat Forecast (full forecast contract per battle-hud.md §4 — all 6 sections + chevron tiers + 80ms dismiss + FORECAST_RENDER_BUDGET_MS budget gate) | UI + Performance | (ADR-0015 §5 + battle-hud.md §4) | 4h |
-| 007 | UI-GB-06 Tile Info Tooltip (`show_tile_info` public method) + UI-GB-09 End-of-Battle Results Screen (battle_outcome_resolved handler — Pillar 2 preservation: outcome only, no fate counter detail) + UI-GB-12/13/14 grid-layer overlays | UI + Integration | (ADR-0015 §4, §5 + battle-hud.md §3) | 4h |
-| 008 | Epic terminal — 5 lints (hidden_fate_non_subscription + signal_emission + exit_tree_disconnect + touch_target_size + connect_deferred) + 1 BalanceConstants key-presence lint + FORECAST_RENDER_BUDGET_MS BalanceConstants entry + verification summary doc + 7 Verification items closure + epic Complete | Config/Data + Audit | (ADR-0015 §Engine Compatibility + §10 Migration Plan) | 3h |
+**Total**: 8 stories — 2 Logic, 4 UI, 1 UI+Performance, 1 Config/Data+Audit. Coverage: 17/17 TR-battle-hud-* IDs (TR-014 referenced as perf-budget context in 001 + 006).
 
 **Implementation order**: 001 → 002 → {003, 004 in parallel after 002} → 005 → 006 → 007 → 008 (epic terminal).
+
+**Sprint-6 allocation** (per `production/sprint-status.yaml`):
+- S6-05 = story-001
+- S6-06 = story-002
+- S6-09 = story-003
+- (line 143) = story-004
+- Stories 005-008 = sprint-7 carry (sprint-6 ships first 4 stories per S5-13 plan).
+
+**Side-finding (non-blocking)**: TR-battle-hud-005 element-name pairings (e.g., calls UI-GB-02 "RoundCounter") drift from GDD `design/ux/battle-hud.md` source-of-truth (UI-GB-02 = "Action Menu"). Story files use GDD names per "no invention" rule. Suggest queueing TR-005 requirement-text edit for next `/architecture-review` delta.
 
 **Sprint allocation**: All 5-8 stories deferred to **sprint-6** (per sprint-5 plan; S5-13 ships scaffold only). Sprint-6 also wires the BattleScene that mounts BattleHUD as `CanvasLayer/BattleHUD` child — Battle Scene wiring ADR (NOT YET WRITTEN) is the natural sprint-6 partner ADR.
 
