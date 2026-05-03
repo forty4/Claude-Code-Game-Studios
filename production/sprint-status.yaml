@@ -11,7 +11,7 @@ goal: "Ship first runnable BattleScene mounting 5 systems + ADR-0016 Battle Scen
 start: "2026-05-24"
 end: "2026-05-30"
 generated: "2026-05-03"
-updated: "2026-05-03"  # S6-06 done 2026-05-03 — battle-hud story-002 11-signal subs+S5 mouse_filter (10 files, 865/865 PASS=+13, 6/12 sprint-6=50%, S6-09 needs S6-08).
+updated: "2026-05-03"  # S6-08 done 2026-05-03 — qa-plan-battle-hud (402 lines, 8 stories classified), S6-09 unblocked, 7/12 sprint-6=58%.
 
 # Sprint-5 closed 13/13 (must-have 11/11 + should 2/2 + nice 0/0) by 2026-05-03 — 14-21 calendar
 # days ahead of 2026-05-23 deadline. 19th consecutive failure-free baseline (757 → 841 / +84 tests).
@@ -103,13 +103,14 @@ stories:
 
   - id: "S6-08"
     name: "/qa-plan battle-hud — per-epic QA discipline before story-003 onward (sprint-2 Phase 5 standard)"
-    file: "production/qa/qa-plan-battle-hud-2026-05-XX.md"
+    file: "production/qa/qa-plan-battle-hud-2026-05-03.md"
     priority: should-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.2
     blocker: "S6-04"
-    completed: ""
+    completed: "2026-05-03"
+    # S6-08 done 2026-05-03 — qa-plan-battle-hud-2026-05-03.md (402 lines), 8 stories classified, 6 manual gates + 3 perf gates surfaced, S6-09 unblocked.
 
   - id: "S6-09"
     name: "battle-hud story-003: UI-GB-03 Unit Info Panel + UI-GB-11 DEFEND Stance Badge — closes verification gate #2 AccessKit"

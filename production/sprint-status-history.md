@@ -18,6 +18,49 @@
 
 ## Sprint 6
 
+### S6-08 — /qa-plan battle-hud — per-epic QA plan covering 8 stories (2026-05-03)
+
+**Date**: 2026-05-03 (sprint-6 day 1; per-story rotation)
+**Files (1 NEW)**: `production/qa/qa-plan-battle-hud-2026-05-03.md` (402 lines)
+
+**Story classification** (8 stories, 5 distinct type combos):
+| Story | Type | Status |
+|---|---|---|
+| 001 — Class skeleton + DI | Logic | ✅ Complete (S6-05) |
+| 002 — 11 GameBus subs + S5 filter | Logic + Integration | ✅ Complete (S6-06) |
+| 003 — UI-GB-03 + UI-GB-11 | UI + Integration | Ready |
+| 004 — UI-GB-01/07/08 | UI + Integration | Ready |
+| 005 — UI-GB-02/05/10 + Two-Tap | UI + Integration | Ready |
+| 006 — UI-GB-04 Combat Forecast | UI + Performance | Ready |
+| 007 — UI-GB-06/09/12-14 | UI + Integration + Performance | Ready |
+| 008 — Epic terminal lints | Config/Data + Audit | Ready |
+
+**Plan coverage**:
+- Per-story automated test specs (paths + AC mapping + edge cases) for all 8 stories
+- Per-story manual QA checklists (AccessKit, dual-focus, palette, 44pt, Pillar 2 audit) for stories 002-007
+- Smoke test scope (10 critical paths)
+- Playtest matrix (3 stories require sessions: 005 two-tap feel, 006 forecast readability, 007 Pillar 2 audit by new player)
+- Definition of Done at story level + epic level (with 7 Engine Verification items + Pillar 2 lint KEEP-forever)
+
+**Performance gates surfaced** (binding even in Lean mode per TR-battle-hud-014):
+- Story-006 forecast: p99 < 120 ms (FORECAST_RENDER_BUDGET_MS) + dismiss < 80 ms (AC-UX-HUD-02 + AC-UX-HUD-03)
+- Story-007 UI-GB-09 results: p99 < 200 ms; zoom-poll ≤ 0.05 ms/frame
+- Story-002: 21st failure-free baseline preserved + recursive Control disable cross-platform manual gate (TD-062 KEEP through Polish)
+
+**Outstanding manual evidence from already-shipped stories**:
+- TD-062: Engine Verification Item 5 — recursive MOUSE_FILTER_IGNORE cross-platform video capture (macOS Metal + Linux Vulkan + Windows D3D12); KEEP through Polish
+
+**Side-findings (non-blocking)**:
+1. `production/sprint-status.yaml` shows S6-02/S6-03/S6-04 as `backlog` but commits (`6c4bd08`, `29a7ca1`) and active.md "6/12 done" indicate completion — yaml drift exists; outside /qa-plan scope to fix
+2. GDD AC-UX-HUD-09 references `tests/fixtures/battle_hud/defend_two_tap.yaml` — verify fixture exists at story-005 author time
+3. TR registry backfill (TR-battle-hud-001..017) is a DoD prerequisite for epic-complete; track via separate `/architecture-review` delta in fresh session
+
+**Sprint-6 progress (post-S6-08)**: 7/12 done = 58% (per yaml `done` count; reality is higher per active.md). S6-09 (battle-hud story-003) UNBLOCKED. S6-03/S6-07 still pending (depend on /create-epics battle-scene).
+
+**Cross-references**: `production/epics/battle-hud/EPIC.md` / `docs/architecture/ADR-0015-battle-hud.md` §"Same-Patch Obligations" / TD-062 (`docs/tech-debt-register.md`)
+
+---
+
 ### S6-06 — battle-hud story-002: 11 GameBus signal subscriptions + DI test seam + S5 mouse_filter toggle (2026-05-03)
 
 **Date**: 2026-05-03 (sprint-6 day 1; per-story rotation)
