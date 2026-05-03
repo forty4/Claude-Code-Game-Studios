@@ -29,8 +29,34 @@
 #   All forbidden patterns: Grep pattern="^  - pattern:" (forbidden_patterns section)
 #   Superseded entries:     Grep pattern="status: superseded"
 
-version: 9
+version: 10
 last_updated: "2026-05-03"
+# 2026-05-03 (/architecture-review delta #11): ADR-0016 Battle Scene Wiring
+# escalated Proposed → Accepted same-day. v9 → v10 adds 1 state_ownership
+# (battle_scene_root_lifecycle), 1 interface (battle_scene_wiring_api), 1
+# api_decision (battle_scene_wiring_module_form), 3 forbidden_patterns
+# (battle_scene_pre_instanced_children, battle_scene_root_signal_subscription,
+# battle_scene_sprint6_mock_marker_must_exist). Combined session: ADR-0016
+# escalation + structural backfill (~50 net-new TRs across ADR-0013/0014/0015/
+# 0016 in tr-registry.yaml v11 → v12 — closes sprint-5 retro AI #2 carry).
+# Also applied 5 same-patch wording flips: ADR-0005 + ADR-0013 + ADR-0014 +
+# ADR-0015 stale-ref backfill ("battle-scene-wiring NOT YET WRITTEN" → "ADR-0016
+# Accepted via delta #11"). 0 BLOCKING cross-ADR conflicts; 0 GDD revision
+# flags. Pattern stable at 11 invocations of /architecture-review; 6th
+# invocation of battle-scoped Node lineage (BattleScene is NEW pattern:
+# scene-root-as-orchestrator — distinct from 5-precedent battle-scoped Node
+# setup() pattern because BattleScene IS the scene root, not a child). Layer
+# status: Foundation 5/5 + Core 3/3 + Feature 3/4 (+1 from delta #10 — Camera +
+# Grid Battle Controller + Battle Scene Wiring; remaining = AI/Battle Prep/
+# Scenario Progression/Destiny Branch chain) + Presentation 1/6 (battle-hud
+# accepted via delta #10). Source: docs/architecture/architecture-review-2026-05-03b.md.
+# Same-session godot-specialist 13th invocation skipped this delta — no new
+# engine API surface introduced (ADR-0016 is structural plumbing); 12th
+# invocation done at S6-01 authoring time PASS WITH 2 REVISIONS resolved + 5
+# advisories IN-1..IN-5 carried. Closes registry line 825 placeholder reference
+# (battle-scene-wiring placeholder → ratified as battle_scene_wiring_module_form
+# api_decision below).
+#
 # 2026-05-03 (/architecture-review delta #10): ADR-0015 Battle HUD escalated
 # Proposed → Accepted same-day. v8 → v9 prose-only refresh: lines 741-742
 # (battle_camera_public_api consumers) flipped "ADR-0014 NOT YET WRITTEN
@@ -440,6 +466,24 @@ state_ownership:
     added: 2026-05-03
     revised: ""
 
+  - state: battle_scene_root_lifecycle
+    status: active
+    owner_system: battle-scene-wiring (Feature layer; scene-root-as-orchestrator NEW pattern)
+    adr: docs/architecture/ADR-0016-battle-scene-wiring.md
+    interface: "BattleScene (class_name X extends Node2D, scene root of scenes/battle/battle_scene.tscn — 6th invocation of battle-scoped Node lineage but NEW pattern: scene-root-as-orchestrator distinct from 5-precedent battle-scoped Node setup() pattern because BattleScene IS the scene root, not a child). Lifecycle owned by ADR-0002 SceneManager (parent ↔ child relationship: SceneManager creates and frees BattleScene; BattleScene creates and frees its 6 child systems via auto-tree-free). 3-node .tscn skeleton (BattleScene root + GridLayer Node2D + HUDLayer CanvasLayer with layer=1) — NO other children pre-instanced; all 6 system Nodes are code-driven in _ready(). Owns 11 instance fields: 5 DI'd autoload backend refs (_hero_db / _balance_constants / _terrain_effect / _unit_role / _input_router) + 6 battle-scoped child Node refs (_map_grid / _battle_camera / _hp_controller / _turn_runner / _grid_controller / _battle_hud). 6-step _ready() mount sequence in DI dependency order (MapGrid → BattleCamera → HPStatusController → TurnOrderRunner → GridBattleController → BattleHUD). NO _exit_tree() body (auto-tree-free + each child's R-N _exit_tree handles teardown — TR-battle-scene-wiring-006). NO GameBus subscriptions on root (non-emitter + non-subscriber discipline per battle_scene_root_signal_subscription forbidden_pattern + TR-battle-scene-wiring-007). Idempotent _ready() under 3 launch sources (SceneManager / project.godot main_scene / --main-scene CLI override; no launch-source branching per TR-battle-scene-wiring-008)."
+    write_access: battle-scene-wiring-only  # 6 battle-scoped child Node refs populated only inside BattleScene._ready(); never written externally
+    referenced_by:
+      - docs/architecture/ADR-0016-battle-scene-wiring.md
+      - docs/architecture/ADR-0002-scene-manager.md  # SceneManager owns Overworld↔BattleScene transition lifecycle (creates/frees BattleScene)
+      - docs/architecture/ADR-0004-map-grid-data-model.md  # MapGrid mounted as first child via load_map_resource(MapResource)
+      - docs/architecture/ADR-0010-hp-status.md  # HPStatusController mounted at step 3 via per-unit initialize_unit loop
+      - docs/architecture/ADR-0011-turn-order.md  # TurnOrderRunner mounted at step 4 via initialize_battle one-shot
+      - docs/architecture/ADR-0013-camera.md  # BattleCamera mounted at step 2 via setup(map_grid) 1-param
+      - docs/architecture/ADR-0014-grid-battle-controller.md  # GridBattleController mounted at step 5 via 8-param setup
+      - docs/architecture/ADR-0015-battle-hud.md  # BattleHUD mounted at step 6 via 9-param setup under HUDLayer
+    added: 2026-05-03
+    revised: ""
+
 # Example:
 #
 # state_ownership:
@@ -829,6 +873,23 @@ interfaces:
       - docs/architecture/ADR-0015-battle-hud.md
       - docs/architecture/ADR-0005-input-handling.md  # ratifies BattleHUD provisional contract from lines 235-236
       - docs/architecture/ADR-0014-grid-battle-controller.md  # 4 of 5 controller-LOCAL signal subscriber + get_selected_unit_id consumer
+    added: 2026-05-03
+    revised: ""
+
+  - contract: battle_scene_wiring_api
+    status: active
+    pattern: direct_call
+    description: "BattleScene exposes ZERO public methods callable by other systems — it is a pure scene-root orchestrator that creates and configures its 6 battle-scoped children in code-driven _ready() then delegates teardown to Godot's auto-tree-free mechanism. Internal state (_hero_db / _balance_constants / _terrain_effect / _unit_role / _input_router DI'd autoload refs + _map_grid / _battle_camera / _hp_controller / _turn_runner / _grid_controller / _battle_hud child Node refs) is private; consumers do NOT directly read these. The 6-step _ready() mount sequence (TR-battle-scene-wiring-003) is the load-bearing contract — invoked once on scene-instantiate; no setup() DI seam (BattleScene is a scene root loaded by SceneManager / Godot main_scene config — neither passes constructor parameters; per TR-battle-scene-wiring-001 module form rejection of parameter-on-instantiate). Idempotent under 3 launch sources (SceneManager / project.godot main_scene / --main-scene CLI override) per TR-battle-scene-wiring-008. NO _exit_tree() body — auto-tree-free + each child's R-N _exit_tree() handles teardown. NO GameBus subscriptions on root (non-emitter + non-subscriber discipline)."
+    emitter: none  # BattleScene root is non-emitter + non-subscriber per TR-battle-scene-wiring-007 + battle_scene_root_signal_subscription forbidden_pattern; cross-system signal flow goes through 6 mounted children
+    consumers:
+      - scene-manager (Platform; ADR-0002 SceneManager owns Overworld↔BattleScene transition lifecycle — creates BattleScene via packed.instantiate() + add_child; frees via call_deferred queue_free per ADR-0002 deferred-free pattern; ADR-0016 ratifies in-scene topology only, NOT inter-scene transitions)
+      - godot-main-scene (sprint-6 only — project.godot [application] run/main_scene flipped to res://scenes/battle/battle_scene.tscn for standalone launch per TR-battle-scene-wiring-005; reverts in same patch as ADR-0017 acceptance)
+      - cli-main-scene-override (godot --main-scene CLI override; idempotent under all 3 launch sources per TR-battle-scene-wiring-008)
+    adr: docs/architecture/ADR-0016-battle-scene-wiring.md
+    notes: "Pattern divergence from 5-precedent battle-scoped Node setup() pattern is intentional — BattleScene IS the scene, not a child of one. Ordering note in ADR-0016 §ADR Dependencies makes this explicit. The 6-step _ready() mount sequence is forced (not chosen): exactly 1 valid topological sort of the dependency DAG (6! = 720 permutations; only 1 satisfies all DI constraints — Step 1 MapGrid before Step 2 BattleCamera which DI'd map_grid; Step 5 GridBattleController after Steps 1-4 because 8-param setup; Step 6 BattleHUD after Steps 1-5 because 9-param setup including grid_controller). Sprint-6 inline mock encounter loader (TR-battle-scene-wiring-004) lives between explicit comment markers `# === SPRINT-6 MOCK ENCOUNTER ===` for mechanical sprint-7+ deletion when ADR-0017 lands; lint flips marker semantic at deletion. Future scene-root orchestrators (OverworldScene, MainMenuScene, BattlePrepScene) should follow the same code-driven _ready() mount sequence + DI-DAG-ordered child instantiation + reliance on auto-tree-free for teardown."
+    referenced_by:
+      - docs/architecture/ADR-0016-battle-scene-wiring.md
+      - docs/architecture/ADR-0002-scene-manager.md  # consumed-by lifecycle owner; ADR-0016 ratifies in-scene topology only
     added: 2026-05-03
     revised: ""
 
@@ -1232,6 +1293,26 @@ api_decisions:
     added: 2026-05-03
     revised: ""
 
+  - purpose: battle_scene_wiring_module_form
+    status: active
+    using: "scene-root-as-orchestrator (NEW pattern; class_name BattleScene extends Node2D mounted as root of scenes/battle/battle_scene.tscn — 6th invocation of battle-scoped Node lineage but distinct from 5-precedent battle-scoped Node setup() pattern because BattleScene IS the scene root, not a child). 3-node .tscn skeleton (BattleScene + GridLayer + HUDLayer) — NO other children pre-instanced; all 6 system Nodes code-driven in _ready() via 6-step DI-DAG-ordered mount sequence. Lifecycle owned by ADR-0002 SceneManager (parent ↔ child). NO _exit_tree() body (auto-tree-free + each child's R-N _exit_tree handles teardown). NO GameBus subscriptions on root (non-emitter + non-subscriber discipline)."
+    not_also_1: "Pre-instanced .tscn with all 6 children + late setup() via @onready (Alternative 1 rejected) — VIOLATES setup-before-add_child mandate codified in ADR-0010 R-N + ADR-0011 R-N + ADR-0013 R-1 + ADR-0014 R-2 + ADR-0015 R-2; would require 5 ADR amendments (~3-5h cross-document work) + breaks 5-invocation precedent stability. Pre-instanced children added to tree at .tscn instantiation time — setup() cannot fire before that. Each system's _ready() runs DI-null-checks AND subscribes to GameBus signals — both require backends present."
+    not_also_2: "Hybrid — MapGrid pre-instanced in .tscn, others code-driven (Alternative 2 rejected) — marginal editor benefit doesn't outweigh cognitive overhead of mixed-pattern. MapGrid currently lacks setup() signature (per ADR-0004 it loads from MapResource @export). Future ADR-0004 amendment adding setup(map_resource) for symmetry would force moving MapGrid back to code-driven. Mixed pattern (1 pre-instanced + 5 code-driven) creates cognitive overhead — readers must remember which is which."
+    not_also_3: "Dedicated BattleSetupCoordinator class separate from BattleScene root (Alternative 3 rejected) — BattleSetupCoordinator must add_child() to its PARENT (BattleScene) which is unusual scene-tree convention. Adds 1 more Node to tree for marginal benefit. scene-root-as-orchestrator is more idiomatic for Godot. Future scene roots refactor at point-of-need (YAGNI)."
+    not_also_4: "Use await / async load via ResourceLoader.load_threaded_request inside _ready() (Alternative 4 rejected) — redundant with ADR-0002's threaded BattleScene load at SceneManager level. By the time BattleScene._ready() fires, MapResource already in memory. Adds async complexity (await semantics + error handling) without clear benefit. Sprint-6 6×6 mock map <1KB — trivially fast."
+    adr: docs/architecture/ADR-0016-battle-scene-wiring.md
+    reason: "NEW scene-root-as-orchestrator pattern — distinct from 5-precedent battle-scoped Node setup() pattern (Camera + HP/Status + Turn Order + Grid Battle + Battle HUD) because BattleScene IS the scene root, not a child of one. Lifecycle owned by ADR-0002 SceneManager (parent ↔ child relationship: SceneManager creates and frees BattleScene; BattleScene creates and frees its 6 child systems via auto-tree-free). Pattern reusable for future scene roots: OverworldScene, MainMenuScene, BattlePrepScene. Mobile budgets (60fps / 16.6ms) handle <50ms one-time _ready() mount comfortably (well within ADR-0002's 2000ms BattleScene load budget). 6-step mount sequence is FORCED (not chosen) — exactly 1 valid topological sort of the dependency DAG. Auto-tree-free teardown delegates cleanly to existing per-ADR _exit_tree() mandates (TD-057 retrofit pattern + 4-precedent stable: HPStatusController + BattleCamera + GridBattleController + TurnOrderRunner). Sprint-6 ships the +1 playable-surface delta target via inline mock encounter (TR-battle-scene-wiring-004) + project.godot main_scene flip (TR-battle-scene-wiring-005) — both have explicit deletion sites for ADR-0017 Scenario Progression migration."
+    referenced_by:
+      - docs/architecture/ADR-0016-battle-scene-wiring.md
+      - docs/architecture/ADR-0002-scene-manager.md  # SceneManager owns Overworld↔BattleScene transition lifecycle
+      - docs/architecture/ADR-0010-hp-status.md  # battle-scoped Node mount step 3
+      - docs/architecture/ADR-0011-turn-order.md  # battle-scoped Node mount step 4
+      - docs/architecture/ADR-0013-camera.md  # battle-scoped Node mount step 2
+      - docs/architecture/ADR-0014-grid-battle-controller.md  # battle-scoped Node mount step 5
+      - docs/architecture/ADR-0015-battle-hud.md  # battle-scoped Control mount step 6 under HUDLayer
+    added: 2026-05-03
+    revised: ""
+
 # Example:
 #
 # api_decisions:
@@ -1604,6 +1685,30 @@ forbidden_patterns:
     why: "Per .claude/docs/technical-preferences.md (i18n via tr() obligation) + design/ux/battle-hud.md (locale keys explicitly named throughout — e.g., forecast.no_counter.defend_stance, forecast.passive.rally) + design/gdd/destiny-branch.md (locale keys for Beat 7 reveal text). Hardcoded strings break locale switching at runtime + force HUD code changes for every new locale + miss the live-translation-preview Godot 4.5 feature. Mirrors no prior forbidden_pattern for i18n (first dedicated i18n lint in the project) — establishes precedent for future UI ADRs. The lint exempts format placeholders (e.g., '%d HP') which are concatenation patterns, not localized strings; the key + format obligation is on the tr() call site, not the format string itself."
     adr: docs/architecture/ADR-0015-battle-hud.md
     added: 2026-05-03
+
+  - pattern: battle_scene_pre_instanced_children
+    status: active
+    description: "scenes/battle/battle_scene.tscn MUST contain EXACTLY 3 nodes (BattleScene root Node2D + GridLayer Node2D + HUDLayer CanvasLayer with layer=1). NO other children pre-instanced via the Godot editor — all 6 system Nodes (MapGrid + BattleCamera + HPStatusController + TurnOrderRunner + GridBattleController + BattleHUD) are code-driven via the 6-step _ready() mount sequence in battle_scene.gd per TR-battle-scene-wiring-003. Lint tools/ci/lint_battle_scene_pre_instanced_children.sh asserts the .tscn file contains exactly 3 nodes; failure = pre-instanced child injected via editor (silently violates setup-before-add_child mandate from 5 prior ADRs)."
+    why: "Per ADR-0016 R-2 + R-7. Pre-instanced children are added to the tree at .tscn instantiation time — setup() cannot fire before that. Each system's _ready() runs DI-null-checks AND subscribes to GameBus signals — both require backends present. The setup-before-add_child mandate is codified in 5 prior ADRs (ADR-0010 R-N + ADR-0011 R-N + ADR-0013 R-1 + ADR-0014 R-2 + ADR-0015 R-2). If a developer accidentally drags a Node into the .tscn via the Godot editor, the lint catches it before merge — silent violation surfaces as race condition at runtime (DI null-check fires before backend reference set; signal subscription fires before backend exists). First scene-root-as-orchestrator pattern in the project — establishes precedent for future scene roots (OverworldScene, MainMenuScene, BattlePrepScene) following the same 3-node skeleton + code-driven mount discipline."
+    adr: docs/architecture/ADR-0016-battle-scene-wiring.md
+    added: 2026-05-03
+    lint_script: tools/ci/lint_battle_scene_pre_instanced_children.sh
+
+  - pattern: battle_scene_root_signal_subscription
+    status: active
+    description: "BattleScene root (src/feature/battle_scene/battle_scene.gd) MUST NOT subscribe to or emit any GameBus signal. Non-emitter + non-subscriber discipline (mirrors ADR-0015 BattleHUD non-emitter precedent). All cross-system signal flow goes through the 6 mounted children (HPStatusController + TurnOrderRunner + BattleCamera + GridBattleController + BattleHUD + MapGrid). Lint tools/ci/lint_battle_scene_no_gamebus_subscriptions.sh asserts grep -c 'GameBus\\..*\\.connect\\|GameBus\\..*\\.emit' src/feature/battle_scene/battle_scene.gd returns 0. The \\.connect / \\.emit anchors distinguish call sites from comments / variable names / docstrings."
+    why: "Per ADR-0016 R-7 + Implementation Notes IN-1. BattleScene root is a pure orchestrator: instantiates + sets up + adds children; no GameBus interaction; no _exit_tree body. If BattleScene root subscribes to GameBus signals, it would (a) duplicate subscription patterns owned by its 6 children (HUD/grid_controller/turn_runner/hp_controller/camera/map_grid each own their own GameBus surface per their respective ADRs), (b) require an _exit_tree() body to disconnect (currently NO body — auto-tree-free + per-child _exit_tree handles all teardown per TR-battle-scene-wiring-006), (c) blur the orchestrator-only role established by NEW scene-root-as-orchestrator pattern. First project precedent of pure-orchestrator non-emitter+non-subscriber discipline — establishes precedent for future scene roots (OverworldScene, MainMenuScene, BattlePrepScene)."
+    adr: docs/architecture/ADR-0016-battle-scene-wiring.md
+    added: 2026-05-03
+    lint_script: tools/ci/lint_battle_scene_no_gamebus_subscriptions.sh
+
+  - pattern: battle_scene_sprint6_mock_marker_must_exist
+    status: active
+    description: "Sprint-6 ONLY: src/feature/battle_scene/battle_scene.gd MUST contain explicit comment markers `# === SPRINT-6 MOCK ENCOUNTER ===` AND `# === END MOCK ===` (around the inline mock encounter loader region in _ready()) AND `# === SPRINT-6 MOCK ENCOUNTER HELPERS ===` AND `# === END SPRINT-6 MOCK ENCOUNTER HELPERS ===` (around the 4 mock helper methods _build_mock_roster_sprint6 / _make_mock_unit / _build_mock_map_resource_sprint6 / _make_uniform_grass_tiles). Lint tools/ci/lint_battle_scene_sprint6_mock_marker.sh asserts presence of all 4 marker tokens. **Sprint-7+ (post-ADR-0017 acceptance): the lint SEMANTIC FLIPS** to assert markers MUST NOT exist (i.e., the mock encounter region is FORBIDDEN post-ADR-0017 per the §Migration Plan §1 deletion checklist) — same patch as ADR-0017 acceptance includes the lint flip."
+    why: "Per ADR-0016 R-2 + Migration Plan §1 + R-4 mitigation. Sprint-6 ships the +1 playable-surface delta target via the inline mock encounter (4 units + 6×6 grass map) without blocking on Scenario Progression ADR (ADR-0017). The mock is technical debt (~50 LoC + 4 helpers) that MUST be deleted at ADR-0017 acceptance — explicit comment markers make the deletion mechanical. The lint serves a TWO-PHASE LIFECYCLE: (a) sprint-6 phase asserts markers exist (catches accidental deletion before ADR-0017 lands; protects the +1 playable-surface delta); (b) sprint-7+ phase asserts markers DO NOT exist (catches forgotten deletion when ADR-0017 lands; prevents technical debt accumulation). The semantic flip happens in same patch as ADR-0017 acceptance per §Migration Plan §4. Pattern boundary: lint scripts that change semantic across ADR lifecycle are valid project discipline (mirrors no prior forbidden_pattern — first project precedent of phase-flipping lint)."
+    adr: docs/architecture/ADR-0016-battle-scene-wiring.md
+    added: 2026-05-03
+    lint_script: tools/ci/lint_battle_scene_sprint6_mock_marker.sh
 
 # Example:
 #

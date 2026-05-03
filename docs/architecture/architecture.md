@@ -4,14 +4,14 @@
 
 | Field | Value |
 |---|---|
-| Version | 0.7 (partial-update: catches up to delta #9 ADR-0006 — **LAST Proposed ADR closed; all 12 ADRs now Accepted; ZERO Proposed ADRs remaining — clean architecture surface**; ADR-0006 date drift "Accepted 2026-04-26" corrected to "Accepted 2026-04-30 via /architecture-review delta #9" throughout this document) |
-| Last Updated | 2026-04-30 |
+| Version | 0.8 (partial-update: catches up to delta #11 ADR-0016 — **16 Accepted ADRs total; ZERO Proposed ADRs remaining; clean architecture surface; structural backfill of ~50 TRs across ADR-0013/0014/0015/0016 closes sprint-5 retrospective AI #2 carry; first scene-root-as-orchestrator pattern accepted via ADR-0016**) |
+| Last Updated | 2026-05-03 |
 | Engine | Godot 4.6 (pinned 2026-04-16) |
 | Language | GDScript |
 | Review Mode | lean |
-| GDDs Covered | 10 of 14 MVP (scan source: `design/gdd/`, 2026-04-18) |
-| ADRs Referenced | **12 Accepted (ALL — zero Proposed remaining)**: ADR-0001/0002/0003 (2026-04-18) · ADR-0004 (2026-04-20) · ADR-0008 (2026-04-25) · ADR-0012 (2026-04-26) · ADR-0009 (2026-04-28) · ADR-0007 + ADR-0005 + ADR-0010 + ADR-0011 + **ADR-0006 (all 2026-04-30 via deltas #5/#6/#7/#8/#9 respectively)** |
-| Technical Director Sign-Off | 2026-04-30 — **APPROVED WITH CONDITIONS** (partial-update v0.7; full sign-off pending Phase 3 Data Flow + Phase 4 API Boundaries + Phase 7 Architecture Principles authoring + ADR-0001 line 168 String→StringName advisory + ADR-0001 line 372 prose drift cleanup + ADR-0012 internal ContextResource unit_id type follow-up) |
+| GDDs Covered | 10 of 14 MVP (scan source: `design/gdd/`, 2026-04-18) + delta #10 battle-hud.md (UX spec) + delta #11 cross-scan ADR-0013/0014/0015/0016 |
+| ADRs Referenced | **16 Accepted (ALL — zero Proposed remaining)**: ADR-0001/0002/0003 (2026-04-18) · ADR-0004 (2026-04-20) · ADR-0008 (2026-04-25) · ADR-0012 (2026-04-26) · ADR-0009 (2026-04-28) · ADR-0007 + ADR-0005 + ADR-0010 + ADR-0011 + ADR-0006 (all 2026-04-30 via deltas #5/#6/#7/#8/#9 respectively) · ADR-0013 + ADR-0014 (both 2026-05-02 via lean mode authoring; ratified via delta #10 backfill) · ADR-0015 (2026-05-03 via delta #10 — first Presentation-layer ADR) · **ADR-0016 (2026-05-03 via delta #11 — scene-root-as-orchestrator NEW pattern)** |
+| Technical Director Sign-Off | 2026-04-30 — **APPROVED WITH CONDITIONS** (partial-update v0.8; full sign-off pending Phase 3 Data Flow + Phase 4 API Boundaries + Phase 7 Architecture Principles authoring + ADR-0001 line 168 String→StringName advisory + ADR-0001 line 372 prose drift cleanup + ADR-0012 internal ContextResource unit_id type follow-up) |
 | Lead Programmer Feasibility | _deferred — LP-FEASIBILITY skipped per lean mode (`production/review-mode.txt`)_ |
 
 ### Completeness tracker
@@ -24,8 +24,8 @@
 | 2 | Module Ownership | ✅ Platform + Foundation + Core (12 modules; Turn Order row rewritten this delta with ADR-0011 specifics + Blocker §1 closure) + first Feature module (Damage Calc, ADR-0012) written; 22 modules still deferred |
 | 3 | Data Flow | ⏳ deferred |
 | 4 | API Boundaries | ⏳ deferred |
-| 5 | ADR Audit | ✅ written (**12 Accepted ADRs** audited 2026-04-30; 0 cross-conflicts blocking; ADR-0012 unit_id type advisory **resolved 2026-04-30 delta #8 same-patch** — narrowed StringName → int at lines 91/109/340/343) |
-| 6 | Required ADRs | ✅ refreshed 2026-04-30 (Foundation 5/5; Core 2/2 → **3/3 Complete**; net-new **1-5** before Pre-Prod gate; **mandatory list pruned 1 → 0**) |
+| 5 | ADR Audit | ✅ written (**16 Accepted ADRs** audited 2026-05-03 delta #11; 0 cross-conflicts blocking; ADR-0012 unit_id type advisory **resolved 2026-04-30 delta #8 same-patch** — narrowed StringName → int at lines 91/109/340/343; ADR-0013/0014/0015/0016 added Feature/Presentation layer + 50 net-new TRs structural backfill closes sprint-5 retro AI #2 carry) |
+| 6 | Required ADRs | ✅ refreshed 2026-05-03 delta #11 (Foundation 5/5; Core 3/3 Complete; Feature 1/3 → **3/4** with ADR-0013/0014 + ADR-0016 BattleSceneWiring; Presentation 0/6 → **1/6** with ADR-0015 BattleHUD; **mandatory list 0 → 0** unchanged from delta #8; Vertical Slice candidates: ADR-0017 Scenario Progression sprint-6 should-have + ADR-0018 Destiny Branch sprint-6 nice-to-have + AI System sprint-7+ + Battle Preparation sprint-7+) |
 | 7 | Architecture Principles | ⏳ deferred |
 | 7 | Open Questions | ⏳ deferred |
 
@@ -158,20 +158,21 @@ Every system in `design/gdd/systems-index.md` (31 systems total) is assigned to 
 | **Core** | HP/Status System (#12) | MVP | design/gdd/hp-status.md | LOW |
 | **Core** | Turn Order / Action Management (#13) | MVP | design/gdd/turn-order.md | LOW |
 | **Core** | Save/Load System (#17, schema + migration) | VS | (not yet authored — ADR-0003 infra only) | MEDIUM |
-| **Feature** | Grid Battle System (#1) | MVP | design/gdd/grid-battle.md (v5.0 pending) | LOW |
-| **Feature** | Formation Bonus System (#3) | MVP | (not yet authored) | LOW |
-| **Feature** | Destiny Branch System (#4) | MVP | (not yet authored — **pillar-defining, top priority**) | LOW |
-| **Feature** | Scenario Progression (#6) | MVP | design/gdd/scenario-progression.md (v2.0 re-review pending) | LOW |
-| **Feature** | Battle Preparation (#7) | VS | (not yet authored) | LOW |
-| **Feature** | AI System (#8) | MVP | (not yet authored) | LOW |
+| **Feature** | Grid Battle System (#1) | MVP | design/gdd/grid-battle.md (ADR-0014 ✅ 2026-05-02 — Grid Battle Controller MVP-scoped; full GDD scope deferred per ADR-0014 §0 with 4 explicit deferral slots: AI / FormationBonusSystem / Rally / USE_SKILL) | LOW |
+| **Feature** | Formation Bonus System (#3) | MVP | (not yet authored — inline subset shipped in ADR-0014 §5; full FormationBonusSystem orchestration deferred per ADR-0014 §0 deferral row #2) | LOW |
+| **Feature** | Destiny Branch System (#4) | MVP | (not yet authored — **pillar-defining, top priority**; sprint-6 nice-to-have S6-11 / sprint-7 — sole consumer of `hidden_fate_condition_progressed` per ADR-0014 §8 + ADR-0015 §8 Pillar 2 lock) | LOW |
+| **Feature** | Scenario Progression (#6) | MVP | design/gdd/scenario-progression.md (v2.0 re-review pending; sprint-6 should-have S6-10 / sprint-7 critical — ADR-0017 chapter loader replaces ADR-0016 sprint-6 mock per §Migration Plan) | LOW |
+| **Feature** | Battle Preparation (#7) | VS | (not yet authored — sprint-7+) | LOW |
+| **Feature** | AI System (#8) | MVP | (not yet authored — sprint-7+; consumes ADR-0014 `get_battle_state_snapshot()` opaque API) | LOW |
 | **Feature** | Character Growth (#9) | VS | (not yet authored) | LOW |
 | **Feature** | Story Event (#10) | VS | (not yet authored) | LOW |
 | **Feature** | Damage/Combat Calculation (#11) | MVP | design/gdd/damage-calc.md rev 2.9.3 (ADR-0012 ✅ 2026-04-26 — first Feature-layer ADR) | LOW |
 | **Feature** | Equipment / Item (#15) | Alpha | (not yet authored) | LOW |
 | **Feature** | Destiny State (#16) | VS | (not yet authored) | LOW |
 | **Feature** | Class Conversion (#31) | VS | (not yet authored) | LOW |
-| **Feature** | Camera System (#22) | VS | (not yet authored) | **HIGH** (dual-focus interacts with camera input) |
-| **Presentation** | Battle HUD (#18) | Alpha | design/ux/battle-hud.md | **HIGH** (dual-focus, glow rework) |
+| **Feature** | Camera System (#22) | VS | (ADR-0013 ✅ 2026-05-02 — BattleCamera battle-scoped Camera2D 3rd-invocation pattern; HIGH-risk dual-focus surface validated at story-005 implementation) | **HIGH** (dual-focus interacts with camera input) |
+| **Feature (scene-root)** | **Battle Scene Wiring** (NEW pattern: scene-root-as-orchestrator) | MVP | (ADR-0016 ✅ 2026-05-03 via delta #11 — 6th invocation of battle-scoped Node lineage but distinct NEW pattern: BattleScene IS the scene root, mounts all 6 systems via 6-step DI-DAG-ordered _ready() mount sequence; reusable for OverworldScene/MainMenuScene/BattlePrepScene) | LOW (zero new post-cutoff API surface) |
+| **Presentation** | Battle HUD (#18) | Alpha | design/ux/battle-hud.md (ADR-0015 ✅ 2026-05-03 via /architecture-review delta #10 — first Presentation-layer ADR; 5th-invocation battle-scoped Control under CanvasLayer; first project precedent of pillar-anchored lint pattern via Pillar 2 lock 3-layer enforcement) | **HIGH** (dual-focus, glow rework, AccessKit, recursive Control disable) |
 | **Presentation** | Battle Preparation UI (#19) | Alpha | (not yet authored) | HIGH (dual-focus) |
 | **Presentation** | Story Event UI (#20) | Alpha | (not yet authored) | HIGH (dual-focus) |
 | **Presentation** | Main Menu / Scenario Select UI (#21) | Alpha | (not yet authored) | HIGH (dual-focus) |
