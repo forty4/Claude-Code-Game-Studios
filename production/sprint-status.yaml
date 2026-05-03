@@ -11,7 +11,7 @@ goal: "Ship first runnable BattleScene mounting 5 systems + ADR-0016 Battle Scen
 start: "2026-05-24"
 end: "2026-05-30"
 generated: "2026-05-03"
-updated: "2026-05-03"  # Sprint-6 NEWLY KICKED OFF post-sprint-5 retro write. 7 must + 3 should + 2 nice = 12 stories. AI #1-5 from sprint-5 retro all addressed in plan structure.
+updated: "2026-05-03"  # S6-01 done 2026-05-03 — ADR-0016 Battle Scene Wiring Proposed shipped (547 LoC, godot-specialist 12th PASS w/ 2 REVISIONS + 5 IN advisories).
 
 # Sprint-5 closed 13/13 (must-have 11/11 + should 2/2 + nice 0/0) by 2026-05-03 — 14-21 calendar
 # days ahead of 2026-05-23 deadline. 19th consecutive failure-free baseline (757 → 841 / +84 tests).
@@ -26,11 +26,18 @@ stories:
     name: "ADR-0016 Battle Scene Wiring authoring — BattleScene root + 5-system mount + scene tree topology"
     file: "docs/architecture/ADR-0016-battle-scene-wiring.md"
     priority: must-have
-    status: ready-for-dev
+    status: done
     owner: ""
     estimate_days: 0.4
     blocker: ""
-    completed: ""
+    completed: "2026-05-03"
+    # ADR-0016 Proposed shipped 2026-05-03 (~547 LoC). 6th ADR in battle-scoped lineage; NEW pattern
+    # scene-root-as-orchestrator (1 invocation; reusable for future scene roots). 6-step _ready() mount
+    # sequence locks DI order: MapGrid → BattleCamera → HPStatus → TurnOrder → GridBattle → BattleHUD.
+    # 3-node .tscn skeleton + sprint-6-only inline mock + project.godot main_scene flip (both reverted
+    # at ADR-0017 acceptance). godot-specialist 12th invocation PASS WITH 2 REVISIONS resolved same-patch
+    # + 5 advisories IN-1..IN-5 for S6-07. Closes registry line 825 placeholder. S6-02 fresh session
+    # required for Proposed → Accepted escalation per same-session ban.
 
   - id: "S6-02"
     name: "/architecture-review fresh session — escalate ADR-0016 Proposed → Accepted + structural backfill (~45 TRs + ~15 files)"
