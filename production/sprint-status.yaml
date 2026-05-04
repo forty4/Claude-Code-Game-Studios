@@ -11,7 +11,7 @@ goal: "Ship first runnable BattleScene mounting 5 systems + ADR-0016 Battle Scen
 start: "2026-05-24"
 end: "2026-05-30"
 generated: "2026-05-03"
-updated: "2026-05-04"  # battle-scene EPIC CLOSED 3/3 — story-003 (3 CI lints + verification summary), 883/883 PASS (25th consecutive failure-free baseline).
+updated: "2026-05-04"  # S6-10 done — ADR-0017 Scenario Progression Accepted via /architecture-review delta #12; Core layer 4/4; ADR-0018 UNBLOCKED.
 
 # Sprint-5 closed 13/13 (must-have 11/11 + should 2/2 + nice 0/0) by 2026-05-03 — 14-21 calendar
 # days ahead of 2026-05-23 deadline. 19th consecutive failure-free baseline (757 → 841 / +84 tests).
@@ -128,11 +128,17 @@ stories:
     name: "ADR-0017 Scenario Progression authoring — Beat 1 → Beat N data structure + chapter file format"
     file: "docs/architecture/ADR-0017-scenario-progression.md"
     priority: should-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.5
-    blocker: "S6-02"
-    completed: ""
+    blocker: ""
+    completed: "2026-05-04"
+    # ADR-0017 Proposed shipped 2026-05-04 (~700 LoC; godot-specialist 2 BLOCKING fixes inline G-3 + typed-Dict-export).
+    # Proposed → Accepted via /architecture-review delta #12 same-day fresh-session (2nd combined-session pattern after #11).
+    # godot-specialist 14th invoke PASS WITH 3 CORRECTIONS resolved same-patch: Path A user decision widened ADR-0001
+    # scenario_complete payload String → ScenarioResult per CR-16 + F-SP-4 + scenario_beat_retried PROVISIONAL → RATIFIED
+    # 3-field EchoMark + 2 ADVISORY IN-1/IN-2. 12 net-new TR-scenario-progression-004..015 + 5 forbidden_patterns
+    # (Pillar 2 lock 2nd precedent) + 8 stale-ref backfill flips. Core layer 3/3 → 4/4 Complete; ADR-0018 UNBLOCKED.
 
   - id: "S6-11"
     name: "ADR-0018 Destiny Branch authoring — sole consumer of hidden_fate_condition_progressed + Beat 7 reveal"
@@ -141,7 +147,7 @@ stories:
     status: backlog
     owner: ""
     estimate_days: 0.5
-    blocker: "S6-10"
+    blocker: ""  # UNBLOCKED 2026-05-04 — S6-10 done; F-SP-1/F-SP-2 callable signatures + DestinyBranchJudge contract locked by ADR-0017
     completed: ""
 
   - id: "S6-12"

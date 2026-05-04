@@ -144,8 +144,8 @@ signal chapter_started(chapter_id: String, chapter_number: int)
 signal battle_prepare_requested(payload: BattlePayload)
 signal battle_launch_requested(payload: BattlePayload)
 signal chapter_completed(result: ChapterResult)
-signal scenario_complete(scenario_id: String)
-signal scenario_beat_retried(mark: EchoMark)
+signal scenario_complete(result: ScenarioResult)  # payload widened String → ScenarioResult Resource via /architecture-review delta #12 (2026-05-04) per ADR-0017 §CR-16 + F-SP-4
+signal scenario_beat_retried(mark: EchoMark)      # PROVISIONAL → RATIFIED via /architecture-review delta #12 (2026-05-04) — shipped 3-field EchoMark schema (beat_index/outcome/tag) per ADR-0003 §Schema Stability
 
 # ═══ DOMAIN: Grid Battle (emitter: BattleController) ═══════════════════════════
 signal battle_outcome_resolved(outcome: BattleOutcome)
@@ -280,8 +280,8 @@ This is the authoritative contract. Scenario Progression GDD v2.0 cites this tab
 | `battle_prepare_requested` | `BattlePayload` (Resource) | `map_id: String`, `unit_roster: PackedInt64Array`, `deployment_positions: Dictionary`, `victory_conditions: VictoryConditions`, `battle_start_effects: Array[BattleStartEffect]` | ScenarioRunner (BATTLE_PREP entry) | Battle Preparation UI (not MVP — deferred), Battle HUD | discrete |
 | `battle_launch_requested` | `BattlePayload` (Resource) | (same as above) | ScenarioRunner (BATTLE_PREP → IN_BATTLE) | SceneManager (Grid Battle scene instantiation) | discrete |
 | `chapter_completed` | `ChapterResult` (Resource) | `chapter_id: String`, `outcome: BattleOutcome.Result`, `branch_triggered: String`, `flags_to_set: Array[String]` | ScenarioRunner (BRANCH_JUDGMENT → TRANSITION) | Destiny State, Save/Load | discrete |
-| `scenario_complete` | `String` | `scenario_id: String` | ScenarioRunner (COMPLETE entry) | Main Menu, Save/Load | discrete |
-| `scenario_beat_retried` | `EchoMark` (Resource) `[PROVISIONAL — locked by Destiny State GDD #16]` | Provisional shape: `chapter_id: String`, `beat_number: int`, `retry_count: int`, `timestamp_unix: int`. Final shape owned by Destiny State. | ScenarioRunner (on retry, LOSS → BATTLE_PREP loop) | Destiny State, Story Event (Beat 2 echo content) | discrete |
+| `scenario_complete` | `ScenarioResult` (Resource) | `chapter_outcomes: Array[Dictionary]`, `canonical_delta: PackedStringArray`, `scenario_path_key: String` (F-SP-4 composition: branch_path_ids joined by `"::"`), `total_echo: int` (sum of echo_count_at_completion across all chapters) — RATIFIED via /architecture-review delta #12 (2026-05-04). Payload widened String → ScenarioResult per ADR-0017 §CR-16 + F-SP-4 GDD intent. | ScenarioRunner (SCENARIO_END entry) | Main Menu, Save/Load | discrete |
+| `scenario_beat_retried` | `EchoMark` (Resource) | RATIFIED via /architecture-review delta #12 (2026-05-04) — shipped 3-field EchoMark schema: `beat_index: int` (1..9), `outcome: StringName` (narrative tag), `tag: StringName` (downstream-query tag) per ADR-0003 §Schema Stability + `src/core/payloads/echo_mark.gd`. Future schema evolution (e.g., adding `chapter_id`) goes through `SaveMigrationRegistry` per ADR-0003. | ScenarioRunner (on retry confirm, BEAT_6_RESULT LOSS/DRAW → BEAT_4_PREP loop) | Destiny State, Story Event (Beat 2 echo content) | discrete |
 
 #### 2. Grid Battle domain (Emitter: BattleController)
 
@@ -360,14 +360,17 @@ This is the authoritative contract. Scenario Progression GDD v2.0 cites this tab
 
 **Total signal count: 27 signals across 10 domains.**
 
-**PROVISIONAL signals: 4** (all payload-shape-provisional; all emitter+name locked):
-- `scenario_beat_retried` — shape TBD by Destiny State GDD #16
-- `destiny_branch_chosen` — shape TBD by Destiny Branch GDD #4
+**PROVISIONAL signals: 3** (all payload-shape-provisional; all emitter+name locked):
+- `destiny_branch_chosen` — shape TBD by Destiny Branch GDD #4 (ADR-0018 Backlog)
 - `destiny_state_echo_added` — shape TBD by Destiny State GDD #16
 - `beat_visual_cue_fired` / `beat_audio_cue_fired` — shape TBD by Story Event GDD #10 (counted as 2 but share one provisional payload class)
 
 **PROVISIONAL → RATIFIED (2026-04-18)**:
 - `save_checkpoint_requested` — shape ratified by ADR-0003 as `(source: SaveContext)`.
+
+**PROVISIONAL → RATIFIED (2026-05-04 via /architecture-review delta #12)**:
+- `scenario_beat_retried` — shape ratified by ADR-0017 as `(mark: EchoMark)` using shipped 3-field schema (beat_index/outcome/tag) per ADR-0003 §Schema Stability. Future schema evolution via `SaveMigrationRegistry`. Supersedes the provisional 4-field GDD-line-183 shape (chapter_id/beat_number/retry_count/timestamp_unix).
+- `scenario_complete` — payload widened from `(scenario_id: String)` to `(result: ScenarioResult)` per ADR-0017 §CR-16 + F-SP-4 GDD intent. Adds 4 typed fields (chapter_outcomes / canonical_delta / scenario_path_key / total_echo) for Pillar 4 substrate (per-scenario chapter-archive composition). NOT a provisional ratification — this is a payload widening of a previously-locked signal; one-time same-patch amendment under delta #12 cross-ADR conflict resolution.
 
 **MVP systems that are non-emitters by design** (and WHY — so nobody adds bus traffic later without a superseding ADR):
 - **Map/Grid (#14)** — query-first spatial service; 9 public queries (`get_tile`, `get_movement_range`, `get_path`, `get_attack_range`, `get_attack_direction`, `get_adjacent_units`, `get_occupied_tiles`, `has_line_of_sight`, `get_map_dimensions`) are direct calls, not events. **Exception (ADR-0004 amendment 2026-04-18):** Map/Grid emits exactly one signal, `tile_destroyed(coord: Vector2i)`, because destruction affects AI path caches and Formation adjacency in systems that are not in the call chain. No other Map/Grid state change should ever become a signal without a superseding ADR.

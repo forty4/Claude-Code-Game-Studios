@@ -24,8 +24,17 @@
 #
 # STATUS VALUES: active | deprecated | superseded-by: TR-[system]-NNN
 
-version: 12
-last_updated: "2026-05-03"
+version: 13
+last_updated: "2026-05-04"
+# 2026-05-04 (/architecture-review delta #12): structural append — 12 net-new
+# TR-IDs registered for ADR-0017 Scenario Progression (TR-scenario-progression-004
+# through 015) covering ScenarioRunner autoload + 13-state machine + ChapterDefinition
+# Resource + 7-signal contract + F-SP-3 v2.2 seal + F-SP-1/F-SP-2 delegation + retry-loop +
+# 3-CP save + BattlePayload reuse + JSON validation + 5 forbidden_patterns +
+# Migration Plan §1 atomicity. Combined session: ADR-0017 escalation Proposed →
+# Accepted via delta #12 + this structural append in single fresh session per
+# sprint-6 S6-10. Pattern stable at 12 invocations of /architecture-review.
+#
 # 2026-05-03 (/architecture-review delta #11): structural backfill — 50 net-new
 # TR-IDs registered for ADR-0013 BattleCamera (8) + ADR-0014 GridBattleController
 # (14) + ADR-0015 BattleHUD (17) + ADR-0016 BattleSceneWiring (11). Closes
@@ -1910,5 +1919,101 @@ requirements:
     adr: docs/architecture/ADR-0016-battle-scene-wiring.md
     requirement: "§Implementation Guidelines + Migration Plan §1 — 3 lint scripts at S6-07 first story (epic-terminal): (1) `tools/ci/lint_battle_scene_pre_instanced_children.sh` (TR-battle-scene-wiring-002); (2) `tools/ci/lint_battle_scene_no_gamebus_subscriptions.sh` (TR-battle-scene-wiring-007); (3) `tools/ci/lint_battle_scene_sprint6_mock_marker.sh` (TR-battle-scene-wiring-004 + TR-battle-scene-wiring-010). All 3 wired into `.github/workflows/tests.yml` after the 5 battle-hud lint group. S6-07 smoke evidence at `production/qa/evidence/battle_scene_smoke_2026-05-XX.md` (covers 3 launch sources × 6 mount steps = 18 verification points). Integration smoke test at `tests/integration/feature/battle_scene/battle_scene_smoke_test.gd` asserting 6 children mount + 0 errors / 0 orphans per Acceptance Criteria. Future implementation files (created at S6-07): `scenes/battle/battle_scene.tscn` (3-node skeleton) + `src/feature/battle_scene/battle_scene.gd` (orchestrator script) + 3 lint scripts + smoke test + smoke evidence doc."
     created: 2026-05-03
+    revised: ""
+    status: active
+
+  - id: TR-scenario-progression-004
+    system: scenario-progression
+    adr: docs/architecture/ADR-0017-scenario-progression.md
+    requirement: "§Decision §Class Form — ScenarioRunner is an autoload Node (extends Node, NO `class_name` per godot-4x-gotchas G-3). Registered in project.godot [autoload] section at boot order position 6 after GameBus (1) → SceneManager (2) → SaveManager (3) → GameBusDiagnostics (4) → BuildModeSentinel (5) → ScenarioRunner (6). Single instance, persistent across Overworld↔BattleScene transitions per ADR-0002. Lifecycle owned by SceneTree, NOT by SceneManager. Cross-scene state continuity is the core value (the 13-state machine cannot reset when SceneManager swaps scenes). 5-precedent project pattern: GameBus + SceneManager + SaveManager + GameBusDiagnostics + BuildModeSentinel are all autoloads without class_name; ScenarioRunner is the 6th."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-scenario-progression-005
+    system: scenario-progression
+    adr: docs/architecture/ADR-0017-scenario-progression.md
+    requirement: "§Decision §State Machine Form — 13-state enum + match-statement single authoritative `_state: State` field. State enum: { LOADING, CHAPTER_START, BEAT_1_ANCHOR, BEAT_2_ECHO, BEAT_3_BRIEF, BEAT_4_PREP, BATTLE_LOADING, BEAT_5_BATTLE, BEAT_6_RESULT, BEAT_7_JUDGMENT, BEAT_8_REVEAL, BEAT_9_TRANSITION, SCENARIO_END }. Transitions via `_transition_to(target: State)` method with explicit enum-driven guards. The single backward edge BEAT_6_RESULT → BEAT_4_PREP (retry) is the only legal backward transition; all others forward-only per AC-SP-13 invariant. Matches scenario-progression.md §States and Transitions table 1:1. Matches SceneManager ADR-0002 enum + match precedent (pattern stable at 2 invocations). Forbidden via `scenario_runner_arbitrary_state_jump` registry pattern + future lint `lint_scenario_runner_state_match_exhaustive.sh`."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-scenario-progression-006
+    system: scenario-progression
+    adr: docs/architecture/ADR-0017-scenario-progression.md
+    requirement: "§Decision §Chapter Data Form — Typed `class_name ChapterDefinition extends Resource` with 13 @export fields (chapter_id / chapter_number / map_id / author_draw_branch / echo_threshold / branch_table / beat_1_text_key / beat_2_fragment / beat_3_text_key / beat_8_revelations / beat_9_text_key / player_unit_ids / player_commander_id / enemy_unit_ids / deployment_positions_default / victory_conditions / defeat_conditions / battle_start_effects / canonical_branch_key) hydrated from `assets/data/scenarios/{scenario_id}.json` at LOADING entry via JSON.parse_string(). branch_table is UNTYPED Dictionary `@export var branch_table: Dictionary = {}` per GDScript 4.6 typed-Dictionary-export prohibition (G-2 codified in `terrain_effect.gd:16-20`); internal access casts values to String. Matches MapResource + HeroData + BalanceConstants 3-precedent typed-Resource-from-JSON pattern. ChapterLoader logic owned by ScenarioRunner (no separate ChapterLoader class)."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-scenario-progression-007
+    system: scenario-progression
+    adr: docs/architecture/ADR-0017-scenario-progression.md
+    requirement: "§Decision + ADR-0001 §1 amended — ScenarioRunner is sole emitter of 7 signals: 5 confirmed (chapter_started / battle_prepare_requested / battle_launch_requested / chapter_completed / scenario_complete) + 2 ratified at /architecture-review delta #12 (scenario_beat_retried as 3-field shipped EchoMark per ADR-0003 §Schema Stability; save_checkpoint_requested as SaveContext per ADR-0003). scenario_complete payload widened String → ScenarioResult Resource (4 fields: chapter_outcomes / canonical_delta / scenario_path_key / total_echo) at delta #12 acceptance per CR-16 + F-SP-4 GDD intent. Subscribers: SceneManager (battle_launch_requested) / SaveManager (save_checkpoint_requested) / Story Event (chapter_started + scenario_beat_retried) / Destiny State (chapter_completed + scenario_beat_retried) / Battle HUD (chapter_started + chapter_completed) / Main Menu (scenario_complete). Cross-scene connects use CONNECT_DEFERRED per ADR-0001."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-scenario-progression-008
+    system: scenario-progression
+    adr: docs/architecture/ADR-0017-scenario-progression.md
+    requirement: "§Decision §F-SP-1/F-SP-2 + scenario-progression.md §F-SP-3 v2.2 systems-designer B-1 invariant — ScenarioRunner._enter_beat_7_judgment() seals `_scenario_state.first_attempt_resolved` SYNCHRONOUSLY at BEAT_7 entry BEFORE DestinyBranchJudge.resolve(...) reads it. NO call_deferred between BEAT_6_RESULT exit and BEAT_7_JUDGMENT entry; NO CONNECT_DEFERRED for the BEAT_7 entry handler; NO await keyword. Forbidden via `scenario_runner_deferred_seal_in_beat_7_entry` registry pattern + future lint `lint_scenario_runner_no_deferred_in_beat_7_seal.sh`. Pillar 2 (운명은 바꿀 수 있다) hidden-fate semantics depend on this seal happening atomically with BEAT_7 entry — second project precedent of pillar-anchored lint pattern after `battle_hud_subscribes_to_hidden_fate_signal` (ADR-0015)."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-scenario-progression-009
+    system: scenario-progression
+    adr: docs/architecture/ADR-0017-scenario-progression.md
+    requirement: "§Decision §F-SP-1/F-SP-2 Execution + scenario-progression.md §F-SP-1 owner-vs-executor split (2026-04-19 patch) — F-SP-1 (resolve_branch) and F-SP-2 (is_echo_gate_open) are pure functions delegated to `DestinyBranchJudge.resolve(chapter, outcome, echo_count, first_attempt_resolved) -> DestinyBranchChoice` from ADR-0018 (Backlog; UNBLOCKED by this delta). ScenarioRunner does NOT inline these formulas. ADR-0017 owns the formula spec (callable signature + behavior + edge cases); ADR-0018 owns the executor class + DestinyBranchChoice payload shape. Substitutability: future Ch4+ alternative branch resolution (e.g., echo-gated ALL outcomes) replaces DestinyBranchJudge without touching ScenarioRunner."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-scenario-progression-010
+    system: scenario-progression
+    adr: docs/architecture/ADR-0017-scenario-progression.md
+    requirement: "§Decision §Retry-Loop Guard + scenario-progression.md §CR-7 + CR-8 + F-SP-3 — ScenarioRunner._on_retry_confirmed() implements two-layer defense: (1) enum-state guard `assert(_state == State.BEAT_6_RESULT)` ensures retry can only be invoked from BEAT_6_RESULT (prevents arbitrary-beat jumps per AC-SP-12); (2) outcome assertion `assert(outcome == LOSS or outcome == DRAW)` ensures retry only on LOSS/DRAW (CR-8 violation prevention). Echo cap `ECHO_COUNT_HARD_CAP = 100` sourced from `BalanceConstants.scenario_progression_echo_cap` (matches `damage_calc_no_hardcoded_constants` precedent; configurable without source change). On retry: `_scenario_state.echo_count++` + emit `scenario_beat_retried(EchoMark)` + `_transition_to(State.BEAT_4_PREP)` (Beats 1/2/3 do NOT re-fire per CR-8). Engine-side overflow fence at echo cap, NOT a design target."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-scenario-progression-011
+    system: scenario-progression
+    adr: docs/architecture/ADR-0017-scenario-progression.md
+    requirement: "§Decision §Architecture Diagram + ADR-0003 §3-CP policy — ScenarioRunner is sole emitter of `save_checkpoint_requested(SaveContext)` at exactly 3 timing points per chapter: CP-1 at BEAT_1_ANCHOR entry, CP-2 at BEAT_7_JUDGMENT entry POST-SEAL (after first_attempt_resolved is set, before DestinyBranchJudge.resolve), CP-3 at BEAT_9_TRANSITION entry. SaveContext construction goes through single `_make_save_context(cp_kind: SaveCheckpoint) -> SaveContext` helper which asserts all required fields populated (chapter_id / outcome / branch_key / echo_count / echo_marks_archive / flags_to_set per ADR-0003 schema). Direct SaveContext.new() outside the helper is forbidden via `scenario_runner_save_context_partial_emit` registry pattern + future lint `lint_scenario_runner_save_context_complete.sh`. NO mid-battle save (CR-15 #10): app suspension during BEAT_5_BATTLE resumes from CP-1 (most recent CP)."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-scenario-progression-012
+    system: scenario-progression
+    adr: docs/architecture/ADR-0017-scenario-progression.md
+    requirement: "§Decision §`BattleConfig` = Reuse `BattlePayload` Resource — `ScenarioRunner.get_active_battle_config(): BattlePayload` returns the same Resource constructed by `_build_battle_payload(chapter, deployment_positions)` and emitted via `battle_launch_requested(BattlePayload)`. NO new BattleConfig type. ADR-0001 line 524 BattlePayload shape (5 fields: map_id / unit_roster / deployment_positions / victory_conditions / battle_start_effects) is sufficient. ADR-0016 §Migration Plan §1 placeholder name `battle_config` (variable in BattleScene._ready()) ratified as type `BattlePayload`. Beat 7 chapter context (chapter_id, branch resolution) flows through `chapter_completed(ChapterResult)` after battle, NOT into BattleScene at mount."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-scenario-progression-013
+    system: scenario-progression
+    adr: docs/architecture/ADR-0017-scenario-progression.md
+    requirement: "§Decision §JSON Schema + scenario-progression.md §EC-SP-8 — ChapterLoader validation pipeline at LOADING state entry: (1) JSON.parse_string(); push_error + emit scenario_fault on parse failure. (2) Top-level: scenario_id String + chapters Array. (3) Per-chapter (FATAL on any failure): chapter_id matches `^[a-z][a-z0-9_]*$`; branch_table values match `^[A-Za-z0-9_]+$` (F-SP-4 delimiter constraint); author_draw_branch IMPLIES at least one branch_key starts with `DRAW_`; echo_threshold ≥ 1 for chapter_number > 1 (Ch1 may have echo_threshold == 0); all beat_8_revelations entries reference branch_keys in branch_table.values(); canonical_branch_key in branch_table.values() (Pillar 4 enforcement per destiny-branch rev 1.1). On any FATAL: `_load_scenario_failed = true`; emit `scenario_fault(scenario_id, fault, details)`; ScenarioRunner remains in LOADING state. ChapterDefinition Resource is hydrated only from VALIDATED JSON — prevents partial-state hazards."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-scenario-progression-014
+    system: scenario-progression
+    adr: docs/architecture/ADR-0017-scenario-progression.md
+    requirement: "§Forbidden Patterns + delta #12 registry — 5 ScenarioRunner-domain forbidden_patterns registered in docs/registry/architecture.yaml v10 → v11 (this delta): (1) `scenario_runner_arbitrary_state_jump` (lint: lint_scenario_runner_state_match_exhaustive.sh sprint-7+); (2) `scenario_runner_branch_table_runtime_mutation` (lint: lint_scenario_runner_branch_table_immutable.sh sprint-7+); (3) `scenario_runner_save_context_partial_emit` (lint: lint_scenario_runner_save_context_complete.sh sprint-7+); (4) `scenario_runner_deferred_seal_in_beat_7_entry` (Pillar 2 architectural lock — second project precedent of pillar-anchored lint pattern; lint: lint_scenario_runner_no_deferred_in_beat_7_seal.sh sprint-7+); (5) `scenario_runner_outcome_synthesis` (CR-3 invariant; trivially verified via grep)."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-scenario-progression-015
+    system: scenario-progression
+    adr: docs/architecture/ADR-0017-scenario-progression.md
+    requirement: "§Migration Plan + ADR-0016 Migration Plan §1 — At ADR-0017 sprint-7+ implementation patch (single coordinated commit), 11 mechanical changes ship atomically: (1) create src/core/scenario_runner.gd (extends Node, NO class_name per G-3; 600-800 LoC); (2) create src/core/payloads/chapter_definition.gd (class_name ChapterDefinition extends Resource); (3) EchoMark already shipped at src/core/payloads/echo_mark.gd — NO redefinition; future schema changes via SaveMigrationRegistry per ADR-0003; (4) create src/core/payloads/scenario_result.gd (class_name ScenarioResult extends Resource); (5) create assets/data/scenarios/mvp_shu.json (3-5 chapter MVP authored content); (6) register ScenarioRunner autoload in project.godot at boot position 6; (7) revert ADR-0016 sprint-6 mock encoder block (~50 LoC + helpers); (8) revert project.godot run/main_scene to title-screen / overworld; (9) flip lint_battle_scene_sprint6_mock_marker.sh semantic from 'MUST exist' to 'MUST NOT exist'; (10) re-author smoke evidence doc battle_scene_smoke_2026-XX-XX.md; (11) update battle_scene_verification_summary.md §E. Step 12 (3 ScenarioRunner-domain CI lints) follows in ScenarioRunner CI hardening sprint-7+ story."
+    created: 2026-05-04
     revised: ""
     status: active

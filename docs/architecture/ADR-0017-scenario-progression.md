@@ -1,10 +1,10 @@
 # ADR-0017: Scenario Progression — ScenarioRunner Autoload, 13-State Machine, 9-Beat Per-Chapter Rhythm, Chapter JSON Schema, and 5-Signal GameBus Contract
 
 ## Status
-Proposed
+Accepted (2026-05-04 via /architecture-review delta #12)
 
 ## Date
-2026-05-04
+2026-05-04 (Proposed) → 2026-05-04 (Accepted; same-day fresh-session escalation per project precedent ADR-0015 + ADR-0016)
 
 ## Engine Compatibility
 
@@ -44,7 +44,7 @@ This ADR resolves these 6 codification gaps. Sprint-6 ships the placeholder (moc
 ### Constraints
 
 **Technical:**
-- Must integrate with ADR-0001 GameBus signal contract (5 confirmed + 2 PROVISIONAL signals; Scenario domain ownership LOCKED). No new signals beyond those 7.
+- Must integrate with ADR-0001 GameBus signal contract (5 confirmed + 2 PROVISIONAL signals; Scenario domain ownership LOCKED). No new signals beyond those 7. **Note**: at /architecture-review delta #12 acceptance (2026-05-04), the `scenario_complete` payload was widened String → ScenarioResult (4-field typed Resource per §CR-16 + F-SP-4 GDD intent) via same-patch ADR-0001 amendment; `scenario_beat_retried` was ratified PROVISIONAL → Accepted with the shipped 3-field EchoMark schema per ADR-0003 §Schema Stability. These are payload ratifications/widenings within the existing 7-signal contract — NOT new signals.
 - Must integrate with ADR-0003 SaveContext Resource shape (LOCKED: `chapter_id`, `outcome`, `branch_key`, `echo_count`, `echo_marks_archive`, `flags_to_set`). No SaveContext field additions in this ADR; ADR-0017 only emits `save_checkpoint_requested` with the locked shape at the 3 timing points.
 - Must integrate with ADR-0014 BattleOutcome shape (LOCKED). ScenarioRunner consumes `battle_outcome_resolved(BattleOutcome)` but does NOT mutate or override.
 - Must satisfy ADR-0016 Migration Plan §1: at this ADR's implementation acceptance, the sprint-6 mock encoder block + `project.godot` `run/main_scene` flip + sprint-6 lint marker discipline all revert in a single coordinated patch.
@@ -526,6 +526,10 @@ class_name ScenarioResult extends Resource
 ## Implementation Notes
 
 (Note section reserved for implementation drift trail per project precedent — same shape as ADR-0016's IN-N entries appended during S6-07 implementation. To be populated when sprint-7+ implementation surfaces production-signature drifts.)
+
+**IN-1 (godot-specialist /architecture-review delta #12 ADVISORY 2026-05-04 — test fixture State enum access)**: The `enum State { ... }` declared at line ~306 of the autoload script body IS accessible via the autoload global identifier (`ScenarioRunner.State.LOADING`) at runtime — this is the same pattern SceneManager uses per ADR-0002 precedent. **However**, GdUnit4 test fixtures that load the script directly via `load("res://src/core/scenario_runner.gd")` (without booting the full autoload stack — common in headless unit tests) MUST access the enum via the loaded GDScript's constant map: `(load("res://src/core/scenario_runner.gd") as GDScript).get_script_constant_map()` — direct `ScenarioRunner.State.X` will fail in that context. Sprint-7+ test author: prefer the autoload-syntax form for integration tests; use the constant-map form only for unit-level isolation. Same gotcha shape as G-3 §Test consequence in `.claude/rules/godot-4x-gotchas.md`.
+
+**IN-2 (godot-specialist /architecture-review delta #12 ADVISORY 2026-05-04 — Time vs OS API)**: `_state_entered_at_msec: int = 0` field at line ~110 is populated for min-dwell-time enforcement (CR-2 1s/2s/1.5s gates). Sprint-7+ implementer MUST use `Time.get_ticks_msec()` — NOT the deprecated `OS.get_ticks_msec()` (deprecated since Godot 4.0 per `docs/engine-reference/godot/deprecated-apis.md`). Same precedent across the project (no `OS.get_ticks_msec()` calls in `src/`).
 
 ## Forbidden Patterns
 

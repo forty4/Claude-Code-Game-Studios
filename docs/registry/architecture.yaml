@@ -29,8 +29,55 @@
 #   All forbidden patterns: Grep pattern="^  - pattern:" (forbidden_patterns section)
 #   Superseded entries:     Grep pattern="status: superseded"
 
-version: 10
-last_updated: "2026-05-03"
+version: 11
+last_updated: "2026-05-04"
+# 2026-05-04 (/architecture-review delta #12): ADR-0017 Scenario Progression
+# escalated Proposed → Accepted same-day (fresh-session per same-session-ban
+# discipline). v10 → v11 adds 1 state_ownership (scenario_runner_runtime_state),
+# 1 interface (scenario_progression_signal_contract), 1 api_decision
+# (scenario_runner_module_form), 5 forbidden_patterns
+# (scenario_runner_arbitrary_state_jump,
+# scenario_runner_branch_table_runtime_mutation,
+# scenario_runner_save_context_partial_emit,
+# scenario_runner_deferred_seal_in_beat_7_entry,
+# scenario_runner_outcome_synthesis). Same-session godot-specialist 14th
+# invocation = PASS WITH 3 CORRECTIONS resolved same-patch:
+# (1) BLOCKING cross-ADR signal-payload conflict — ADR-0001 line 147
+# `scenario_complete(scenario_id: String)` widened to
+# `scenario_complete(result: ScenarioResult)` per ADR-0017 §CR-16 + F-SP-4 GDD
+# intent (4-field typed Resource: chapter_outcomes / canonical_delta /
+# scenario_path_key / total_echo). Ratification path same as ADR-0003
+# `save_checkpoint_requested` 2026-04-18 ratification precedent. (2) BLOCKING
+# stale-ref backfill — ADR-0001 line 284 `scenario_beat_retried` flipped
+# PROVISIONAL → RATIFIED with the SHIPPED 3-field EchoMark schema
+# (beat_index/outcome/tag) per ADR-0003 §Schema Stability + shipped
+# `src/core/payloads/echo_mark.gd`; supersedes provisional 4-field GDD-line-183
+# shape (chapter_id/beat_number/retry_count/timestamp_unix). Future schema
+# evolution via SaveMigrationRegistry. (3) ADVISORY — 2 Implementation Notes
+# added to ADR-0017: IN-1 (test-fixture State enum access via constant-map for
+# headless tests per G-3 §Test consequence) + IN-2 (Time.get_ticks_msec()
+# requirement vs deprecated OS.get_ticks_msec()). Same-patch wording flips:
+# ADR-0014 lines 33 + 590 ("Scenario Progression ADR (NOT YET WRITTEN — sprint-6)"
+# → "ADR-0017 Accepted via /architecture-review delta #12"); ADR-0016 line 37
+# stale-ref ("ADR-0017 Scenario Progression NOT YET WRITTEN" → "Accepted via
+# delta #12"); ADR-0001 PROVISIONAL signal count 4 → 3 + new "PROVISIONAL →
+# RATIFIED (2026-05-04 via /architecture-review delta #12)" entry. Total 8
+# same-patch wording flips across 3 ADRs (within delta-#9/#10/#11 close-out
+# anomaly range). 1 BLOCKING cross-ADR conflict resolved via Path A user
+# decision (amend ADR-0001) — alternative paths (revert ADR-0017 to String form
+# OR defer ADR-0017 acceptance) rejected. 0 GDD revision flags
+# (scenario-progression.md §F-SP-4 + §CR-16 already lock the ScenarioResult
+# shape; ADR-0001 was the stale ref). Pattern stable at 12 invocations of
+# /architecture-review; 7th invocation that ratifies a PROVISIONAL signal
+# (scenario_beat_retried follows save_checkpoint_requested 2026-04-18
+# precedent). Layer status: Foundation 5/5 + Core 4/4 (+1 from delta #12 —
+# ScenarioRunner Core layer; remaining = AI/Battle Prep) + Feature 3/4 +
+# Presentation 1/6. Source: docs/architecture/architecture-review-2026-05-04.md.
+# Structural backfill (tr-registry.yaml ~10 candidate TR-scenario-progression
+# entries 004-013) bundled this delta. Closes prior delta #11 placeholder
+# reference (ADR-0017 NOT YET WRITTEN sprint-6 should-have S6-10 → ratified as
+# scenario_runner_module_form api_decision below).
+#
 # 2026-05-03 (/architecture-review delta #11): ADR-0016 Battle Scene Wiring
 # escalated Proposed → Accepted same-day. v9 → v10 adds 1 state_ownership
 # (battle_scene_root_lifecycle), 1 interface (battle_scene_wiring_api), 1
@@ -466,6 +513,23 @@ state_ownership:
     added: 2026-05-03
     revised: ""
 
+  - state: scenario_runner_runtime_state
+    status: active
+    owner_system: scenario-progression (Core layer; autoload Node 6th-precedent extension)
+    adr: docs/architecture/ADR-0017-scenario-progression.md
+    interface: "ScenarioRunner (extends Node, NO `class_name` per godot-4x-gotchas G-3 — autoload-registered identifier IS the global name; same precedent as GameBus + SceneManager + SaveManager + GameBusDiagnostics + BuildModeSentinel 5-precedent autoload form). Single autoload registered at `*res://src/core/scenario_runner.gd`; lifecycle owned by SceneTree, persistent across Overworld↔BattleScene transitions per ADR-0002. Boot order: GameBus → SceneManager → SaveManager → GameBusDiagnostics → BuildModeSentinel → **ScenarioRunner** (6th — depends on first 3). Owns 13-state machine (`enum State { LOADING, CHAPTER_START, BEAT_1_ANCHOR, BEAT_2_ECHO, BEAT_3_BRIEF, BEAT_4_PREP, BATTLE_LOADING, BEAT_5_BATTLE, BEAT_6_RESULT, BEAT_7_JUDGMENT, BEAT_8_REVEAL, BEAT_9_TRANSITION, SCENARIO_END }`) — single authoritative `_state: State` field; transitions exclusively via `_transition_to(target: State)` method per `scenario_runner_arbitrary_state_jump` forbidden_pattern. Owns `_scenario_state` struct: chapter_index (0-based; advances at BEAT_9 transition), current_chapter (ChapterDefinition reference; null when LOADING/SCENARIO_END), echo_count (per-chapter; reset to 0 at BEAT_9; capped at BalanceConstants.scenario_progression_echo_cap = 100 hard fence), first_attempt_resolved (bool; sealed at BEAT_7 entry SYNCHRONOUSLY per F-SP-3 v2.2 B-1 invariant), chapters: Array[ChapterDefinition] (hydrated from JSON at LOADING), scenario_id (String). Owns ChapterLoader logic (JSON parse + EC-SP-8 validation pipeline at LOADING entry; FATAL on malformed branch_table or missing canonical_branch_key). Owns 7-signal emission (5 confirmed: chapter_started / battle_prepare_requested / battle_launch_requested / chapter_completed / scenario_complete; 2 ratified via delta #12: scenario_beat_retried as 3-field EchoMark + save_checkpoint_requested as SaveContext). Subscribes to `battle_outcome_resolved(BattleOutcome)` via GameBus + CONNECT_DEFERRED at autoload _ready(); never mutates outcome per CR-3 invariant + `scenario_runner_outcome_synthesis` forbidden_pattern. Delegates F-SP-1 (resolve_branch) + F-SP-2 (is_echo_gate_open) to DestinyBranchJudge.resolve(...) per ADR-0018 boundary. NO `_process` body (event-driven). NO mid-battle save (CR-15 #10)."
+    write_access: scenario-progression-only  # all 13-state machine + scenario_state struct mutation occurs only inside ScenarioRunner; no external writers
+    referenced_by:
+      - docs/architecture/ADR-0017-scenario-progression.md
+      - docs/architecture/ADR-0001-gamebus-autoload.md  # Scenario domain emitter ratified (5+2 signals); sole emitter of save_checkpoint_requested
+      - docs/architecture/ADR-0002-scene-manager.md  # SceneManager subscribes to battle_launch_requested + scenario_fault for player-facing retry/abort dialog
+      - docs/architecture/ADR-0003-save-load.md  # SaveManager subscribes to save_checkpoint_requested at 3 CPs (CP-1 BEAT_1 entry, CP-2 BEAT_7 entry post-seal, CP-3 BEAT_9 entry)
+      - docs/architecture/ADR-0014-grid-battle-controller.md  # GridBattleController emits battle_outcome_resolved consumed at BEAT_5 → BEAT_6 transition
+      - docs/architecture/ADR-0016-battle-scene-wiring.md  # BattleScene._ready() will call get_active_battle_config() at sprint-7+ post-mock-encoder-deletion patch (Migration Plan §1)
+      - docs/architecture/ADR-0018-destiny-branch.md  # DestinyBranchJudge.resolve(...) called at BEAT_7 entry for F-SP-1/F-SP-2 (UNBLOCKED by this delta)
+    added: 2026-05-04
+    revised: ""
+
   - state: battle_scene_root_lifecycle
     status: active
     owner_system: battle-scene-wiring (Feature layer; scene-root-as-orchestrator NEW pattern)
@@ -511,6 +575,37 @@ state_ownership:
 # pattern options: signal | direct_call | event_bus | shared_resource | rpc | none
 
 interfaces:
+  - contract: scenario_progression_signal_contract
+    status: active
+    pattern: signal
+    producer: scenario-progression  # ScenarioRunner is sole emitter of all 7 Scenario-domain + 1 Persistence signals
+    consumers:
+      - scene-manager  # subscribes to battle_launch_requested → packed-scene instantiate; subscribes to scenario_fault for retry/abort dialog
+      - save-manager  # subscribes to save_checkpoint_requested at 3 CPs (CP-1 BEAT_1 / CP-2 BEAT_7 post-seal / CP-3 BEAT_9)
+      - story-event  # subscribes to chapter_started + scenario_beat_retried (Beat 2 echo content references)
+      - destiny-state  # subscribes to scenario_beat_retried + chapter_completed for echo archive + branch tracking
+      - battle-hud  # subscribes to chapter_started for HUD chapter label + chapter_completed for results screen
+      - main-menu  # subscribes to scenario_complete for end-of-scenario UI
+      - battle-prep  # (post-MVP) subscribes to battle_prepare_requested for Battle Prep epic mount
+    adr: docs/architecture/ADR-0017-scenario-progression.md
+    signal_signatures:
+      - "chapter_started(chapter_id: String, chapter_number: int)        # ScenarioRunner (CHAPTER_START entry) → Story Event + Battle HUD + Main Menu (ADR-0001 line 143)"
+      - "battle_prepare_requested(payload: BattlePayload)                # ScenarioRunner (BEAT_4_PREP entry) → Battle Prep UI (post-MVP) + Battle HUD (ADR-0001 line 144)"
+      - "battle_launch_requested(payload: BattlePayload)                 # ScenarioRunner (BEAT_4_PREP → BATTLE_LOADING → BEAT_5_BATTLE) → SceneManager (ADR-0001 line 145)"
+      - "chapter_completed(result: ChapterResult)                        # ScenarioRunner (BEAT_9_TRANSITION) → Destiny State + Save/Load (ADR-0001 line 146)"
+      - "scenario_complete(result: ScenarioResult)                       # ScenarioRunner (SCENARIO_END entry) → Main Menu + Save/Load (ADR-0001 line 147 — payload widened String → ScenarioResult via /architecture-review delta #12 2026-05-04 per ADR-0017 §CR-16 + F-SP-4 GDD intent; 4-field typed Resource: chapter_outcomes / canonical_delta / scenario_path_key / total_echo)"
+      - "scenario_beat_retried(mark: EchoMark)                           # ScenarioRunner (BEAT_6_RESULT LOSS/DRAW retry → BEAT_4_PREP) → Destiny State + Story Event (ADR-0001 line 148 — RATIFIED PROVISIONAL→Accepted via /architecture-review delta #12 with shipped 3-field EchoMark schema beat_index/outcome/tag per ADR-0003 §Schema Stability)"
+      - "save_checkpoint_requested(ctx: SaveContext)                     # ScenarioRunner (3 CPs: BEAT_1 entry, BEAT_7 entry post-seal, BEAT_9 entry) → SaveManager (ADR-0001 line 180; ratified by ADR-0003 2026-04-18)"
+    notes: "ScenarioRunner is the sole emitter of all 7 listed signals. Subscribers MUST use `CONNECT_DEFERRED` for cross-scene connects per ADR-0001 §Cross-Scene routing rule. Payload Resources: ChapterContext + BattlePayload (ADR-0001) + ChapterResult (ADR-0001) + ScenarioResult (ADR-0017 §Key Interfaces) + EchoMark (3-field shipped form per ADR-0003 §Schema Stability + src/core/payloads/echo_mark.gd) + SaveContext (ADR-0003). 2 ratifications + 1 widening at delta #12 acceptance: scenario_beat_retried PROVISIONAL→Accepted with shipped 3-field EchoMark; scenario_complete payload String→ScenarioResult (4-field). Future schema evolution (e.g., adding chapter_id to EchoMark) MUST go through `SaveMigrationRegistry` per ADR-0003 — NOT inline schema rewrite. ADR-0001 line 147 amended same-patch to reflect ScenarioResult payload."
+    referenced_by:
+      - docs/architecture/ADR-0001-gamebus-autoload.md
+      - docs/architecture/ADR-0017-scenario-progression.md
+      - docs/architecture/ADR-0003-save-load.md
+      - docs/architecture/ADR-0002-scene-manager.md
+      - docs/architecture/ADR-0014-grid-battle-controller.md
+    added: 2026-05-04
+    revised: ""
+
   - contract: scene_transition_lifecycle
     status: active
     pattern: signal
@@ -1313,6 +1408,27 @@ api_decisions:
     added: 2026-05-03
     revised: ""
 
+  - purpose: scenario_runner_module_form
+    status: active
+    using: "autoload Node (extends Node, NO `class_name` per godot-4x-gotchas G-3 — autoload-registered identifier IS the global name; same precedent as 5 prior autoloads: GameBus + SceneManager + SaveManager + GameBusDiagnostics + BuildModeSentinel). Single instance, persistent across Overworld↔BattleScene transitions, lifecycle owned by SceneTree. State machine form: enum + match-statement single authoritative `_state: State` field with `_transition_to(target: State)` method (matches SceneManager ADR-0002 precedent — pattern stable at 2 invocations after this delta). Chapter data form: typed `class_name ChapterDefinition extends Resource` with 13 @export fields hydrated from `assets/data/scenarios/{scenario_id}.json` via `JSON.parse_string()` at LOADING entry (matches MapResource + HeroData + BalanceConstants 3-precedent typed-Resource-from-JSON pattern). BattleConfig payload: REUSE `BattlePayload` Resource per ADR-0001 (DRY; no new BattleConfig type). F-SP-1/F-SP-2 execution: delegated to `DestinyBranchJudge.resolve(...)` per ADR-0018 boundary (owner-vs-executor split per scenario-progression.md 2026-04-19 patch)."
+    not: "RefCounted form (lacks Node lifecycle hooks; cannot subscribe to GameBus signals at autoload _ready())"
+    not_also: "Scene-mounted Node form (loses 13-state machine continuity across Overworld↔BattleScene transition — ScenarioRunner state would reset every scene swap; requires explicit state-restore from SaveContext at every transition; doubles save/restore code; violates 'state machine is per-scenario, not per-scene' GDD intent per scenario-progression.md §States)"
+    not_also_2: "StateMachine class with class-per-state (one class per state — 13 classes for 13 states; over-engineered for ScenarioRunner's complexity since most states are 5-10 LoC handlers; breaks SceneManager precedent; F-SP-3 v2.2 synchronous-seal-discipline becomes harder to verify across class boundaries)"
+    not_also_3: "Dictionary-based chapter data without typed Resource (loses static-typing benefits — F-SP-1 typo on `chapter[\"author_draw_branch\"]` deferred to runtime KeyError; test fixtures harder to author; no .tres form for unit tests; rejects ADR-0007 HeroData precedent of typed-Resource-from-JSON pattern)"
+    not_also_4: "Inline F-SP-1/F-SP-2 in ScenarioRunner (couples branch resolution logic to ScenarioRunner state; pure-function unit tests of F-SP-1/F-SP-2 require ScenarioRunner instantiation; substitutability lost; ADR sprawl prevention — single 800-line ADR vs two 400-line ADRs less maintainable; rejects scenario-progression.md §F-SP-1 owner-vs-executor split 2026-04-19 patch)"
+    adr: docs/architecture/ADR-0017-scenario-progression.md
+    reason: "Cross-scene state continuity is the core value of ScenarioRunner — the 13-state machine cannot reset when SceneManager swaps Overworld → BattleScene at BEAT_4_PREP exit. Autoload Node is the only correct form (RefCounted has no Node lifecycle hooks; scene-mounted loses state across transitions). Cross-scene signal flow (5 signals via GameBus per ADR-0001 §Cross-Scene routing) requires autoload form (or routing through GameBus — but ScenarioRunner IS the cross-scene emitter, so direct emission requires autoload). 5-precedent project pattern stable at 5 invocations + ScenarioRunner is the 6th. Boot order: GameBus → SceneManager → SaveManager → GameBusDiagnostics → BuildModeSentinel → ScenarioRunner (depends on first 3). Enum + match-statement state machine matches SceneManager precedent + GDDD-line-States-and-Transitions table 1:1 + supports static analysis via lint. F-SP-3 v2.2 synchronous-seal-discipline (BEAT_7 entry seals first_attempt_resolved BEFORE resolve_branch reads it) requires synchronous in-process state transitions — class-per-state with virtual dispatch adds indirection complexity for no benefit at this state count."
+    referenced_by:
+      - docs/architecture/ADR-0017-scenario-progression.md
+      - docs/architecture/ADR-0001-gamebus-autoload.md  # ScenarioRunner sole emitter of Scenario domain (5 confirmed + 2 ratified at delta #12) + Persistence domain save_checkpoint_requested
+      - docs/architecture/ADR-0002-scene-manager.md  # SceneManager subscribes to battle_launch_requested + emits scene_transition_failed for ScenarioRunner retry/abort dialog
+      - docs/architecture/ADR-0003-save-load.md  # SaveManager subscribes to save_checkpoint_requested at 3 CPs
+      - docs/architecture/ADR-0014-grid-battle-controller.md  # GridBattleController emits battle_outcome_resolved consumed at BEAT_5 → BEAT_6
+      - docs/architecture/ADR-0016-battle-scene-wiring.md  # BattleScene._ready() will call get_active_battle_config() at sprint-7+ post-mock-encoder-deletion patch (Migration Plan §1)
+      - docs/architecture/ADR-0018-destiny-branch.md  # DestinyBranchJudge.resolve(...) called at BEAT_7 entry for F-SP-1/F-SP-2 (UNBLOCKED by this delta)
+    added: 2026-05-04
+    revised: ""
+
 # Example:
 #
 # api_decisions:
@@ -1709,6 +1825,41 @@ forbidden_patterns:
     adr: docs/architecture/ADR-0016-battle-scene-wiring.md
     added: 2026-05-03
     lint_script: tools/ci/lint_battle_scene_sprint6_mock_marker.sh
+
+  - pattern: scenario_runner_arbitrary_state_jump
+    status: active
+    description: "ScenarioRunner._state (the 13-state enum field) MUST only transition via the `_transition_to(target: State)` method which validates the transition is legal per the §States and Transitions table from scenario-progression.md. Direct `_state = State.X` assignment outside `_transition_to()` is forbidden. The single backward edge BEAT_6_RESULT → BEAT_4_PREP (retry loop) is the only legal backward transition; all others are forward-only per AC-SP-13 invariant. Sprint-7+ lint enforcement: `tools/ci/lint_scenario_runner_state_match_exhaustive.sh` (deferred to ScenarioRunner CI hardening sprint-7+ story per ADR-0017 §Migration Plan step 12) will grep for `_state =` outside `_transition_to()` body + assert match-statement exhaustively covers all 13 enum members."
+    why: "Per ADR-0017 §Decision §State Machine Form + §Risks §Risk 2 + scenario-progression.md §AC-SP-13 forward-only invariant. Direct `_state =` writes bypass the transition-table validation; future refactor adding 'shortcut' transitions (e.g., BEAT_3 → BEAT_5 skip-prep for testing) corrupts the 9-beat canonical rhythm + breaks save-state integrity (CP-2 expects BEAT_7 entry; BEAT_5 → BEAT_8 jump skips the F-SP-3 seal). Mirrors no prior state-machine forbidden_pattern (SceneManager 5-state precedent did NOT have lint enforcement; this is the first state-machine lint pattern in the project). Pattern boundary: ScenarioRunner is high-stakes (chapter-progression invariants are load-bearing for Pillar 2 + Pillar 4); SceneManager is lower-stakes (transitions are mechanical and well-tested). State-machine lint can be added retroactively to SceneManager when bandwidth permits."
+    adr: docs/architecture/ADR-0017-scenario-progression.md
+    added: 2026-05-04
+
+  - pattern: scenario_runner_branch_table_runtime_mutation
+    status: active
+    description: "ChapterDefinition.branch_table (Dictionary keyed by lookup_key, valued by branch_path_id) MUST be treated as read-only after LOADING state exit. Runtime mutation (e.g., `chapter.branch_table[key] = \"alt_branch\"`, `chapter.branch_table.erase(key)`, or `chapter.branch_table.clear()`) is forbidden in src/. Sprint-7+ lint enforcement: `tools/ci/lint_scenario_runner_branch_table_immutable.sh` (deferred per ADR-0017 §Migration Plan step 12) will grep for `\\.branch_table\\[.*\\] =` and `\\.branch_table\\.erase\\|\\.branch_table\\.clear` patterns in src/ — all matches FAIL the lint (zero allowed)."
+    why: "Per ADR-0017 §Risks §Risk 3 + scenario-progression.md §CR-15 #4 + AC-SP-12 invariant. branch_table runtime mutation corrupts replay determinism: a save file captured at CP-2 (BEAT_7 entry) records the chapter state at that moment. If branch_table was mutated between CP-2 capture and BEAT_8 reveal, restore from CP-2 produces a different branch_key on F-SP-1 re-evaluation than the original playthrough — silent narrative divergence. Future 'dynamic difficulty' or 'AI rewrites story' features that need adaptive branching MUST go through a new typed `BranchOverride` Resource emitted via a new dedicated signal (and a new ADR superseding ADR-0017's branch_table immutability claim) — not inline mutation."
+    adr: docs/architecture/ADR-0017-scenario-progression.md
+    added: 2026-05-04
+
+  - pattern: scenario_runner_save_context_partial_emit
+    status: active
+    description: "GameBus.save_checkpoint_requested(SaveContext) MUST emit a fully-populated SaveContext Resource (all fields per ADR-0003 §SaveContext schema: chapter_id / outcome / branch_key / echo_count / echo_marks_archive / flags_to_set). Partial emits (e.g., missing echo_count after retry, or empty echo_marks_archive when retries occurred) corrupt restore. ScenarioRunner.save_checkpoint_requested emissions MUST go through a single `_make_save_context(cp_kind: SaveCheckpoint) -> SaveContext` helper which asserts all required fields are populated before returning. Direct construction of SaveContext at any other call site in scenario_runner.gd is forbidden. Sprint-7+ lint enforcement: `tools/ci/lint_scenario_runner_save_context_complete.sh` (deferred per ADR-0017 §Risks §Risk 4) will grep for `SaveContext.new()` matches OUTSIDE `_make_save_context()` body in scenario_runner.gd — all matches FAIL."
+    why: "Per ADR-0017 §Risks §Risk 4 + ADR-0003 SaveContext invariant. Partial SaveContext emit at CP-2 with missing echo_count corrupts restore: replay diverges because F-SP-1's echo_count read returns the wrong value, leading to wrong branch_key resolution at BEAT_7. Each CP MUST be a snapshot of the COMPLETE current scenario state. Single helper enforces the discipline at compile-time (helper signature) + runtime (assertion preconditions in helper body). Mirrors hp_status_consumer_mutation 4-precedent project pattern of single-helper-only-mutation enforcement (HP write through HPStatusController.apply_damage; turn-order write through TurnOrderRunner.advance; balance read through BalanceConstants.get_const)."
+    adr: docs/architecture/ADR-0017-scenario-progression.md
+    added: 2026-05-04
+
+  - pattern: scenario_runner_deferred_seal_in_beat_7_entry
+    status: active
+    description: "F-SP-3 v2.2 systems-designer B-1 invariant: ScenarioRunner._enter_beat_7_judgment() (or whatever method name implements the BEAT_7 entry handler) MUST be called SYNCHRONOUSLY from the BEAT_6_RESULT accept-handler before any deferred callbacks process. The first_attempt_resolved seal at BEAT_7 entry MUST happen in the same call frame as BEAT_6_RESULT exit. FORBIDDEN: `call_deferred(\"_enter_beat_7_judgment\")`; `_enter_beat_7_judgment.call_deferred()`; signal connection with CONNECT_DEFERRED between BEAT_6 exit and BEAT_7 seal; any await keyword between BEAT_6 accept and BEAT_7 entry. Sprint-7+ lint enforcement: `tools/ci/lint_scenario_runner_no_deferred_in_beat_7_seal.sh` (deferred per ADR-0017 §Risks §Risk 2 + §Migration Plan step 12) will grep for `call_deferred.*beat_7\\|beat_7.*call_deferred\\|CONNECT_DEFERRED.*beat_7` patterns in scenario_runner.gd — all matches FAIL."
+    why: "Per ADR-0017 §Decision §F-SP-1/F-SP-2 + §Risks §Risk 2 + scenario-progression.md §F-SP-3 v2.2 systems-designer B-1 invariant + Pillar 2 architectural lock. Asynchronous seal corrupts first_attempt_resolved: if the seal happens AFTER subsequent frames process `on_player_retry()` increments, the echo_count value visible to F-SP-1 at BEAT_7 differs from the value at BEAT_6 accept time — the echo-gated branch (CR-6) misfires (player who retried 0 times sees the WIN branch the first time; on the second playthrough where they retry the seal happens late, they STILL see the WIN branch instead of the echo-gated alternative branch). Pillar 2 (운명은 바꿀 수 있다) hidden-fate semantics depend on this seal happening atomically with BEAT_7 entry. Same severity as battle_hud_subscribes_to_hidden_fate_signal forbidden_pattern (Pillar 2 architectural lock — first project precedent of pillar-anchored lint pattern; this is the second). 3-layer enforcement: (1) source-grep lint (deferred to sprint-7+); (2) ADR-0017 §Decision §F-SP-1/F-SP-2 inline source-comment annotation; (3) integration test asserting BEAT_6_RESULT.accept → BEAT_7_JUDGMENT.entry happens in 1 frame (no frame boundary)."
+    adr: docs/architecture/ADR-0017-scenario-progression.md
+    added: 2026-05-04
+
+  - pattern: scenario_runner_outcome_synthesis
+    status: active
+    description: "ScenarioRunner MUST NOT assign or override BattleOutcome.result. The tri-state {WIN, DRAW, LOSS} is owned by GridBattleController exclusively per ADR-0014 §battle_outcome_resolved emission contract. ScenarioRunner consumes `battle_outcome_resolved(BattleOutcome)` via GameBus.battle_outcome_resolved.connect(_on_battle_outcome, CONNECT_DEFERRED) at autoload _ready(), reads the result via `_last_battle_outcome.result`, and uses it for state-machine routing — but never writes back to the field. FORBIDDEN: `_last_battle_outcome.result = BattleOutcome.Result.WIN` (override); `_last_battle_outcome.result = BattleOutcome.Result.DRAW` (synthesis); any assignment to `*.result` where the LHS is a BattleOutcome instance in scenario_runner.gd. Lint enforcement: trivially verifiable via `grep -E 'result\\s*=' src/core/scenario_runner.gd` returning 0 matches (where the LHS is BattleOutcome) — sprint-7+ formalization in the ScenarioRunner CI hardening story."
+    why: "Per ADR-0017 §Requirements line 73 + scenario-progression.md §CR-3 (Tri-state outcome — no synthesis or override) + ADR-0014 single-emitter contract. If ScenarioRunner overrides outcome (e.g., 'designer wants this chapter to always be a narrative WIN even if mechanics show LOSS'), the player's actual battle performance becomes invisible to the F-SP-1 branch resolution + Save/Load archive — Pillar 1 (자기 신념의 시뮬레이터 — designer-imposed outcome violates 'player chose this because they believed') and Pillar 2 (mechanically losing but narratively winning rewires the player's mental model away from 'practice → improvement'). Future 'narrative override' features that need outcome synthesis MUST go through a new dedicated signal (e.g., `narrative_outcome_override_requested(reason: String)`) and a new ADR superseding the CR-3 invariant — NOT inline override. Mirrors no prior outcome-ownership forbidden_pattern (this is the first; establishes precedent for future ScenarioRunner-domain outcome ownership: e.g., chapter_completed.outcome must equal _last_battle_outcome.result modulo tri-state mapping per F-SP-1)."
+    adr: docs/architecture/ADR-0017-scenario-progression.md
+    added: 2026-05-04
 
 # Example:
 #
