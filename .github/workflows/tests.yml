@@ -120,6 +120,13 @@ jobs:
       - name: 'Lint Grid Battle Controller BalanceConstants keys present (ADR-0014 §7 + §8)'
         run: bash tools/ci/lint_balance_entities_grid_battle_controller.sh
 
+      - name: 'Battle Scene lints — pre-instanced children (ADR-0016 §2 R-2 / battle_scene_pre_instanced_children)'
+        run: bash tools/ci/lint_battle_scene_pre_instanced_children.sh
+      - name: 'Battle Scene lints — no GameBus subscriptions (ADR-0016 R-7 / battle_scene_root_signal_subscription)'
+        run: bash tools/ci/lint_battle_scene_no_gamebus_subscriptions.sh
+      - name: 'Battle Scene lints — sprint-6 mock marker presence (ADR-0016 §4 / battle_scene_sprint6_mock_marker_must_exist; SEMANTIC FLIPS AT ADR-0017)'
+        run: bash tools/ci/lint_battle_scene_sprint6_mock_marker.sh
+
       - name: Run GdUnit4 tests
         uses: MikeSchulze/gdUnit4-action@v1
         env:

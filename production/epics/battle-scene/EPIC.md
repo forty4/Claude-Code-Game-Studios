@@ -3,9 +3,10 @@
 > **Layer**: Feature (scene-root) — **NEW pattern: scene-root-as-orchestrator** (distinct from 5-precedent battle-scoped Node `setup()` pattern)
 > **GDD**: None — architectural-only epic (ADR-0016 is source-of-truth; same precedent as `camera/` epic where the system is small enough that the ADR carries the contract without a dedicated GDD)
 > **Architecture Module**: `BattleScene` — `class_name BattleScene extends Node2D`, mounted as root of `scenes/battle/battle_scene.tscn`; orchestrates 6 children (MapGrid + BattleCamera + HPStatusController + TurnOrderRunner + GridBattleController + BattleHUD) via 6-step DI-DAG-ordered `_ready()` mount sequence
-> **Status**: **Ready** (ADR-0016 Accepted 2026-05-03 via `/architecture-review` delta #11)
+> **Status**: **Complete** (epic closed 2026-05-04; all 3 stories shipped; 11/11 TR coverage; +1 playable-surface delta target HIT)
 > **Stories**: 3 stories created 2026-05-04 (Sprint 6 S6-03) — see Stories table below
 > **Created**: 2026-05-04 (Sprint 6 S6-03)
+> **Closed**: 2026-05-04 (Sprint 6, post-S6-07; story-002 + story-003 shipped same-day)
 > **Manifest Version**: 2026-04-20 (`docs/architecture/control-manifest.md`)
 
 ## Overview
@@ -105,9 +106,9 @@ These obligations land at the implementation story (S6-07) and must ship togethe
 
 | # | Story | Type | Status | TR-IDs | Estimate |
 |---|-------|------|--------|--------|----------|
-| [001](story-001-class-skeleton-and-mount-sequence.md) | BattleScene class skeleton + 3-node `.tscn` + 6-step `_ready()` mount sequence + sprint-6 mock encoder | Integration | Ready | TR-001/002/003/004/006/007/009 | 3h |
-| [002](story-002-standalone-launch-and-smoke-evidence.md) | `project.godot` `main_scene` flip + cross-launch-source smoke evidence (3 launch sources × 6 mount steps = 18 verification points) | Integration | Ready | TR-005/008 | 1.5h |
-| [003](story-003-lints-and-epic-terminal.md) | 3 lint scripts + CI wiring + 3 forbidden_patterns + epic terminal (verification summary doc) | Config/Data | Ready | TR-010/011 | 1.5h |
+| [001](story-001-class-skeleton-and-mount-sequence.md) | BattleScene class skeleton + 3-node `.tscn` + 6-step `_ready()` mount sequence + sprint-6 mock encoder | Integration | **Complete** (2026-05-04) | TR-001/002/003/004/006/007/009 | 3h |
+| [002](story-002-standalone-launch-and-smoke-evidence.md) | `project.godot` `main_scene` flip + cross-launch-source smoke evidence (3 launch sources × 6 mount steps = 18 verification points) | Integration | **Complete** (2026-05-04) | TR-005/008 | 1.5h |
+| [003](story-003-lints-and-epic-terminal.md) | 3 lint scripts + CI wiring + 3 forbidden_patterns + epic terminal (verification summary doc) | Config/Data | **Complete** (2026-05-04) | TR-010/011 | 1.5h |
 
 **Total estimate**: ~6h = ~0.75 working days. Within sprint-6 S6-07 budget (1.5d budgeted).
 
@@ -130,4 +131,4 @@ This epic is complete when:
 
 ## Next Step
 
-Run `/create-stories battle-scene` to break this epic into implementable stories.
+Epic **Complete** 2026-05-04. Verification summary at `production/qa/evidence/battle_scene_verification_summary.md`. Sprint-7+ unblocked: ADR-0017 Scenario Progression (S6-10) replaces sprint-6 mock encoder + reverts `project.godot` main_scene per Migration Plan §1.

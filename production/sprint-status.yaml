@@ -11,7 +11,7 @@ goal: "Ship first runnable BattleScene mounting 5 systems + ADR-0016 Battle Scen
 start: "2026-05-24"
 end: "2026-05-30"
 generated: "2026-05-03"
-updated: "2026-05-04"  # battle-scene/story-002 done 2026-05-04 — main_scene flip + cross-launch-source smoke evidence + ADR-0016 IN-14 (story-001 mock id swap), 883/883 PASS preserved.
+updated: "2026-05-04"  # battle-scene EPIC CLOSED 3/3 — story-003 (3 CI lints + verification summary), 883/883 PASS (25th consecutive failure-free baseline).
 
 # Sprint-5 closed 13/13 (must-have 11/11 + should 2/2 + nice 0/0) by 2026-05-03 — 14-21 calendar
 # days ahead of 2026-05-23 deadline. 19th consecutive failure-free baseline (757 → 841 / +84 tests).
