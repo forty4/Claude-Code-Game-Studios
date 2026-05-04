@@ -11,7 +11,7 @@ goal: "Ship first runnable BattleScene mounting 5 systems + ADR-0016 Battle Scen
 start: "2026-05-24"
 end: "2026-05-30"
 generated: "2026-05-03"
-updated: "2026-05-03"  # S6-08 done 2026-05-03 — qa-plan-battle-hud (402 lines, 8 stories classified), S6-09 unblocked, 7/12 sprint-6=58%.
+updated: "2026-05-04"  # S6-07 done 2026-05-04 — BattleScene root + .tscn + 6-step mount + smoke test, 883/883 PASS (+7), 9/12 sprint-6=75%, +1 playable-delta HIT.
 
 # Sprint-5 closed 13/13 (must-have 11/11 + should 2/2 + nice 0/0) by 2026-05-03 — 14-21 calendar
 # days ahead of 2026-05-23 deadline. 19th consecutive failure-free baseline (757 → 841 / +84 tests).
@@ -93,13 +93,14 @@ stories:
 
   - id: "S6-07"
     name: "battle-scene story-001: BattleScene root + battle_scene.tscn + mount 5 systems + 4-unit mock encounter — +1 playable-surface delta"
-    file: "production/epics/battle-scene/story-001-battle-scene-mount.md"
+    file: "production/epics/battle-scene/story-001-class-skeleton-and-mount-sequence.md"
     priority: must-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.4
     blocker: "S6-06,S6-03"
-    completed: ""
+    completed: "2026-05-04"
+    # S6-07 done 2026-05-04 — BattleScene + .tscn + 6-step mount + smoke test, 883/883 PASS (+7), 9/9 ACs, +1 playable HIT, ADR-0016 IN-6..IN-13.
 
   - id: "S6-08"
     name: "/qa-plan battle-hud — per-epic QA discipline before story-003 onward (sprint-2 Phase 5 standard)"
@@ -116,11 +117,12 @@ stories:
     name: "battle-hud story-003: UI-GB-03 Unit Info Panel + UI-GB-11 DEFEND Stance Badge — closes verification gate #2 AccessKit"
     file: "production/epics/battle-hud/story-003-unit-info-panel-and-defend-badge.md"
     priority: should-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.4
     blocker: "S6-06,S6-08"
-    completed: ""
+    completed: "2026-05-04"
+    # S6-09 done 2026-05-04 — UI-GB-03 + UI-GB-11 + show_unit_info() shipped; 876/876 PASS (+11 baseline); AC-8 manual evidence PENDING; 1 cross-epic forward-prep (get_battle_unit).
 
   - id: "S6-10"
     name: "ADR-0017 Scenario Progression authoring — Beat 1 → Beat N data structure + chapter file format"
