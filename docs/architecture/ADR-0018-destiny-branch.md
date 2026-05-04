@@ -1,7 +1,7 @@
 # ADR-0018: Destiny Branch (DestinyBranchJudge + DestinyBranchChoice)
 
 ## Status
-Proposed
+Accepted (2026-05-04, via `/architecture-review` delta #13 — combined session: ADR-0018 escalation Proposed → Accepted same-day fresh-session per same-session-ban discipline + structural append 15 net-new TR-destiny-branch entries; resolves 1 BLOCKING cross-ADR integration conflict via same-patch ADR-0017 line 209 instance-form widening + 1 ADVISORY C-2 residual same-patch fix per godot-specialist 16th invocation. ADR-0001 5-field PROVISIONAL → 9-field RATIFIED minor amendment landed same-patch per Evolution Rule #4. destiny-branch GDD §F-DB-1 7 wording flips landed same-patch per Migration Plan §1. **3rd consecutive same-day-fresh-session escalation pattern** after delta #11 + #12; **8th invocation of PROVISIONAL signal ratification pattern**; **1st invocation of `RefCounted pure-function class with @abstract test seam` pattern** in the project.)
 
 ## Date
 2026-05-04
@@ -53,7 +53,7 @@ Without this ADR, the executor class and payload shape are PROVISIONAL across mu
 - `BattleOutcome.Result` typed-enum `@export` default value `BattleOutcome.Result.LOSS` resolves at Resource script parse time via the Godot 4.6 global class registry. Inner-class declarations are NOT resolvable at parse time and would silently break `ResourceLoader.load()` for any saved `DestinyBranchChoice` (destiny-branch GDD rev 1.2 B-7). REQUIRES `class_name BattleOutcome` declared as top-level in its own script — coordinated with grid-battle v5.0 GDD revision (cross-doc constraint, see Migration Plan §4).
 - `static var` is FORBIDDEN in `destiny_branch_judge.gd` and any subclass thereof (EC-DB-17 thread-safety guarantee). CI lint enforces.
 - `OS.get_ticks_msec()` is deprecated per `deprecated-apis.md`; not used by this ADR (judge is wall-clock-independent per CR-DB-11 determinism).
-- `Resource.duplicate(true)` for nested Resources is deprecated per `deprecated-apis.md` (4.5+); NOT used by judge (judge does not duplicate; consumers may duplicate for archiving via `duplicate_deep(Resource.DEEP_DUPLICATE_ALL)`).
+- `Resource.duplicate(true)` for nested Resources is deprecated per `deprecated-apis.md` (4.5+); NOT used by judge (judge does not duplicate; consumers may duplicate for archiving via the parameterless `duplicate_deep()` form per `breaking-changes.md` 4.4→4.5 row — the `Resource.DEEP_DUPLICATE_ALL` deep-mode flag constant is **NOT verified in pinned engine-reference docs**, so consumers SHOULD prefer the parameterless form per §Engine Compatibility row reconciliation).
 - Untyped `Dictionary[K, V]` typed-`@export` is NOT supported at GDScript 4.6 `@export` boundary (godot-4x-gotchas G-3 + ADR-0017 godot-specialist fix). The judge's F-SP-1 seam returns `Dictionary` (untyped) per design — its 3 required keys are validated at runtime per F-DB-1 step 3a/3b.
 
 **Architecture-registry constraints (read from `docs/registry/architecture.yaml` v11):**

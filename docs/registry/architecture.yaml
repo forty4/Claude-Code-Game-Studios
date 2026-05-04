@@ -29,8 +29,59 @@
 #   All forbidden patterns: Grep pattern="^  - pattern:" (forbidden_patterns section)
 #   Superseded entries:     Grep pattern="status: superseded"
 
-version: 11
+version: 12
 last_updated: "2026-05-04"
+# 2026-05-04 (/architecture-review delta #13): ADR-0018 Destiny Branch
+# escalated Proposed → Accepted same-day (fresh-session per same-session-ban
+# discipline; second consecutive same-day-fresh-session escalation after delta #12).
+# v11 → v12 adds 1 state_ownership (destiny_branch_judge_runtime_payload),
+# 1 interface (destiny_branch_judge_signal_contract), 1 api_decision
+# (destiny_branch_judge_module_form), 3 forbidden_patterns
+# (destiny_branch_judge_emits_gamebus_signal,
+# destiny_branch_judge_static_var,
+# destiny_branch_judge_reads_scenario_runner_state). Same-session
+# godot-specialist 16th invocation = PASS WITH 1 ADVISORY CORRECTION resolved
+# same-patch (C-2 residual: ADR-0018 line 56 still named DEEP_DUPLICATE_ALL
+# constant despite line 17 advising parameterless form — flipped same-patch).
+# 1 BLOCKING cross-ADR integration conflict resolved same-patch: ADR-0017
+# line 209 called DestinyBranchJudge.resolve(...) as static method, but
+# ADR-0018 ratifies it as RefCounted instance method (Alternative §2 explicitly
+# rejects static-utility form per EC-DB-17 thread-safety guarantee). Resolution:
+# amend ADR-0017 §F-SP-1/F-SP-2 Execution code block to instance form
+# (`var judge := DefaultDestinyBranchJudge.new()` + `judge.resolve(...)`).
+# Mirrors delta #12 pattern (upstream-ADR same-patch flip at downstream-ADR
+# acceptance time) — 4th project precedent of "ratification widening at
+# upstream-ADR acceptance" (after save_checkpoint_requested 2026-04-18 +
+# scenario_complete delta #12 + scenario_beat_retried delta #12). Same-patch
+# wording flips: ADR-0001 lines 315/319 (5-field PROVISIONAL → 9-field
+# RATIFIED + Pillar 2/4 mechanical-expression note rewrite + cross-doc
+# BattleOutcome top-level constraint) + ADR-0001 line 364 (remove "shape
+# TBD" entry; PROVISIONAL count 3→2; new "PROVISIONAL → RATIFIED 2026-05-04
+# via /architecture-review delta #13" subsection mirroring delta #12 format)
+# + ADR-0001 changelog row + destiny-branch GDD §F-DB-1 7 wording flips
+# (3-arg → 4-arg signature + Variables table 4th row + worked examples E1-E6
+# 4th column + 4th-column semantics paragraph + test-seam contract @abstract
+# update + canonical_branch_key field-name + ChapterDefinition typed-Resource
+# + rev tag bump 1.3.1 → 1.3.2) + ADR-0017 line 209 instance-form widening
+# + ADR-0018 line 56 C-2 residual fix. Total 13 wording flips across 4 docs
+# (within delta-pattern range; delta #9 24-correction close-out anomaly was
+# higher; delta #12 had 8 same-patch flips). 0 GDD revision flags
+# (destiny-branch §F-DB-1 IS the planned same-patch sync target). 0 deprecated
+# API references in ADR-0018 itself (per godot-specialist Phase 5 verification).
+# Pattern stable at 13 invocations of /architecture-review; 8th invocation that
+# ratifies a PROVISIONAL signal (destiny_branch_chosen follows
+# scenario_beat_retried + 6 prior PROVISIONAL signal ratifications). 1st
+# invocation of `RefCounted pure-function class with @abstract test seam`
+# pattern (project's first @abstract test-seam architectural decision; no
+# precedent — establishes pattern boundary for future formula-evaluator ADRs).
+# Layer status (unchanged from delta #12): Foundation 5/5 + Core 4/4 + Feature
+# 3/4 + Presentation 1/6. ADR-0018 closes Pillar 2 + Pillar 4 architectural
+# narrative-pillar substrate; Pre-Production → Production gate now strongly
+# eligible (ADR-0018 was the strongly-recommended pre-gate ADR per delta #12
+# handoff). UNBLOCKS: 3 downstream VS GDDs (Story Event #10 + Destiny State #16
+# + Save/Load #17) — each had BLOCKING gate on DestinyBranchChoice 9-field
+# shape ratification. Source: docs/architecture/architecture-review-2026-05-04b.md.
+#
 # 2026-05-04 (/architecture-review delta #12): ADR-0017 Scenario Progression
 # escalated Proposed → Accepted same-day (fresh-session per same-session-ban
 # discipline). v10 → v11 adds 1 state_ownership (scenario_runner_runtime_state),
@@ -530,6 +581,21 @@ state_ownership:
     added: 2026-05-04
     revised: ""
 
+  - state: destiny_branch_judge_runtime_payload
+    status: active
+    owner_system: destiny-branch (Core layer; RefCounted pure-function transient class — first project precedent of @abstract test-seam architectural decision)
+    adr: docs/architecture/ADR-0018-destiny-branch.md
+    interface: "DestinyBranchJudge (`class_name DestinyBranchJudge extends RefCounted`) — pure-function transient executor; one instance per chapter constructed at BEAT_7_JUDGMENT tap-exit by ScenarioRunner; discarded via RefCounted scope drop after `resolve()` returns. NO scene-tree presence; NO autoload; NO `static var` anywhere in class hierarchy (EC-DB-17 thread-safety guarantee — lint-enforced via destiny_branch_judge_static_var forbidden_pattern). Public API: `resolve(chapter: ChapterDefinition, outcome: BattleOutcome.Result, echo_count: int, first_attempt_resolved: bool) -> DestinyBranchChoice` (4-arg form per ADR-0017 line 200 + scenario-progression CR-7 4th-argument invariant; 3rd project precedent of ratification widening at upstream-ADR acceptance after save_checkpoint_requested 2026-04-18 + scenario_complete delta #12). Test seam: `@abstract func _apply_f_sp_1(chapter, outcome, echo_count, first_attempt_resolved) -> Dictionary` — concrete subclasses MUST override (parse-time enforced on typed references per Godot 4.5+ G-22; structural source-file assertion verifies presence at V-5 per destiny-branch ADR-0018). Production subclass: `class_name DefaultDestinyBranchJudge extends DestinyBranchJudge` overrides `_apply_f_sp_1` to delegate to `ScenarioFormulas.resolve_branch(...)` (ADR-0017-owned F-SP-1 authoritative implementation). Test stub: `class_name TestDestinyBranchJudgeWithSp1Stub extends DestinyBranchJudge` lives in `tests/helpers/destiny_branch_judge_stub.gd` — instance-level `_stub_output` Dictionary set via `set_sp1_output()`; no `static var` (EC-DB-17 lint scope includes this file). Determinism: identical `(chapter, outcome, echo_count, first_attempt_resolved)` → field-identical 9-field DestinyBranchChoice (CR-DB-11). Thread-safety by construction (no class-level state). Owns the typed `class_name DestinyBranchChoice extends Resource` payload with **9 @export fields** (chapter_id / branch_key / outcome / echo_count / is_draw_fallback / is_canonical_history / reserved_color_treatment / is_invalid / invalid_reason — ratifies ADR-0001 5-field PROVISIONAL → 9-field RATIFIED via Evolution Rule #4 minor amendment, NOT supersession). `static func invalid(reason: StringName) -> DestinyBranchChoice` factory + 12-entry F-DB-3 vocabulary (`invariant_violation:*` StringName values). Pillar 2 mechanical expression: `reserved_color_treatment` (derived per F-DB-2). Pillar 4 mechanical expression: `is_canonical_history` (authored per branch-table row; payload-level enforcement)."
+    write_access: destiny-branch-only  # all 9 @export field assignments occur only inside DestinyBranchJudge.resolve() body or DestinyBranchChoice.invalid() factory; downstream consumers MUST NOT mutate after emission (CR-DB-2 + CR-DB-6 + CR-DB-8)
+    referenced_by:
+      - docs/architecture/ADR-0018-destiny-branch.md
+      - docs/architecture/ADR-0001-gamebus-autoload.md  # destiny_branch_chosen(DestinyBranchChoice) signal — ratified 9-field shape via Evolution Rule #4 minor amendment delta #13
+      - docs/architecture/ADR-0017-scenario-progression.md  # ScenarioRunner constructs DefaultDestinyBranchJudge.new() + calls judge.resolve(...) at BEAT_7_JUDGMENT entry (post-seal) per ADR-0017 §F-SP-1/F-SP-2 Execution; emits destiny_branch_chosen on tap-advance (CR-DB-4 emission ownership lives in ScenarioRunner)
+      - docs/architecture/ADR-0014-grid-battle-controller.md  # BattleOutcome.Result enum consumed as resolve() 2nd argument; `BattleOutcome` MUST be top-level class_name (cross-doc constraint SATISFIED via src/core/payloads/battle_outcome.gd:10)
+      - docs/architecture/ADR-0003-save-load.md  # ChapterResult.branch_triggered persists DestinyBranchChoice.branch_key per SaveContext schema; SaveMigrationRegistry covers future schema evolution
+    added: 2026-05-04
+    revised: ""
+
   - state: battle_scene_root_lifecycle
     status: active
     owner_system: battle-scene-wiring (Feature layer; scene-root-as-orchestrator NEW pattern)
@@ -575,6 +641,27 @@ state_ownership:
 # pattern options: signal | direct_call | event_bus | shared_resource | rpc | none
 
 interfaces:
+  - contract: destiny_branch_judge_signal_contract
+    status: active
+    pattern: direct_call  # ScenarioRunner constructs the judge + calls resolve() directly; the judge does NOT emit signals (CR-DB-4 emission ownership lives in ScenarioRunner — lint-enforced via destiny_branch_judge_emits_gamebus_signal forbidden_pattern)
+    producer: destiny-branch  # DestinyBranchJudge is the executor (provides resolve(...) public method); emission of the resulting DestinyBranchChoice on GameBus.destiny_branch_chosen lives in ScenarioRunner
+    consumers:
+      - scenario-progression  # ScenarioRunner is the SOLE caller of judge.resolve(...) at BEAT_7_JUDGMENT entry (post-seal); after resolve() returns, ScenarioRunner emits destiny_branch_chosen(choice) on GameBus per CR-DB-4
+    signal_signatures:
+      - "DestinyBranchJudge.resolve(chapter: ChapterDefinition, outcome: BattleOutcome.Result, echo_count: int, first_attempt_resolved: bool) -> DestinyBranchChoice  # 4-arg form ratified per ADR-0017 line 200 + scenario-progression CR-7 4th-argument invariant (3rd project precedent of ratification widening at upstream-ADR acceptance)"
+      - "DestinyBranchJudge._apply_f_sp_1(chapter: ChapterDefinition, outcome: BattleOutcome.Result, echo_count: int, first_attempt_resolved: bool) -> Dictionary  # @abstract test seam (Godot 4.5+); concrete subclasses MUST override; required-key contract: {branch_key: String, is_draw_fallback: bool, is_canonical_history: bool}"
+      - "DestinyBranchChoice.invalid(reason: StringName) -> DestinyBranchChoice  # static factory; reason ∈ 12-entry F-DB-3 invariant_violation:* vocabulary"
+      - "GameBus.destiny_branch_chosen(choice: DestinyBranchChoice)  # 9-field RATIFIED payload; emitted by ScenarioRunner (NOT DestinyBranchJudge) at BEAT_7_JUDGMENT exit per CR-DB-4 + AC-SP-17 exactly-one-emission contract; subscribers MUST gate content reads on choice.is_invalid == false"
+    test_seam: "@abstract _apply_f_sp_1 — instance-level injection via subclassing (TestDestinyBranchJudgeWithSp1Stub at tests/helpers/destiny_branch_judge_stub.gd); NO monkey-patching, NO static_var-based override (rejected per Alternative §2 EC-DB-17 thread-safety guarantee)"
+    determinism: "Identical (chapter, outcome, echo_count, first_attempt_resolved) inputs MUST produce field-identical 9-field DestinyBranchChoice output (CR-DB-11). NO RNG / wall-clock / external-state-read / class-level-state in the judge or any subclass; test fixtures use instance-level state only."
+    adr: docs/architecture/ADR-0018-destiny-branch.md
+    referenced_by:
+      - docs/architecture/ADR-0018-destiny-branch.md
+      - docs/architecture/ADR-0017-scenario-progression.md  # F-SP-1/F-SP-2 callable signature ratified here for DestinyBranchJudge consumption; ScenarioRunner is sole caller
+      - docs/architecture/ADR-0001-gamebus-autoload.md  # destiny_branch_chosen(DestinyBranchChoice) signal-domain emission contract
+    added: 2026-05-04
+    revised: ""
+
   - contract: scenario_progression_signal_contract
     status: active
     pattern: signal
@@ -1408,6 +1495,24 @@ api_decisions:
     added: 2026-05-03
     revised: ""
 
+  - purpose: destiny_branch_judge_module_form
+    status: active
+    using: "RefCounted pure-function transient class (`class_name DestinyBranchJudge extends RefCounted`) with @abstract test seam (`@abstract func _apply_f_sp_1(chapter, outcome, echo_count, first_attempt_resolved) -> Dictionary`) + DefaultDestinyBranchJudge concrete subclass delegating to ScenarioFormulas.resolve_branch (ADR-0017 owned F-SP-1 authoritative impl) + DestinyBranchChoice typed Resource payload (9 @export fields per ADR-0001 ratified shape via Evolution Rule #4 minor amendment delta #13). NOT an autoload (no persistent state per CR-DB-3 transient-per-call). NOT a Node (no scene-tree presence). NOT a static utility module (rejected per Alternative §2 — `static var` would be required for test injection state, breaking EC-DB-17 thread-safety guarantee). NOT inline in ScenarioRunner (rejected per Alternative §1 — Single Responsibility + testability + Substitutability all favor dedicated executor class). Test seam form: `@abstract` annotation (Godot 4.5+ language feature per breaking-changes.md 4.4→4.5 row) — parse-time enforced on typed references per godot-4x-gotchas G-22; verification uses structural source-file assertion pattern (FileAccess.get_file_as_string + assert_bool contains `@abstract` + `func _apply_f_sp_1` per V-5). Pre-4.5 emulation form (`assert(false, \"must override\")`) REJECTED per current-best-practices.md typed-priority. Test-injection mechanism: instance-level state via subclass (TestDestinyBranchJudgeWithSp1Stub holds `_stub_output` Dictionary as instance var). Production-time concrete subclass: `class_name DefaultDestinyBranchJudge extends DestinyBranchJudge` overriding `_apply_f_sp_1` to delegate to scenario-progression's authoritative implementation. Lifecycle: ScenarioRunner constructs `DefaultDestinyBranchJudge.new()` at BEAT_7_JUDGMENT tap-exit, calls `judge.resolve(...)` synchronously, captures the returned DestinyBranchChoice, emits destiny_branch_chosen on GameBus, then judge goes out of scope (RefCounted scope drop). Determinism + thread-safety BY CONSTRUCTION (no class-level state; no `static var` anywhere in hierarchy including test stubs — lint-enforced via destiny_branch_judge_static_var forbidden_pattern with scan-set covering production source + test stub + any `extends DestinyBranchJudge` subclass)."
+    not: "Inline F-SP-1/F-SP-2 in ScenarioRunner (rejected per Alternative §1 — couples branch resolution logic to ScenarioRunner state; pure-function unit tests of F-SP-1/F-SP-2 require ScenarioRunner instantiation; Substitutability lost; F-SP-1 owner-vs-executor split per scenario-progression.md 2026-04-19 patch is the project-ratified architecture)"
+    not_also: "Static utility module (`DestinyBranchJudge` as script with `static func resolve(...)`) — rejected per Alternative §2 (EC-DB-17 thread-safety guarantee REQUIRES no class-level mutable state; `static var _sp1_override: Callable` for test injection introduces shared mutable state that produces order-dependent test failures + breaks determinism-by-construction property)"
+    not_also_2: "Autoload singleton (`DestinyBranchJudge` as 7th autoload after GameBus + SceneManager + SaveManager + GameBusDiagnostics + BuildModeSentinel + ScenarioRunner) — rejected per Alternative §3 (judge holds NO persistent state per CR-DB-3 transient-per-call; autoload form misrepresents lifecycle to future maintainers; project precedent reserves autoloads for cross-scene-persistence components; G-3 collision irreconcilable: autoload requires no class_name BUT judge needs class_name DestinyBranchJudge to be constructable from test fixtures)"
+    not_also_3: "Untyped Dictionary payload (no DestinyBranchChoice Resource) — rejected per Alternative §4 (loses Pillar-4 payload-level enforcement of is_canonical_history field presence/type; loses ResourceSaver/ResourceLoader round-trip type preservation; loses BattleOutcome.Result typed-enum @export semantics; breaks ADR-0001 V-3 cross-scene serialization contract; future migration becomes a manual Dictionary-walking exercise vs. SaveMigrationRegistry-driven Resource schema migration per ADR-0003)"
+    adr: docs/architecture/ADR-0018-destiny-branch.md
+    reason: "DestinyBranchJudge owns the F-SP-1/F-SP-2 EXECUTOR boundary; scenario-progression owns the F-SP-1/F-SP-2 SPEC boundary (callable signature + behavior + edge cases). The owner-vs-executor split (per scenario-progression.md 2026-04-19 patch + ADR-0017 §F-SP-1/F-SP-2 Execution + ADR-0018 §Decision §Class Form) keeps formula evolution localized: future Ch4+ alternative branch resolution alternatives (e.g., echo-gated for ALL outcomes) replace DefaultDestinyBranchJudge with an alternative subclass at ScenarioRunner's construction site (`var judge: DestinyBranchJudge = AlternativeJudge.new()`), without touching ScenarioRunner's 13-state machine OR scenario-progression's F-SP-1 spec. RefCounted is the correct base because: (1) NO scene-tree presence required (judge does no rendering / no input / no _process); (2) NO persistent state required per CR-DB-3 transient-per-call; (3) RefCounted lifecycle is RAII (Godot's reference counting frees the instance at scope exit; no explicit queue_free / free; no leak risk); (4) RefCounted is the project idiom for `Resource-adjacent ephemeral objects` (matches damage-calc rev 2.6 RefCounted wrapper precedent — AttackerContext / DefenderContext / ResolveModifiers / ResolveResult per ADR-0012); (5) test fixture form: GdUnit4 tests construct DestinyBranchJudge.new() directly without scene-tree / autoload setup. @abstract test seam pattern is the project's canonical inject-formula-output-without-monkey-patching idiom — first invocation of @abstract pattern (no precedent before this ADR; pattern boundary established for future formula-evaluator ADRs). The 4-arg resolve() signature inherits from ADR-0017 line 200 + scenario-progression CR-7 4th-argument invariant (passed-as-fourth-argument-not-read-from-state); judge MUST NOT read first_attempt_resolved from ScenarioRunner state per `destiny_branch_judge_reads_scenario_runner_state` forbidden_pattern (lint-enforced)."
+    referenced_by:
+      - docs/architecture/ADR-0018-destiny-branch.md
+      - docs/architecture/ADR-0017-scenario-progression.md  # ScenarioRunner constructs DefaultDestinyBranchJudge.new() + calls judge.resolve(...) at BEAT_7_JUDGMENT entry; F-SP-1/F-SP-2 spec owned here, executor owned in ADR-0018
+      - docs/architecture/ADR-0001-gamebus-autoload.md  # destiny_branch_chosen(DestinyBranchChoice) signal — emission ownership in ScenarioRunner per CR-DB-4
+      - docs/architecture/ADR-0014-grid-battle-controller.md  # BattleOutcome.Result enum consumed as resolve() 2nd arg; class_name BattleOutcome top-level constraint SATISFIED in shipped code
+      - docs/architecture/ADR-0003-save-load.md  # ChapterResult.branch_triggered persists DestinyBranchChoice.branch_key per SaveContext schema
+    added: 2026-05-04
+    revised: ""
+
   - purpose: scenario_runner_module_form
     status: active
     using: "autoload Node (extends Node, NO `class_name` per godot-4x-gotchas G-3 — autoload-registered identifier IS the global name; same precedent as 5 prior autoloads: GameBus + SceneManager + SaveManager + GameBusDiagnostics + BuildModeSentinel). Single instance, persistent across Overworld↔BattleScene transitions, lifecycle owned by SceneTree. State machine form: enum + match-statement single authoritative `_state: State` field with `_transition_to(target: State)` method (matches SceneManager ADR-0002 precedent — pattern stable at 2 invocations after this delta). Chapter data form: typed `class_name ChapterDefinition extends Resource` with 13 @export fields hydrated from `assets/data/scenarios/{scenario_id}.json` via `JSON.parse_string()` at LOADING entry (matches MapResource + HeroData + BalanceConstants 3-precedent typed-Resource-from-JSON pattern). BattleConfig payload: REUSE `BattlePayload` Resource per ADR-0001 (DRY; no new BattleConfig type). F-SP-1/F-SP-2 execution: delegated to `DestinyBranchJudge.resolve(...)` per ADR-0018 boundary (owner-vs-executor split per scenario-progression.md 2026-04-19 patch)."
@@ -1859,6 +1964,27 @@ forbidden_patterns:
     description: "ScenarioRunner MUST NOT assign or override BattleOutcome.result. The tri-state {WIN, DRAW, LOSS} is owned by GridBattleController exclusively per ADR-0014 §battle_outcome_resolved emission contract. ScenarioRunner consumes `battle_outcome_resolved(BattleOutcome)` via GameBus.battle_outcome_resolved.connect(_on_battle_outcome, CONNECT_DEFERRED) at autoload _ready(), reads the result via `_last_battle_outcome.result`, and uses it for state-machine routing — but never writes back to the field. FORBIDDEN: `_last_battle_outcome.result = BattleOutcome.Result.WIN` (override); `_last_battle_outcome.result = BattleOutcome.Result.DRAW` (synthesis); any assignment to `*.result` where the LHS is a BattleOutcome instance in scenario_runner.gd. Lint enforcement: trivially verifiable via `grep -E 'result\\s*=' src/core/scenario_runner.gd` returning 0 matches (where the LHS is BattleOutcome) — sprint-7+ formalization in the ScenarioRunner CI hardening story."
     why: "Per ADR-0017 §Requirements line 73 + scenario-progression.md §CR-3 (Tri-state outcome — no synthesis or override) + ADR-0014 single-emitter contract. If ScenarioRunner overrides outcome (e.g., 'designer wants this chapter to always be a narrative WIN even if mechanics show LOSS'), the player's actual battle performance becomes invisible to the F-SP-1 branch resolution + Save/Load archive — Pillar 1 (자기 신념의 시뮬레이터 — designer-imposed outcome violates 'player chose this because they believed') and Pillar 2 (mechanically losing but narratively winning rewires the player's mental model away from 'practice → improvement'). Future 'narrative override' features that need outcome synthesis MUST go through a new dedicated signal (e.g., `narrative_outcome_override_requested(reason: String)`) and a new ADR superseding the CR-3 invariant — NOT inline override. Mirrors no prior outcome-ownership forbidden_pattern (this is the first; establishes precedent for future ScenarioRunner-domain outcome ownership: e.g., chapter_completed.outcome must equal _last_battle_outcome.result modulo tri-state mapping per F-SP-1)."
     adr: docs/architecture/ADR-0017-scenario-progression.md
+    added: 2026-05-04
+
+  - pattern: destiny_branch_judge_emits_gamebus_signal
+    status: active
+    description: "DestinyBranchJudge (RefCounted pure-function class) MUST NOT emit any GameBus signal directly. Per CR-DB-4 emission ownership, the emission of `GameBus.destiny_branch_chosen(DestinyBranchChoice)` is owned EXCLUSIVELY by ScenarioRunner's BEAT_7_JUDGMENT tap-exit handler — judge.resolve() returns the DestinyBranchChoice payload, ScenarioRunner emits. FORBIDDEN: any `GameBus.<signal>.emit(...)` call site inside `src/feature/destiny_branch/destiny_branch_judge.gd` OR `src/feature/destiny_branch/default_destiny_branch_judge.gd` OR any test stub OR any future `extends DestinyBranchJudge` subclass. Sprint-7+ lint enforcement: `tools/ci/lint_destiny_branch_judge_no_gamebus_emit.sh` (per ADR-0018 §Validation Criteria V-7) will grep -E 'GameBus\\..*\\.emit\\(' against the scan-set + return 0 matches. Scan-set includes: production source files (judge + default subclass) + future `$(grep -rl 'extends DestinyBranchJudge' src/)` discovery."
+    why: "Per ADR-0018 §Decision §Emission Ownership + destiny-branch GDD §CR-DB-4 + GameBus single-emitter rule. Splitting evaluation (judge.resolve()) from emission (ScenarioRunner.emit()) preserves AC-SP-17 exactly-one-emission contract per chapter — judge cannot accidentally double-emit, judge cannot emit before the CP-2 save_checkpoint_requested ordering completes, judge cannot emit a payload that isn't first captured by ScenarioRunner's `_last_branch_choice` reference. Mirrors `damage_calc_emits_signal` precedent (DamageCalc per ADR-0012 is also a stateless calculation module that does not emit; emission ownership lives in GridBattleController). Defense-in-depth: even if a future maintainer factors out shared resolution logic into a helper, the lint catches accidental signal emission at the helper layer."
+    adr: docs/architecture/ADR-0018-destiny-branch.md
+    added: 2026-05-04
+
+  - pattern: destiny_branch_judge_static_var
+    status: active
+    description: "DestinyBranchJudge (RefCounted pure-function class) and any subclass thereof (production + test stub + any future `extends DestinyBranchJudge`) MUST NOT declare `static var` ANYWHERE in the class hierarchy. EC-DB-17 thread-safety guarantee REQUIRES no class-level mutable state — `static var` would introduce shared mutable state that breaks the determinism-by-construction property + would create order-dependent test failures (test 1 sets static var, test 2 inherits leaked state). FORBIDDEN: any `^static var` declaration in `src/feature/destiny_branch/destiny_branch_judge.gd` OR `src/feature/destiny_branch/default_destiny_branch_judge.gd` OR `tests/helpers/destiny_branch_judge_stub.gd` (test stub MUST use instance-level `_stub_output` Dictionary, NOT static var) OR any future `extends DestinyBranchJudge` subclass file (production OR test scope). Sprint-7+ lint enforcement: `tools/ci/lint_destiny_branch_judge_no_static_var.sh` (per ADR-0018 §Validation Criteria V-8 — scan-set explicitly expanded per godot-specialist 15th-invocation advisory C-3) will grep -E '^static var' against scan-set including: production source files + test stub + `$(grep -rl 'extends DestinyBranchJudge' src/ tests/)` discovery — return 0 matches."
+    why: "Per ADR-0018 §Decision §Determinism Contract item 5 + destiny-branch GDD §EC-DB-17 thread-safety guarantee. Two simultaneous DestinyBranchJudge.new() instances on WorkerThreadPool tasks MUST produce field-identical 9-field DestinyBranchChoice output for identical inputs. Class-level state (static var) breaks this guarantee by definition — instance 1's mutation visible to instance 2's read. The ban is broader than the production class because subclassing inherits the constraint: a test stub's `static var _stub_output` would leak between test runs (test 1 set, test 2 inherit, order-dependent failure). The 4-precedent project pattern of `instance-level test injection via subclass` (TestDestinyBranchJudgeWithSp1Stub holds `_stub_output` as instance var; HPStatusController test scoping; DamageCalc 4-RefCounted-wrapper precedent) is the project idiom. First @abstract test-seam pattern in the project — establishes pattern boundary for future formula-evaluator ADRs."
+    adr: docs/architecture/ADR-0018-destiny-branch.md
+    added: 2026-05-04
+
+  - pattern: destiny_branch_judge_reads_scenario_runner_state
+    status: active
+    description: "DestinyBranchJudge (RefCounted pure-function class) and any subclass thereof MUST NOT read state from ScenarioRunner autoload. Judge accesses inputs ONLY via the 4 `resolve()` parameters: `(chapter: ChapterDefinition, outcome: BattleOutcome.Result, echo_count: int, first_attempt_resolved: bool)`. The 4th argument `first_attempt_resolved` is the ALREADY-SEALED value passed BY ScenarioRunner per F-SP-3 v2.2 + scenario_runner_deferred_seal_in_beat_7_entry forbidden_pattern (Pillar 2 architectural lock — synchronous seal at BEAT_7 entry); judge MUST receive it as a function argument, NOT read from `ScenarioRunner._scenario_state.first_attempt_resolved`. FORBIDDEN: any `ScenarioRunner.<member>` access OR `_scenario_state.<field>` access OR `get_tree().get_root().get_node(\"/root/ScenarioRunner\")` lookup OR any other autoload-state-read pattern in `src/feature/destiny_branch/destiny_branch_judge.gd` OR `src/feature/destiny_branch/default_destiny_branch_judge.gd`. Sprint-7+ lint enforcement: `tools/ci/lint_destiny_branch_judge_no_scenario_runner_read.sh` (per ADR-0018 §Validation Criteria V-9) will grep -E 'ScenarioRunner\\.|_scenario_state\\.' against the scan-set + return 0 matches."
+    why: "Per ADR-0018 §Decision §Determinism Contract item 3 + destiny-branch GDD §CR-DB-2 pure-function rule + scenario-progression CR-7 sealed-value pass-through invariant. Reading `first_attempt_resolved` from ScenarioRunner state at any moment AFTER BEAT_7 entry would create a race condition: the value visible to the judge could differ from the value at seal-time if any deferred callback or async event processed between seal and read. The 4-arg signature inheritance from ADR-0017 line 200 + scenario-progression CR-7 makes the seal/read contract explicit at the call-site interface. Mirrors `scenario_runner_outcome_synthesis` forbidden_pattern (CR-3 invariant — outcome ownership is single-emitter at GridBattleController) — both are about preserving determinism by NEVER reading shared mutable state at evaluation time. Pattern boundary: future formula-evaluator ADRs in the destiny-branch / scenario-progression / save-load chain MUST inherit this discipline (F-SP-3 v2.2 sealed values pass through call signatures, never read from autoload state)."
+    adr: docs/architecture/ADR-0018-destiny-branch.md
     added: 2026-05-04
 
 # Example:

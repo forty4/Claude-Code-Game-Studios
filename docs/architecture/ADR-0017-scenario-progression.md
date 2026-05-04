@@ -205,8 +205,16 @@ func _enter_beat_7_judgment() -> void:
     # Seal first_attempt_resolved BEFORE resolve_branch reads it
     if _scenario_state.echo_count == 0:
         _scenario_state.first_attempt_resolved = true
-    # Pure-function call; no GameBus relay; no call_deferred
-    var choice: DestinyBranchChoice = DestinyBranchJudge.resolve(
+    # Construct transient RefCounted judge per ADR-0018 §Class Form (DefaultDestinyBranchJudge
+    # extends DestinyBranchJudge; @abstract _apply_f_sp_1 overridden to delegate to
+    # ScenarioFormulas.resolve_branch). Static-utility-module form is REJECTED per ADR-0018
+    # Alternative §2 (EC-DB-17 thread-safety: `static var` would be required for test
+    # injection state and is forbidden in the judge class hierarchy). Judge is discarded
+    # via RefCounted scope drop after resolve() returns. (Call site form widened per
+    # /architecture-review delta #13, 2026-05-04 — was static-method call, now instance form
+    # matching ADR-0018 ratification.)
+    var judge: DestinyBranchJudge = DefaultDestinyBranchJudge.new()
+    var choice: DestinyBranchChoice = judge.resolve(
         _scenario_state.current_chapter,
         _last_battle_outcome.result,
         _scenario_state.echo_count,
@@ -215,6 +223,7 @@ func _enter_beat_7_judgment() -> void:
     # Display branch with min-dwell lockout; emit destiny_branch_chosen on player tap-advance
     _last_branch_choice = choice
     # ... (UI dwell + tap handling lives in BEAT_7_JUDGMENT exit)
+    # `judge` goes out of scope at function end → RefCounted scope drop → memory reclaimed
 ```
 
 **Why delegate to DestinyBranchJudge** (not inline in ScenarioRunner):

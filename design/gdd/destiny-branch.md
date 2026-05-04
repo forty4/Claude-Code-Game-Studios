@@ -1,8 +1,8 @@
 # Destiny Branch System (운명 분기)
 
-> **Status**: APPROVED — rev 1.3.1 (post tenth-pass /design-review 2026-04-19 — APPROVED with 3 doc-hygiene patches applied in-session)
+> **Status**: APPROVED — rev 1.3.2 (post-ADR-0018 /architecture-review delta #13 sync 2026-05-04 — F-DB-1 algorithm 3-arg → 4-arg form ratified per upstream ADR-0017 line 200 + scenario-progression CR-7 4th-argument invariant; `default_branch_key` → `canonical_branch_key` field-name reconciled to ADR-0017 ChapterDefinition schema; `chapter: ChapterResource` → `chapter: ChapterDefinition` typed-Resource form reconciled; @abstract `_apply_f_sp_1` seam declaration + TestDestinyBranchJudgeWithSp1Stub + worked examples E1-E6 each updated to 4-arg form with new 4th column `first_attempt_resolved` + 4th-column semantics paragraph. Rev 1.3.1 below preserved as rev 1.3.1 historical state.)
 > **Author**: user + game-designer + specialists (per Section delegation)
-> **Last Updated**: 2026-04-19 (rev 1.3.1 — tenth-pass APPROVED + 3 doc-hygiene patches: AC-DB-21 stale-count `5→12` bumped to rev 1.3 F-DB-3; AC-DB-34 stale-count `10→12` bumped to rev 1.3 F-DB-3 with 2 rev 1.3 entries enumerated in parenthetical; F-DB-1 step 1c comment stripped of rejected-API breadcrumb per pass-10 precondition #1 `zero is_valid_result(` hit. All 10 pass-10 preconditions now PASS. Rev 1.3 — ninth-pass blocker sweep: 11 consolidated Tier-1 + 9 Tier-2; 4 user design decisions locked [D1-rev1.3 `reduce_haptics` = 7th Intermediate toggle authored in accessibility-requirements.md §2/§7/§9; D2-rev1.3 AC-DB-20 helper locked to Godot stdout/stderr redirect + grep buffer implementation; D3-rev1.3 OQ-DB-10 threshold inverted to max-miss-rate ≤10% by Ch2 end as Pillar 2 failure threshold; D4-rev1.3 OQ-DB-16 resolved SWALLOW + promoted to BLOCKING VS + closed]. Fixes: F-DB-1 empty-Dictionary guard (systems B-1); assembly-time is_draw_fallback⟹DRAW cross-field invariant check (systems B-2); `BattleOutcome.is_valid_result` invented-API replaced with `outcome in BattleOutcome.Result.values()` (gdscript B-1); signature alignment `outcome: BattleOutcome.Result` throughout (gdscript B-2); `@abstract` annotation on `_apply_f_sp_1` base (gdscript B-3); zero-canonical-row runtime warning path added (narrative B-ND-2); AC-DB-09 fallback removed, committed to `monitor_signals()` + `assert_signal_not_emitted()` (qa-lead B-2); AC-DB-20 helper locked to stdout-redirect implementation (qa-lead B-3); ADVISORY-AC lifecycle — each ADVISORY AC now carries owner + gate + promotion condition (qa-lead B-1); scenario-progression §Interactions line 189 6-field lag + IP-006 UX.2 ack flagged with co-merge gates (systems B-3 + ux B-UX-9-1 + narrative B-ND-1); OQ-DB-11 closed referencing scenario-progression UX.2 lines 817-819 (ux B-UX-9-3); new AC-DB-39 for affordance-onset timing sync; new OQ-DB-17 for Korean braille adequacy (a11y B-2); AC-DB-07 forbidden-pattern list extended with Engine.get_*_frames + DisplayServer.window_* + OS.get_processor_count (systems R-1); TK-DB-1 safe range bounds now carry measurable protocol (systems R-2); V-DB-2 Korean subtitle copy register amended (narrative N-ND-1); Story Event #10 BLOCKING constraint reframed as register-constraint not example-copy (narrative N-ND-3); AC-DB-24 empty-StringName fixture row added (qa-lead R-2); AC-DB-31 chapter-argument-immutability fixture added (qa-lead R-5); UI-DB-5 reversal-trigger condition (b) marked as dead-end (ux R-UX-9-4); Section B "Marked Hand standalone absence" risk note added (narrative N-ND-4); Bucket 2 AC-DB-39 affordance-onset added; Coverage 40→43 ACs. Rev 1.2 resolved 12 Tier-1 + ~18 Tier-2; rev 1.1 resolved 7 Tier-1 + 10 Tier-2 (see review log).
+> **Last Updated**: 2026-05-04 (rev 1.3.2 — ADR-0018 acceptance sync via /architecture-review delta #13: 7 wording flips covering signature widening + field-name + type-name reconciliation. See Section F header + F-DB-1 algorithm + F-DB-2 derivation + worked examples table + test-seam contract.) Earlier 2026-04-19 (rev 1.3.1 — tenth-pass APPROVED + 3 doc-hygiene patches: AC-DB-21 stale-count `5→12` bumped to rev 1.3 F-DB-3; AC-DB-34 stale-count `10→12` bumped to rev 1.3 F-DB-3 with 2 rev 1.3 entries enumerated in parenthetical; F-DB-1 step 1c comment stripped of rejected-API breadcrumb per pass-10 precondition #1 `zero is_valid_result(` hit. All 10 pass-10 preconditions now PASS. Rev 1.3 — ninth-pass blocker sweep: 11 consolidated Tier-1 + 9 Tier-2; 4 user design decisions locked [D1-rev1.3 `reduce_haptics` = 7th Intermediate toggle authored in accessibility-requirements.md §2/§7/§9; D2-rev1.3 AC-DB-20 helper locked to Godot stdout/stderr redirect + grep buffer implementation; D3-rev1.3 OQ-DB-10 threshold inverted to max-miss-rate ≤10% by Ch2 end as Pillar 2 failure threshold; D4-rev1.3 OQ-DB-16 resolved SWALLOW + promoted to BLOCKING VS + closed]. Fixes: F-DB-1 empty-Dictionary guard (systems B-1); assembly-time is_draw_fallback⟹DRAW cross-field invariant check (systems B-2); `BattleOutcome.is_valid_result` invented-API replaced with `outcome in BattleOutcome.Result.values()` (gdscript B-1); signature alignment `outcome: BattleOutcome.Result` throughout (gdscript B-2); `@abstract` annotation on `_apply_f_sp_1` base (gdscript B-3); zero-canonical-row runtime warning path added (narrative B-ND-2); AC-DB-09 fallback removed, committed to `monitor_signals()` + `assert_signal_not_emitted()` (qa-lead B-2); AC-DB-20 helper locked to stdout-redirect implementation (qa-lead B-3); ADVISORY-AC lifecycle — each ADVISORY AC now carries owner + gate + promotion condition (qa-lead B-1); scenario-progression §Interactions line 189 6-field lag + IP-006 UX.2 ack flagged with co-merge gates (systems B-3 + ux B-UX-9-1 + narrative B-ND-1); OQ-DB-11 closed referencing scenario-progression UX.2 lines 817-819 (ux B-UX-9-3); new AC-DB-39 for affordance-onset timing sync; new OQ-DB-17 for Korean braille adequacy (a11y B-2); AC-DB-07 forbidden-pattern list extended with Engine.get_*_frames + DisplayServer.window_* + OS.get_processor_count (systems R-1); TK-DB-1 safe range bounds now carry measurable protocol (systems R-2); V-DB-2 Korean subtitle copy register amended (narrative N-ND-1); Story Event #10 BLOCKING constraint reframed as register-constraint not example-copy (narrative N-ND-3); AC-DB-24 empty-StringName fixture row added (qa-lead R-2); AC-DB-31 chapter-argument-immutability fixture added (qa-lead R-5); UI-DB-5 reversal-trigger condition (b) marked as dead-end (ux R-UX-9-4); Section B "Marked Hand standalone absence" risk note added (narrative N-ND-4); Bucket 2 AC-DB-39 affordance-onset added; Coverage 40→43 ACs. Rev 1.2 resolved 12 Tier-1 + ~18 Tier-2; rev 1.1 resolved 7 Tier-1 + 10 Tier-2 (see review log).
 > **Implements Pillar**: Pillar 2 (primary — 운명은 바꿀 수 있다), Pillar 4 (supporting — 삼국지의 숨결)
 > **Binds to**: ADR-0001 GameBus autoload (signal contract + DestinyBranchChoice 9-field payload lock)
 > **Consumes from Scenario Progression**: F-SP-1 resolve_branch (adds `is_canonical_history` authored field per branch-table row), F-SP-2 is_echo_gate_open
@@ -137,22 +137,31 @@ destiny-branch does not define *new* formulas in the balance sense — it execut
 
 The assembly formula is defined as:
 
-`resolve(chapter, outcome, echo_count) → DestinyBranchChoice`
+`resolve(chapter, outcome, echo_count, first_attempt_resolved) → DestinyBranchChoice`
 
 **Variables:**
 | Variable | Symbol | Type | Range | Description |
 |---|---|---|---|---|
-| chapter | `chapter` | `ChapterResource` | non-null when valid | Chapter resource from ScenarioRunner current-chapter context (owned by scenario-progression) |
+| chapter | `chapter` | `ChapterDefinition` | non-null when valid | Chapter typed Resource from ScenarioRunner current-chapter context (owned by scenario-progression per ADR-0017; type renamed `ChapterResource` → `ChapterDefinition` per rev 1.3.2 reconciliation to ADR-0017 ChapterDefinition schema). |
 | outcome | `outcome` | `BattleOutcome.Result` | {WIN, DRAW, LOSS} | Battle outcome from Grid Battle (passthrough via ScenarioRunner; AC-SP-3) |
 | echo_count | `echo_count` | int | [0, ∞) practical; negative clamps to 0 with warning | Current-chapter retry count from ScenarioRunner state (F-SP-3 contract) |
+| first_attempt_resolved | `far` | bool | {true, false} | F-SP-3 v2.2 sealed `first_attempt_resolved` value at BEAT_7_JUDGMENT entry per scenario-progression CR-7 + ADR-0017 line 200 + `scenario_runner_deferred_seal_in_beat_7_entry` Pillar 2 architectural lock. Passed through to F-SP-1 / F-SP-2 (anti-farm-gate semantics: F-SP-2 returns true only when `echo_count ≥ echo_threshold` AND `first_attempt_resolved == false`). The judge MUST receive this as the 4th argument; reading the sealed value from `ScenarioRunner._scenario_state` is FORBIDDEN per ADR-0018 `destiny_branch_judge_reads_scenario_runner_state` forbidden_pattern. |
 
 **Algorithm** (GDScript pseudocode):
 
 ```gdscript
-func resolve(chapter: ChapterResource, outcome: BattleOutcome.Result, echo_count: int) -> DestinyBranchChoice:
-    # Rev 1.3 signature alignment (gdscript B-2): `outcome` is typed `BattleOutcome.Result`
-    # to match F-DB-4 @export schema. All `%d` format calls use `int(outcome)` cast per
-    # Godot 4.6 typed-enum-in-format-string rules.
+func resolve(chapter: ChapterDefinition, outcome: BattleOutcome.Result, echo_count: int, first_attempt_resolved: bool) -> DestinyBranchChoice:
+    # Rev 1.3.2 signature alignment (ADR-0018 §Migration Plan §1, /architecture-review
+    # delta #13, 2026-05-04): 4-arg form ratified per upstream ADR-0017 line 200 +
+    # scenario-progression CR-7 4th-argument invariant. The 4th arg `first_attempt_resolved`
+    # is the F-SP-3 v2.2 SEALED value at BEAT_7_JUDGMENT entry per ADR-0017
+    # `scenario_runner_deferred_seal_in_beat_7_entry` forbidden_pattern (Pillar 2
+    # architectural lock); judge MUST NOT read this value from ScenarioRunner state per
+    # ADR-0018 `destiny_branch_judge_reads_scenario_runner_state` forbidden_pattern.
+    # Field-name reconciliation: `chapter.canonical_branch_key` matches ADR-0017
+    # ChapterDefinition schema (was `default_branch_key` pre-rev 1.3.2). Type
+    # reconciliation: `chapter: ChapterDefinition` matches ADR-0017 typed-Resource form.
+    # `outcome: BattleOutcome.Result` typed; all `%d` format calls use `int(outcome)`.
     # 1. Invariant checks (CR-DB-10)
     if chapter == null:
         push_error("DestinyBranchJudge: chapter is null")
@@ -160,8 +169,8 @@ func resolve(chapter: ChapterResource, outcome: BattleOutcome.Result, echo_count
     if chapter.chapter_id == "":
         push_error("DestinyBranchJudge: chapter.chapter_id empty")
         return DestinyBranchChoice.invalid(&"invariant_violation:chapter_id_missing")
-    if chapter.default_branch_key == "":
-        push_error("DestinyBranchJudge: chapter.default_branch_key empty")
+    if chapter.canonical_branch_key == "":
+        push_error("DestinyBranchJudge: chapter.canonical_branch_key empty")
         return DestinyBranchChoice.invalid(&"invariant_violation:default_branch_key_missing")
     if chapter.branch_table == null or not (chapter.branch_table is Dictionary):
         push_error("DestinyBranchJudge: chapter.branch_table null or non-Dictionary")
@@ -200,10 +209,13 @@ func resolve(chapter: ChapterResource, outcome: BattleOutcome.Result, echo_count
         echo_count = 0
 
     # 3. Execute F-SP-1 via overridable seam _apply_f_sp_1 (see Section F test-seam contract).
-    #    Formula specified by scenario-progression §D. The seam is `virtual` so GdUnit4 test
-    #    subclasses can inject mock F-SP-1 output per AC-DB-20c/20d/20e without touching
-    #    scenario-progression code. See `TestDestinyBranchJudgeWithSp1Stub` pattern below.
-    var f_sp_1: Dictionary = _apply_f_sp_1(chapter, outcome, echo_count)
+    #    Formula specified by scenario-progression §D. The seam is `@abstract` (rev 1.3 +
+    #    rev 1.3.2 4-arg form) so GdUnit4 test subclasses can inject mock F-SP-1 output per
+    #    AC-DB-20c/20d/20e without touching scenario-progression code. See
+    #    `TestDestinyBranchJudgeWithSp1Stub` pattern below. The `first_attempt_resolved`
+    #    4th argument is forwarded to F-SP-1 per scenario-progression CR-7 sealed-value
+    #    pass-through invariant.
+    var f_sp_1: Dictionary = _apply_f_sp_1(chapter, outcome, echo_count, first_attempt_resolved)
     # 3a. Key-presence guard (required-key set is the contract with F-SP-1)
     if f_sp_1.is_empty() or not f_sp_1.has("branch_key") or not f_sp_1.has("is_draw_fallback") or not f_sp_1.has("is_canonical_history"):
         push_error("DestinyBranchJudge: F-SP-1 output missing required key(s) for outcome %d" % outcome)
@@ -232,7 +244,7 @@ func resolve(chapter: ChapterResource, outcome: BattleOutcome.Result, echo_count
         return DestinyBranchChoice.invalid(&"invariant_violation:is_draw_fallback_outcome_mismatch")
 
     # 4. Derive reserved_color_treatment per F-DB-2 / CR-DB-9
-    var reserved_color: bool = (f_sp_1["branch_key"] != chapter.default_branch_key)
+    var reserved_color: bool = (f_sp_1["branch_key"] != chapter.canonical_branch_key)
     # 4a. Fallback override: is_draw_fallback=true → reserved_color=false (F-DB-2 local enforcement).
     #     This step is the enforcement site for the payload invariant at F-DB-4
     #     (reserved_color_treatment==true ⟹ is_draw_fallback==false); see invariant note.
@@ -268,7 +280,7 @@ var _stub_output: Dictionary = {}
 func set_sp1_output(output: Dictionary) -> void:
     _stub_output = output
 
-func _apply_f_sp_1(_chapter: ChapterResource, _outcome: BattleOutcome.Result, _echo_count: int) -> Dictionary:
+func _apply_f_sp_1(_chapter: ChapterDefinition, _outcome: BattleOutcome.Result, _echo_count: int, _first_attempt_resolved: bool) -> Dictionary:
     return _stub_output
 ```
 
@@ -276,7 +288,7 @@ The `@abstract` declaration lives on the base `DestinyBranchJudge._apply_f_sp_1`
 
 ```gdscript
 @abstract
-func _apply_f_sp_1(chapter: ChapterResource, outcome: BattleOutcome.Result, echo_count: int) -> Dictionary:
+func _apply_f_sp_1(chapter: ChapterDefinition, outcome: BattleOutcome.Result, echo_count: int, first_attempt_resolved: bool) -> Dictionary:
     pass  # unreachable — must be overridden
 ```
 
@@ -288,26 +300,26 @@ Test code constructs `TestDestinyBranchJudgeWithSp1Stub.new()`, calls `set_sp1_o
 
 The derivation formula is defined as:
 
-`reserved_color_treatment = (choice.branch_key != chapter.default_branch_key) AND (NOT is_draw_fallback)`
+`reserved_color_treatment = (choice.branch_key != chapter.canonical_branch_key) AND (NOT is_draw_fallback)`
 
-The second clause (fallback override) is applied in F-DB-1 step 4a as a local enforcement — it does NOT rely on scenario-progression's CR-14 authoring discipline to keep fallback `branch_key == default_branch_key`. Even if a writer bug causes F-SP-1 to return `is_draw_fallback=true` alongside a `branch_key` that differs from `default_branch_key`, destiny-branch will force `reserved_color=false` to preserve Pillar 2 semantics locally.
+The second clause (fallback override) is applied in F-DB-1 step 4a as a local enforcement — it does NOT rely on scenario-progression's CR-14 authoring discipline to keep fallback `branch_key == canonical_branch_key`. Even if a writer bug causes F-SP-1 to return `is_draw_fallback=true` alongside a `branch_key` that differs from `canonical_branch_key`, destiny-branch will force `reserved_color=false` to preserve Pillar 2 semantics locally.
 
 **Variables:**
 | Variable | Symbol | Type | Range | Description |
 |---|---|---|---|---|
 | `choice.branch_key` | — | String | ∈ `chapter.branch_table` keys | Result of F-SP-1 |
-| `chapter.default_branch_key` | — | String | Non-empty | Authored key of the chapter's default branch |
+| `chapter.canonical_branch_key` | — | String | Non-empty | Authored key of the chapter's pre-authored DEFAULT branch (Pillar 4 canonical 演義 row when no divergence applies). Field-name reconciled to ADR-0017 ChapterDefinition schema rev 1.3.2 (was `default_branch_key` pre-rev 1.3.2). |
 | `is_draw_fallback` | — | bool | {true, false} | F-SP-1 output — true when DRAW outcome resolved via WIN-branch fallback per CR-14 |
 
 **Output Range:** bool ∈ {true, false}
 
 **Behavior at extremes:**
-- Always `false` when F-DB-1 invalid-path taken (`is_invalid == true`) — even if branch_key != default by chance, the invalid flag means there is no "branch divergence" to celebrate. The `invalid()` factory sets `reserved_color_treatment=false` as default; it is never overridden on the invalid path.
-- Always `false` when `is_draw_fallback == true` — enforced locally at F-DB-1 step 4a regardless of whether `branch_key` equals `default_branch_key`.
+- Always `false` when F-DB-1 invalid-path taken (`is_invalid == true`) — even if branch_key != canonical by chance, the invalid flag means there is no "branch divergence" to celebrate. The `invalid()` factory sets `reserved_color_treatment=false` as default; it is never overridden on the invalid path.
+- Always `false` when `is_draw_fallback == true` — enforced locally at F-DB-1 step 4a regardless of whether `branch_key` equals `canonical_branch_key`.
 
 **Example:**
-- Ch3 `default_branch_key = "WIN_ch3_default"`, F-SP-1 returns `branch_key = "DRAW_ch3_echo"` → **true**
-- Ch1 `default_branch_key = "WIN_ch1_default"`, F-SP-1 returns `branch_key = "WIN_ch1_default"` → **false**
+- Ch3 `canonical_branch_key = "WIN_ch3_default"`, F-SP-1 returns `branch_key = "DRAW_ch3_echo"` → **true**
+- Ch1 `canonical_branch_key = "WIN_ch1_default"`, F-SP-1 returns `branch_key = "WIN_ch1_default"` → **false**
 - Ch2 (no DRAW branch authored) DRAW outcome → F-SP-1 returns `branch_key = "WIN_ch2_default"` with `is_draw_fallback = true` → `reserved_color_treatment = false` (fallback is NOT a divergence)
 
 ### F-DB-3. `invalid_reason` vocabulary
@@ -385,14 +397,16 @@ static func invalid(reason: StringName) -> DestinyBranchChoice:
 
 ### Worked examples (6 rows cover all significant paths)
 
-| # | Chapter fixture | outcome | echo_count | F-SP-1 returns | DestinyBranchChoice (fields) |
-|---|---|---|---|---|---|
-| E1 | Ch1 (`default="WIN_ch1_default"`, no echo_threshold) | WIN | 0 | `{branch_key:"WIN_ch1_default", is_draw_fallback:false, is_canonical_history:true}` | `chapter_id="ch1"; branch_key="WIN_ch1_default"; outcome=WIN; echo_count=0; is_draw_fallback=false; is_canonical_history=true; reserved_color_treatment=false; is_invalid=false; invalid_reason=&""` |
-| E2 | Ch3 (`default="WIN_ch3_default"`, `author_draw_branch=true`, `echo_threshold=1`) | DRAW | 0 | `{branch_key:"DRAW_ch3_default", is_draw_fallback:false, is_canonical_history:false}` | `chapter_id="ch3"; branch_key="DRAW_ch3_default"; outcome=DRAW; echo_count=0; is_draw_fallback=false; is_canonical_history=false; reserved_color_treatment=true; is_invalid=false; invalid_reason=&""` |
-| E3 | Ch3 (same as E2) | DRAW | 1 | `{branch_key:"DRAW_ch3_echo", is_draw_fallback:false, is_canonical_history:false}` (echo-gated) | `chapter_id="ch3"; branch_key="DRAW_ch3_echo"; outcome=DRAW; echo_count=1; is_draw_fallback=false; is_canonical_history=false; reserved_color_treatment=true; is_invalid=false; invalid_reason=&""` |
-| E4 | Ch2 (`default="WIN_ch2_default"`, `author_draw_branch=false`) | DRAW | 0 | `{branch_key:"WIN_ch2_default", is_draw_fallback:true, is_canonical_history:true}` | `chapter_id="ch2"; branch_key="WIN_ch2_default"; outcome=DRAW; echo_count=0; is_draw_fallback=true; is_canonical_history=true; reserved_color_treatment=false; is_invalid=false; invalid_reason=&""` |
-| E5 | (null) — invalid call | WIN | 0 | (not called; CR-DB-10 path) | `chapter_id=""; branch_key=""; outcome=LOSS; echo_count=0; is_draw_fallback=false; is_canonical_history=false; reserved_color_treatment=false; is_invalid=true; invalid_reason=&"invariant_violation:chapter_null"` |
-| E6 | Ch1 (author error: has `echo_threshold=1`) | DRAW | 1 | (not called; CR-13 runtime trip) | `chapter_id=""; branch_key=""; outcome=LOSS; echo_count=0; is_draw_fallback=false; is_canonical_history=false; reserved_color_treatment=false; is_invalid=true; invalid_reason=&"invariant_violation:cr13_echo_threshold_on_ch1"` |
+| # | Chapter fixture | outcome | echo_count | first_attempt_resolved | F-SP-1 returns | DestinyBranchChoice (fields) |
+|---|---|---|---|---|---|---|
+| E1 | Ch1 (`canonical="WIN_ch1_default"`, no echo_threshold) | WIN | 0 | true | `{branch_key:"WIN_ch1_default", is_draw_fallback:false, is_canonical_history:true}` | `chapter_id="ch1"; branch_key="WIN_ch1_default"; outcome=WIN; echo_count=0; is_draw_fallback=false; is_canonical_history=true; reserved_color_treatment=false; is_invalid=false; invalid_reason=&""` |
+| E2 | Ch3 (`canonical="WIN_ch3_default"`, `author_draw_branch=true`, `echo_threshold=1`) | DRAW | 0 | true | `{branch_key:"DRAW_ch3_default", is_draw_fallback:false, is_canonical_history:false}` | `chapter_id="ch3"; branch_key="DRAW_ch3_default"; outcome=DRAW; echo_count=0; is_draw_fallback=false; is_canonical_history=false; reserved_color_treatment=true; is_invalid=false; invalid_reason=&""` |
+| E3 | Ch3 (same as E2) | DRAW | 1 | false | `{branch_key:"DRAW_ch3_echo", is_draw_fallback:false, is_canonical_history:false}` (echo-gated; F-SP-2 returns true given echo_count ≥ echo_threshold AND first_attempt_resolved == false) | `chapter_id="ch3"; branch_key="DRAW_ch3_echo"; outcome=DRAW; echo_count=1; is_draw_fallback=false; is_canonical_history=false; reserved_color_treatment=true; is_invalid=false; invalid_reason=&""` |
+| E4 | Ch2 (`canonical="WIN_ch2_default"`, `author_draw_branch=false`) | DRAW | 0 | true | `{branch_key:"WIN_ch2_default", is_draw_fallback:true, is_canonical_history:true}` | `chapter_id="ch2"; branch_key="WIN_ch2_default"; outcome=DRAW; echo_count=0; is_draw_fallback=true; is_canonical_history=true; reserved_color_treatment=false; is_invalid=false; invalid_reason=&""` |
+| E5 | (null) — invalid call | WIN | 0 | true | (not called; CR-DB-10 path) | `chapter_id=""; branch_key=""; outcome=LOSS; echo_count=0; is_draw_fallback=false; is_canonical_history=false; reserved_color_treatment=false; is_invalid=true; invalid_reason=&"invariant_violation:chapter_null"` |
+| E6 | Ch1 (author error: has `echo_threshold=1`) | DRAW | 1 | false | (not called; CR-13 runtime trip) | `chapter_id=""; branch_key=""; outcome=LOSS; echo_count=0; is_draw_fallback=false; is_canonical_history=false; reserved_color_treatment=false; is_invalid=true; invalid_reason=&"invariant_violation:cr13_echo_threshold_on_ch1"` |
+
+**4th-column semantics**: `first_attempt_resolved` is the F-SP-3 v2.2 SEALED value at BEAT_7_JUDGMENT entry per scenario-progression CR-7 + ADR-0017 line 200. `true` ≡ "this chapter resolved on the player's first attempt (no retries before tap)"; `false` ≡ "the player retried at least once before reaching this Beat 7." E2 vs E3 disambiguation: same chapter + same DRAW outcome but different `first_attempt_resolved` → F-SP-1 routes to the echo-gated branch (E3) only when echo_count ≥ echo_threshold AND first_attempt_resolved == false (anti-farm-gate semantics per scenario-progression F-SP-2). The judge does NOT read this value from ScenarioRunner state per `destiny_branch_judge_reads_scenario_runner_state` ADR-0018 forbidden_pattern; it receives the sealed value as the 4th argument.
 
 **Cross-reference check:**
 - E1/E2/E3 align with scenario-progression's AC-SP-22 (F-SP-1 6-row example) — destiny-branch's assembly adds the 2 derived fields + 2 invalid fields around F-SP-1's core 3-field output.

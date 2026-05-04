@@ -24,8 +24,26 @@
 #
 # STATUS VALUES: active | deprecated | superseded-by: TR-[system]-NNN
 
-version: 13
+version: 14
 last_updated: "2026-05-04"
+# 2026-05-04 (/architecture-review delta #13): structural append — 15 net-new
+# TR-IDs registered for ADR-0018 Destiny Branch (TR-destiny-branch-001 through
+# 015) covering DestinyBranchJudge RefCounted pure-function class form + 4-arg
+# resolve() signature + 9-field DestinyBranchChoice payload + 12-entry F-DB-3
+# invalid_reason vocabulary + @abstract _apply_f_sp_1 test seam +
+# DefaultDestinyBranchJudge production subclass + invalid() factory + F-DB-2
+# reserved_color_treatment derivation + Pillar 4 is_canonical_history payload-
+# level enforcement + determinism invariant (lint-enforced) + EC-DB-17 thread
+# safety (lint-enforced) + ADR-0001 minor amendment 5-field → 9-field +
+# BattleOutcome top-level class_name cross-doc constraint (SATISFIED in shipped
+# code) + emission ownership in ScenarioRunner (lint-enforced) +
+# ResourceSaver/ResourceLoader round-trip on 5 export targets (closes OQ-DB-6).
+# Combined session: ADR-0018 escalation Proposed → Accepted via delta #13 + this
+# structural append in single fresh session per sprint-6 S6-11 (3rd consecutive
+# combined-session pattern after delta #11 + #12 — pattern stable at 3
+# invocations). Total registered TRs 224 → 239. Pattern stable at 13 invocations
+# of /architecture-review.
+#
 # 2026-05-04 (/architecture-review delta #12): structural append — 12 net-new
 # TR-IDs registered for ADR-0017 Scenario Progression (TR-scenario-progression-004
 # through 015) covering ScenarioRunner autoload + 13-state machine + ChapterDefinition
@@ -2014,6 +2032,126 @@ requirements:
     system: scenario-progression
     adr: docs/architecture/ADR-0017-scenario-progression.md
     requirement: "§Migration Plan + ADR-0016 Migration Plan §1 — At ADR-0017 sprint-7+ implementation patch (single coordinated commit), 11 mechanical changes ship atomically: (1) create src/core/scenario_runner.gd (extends Node, NO class_name per G-3; 600-800 LoC); (2) create src/core/payloads/chapter_definition.gd (class_name ChapterDefinition extends Resource); (3) EchoMark already shipped at src/core/payloads/echo_mark.gd — NO redefinition; future schema changes via SaveMigrationRegistry per ADR-0003; (4) create src/core/payloads/scenario_result.gd (class_name ScenarioResult extends Resource); (5) create assets/data/scenarios/mvp_shu.json (3-5 chapter MVP authored content); (6) register ScenarioRunner autoload in project.godot at boot position 6; (7) revert ADR-0016 sprint-6 mock encoder block (~50 LoC + helpers); (8) revert project.godot run/main_scene to title-screen / overworld; (9) flip lint_battle_scene_sprint6_mock_marker.sh semantic from 'MUST exist' to 'MUST NOT exist'; (10) re-author smoke evidence doc battle_scene_smoke_2026-XX-XX.md; (11) update battle_scene_verification_summary.md §E. Step 12 (3 ScenarioRunner-domain CI lints) follows in ScenarioRunner CI hardening sprint-7+ story."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-destiny-branch-001
+    system: destiny-branch
+    adr: docs/architecture/ADR-0018-destiny-branch.md
+    requirement: "§Decision §Class Form — DestinyBranchJudge is a `class_name DestinyBranchJudge extends RefCounted` pure-function transient class; one instance constructed per chapter at BEAT_7_JUDGMENT tap-exit by ScenarioRunner; discarded via RefCounted scope drop after `resolve()` returns (CR-DB-3). NO scene-tree presence (NOT a Node); NO autoload form (REJECTED per Alternative §3 — no persistent state required, autoload misrepresents lifecycle); NO static utility module form (REJECTED per Alternative §2 — `static var` would be required for test injection state, breaks EC-DB-17 thread-safety guarantee). Test fixture form: GdUnit4 tests construct `DestinyBranchJudge.new()` directly without scene-tree / autoload setup. Substitutability: future Ch4+ alternative branch resolution (e.g., echo-gated for ALL outcomes) is class swap at ScenarioRunner's construction site. RefCounted lifecycle is RAII (Godot's reference counting frees the instance at scope exit; no explicit queue_free / free; no leak risk). First @abstract test-seam pattern in the project — establishes pattern boundary for future formula-evaluator ADRs."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-destiny-branch-002
+    system: destiny-branch
+    adr: docs/architecture/ADR-0018-destiny-branch.md
+    requirement: "§Decision §Class Form + ADR-0017 line 200 + scenario-progression CR-7 — 4-arg resolve() signature: `resolve(chapter: ChapterDefinition, outcome: BattleOutcome.Result, echo_count: int, first_attempt_resolved: bool) -> DestinyBranchChoice`. The 4th argument `first_attempt_resolved` is the F-SP-3 v2.2 SEALED value at BEAT_7_JUDGMENT entry per scenario-progression CR-7 + `scenario_runner_deferred_seal_in_beat_7_entry` Pillar 2 architectural lock; judge MUST receive it as a function argument (NOT read from ScenarioRunner state per `destiny_branch_judge_reads_scenario_runner_state` forbidden_pattern). 3-arg form (legacy GDD §F-DB-1 pre-rev 1.3.2) REJECTED per Alternative §`Cross-ADR signature reconciliation` Path B — first_attempt_resolved is ScenarioRunner state, not chapter state; reading from autoload would violate CR-DB-2 purity. Path A (same-patch GDD F-DB-1 update to 4-arg form) ratified per upstream ADR-0017 line 200 acceptance via delta #12. **3rd project precedent of ratification widening at upstream-ADR acceptance** (after save_checkpoint_requested 2026-04-18 String → SaveContext + scenario_complete delta #12 String → ScenarioResult)."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-destiny-branch-003
+    system: destiny-branch
+    adr: docs/architecture/ADR-0018-destiny-branch.md
+    requirement: "§Decision §Payload Form — DestinyBranchChoice is `class_name DestinyBranchChoice extends Resource` with **9 typed @export fields** per F-DB-4: `chapter_id: String`, `branch_key: String`, `outcome: BattleOutcome.Result` (typed enum @export; default LOSS), `echo_count: int`, `is_draw_fallback: bool`, `is_canonical_history: bool` (Pillar 4 payload-level enforcement), `reserved_color_treatment: bool` (Pillar 2 derivation per F-DB-2), `is_invalid: bool`, `invalid_reason: StringName` (∈ 12-entry F-DB-3 vocabulary). RATIFIES ADR-0001 PROVISIONAL 5-field slot (chapter_id / branch_key / revelation_cue_id / required_flags / authored) per Evolution Rule #4 minor amendment (NOT supersession). The PROVISIONAL fields revelation_cue_id + required_flags + authored no longer exist. Untyped Dictionary payload form REJECTED per Alternative §4 (loses Pillar-4 payload-level enforcement; loses ResourceSaver/ResourceLoader round-trip type preservation; breaks ADR-0001 V-3 cross-scene serialization contract). Inner-class form REJECTED per destiny-branch GDD rev 1.2 B-7 (`@export var outcome: BattleOutcome.Result = BattleOutcome.Result.LOSS` requires top-level class_name BattleOutcome at parse time per Godot 4.6 global class registry)."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-destiny-branch-004
+    system: destiny-branch
+    adr: docs/architecture/ADR-0018-destiny-branch.md
+    requirement: "§Decision §Payload Form + destiny-branch GDD §F-DB-3 — 12-entry `invariant_violation:*` StringName vocabulary for invalid_reason field (CR-DB-10): `chapter_null` / `chapter_id_missing` / `default_branch_key_missing` (StringName name kept verbatim per F-DB-3 vocabulary stability — opaque to canonical_branch_key field-name renaming) / `branch_table_null_or_malformed` / `branch_table_empty` / `branch_table_missing_outcome` / `is_draw_fallback_outcome_mismatch` / `branch_key_type_invalid` / `is_draw_fallback_type_invalid` / `is_canonical_history_type_invalid` / `outcome_unknown` / `cr13_echo_threshold_on_ch1`. `static func invalid(reason: StringName) -> DestinyBranchChoice` factory constructs invalid-path payloads with `is_invalid = true` + `invalid_reason = reason` + all other 7 fields default-initialized. ScenarioRunner emits invalid payloads unconditionally to preserve AC-SP-17 exactly-one-emission contract per chapter; downstream consumers MUST gate content reads on `is_invalid == false` per BLOCKING per-field contract (destiny-branch §Bidirectional rev 1.2 D1)."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-destiny-branch-005
+    system: destiny-branch
+    adr: docs/architecture/ADR-0018-destiny-branch.md
+    requirement: "§Decision §Test Seam — `@abstract func _apply_f_sp_1(chapter: ChapterDefinition, outcome: BattleOutcome.Result, echo_count: int, first_attempt_resolved: bool) -> Dictionary` declared on the base DestinyBranchJudge class; concrete subclasses MUST override (parse-time enforced on typed references per Godot 4.5+ G-22; verification uses structural source-file assertion pattern per V-5 — `FileAccess.get_file_as_string()` + `assert_bool(content.contains(\"@abstract\")).is_true()` + `func _apply_f_sp_1` containment check; reflective `load(path).new()` runtime-failure expectation REJECTED per G-22 — bypasses parse-time check and returns live instance with empty body). Required-key contract for F-SP-1 output Dictionary: `branch_key: String`, `is_draw_fallback: bool`, `is_canonical_history: bool` (3 keys; missing → invalid_reason:branch_table_missing_outcome). Pre-4.5 emulation pattern (`assert(false, \"must override\")`) REJECTED per current-best-practices.md typed-priority. First @abstract test-seam pattern in the project."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-destiny-branch-006
+    system: destiny-branch
+    adr: docs/architecture/ADR-0018-destiny-branch.md
+    requirement: "§Decision §Production Subclass — `class_name DefaultDestinyBranchJudge extends DestinyBranchJudge` is the production-time concrete subclass that overrides `_apply_f_sp_1` to delegate F-SP-1 to scenario-progression's authoritative implementation: `return ScenarioFormulas.resolve_branch(chapter, outcome, echo_count, first_attempt_resolved)`. F-SP-1 spec ownership lives in scenario-progression / ADR-0017 (callable signature + behavior + edge cases); ADR-0018 owns only the EXECUTOR binding (the *which class implements* boundary). Test stub `class_name TestDestinyBranchJudgeWithSp1Stub extends DestinyBranchJudge` lives in `tests/helpers/destiny_branch_judge_stub.gd` and overrides `_apply_f_sp_1` to return an instance-level `_stub_output` Dictionary set via `set_sp1_output()` — instance-level state ONLY (no static var per `destiny_branch_judge_static_var` forbidden_pattern; lint scan-set explicitly includes test stub). 4-precedent project pattern of `instance-level test injection via subclass` continues."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-destiny-branch-007
+    system: destiny-branch
+    adr: docs/architecture/ADR-0018-destiny-branch.md
+    requirement: "§Decision §Payload Form §invalid() factory + destiny-branch GDD §CR-DB-10 — Invalid-input result pattern. When invariants are violated (null chapter, missing chapter_id, missing canonical_branch_key, malformed branch_table, empty branch_table, F-SP-1 returns malformed dict, cross-field invariant `is_draw_fallback ⟹ DRAW` violation, type errors, unknown outcome enum, Ch1-echo_threshold CR-13 violation), the judge returns a constructable `DestinyBranchChoice` with `is_invalid: true` + `invalid_reason ∈ F-DB-3 vocabulary`. ScenarioRunner emits unconditionally (preserves AC-SP-17). Downstream consumers MUST gate content reads on `is_invalid == false`. `static func invalid(reason: StringName) -> DestinyBranchChoice` factory short-circuits the 9-field assembly pipeline to construct minimal invalid payloads. Warning-severity recoveries (negative echo_count → clamp to 0 with push_warning; F-SP-1 fallback DRAW → WIN per scenario-progression CR-14) do NOT set is_invalid; they surface via push_warning + is_draw_fallback field."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-destiny-branch-008
+    system: destiny-branch
+    adr: docs/architecture/ADR-0018-destiny-branch.md
+    requirement: "§Decision §Class Form algorithm step 4 + 4a + destiny-branch GDD §F-DB-2 + CR-DB-9 — `reserved_color_treatment` derivation (NOT authored). Rule: `reserved_color_treatment = (f_sp_1.branch_key != chapter.canonical_branch_key) AND (NOT is_draw_fallback)`. Pure function of F-SP-1's output + chapter Resource. Step 4a fallback override: `is_draw_fallback == true` ⟹ `reserved_color_treatment = false` regardless of branch_key (preserves Pillar 2 semantics locally even if F-SP-1 author error returns is_draw_fallback=true alongside non-default branch_key). Always `false` when `is_invalid == true` (the invalid() factory leaves it default-false; never overridden on invalid path). Pillar 2 Ceremonial Witness fantasy reliability: deterministic across all 5 chapters × 2-3 branches of MVP scope. Field-name reconciliation: `chapter.canonical_branch_key` matches ADR-0017 ChapterDefinition schema (was `default_branch_key` pre-GDD-rev-1.3.2; reconciled same-patch via delta #13 per Migration Plan §1 step 6)."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-destiny-branch-009
+    system: destiny-branch
+    adr: docs/architecture/ADR-0018-destiny-branch.md
+    requirement: "§Decision §Payload Form field schema + destiny-branch GDD §F-DB-4 — `is_canonical_history: bool` is the Pillar 4 payload-level enforcement field. true iff the resolved branch upholds the canonical 演義 historical record for this chapter; authored per branch-table row by scenario-progression content; passed through from F-SP-1 output. Beat 8 (Story Event #10 VS) keys canonical-vs-rewritten contrast on this field — NOT on `reserved_color_treatment` (which is a Pillar 2 derivation, independent of canonical alignment). Author bug case (zero canonical rows in chapter.branch_table OR multiple canonical rows) surfaces via push_warning at F-DB-1 step 1b runtime guard — does NOT set is_invalid (ship proceeds; telemetry surfaces authoring drift). Adding this field to the 9-field DestinyBranchChoice is the load-bearing reason for ADR-0001's 5-field PROVISIONAL → 9-field RATIFIED widening per Evolution Rule #4 — without it Story Event #10 VS would need to maintain its own (chapter_id, branch_key) → is_canonical_history lookup as content authoring convention with no payload-level safety net against mis-authoring."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-destiny-branch-010
+    system: destiny-branch
+    adr: docs/architecture/ADR-0018-destiny-branch.md
+    requirement: "§Decision §Determinism Contract + destiny-branch GDD §CR-DB-11 + EC-DB-17 — Determinism invariant. Identical (chapter, outcome, echo_count, first_attempt_resolved) inputs MUST produce field-identical 9-field DestinyBranchChoice output across (a) repeated calls on same instance; (b) calls on independently-constructed instances; (c) concurrent calls on separate WorkerThreadPool tasks. Achieved BY CONSTRUCTION: NO RNG (no randi/randf/randi_range); NO wall-clock dependency (no Time.get_ticks_msec / Time.get_unix_time / OS.get_unix_time); NO external state read (no autoload access — GameBus.X / SaveManager.X / ScenarioRunner.X all forbidden; no scene-tree traversal — get_tree() forbidden; no chapter mutation; no static var anywhere in call chain); NO instance-level state across calls (judge constructed → used once → discarded per CR-DB-3); NO class-level state (`static var` forbidden in entire hierarchy including test stubs per `destiny_branch_judge_static_var` forbidden_pattern + lint scan-set covering production + test stub + future subclass discovery). Lint-enforced via 3 forbidden_patterns: destiny_branch_judge_emits_gamebus_signal + destiny_branch_judge_static_var + destiny_branch_judge_reads_scenario_runner_state."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-destiny-branch-011
+    system: destiny-branch
+    adr: docs/architecture/ADR-0018-destiny-branch.md
+    requirement: "§Decision §Determinism Contract item 5 + destiny-branch GDD §EC-DB-17 + `destiny_branch_judge_static_var` forbidden_pattern — EC-DB-17 thread-safety by construction. Two simultaneous DestinyBranchJudge.new() instances on WorkerThreadPool tasks MUST produce field-identical 9-field DestinyBranchChoice output for identical inputs. Achieved by absence of class-level mutable state — `static var` is FORBIDDEN in the entire DestinyBranchJudge class hierarchy (production + test stub + any future `extends DestinyBranchJudge` subclass). Sprint-7+ lint enforcement: `tools/ci/lint_destiny_branch_judge_no_static_var.sh` (per ADR-0018 §Validation Criteria V-8 — scan-set explicitly expanded per godot-specialist 15th-invocation advisory C-3) covers: `src/feature/destiny_branch/destiny_branch_judge.gd` + `src/feature/destiny_branch/default_destiny_branch_judge.gd` + `tests/helpers/destiny_branch_judge_stub.gd` + future `$(grep -rl 'extends DestinyBranchJudge' src/ tests/)` discovery. V-12 integration test: 2 instances × 1000 concurrent calls each = 2000 returned DestinyBranchChoice objects field-identical to baseline."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-destiny-branch-012
+    system: destiny-branch
+    adr: docs/architecture/ADR-0018-destiny-branch.md
+    requirement: "§Decision §ADR-0001 Minor Amendment — Same-patch ratification of ADR-0001 PROVISIONAL `destiny_branch_chosen` 5-field slot to RATIFIED 9-field shape per Evolution Rule #4 minor amendment (NOT supersession). Removes provisional fields revelation_cue_id + required_flags + authored. Adds 4 net-new fields: outcome (BattleOutcome.Result), echo_count (int), is_draw_fallback (bool — Pillar 2 derivation), is_canonical_history (bool — Pillar 4 enforcement), reserved_color_treatment (bool — Pillar 2 mechanical expression), is_invalid (bool — invalid-path emission contract), invalid_reason (StringName — 12-entry F-DB-3 vocabulary). Pillar 2 + Pillar 4 mechanical-expression note rewritten in ADR-0001 §1 Scenario domain table. PROVISIONAL signal count 3 → 2. Cross-doc constraint paragraph added: BattleOutcome MUST be top-level class_name (SATISFIED in shipped code via src/core/payloads/battle_outcome.gd:10). Mirrors save_checkpoint_requested 2026-04-18 ratification + scenario_beat_retried delta #12 ratification + scenario_complete delta #12 widening — 4th invocation of PROVISIONAL signal ratification pattern."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-destiny-branch-013
+    system: destiny-branch
+    adr: docs/architecture/ADR-0018-destiny-branch.md
+    requirement: "§Engine Compatibility Verification Required + destiny-branch GDD rev 1.2 B-7 + Migration Plan §6 — BattleOutcome top-level class_name cross-doc constraint. `class_name BattleOutcome` MUST be declared as a top-level class_name in its own script file (NOT as inner class of another script) so that `DestinyBranchChoice.@export var outcome: BattleOutcome.Result = BattleOutcome.Result.LOSS` resolves at Resource script parse time per Godot 4.6 global class registry. Inner-class references are NOT resolvable at parse time and would silently break `ResourceLoader.load()` for any saved DestinyBranchChoice — corrupting AC-DB-24 multi-platform serialization. SATISFIED in shipped code: `src/core/payloads/battle_outcome.gd:10` declares `class_name BattleOutcome extends Resource` at top level. Cross-doc coordination requirement for grid-battle v5.0 GDD revision (Migration Plan §6 — flagged for grid-battle v5.0 acceptance to formally codify the constraint at GDD level). BattleOutcome.Result enum order is locked at v5.0 (Result { WIN = 0, DRAW = 1, LOSS = 2 } — reordering breaks DestinyBranchChoice serialization compatibility silently per @export typed-enum int storage)."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-destiny-branch-014
+    system: destiny-branch
+    adr: docs/architecture/ADR-0018-destiny-branch.md
+    requirement: "§Decision §Emission Ownership + destiny-branch GDD §CR-DB-4 + `destiny_branch_judge_emits_gamebus_signal` forbidden_pattern — Emission ownership lives in ScenarioRunner. Judge MUST NOT emit any GameBus signal directly. Per CR-DB-4, the emission of `destiny_branch_chosen(DestinyBranchChoice)` is owned EXCLUSIVELY by ScenarioRunner's BEAT_7_JUDGMENT tap-exit handler — judge.resolve() returns the DestinyBranchChoice payload, ScenarioRunner emits. Tap handler reads as one sequential block: (1) judge := DefaultDestinyBranchJudge.new(); (2) choice := judge.resolve(...); (3) emit save_checkpoint_requested(SaveContext for CP-2); (4) emit destiny_branch_chosen(choice); (5) judge → RefCounted scope drop. Lint-enforced via `lint_destiny_branch_judge_no_gamebus_emit.sh` (sprint-7+; per ADR-0018 V-7) — grep 'GameBus\\..*\\.emit\\(' against scan-set returns 0 matches. Splitting evaluation from emission preserves AC-SP-17 exactly-one-emission contract; mirrors damage_calc_emits_signal precedent."
+    created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-destiny-branch-015
+    system: destiny-branch
+    adr: docs/architecture/ADR-0018-destiny-branch.md
+    requirement: "§Engine Compatibility Verification Required item (1) + Implementation Notes IN-1 + destiny-branch GDD §F-DB-4 OQ-DB-6 — DestinyBranchChoice ResourceSaver/ResourceLoader round-trip MUST preserve all 9 field types (especially `invalid_reason: StringName` field-type preservation; `outcome: BattleOutcome.Result` typed-enum int storage) on **all 5 export targets**: Linux Editor + Windows D3D12 + macOS Metal + iOS Metal + Android Vulkan. Closes destiny-branch GDD §F-DB-4 OQ-DB-6 (BLOCKING for VS-implementation-story open). Verification protocol per IN-1: GdUnit4 integration test `tests/integration/destiny_branch/destiny_branch_choice_serialization_test.gd::test_round_trip_all_platforms` constructs all-9-field-populated DestinyBranchChoice (including non-empty StringName invalid_reason like `&\"invariant_violation:branch_table_empty\"`), saves via `ResourceSaver.save(choice, \"user://test.tres\")`, loads via `ResourceLoader.load(...) as DestinyBranchChoice`, asserts all 9 fields field-identical + `typeof(loaded.invalid_reason) == TYPE_STRING_NAME` (the OQ-DB-6 critical assertion). CI matrix MUST run on all 5 export targets per AC-DB-24. Status: pending implementation; BLOCKING for VS close."
     created: 2026-05-04
     revised: ""
     status: active
