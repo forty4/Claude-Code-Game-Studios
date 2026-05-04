@@ -1,7 +1,8 @@
 # Art Bible: 천명역전 (Defying Destiny)
 
 *Created: 2026-04-16*
-*Status: Complete (9/9 sections)*
+*Last Updated: 2026-05-04 — §4.7 `reserved_color_treatment` addendum landed per `/gate-check pre-production` 2026-05-04 path-to-PASS item #5 (AD-C1 BLOCKING for destiny-branch impl)*
+*Status: Complete (9/9 sections + §4.7 addendum)*
 > **Art Director Sign-Off (AD-ART-BIBLE)**: Skipped — Lean mode [2026-04-16]
 
 ---
@@ -291,6 +292,71 @@
 | 결정적 → 역전 성공 | 주홍→금색 플래시 0.3초, 금색 워시 페이드 2초 | 순간→점진 |
 | 결정적 → 비극 | 주홍→채도 -100% (2초). 전체 회색화 | 2초 점진 |
 | 비극 → 메뉴 | 회색에서 황토·지백 복귀 | 3초 페이드 |
+
+### 4.7 운명 분기 색채 처리 (`reserved_color_treatment` 시각 계약)
+
+> **Addendum**: 2026-05-04 — added per `/gate-check pre-production` 2026-05-04 path-to-PASS item #5 (AD-C1 BLOCKING for destiny-branch implementation story). Previously implicit in §1.지지 원칙 2 (운명의 색은 한번만 빛난다) + §4.6 색채 상태 전환; now made explicit + payload-field-bound for the Beat 8 reveal scene.
+
+**§4.6의 "결정적 → 역전 성공" 전환은 모든 분기에서 발생하지 않는다.** Beat 7 분기 판정에서 ScenarioRunner가 emit하는 `destiny_branch_chosen(DestinyBranchChoice)` payload의 `reserved_color_treatment: bool` 필드가 Beat 8 reveal 씬의 시각 처리를 게이트한다.
+
+#### 페이로드 필드 ↔ 시각 처리 매핑
+
+`reserved_color_treatment` 는 `DestinyBranchChoice` 의 9개 `@export` 필드 중 하나이며 (ADR-0018 §F-DB-2 + destiny-branch GDD §F-DB-2 도출 규칙), 다음 4개 입력의 boolean 함수다:
+
+```
+reserved_color_treatment :=
+    (branch_key != chapter.canonical_branch_key)   # 역사가 바뀌었음
+    AND NOT is_invalid                              # 페이로드가 유효함
+    AND NOT is_draw_fallback                        # DRAW 분기가 아님
+    AND NOT (branch_key == &"")                     # 빈 키가 아님
+```
+
+#### 4-상태 진리표 → 시각 처리
+
+| `outcome` | `is_canonical_history` | `is_draw_fallback` | `reserved_color_treatment` | Beat 8 reveal 시각 | §4.6 전환 행 |
+|---|---|---|---|---|---|
+| WIN | true | false | **false** | 평상시 → 결정적 → 일반 (주홍만, 금색 없음) | 평상시 → 결정적 만 적용 |
+| WIN | **false** | false | **true** | 평상시 → 결정적 → **역전 성공** (주홍→금색 플래시 0.3s + 금색 워시 페이드 2초) | 결정적 → 역전 성공 적용 |
+| LOSS | true | false | false | 평상시 → 결정적 → 비극 (주홍→채도 -100%) | 결정적 → 비극 적용 |
+| DRAW | — | true | false | 평상시 → 결정적만 (주홍 비네트, 후속 전환 없음) | 평상시 → 결정적 만 적용 (DRAW 폴백은 §4.6 어느 행도 트리거 안 함) |
+
+**결정 규칙**: WIN ∧ 비-canonical 분기만이 §4.6의 "결정적 → 역전 성공" 행을 트리거한다. 모든 다른 조합(canonical-WIN / 모든 LOSS / 모든 DRAW)은 §4.6의 다른 행을 따르거나 결정적 단계에서 멈춘다.
+
+#### 시각 처리 상세 (Beat 8 reveal 씬)
+
+**`reserved_color_treatment == true` (WIN ∧ 비-canonical)**:
+1. **0–3초** (평상시 → 결정적): 주홍 (#C0392B) 비네트 0%→40% 점진. 채도 +10%. (§4.6 행 1)
+2. **3–3.3초** (결정적 → 역전 성공 트리거): 주홍 → 금색 (#D4A017) 플래시. 0.3초 순간 전환. (§4.6 행 2 전반부)
+3. **3.3–5.3초** (역전 성공 페이드): 금색 워시 화면 전체 페이드. 2초 점진. (§4.6 행 2 후반부)
+4. **5.3초 이후**: 금색 워시 잔영 + 1.지지 원칙 2 "Destiny Bleeds Once"의 단발성 신호 (이 챕터에서 다시 등장하지 않음).
+5. **사운드 컴팬리언 (Audio Director 협업 필요)**: §1.지지 원칙 2 "이 색이 등장하면 플레이어는 무의식적으로 '지금이 역사가 갈리는 순간'임을 안다" — 시각만으로는 불충분, 전용 사운드 신호와 동기화.
+
+**`reserved_color_treatment == false` (canonical-WIN / 모든 LOSS / 모든 DRAW)**:
+- §4.6 다른 행으로 라우팅 — 금색은 화면에 등장하지 않음.
+- §1.절대 금지: "주홍과 금색은 장식으로 쓸 수 없다. 이 두 색의 신호 신뢰도가 파괴되면 운명 분기 시스템의 감정적 임팩트가 사라진다." → `reserved_color_treatment == false` 에서 금색 등장은 본 art-bible의 절대 위반.
+
+#### 색맹 안전성 (이미 §4.5에 정의됨, 본 항에 이중 명시)
+
+§4.5 "주홍 vs. 경고 주황" HIGH 위험쌍에 대해 이미 처리되어 있음 (주홍=비네트+화면 진동+전용 사운드 / 경고=아이콘 병행). `reserved_color_treatment == true` 의 금색 워시는 §4.5 "금색 vs. 기병 황동" MEDIUM 위험쌍에 해당하며 맥락 분리(운명 연출 vs. 스프라이트)로 해소됨 — Beat 8 reveal 씬은 정의상 전투 스프라이트 위가 아니라 **별도의 시네마틱 레이어**에서 발생하므로 동시 출현 회피 보장.
+
+#### 무효 페이로드 처리 (`is_invalid == true`)
+
+`is_invalid == true` 인 경우 `reserved_color_treatment` 는 진리표상 항상 `false` 이며 Beat 8 reveal 씬은 트리거되지 않음 (downstream 콘텐츠 게이트는 destiny-branch GDD §Bidirectional rev 1.2 D1 + ADR-0018 §F-DB-4 footer invariant에 따라 차단). UI는 "운명이 흐려졌다 — 다시 시도하라" 류의 invalid-path 메시지를 표시 (Story Event #10 VS GDD가 이 메시지의 정확한 카피를 정의 — 현재 PROVISIONAL).
+
+#### 교차 참조
+
+- **ADR-0018 line 84** — boolean invariant 정의 (`reserved_color_treatment == true ⟹ branch_key != default AND not invalid AND not fallback`)
+- **destiny-branch GDD §F-DB-2** — 도출 규칙 4단계 (Step 1-4) + 폴백 오버라이드 (Step 4a)
+- **game-concept §Pillar 2** — "운명은 바꿀 수 있다" 핵심 game-design 단언 — 이 시각 처리가 mechanical expression
+- **art-bible §1.지지 원칙 2** — "운명의 색은 한번만 빛난다" 비주얼 원칙
+- **art-bible §4.6 행 2** — "결정적 → 역전 성공" 색채 전환 (이 addendum 이 그 행을 페이로드 필드와 결박)
+- **art-bible §4.5** — 색맹 안전성 위험쌍 (이미 처리됨, 이중 명시)
+- **Story Event #10 VS GDD** — invalid-path UI 카피 (PROVISIONAL, 다운스트림 unblock 됨)
+
+#### 미해결 협업 항목 (sprint-7+ 진입 조건 아님 — 구현 전에 해소)
+
+- **Audio Director 협업**: §1.지지 원칙 2 가 요구하는 전용 사운드 신호와 §4.7 시각 시퀀스의 동기화 — Audio Director 가 `reserved_color_treatment == true` 트리거 사운드 + 페이드 2초 동안의 앰비언트 변화를 정의해야 함. (반대 방향 사운드 신호는 다른 분기에서도 필요할 수 있으나 본 addendum 의 BLOCKING 범위에는 미포함.)
+- **Beat 8 reveal 시네마틱 레이어 사양**: 본 addendum 은 색채 전환만 정의. 카메라 워크/구도/타이포그래피는 destiny-branch impl story 또는 후속 cinematic-system GDD가 다룸.
 
 ---
 
