@@ -11,7 +11,7 @@ goal: "Ship first runnable BattleScene mounting 5 systems + ADR-0016 Battle Scen
 start: "2026-05-24"
 end: "2026-05-30"
 generated: "2026-05-03"
-updated: "2026-05-04"  # S6-10 done — ADR-0017 Scenario Progression Accepted via /architecture-review delta #12; Core layer 4/4; ADR-0018 UNBLOCKED.
+updated: "2026-05-04"  # Manual reconcile — S6-02/03/04/11 backlog→done from gate-check 2026-05-04 path-to-PASS #1 (commits cited per row).
 
 # Sprint-5 closed 13/13 (must-have 11/11 + should 2/2 + nice 0/0) by 2026-05-03 — 14-21 calendar
 # days ahead of 2026-05-23 deadline. 19th consecutive failure-free baseline (757 → 841 / +84 tests).
@@ -20,6 +20,11 @@ updated: "2026-05-04"  # S6-10 done — ADR-0017 Scenario Progression Accepted v
 # First Pillar 2 hidden-semantic lock shipped (battle_hud_subscribes_to_hidden_fate_signal CRITICAL).
 # Sprint-5 history archive: production/sprint-status-history.md ## Sprint 5 section (single rotation).
 # Sprint-5 retro: production/retrospectives/retro-sprint-5-2026-05-03.md (AI #1-5 carry to sprint-6).
+
+# Manual reconcile 2026-05-04 (gate-check pre-prod-to-prod-2026-05-04.md path-to-PASS item #1):
+#   S6-02/03/04/11 shipped across deltas without ceremony — flipped backlog → done with commit refs.
+#   This is a one-shot reconcile of stale state; future status flips go through /story-done as normal.
+#   Sprint-7 retro AI proposed: "all shipped work must close its sprint-status row in the same patch".
 
 stories:
   - id: "S6-01"
@@ -41,33 +46,36 @@ stories:
 
   - id: "S6-02"
     name: "/architecture-review fresh session — escalate ADR-0016 Proposed → Accepted + structural backfill (~45 TRs + ~15 files)"
-    file: "docs/architecture/architecture-review-2026-05-XX.md"
+    file: "docs/architecture/architecture-review-2026-05-03.md"
     priority: must-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.5
     blocker: "S6-01"
-    completed: ""
+    completed: "2026-05-03"
+    # S6-02 done 2026-05-03 via 6c4bd08 — /architecture-review delta #11 ADR-0016 Accepted + 50 TRs across ADR-0013/0014/0015/0016 (162→212); sprint-5 retro AI #2 CLOSED.
 
   - id: "S6-03"
     name: "/create-epics battle-scene — first user-visible-surface integration epic; preview ~3-5 stories"
     file: "production/epics/battle-scene/EPIC.md"
     priority: must-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.3
     blocker: "S6-02"
-    completed: ""
+    completed: "2026-05-04"
+    # S6-03 done 2026-05-04 via f056fbe — battle-scene EPIC.md (133 lines, 11/11 TR coverage to ADR-0016) + 3 stories + index.md row added; co-shipped with S6-07 in same patch.
 
   - id: "S6-04"
     name: "/create-stories battle-hud — break EPIC.md preview into 5-8 implementable stories (sprint-5 retro AI #4)"
     file: "production/epics/battle-hud/"
     priority: must-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.2
     blocker: "S6-02"
-    completed: ""
+    completed: "2026-05-03"
+    # S6-04 done 2026-05-03 via 29a7ca1 — 8 story files (1502 LoC) + EPIC.md Stories table populated + 17/17 TR-battle-hud-* coverage; sprint-5 retro AI #4 CLOSED.
 
   - id: "S6-05"
     name: "battle-hud story-001: BattleHUD class skeleton + 9-param setup() DI + _ready() 9-backend assertion + _exit_tree() 11-disconnect"
@@ -144,11 +152,12 @@ stories:
     name: "ADR-0018 Destiny Branch authoring — sole consumer of hidden_fate_condition_progressed + Beat 7 reveal"
     file: "docs/architecture/ADR-0018-destiny-branch.md"
     priority: nice-to-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.5
     blocker: ""  # UNBLOCKED 2026-05-04 — S6-10 done; F-SP-1/F-SP-2 callable signatures + DestinyBranchJudge contract locked by ADR-0017
-    completed: ""
+    completed: "2026-05-04"
+    # S6-11 done 2026-05-04 via 9228660 (Proposed) + 41efeab (Accepted via /architecture-review delta #13). Core 4/4 → 5/5 Complete; Pillar 2+4 substrate closed.
 
   - id: "S6-12"
     name: "battle-hud story-004: UI-GB-01 Initiative Queue + UI-GB-07 Turn/Round Counter + UI-GB-08 Victory Condition Display"
