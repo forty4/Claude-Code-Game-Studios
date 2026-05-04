@@ -58,6 +58,21 @@ var _hero_db: HeroDatabase
 var _ui_elements: Dictionary[StringName, Control] = {}
 
 
+## Active unit_id whose info is currently rendered in UI-GB-03.
+## -1 sentinel = no panel visible. Story-003 lifecycle:
+##   - Set in show_unit_info(unit_id) happy path
+##   - Cleared in show_unit_info(-1)
+##   - Cleared defensively in _on_unit_died if unit_id matches active panel
+##   - Used by _on_damage_applied + _on_unit_turn_started to dispatch refresh
+##     only when relevant.
+var _active_status_panel_unit_id: int = -1
+
+
+## Preloaded UI element scenes (story-003 + future stories add more).
+const _UI_GB_03_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_03_unit_info_panel.tscn")
+const _UI_GB_11_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_11_defend_stance_badge.tscn")
+
+
 # ─── DI seam ─────────────────────────────────────────────────────────────────
 
 ## setup() — 9-param dependency injection seam per ADR-0015 §3.
@@ -140,6 +155,18 @@ func _ready() -> void:
 	GameBus.input_mode_changed.connect(_on_input_mode_changed, Object.CONNECT_DEFERRED)
 	GameBus.formation_bonuses_updated.connect(_on_formation_bonuses_updated, Object.CONNECT_DEFERRED)
 
+	# ── Story-003: UI-GB-03 + UI-GB-11 element mount ───────────────────────────
+	# Instantiate as children of HUD root; start hidden. Populate _ui_elements
+	# registry per ADR-0015 §2 + battle-hud.md §3 layout spec.
+	var ui_gb_03: Control = _UI_GB_03_SCENE.instantiate() as Control
+	var ui_gb_11: Control = _UI_GB_11_SCENE.instantiate() as Control
+	ui_gb_03.visible = false
+	ui_gb_11.visible = false
+	add_child(ui_gb_03)
+	add_child(ui_gb_11)
+	_ui_elements[&"UI-GB-03"] = ui_gb_03
+	_ui_elements[&"UI-GB-11"] = ui_gb_11
+
 
 func _exit_tree() -> void:
 	# Disconnect all 11 subscriptions mirroring the connect block in _ready().
@@ -183,9 +210,148 @@ func _exit_tree() -> void:
 ## Renders UI-GB-03 unit info panel for unit_id. Called by InputRouter on touch
 ## tap-preview (CR-4a). PC mouse hover routes through the same path.
 ## If unit_id == -1, dismisses the panel.
-## Body implemented in story-003.
+##
+## Backend query path (story-003):
+##   1. _grid_controller.get_battle_unit(unit_id) → BattleUnit (cross-epic
+##      forward-prep added in story-003 to support hero_id resolution).
+##   2. HeroDatabase.get_hero(battle_unit.hero_id) → HeroData (static; takes
+##      StringName). Falls back to localized "unknown" placeholder if null.
+##   3. _hp_controller.get_current_hp / get_max_hp / get_status_effects(unit_id)
+##      → int / int / Array[StatusEffect].
+##   4. Iterate status_effects Array; populate StatusEffectsHBox with TextureRect
+##      icons; trigger UI-GB-11 DEFEND seal visibility on `defend_stance` entry.
 func show_unit_info(unit_id: int) -> void:
-	pass
+	var panel: Control = _ui_elements.get(&"UI-GB-03")
+	if unit_id == -1:
+		if panel != null:
+			panel.visible = false
+		_set_defend_seal_visible(false)
+		_active_status_panel_unit_id = -1
+		return
+
+	var battle_unit: BattleUnit = _grid_controller.get_battle_unit(unit_id)
+	if battle_unit == null:
+		push_warning("BattleHUD.show_unit_info: no BattleUnit for unit_id=%d" % unit_id)
+		return
+
+	var hero_data: HeroData = HeroDatabase.get_hero(battle_unit.hero_id)
+	var unit_name_text: String
+	if hero_data == null:
+		unit_name_text = tr(&"hud.unit_info.unknown_unit")
+	else:
+		unit_name_text = hero_data.name_ko
+
+	var current_hp: int = _hp_controller.get_current_hp(unit_id)
+	var max_hp: int = _hp_controller.get_max_hp(unit_id)
+	var status_effects: Array = _hp_controller.get_status_effects(unit_id)
+
+	if panel != null:
+		var name_label: Label = panel.get_node_or_null(^"UnitNameLabel") as Label
+		if name_label != null:
+			name_label.text = unit_name_text
+		var class_label: Label = panel.get_node_or_null(^"ClassLabel") as Label
+		if class_label != null:
+			class_label.text = "%s: %s" % [
+				tr(&"hud.unit_info.class_label"),
+				tr(_class_to_i18n_key(battle_unit.unit_class)),
+			]
+		var hp_bar: TextureProgressBar = panel.get_node_or_null(^"HPBar") as TextureProgressBar
+		if hp_bar != null:
+			hp_bar.max_value = float(max_hp)
+			hp_bar.value = float(current_hp)
+		var atk_label: Label = panel.get_node_or_null(^"ATKLabel") as Label
+		if atk_label != null:
+			atk_label.text = "%s %d" % [tr(&"hud.unit_info.atk_label"), battle_unit.raw_atk]
+		var def_label: Label = panel.get_node_or_null(^"DEFLabel") as Label
+		if def_label != null:
+			def_label.text = "%s %d" % [tr(&"hud.unit_info.def_label"), battle_unit.raw_def]
+		var effects_box: HBoxContainer = panel.get_node_or_null(^"StatusEffectsHBox") as HBoxContainer
+		var has_defend_stance: bool = false
+		if effects_box != null:
+			has_defend_stance = _populate_status_effects_box(effects_box, status_effects)
+		var facing_label: Label = panel.get_node_or_null(^"FacingDirectionLabel") as Label
+		if facing_label != null:
+			facing_label.text = "%s: %s" % [
+				tr(&"hud.unit_info.facing_label"),
+				tr(_facing_to_i18n_key(battle_unit.facing)),
+			]
+		_set_defend_seal_visible(has_defend_stance)
+		panel.visible = true
+	_active_status_panel_unit_id = unit_id
+
+
+## _set_defend_seal_visible() — UI-GB-11 visibility toggle.
+##
+## World-space tile positioning deferred to story-007 (no GridBattleController
+## .get_unit_world_position() or MapGrid.coord_to_world() exposed yet). MVP:
+## seal renders at fixed HUD-level position; story-007 migrates to GridLayer
+## cross-tree per ADR-0015 §2 + ADR-0016 §2.
+func _set_defend_seal_visible(visible_state: bool) -> void:
+	var seal: Control = _ui_elements.get(&"UI-GB-11")
+	if seal != null:
+		seal.visible = visible_state
+
+
+## _populate_status_effects_box() — clears + repopulates UI-GB-03 status icons.
+##
+## Returns true if any effect in `status_effects` is `defend_stance` (used by
+## show_unit_info caller to drive UI-GB-11 seal visibility). Each icon's
+## tooltip_text routes through `tr()` with a literal-key dispatch via
+## `_status_effect_to_i18n_key` so Godot POT extraction can statically detect
+## every locale key.
+func _populate_status_effects_box(effects_box: HBoxContainer, status_effects: Array) -> bool:
+	for child: Node in effects_box.get_children():
+		child.queue_free()
+	var has_defend_stance: bool = false
+	for effect: StatusEffect in status_effects:
+		var icon: TextureRect = TextureRect.new()
+		icon.tooltip_text = tr(_status_effect_to_i18n_key(effect.effect_id))
+		icon.custom_minimum_size = Vector2(44.0, 44.0)
+		effects_box.add_child(icon)
+		if effect.effect_id == &"defend_stance":
+			has_defend_stance = true
+	return has_defend_stance
+
+
+## _class_to_i18n_key() — UnitRole.UnitClass enum int → literal locale key StringName.
+##
+## Literal-StringName dispatch (NOT runtime concatenation) so Godot's POT
+## extractor + future i18n tooling can statically detect every locale key. Mirrors
+## UnitRole._class_to_key (private static) lowercase JSON keys; en.po declares all 6.
+func _class_to_i18n_key(unit_class: int) -> StringName:
+	match unit_class:
+		0: return &"hud.unit_info.class.cavalry"
+		1: return &"hud.unit_info.class.infantry"
+		2: return &"hud.unit_info.class.archer"
+		3: return &"hud.unit_info.class.strategist"
+		4: return &"hud.unit_info.class.commander"
+		5: return &"hud.unit_info.class.scout"
+		_: return &"hud.unit_info.unknown_unit"
+
+
+## _facing_to_i18n_key() — BattleUnit.facing int → literal locale key StringName.
+##
+## Same literal-dispatch pattern as _class_to_i18n_key. BattleUnit.facing per
+## ADR-0014 §3 + grid_battle_controller._direction_from_to: 0=N / 1=E / 2=S / 3=W.
+func _facing_to_i18n_key(facing: int) -> StringName:
+	match facing:
+		0: return &"hud.unit_info.facing.n"
+		1: return &"hud.unit_info.facing.e"
+		2: return &"hud.unit_info.facing.s"
+		3: return &"hud.unit_info.facing.w"
+		_: return &"hud.unit_info.unknown_unit"
+
+
+## _status_effect_to_i18n_key() — StatusEffect.effect_id → literal locale key StringName.
+##
+## Replaces the prior `tr("hud.status." + String(effect.effect_id))` runtime-
+## concatenated key (i18n extraction blind spot). MVP scope: only defend_stance
+## ships in story-003; future status effects (e.g., demoralized, charge_active)
+## land here as match arms + en.po entries when their owning stories implement.
+func _status_effect_to_i18n_key(effect_id: StringName) -> StringName:
+	match effect_id:
+		&"defend_stance": return &"hud.status.defend_stance"
+		_: return &"hud.status.unknown"
 
 
 ## show_tile_info() — InputRouter Touch Tap Preview Protocol (CR-4a).
@@ -221,9 +387,16 @@ func _handle_signal(signal_name: StringName, args: Array) -> void:
 
 ## _on_unit_selected_changed — controller-LOCAL subscriber (GridBattleController).
 ## was_selected: int (not bool) per ADR-0014 §8 line 85: `signal unit_selected_changed(unit_id: int, was_selected: int)`.
+##
+## Story-003 routing: was_selected != 0 → show_unit_info(unit_id) populates UI-GB-03;
+## was_selected == 0 AND unit_id matches active panel → show_unit_info(-1) dismisses.
+## All other was_selected == 0 cases ignored (only the active-panel unit triggers dismiss).
 func _on_unit_selected_changed(unit_id: int, was_selected: int) -> void:
 	_handle_signal(&"unit_selected_changed", [unit_id, was_selected])
-	# UI-GB-04 selection indicator render wired in story-004.
+	if was_selected != 0:
+		show_unit_info(unit_id)
+	elif unit_id == _active_status_panel_unit_id:
+		show_unit_info(-1)
 
 
 ## _on_unit_moved — controller-LOCAL subscriber (GridBattleController).
@@ -233,9 +406,21 @@ func _on_unit_moved(unit_id: int, from: Vector2i, to: Vector2i) -> void:
 
 
 ## _on_damage_applied — controller-LOCAL subscriber (GridBattleController).
+##
+## Story-003 routing: if defender is the active panel unit, refresh HP bar value
+## from _hp_controller.get_current_hp(). Partial refresh (HP bar only) — does
+## NOT re-run full show_unit_info() to avoid status-effects HBox rebuild churn
+## on every damage_applied frame.
 func _on_damage_applied(attacker_id: int, defender_id: int, damage: int) -> void:
 	_handle_signal(&"damage_applied", [attacker_id, defender_id, damage])
-	# UI-GB-02 HP bar update wired in story-003.
+	if defender_id != _active_status_panel_unit_id:
+		return
+	var panel: Control = _ui_elements.get(&"UI-GB-03")
+	if panel == null:
+		return
+	var hp_bar: TextureProgressBar = panel.get_node_or_null(^"HPBar") as TextureProgressBar
+	if hp_bar != null:
+		hp_bar.value = float(_hp_controller.get_current_hp(defender_id))
 
 
 ## _on_battle_outcome_resolved — controller-LOCAL subscriber (GridBattleController).
@@ -248,9 +433,14 @@ func _on_battle_outcome_resolved(outcome: StringName, fate_data: Dictionary) -> 
 
 
 ## _on_unit_died — GameBus subscriber (emitter: HPStatusController).
+##
+## Story-003 routing: defensive clear of _active_status_panel_unit_id when the
+## active panel unit dies (panel may already be hidden by other paths but this
+## ensures the sentinel is reset even if dismissal didn't happen).
 func _on_unit_died(unit_id: int) -> void:
 	_handle_signal(&"unit_died", [unit_id])
-	# UI-GB-02 death state render wired in story-003.
+	if unit_id == _active_status_panel_unit_id:
+		show_unit_info(-1)
 
 
 ## _on_round_started — GameBus subscriber (emitter: TurnOrderRunner).
@@ -260,9 +450,16 @@ func _on_round_started(round_number: int) -> void:
 
 
 ## _on_unit_turn_started — GameBus subscriber (emitter: TurnOrderRunner).
+##
+## Story-003 routing: if the panel is currently rendering this unit, re-invoke
+## show_unit_info() to refresh status-effects HBox + DEFEND_STANCE seal expiry.
+## DEFEND_STANCE has 1-turn duration per hp-status.md SE-3; this handler is the
+## natural expiry tick (status array no longer contains defend_stance after
+## TurnOrderRunner advances the turn).
 func _on_unit_turn_started(unit_id: int) -> void:
 	_handle_signal(&"unit_turn_started", [unit_id])
-	# UI-GB-07 turn indicator wired in story-004.
+	if unit_id == _active_status_panel_unit_id:
+		show_unit_info(unit_id)
 
 
 ## _on_unit_turn_ended — GameBus subscriber (emitter: TurnOrderRunner).

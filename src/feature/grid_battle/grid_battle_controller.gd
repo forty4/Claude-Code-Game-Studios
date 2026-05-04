@@ -314,6 +314,14 @@ func get_selected_unit_id() -> int:
 	return _selected_unit_id
 
 
+## get_battle_unit() — cross-epic forward-prep (battle-hud story-003).
+## Returns the BattleUnit for the given unit_id, or null if not found.
+## Added to support BattleHUD.show_unit_info() hero_id resolution path.
+## Read-only query per ADR-0014 §3 contract.
+func get_battle_unit(unit_id: int) -> BattleUnit:
+	return _units.get(unit_id)
+
+
 ## Returns an opaque snapshot of battle state for AI consumer (Battle AI ADR).
 ## Shape is intentionally unspecified at MVP; callers must not rely on field names.
 func get_battle_state_snapshot() -> Dictionary:

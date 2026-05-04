@@ -1,10 +1,11 @@
 # Story 003: UI-GB-03 Unit Info Panel + UI-GB-11 DEFEND Stance Badge + show_unit_info()
 
 > **Epic**: Battle HUD
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: UI
 > **Manifest Version**: 2026-04-20
+> **Completed**: 2026-05-04
 
 ## Context
 
@@ -166,3 +167,32 @@
 - Depends on: Story 002 (signal subscription handlers must exist as no-op shims for this story to extend)
 - Unlocks: Story 005 (UI-GB-02 Action Menu may visually anchor near UI-GB-03 — non-blocking but cleaner ordering)
 - Parallel-runnable with: Story 004 (UI-GB-01/07/08 — disjoint elements, both consume signal handler hooks from story-002)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-04
+**Criteria**: 9/9 covered (7 automated AC-1..AC-7 + 1 bonus; AC-8 manual gate PENDING; AC-9 deferred to story-008 lint)
+**Test result**: 876/876 PASS / 0 errors / 0 failures / 0 flaky / 0 skipped / 0 orphans / Exit 0 — 22nd consecutive failure-free baseline (+11 vs S6-06 baseline 865)
+
+**Test Evidence**:
+- Integration: `tests/integration/feature/battle_hud/battle_hud_unit_info_test.gd` (11 tests, 142ms)
+- Manual: `production/qa/evidence/battle-hud-story-003-evidence.md` (§C PENDING — macOS VoiceOver run required for AC-8 sign-off)
+
+**Code Review**: Complete (godot-gdscript-specialist + qa-tester via /code-review this session — verdict APPROVED WITH SUGGESTIONS; 0 BLOCKING items; 4 nice-to-have suggestions)
+
+**Deviations** (all ADVISORY):
+1. **Positive deviation**: `_status_effect_to_i18n_key()` literal-dispatch replaces Implementation Note 4's `tr("hud.status." + effect_id)` runtime concat. Original spec was POT-extraction blind; implementation upgraded to literal-key match for static i18n tooling visibility.
+2. **Deferred per Implementation Note 5**: UI-GB-11 world-space tile positioning deferred to story-007 (no `GridBattleController.get_unit_world_position()` or `MapGrid.coord_to_world()` exposed yet). MVP renders seal at fixed HUD-level position; story-007 will migrate to GridLayer cross-tree per ADR-0015 §2 + ADR-0016 §2.
+3. **Cross-epic forward-prep (precedent-justified)**: `src/feature/grid_battle/grid_battle_controller.gd` added `get_battle_unit(unit_id: int) -> BattleUnit` (~7 LoC). Same pattern as story-002's 3 cross-epic adds; ADR-0014 §3 read-only contract preserved (returns single value via `Dictionary.get`, no mutation, `_units` Dictionary stays private).
+
+**Coverage gap (non-blocking)**: `battle_unit == null` early-return branch (`battle_hud.gd:233-235`) has no test. Reachable by passing a unit_id with no corresponding `set_test_unit` call. Recommended: add 1 test in story-008 OR file as backlog TD.
+
+**Scope**: 1 modified production file (in-scope) + 1 cross-epic .gd modification (precedent-justified ADVISORY) + 3 NEW files (in-scope) + 2 test-stub extensions (in-scope test infrastructure for the new injection points).
+
+**Specialist suggestions carried** (from /code-review APPROVED WITH SUGGESTIONS — not blocking):
+- S-1: Move `_active_status_panel_unit_id = unit_id` inside `if panel != null:` block (sentinel scope cleanup; line 280)
+- S-2: Add comment why `HeroDatabase.get_hero(...)` is called statically (not via `_hero_db` DI ref; line 237)
+- S-3: One-line G-2 typed-array-escape comment at `var status_effects: Array = ...` (line 246)
+- S-4: Coverage gap test for `battle_unit == null` branch (story-008 or TD)

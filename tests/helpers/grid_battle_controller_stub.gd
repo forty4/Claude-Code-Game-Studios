@@ -17,6 +17,12 @@ class_name GridBattleControllerStub
 extends GridBattleController
 
 
+# Story-003 test injection: BattleUnit lookup for show_unit_info() hero_id resolution.
+# Production GridBattleController.get_battle_unit(unit_id) reads from _units (private).
+# This stub overrides with a test-injectable Dictionary populated via set_test_unit().
+var _test_units: Dictionary[int, BattleUnit] = {}
+
+
 func _ready() -> void:
 	# No-op: skips production DI asserts + 4 CONNECT_DEFERRED GameBus subscriptions.
 	pass
@@ -25,3 +31,15 @@ func _ready() -> void:
 func _exit_tree() -> void:
 	# No-op: this stub never subscribed to GameBus in _ready(), so no disconnect needed.
 	pass
+
+
+## Story-003 test seam — populate test BattleUnit lookup table.
+## Test fixtures call this in before_test() to inject deterministic unit data.
+func set_test_unit(unit_id: int, unit: BattleUnit) -> void:
+	_test_units[unit_id] = unit
+
+
+## Story-003 override of GridBattleController.get_battle_unit().
+## Reads from _test_units instead of production _units field.
+func get_battle_unit(unit_id: int) -> BattleUnit:
+	return _test_units.get(unit_id)

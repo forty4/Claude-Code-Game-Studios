@@ -1,0 +1,42 @@
+[gd_scene format=3]
+
+;; UI-GB-03 Unit Info Panel — story-003.
+;; VBoxContainer root per battle-hud.md §3 layout spec.
+;; AccessKit tooltip_text on every Control per ADR-0015 §Verification Item 5.
+;; FacingDirectionLabel — deferred to story-007 (no MapGrid.coord_to_world yet).
+;; custom_minimum_size on HPBar matches 44 px touch-target floor per technical-preferences.md.
+
+[node name="UI_GB_03_UnitInfoPanel" type="VBoxContainer"]
+tooltip_text = "Unit information panel"
+custom_minimum_size = Vector2(180, 0)
+
+[node name="UnitNameLabel" type="Label" parent="."]
+tooltip_text = "Unit name"
+text = ""
+autowrap_mode = 3
+
+[node name="ClassLabel" type="Label" parent="."]
+tooltip_text = "Unit class"
+text = "Class"
+
+[node name="HPBar" type="TextureProgressBar" parent="."]
+tooltip_text = "HP bar"
+custom_minimum_size = Vector2(0, 44)
+max_value = 100.0
+value = 100.0
+
+[node name="ATKLabel" type="Label" parent="."]
+tooltip_text = "ATK stat"
+text = "ATK"
+
+[node name="DEFLabel" type="Label" parent="."]
+tooltip_text = "DEF stat"
+text = "DEF"
+
+[node name="StatusEffectsHBox" type="HBoxContainer" parent="."]
+tooltip_text = "Active status effects"
+custom_minimum_size = Vector2(0, 44)
+
+[node name="FacingDirectionLabel" type="Label" parent="."]
+tooltip_text = "Facing direction"
+text = "Facing"

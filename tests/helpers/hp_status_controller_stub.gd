@@ -20,6 +20,14 @@ class_name HPStatusControllerStub
 extends HPStatusController
 
 
+# Story-003 test injection — backend query overrides for BattleHUD.show_unit_info().
+# Production HPStatusController reads from per-unit UnitHPState; this stub uses
+# flat per-unit_id Dictionaries for deterministic test injection.
+var _test_current_hp: Dictionary[int, int] = {}
+var _test_max_hp: Dictionary[int, int] = {}
+var _test_status_effects: Dictionary[int, Array] = {}
+
+
 func _ready() -> void:
 	# No-op: prevents production GameBus.unit_turn_started subscription during tests.
 	pass
@@ -31,3 +39,36 @@ func apply_damage(_unit_id: int, _resolved_damage: int, _attack_type: int, _sour
 
 func is_alive(_unit_id: int) -> bool:
 	return true
+
+
+## Story-003 test seam — populate per-unit current HP for show_unit_info().
+func set_test_current_hp(unit_id: int, hp: int) -> void:
+	_test_current_hp[unit_id] = hp
+
+
+## Story-003 test seam — populate per-unit max HP for show_unit_info() HP bar.
+func set_test_max_hp(unit_id: int, max_hp: int) -> void:
+	_test_max_hp[unit_id] = max_hp
+
+
+## Story-003 test seam — populate per-unit Array[StatusEffect] for show_unit_info().
+## Pass [] to clear (e.g., simulating DEFEND_STANCE expiry between turns).
+func set_test_status_effects(unit_id: int, effects: Array) -> void:
+	_test_status_effects[unit_id] = effects
+
+
+## Story-003 override of HPStatusController.get_current_hp().
+func get_current_hp(unit_id: int) -> int:
+	return _test_current_hp.get(unit_id, 0)
+
+
+## Story-003 override of HPStatusController.get_max_hp().
+func get_max_hp(unit_id: int) -> int:
+	return _test_max_hp.get(unit_id, 0)
+
+
+## Story-003 override of HPStatusController.get_status_effects().
+## Returns shallow copy to mirror production R-5 contract.
+func get_status_effects(unit_id: int) -> Array:
+	var effects: Array = _test_status_effects.get(unit_id, [])
+	return effects.duplicate()

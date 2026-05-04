@@ -1,0 +1,65 @@
+# English locale — battle-hud story-003
+# 18 i18n keys for UI-GB-03 unit info panel + UI-GB-11 defend stance badge.
+# Source: ADR-0015 §3 + battle-hud.md §3 i18n requirements.
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "hud.unit_info.class_label"
+msgstr "Class"
+
+msgid "hud.unit_info.atk_label"
+msgstr "ATK"
+
+msgid "hud.unit_info.def_label"
+msgstr "DEF"
+
+msgid "hud.unit_info.facing_label"
+msgstr "Facing"
+
+msgid "hud.unit_info.tooltip"
+msgstr "Unit information panel"
+
+msgid "hud.unit_info.unknown_unit"
+msgstr "Unknown"
+
+msgid "hud.status.defend_stance"
+msgstr "Defending"
+
+# Fallback for unknown status effects routed through _status_effect_to_i18n_key.
+msgid "hud.status.unknown"
+msgstr "Unknown status"
+
+# UnitRole.UnitClass enum [0..5] display names — UnitRole._class_to_key (private)
+# defines the lowercase key form; these msgids mirror it for HUD i18n routing.
+msgid "hud.unit_info.class.cavalry"
+msgstr "Cavalry"
+
+msgid "hud.unit_info.class.infantry"
+msgstr "Infantry"
+
+msgid "hud.unit_info.class.archer"
+msgstr "Archer"
+
+msgid "hud.unit_info.class.strategist"
+msgstr "Strategist"
+
+msgid "hud.unit_info.class.commander"
+msgstr "Commander"
+
+msgid "hud.unit_info.class.scout"
+msgstr "Scout"
+
+# Cardinal facing directions for FacingDirectionLabel (BattleUnit.facing 0=N..3=W).
+msgid "hud.unit_info.facing.n"
+msgstr "N"
+
+msgid "hud.unit_info.facing.e"
+msgstr "E"
+
+msgid "hud.unit_info.facing.s"
+msgstr "S"
+
+msgid "hud.unit_info.facing.w"
+msgstr "W"

@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+;; UI-GB-11 Defend Stance Badge — story-003.
+;; TextureRect placeholder for 守 glyph.
+;; Palette art-director sign-off deferred per epic R-6 (battle-hud.md).
+;; World-space tile positioning deferred to story-007 (no
+;; GridBattleController.get_unit_world_position or MapGrid.coord_to_world yet).
+;; MVP: renders at fixed HUD-level position controlled by BattleHUD parent.
+;; custom_minimum_size satisfies 44px touch-target floor per technical-preferences.md.
+
+[node name="UI_GB_11_DefendStanceBadge" type="TextureRect"]
+tooltip_text = "Defending"
+custom_minimum_size = Vector2(44, 44)
+expand_mode = 1
+stretch_mode = 6
