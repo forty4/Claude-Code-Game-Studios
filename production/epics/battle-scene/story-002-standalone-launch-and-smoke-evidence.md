@@ -1,7 +1,8 @@
 # Story 002: `project.godot` `main_scene` Flip + Cross-Launch-Source Smoke Evidence
 
 > **Epic**: Battle Scene
-> **Status**: Ready
+> **Status**: Complete
+> **Completed**: 2026-05-04
 > **Layer**: Feature (scene-root)
 > **Type**: Integration
 > **Manifest Version**: 2026-04-20
@@ -203,4 +204,50 @@
 
 ## Completion Notes
 
-*To be authored at /story-done.*
+**Completed**: 2026-05-04
+**Verdict**: COMPLETE WITH NOTES (8/8 ACs satisfied; 1 DEFERRED-WITH-CAUSE per ADR-0016 V-11 option (ii); 2 advisory deviations both within IN-6-authorized scope; no blocking items)
+
+**Acceptance criteria coverage (8/8)**:
+- AC-1 ✅ — `project.godot:12-13` `run/main_scene = "res://scenes/battle/battle_scene.tscn"` + adjacent `; SPRINT-6 ONLY — REVERT WHEN ADR-0017 LANDS (TR-battle-scene-wiring-005)` comment line. Both grep substrings (`^run/main_scene` + `sprint-6`) match.
+- AC-2 ✅ — `godot --path . --headless --quit-after 60` exit=0; zero ERROR lines pointing to BattleScene mount sequence; single `WARNING: GameBus soft cap exceeded: 271 emits this frame` from `GameBusDiagnostics._fire_soft_cap_warning()` (TurnOrderRunner first-frame `turn_*` burst — pre-existing diagnostics behavior, acceptable per AC-2 edge case "only ERROR/assert failures fail").
+- AC-3 ✅ — `godot --path . --headless --main-scene scenes/battle/battle_scene.tscn --quit-after 60` byte-identical exit=0 + same WARNING; **no launch-source branching** confirmed structurally.
+- AC-4 ⏸ DEFERRED — launch source (a) SceneManager-driven path: requires `battle_launch_requested` GameBus payload owned by ScenarioRunner / Battle Preparation epics (sprint-7+; ADR-0017 land target). Per AC-4 pass condition: option (ii) "doc note documenting deferral with cross-reference to ScenarioRunner" satisfied via evidence doc §C. Acceptable per ADR-0016 V-11.
+- AC-5 ✅ — `production/qa/evidence/battle_scene_smoke_2026-05-04.md` §A 18-cell matrix complete (6 mount steps × 3 launch sources): 12 PASS + 6 DEFERRED (launch source (a)) + 0 FAIL. All §A-§E sections present (matrix, verification commands, deferred verification, Migration Plan revert path, regression baseline) plus §F cross-references.
+- AC-6 ✅ — Evidence doc §C explicitly names V-11 + 3 platforms (macOS Metal + Linux Vulkan + Windows D3D12) per ADR-0016 V-11 deferral pattern; matches `scene-manager-android-verification.md` precedent.
+- AC-7 ✅ — Evidence doc §D 4 numbered Migration Plan revert steps; each names concrete file/line target (project.godot:12-13; src/feature/battle_scene/battle_scene.gd `# === SPRINT-6 MOCK ENCOUNTER ===`/`# === END MOCK ===` markers ~50 LoC; `tools/ci/lint_battle_scene_sprint6_mock_marker.sh`; this evidence doc filename).
+- AC-8 ✅ — **883/883 PASS / 0 errors / 0 failures / 0 flaky / 0 skipped / 0 orphans / Exit 0** preserved post-flip — **24th consecutive failure-free regression baseline**. +0 vs S6-07 (this story added zero new test functions; AC-8 is a preservation gate, not a growth gate).
+
+**Test evidence shipped**:
+- Integration: `production/qa/evidence/battle_scene_smoke_2026-05-04.md` (162 lines; §A 18-row matrix + §B verification commands + §C deferred verification + §D Migration Plan revert + §E regression baseline + §F cross-references)
+- Existing: `tests/integration/feature/battle_scene/battle_scene_smoke_test.gd` (7 functions; preserved through IN-14 const update — `MOCK_HERO_IDS` const refreshed to match production hero-id swap)
+
+**Code review summary**:
+- Spawned godot-gdscript-specialist + qa-tester via /code-review (parallel). Both verdicts: APPROVED WITH SUGGESTIONS. 0 BLOCKING.
+- Specialist suggestion: smoke test module-level doc comment lines 13-16 still referenced old hero IDs `(jangbi/joun/enemy_a/enemy_b)` after const block at lines 25-36 was updated. **Applied inline** during /code-review verification (lines 13-17 now read `(shu_003_zhang_fei / wu_003_zhou_yu / wei_001_cao_cao / wei_005_xiahou_dun) per ADR-0016 IN-12 + IN-14`).
+- qa-tester suggestion (DEFERRED): future test `test_mock_hero_ids_exist_in_production_roster` reading `heroes.json` via real `_load_heroes()` path would catch IN-14-class drift automatically. Logged below as TD candidate.
+
+**Files shipped (4 modified + 1 new)**:
+- `project.godot:12-13` — `run/main_scene` + adjacent SPRINT-6 revert comment line (AC-1; 2 lines added)
+- `src/feature/battle_scene/battle_scene.gd:180-191` — IN-14 amendment: 4 mock-roster hero ids swapped from fictional `&"jangbi"/"joun"/"enemy_a"/"enemy_b"` → real `&"shu_003_zhang_fei"/"wu_003_zhou_yu"/"wei_001_cao_cao"/"wei_005_xiahou_dun"`; doc-comment block expanded with IN-14 audit trail
+- `tests/integration/feature/battle_scene/battle_scene_smoke_test.gd:13-36` — `MOCK_HERO_IDS` const block refreshed (4 named consts `HERO_ZHANG_FEI`/`HERO_ZHOU_YU`/`HERO_CAO_CAO`/`HERO_XIAHOU_DUN`); module-level doc comment refreshed to match
+- `docs/architecture/ADR-0016-battle-scene-wiring.md` — IN-14 entry appended (after IN-12 + IN-13). 14 total IN-N entries on ADR-0016 now (IN-1..IN-5 from /architecture-decision review 2026-05-03; IN-6..IN-13 from S6-07 implementation 2026-05-04; IN-14 from this story 2026-05-04).
+- `production/qa/evidence/battle_scene_smoke_2026-05-04.md` — NEW (162 lines)
+
+**Cross-story deviation (IN-14, story-001 amendment)**:
+1. **Story-001 mock encoder hero-id swap** — fictional ids `jangbi/joun/enemy_a/enemy_b` swapped to real `heroes.json` ids `shu_003_zhang_fei/wu_003_zhou_yu/wei_001_cao_cao/wei_005_xiahou_dun`. **Authorized inline by story-002 IN-6** ("launch-source-specific bug surfaces during smoke → fix belongs to story-001 as an amendment to ADR-0016 §Implementation Notes IN-N pattern"). Same "production-signature wins" precedent as IN-6..IN-13. Smoke test `MOCK_HERO_IDS` const + doc comment updated to match.
+
+**Tech debt candidates (NOT yet logged formally; carried for future TD entry)**:
+- **TD-NN candidate (qa-tester suggestion)**: smoke test must cover production-launch path, not only DI-injected path. Add `test_mock_hero_ids_exist_in_production_roster` reading `assets/data/heroes/heroes.json` via real `_load_heroes()` path. Would catch future IN-14-class drift automatically. Suitable for incorporation into story-003 lint scope OR standalone TD entry.
+- **TD-NN candidate (orchestrator observation)**: GameBus diagnostics `WARNING: soft cap exceeded: 271 emits` from TurnOrderRunner.initialize_battle first-frame burst. Pre-existing diagnostics behavior; not a mount-error. Worth tracking as a potential operational concern (test-runner log noise; possible legitimate batching opportunity in TurnOrderRunner). Out-of-scope for sprint-6.
+
+**Engine Verification (ADR-0016 V-N coverage this story)**:
+- V-8 (`godot --path .` launches BattleScene): SATISFIED via AC-2 evidence §B.1
+- V-9 (`godot --main-scene` CLI override launches BattleScene identically): SATISFIED via AC-3 evidence §B.2
+- V-11 (cross-platform smoke matrix on macOS Metal + Linux Vulkan + Windows D3D12): DEFERRED to Polish per evidence §C; same precedent as `scene-manager-android-verification.md`
+- §Migration Plan revert path: DOCUMENTED in evidence §D; mechanical 1-line + ~50 LoC + 1 lint-flip + 1 doc re-author at ADR-0017 acceptance
+
+**ADR-0016 IN-14 amendment text** (appended verbatim to ADR §Implementation Notes after IN-13): documents the story-002 AC-2 surfaced bug, the 4-id swap resolution, and the sprint-7+ implication that the entire mock encoder block deletes per §Migration Plan when ADR-0017 ScenarioRunner ships.
+
+**Sprint-6 progress (post-story-002)**: 9/12 yaml-marked done + this story-002 close. Battle-scene epic at 2/3 stories shipped (story-001 done; story-002 done this turn; story-003 lints + epic terminal still ready and UNBLOCKED, ~1.5h remaining for epic close).
+
+**Cycle observation**: this story exposed a genuine test-isolation gap — the IN-12 DI-injection seam was masking a production-launch failure. The smoke test "passed" with `MOCK_HERO_IDS` set to fictional ids because the same fictional ids were seeded directly into `HeroDatabase._heroes`. Production launch via `main_scene` config hit `_load_heroes()` and emitted 4× `unknown hero_id` push_errors. Lesson worth carrying forward: **whenever a test-only DI-injection seam exists for a static-state singleton, add at least one regression test that exercises the production load path** so latent bugs in the production data surface in CI rather than at first launch. The qa-tester's suggested TD entry codifies this precisely.

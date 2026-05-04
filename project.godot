@@ -9,6 +9,8 @@ config_version=5
 config/name="천명역전"
 config/description="Defying Destiny — Turn-based grid strategy RPG."
 config/features=PackedStringArray("4.6")
+; SPRINT-6 ONLY — REVERT WHEN ADR-0017 LANDS (TR-battle-scene-wiring-005)
+run/main_scene="res://scenes/battle/battle_scene.tscn"
 
 [autoload]
 

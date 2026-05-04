@@ -11,9 +11,10 @@
 ##   G-15: before_test (NOT before_each) — GdUnit4 v6.1.2 only fires before_test()
 ##
 ## Pre-condition: HeroDatabase static state pre-seeded with 4 mock heroes
-## (jangbi/joun/enemy_a/enemy_b) per ADR-0016 IN-12 — short-circuits the
-## headless-mode `_load_heroes()` file-read path that would otherwise return
-## empty, leaving HeroDatabase._heroes empty + crashing HPStatusController.
+## (shu_003_zhang_fei / wu_003_zhou_yu / wei_001_cao_cao / wei_005_xiahou_dun)
+## per ADR-0016 IN-12 + IN-14 — short-circuits the headless-mode `_load_heroes()`
+## file-read path that would otherwise return empty, leaving HeroDatabase._heroes
+## empty + crashing HPStatusController.
 ##
 ## ADR refs: ADR-0016 §1-§7 (NEW pattern: scene-root-as-orchestrator).
 
@@ -22,14 +23,17 @@ extends GdUnitTestSuite
 const BATTLE_SCENE_PATH: String = "res://scenes/battle/battle_scene.tscn"
 const BATTLE_SCENE_SOURCE: String = "res://src/feature/battle_scene/battle_scene.gd"
 
-# Mock encounter heroes — match _build_mock_roster_sprint6() in battle_scene.gd
-const HERO_JANGBI: StringName = &"jangbi"
-const HERO_JOUN: StringName = &"joun"
-const HERO_ENEMY_A: StringName = &"enemy_a"
-const HERO_ENEMY_B: StringName = &"enemy_b"
+# Mock encounter heroes — must match _build_mock_roster_sprint6() in battle_scene.gd
+# (IN-14 amendment 2026-05-04: swapped from fictional ids `jangbi`/`joun`/`enemy_a`/
+# `enemy_b` to real `heroes.json` ids after story-002 AC-2 launch surfaced
+# `unknown hero_id` push_errors during production launch).
+const HERO_ZHANG_FEI: StringName = &"shu_003_zhang_fei"
+const HERO_ZHOU_YU: StringName = &"wu_003_zhou_yu"
+const HERO_CAO_CAO: StringName = &"wei_001_cao_cao"
+const HERO_XIAHOU_DUN: StringName = &"wei_005_xiahou_dun"
 
 const MOCK_HERO_IDS: Array[StringName] = [
-	HERO_JANGBI, HERO_JOUN, HERO_ENEMY_A, HERO_ENEMY_B,
+	HERO_ZHANG_FEI, HERO_ZHOU_YU, HERO_CAO_CAO, HERO_XIAHOU_DUN,
 ]
 
 # AC-9: ×5 permissive gate over the 50ms wall-clock headline target.

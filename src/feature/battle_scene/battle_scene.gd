@@ -177,15 +177,17 @@ func _ready() -> void:
 # between SPRINT-6 MOCK ENCOUNTER markers in _ready() + this entire region.
 
 
-## Builds the 4-unit sprint-6 mock roster: 2 player (장비 tank + 조운 assassin)
-## + 2 enemy. Per ADR-0016 §4. BattleUnit field names verified against
-## src/core/battle_unit.gd 2026-05-04 (is_player_controlled, position per B-1).
+## Builds the 4-unit sprint-6 mock roster: 2 player (Zhang Fei tank + Zhao Yun→Zhou Yu
+## assassin substitute) + 2 enemy. Per ADR-0016 §4. Hero IDs MUST exist in
+## assets/data/heroes/heroes.json (IN-14 amendment 2026-05-04 — story-002 AC-2 launch
+## surfaced fictional-id `unknown hero_id` push_errors; swapped to real IDs).
+## BattleUnit field names verified against src/core/battle_unit.gd 2026-05-04.
 func _build_mock_roster_sprint6() -> Array[BattleUnit]:
 	var roster: Array[BattleUnit] = []
-	roster.append(_make_mock_unit(0, &"jangbi",  true,  Vector2i(1, 2), &"tank"))
-	roster.append(_make_mock_unit(1, &"joun",    true,  Vector2i(2, 2), &"assassin"))
-	roster.append(_make_mock_unit(2, &"enemy_a", false, Vector2i(4, 2), &"boss"))
-	roster.append(_make_mock_unit(3, &"enemy_b", false, Vector2i(5, 2), &""))
+	roster.append(_make_mock_unit(0, &"shu_003_zhang_fei",  true,  Vector2i(1, 2), &"tank"))
+	roster.append(_make_mock_unit(1, &"wu_003_zhou_yu",     true,  Vector2i(2, 2), &"assassin"))
+	roster.append(_make_mock_unit(2, &"wei_001_cao_cao",    false, Vector2i(4, 2), &"boss"))
+	roster.append(_make_mock_unit(3, &"wei_005_xiahou_dun", false, Vector2i(5, 2), &""))
 	return roster
 
 
