@@ -467,10 +467,15 @@ func test_diagnostics_route_to_domain_covers_all_29_signals() -> void:
 		"destiny_branch_chosen":     "destiny",
 		"destiny_state_flag_set":    "destiny",
 		"destiny_state_echo_added":  "destiny",
-		# §6 Story Event / Beat (emitter: BeatConductor)
+		# §6 Story Event / Beat (emitter: BeatConductor + StoryEvent #10 sprint-8 S8-09)
 		"beat_visual_cue_fired":     "beat",
 		"beat_audio_cue_fired":      "beat",
 		"beat_sequence_complete":    "beat",
+		# Story Event #10 — share "beat" domain bucket per game_bus_diagnostics.gd
+		# _route_to_domain rule (story_event_ prefix routes to beat domain).
+		"story_event_resolved":              "beat",
+		"story_event_invalid_path_detected": "beat",
+		"story_event_revelation_committed":  "beat",
 		# §7 Input (emitter: InputRouter)
 		"input_action_fired":        "input",
 		"input_state_changed":       "input",

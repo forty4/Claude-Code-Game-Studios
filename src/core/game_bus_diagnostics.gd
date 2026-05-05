@@ -212,7 +212,11 @@ func _route_to_domain(sig_name: String) -> String:
 		return "unit"
 	if sig_name.begins_with("destiny_"):
 		return "destiny"
-	if sig_name.begins_with("beat_"):
+	if sig_name.begins_with("beat_") or sig_name.begins_with("story_event_"):
+		# Story Event #10 signals (sprint-8 S8-09) share the Beat presentation domain
+		# per game_bus.gd §"DOMAIN: Story Event / Beat presentation" + CR-SE-4 conceptual
+		# alignment. Reusing the "beat" domain bucket avoids inflating the per-domain
+		# soft-cap tracking surface.
 		return "beat"
 	if sig_name.begins_with("input_"):
 		return "input"

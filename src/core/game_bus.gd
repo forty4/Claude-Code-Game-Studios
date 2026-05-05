@@ -59,6 +59,15 @@ signal beat_visual_cue_fired(cue: BeatCue)
 signal beat_audio_cue_fired(cue: BeatCue)
 signal beat_sequence_complete(beat_number: int)
 
+# ═══ DOMAIN: Story Event #10 (emitter: StoryEvent) ═════════════════════════════
+# Per design/gdd/story-event.md CR-SE-4 (rev 1.0 Designed 2026-05-05).
+# ADR-0001 minor amendment per Evolution Rule #4 ratifies these 3 additions at
+# sprint-8+ /architecture-review delta — until then the source-of-truth is this
+# file + the 4 expected_signals test list at game_bus_declaration_test.gd:14.
+signal story_event_resolved(beat_number: int, variant_key: StringName, text_key: String, cue_tag: StringName)
+signal story_event_invalid_path_detected(reason: StringName, choice_chapter_id: String)
+signal story_event_revelation_committed(chapter_id: String, branch_key: String, register: StringName)
+
 # ═══ DOMAIN: Input (emitter: InputRouter) ══════════════════════════════════════
 signal input_action_fired(action: String, context: InputContext)
 signal input_state_changed(from: int, to: int)

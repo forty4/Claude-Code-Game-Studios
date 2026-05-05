@@ -197,6 +197,31 @@ const EXPECTED_SIGNALS: Array[Dictionary] = [
 			{"name": "beat_number", "type": TYPE_INT},
 		],
 	},
+	# ── Domain: Story Event #10 (sprint-8 S8-09 — ADR-0001 minor amendment pending) ─
+	{
+		"name": "story_event_resolved",
+		"args": [
+			{"name": "beat_number", "type": TYPE_INT},
+			{"name": "variant_key", "type": TYPE_STRING_NAME},
+			{"name": "text_key", "type": TYPE_STRING},
+			{"name": "cue_tag", "type": TYPE_STRING_NAME},
+		],
+	},
+	{
+		"name": "story_event_invalid_path_detected",
+		"args": [
+			{"name": "reason", "type": TYPE_STRING_NAME},
+			{"name": "choice_chapter_id", "type": TYPE_STRING},
+		],
+	},
+	{
+		"name": "story_event_revelation_committed",
+		"args": [
+			{"name": "chapter_id", "type": TYPE_STRING},
+			{"name": "branch_key", "type": TYPE_STRING},
+			{"name": "register", "type": TYPE_STRING_NAME},
+		],
+	},
 	# ── Domain: Input (ADR-0001 §Signal Contract Schema §7) ──────────────────────
 	{
 		"name": "input_action_fired",

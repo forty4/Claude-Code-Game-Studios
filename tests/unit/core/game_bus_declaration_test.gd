@@ -31,6 +31,9 @@ const EXPECTED_SIGNALS: Array[String] = [
 	"beat_visual_cue_fired",
 	"beat_audio_cue_fired",
 	"beat_sequence_complete",
+	"story_event_resolved",
+	"story_event_invalid_path_detected",
+	"story_event_revelation_committed",
 	"input_action_fired",
 	"input_state_changed",
 	"input_mode_changed",
@@ -102,7 +105,7 @@ func test_gamebus_extends_node_and_has_no_class_name() -> void:
 		assert_bool(class_name_regex.search(line) == null).is_true()
 
 
-## AC-2 + AC-3: game_bus.gd declares exactly 30 user signals (29 + scenario_fault per ADR-0017 EC-SP-8).
+## AC-2 + AC-3: game_bus.gd declares exactly 33 user signals (30 + 3 Story Event #10 per S8-09).
 func test_gamebus_declares_exactly_29_signals() -> void:
 	# Arrange
 	var script: GDScript = load(GAME_BUS_PATH)
@@ -116,8 +119,8 @@ func test_gamebus_declares_exactly_29_signals() -> void:
 		if not (sig["name"] as String) in inherited:
 			user_signals.append(sig)
 
-	# Assert — exactly 30 (29 + scenario_fault per S7-02)
-	assert_int(user_signals.size()).is_equal(30)
+	# Assert — exactly 33 (30 prior baseline + 3 Story Event #10 signals per S8-09)
+	assert_int(user_signals.size()).is_equal(33)
 
 
 ## AC-3: All 28 declared signals match the authoritative name list from ADR-0001 + ADR-0011.
@@ -248,7 +251,8 @@ func test_project_godot_has_gamebus_as_first_autoload() -> void:
 	assert_str(first_entry_line).is_equal('GameBus="*res://src/core/game_bus.gd"')
 
 
-## AC-6: game_bus.gd contains exactly 10 domain banner comments.
+## AC-6: game_bus.gd contains exactly 11 domain banner comments
+## (10 baseline + 1 Story Event #10 banner per S8-09).
 func test_gamebus_file_has_exactly_10_domain_banners() -> void:
 	# Arrange
 	var file := FileAccess.open(GAME_BUS_PATH, FileAccess.READ)
@@ -268,4 +272,4 @@ func test_gamebus_file_has_exactly_10_domain_banners() -> void:
 			banner_count += 1
 
 	# Assert
-	assert_int(banner_count).is_equal(10)
+	assert_int(banner_count).is_equal(11)

@@ -11,7 +11,7 @@ goal: "Unblock input-handling + ship chapter-1 (장판파) end-to-end + flip Pil
 start: "2026-06-07"
 end: "2026-06-13"
 generated: "2026-05-05"
-updated: "2026-05-05 — S8-01 ADR-0020 Proposed + S8-08+S8-10 shipped; 992/992 PASS; Pillar 2 lock 5 shipped"
+updated: "2026-05-05 — S8-01 + S8-08 + S8-09 + S8-10 shipped; 1007/1007 PASS; Pillar 2 lock 6 shipped"
 
 # Sprint-7 closed 9/11 (Must 4/4 + Should 3/3 + Nice 2/4); S7-10 BLOCKED on input-handling epic;
 # S7-11 USER-OWNED. 26th+ consecutive failure-free baseline (978/978 PASSING). Retro AI seeds
@@ -114,11 +114,12 @@ stories:
     name: "Story Event #10 implementation per S7-06 GDD — autoload registered + 3 GameBus signals + Pillar 2 lock 6th invocation flip"
     file: ""  # Implementation story file authored at story-creation time post-S8-08 epic creation
     priority: should-have
-    status: backlog
-    owner: ""
+    status: done
+    owner: claude
     estimate_days: 0.5
     blocker: ""
-    completed: ""
+    completed: "2026-05-05"
+    # story_event.gd NEW 248L; autoload pos 8; 3 NEW signals + diagnostics route; 2 lints + 15 tests; pattern 5 → 6 shipped; 992 → 1007 PASS
 
   - id: "S8-10"
     name: "Destiny State #16 implementation per S7-07 GDD — autoload registered + Array[EchoMark] lifecycle + Pillar 2 lock 5th invocation flip"

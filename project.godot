@@ -33,6 +33,12 @@ ScenarioRunner="*res://src/core/scenario_runner.gd"
 ; scenario_beat_retried + chapter_completed) per CR-DS-9. NO `class_name` per G-3.
 ; ADR-0003 SaveContext + ADR-0017 ScenarioRunner + ADR-0018 DestinyBranch.
 DestinyState="*res://src/feature/destiny_state/destiny_state.gd"
+; Boot order position 8: depends on GameBus + ScenarioRunner + DestinyState
+; (subscribes to chapter_started + destiny_branch_chosen + scenario_complete +
+; chapter_completed) per CR-SE-6/7. NO `class_name` per G-3.
+; ADR-0017 ScenarioRunner + ADR-0018 DestinyBranch + ADR-0001 GameBus (3 NEW
+; signals require minor amendment per Evolution Rule #4 at /architecture-review).
+StoryEvent="*res://src/feature/story_event/story_event.gd"
 
 [physics]
 
