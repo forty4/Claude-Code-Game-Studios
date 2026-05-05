@@ -11,7 +11,7 @@ goal: "Unblock input-handling + ship chapter-1 (장판파) end-to-end + flip Pil
 start: "2026-06-07"
 end: "2026-06-13"
 generated: "2026-05-05"
-updated: "2026-05-05 — S8-01 ADR-0020 Proposed shipped (delta #15 Accepted escalation pending)"
+updated: "2026-05-05 — S8-01 ADR-0020 Proposed + S8-08 Save/Load #17 GDD shipped (Should-have closure)"
 
 # Sprint-7 closed 9/11 (Must 4/4 + Should 3/3 + Nice 2/4); S7-10 BLOCKED on input-handling epic;
 # S7-11 USER-OWNED. 26th+ consecutive failure-free baseline (978/978 PASSING). Retro AI seeds
@@ -103,11 +103,12 @@ stories:
     name: "/design-system save-load — Save/Load #17 GDD authoring (PROVISIONAL → Designed); carryover from sprint-7 Producer pressure-cut"
     file: "design/gdd/save-load.md"
     priority: should-have
-    status: backlog
-    owner: ""
+    status: done
+    owner: claude
     estimate_days: 0.4
     blocker: ""
-    completed: ""
+    completed: "2026-05-05"
+    # save-load.md NEW 368L (8 sections); 22 CRs + 5 formulas + 11 EC + 20 ACs + 5 OQs; ratifies ADR-0003 + cross-doc F-SP-4 obligation closed; systems-index #17 Not Started → Designed
 
   - id: "S8-09"
     name: "Story Event #10 implementation per S7-06 GDD — autoload registered + 3 GameBus signals + Pillar 2 lock 6th invocation flip"
