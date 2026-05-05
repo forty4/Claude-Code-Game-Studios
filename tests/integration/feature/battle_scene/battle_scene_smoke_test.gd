@@ -10,11 +10,12 @@
 ##   G-14: run `godot --headless --import --path .` after first creation of class_name BattleScene
 ##   G-15: before_test (NOT before_each) — GdUnit4 v6.1.2 only fires before_test()
 ##
-## Pre-condition: HeroDatabase static state pre-seeded with 4 mock heroes
-## (shu_003_zhang_fei / wu_003_zhou_yu / wei_001_cao_cao / wei_005_xiahou_dun)
-## per ADR-0016 IN-12 + IN-14 — short-circuits the headless-mode `_load_heroes()`
-## file-read path that would otherwise return empty, leaving HeroDatabase._heroes
-## empty + crashing HPStatusController.
+## Pre-condition: HeroDatabase static state pre-seeded with chapter-1 (장판파)
+## roster heroes — 2 player (shu_001_liu_bei + shu_003_zhang_fei) + 4 enemy
+## (wei_005_xiahou_dun + wei_006_zhang_liao + wei_007_yu_jin + wei_008_xu_chu).
+## Includes 2 sprint-6-era extras (wu_003_zhou_yu + wei_001_cao_cao) for forward
+## compat. Per ADR-0016 IN-12 + IN-14 + S7-05 chapter-1 data-authoring expansion
+## — short-circuits headless-mode `_load_heroes()` file-read crashes.
 ##
 ## ADR refs: ADR-0016 §1-§7 (NEW pattern: scene-root-as-orchestrator).
 
@@ -23,17 +24,22 @@ extends GdUnitTestSuite
 const BATTLE_SCENE_PATH: String = "res://scenes/battle/battle_scene.tscn"
 const BATTLE_SCENE_SOURCE: String = "res://src/feature/battle_scene/battle_scene.gd"
 
-# Mock encounter heroes — must match _build_mock_roster_sprint6() in battle_scene.gd
-# (IN-14 amendment 2026-05-04: swapped from fictional ids `jangbi`/`joun`/`enemy_a`/
-# `enemy_b` to real `heroes.json` ids after story-002 AC-2 launch surfaced
-# `unknown hero_id` push_errors during production launch).
+# Chapter-1 (장판파) roster heroes — must cover all hero_ids resolved by
+# BattleScene._build_battle_units_from_chapter() against mvp_shu.json.
+# S7-05 expansion (2026-05-05): added shu_001_liu_bei (player 0) + 3 new Wei
+# enemies (wei_006/007/008) per chapter-1 4-archetype enemy_roster.
+const HERO_LIU_BEI: StringName = &"shu_001_liu_bei"
 const HERO_ZHANG_FEI: StringName = &"shu_003_zhang_fei"
 const HERO_ZHOU_YU: StringName = &"wu_003_zhou_yu"
 const HERO_CAO_CAO: StringName = &"wei_001_cao_cao"
 const HERO_XIAHOU_DUN: StringName = &"wei_005_xiahou_dun"
+const HERO_ZHANG_LIAO: StringName = &"wei_006_zhang_liao"
+const HERO_YU_JIN: StringName = &"wei_007_yu_jin"
+const HERO_XU_CHU: StringName = &"wei_008_xu_chu"
 
 const MOCK_HERO_IDS: Array[StringName] = [
-	HERO_ZHANG_FEI, HERO_ZHOU_YU, HERO_CAO_CAO, HERO_XIAHOU_DUN,
+	HERO_LIU_BEI, HERO_ZHANG_FEI, HERO_ZHOU_YU, HERO_CAO_CAO,
+	HERO_XIAHOU_DUN, HERO_ZHANG_LIAO, HERO_YU_JIN, HERO_XU_CHU,
 ]
 
 # AC-9: ×5 permissive gate over the 50ms wall-clock headline target.

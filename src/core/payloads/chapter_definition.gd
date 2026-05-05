@@ -101,3 +101,12 @@ extends Resource
 ## AISystem reads archetype at chapter-load via unit.get("archetype", &"aggressor").
 ## ScenarioRunner does NOT validate or consume archetype — that is AISystem scope.
 @export var enemy_roster: Array[Dictionary] = []
+
+
+# ─── Tactical hints (S7-05 chapter-1 integration substrate) ───────────────────
+
+## Chokepoint grid coords surfaced into BattleStateSnapshot.chokepoints for
+## AISystem F-AI-3 (holder archetype) anchor scoring. Empty = no chokepoints.
+## BattleScene plumbs these into GridBattleController.set_chokepoints() at
+## chapter-load so they flow into _make_battle_state_snapshot() per AI turn.
+@export var chokepoints: Array[Vector2i] = []

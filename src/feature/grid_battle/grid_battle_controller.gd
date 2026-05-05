@@ -172,6 +172,14 @@ var _fate_boss_killed: bool = false
 var _battle_over: bool = false
 
 
+# ─── Chokepoints (S7-05 chapter-1 substrate; sourced from ChapterDefinition) ─
+
+## Tactical chokepoint coords surfaced into BattleStateSnapshot.chokepoints for
+## AISystem F-AI-3 (holder archetype) anchor scoring. Set via set_chokepoints()
+## by BattleScene at chapter-load. Empty = no chokepoints (default snapshot).
+var _chokepoints: Array[Vector2i] = []
+
+
 # ─── DI seam (BattleScene calls before add_child per ADR-0014 §3) ───────────
 
 ## Injects all 8 DI dependencies. MUST be called before add_child().
@@ -474,9 +482,9 @@ func _make_battle_state_snapshot() -> BattleStateSnapshot:
 	snap.round_number = _turn_runner.get_current_round_number() if _turn_runner != null else 0
 	# Turn queue (best effort; empty if API not available).
 	snap.queue_unit_ids = []
-	# Chokepoints + formation_center: sprint-7 stub fixture has no chokepoints;
-	# formation_center = centroid of allied (enemy-side) units' positions.
-	snap.chokepoints = []
+	# Chokepoints sourced from ChapterDefinition via set_chokepoints() at chapter-load
+	# (S7-05); formation_center = centroid of allied (enemy-side) units' positions.
+	snap.chokepoints = _chokepoints.duplicate()
 	var enemy_positions: Array[Vector2i] = []
 	for u: BattleUnit in _units.values():
 		if u.side == 1:
@@ -487,6 +495,13 @@ func _make_battle_state_snapshot() -> BattleStateSnapshot:
 			sum += p
 		snap.formation_center = Vector2i(sum.x / enemy_positions.size(), sum.y / enemy_positions.size())
 	return snap
+
+
+## Sets chokepoint coords for AISystem holder-archetype scoring. Called by
+## BattleScene after ScenarioRunner hydrates the active ChapterDefinition.
+## Pure setter — does not emit signals or trigger snapshot rebuilds.
+func set_chokepoints(chokepoints: Array[Vector2i]) -> void:
+	_chokepoints = chokepoints.duplicate()
 
 
 ## Subscribed to GameBus.round_started via CONNECT_DEFERRED in _ready().

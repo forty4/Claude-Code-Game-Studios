@@ -114,10 +114,16 @@ func test_heroes_json_parses_cleanly_top_level_dict() -> void:
 	).is_true()
 
 
-# ── AC-2: record count in [8, 10] ────────────────────────────────────────────
+# ── AC-2: record count in [8, 13] ────────────────────────────────────────────
+# Upper bound bumped 10 → 13 by S7-05 chapter-1 data authoring (2026-05-05).
+# Sprint-3 MVP cap of 10 didn't anticipate sprint-7 chapter-1's 4-archetype
+# enemy roster (4 distinct Wei generals at 장판파). Sprint-7 expansion added
+# wei_006_zhang_liao (skirmisher) + wei_007_yu_jin (holder) + wei_008_xu_chu
+# (coordinator boss) to support AISystem F-AI-1..4 archetype differentiation.
+# Headroom of 1 (12 actual + 1) prevents accidental over-growth.
 
 
-## AC-2: MVP roster record count must be within [8, 10] inclusive.
+## AC-2: MVP roster record count must be within [8, 13] inclusive.
 func test_record_count_within_mvp_bounds_8_to_10() -> void:
 	var heroes: Dictionary = _parse_heroes_json()
 
@@ -130,8 +136,8 @@ func test_record_count_within_mvp_bounds_8_to_10() -> void:
 		"AC-2: record count %d must be >= 8" % count
 	).is_true()
 
-	assert_bool(count <= 10).override_failure_message(
-		"AC-2: record count %d must be <= 10" % count
+	assert_bool(count <= 13).override_failure_message(
+		"AC-2: record count %d must be <= 13 (S7-05 chapter-1 expansion bumped from 10)" % count
 	).is_true()
 
 

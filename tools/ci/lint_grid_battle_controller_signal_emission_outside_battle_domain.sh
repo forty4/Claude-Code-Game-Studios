@@ -4,9 +4,11 @@
 # grid_battle_controller_signal_emission_outside_battle_domain forbidden_pattern
 # enforcement (ADR-0014 §8 + story-010 AC-2).
 #
-# GridBattleController emits 5 LOCAL signals only:
+# GridBattleController emits 6 LOCAL signals only (ADR-0014 §8 amended via
+# /architecture-review delta #14 2026-05-05; was 5 pre-S7-01):
 #   unit_selected_changed / unit_moved / damage_applied /
-#   battle_outcome_resolved / hidden_fate_condition_progressed
+#   battle_outcome_resolved / hidden_fate_condition_progressed /
+#   ai_action_requested
 # It MUST NOT emit any GameBus.<X>.emit signal — Battle-domain signals are
 # controller-LOCAL by ADR-0014 §8 contract (Battle HUD subscribes to the
 # controller's own signals, not via GameBus).
@@ -25,5 +27,5 @@ if [ "$COUNT" -ne 0 ]; then
     grep -nE 'GameBus\.[a-zA-Z_]+\.emit\(' "$TARGET"
     exit 1
 fi
-echo "PASS: GridBattleController emits 0 GameBus signals (5 LOCAL signals only per ADR-0014 §8)"
+echo "PASS: GridBattleController emits 0 GameBus signals (6 LOCAL signals only per ADR-0014 §8 post-delta-#14)"
 exit 0

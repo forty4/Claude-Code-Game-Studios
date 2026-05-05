@@ -289,6 +289,13 @@ func _hydrate_chapter(record: Dictionary) -> ChapterDefinition:
 	for r_var: Variant in (record.get("enemy_roster", []) as Array):
 		roster.append((r_var as Dictionary).duplicate(true))
 	c.enemy_roster = roster
+	# chokepoints (S7-05 chapter-1 substrate; JSON Array[Array[int,int]] -> Array[Vector2i])
+	var chokes: Array[Vector2i] = []
+	for cp_var: Variant in (record.get("chokepoints", []) as Array):
+		if cp_var is Array and (cp_var as Array).size() >= 2:
+			var cp_arr: Array = cp_var as Array
+			chokes.append(Vector2i(int(cp_arr[0]), int(cp_arr[1])))
+	c.chokepoints = chokes
 	return c
 
 

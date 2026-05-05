@@ -169,6 +169,8 @@ func _ready() -> void:
 		_terrain_effect,
 		_unit_role,
 	)
+	# S7-05: plumb chapter-authored chokepoints to AISystem holder-archetype scoring.
+	_grid_controller.set_chokepoints(chapter.chokepoints)
 	add_child(_grid_controller)
 
 	# === STEP 5.5: AISystem (ADR-0019) — battle-scoped Node 6th invocation ===
@@ -206,10 +208,11 @@ func _ready() -> void:
 ## Hero IDs MUST exist in assets/data/heroes/heroes.json.
 func _build_battle_units_from_chapter(chapter: ChapterDefinition) -> Array[BattleUnit]:
 	var roster: Array[BattleUnit] = []
-	# Player units — minimal stub: bind chapter player_unit_ids to canonical hero IDs.
-	# Sprint-7 S7-05 will fill out chapter-1 (장판파) full content; this stub ships
-	# the structural integration sufficient for sprint-7 demo.
-	var player_default_heroes: Array[StringName] = [&"shu_003_zhang_fei", &"wu_003_zhou_yu"]
+	# Player units — bind chapter player_unit_ids to chapter-1 narrative-fitting heroes.
+	# S7-05: chapter-1 (장판파) defenders are 유비 + 장비 (Liu Bei rear-guarding refugees;
+	# Zhang Fei's bridge stand). Hero-binding remains hardcoded here pending a
+	# data-driven player_hero_ids ChapterDefinition field (post-MVP scope).
+	var player_default_heroes: Array[StringName] = [&"shu_001_liu_bei", &"shu_003_zhang_fei"]
 	for i in chapter.player_unit_ids.size():
 		var uid: int = int(chapter.player_unit_ids[i])
 		var hero: StringName = player_default_heroes[i] if i < player_default_heroes.size() else &"shu_003_zhang_fei"

@@ -78,6 +78,48 @@
     "join_chapter": 1, "join_condition_tag": "", "is_available_mvp": true,
     "relationships": []
   },
+  "wei_006_zhang_liao": {
+    "hero_id": "wei_006_zhang_liao",
+    "name_ko": "장요", "name_zh": "张辽", "name_courtesy": "文远",
+    "faction": 1,
+    "portrait_id": "portrait_wei_zhang_liao", "battle_sprite_id": "sprite_wei_zhang_liao",
+    "stat_might": 82, "stat_intellect": 70, "stat_command": 80, "stat_agility": 85,
+    "base_hp_seed": 78, "base_initiative_seed": 80,
+    "move_range": 5,
+    "default_class": 3, "equipment_slot_override": [],
+    "growth_might": 1.2, "growth_intellect": 1.0, "growth_command": 1.1, "growth_agility": 1.3,
+    "innate_skill_ids": ["skill_swift_strike"], "skill_unlock_levels": [1],
+    "join_chapter": 1, "join_condition_tag": "", "is_available_mvp": true,
+    "relationships": []
+  },
+  "wei_007_yu_jin": {
+    "hero_id": "wei_007_yu_jin",
+    "name_ko": "우금", "name_zh": "于禁", "name_courtesy": "文则",
+    "faction": 1,
+    "portrait_id": "portrait_wei_yu_jin", "battle_sprite_id": "sprite_wei_yu_jin",
+    "stat_might": 75, "stat_intellect": 65, "stat_command": 82, "stat_agility": 55,
+    "base_hp_seed": 92, "base_initiative_seed": 55,
+    "move_range": 3,
+    "default_class": 2, "equipment_slot_override": [],
+    "growth_might": 1.1, "growth_intellect": 0.9, "growth_command": 1.2, "growth_agility": 0.8,
+    "innate_skill_ids": ["skill_disciplined_line"], "skill_unlock_levels": [1],
+    "join_chapter": 1, "join_condition_tag": "", "is_available_mvp": true,
+    "relationships": []
+  },
+  "wei_008_xu_chu": {
+    "hero_id": "wei_008_xu_chu",
+    "name_ko": "허저", "name_zh": "许褚", "name_courtesy": "仲康",
+    "faction": 1,
+    "portrait_id": "portrait_wei_xu_chu", "battle_sprite_id": "sprite_wei_xu_chu",
+    "stat_might": 92, "stat_intellect": 50, "stat_command": 85, "stat_agility": 60,
+    "base_hp_seed": 95, "base_initiative_seed": 62,
+    "move_range": 4,
+    "default_class": 4, "equipment_slot_override": [],
+    "growth_might": 1.5, "growth_intellect": 0.7, "growth_command": 1.3, "growth_agility": 0.9,
+    "innate_skill_ids": ["skill_command_aura", "skill_bodyguard"], "skill_unlock_levels": [1, 5],
+    "join_chapter": 1, "join_condition_tag": "", "is_available_mvp": true,
+    "relationships": []
+  },
   "wu_001_sun_quan": {
     "hero_id": "wu_001_sun_quan",
     "name_ko": "손권", "name_zh": "孙权", "name_courtesy": "仲谋",

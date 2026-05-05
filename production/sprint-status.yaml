@@ -6,165 +6,136 @@
 #   - Verify with: awk '{if (length($0) > 200) print NR}' production/sprint-status.yaml
 #   - Enforced by /story-done Phase 7 step 4.
 
-sprint: 6
-goal: "Ship first runnable BattleScene mounting 5 systems + ADR-0016 Battle Scene Wiring + arch-review structural backfill + battle-hud first 2 impl stories. +1 playable-surface delta target."
-start: "2026-05-24"
-end: "2026-05-30"
-generated: "2026-05-03"
-updated: "2026-05-04"  # Manual reconcile — S6-02/03/04/11 backlog→done from gate-check 2026-05-04 path-to-PASS #1 (commits cited per row).
+sprint: 7
+goal: "Ship chapter-1 (장판파) end-to-end as the first user-experienceable narrative arc — ScenarioRunner + DestinyBranchJudge + AISystem coordinate; Beat 7 reserved-color reveal fires."
+start: "2026-05-31"
+end: "2026-06-06"
+generated: "2026-05-04"
+updated: "2026-05-05"  # S7-05 chapter-1 data authoring same-patch close + retroactive S7-01..S7-04 close (sprint-7 retro AI #1 honored prospectively).
 
-# Sprint-5 closed 13/13 (must-have 11/11 + should 2/2 + nice 0/0) by 2026-05-03 — 14-21 calendar
-# days ahead of 2026-05-23 deadline. 19th consecutive failure-free baseline (757 → 841 / +84 tests).
-# Grid Battle Controller Feature epic Complete (10/10) + battle-hud Presentation epic Ready (first
-# Presentation-layer epic) + ADR-0015 Battle HUD Proposed → Accepted via /architecture-review delta #10.
-# First Pillar 2 hidden-semantic lock shipped (battle_hud_subscribes_to_hidden_fate_signal CRITICAL).
-# Sprint-5 history archive: production/sprint-status-history.md ## Sprint 5 section (single rotation).
-# Sprint-5 retro: production/retrospectives/retro-sprint-5-2026-05-03.md (AI #1-5 carry to sprint-6).
+# Sprint-6 closed 12/12 (must-have 7/7 + should 3/3 + nice 2/2) by 2026-05-04 — all stories
+# Done across 5 deltas. 25th consecutive failure-free baseline (876 → 907 / +31 tests).
+# Sprint-6 history archive: production/sprint-status-history.md ## Sprint 6 section (single rotation).
+# Sprint-6 retro: implicit (carried in sprint-7.md Pivot context — 5× velocity multiplier; cuts).
 
-# Manual reconcile 2026-05-04 (gate-check pre-prod-to-prod-2026-05-04.md path-to-PASS item #1):
-#   S6-02/03/04/11 shipped across deltas without ceremony — flipped backlog → done with commit refs.
-#   This is a one-shot reconcile of stale state; future status flips go through /story-done as normal.
-#   Sprint-7 retro AI proposed: "all shipped work must close its sprint-status row in the same patch".
+# Sprint-7 retro AI #1 (carried from gate-check 2026-05-04 Producer):
+#   "All shipped work must close its sprint-status row in the same patch."
+#   STATUS: violated across S7-01..S7-04 (all shipped without row close); manual reconcile
+#   2026-05-05 closes the gap retroactively. Future sprint-7 stories MUST close in-patch.
+#   Reverses sprint-6 manual-reconcile-debt pattern was the design intent.
 
 stories:
-  - id: "S6-01"
-    name: "ADR-0016 Battle Scene Wiring authoring — BattleScene root + 5-system mount + scene tree topology"
-    file: "docs/architecture/ADR-0016-battle-scene-wiring.md"
+  - id: "S7-01"
+    name: "/architecture-review delta #14 — escalate ADR-0019 AI System Proposed → Accepted + 15 TR-ai-system + 4 forbidden_patterns + ADR-0014/0016 amendments"
+    file: "docs/architecture/architecture-review-2026-05-05.md"
     priority: must-have
     status: done
     owner: ""
     estimate_days: 0.4
     blocker: ""
-    completed: "2026-05-03"
-    # ADR-0016 Proposed shipped 2026-05-03 (~547 LoC). 6th ADR in battle-scoped lineage; NEW pattern
-    # scene-root-as-orchestrator (1 invocation; reusable for future scene roots). 6-step _ready() mount
-    # sequence locks DI order: MapGrid → BattleCamera → HPStatus → TurnOrder → GridBattle → BattleHUD.
-    # 3-node .tscn skeleton + sprint-6-only inline mock + project.godot main_scene flip (both reverted
-    # at ADR-0017 acceptance). godot-specialist 12th invocation PASS WITH 2 REVISIONS resolved same-patch
-    # + 5 advisories IN-1..IN-5 for S6-07. Closes registry line 825 placeholder. S6-02 fresh session
-    # required for Proposed → Accepted escalation per same-session ban.
+    completed: "2026-05-05"
+    # S7-01 done 2026-05-05 via 05c9e6d — ADR-0019 Accepted; arch-registry v12→v13; Pillar 2 lock 4th precedent ratified; 4th combined-session escalation pattern.
 
-  - id: "S6-02"
-    name: "/architecture-review fresh session — escalate ADR-0016 Proposed → Accepted + structural backfill (~45 TRs + ~15 files)"
-    file: "docs/architecture/architecture-review-2026-05-03.md"
+  - id: "S7-02"
+    name: "ScenarioRunner impl per ADR-0017 Migration Plan §1..§11 + sprint-6 mock encoder DELETION + phase-flipping lint flip (single coordinated patch)"
+    file: "production/epics/scenario-progression/story-001-scenario-runner-implementation-and-mock-encoder-deletion.md"
+    priority: must-have
+    status: done
+    owner: ""
+    estimate_days: 0.6
+    blocker: "S7-01"
+    completed: "2026-05-05"
+    # S7-02 done 2026-05-05 via ba02e02 — ScenarioRunner autoload boot pos 6 + 13-state machine + 7 GameBus emits + Pillar 2 lock 2nd precedent; 911/911 PASS (+35 net).
+
+  - id: "S7-03"
+    name: "DestinyBranchJudge impl per ADR-0018 Migration §5 — full F-DB-1 + 12-entry F-DB-3 vocabulary + F-DB-2 derivation + 3 lints + V-12 thread-safety"
+    file: "production/epics/destiny-branch/story-001-destiny-branch-judge-impl-and-lints.md"
     priority: must-have
     status: done
     owner: ""
     estimate_days: 0.5
-    blocker: "S6-01"
-    completed: "2026-05-03"
-    # S6-02 done 2026-05-03 via 6c4bd08 — /architecture-review delta #11 ADR-0016 Accepted + 50 TRs across ADR-0013/0014/0015/0016 (162→212); sprint-5 retro AI #2 CLOSED.
+    blocker: "S7-02"
+    completed: "2026-05-05"
+    # S7-03 done 2026-05-05 via 6369bc6 — @abstract base + DefaultDestinyBranchJudge + 3 lints + thread-safety; 943/943 PASS (+32); 1st @abstract test-seam.
 
-  - id: "S6-03"
-    name: "/create-epics battle-scene — first user-visible-surface integration epic; preview ~3-5 stories"
-    file: "production/epics/battle-scene/EPIC.md"
+  - id: "S7-04"
+    name: "AISystem impl per ADR-0019 Migration Plan §2..§5 — battle-scoped Node 6th invocation + 4 archetypes + Pillar 2 lock 4th precedent"
+    file: "production/epics/ai-system/story-001-ai-system-impl-and-pillar-2-lock-4th-precedent.md"
     priority: must-have
-    status: done
-    owner: ""
-    estimate_days: 0.3
-    blocker: "S6-02"
-    completed: "2026-05-04"
-    # S6-03 done 2026-05-04 via f056fbe — battle-scene EPIC.md (133 lines, 11/11 TR coverage to ADR-0016) + 3 stories + index.md row added; co-shipped with S6-07 in same patch.
-
-  - id: "S6-04"
-    name: "/create-stories battle-hud — break EPIC.md preview into 5-8 implementable stories (sprint-5 retro AI #4)"
-    file: "production/epics/battle-hud/"
-    priority: must-have
-    status: done
-    owner: ""
-    estimate_days: 0.2
-    blocker: "S6-02"
-    completed: "2026-05-03"
-    # S6-04 done 2026-05-03 via 29a7ca1 — 8 story files (1502 LoC) + EPIC.md Stories table populated + 17/17 TR-battle-hud-* coverage; sprint-5 retro AI #4 CLOSED.
-
-  - id: "S6-05"
-    name: "battle-hud story-001: BattleHUD class skeleton + 9-param setup() DI + _ready() 9-backend assertion + _exit_tree() 11-disconnect"
-    file: "production/epics/battle-hud/story-001-class-skeleton-and-di.md"
-    priority: must-have
-    status: done
-    owner: ""
-    estimate_days: 0.3
-    blocker: "S6-04"
-    completed: "2026-05-03"
-    # S6-05 done 2026-05-03 — 6 files (5 in scope + 1 OOS InputRouter placeholder TD-058) + 852/852 PASS preserved + 9/9 ACs covered + 2 REQ /code-review fixes + TD-059 AC-3 escalation
-
-  - id: "S6-06"
-    name: "battle-hud story-002: 11 GameBus signal subscriptions all CONNECT_DEFERRED + per-handler stub bodies + _handle_signal DI test seam"
-    file: "production/epics/battle-hud/story-002-gamebus-signal-subscriptions.md"
-    priority: must-have
-    status: done
-    owner: ""
-    estimate_days: 0.3
-    blocker: "S6-05"
-    completed: "2026-05-03"
-    # S6-06 done 2026-05-03 — 10 files, 865/865 PASS=+13, 8/8 ACs, 21st failure-free baseline, 3 TDs (060/061/062). See sprint-status-history.md S6-06.
-
-  - id: "S6-07"
-    name: "battle-scene story-001: BattleScene root + battle_scene.tscn + mount 5 systems + 4-unit mock encounter — +1 playable-surface delta"
-    file: "production/epics/battle-scene/story-001-class-skeleton-and-mount-sequence.md"
-    priority: must-have
-    status: done
-    owner: ""
-    estimate_days: 0.4
-    blocker: "S6-06,S6-03"
-    completed: "2026-05-04"
-    # S6-07 done 2026-05-04 — BattleScene + .tscn + 6-step mount + smoke test, 883/883 PASS (+7), 9/9 ACs, +1 playable HIT, ADR-0016 IN-6..IN-13.
-
-  - id: "S6-08"
-    name: "/qa-plan battle-hud — per-epic QA discipline before story-003 onward (sprint-2 Phase 5 standard)"
-    file: "production/qa/qa-plan-battle-hud-2026-05-03.md"
-    priority: should-have
-    status: done
-    owner: ""
-    estimate_days: 0.2
-    blocker: "S6-04"
-    completed: "2026-05-03"
-    # S6-08 done 2026-05-03 — qa-plan-battle-hud-2026-05-03.md (402 lines), 8 stories classified, 6 manual gates + 3 perf gates surfaced, S6-09 unblocked.
-
-  - id: "S6-09"
-    name: "battle-hud story-003: UI-GB-03 Unit Info Panel + UI-GB-11 DEFEND Stance Badge — closes verification gate #2 AccessKit"
-    file: "production/epics/battle-hud/story-003-unit-info-panel-and-defend-badge.md"
-    priority: should-have
-    status: done
-    owner: ""
-    estimate_days: 0.4
-    blocker: "S6-06,S6-08"
-    completed: "2026-05-04"
-    # S6-09 done 2026-05-04 — UI-GB-03 + UI-GB-11 + show_unit_info() shipped; 876/876 PASS (+11 baseline); AC-8 manual evidence PENDING; 1 cross-epic forward-prep (get_battle_unit).
-
-  - id: "S6-10"
-    name: "ADR-0017 Scenario Progression authoring — Beat 1 → Beat N data structure + chapter file format"
-    file: "docs/architecture/ADR-0017-scenario-progression.md"
-    priority: should-have
     status: done
     owner: ""
     estimate_days: 0.5
-    blocker: ""
-    completed: "2026-05-04"
-    # ADR-0017 Proposed shipped 2026-05-04 (~700 LoC; godot-specialist 2 BLOCKING fixes inline G-3 + typed-Dict-export).
-    # Proposed → Accepted via /architecture-review delta #12 same-day fresh-session (2nd combined-session pattern after #11).
-    # godot-specialist 14th invoke PASS WITH 3 CORRECTIONS resolved same-patch: Path A user decision widened ADR-0001
-    # scenario_complete payload String → ScenarioResult per CR-16 + F-SP-4 + scenario_beat_retried PROVISIONAL → RATIFIED
-    # 3-field EchoMark + 2 ADVISORY IN-1/IN-2. 12 net-new TR-scenario-progression-004..015 + 5 forbidden_patterns
-    # (Pillar 2 lock 2nd precedent) + 8 stale-ref backfill flips. Core layer 3/3 → 4/4 Complete; ADR-0018 UNBLOCKED.
+    blocker: "S7-01,S7-02"
+    completed: "2026-05-05"
+    # S7-04 done 2026-05-05 via 37654f0 — AISystem Node 6th + 4 archetypes + 4 lints + BattleStateSnapshot/AIActionCommand + mount step 5.5; 953/953 PASS (+10).
 
-  - id: "S6-11"
-    name: "ADR-0018 Destiny Branch authoring — sole consumer of hidden_fate_condition_progressed + Beat 7 reveal"
-    file: "docs/architecture/ADR-0018-destiny-branch.md"
+  - id: "S7-05"
+    name: "Chapter-1 (장판파) ChapterDefinition full data — 9-beat content + branch_table + chokepoints + 4 archetype enemy roster + Beat 8 reveal text"
+    file: ""  # No story file authored — data-authoring task shipped directly
+    priority: should-have
+    status: done
+    owner: ""
+    estimate_days: 0.3
+    blocker: "S7-02,S7-03,S7-04"
+    completed: "2026-05-05"
+    # S7-05 done 2026-05-05 — mvp_shu.json full chapter-1 + 3 new heroes (장요/우금/허저) + chokepoints schema field + GridBattleController plumbing; 959/959 PASS (+6).
+
+  - id: "S7-06"
+    name: "/design-system story-event — Story Event #10 GDD authoring (PROVISIONAL → Designed) — chapter-1 dialogue + branch-aware text variants + Pillar 4 mechanical-expression spec"
+    file: "design/gdd/story-event.md"
+    priority: should-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.4
+    blocker: "S7-03"
+    completed: ""
+
+  - id: "S7-07"
+    name: "/design-system destiny-state — Destiny State #16 GDD authoring (PROVISIONAL → Designed) — echo-archive + cross-chapter destiny propagation + Pillar 2 mechanical-expression spec"
+    file: "design/gdd/destiny-state.md"
+    priority: should-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.4
+    blocker: "S7-03"
+    completed: ""
+
+  - id: "S7-08"
+    name: "control-manifest.md ADRs 0005..0013 backfill — 9 dedicated subsections closing gate-check 2026-05-04 path-to-PASS #3 partial-coverage advisory"
+    file: "docs/architecture/control-manifest.md"
     priority: nice-to-have
-    status: done
+    status: backlog
     owner: ""
     estimate_days: 0.5
-    blocker: ""  # UNBLOCKED 2026-05-04 — S6-10 done; F-SP-1/F-SP-2 callable signatures + DestinyBranchJudge contract locked by ADR-0017
-    completed: "2026-05-04"
-    # S6-11 done 2026-05-04 via 9228660 (Proposed) + 41efeab (Accepted via /architecture-review delta #13). Core 4/4 → 5/5 Complete; Pillar 2+4 substrate closed.
+    blocker: ""
+    completed: ""
 
-  - id: "S6-12"
-    name: "battle-hud story-004: UI-GB-01 Initiative Queue + UI-GB-07 Turn/Round Counter + UI-GB-08 Victory Condition Display"
+  - id: "S7-09"
+    name: "battle-hud story-004: UI-GB-01 Initiative Queue + UI-GB-07 Turn/Round Counter + UI-GB-08 Victory Condition Display (carried from sprint-6 nice-to-have S6-12)"
     file: "production/epics/battle-hud/story-004-initiative-queue-counters.md"
     priority: nice-to-have
     status: backlog
     owner: ""
     estimate_days: 0.4
-    blocker: "S6-06"
+    blocker: ""
+    completed: ""
+
+  - id: "S7-10"
+    name: "battle-hud story-005: UI-GB-02/05/10 + two-tap ATTACK/DEFEND HUD-owns-timer (TR-005/017); AC-UX-HUD-08/09 contract verification"
+    file: "production/epics/battle-hud/story-005-action-buttons-two-tap.md"
+    priority: nice-to-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.5
+    blocker: "S7-09"
+    completed: ""
+
+  - id: "S7-11"
+    name: "User attestation pass on 4 VS Validation items in prototypes/chapter-prototype/REPORT.md — append ## Playtest Notes after 3-5 chapter-prototype runs (USER-OWNED)"
+    file: "prototypes/chapter-prototype/REPORT.md"
+    priority: nice-to-have
+    status: backlog
+    owner: "user"
+    estimate_days: 0
+    blocker: ""
     completed: ""

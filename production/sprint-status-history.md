@@ -18,6 +18,36 @@
 
 ## Sprint 6
 
+### Sprint-6 closure summary (2026-05-04; archived at sprint-7 kickoff 2026-05-05)
+
+**Sprint-6 closed 12/12** — must-have 7/7 + should-have 3/3 + nice-to-have 2/2.
+
+**Per-row final status** (canonical at sprint-status.yaml v2026-05-04 Sprint 6 snapshot prior to sprint-7 rotation):
+
+| ID | Status | Commit | Note |
+|---|---|---|---|
+| S6-01 | done | (ADR-0016 Proposed) | 6th ADR battle-scoped lineage; scene-root-as-orchestrator pattern |
+| S6-02 | done | `6c4bd08` | /architecture-review delta #11 ADR-0016 Accepted + 50 TRs |
+| S6-03 | done | `f056fbe` | battle-scene EPIC.md + 3 stories + index row |
+| S6-04 | done | `29a7ca1` | 8 battle-hud story files + EPIC.md table |
+| S6-05 | done | (battle-hud story-001) | 9-param setup() DI + 9-backend assertion |
+| S6-06 | done | (battle-hud story-002) | 11 GameBus CONNECT_DEFERRED subs |
+| S6-07 | done | (battle-scene story-001) | BattleScene root + 6-step mount + 4-unit mock |
+| S6-08 | done | (qa-plan-battle-hud) | 8 stories classified + 6 manual gates |
+| S6-09 | done | (battle-hud story-003) | UI-GB-03 + UI-GB-11 |
+| S6-10 | done | (ADR-0017 Proposed+Accepted) | ScenarioRunner ADR delta #12; Core 4/4 Complete |
+| S6-11 | done | `9228660` (Proposed) + `41efeab` (Accepted) | ADR-0018 destiny-branch delta #13; Core 5/5 |
+| S6-12 | done | (sprint-6 should-have absorbed sprint-7 nice-to-have via ratchet — flipped done at sprint-7 kickoff per gate-check reconcile) | battle-hud story-004 carried as S7-09 |
+
+**Sprint-6 retro (implicit)**: carried into sprint-7.md Pivot context. 5× velocity multiplier baseline (sprint-6 absorbed must + should + nice for ADR-0017/0018 architecture in ~1d actual vs 4.4d nominal). 4-archetype AI System scope locked at gate-check. reserved_color_treatment art-bible §4.7 visual contract shipped. AI #1 ratchet: sprint-6 4.4d → sprint-7 ~2.0d Must-Have nominal.
+
+**Cross-references**:
+- Sprint-6 plan: `production/sprints/sprint-6.md`
+- Sprint-7 plan absorbing sprint-6 retro: `production/sprints/sprint-7.md`
+- Gate-check that triggered S6-12 reconcile: `production/gate-checks/pre-prod-to-prod-2026-05-04.md`
+
+---
+
 ### S6-08 — /qa-plan battle-hud — per-epic QA plan covering 8 stories (2026-05-03)
 
 **Date**: 2026-05-03 (sprint-6 day 1; per-story rotation)
