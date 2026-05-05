@@ -38,6 +38,16 @@
 extends Node
 
 
+# ─── Cached active chapter (fixes deferred-handler-after-state-advance race) ──
+
+## Cached chapter reference set at chapter_started, used by Beat 8 + Beat 9
+## handlers. Without caching, chapter_completed deferred handlers fire AFTER
+## ScenarioRunner has transitioned to LOADING (next chapter) or SCENARIO_END,
+## causing get_current_chapter() to return the NEXT chapter or null — wrong
+## for Beat 9 reveal of the JUST-completed chapter.
+var _active_chapter: ChapterDefinition = null
+
+
 # ─── Variant-key namespace constants (CR-SE-13 closed vocabulary) ─────────────
 
 const VARIANT_KEY_CANONICAL_WIN: StringName = &"canonical_win"
@@ -89,9 +99,11 @@ func _exit_tree() -> void:
 
 ## G-15 mirror obligation. Re-establishes 4 GameBus subscriptions after any
 ## prior test bulk-disconnects them (e.g. scenario_runner_signal_contract_test
-## test cleanup loop). Called from before_test() per balance_constants.gd
-## test isolation discipline.
+## test cleanup loop). Also clears _active_chapter cache so per-test scenario
+## load can re-prime via chapter_started. Called from before_test() per
+## balance_constants.gd test isolation discipline.
 func reset_for_tests() -> void:
+	_active_chapter = null
 	_connect_subscriptions()
 
 
@@ -141,7 +153,8 @@ func resolve_variant_key(choice: DestinyBranchChoice) -> StringName:
 
 # ─── Signal handlers ──────────────────────────────────────────────────────────
 
-## F-SE-4 — Beat 1 chapter anchor text emission.
+## F-SE-4 — Beat 1 chapter anchor text emission. Caches active chapter for
+## subsequent Beat 8/9 handlers to use (avoids deferred-handler race vs state advance).
 func _on_chapter_started(chapter_id: String, chapter_number: int) -> void:
 	if chapter_id == "" or chapter_number <= 0:
 		return  # CR-SE-8 invalid-payload guard
@@ -150,6 +163,8 @@ func _on_chapter_started(chapter_id: String, chapter_number: int) -> void:
 	if chapter == null or chapter.chapter_id != chapter_id:
 		# Race during cold-load OR autoload-stack mismatch — defensive skip.
 		return
+
+	_active_chapter = chapter
 
 	GameBus.story_event_resolved.emit(
 		1,
@@ -204,14 +219,22 @@ func _on_scenario_complete(result: ScenarioResult) -> void:
 	# MVP no-op — sprint-8+ adds scenario-credits-roll trigger.
 
 
-## F-SE-4 — Beat 9 per-chapter transition text emission.
+## F-SE-4 — Beat 9 per-chapter transition text emission. Uses cached active
+## chapter (NOT get_current_chapter — by deferred-handler fire time, runner has
+## advanced to LOADING/SCENARIO_END so get_current_chapter returns next chapter
+## or null). Cleared after emit so subsequent chapter_started can re-cache.
 func _on_chapter_completed(result: ChapterResult) -> void:
 	if result == null or result.chapter_id == "":
 		return  # CR-SE-8 invalid-payload guard
 
-	var chapter: ChapterDefinition = _current_chapter_or_null()
+	var chapter: ChapterDefinition = _active_chapter
+	# Defensive fallback to live-runner lookup if cache missed (e.g. test
+	# bypassing chapter_started).
 	if chapter == null:
-		return  # Race protection per EC-DS-9-style mitigation.
+		chapter = _current_chapter_or_null()
+	if chapter == null or chapter.chapter_id != result.chapter_id:
+		# Race protection — chapter_id mismatch (cache stale) or no chapter.
+		return
 
 	GameBus.story_event_resolved.emit(
 		9,
@@ -219,6 +242,8 @@ func _on_chapter_completed(result: ChapterResult) -> void:
 		chapter.beat_9_text_key,
 		&"",
 	)
+	# Clear cache so the next chapter_started re-caches cleanly.
+	_active_chapter = null
 
 
 # ─── Private helpers ──────────────────────────────────────────────────────────
@@ -226,6 +251,10 @@ func _on_chapter_completed(result: ChapterResult) -> void:
 ## F-SE-2 — Beat 8 revelation lookup. Filters chapter.beat_8_revelations for
 ## entry matching choice.branch_key. Returns {} on (a) is_invalid choice,
 ## (b) F-SE-1 returns empty, (c) chapter null, (d) no matching revelation row.
+##
+## Uses cached `_active_chapter` first (set at chapter_started) — protects
+## against the deferred-handler race where get_current_chapter() returns a
+## stale state by the time CONNECT_DEFERRED fires.
 func _resolve_beat_8_text_and_cue(choice: DestinyBranchChoice) -> Dictionary:
 	# Defense-in-depth: caller already guarded is_invalid, but enforce here too.
 	if choice == null or choice.is_invalid:
@@ -235,7 +264,9 @@ func _resolve_beat_8_text_and_cue(choice: DestinyBranchChoice) -> Dictionary:
 	if variant_key == &"":
 		return {}
 
-	var chapter: ChapterDefinition = _current_chapter_or_null()
+	var chapter: ChapterDefinition = _active_chapter
+	if chapter == null:
+		chapter = _current_chapter_or_null()
 	if chapter == null:
 		push_error("StoryEvent: no active chapter at beat_8 lookup")
 		return {}
@@ -265,9 +296,12 @@ func _current_chapter_or_null() -> ChapterDefinition:
 	return sr.get_current_chapter()
 
 
-## Reads echo_threshold via the public-API chapter ref. Returns 0 when no chapter.
+## Reads echo_threshold via the cached chapter ref (preferred to avoid deferred
+## race) or live ScenarioRunner lookup. Returns 0 when no chapter available.
 func _current_echo_threshold_or_zero() -> int:
-	var chapter: ChapterDefinition = _current_chapter_or_null()
+	var chapter: ChapterDefinition = _active_chapter
+	if chapter == null:
+		chapter = _current_chapter_or_null()
 	if chapter == null:
 		return 0
 	return chapter.echo_threshold

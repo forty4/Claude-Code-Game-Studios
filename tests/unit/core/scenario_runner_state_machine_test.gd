@@ -48,10 +48,12 @@ func test_no_arbitrary_state_jump_in_source() -> void:
 	var violations: Array[String] = []
 	for i in lines.size():
 		var line: String = lines[i]
-		# Track function-scope. Safe functions: _transition_to, load_scenario, _set_chapters_for_test.
+		# Track function-scope. Safe functions: _transition_to, load_scenario, _set_chapters_for_test,
+		# reset_for_tests (test seam mirroring DestinyState + StoryEvent + BalanceConstants pattern).
 		if line.begins_with("func _transition_to") \
 				or line.begins_with("func load_scenario") \
-				or line.begins_with("func _set_chapters_for_test"):
+				or line.begins_with("func _set_chapters_for_test") \
+				or line.begins_with("func reset_for_tests"):
 			in_safe_func = true
 			continue
 		if line.begins_with("func "):

@@ -96,6 +96,28 @@ func _exit_tree() -> void:
 		GameBus.battle_outcome_resolved.disconnect(_on_battle_outcome_resolved)
 
 
+## Test seam — restores autoload to clean LOADING state with empty chapters.
+## Mirrors the reset_for_tests pattern established at BalanceConstants + DestinyState
+## + StoryEvent. Called from before_test() / after_test() hooks to prevent
+## cross-test state bleed when integration tests share the production /root/ScenarioRunner.
+func reset_for_tests() -> void:
+	_state = State.LOADING
+	_state_entered_at_msec = Time.get_ticks_msec()
+	_scenario_id = ""
+	_chapters.clear()
+	_chapter_index = 0
+	_last_battle_outcome = null
+	_last_branch_choice = null
+	_echo_count = 0
+	_first_attempt_resolved = false
+	_echo_marks.clear()
+	_chapter_outcomes.clear()
+	_scenario_path_segments = PackedStringArray()
+	_canonical_delta = 0
+	_total_echo = 0
+	_test_mode = false
+
+
 # ─── Public API (per ADR-0017 §Key Interfaces) ────────────────────────────────
 
 ## Returns the active BattlePayload for the current chapter. Called by
