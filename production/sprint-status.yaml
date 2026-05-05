@@ -11,7 +11,7 @@ goal: "Ship chapter-1 (장판파) end-to-end as the first user-experienceable na
 start: "2026-05-31"
 end: "2026-06-06"
 generated: "2026-05-04"
-updated: "2026-05-05"  # S7-05 chapter-1 data authoring same-patch close + retroactive S7-01..S7-04 close (sprint-7 retro AI #1 honored prospectively).
+updated: "2026-05-05"  # S7-07 destiny-state GDD + G-7 silent-skip fix + S7-05 + retroactive S7-01..S7-04 close (sprint-7 retro AI #1 honored prospectively).
 
 # Sprint-6 closed 12/12 (must-have 7/7 + should 3/3 + nice 2/2) by 2026-05-04 — all stories
 # Done across 5 deltas. 25th consecutive failure-free baseline (876 → 907 / +31 tests).
@@ -94,11 +94,12 @@ stories:
     name: "/design-system destiny-state — Destiny State #16 GDD authoring (PROVISIONAL → Designed) — echo-archive + cross-chapter destiny propagation + Pillar 2 mechanical-expression spec"
     file: "design/gdd/destiny-state.md"
     priority: should-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.4
     blocker: "S7-03"
-    completed: ""
+    completed: "2026-05-05"
+    # S7-07 done 2026-05-05 — destiny-state.md rev 1.0 NEW (19 CRs + 5 formulas + 10 EC + 21 ACs); systems-index #16 PROVISIONAL → Designed; Pillar 2 lock 5th candidate.
 
   - id: "S7-08"
     name: "control-manifest.md ADRs 0005..0013 backfill — 9 dedicated subsections closing gate-check 2026-05-04 path-to-PASS #3 partial-coverage advisory"

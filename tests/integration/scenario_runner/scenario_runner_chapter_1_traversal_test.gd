@@ -96,7 +96,7 @@ func test_scenario_complete_emitted_at_last_chapter() -> void:
 	assert_int(captured.size()).is_equal(1)
 	var sr: ScenarioResult = captured[0]
 	assert_int(sr.chapter_outcomes.size()).is_equal(1)
-	assert_str(sr.scenario_path_key).contains(["WIN_changbanpo_default"])
+	assert_str(sr.scenario_path_key).contains("WIN_changbanpo_default")
 
 
 ## AC-SP-17: chapter_completed emitted exactly once per chapter completion.
