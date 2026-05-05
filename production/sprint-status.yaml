@@ -11,7 +11,7 @@ goal: "Ship chapter-1 (장판파) end-to-end as the first user-experienceable na
 start: "2026-05-31"
 end: "2026-06-06"
 generated: "2026-05-04"
-updated: "2026-05-05"  # S7-07 destiny-state GDD + G-7 silent-skip fix + S7-05 + retroactive S7-01..S7-04 close (sprint-7 retro AI #1 honored prospectively).
+updated: "2026-05-05"  # S7-06 story-event GDD close — Must+Should 7/7 done (S7-01..S7-07); S7-08..S7-11 nice-to-have remain. Gate-check upgrade-path: claude-owned items closed.
 
 # Sprint-6 closed 12/12 (must-have 7/7 + should 3/3 + nice 2/2) by 2026-05-04 — all stories
 # Done across 5 deltas. 25th consecutive failure-free baseline (876 → 907 / +31 tests).
@@ -84,11 +84,12 @@ stories:
     name: "/design-system story-event — Story Event #10 GDD authoring (PROVISIONAL → Designed) — chapter-1 dialogue + branch-aware text variants + Pillar 4 mechanical-expression spec"
     file: "design/gdd/story-event.md"
     priority: should-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.4
     blocker: "S7-03"
-    completed: ""
+    completed: "2026-05-05"
+    # S7-06 done 2026-05-05 — story-event.md rev 1.0 NEW (19 CRs + 5 formulas + 12 EC + 23 ACs + 6 closed variants); D1 invalid-gate codified; Pillar 2 lock 6th candidate.
 
   - id: "S7-07"
     name: "/design-system destiny-state — Destiny State #16 GDD authoring (PROVISIONAL → Designed) — echo-archive + cross-chapter destiny propagation + Pillar 2 mechanical-expression spec"
