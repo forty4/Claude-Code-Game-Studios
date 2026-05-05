@@ -106,11 +106,12 @@ stories:
     name: "control-manifest.md ADRs 0005..0013 backfill — 9 dedicated subsections closing gate-check 2026-05-04 path-to-PASS #3 partial-coverage advisory"
     file: "docs/architecture/control-manifest.md"
     priority: nice-to-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.5
     blocker: ""
-    completed: ""
+    completed: "2026-05-05"
+    # S7-08 done 2026-05-05 — manifest 513 → 634 lines; ADRs 0005..0013 + 0019 backfilled across Foundation/Core/Feature; coverage advisory CLOSED; Version 2026-05-04→05.
 
   - id: "S7-09"
     name: "battle-hud story-004: UI-GB-01 Initiative Queue + UI-GB-07 Turn/Round Counter + UI-GB-08 Victory Condition Display (carried from sprint-6 nice-to-have S6-12)"

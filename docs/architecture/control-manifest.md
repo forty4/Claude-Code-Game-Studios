@@ -1,9 +1,9 @@
 # Control Manifest
 
 > **Engine**: Godot 4.6
-> **Last Updated**: 2026-05-04
-> **Manifest Version**: 2026-05-04
-> **ADRs Covered**: ADR-0001..0004 (Foundation), ADR-0014..0018 (Core / Feature / Presentation / Integration); ADR-0005..0013 covered by reference only (advisory backfill — see note below)
+> **Last Updated**: 2026-05-05
+> **Manifest Version**: 2026-05-05
+> **ADRs Covered**: ADR-0001..0019 (all 19 Accepted ADRs covered with dedicated subsections; sprint-7 S7-08 backfill closed the prior advisory note covering ADR-0005..0013)
 > **Status**: Active — regenerate with `/create-control-manifest update` when ADRs change
 
 `Manifest Version` is the date this manifest was generated. Story files embed
@@ -13,16 +13,6 @@ to this field to detect stories written against stale rules.
 This manifest is a programmer's quick-reference extracted from all Accepted ADRs,
 technical preferences, and engine reference docs. For the reasoning behind each
 rule, see the referenced ADR.
-
-> **Coverage advisory (2026-05-04 refresh)**: This refresh absorbs ADRs 0014..0018 per
-> `/gate-check pre-production` 2026-05-04 path-to-PASS item #3 (Pre-Production →
-> Production gate). ADRs 0005..0013 (Input / Balance Data / Hero DB / Terrain
-> Effect / Unit Role / HP-Status / Turn Order / Damage Calc / Camera) have full
-> structured entries in `docs/registry/architecture.yaml` and are governed by
-> their respective ADRs at `/dev-story` time. A future manifest refresh should
-> backfill dedicated subsections for them; until then, programmers must read
-> `docs/registry/architecture.yaml` (state_ownership / interfaces / api_decisions
-> / forbidden_patterns) for the structured rule data covering those 9 ADRs.
 
 ---
 
@@ -78,6 +68,42 @@ rule, see the referenced ADR.
 - **TileData MUST remain inline inside `MapResource.tres`** — no external UID references (R-3 hard constraint: `duplicate_deep()` returns shared instance for UID-referenced sub-resources, leaks destruction state between maps) — source: ADR-0004 (TR-map-grid-010)
 - **Map authoring format**: `.tres` at `res://data/maps/[map_id].tres`, edited via Godot inspector; shipped builds use binary `.res` via export pipeline — source: ADR-0004
 
+**Input Handling (ADR-0005)**
+- **InputRouter is a non-autoload `Node` instantiated by BattleScene** (`/root/BattleScene/InputRouter`) — battle-scoped lifecycle; freed with BattleScene; not a singleton — source: ADR-0005 §Decision §Module Form
+- **InputRouter is the SOLE consumer of Godot raw `InputEvent` for grid + UI domains**; emits semantic actions through GameBus `input_action_fired(action: String, context: InputContext)` — downstream consumers (GridBattleController + BattleHUD) subscribe to GameBus, never to `_input(event)` directly — source: ADR-0005 §Decision §Signal Contract
+- **InputContext payload is a typed Resource** (`src/core/payloads/input_context.gd`): `target_coord: Vector2i + target_unit_id: int + source_device: int` — payload type discipline per ADR-0001 — source: ADR-0005 §Decision §Payload Form
+- **InputRouter state machine (`_state` enum)**: 5 states for two-tap protocol per CR-4a (S0_OBSERVATION / S1_PRIMARY_TAPPED / S2_CONFIRM_WAIT / S3_DISMISSED / S4_BLOCKED); transitions strictly by `_handle_event` dispatch — source: ADR-0005 §Decision §State Machine + input-handling.md §6
+- **Touch Tap Preview Protocol** (CR-4a) — primary tap shows panel via `BattleHUD.show_unit_info(unit_id)` / `show_tile_info(coord)` direct call (NOT signal); confirm tap commits action via GameBus emit. BattleHUD methods are direct-call read API — source: ADR-0005 + battle-hud.md §3 UI-GB-03/06
+- **`_input_blocked_reasons: PackedStringArray` instance var** tracks blocking layers (modal-open / scene-loading / animation-playing); `input_action_fired` not emitted while non-empty — source: ADR-0005 §Decision §Block Stack
+
+**Balance/Data (ADR-0006)**
+- **`BalanceConstants extends RefCounted`** — pure-function class form (NOT autoload, NOT static-utility) per 5-precedent stateless utility pattern — source: ADR-0006 §Decision §Class Form
+- **All gameplay constants loaded from `assets/data/balance/balance_entities.json`** (flat `{KEY: value}` map per data-files.md constants-registry exception) — UPPER_SNAKE_CASE keys 1:1 with `const X = ...` GDScript identifiers — source: ADR-0006 §Decision §File Format + data-files.md
+- **`BalanceConstants.get_const(key: String, default: Variant) -> Variant`** is the SOLE consumer API; consumers MUST pass a default for graceful degradation (returns default + push_warning if key missing) — source: ADR-0006 §Decision §Consumer Contract
+- **JSON envelope-vs-flat detection** at parse time — MVP ships flat; future `{schema_version, category, data}` envelope adoption requires loader-detection (no consumer change) — source: ADR-0006 §Migration Plan + data-files.md
+- **Constants registry hard cap (informal)**: ≤200 entries before considering JSON envelope split — source: ADR-0006 §Risks
+
+**Hero Database (ADR-0007)**
+- **`HeroDatabase` is `@abstract` (Godot 4.5+) with static-only methods** per 5-precedent stateless utility pattern (ADR-0008→0006→0012→0009→0007); blocks `HeroDatabase.new()` at parse-time on typed reference per G-22 — source: ADR-0007 §Decision §Class Form
+- **`HeroDatabase.get_hero(hero_id: StringName) -> HeroData`** is the SOLE consumer API; returns null + push_error on unknown hero_id — source: ADR-0007 §Decision §Consumer Contract
+- **`HeroData extends Resource` with 26 `@export` fields** matching `assets/data/heroes/heroes.json` keys 1:1 (snake_case per Entity Data File Exception in data-files.md) — `Resource.set(key, value)` reflective load — source: ADR-0007 §3 + data-files.md
+- **Lazy-init via `static var _heroes_loaded: bool`**; first `get_hero` call triggers `_load_heroes()` from heroes.json — subsequent calls return immediately — source: ADR-0007 §Decision §Lazy Load
+- **CR-1 FATAL load-reject**: any duplicate hero_id OR malformed regex (^[a-z][a-z0-9_]*$) rejects ENTIRE load (push_error + `_heroes.clear()` + `_heroes_loaded` stays false) — source: ADR-0007 §Decision §Validation
+- **`HeroData` consumer mutation forbidden** — returned HeroData instances are shared references; mutating fields corrupts subsequent reads (forbidden_pattern: `hero_data_consumer_mutation`) — source: ADR-0007 §Decision §Read-Only Contract
+
+**Terrain Effect (ADR-0008) — Foundation portion**
+- **`TerrainEffect extends RefCounted`** — pure-function class form per 5-precedent stateless utility pattern; NOT autoload, NOT static-utility — source: ADR-0008 §Decision §Class Form
+- **Terrain modifier data loaded from `assets/data/terrain/terrain_config.json`** at first `get_modifiers(terrain_type: int) -> TerrainModifiers` call; lazy-init pattern mirrors HeroDatabase — source: ADR-0008 §2
+- **`TerrainModifiers extends Resource` with `@export` field set** matching JSON keys 1:1 (snake_case per Entity Data File Exception per data-files.md) — source: ADR-0008 §2 + data-files.md
+- **`get_combat_modifiers(terrain_type, attacker_class, defender_class) -> CombatModifiers`** is the SOLE per-attack-resolve consumer API; called ONCE per DamageCalc.resolve invocation — source: ADR-0008 §Decision §Consumer Contract
+
+**Unit Role (ADR-0009)**
+- **`UnitRole` is `@abstract` (Godot 4.5+) with static-only methods** per 5-precedent stateless utility pattern; blocks `UnitRole.new()` at parse-time on typed reference per G-22 — source: ADR-0009 §Decision §Class Form
+- **6 unit classes** (INFANTRY / CAVALRY / SCOUT / ARCHER / COMMANDER / DUELIST) keyed by enum int values per `BattleUnit.unit_class` — APPEND-ONLY discipline; reordering requires SaveMigrationRegistry entry — source: ADR-0009 §Decision §Class Enum
+- **`get_class_direction_multiplier(unit_class: int, direction: int) -> float`** returns the D_mult identity-element for damage-calc Stage 2; SCOUT class is the identity (1.00 across all 3 directions) per EC-7 — source: ADR-0009 §EC-7 + damage-calc.md F-DC-2
+- **Per-class coefficients loaded from `assets/data/units/unit_roles.json`** at first call (file authored when unit-role epic implementation begins; not yet on disk as of 2026-05-02 per data-files.md note)
+- **Returned `Array[T]` from any UnitRole API is read-only** — consumer mutation corrupts shared state (forbidden_pattern: `unit_role_returned_array_mutation`) — source: ADR-0009 §Decision §Read-Only Contract
+
 ### Forbidden Approaches
 
 **GameBus (ADR-0001)**
@@ -117,6 +143,30 @@ rule, see the referenced ADR.
 - **Never reference shared TileData presets by UID** from `MapResource.tres` — `duplicate_deep()` returns shared instance; destruction state leaks between maps — source: ADR-0004 (R-3 hard constraint)
 - **Never dereference TileData objects in the Dijkstra hot loop** — pay virtual-dispatch cost ~1200× per query; use packed caches — source: ADR-0004
 - **Never call `MapGrid.get_unit_at(coord)`** — that API does not exist; Formation Bonus + other consumers must self-cache `coord_to_unit_id: Dictionary[Vector2i, int]` from `units: Array[UnitState]` at `round_started` — source: `design/gdd/map-grid.md` §Dependencies v1.1 + `design/gdd/formation-bonus.md` F-FB-1
+
+**Input Handling (ADR-0005)**
+- **Never declare `static var` in InputRouter** — battle-scoped lifecycle requires instance state only (forbidden_pattern: `input_router_static_var`); 5-precedent stateless utility pattern (ADR-0008/0006/0012/0009/0007) explicitly NOT applicable per Alternative 4 rejected for engine-level structural incompatibility — source: ADR-0005 §Decision §Module Form
+- **Never bypass InputRouter for grid + UI input** — GridBattleController + BattleHUD MUST NOT call `Input.get_action_*` or `_input(event)` directly; semantic actions only via GameBus subscription — source: ADR-0005 §Decision §Sole Consumer
+- **Never emit `input_action_fired` while `_input_blocked_reasons` is non-empty** — block-stack discipline preserves modal isolation — source: ADR-0005 §Decision §Block Stack
+
+**Balance/Data (ADR-0006)**
+- **Never declare `static var` in BalanceConstants** — RefCounted instance form preserved per stateless utility pattern (forbidden_pattern: `balance_constants_static_var`) — source: ADR-0006 §Risks
+- **Never hardcode gameplay constants in source files** — all tuning values MUST come from balance_entities.json via `BalanceConstants.get_const(KEY)`; lint enforced per per-system `lint_*_no_hardcoded_constants.sh` scripts (damage-calc + camera + grid_battle_controller + hp-status + foundation_balance precedents) — source: ADR-0006 §Decision §Consumer Contract
+- **Never extend constants registry to entity-shape data** — Constants Registry Exception in data-files.md applies ONLY to flat `{KEY: value}` cross-system tuning maps — source: data-files.md + ADR-0006
+
+**Hero Database (ADR-0007)**
+- **Never emit GameBus signals from HeroDatabase** (forbidden_pattern: `hero_database_signal_emission`) — pure read API per 9-precedent stateless-emit / non-emitter discipline — source: ADR-0007 §Decision §Read-Only Contract
+- **Never mutate returned HeroData fields** (forbidden_pattern: `hero_data_consumer_mutation`) — instances are shared references; mutation corrupts subsequent reads — source: ADR-0007 §Decision §Read-Only Contract
+- **Never instantiate HeroDatabase via `HeroDatabase.new()` on typed reference** — `@abstract` (Godot 4.5+) blocks parse-time per G-22; reflective `load(path).new()` bypass exists for test seam ONLY — source: ADR-0007 §Decision §Class Form + tooling-gotchas G-22
+
+**Terrain Effect (ADR-0008)**
+- **Never declare `static var` in TerrainEffect** — RefCounted instance form preserved per stateless utility pattern — source: ADR-0008 §Risks
+- **Never bypass `get_combat_modifiers` per-attack** — DamageCalc.resolve() consumer contract REQUIRES exactly one TerrainEffect call per resolve invocation; multiple calls per resolve breaks F-DC-3 P_mult composition contract — source: ADR-0008 §Decision §Consumer Contract + damage-calc.md F-DC-3
+
+**Unit Role (ADR-0009)**
+- **Never mutate Array[T] returned by UnitRole APIs** (forbidden_pattern: `unit_role_returned_array_mutation`) — shared state corruption; treat as read-only — source: ADR-0009 §Decision §Read-Only Contract
+- **Never instantiate UnitRole via `UnitRole.new()` on typed reference** — `@abstract` (Godot 4.5+) blocks parse-time per G-22 + ADR-0009 §1 wording-history note (3-step correction journey: parse-time → runtime → parse-time-on-typed-reference with reflective bypass) — source: ADR-0009 §1 + tooling-gotchas G-22
+- **Never write Stage-N tests using non-identity-element class+direction combos** — SCOUT class is the D_mult identity for damage-calc per EC-7; using INFANTRY+FRONT (D_mult=1.10) invalidates assertion when Stage-N+1 lands per G-19 — source: tooling-gotchas G-19 + ADR-0009 EC-7
 
 ### Performance Guardrails
 
@@ -183,6 +233,25 @@ These APIs require verification against the pinned Godot 4.6 before implementati
 - **Turn Order emits only**: `round_started(int)`, `unit_turn_started(int)`, `unit_turn_ended(int, bool)`, `victory_condition_detected` — source: ADR-0001 + ADR-0011 (TR-turn-order-001)
 - **Battle termination signal ownership lives in Grid Battle, not Turn Order** — single-emitter rule; Grid Battle emits `battle_outcome_resolved(BattleOutcome)` on CLEANUP — source: ADR-0001 + ADR-0014
 
+**Terrain Effect — Core consumer (ADR-0008)**
+- **DamageCalc.resolve() invokes `TerrainEffect.get_combat_modifiers(terrain_type, attacker_class, defender_class)` exactly ONCE per attack resolution** — composition discipline preserves F-DC-3 P_mult cap invariant — source: ADR-0008 §Decision §Consumer Contract + damage-calc.md F-DC-3
+- **Terrain modifiers are computed at attack-resolve time, NOT cached per-tile** — terrain_type is sourced from MapResource.tiles[coord]; modifiers themselves are pure-function output — source: ADR-0008 §Migration Plan
+
+**HP/Status Controller (ADR-0010)**
+- **HPStatusController is a battle-scoped Node** (1st invocation of battle-scoped Node pattern; predates ADR-0011/0013/0014/0015/0019 which followed) — instantiated by BattleScene root, freed with BattleScene; zero cross-battle state — source: ADR-0010 §Decision §Module Form
+- **`_state_by_unit: Dictionary[int, UnitState]` is the SOLE authoritative state source** for HP + status effects + DEFEND-stance flag — all 4 mutator methods (`apply_damage` / `apply_heal` / `apply_status` / `_apply_turn_start_tick`) write through `_state_by_unit` — source: ADR-0010 §3
+- **6 public read-only query methods**: `get_current_hp`, `get_max_hp`, `is_alive`, `get_status_effects`, `get_modified_stat`, `get_defend_stance` — source: ADR-0010 §Decision §Public API
+- **`get_modified_stat(unit_id, stat_name)`** applies F-4 modifier composition; DEFEND_STANCE_ATK_PENALTY pre-folded per damage-calc.md line 89-93 contract — source: ADR-0010 §F-4 + damage-calc.md
+- **3 emitted GameBus signals**: `unit_died(int)`, `unit_hp_changed(int, int, int)`, `unit_status_applied(int, StringName)` — non-emitter discipline for all OTHER 22 GameBus signals across 8 domains — source: ADR-0010 §Signal Contract
+- **`_exit_tree()` body MUST disconnect all GameBus subscriptions** + free transient state per battle-scoped Node 6-precedent discipline — source: ADR-0010 §Risks
+
+**Turn Order Runner (ADR-0011)**
+- **TurnOrderRunner is a battle-scoped Node** (2nd invocation of battle-scoped Node pattern after HPStatusController) — instantiated by BattleScene root, freed with BattleScene; zero cross-battle state — source: ADR-0011 §Decision §Module Form
+- **Initiative ordering**: descending `BattleUnit.initiative` (typed int seed from HeroData.base_initiative_seed); ties broken by ascending `unit_id` — deterministic per replay-determinism contract — source: ADR-0011 §F-1
+- **Round lifecycle**: R0 BATTLE_START → R1 ROUND_INIT → R2 QUEUE_BUILT → R3 TURN_START → R4 ACTION_DECLARED → R5 ACTION_RESOLVED → R6 TURN_END → (R3 next unit OR R7 ROUND_END) — emits 4 GameBus signals at R4 (unit_turn_started) / T6 (unit_turn_ended) / T7 + RE2 (round_started) / RE3 (victory_condition_detected) — source: ADR-0011 §States and Transitions
+- **`declare_action(unit_id, action_type)` is the SOLE action mutator API**; rejects with error_code per declared-action-invalid path (token re-spend / unknown action_type / out-of-turn) — source: ADR-0011 §Decision §Consumer Contract
+- **`unit_died` consumer**: TurnOrderRunner subscribes to GameBus.unit_died for queue removal; does NOT emit unit_died (single-emitter rule per ADR-0010) — source: ADR-0011 §Subscriptions
+
 **Grid Battle Controller (ADR-0014)**
 - **GridBattleController is a battle-scoped Node** (4th invocation of battle-scoped Node pattern after HPStatusController + TurnOrderRunner + BattleCamera) — instantiated by BattleScene root, freed with BattleScene; zero cross-battle state — source: ADR-0014 §1
 - **5 signals are LOCAL on the controller class, NOT routed through GameBus**: `unit_selected_changed`, `unit_moved`, `damage_applied`, `battle_outcome_resolved`, `hidden_fate_condition_progressed` — consumers (Battle HUD + Scenario Progression + Destiny Branch) connect directly to the controller instance via DI'd reference — source: ADR-0014 §8
@@ -218,6 +287,16 @@ These APIs require verification against the pinned Godot 4.6 before implementati
 - **Never use `call_deferred` / `CONNECT_DEFERRED` / `await` between BEAT_6 accept and BEAT_7 entry** — Pillar 2 architectural lock — source: forbidden_pattern `scenario_runner_deferred_seal_in_beat_7_entry`
 - **Never write `BattleOutcome.result = X`** anywhere in `src/core/scenario_runner.gd` — source: forbidden_pattern `scenario_runner_outcome_synthesis`
 
+**HP/Status Controller (ADR-0010)**
+- **Never declare `static var` in HPStatusController** — battle-scoped lifecycle requires instance state only (forbidden_pattern: `hp_status_static_var_state_addition`); 5-precedent stateless utility pattern explicitly NOT applicable per Alternative 3 rejected for engine-level structural incompatibility — source: ADR-0010 §Alternatives
+- **Never mutate returned `Array[StatusEffect]` from `get_status_effects(unit_id)`** (forbidden_pattern: `hp_status_consumer_mutation`) — shallow-copy returned array shares StatusEffect Resource refs; mutation corrupts ALL subsequent reads. READ-ONLY consumers (Battle HUD + AI) MUST go through apply_status / apply_damage / apply_heal mutator paths — source: ADR-0010 §5
+- **Never bypass `apply_damage` for direct HP mutation** — DEFEND-stance flag composition + status-tick interaction are NOT replicable from outside the class — source: ADR-0010 §F-4
+
+**Turn Order Runner (ADR-0011)**
+- **Never declare `static var` in TurnOrderRunner** — battle-scoped lifecycle requires instance state only (forbidden_pattern: `turn_order_static_var_state_addition`); 5-precedent stateless utility pattern explicitly NOT applicable per Alternative 2 rejected — source: ADR-0011 §Alternatives
+- **Never emit non-domain GameBus signals from TurnOrderRunner** (forbidden_pattern: `turn_order_signal_emission_outside_domain`) — only the 4 Turn Order Domain signals (round_started + unit_turn_started + unit_turn_ended + victory_condition_detected); 21 OTHER signals across 8 domains are non-emitter discipline — source: ADR-0001 lines 152-155 + ADR-0011 §Signal Ownership
+- **Never emit `battle_outcome_resolved`** — single-emitter rule; Turn Order emits `victory_condition_detected` (bridge signal) which Grid Battle consumes + emits authoritative BattleOutcome — source: ADR-0011 + ADR-0014 + ADR-0001 line 301
+
 ### Performance Guardrails
 
 | System | Metric | Budget | Source |
@@ -227,6 +306,10 @@ These APIs require verification against the pinned Godot 4.6 before implementati
 | GridBattleController state | Memory | per-battle scoped, freed at BattleScene queue_free | ADR-0014 §3 |
 | ScenarioRunner state machine | CPU per transition | <0.1 ms typical (enum + match dispatch) | ADR-0017 §State Machine Form |
 | Beat 7 seal → Beat 7 entry | Frame boundary | exactly 0 frames (synchronous) | ADR-0017 §F-SP-1 + Pillar 2 lock |
+| HPStatusController state | Memory | per-battle scoped, freed at BattleScene queue_free | ADR-0010 §3 |
+| TurnOrderRunner state | Memory | per-battle scoped, freed at BattleScene queue_free | ADR-0011 §3 |
+| TurnOrderRunner queue rebuild | CPU per round | <0.5 ms (descending sort + tie-break) | ADR-0011 §F-1 |
+| TerrainEffect.get_combat_modifiers | CPU per attack-resolve | <0.05 ms (dict lookup + composition) | ADR-0008 §Decision §Consumer Contract |
 
 ---
 
@@ -240,6 +323,27 @@ These APIs require verification against the pinned Godot 4.6 before implementati
 - **Formation Bonus must re-check adjacency on receiving `GameBus.tile_destroyed(coord: Vector2i)`** for any formation cell adjacent to `coord` — source: ADR-0004 §Decision 9 consumer contract
 - **Formation Bonus self-caches `coord_to_unit_id: Dictionary[Vector2i, int]` from `units: Array[UnitState]` at `round_started`** — never calls `MapGrid.get_unit_at()` (no such API exists) — source: `design/gdd/formation-bonus.md` F-FB-1 v1.1 + `design/gdd/map-grid.md` §Dependencies
 - **HP/Status emits `unit_died(unit_id: int)` via GameBus** when HP reaches 0 — consumed by Turn Order (queue removal), Grid Battle (victory check), AI — source: ADR-0001 (TR-hp-status-001)
+
+### Required Patterns (Damage Calc — ADR-0012)
+
+**DamageCalc (sole-caller contract; stateless module form)**
+- **`DamageCalc extends RefCounted`** — pure-function class form per 5-precedent stateless utility pattern (sister to BalanceConstants + TerrainEffect + UnitRole + HeroDatabase) — source: ADR-0012 §Decision §Module Form
+- **`DamageCalc.resolve(attacker_ctx: AttackerContext, defender: BattleUnit, modifiers: ResolveModifiers) -> DamageResult`** is the SOLE entry point — invoked exclusively by GridBattleController._resolve_attack() — source: ADR-0012 §Decision §Sole Entry (forbidden_pattern: `damage_calc_no_apply_damage`)
+- **5-stage pipeline**: Stage 0 invariant guards → Stage 1 base damage F-DC-1 → Stage 2 D_mult F-DC-2 → Stage 2.5 P_mult F-DC-3 → Stage 3 raw cap F-DC-6 → Stage 4 counter halve F-DC-7 → Stage 5 floor min damage = 1 — source: damage-calc.md §Formulas
+- **`AttackerContext` + `ResolveModifiers` + `DamageResult`** are typed Resources at `src/core/payloads/`; immutable inputs, fresh output per resolve — source: ADR-0012 §Decision §Payload Form
+- **Determinism contract**: 1 RNG consumption per non-counter resolve (evasion roll); counter-attack resolves consume 0 RNG; replay-determinism via shared `_rng: RandomNumberGenerator` injected at GridBattleController setup — source: ADR-0012 AC-DC-26
+- **Constants registry consumer**: all tuning values (BASE_CEILING + MIN_DAMAGE + P_MULT_COMBINED_CAP + CLASS_DIRECTION_MULT) loaded via `BalanceConstants.get_const(KEY)` — no hardcoded magic numbers (forbidden_pattern: `damage_calc_no_hardcoded_constants`) — source: ADR-0012 §Decision §Tuning Constants
+
+### Required Patterns (Battle Camera — ADR-0013)
+
+**BattleCamera (battle-scoped Node 3rd invocation)**
+- **BattleCamera is a battle-scoped Node** (3rd invocation of battle-scoped Node pattern after HPStatusController + TurnOrderRunner) — instantiated by BattleScene root, freed with BattleScene; zero cross-battle state — source: ADR-0013 §Decision §Module Form
+- **2 public direct-call methods**: (1) `screen_to_grid(screen_pos: Vector2) -> Vector2i` — converts screen-space to grid coords using `get_canvas_transform().affine_inverse() + tile_world_size`; returns `Vector2i(-1,-1)` sentinel for off-grid. (2) `get_zoom_value() -> float` — read-only zoom query for HUD scale-matching. Both methods are NON-emitter direct-call API (calculator-tier non-emitter pattern shared with DamageCalc) — source: ADR-0013 §Decision §Public API
+- **`screen_to_grid` is the SOLE implementation in the project** — InputRouter + GridBattleController + BattleHUD all consume via DI'd reference (forbidden_pattern: `external_screen_to_grid_implementation`) — source: ADR-0013 §Decision §Sole Implementation
+- **Internal state is private**: `_map_grid` (DI'd) + `_drag_*` (drag state) + `Camera2D.zoom` + `Camera2D.position` — consumers do NOT directly read these — source: ADR-0013 §Decision §State Encapsulation
+- **DI seam**: `setup(map_grid: MapGrid) -> void` MUST be called BEFORE add_child per battle-scoped Node 6-precedent setup-before-add_child pattern; `_ready()` asserts `map_grid` non-null — source: ADR-0013 R-1
+- **`_exit_tree()` body MUST disconnect all GameBus subscriptions** + free transient state per battle-scoped Node 6-precedent discipline (forbidden_pattern: `camera_missing_exit_tree_disconnect`) — source: ADR-0013 R-6
+- **No hardcoded zoom levels** — MIN_ZOOM + MAX_ZOOM + DEFAULT_ZOOM loaded via BalanceConstants (forbidden_pattern: `camera_no_hardcoded_zoom`) — source: ADR-0013 §Decision §Tuning
 
 ### Required Patterns (Destiny Branch — ADR-0018)
 
@@ -258,6 +362,21 @@ These APIs require verification against the pinned Godot 4.6 before implementati
 ### Forbidden Approaches
 
 - **Never call a non-existent `MapGrid.get_unit_at(coord)` API** — consumers must self-cache from `units` array at round boundary — source: `design/gdd/map-grid.md` §Dependencies v1.1
+
+**Damage Calc (ADR-0012)**
+- **Never call any HPStatusController.apply_damage or apply_heal from DamageCalc** — DamageCalc is PURE (no side effects); GridBattleController applies the resolved damage post-resolve (forbidden_pattern: `damage_calc_no_apply_damage`) — source: ADR-0012 §Decision §Sole Entry
+- **Never emit GameBus signals from DamageCalc** (forbidden_pattern: `damage_calc_no_signals`) — pure function discipline; signal emission lives in GridBattleController.damage_applied LOCAL signal — source: ADR-0012 §Decision §Module Form
+- **Never allocate `Dictionary` in DamageCalc hot path** (forbidden_pattern: `damage_calc_no_dictionary_alloc`) — per-frame allocation budget; use typed Resources only — source: ADR-0012 §Performance
+- **Never copy DamageCalc stub patterns into production source** (forbidden_pattern: `damage_calc_no_stub_copy`) — test-helper stubs MUST stay in tests/helpers/ — source: ADR-0012 §Test Discipline
+- **Never bypass `BalanceConstants.get_const(KEY)` for tuning values** — hardcoded magic numbers in damage_calc.gd FAIL lint (forbidden_pattern: `damage_calc_no_hardcoded_constants`) — source: ADR-0012 §Decision §Tuning Constants
+- **Never write Stage-N tests with non-identity-element class+direction** — SCOUT class is the D_mult identity (1.00 across 3 directions) per EC-7 + tooling-gotchas G-19; using INFANTRY+FRONT (1.10) breaks Stage-N+1 retroactive assertion stability per G-21 — source: tooling-gotchas G-19/G-21
+
+**Battle Camera (ADR-0013)**
+- **Never declare `static var` in BattleCamera** — battle-scoped lifecycle requires instance state only — source: ADR-0013 §Decision §Module Form (battle-scoped Node 3-precedent discipline)
+- **Never emit GameBus signals from BattleCamera** (forbidden_pattern: `camera_signal_emission`) — calculator-tier non-emitter discipline; pure direct-call API — source: ADR-0013 §Decision §Public API
+- **Never implement `screen_to_grid` outside BattleCamera** (forbidden_pattern: `external_screen_to_grid_implementation`) — single source of truth for screen↔grid math — source: ADR-0013 §Decision §Sole Implementation
+- **Never hardcode zoom values** (forbidden_pattern: `camera_no_hardcoded_zoom`) — all zoom min/max/default via BalanceConstants — source: ADR-0013 §Decision §Tuning
+- **Never skip `_exit_tree()` GameBus disconnect discipline** (forbidden_pattern: `camera_missing_exit_tree_disconnect`) — battle-scoped Node 6-precedent discipline; autoload outlives BattleCamera, leaks callable refs — source: ADR-0013 R-6
 
 **Destiny Branch (ADR-0018)**
 - **Never emit any GameBus signal from `DestinyBranchJudge` or `DefaultDestinyBranchJudge` or test stub or any subclass** (lint scan-set: production source files + `tests/helpers/destiny_branch_judge_stub.gd` + `$(grep -rl 'extends DestinyBranchJudge' src/ tests/)`) — source: ADR-0018 V-7 (forbidden_pattern: `destiny_branch_judge_emits_gamebus_signal`)
@@ -486,22 +605,23 @@ These are intentionally-deferred decisions carried from ADR advisories; they wil
 | ADR-0002 | Scene Manager | Accepted 2026-04-18 | Foundation | TR-scene-manager-001..005 |
 | ADR-0003 | Save/Load | Accepted 2026-04-18 | Foundation | TR-save-load-001..007 |
 | ADR-0004 | Map/Grid Data Model | Accepted 2026-04-20 | Foundation + Core | TR-map-grid-001..010 |
-| ADR-0005 | Input Handling | Accepted | Foundation | (see `docs/registry/architecture.yaml`) |
-| ADR-0006 | Balance/Data | Accepted | Foundation | (see `docs/registry/architecture.yaml`) |
-| ADR-0007 | Hero Database | Accepted | Foundation | (see `docs/registry/architecture.yaml`) |
-| ADR-0008 | Terrain Effect | Accepted | Foundation + Core | (see `docs/registry/architecture.yaml`) |
-| ADR-0009 | Unit Role | Accepted | Foundation | (see `docs/registry/architecture.yaml`) |
-| ADR-0010 | HP/Status | Accepted | Core | (see `docs/registry/architecture.yaml`) |
-| ADR-0011 | Turn Order | Accepted | Core | (see `docs/registry/architecture.yaml`) |
-| ADR-0012 | Damage Calc | Accepted | Feature | (see `docs/registry/architecture.yaml`) |
-| ADR-0013 | Battle Camera | Accepted | Feature | TR-camera-001..008 |
-| ADR-0014 | Grid Battle Controller | Accepted 2026-05-03 (delta #11) | Core (battle-scoped Node 4th invocation) | TR-grid-battle-controller-001..014 |
+| ADR-0005 | Input Handling | Accepted | Foundation | TR-input-handling-001..N (see `docs/registry/architecture.yaml`) |
+| ADR-0006 | Balance/Data | Accepted | Foundation | TR-balance-data-001..N (5-precedent stateless utility 2nd invocation) |
+| ADR-0007 | Hero Database | Accepted | Foundation | TR-hero-database-001..N (`@abstract` static-only; 5th in stateless utility lineage) |
+| ADR-0008 | Terrain Effect | Accepted | Foundation + Core | TR-terrain-effect-001..N (5-precedent stateless utility 1st invocation) |
+| ADR-0009 | Unit Role | Accepted | Foundation | TR-unit-role-001..N (`@abstract` static-only + 4th in stateless utility lineage) |
+| ADR-0010 | HP/Status | Accepted | Core | TR-hp-status-001..N (battle-scoped Node 1st invocation) |
+| ADR-0011 | Turn Order | Accepted | Core | TR-turn-order-001..N (battle-scoped Node 2nd invocation) |
+| ADR-0012 | Damage Calc | Accepted | Feature | TR-damage-calc-001..N (5-precedent stateless utility 3rd invocation; sole-caller contract) |
+| ADR-0013 | Battle Camera | Accepted | Feature | TR-camera-001..008 (battle-scoped Node 3rd invocation) |
+| ADR-0014 | Grid Battle Controller | Accepted 2026-05-03 (delta #11; amended 2026-05-05 delta #14 for 6th LOCAL signal) | Core (battle-scoped Node 4th invocation) | TR-grid-battle-controller-001..014 |
 | ADR-0015 | Battle HUD | Accepted 2026-05-03 (delta #10) | Presentation (battle-scoped Node 5th invocation) | TR-battle-hud-001..017 |
-| ADR-0016 | Battle Scene Wiring | Accepted 2026-05-03 (delta #11) | Integration (1st scene-root-as-orchestrator invocation) | TR-battle-scene-wiring-001..011 |
+| ADR-0016 | Battle Scene Wiring | Accepted 2026-05-03 (delta #11; amended 2026-05-05 delta #14 for mount step 5.5) | Integration (1st scene-root-as-orchestrator invocation) | TR-battle-scene-wiring-001..011 |
 | ADR-0017 | Scenario Progression | Accepted 2026-05-04 (delta #12) | Core (1st 13-state machine + 9-beat rhythm) | TR-scenario-progression-001..015 |
 | ADR-0018 | Destiny Branch | Accepted 2026-05-04 (delta #13) | Feature (1st `@abstract` test-seam + 1st `direct_call` interface contract) | TR-destiny-branch-001..015 |
+| ADR-0019 | AI System | Accepted 2026-05-05 (delta #14) | Feature (battle-scoped Node 6th invocation + 1st single-class match-dispatch + Pillar 2 lock 4th precedent) | TR-ai-system-001..015 |
 
-**Total**: 18 ADRs Accepted; 239 TRs registered in `tr-registry.yaml` v14; 5/5 Core layer Complete (per `architecture-traceability.md` v0.13).
+**Total**: 19 ADRs Accepted; 254 TRs registered in `tr-registry.yaml` v15; Core layer 5/5 Complete + Feature layer 4/4 Complete (per `architecture-traceability.md` v0.14 post-S7-01 delta #14).
 
 ---
 
@@ -511,3 +631,4 @@ These are intentionally-deferred decisions carried from ADR advisories; they wil
 |------|--------|
 | 2026-04-20 | Initial manifest. 4 Accepted Foundation-layer ADRs covered (ADR-0001..0004). Re-run when subsequent ADRs land. |
 | 2026-05-04 | Refresh per `/gate-check pre-production` 2026-05-04 path-to-PASS item #3. Absorbed ADRs 0014..0018: Grid Battle Controller (Core, ADR-0014, 3 forbidden_patterns) + Battle HUD (Presentation, ADR-0015, 5 forbidden_patterns incl. Pillar 2 lock #1) + Battle Scene Wiring (Integration NEW LAYER, ADR-0016, 3 forbidden_patterns incl. 1st phase-flipping lint) + Scenario Progression (Core, ADR-0017, 5 forbidden_patterns incl. Pillar 2 lock #2) + Destiny Branch (Feature, ADR-0018, 3 forbidden_patterns incl. Pillar 2 lock #3). Added new "Pillar 2 Architectural Locks" section codifying the 3-pattern triad. ADR-0001 amended to record `scenario_complete(ScenarioResult)` widening + `scenario_beat_retried(EchoMark)` ratification + `destiny_branch_chosen(DestinyBranchChoice)` ratification (PROVISIONAL signal count 4→2 across deltas #12+#13). **Coverage advisory**: ADRs 0005..0013 (Input / Balance Data / Hero DB / Terrain Effect / Unit Role / HP-Status / Turn Order / Damage Calc / Camera) remain governed by `docs/registry/architecture.yaml` structured entries; future manifest refresh should backfill dedicated subsections. |
+| 2026-05-05 | Refresh per sprint-7 S7-08 (nice-to-have closure). **Coverage advisory CLOSED**: backfilled dedicated subsections for ADRs 0005..0013 (Input Handling + Balance/Data + Hero Database + Terrain Effect + Unit Role into Foundation; Terrain Effect Core portion + HP/Status + Turn Order into Core; Damage Calc + Battle Camera into Feature). Also added ADR-0019 AI System row (Accepted via /architecture-review delta #14 2026-05-05 sprint-7 S7-01). ADR-0014 + ADR-0016 changelog entries amended to reflect delta #14 amendments (6th LOCAL signal + mount step 5.5 insertion). Total ADR coverage 18 → 19; coverage advisory note in header REMOVED. Manifest grows from 513 → ~700 lines. Pillar 2 Architectural Locks section unchanged — pattern stable at 4 invocations + 2 candidates (Destiny State #16 GDD CR-DS-19 + Story Event #10 GDD CR-SE-19 per S7-06+S7-07 commits ba8da69 + 6bd359a). |
