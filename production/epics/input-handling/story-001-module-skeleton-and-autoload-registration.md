@@ -1,11 +1,11 @@
 # Story 001: InputRouter Autoload module skeleton + InputState/InputMode enums + InputContext payload + project.godot autoload registration
 
 > **Epic**: Input Handling
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Logic (borderline-skeleton)
 > **Estimate**: 2h
-> **Manifest Version**: 2026-04-20
+> **Manifest Version**: 2026-05-05
 
 ## Context
 
@@ -31,12 +31,12 @@
 *From ADR-0005 §1 + §2 + §4 + §5 + §6, scoped to this story:*
 
 - [ ] **AC-1** InputRouter declared as `extends Node` at `src/foundation/input_router.gd` (NOT extends RefCounted; NOT battle-scoped; NOT stateless-static). `class_name InputRouter` declared OR omitted per G-3 verification — see Implementation Note #1
-- [ ] **AC-2** InputRouter declares exactly 6 instance fields with exact types per ADR-0005 §1 line 119: `var _state: InputState = InputState.OBSERVATION`, `var _active_mode: InputMode = InputMode.KEYBOARD_MOUSE`, `var _pre_menu_state: InputState = InputState.OBSERVATION`, `var _undo_windows: Dictionary[int, UndoEntry] = {}`, `var _input_blocked_reasons: PackedStringArray = []`, `var _bindings: Dictionary[StringName, Array[InputEvent]] = {}`
+- [ ] **AC-2** InputRouter declares exactly 6 instance fields with exact types per ADR-0005 §1 line 119: `var _state: InputState = InputState.OBSERVATION`, `var _active_mode: InputMode = InputMode.KEYBOARD_MOUSE`, `var _pre_menu_state: InputState = InputState.OBSERVATION`, `var _undo_windows: Dictionary[int, UndoEntry] = {}`, `var _input_blocked_reasons: PackedStringArray = []`, `var _bindings: Dictionary[StringName, Array] = {}` (NOTE 2026-05-06: amended from spec'd `Dictionary[StringName, Array[InputEvent]]` because Godot 4.6 does NOT support nested typed collections at the declaration site — see G-25 in godot-4x-gotchas.md; element type enforcement deferred to set_binding signature + ADR-0005 §1 contract)
 - [ ] **AC-3** `enum InputState { OBSERVATION, UNIT_SELECTED, MOVEMENT_PREVIEW, ATTACK_TARGET_SELECT, ATTACK_CONFIRM, INPUT_BLOCKED, MENU_OPEN }` declared on InputRouter (int 0..6 wire-format for save/load forward-compat per ADR-0005 §5). Numeric value of each member must match the canonical ordering in GDD §States and Transitions (S0=OBSERVATION through S6=MENU_OPEN)
 - [ ] **AC-4** `enum InputMode { KEYBOARD_MOUSE, TOUCH }` declared on InputRouter (int 0..1 wire-format; `KEYBOARD_MOUSE = 0`, `TOUCH = 1` — gamepad routes to `KEYBOARD_MOUSE` for MVP per OQ-1 + TR-011; future GAMEPAD mode reserved at int 2 per ADR-0005 §6)
 - [ ] **AC-5** InputContext typed Resource declared at `src/foundation/payloads/input_context.gd` — `class_name InputContext extends Resource` with @export fields per ADR-0001 §7 line 168 carried-advisory direction (≥2-field typed payload). MVP fields: `@export var coord: Vector2i = Vector2i.ZERO` (tile coord for grid actions; Vector2i.ZERO for non-grid actions) + `@export var unit_id: int = -1` (target unit for tap-to-select; -1 for non-unit-targeted actions). Future fields can be added without breaking ADR-0005 contract (additive-only schema evolution per CR-1d)
 - [ ] **AC-6** UndoEntry RefCounted declared at `src/foundation/payloads/undo_entry.gd` — `class_name UndoEntry extends RefCounted` with 3 fields per ADR-0005 §1 + CR-5: `var unit_id: int = -1`, `var pre_move_coord: Vector2i = Vector2i.ZERO`, `var pre_move_facing: int = 0` (facing as int 0..3 wire-format; aligns with future Camera/movement enum)
-- [ ] **AC-7** `project.godot` `[autoload]` section contains `InputRouter="*res://src/foundation/input_router.gd"` at load order 4 (after GameBus + SceneManager + SaveManager; before any future foundation-layer autoload). Verify by reading `project.godot` and asserting line presence + ordering
+- [ ] **AC-7** `project.godot` `[autoload]` section contains `InputRouter="*res://src/foundation/input_router.gd"` at boot position **9** (after GameBus + SceneManager + SaveManager + GameBusDiagnostics + BuildModeSentinel + ScenarioRunner + DestinyState + StoryEvent — semantic intent "after the 3 foundational autoloads + before any new foundation-layer autoload" preserved per ADR-0020 §Decision §6 footnote; positions 4-8 are infrastructure/feature autoloads added between ADR-0005 acceptance 2026-04-30 and ADR-0020 acceptance 2026-05-06). Verify by reading `project.godot` and asserting line presence + ordering. **Drift note**: ADR-0005 line 117 says "load order 4" — that wording reflects the project state at ADR-0005 authoring time (only 3 autoloads existed). ADR-0020 §Decision §6 amends to position 9.
 - [ ] **AC-8** All public-method placeholders stubbed on InputRouter with exact signatures per ADR-0005 §Key Interfaces (read fresh at implementation time): `get_active_input_mode() -> InputMode` (returns `_active_mode`), `get_state() -> InputState` (returns `_state`), `set_binding(action: StringName, event: InputEvent) -> void` (body = `pass`), `_handle_event(event: InputEvent) -> void` (DI test seam — body = `pass`). All method bodies are `pass` for void / return current field value for getters
 - [ ] **AC-9** InputRouter has NO `_ready()` body in this story (story-002 adds JSON load + InputMap population). `_input(event)` and `_unhandled_input(event)` likewise NOT implemented yet (story-002 wires `_unhandled_input` to call `_handle_event`)
 - [ ] **AC-10** All 3 new `class_name` declarations (InputRouter — pending G-3 verification, InputContext, UndoEntry) resolve cleanly in `godot --headless --import --path .` (G-14 obligation; no class-cache parse errors; no G-12 built-in collision — verified Story-001 implementation time: `InputRouter` + `InputContext` + `UndoEntry` are NOT Godot built-in class names per `ClassDB.class_exists()` check per G-17)
@@ -185,3 +185,23 @@
 
 - **Depends on**: None (story-001 is the epic's first story)
 - **Unlocks**: Story 002 (action vocabulary + bindings + InputMap), Story 003 (FSM transitions), Story 005 (mode determination), Story 006 (undo window), Story 007 (S5/S6 + GameBus subscribes), Story 008 (touch part A), Story 009 (touch part B), Story 010 (epic terminal)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-06
+**Criteria**: 11/11 passing (9 auto-verified via test functions in `tests/unit/foundation/input_router_skeleton_test.gd` + AC-10 manual G-14 import workflow + AC-11 full regression 1024/1024)
+**Test Evidence**: `tests/unit/foundation/input_router_skeleton_test.gd` (335 lines, 9 test functions; full regression baseline 1015 → 1024 / 0/0/0/0 / Exit 0; G-7 silent-skip detection PASSED — count actually advanced)
+**Code Review**: Complete (`/code-review` 2026-05-06; godot-gdscript-specialist + qa-tester both APPROVED post-fixes; 1 BLOCKING `project.godot` stale comment + 1 ADVISORY story AC-2 spec drift fixed in same patch)
+**Deviations** (4 ADVISORY engine-limit discoveries — all resolved in same patch):
+- AC-1 **G-3 CONFIRMED for Godot 4.6** — `class_name InputRouter` cannot coexist with autoload registration; class_name OMITTED. Corrects ADR-0020 §Decision §6 footnote claim "G-3 verification SETTLED — works" (was speculative pre-implementation). Flagged for next `/architecture-review` delta to amend ADR-0020.
+- AC-2 **G-25 codified** — Godot 4.6 does NOT support nested typed collections at declaration site (`Dictionary[K, Array[V]]` parse-errors). Workaround: `Dictionary[StringName, Array]` with element-type enforcement at set_binding signature boundary. New gotcha entry filed at `.claude/rules/godot-4x-gotchas.md` §G-25. Story AC-2 checkbox text amended in same patch.
+- AC-5 **InputContext name collision avoided** — story-spec'd duplicate at `src/foundation/payloads/input_context.gd` (2 fields) collided with existing `src/core/payloads/input_context.gd` (3 fields shipped by earlier story). Resolution: deleted duplicate; reused existing 3-field schema (`target_coord`/`target_unit_id`/`source_device`); test AC-5 renamed `_has_two_export_fields` → `_has_three_export_fields`. Spec drift documented in test header comment.
+- **`is Resource` static narrowing** — Godot 4.6 parser narrows `entry: UndoEntry` (RefCounted) and parse-errors on `entry is Resource` impossible-condition. Test uses G-22 source-scan substitute (`content.contains("extends RefCounted")`); G-22 already covers this pattern.
+**Scope** (1 OUT OF SCOPE — accepted): 3 files outside story-001's nominal Out of Scope were touched (`battle_scene.gd:62 + 100-104`; `battle_hud.gd:45`) — necessary closure of pre-existing **TD-058 placeholder** per `battle_scene.gd:96-97` anticipated comment ("Sprint-7+ when autoload graduation lands ... revert to autoload-identifier reads"). InputRouter graduation is the autoload graduation referenced. Closes TD-058.
+**Tech debt logged**:
+- ADR-0020 §Decision §6 footnote correction needed at next `/architecture-review` delta (G-3 SETTLED → G-3 FIRES wording flip)
+- AC-5 test comment minor cleanup (low severity; `_IC_PATH` rationale + `as InputContext` cast ordering dependency could be clarified)
+- Minor doc-comment depth inconsistency on `_input_router` field across `battle_scene.gd:56-65` vs `battle_hud.gd:45`
+

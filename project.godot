@@ -39,6 +39,20 @@ DestinyState="*res://src/feature/destiny_state/destiny_state.gd"
 ; ADR-0017 ScenarioRunner + ADR-0018 DestinyBranch + ADR-0001 GameBus (3 NEW
 ; signals require minor amendment per Evolution Rule #4 at /architecture-review).
 StoryEvent="*res://src/feature/story_event/story_event.gd"
+; Boot order position 9: depends on GameBus + SceneManager + SaveManager (the
+; 3 foundational autoloads). Consumes ui_input_block_requested +
+; ui_input_unblock_requested (story-007 wires subscriptions). Per ADR-0005 §1
+; (form-level Autoload Node + 6 fields) + ADR-0020 §Decision §6 (boot pos 9
+; per delta #15 footnote — supersedes ADR-0005 line 117 "load order 4" wording
+; that reflected the project state at ADR-0005 acceptance time when only 3
+; autoloads existed). class_name InputRouter is OMITTED per G-3 — Godot 4.6
+; fires "Parse Error: Could not parse global class InputRouter" when both
+; class_name and autoload registration are present (verified at S8-02
+; implementation time 2026-05-06; ADR-0020 §Decision §6 footnote claim "G-3
+; verification SETTLED — works" was speculative pre-implementation and is
+; corrected here). Same pattern as GameBus/SceneManager/SaveManager/
+; ScenarioRunner/DestinyState/StoryEvent — all autoloads omit class_name.
+InputRouter="*res://src/foundation/input_router.gd"
 
 [physics]
 

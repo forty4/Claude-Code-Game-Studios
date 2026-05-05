@@ -24,8 +24,35 @@
 #
 # STATUS VALUES: active | deprecated | superseded-by: TR-[system]-NNN
 
-version: 15
-last_updated: "2026-05-05"
+version: 16
+last_updated: "2026-05-06"
+# 2026-05-06 (/architecture-review delta #15): structural append — 4 net-new
+# TR-IDs registered for ADR-0020 InputRouter Dispatch Contract
+# (TR-input-handling-018 through 021) covering _handle_event 4-phase dispatch
+# sequence (mode-determine → action-resolve → state-transition → signal-emit per
+# Decision §1; load-bearing for ADR-0015 BattleHUD subscriber correctness) +
+# sole-state-mutating-method invariant for 4 of 6 fields (_state / _active_mode /
+# _pre_menu_state / _undo_windows write only inside _handle_event body per
+# Decision §2; _input_blocked_reasons via SceneManager handlers + _bindings via
+# set_binding runtime remap retain external write entry points) + caller
+# allow-list (engine _unhandled_input + BattleHUD undo dispatch sole production
+# exception per ADR-0015 §5 + tests via DI seam — sole production exception to
+# _-prefix discipline codified per Decision §3) + Phase 4 signal emit ordering
+# invariant (input_state_changed FIRST + input_action_fired SECOND per
+# Decision §7; prevents BattleHUD MOUSE_FILTER_IGNORE recursive disable race
+# condition on S5 INPUT_BLOCKED entry). Plus 1 amended entry: TR-input-handling-002
+# requirement field amended to 8-field count (6 base per ADR-0005 + 2 DI'd Node
+# references per ADR-0020 _grid_battle_controller + _battle_hud = 8 fields) +
+# revised: 2026-05-06 field added. Combined session: ADR-0020 escalation
+# Proposed → Accepted via delta #15 + this structural append in single fresh
+# session per sprint-8 S8-01 (5th consecutive combined-session pattern after
+# delta #11 + #12 + #13 + #14 — pattern stability declaration ACHIEVED at 5
+# invocations). **First cross-calendar-day fresh-session escalation** in the
+# project (Proposed 2026-05-05 → Accepted 2026-05-06; same-session-ban
+# discipline satisfied via independent /clear-bound sessions across the
+# calendar boundary). Total registered TRs 254 → 258. Pattern stable at 15
+# invocations of /architecture-review.
+#
 # 2026-05-05 (/architecture-review delta #14): structural append — 15 net-new
 # TR-IDs registered for ADR-0019 AI System (TR-ai-system-001 through 015)
 # covering AISystem battle-scoped Node 6th invocation class form + single-class
@@ -316,9 +343,9 @@ requirements:
     system: input-handling
     gdd: design/gdd/input-handling.md
     adr: docs/architecture/ADR-0005-input-handling.md
-    requirement: "§1 Module form — InputRouter is an Autoload Node at /root/InputRouter (load order 4: GameBus → SceneManager → SaveManager → InputRouter); class_name InputRouter extends Node + 6 mutable fields (_state InputState, _active_mode InputMode, _pre_menu_state InputState, _undo_windows Dictionary[int,UndoEntry], _input_blocked_reasons PackedStringArray, _bindings Dictionary[StringName, Array[InputEvent]]); state survives scene transitions via Autoload lifecycle (resets between battles via test-isolation pattern). 5-precedent stateless-static utility class form (ADR-0008→0006→0012→0009→0007) is EXPLICITLY REJECTED as Alternative 4 — engine-level structural incompatibility (Node lifecycle callbacks _input/_unhandled_input cannot fire on RefCounted; signal subscription identity for static-method Callables undefined in GDScript 4.x). Battle-scoped Node form rejected because S6 MENU_OPEN must work outside battle scope. Pattern boundary codified: stateless-static for systems CALLED (calculator/lookup); Node-based form for systems that LISTEN (event-driven)."
+    requirement: "§1 Module form — InputRouter is an Autoload Node at /root/InputRouter (load order 4: GameBus → SceneManager → SaveManager → InputRouter); class_name InputRouter extends Node + **8 fields total: 6 base mutable fields per ADR-0005 (_state InputState, _active_mode InputMode, _pre_menu_state InputState, _undo_windows Dictionary[int,UndoEntry], _input_blocked_reasons PackedStringArray, _bindings Dictionary[StringName, Array[InputEvent]]) + 2 DI'd Node references per ADR-0020 (_grid_battle_controller GridBattleController + _battle_hud BattleHUD; cleared on BattleScene._exit_tree per battle-scoped lifecycle)**; state survives scene transitions via Autoload lifecycle (resets between battles via test-isolation pattern). 5-precedent stateless-static utility class form (ADR-0008→0006→0012→0009→0007) is EXPLICITLY REJECTED as Alternative 4 — engine-level structural incompatibility (Node lifecycle callbacks _input/_unhandled_input cannot fire on RefCounted; signal subscription identity for static-method Callables undefined in GDScript 4.x). Battle-scoped Node form rejected because S6 MENU_OPEN must work outside battle scope. Pattern boundary codified: stateless-static for systems CALLED (calculator/lookup); Node-based form for systems that LISTEN (event-driven). 8-field count (6 base + 2 DI'd refs) ratified by ADR-0020 §Decision §6 Ratification 1 + 2 + §Migration Plan §2 + §Consequences §Negative — additive narrowing without superseding ADR-0005 form-level decisions."
     created: 2026-04-30
-    revised: ""
+    revised: 2026-05-06
     status: active
 
   - id: TR-input-handling-003
@@ -453,6 +480,42 @@ requirements:
     adr: docs/architecture/ADR-0005-input-handling.md
     requirement: "§4 Validation + Validation Criterion §3/§4 — Non-emitter invariant for non-Input GameBus signals: InputRouter is sole emitter of exactly 3 Input-domain signals (input_action_fired/input_state_changed/input_mode_changed) per ADR-0001 §7 Signal Contract Schema (lines 329-335). InputRouter does NOT appear on ADR-0001 lines 370-377 non-emitter list (factual correction per /architecture-review delta #6 godot-specialist Item 9). InputRouter is non-emitter by behavior for all OTHER 21 signals across 8 domains (Combat / Scenario / Persistence / Environment / Grid Battle / Turn Order / HP/Status / UI-Flow) per the input_router_signal_emission_outside_input_domain forbidden_pattern. Static lints: `grep -c 'GameBus\\.input_' src/foundation/input_router.gd` returns 3 emit call sites; `grep -c 'GameBus\\.' src/foundation/input_router.gd | grep -v '^GameBus\\.input_'` returns 0 emit call sites (allows consumption of ui_input_block/unblock_requested per ADR-0002). Carried advisory for next ADR-0001 amendment: line 168 `signal input_action_fired(action: String, context: InputContext)` should change to `action: StringName` to match ADR-0005 + GDD + ACTIONS_BY_CATEGORY hot-path StringName literal convention (delta #6 Item 10a)."
     created: 2026-04-30
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-018
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    adr: docs/architecture/ADR-0020-input-router-dispatch.md
+    requirement: "ADR-0020 §Decision §1 — `_handle_event(event: InputEvent) -> void` 4-phase inner-loop dispatch sequence: Phase 1 mode-determine (pure-function `_determine_mode_from_event(event)` queries event class identity ONLY; no `_active_mode` consultation; emits `input_mode_changed` once-per-mode-transition only) → Phase 2 action-resolve (InputMap lookup; empty StringName = unbound event silently dropped per CR-1d; no state mutation in this phase) → Phase 3 state-transition (inline match dispatch via `_handle_action(action, ctx)`; sole _state read+write; range validation against GridBattleController.is_tile_in_move_range / is_tile_in_attack_range happens here per Decision §6 Ratification 1) → Phase 4 signal-emit pair (`input_state_changed.emit(prev, new)` FIRST + `input_action_fired.emit(action, ctx)` SECOND; load-bearing for ADR-0015 BattleHUD MOUSE_FILTER_IGNORE recursive disable on S5 INPUT_BLOCKED entry per ADR-0015 §5 line 627). Verified at story-003 (S8-04) integration test asserting signal-capture order on synthesized S0→S5 transition. Justifies pure-function discipline: `_determine_mode_from_event` consults event class identity only — no temporal smoothing, no active-mode hysteresis, no debouncing (REJECTED in Decision §4 Alternatives — last-device-wins is the player-fantasy-correct behavior per design/gdd/input-handling.md §Player Fantasy two-beat rhythm)."
+    created: 2026-05-06
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-019
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    adr: docs/architecture/ADR-0020-input-router-dispatch.md
+    requirement: "ADR-0020 §Decision §2 — `_handle_event` is the sole state-mutating method for 4 of 6 fields. Mutation invariant: `_state: InputState` (Phase 3 only), `_active_mode: InputMode` (Phase 1 only), `_pre_menu_state: InputState` (Phase 3 — set on S6 MENU_OPEN entry per ADR-0005 §5 ST-1), `_undo_windows: Dictionary[int, UndoEntry]` (Phase 3 — populate on S2 confirm → S0; clear on attack/end-unit-turn/end-player-turn per CR-5). 2 fields with allowed external write entry points: `_input_blocked_reasons: PackedStringArray` written via `_on_ui_input_block_requested(reason)` + `_on_ui_input_unblock_requested(reason)` GameBus handlers (CONNECT_DEFERRED single-threaded by Godot's deferred dispatch); `_bindings: Dictionary[StringName, Array[InputEvent]]` written via `set_binding(action, event)` runtime remap method (Settings/Options sole external caller). Enforced by `tools/ci/lint_input_router_state_mutation_outside_handle_event.sh` (NEW per ADR-0020 Migration Plan §3; deferred to story-010 epic-terminal S9 carryover). Lint algorithm: greps `_state\\s*=`/`_active_mode\\s*=`/`_pre_menu_state\\s*=`/`_undo_windows\\[` writes outside `_handle_event` function body in `src/foundation/input_router.gd`; returns 0 violations. Forbidden_pattern `input_router_state_mutation_outside_handle_event` (registered architecture.yaml v14 delta #15)."
+    created: 2026-05-06
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-020
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    adr: docs/architecture/ADR-0020-input-router-dispatch.md
+    requirement: "ADR-0020 §Decision §3 — `_handle_event` caller allow-list: 2 production caller exceptions only. (1) Engine `_unhandled_input(event)` callback — InputRouter's `_unhandled_input(event)` body is exactly `_handle_event(event)` single-line forwarder per ADR-0005 §8 (does not violate _-prefix discipline because `_unhandled_input` is itself _-prefixed engine-callback prefix). (2) `src/feature/battle_hud/battle_hud.gd` undo dispatch — BattleHUD's `_on_undo_button_pressed()` synthesizes `InputEventAction.new()` with action=&\"undo_last_move\" + pressed=true and calls `_input_router._handle_event(synthetic_event)` — sole production exception per ADR-0015 §5 + battle_hud.gd:19 doc-comment. Justification: undo button is a HUD-owned UI Control (tap target) consumed by Control before reaching `_unhandled_input`; synthesis-and-inject is the only path that preserves the 4-phase dispatch sequence + signal emit invariants. GdUnit4 v6.1.2 tests are NOT subject to the allow-list — `_`-prefix convention exempts `tests/**/*.gd` files universally per project test-injection precedent (mirrors damage-calc story-006 RNG-injection pattern + 11-story precedent across damage-calc / unit-role / hp-status / turn-order epics). Enforced by `tools/ci/lint_input_router_handle_event_caller_allowlist.sh` (NEW per ADR-0020 Migration Plan §3; deferred to story-010 epic-terminal S9 carryover). Forbidden_pattern `input_router_handle_event_external_caller_outside_battle_hud` (registered architecture.yaml v14 delta #15)."
+    created: 2026-05-06
+    revised: ""
+    status: active
+
+  - id: TR-input-handling-021
+    system: input-handling
+    gdd: design/gdd/input-handling.md
+    adr: docs/architecture/ADR-0020-input-router-dispatch.md
+    requirement: "ADR-0020 §Decision §7 — Phase 4 signal emit ordering invariant: `_handle_event` Phase 4 emit pair fires in exact order on every state-changing transition: (1) `GameBus.input_state_changed.emit(int(prev_state), int(new_state))` FIRST, (2) `GameBus.input_action_fired.emit(action, ctx)` SECOND. Justification: BattleHUD's `_on_input_state_changed` handler (per ADR-0015 §5 line 627) applies `MOUSE_FILTER_IGNORE` recursive disable on S5 INPUT_BLOCKED entry; if `input_action_fired` fires first, downstream consumers (Grid Battle, Camera) might process the action against a now-disabled UI tree — race condition that surfaces only on S0 → S5 transitions during enemy phase boundary or scene-transition handoff. Locking the order at the ADR level prevents future refactors from accidentally swapping the emits. `input_mode_changed` emit (Phase 1) fires BEFORE the state-changed/action-fired pair when mode also changes — but is decoupled from the pair (mode change can happen independently of state change per CR-2c). Verified at story-003 (S8-04) integration test asserting `input_state_changed` Callable's deferred-frame fires before `input_action_fired` Callable's deferred-frame on synthesized S0→S5 transition. R-2 (LOW) — accidentally swapped during refactor — mitigation: ADR-locked ordering + integration test assertion at story-003."
+    created: 2026-05-06
     revised: ""
     status: active
 

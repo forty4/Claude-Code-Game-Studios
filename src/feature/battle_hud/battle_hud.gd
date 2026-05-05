@@ -42,7 +42,7 @@ var _camera: BattleCamera
 var _hp_controller: HPStatusController
 var _turn_runner: TurnOrderRunner
 var _grid_controller: GridBattleController
-var _input_router: InputRouter
+var _input_router: Node  # InputRouter autoload — typed Node since InputRouter dropped class_name per G-3 at S8-02
 var _map_grid: MapGrid
 var _terrain_effect: TerrainEffect
 var _unit_role: UnitRole

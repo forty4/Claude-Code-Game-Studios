@@ -846,6 +846,78 @@ The same precedence trap applies to `!=`, `<`, `>`, `<=`, `>=`, `is`, `in`, and 
 
 ---
 
+## G-25 — Godot 4.6 does NOT support nested typed collections at declaration site
+
+**Context**: declaring a typed Dictionary whose value type is itself a typed Array — e.g., `Dictionary[StringName, Array[InputEvent]]` — to express a "map of action keys to lists of input events" pattern.
+
+**Broken**: writing the nested-typed declaration directly. Godot 4.6 GDScript parser fires:
+
+```
+SCRIPT ERROR: Parse Error: Nested typed collections are not supported.
+          at: GDScript::reload (res://src/foundation/input_router.gd:82)
+ERROR: Failed to load script "res://src/foundation/input_router.gd" with error "Parse error".
+```
+
+The whole script fails to load — and if the script is registered as autoload (via `project.godot` `[autoload]`), the autoload also fails to instantiate, cascading into every `_ready` that subscribes to GameBus signals from that autoload (silent absence at runtime).
+
+```gdscript
+# BROKEN — Godot 4.6 parses the outer Dictionary[K, V] but then chokes on V being Array[T]
+var _bindings: Dictionary[StringName, Array[InputEvent]] = {}
+#                                     ^^^^^^^^^^^^^^^^^^ "Nested typed collections are not supported"
+```
+
+**Correct**: degrade the inner type to plain `Array` (untyped element type at declaration) and enforce the element type at the **call boundary** instead — typically via a setter signature.
+
+```gdscript
+# CORRECT — outer Dictionary typed, inner Array untyped. Element type enforced
+# by the only mutator that writes to the dictionary.
+var _bindings: Dictionary[StringName, Array] = {}
+
+# The single mutator enforces InputEvent element type at the parameter boundary:
+func set_binding(action: StringName, event: InputEvent) -> void:
+    if not _bindings.has(action):
+        _bindings[action] = []
+    _bindings[action].append(event)
+    # ^ event is statically typed InputEvent here; Array[InputEvent] is preserved
+    #   for read sites that bind a typed loop variable.
+```
+
+Read sites can still bind the inner element with a typed loop variable to recover IDE awareness:
+
+```gdscript
+for event: InputEvent in _bindings.get(action, []):
+    # event is treated as InputEvent by the parser inside the loop body.
+    if event.is_action_pressed(action):
+        ...
+```
+
+**What works (depth limit)**:
+- `Array[T]` ✅ — single typed collection, any depth=1
+- `Dictionary[K, V]` ✅ — single typed collection, any depth=1 (V can be any non-collection type, including a class_name)
+- `Array[Dictionary]` ✅ — inner is plain Dictionary (not a typed collection)
+- `Dictionary[K, Resource]` ✅ — inner is a class_name, not a typed collection
+
+**What breaks (depth=2 nested typed collections)**:
+- `Dictionary[K, Array[V]]` ❌ — depth=2 parse error per this gotcha
+- `Array[Array[T]]` ❌ — same family, same error class
+- `Dictionary[K, Dictionary[K2, V]]` ❌ — same family
+
+**Symptom checklist** — if you see `Parse Error: Nested typed collections are not supported`:
+1. Find the offending declaration line by grepping the file for `Dictionary[.*Array[` or `Array[.*Array[` or `Dictionary[.*Dictionary[`
+2. Degrade the inner typed collection to its untyped form (`Array[T]` → `Array`; `Dictionary[K2, V]` → `Dictionary`)
+3. Move element-type enforcement to the **only mutator** that writes to that container (typed parameter on the setter)
+4. Document the workaround inline at the field declaration so future readers don't try to "fix" it back to the nested form
+
+**Distinct from G-2**: G-2 is about `Array[T].duplicate()` losing the element type at the **call site** (return-value demotion). G-25 is about the **declaration site** rejecting depth=2 nesting outright. Both are typed-collection gotchas, but they manifest at different points — G-2 silently degrades; G-25 hard parse-errors.
+
+**Distinct from G-8**: G-8 is about `Signal.get_connections()` returning untyped `Array` at the API boundary. G-25 is about declaring a typed-Dictionary-of-typed-Array at the field-declaration boundary.
+
+**Future-proofing**: Godot 4.7+ may add nested typed collection support. When upgrading the engine, re-test the nested form in a throwaway script before reverting any G-25 workarounds. Until then, the declaration-site degradation is the only safe path.
+
+**Discovered**: input-handling/story-001 (2026-05-06). Author wrote `var _bindings: Dictionary[StringName, Array[InputEvent]] = {}` per ADR-0005 §1 line 119 verbatim spec; G-14 import refresh fired the parse error; cascading effect blocked the autoload registration AND the downstream `battle_scene.gd:62` `var _input_router: InputRouter` typed reference. Resolution: degrade to `Dictionary[StringName, Array]` + document inline at the field. ADR-0005 §1 line 119 was speculative pre-implementation; story-001 spec amended in same patch (AC-2 checkbox text). Also exposed the hidden assumption in the story's "Engine Notes" line that "typed `Dictionary[StringName, Array[InputEvent]]` (4.4+ stable)" — that claim is incorrect and was pulled from training-data drift; verified against Godot 4.6 source: `core/variant/typed_dictionary.h` does not parse nested collections.
+
+---
+
 ## Verification Pattern Summary
 
 When testing changes that touch any of the above areas, always:

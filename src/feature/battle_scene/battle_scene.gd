@@ -54,12 +54,14 @@ extends Node2D
 # ─── DI'd backend references (autoloads — already booted before _ready) ──────
 
 ## All 5 accessed as their class_name identifiers. Stored as fields for
-## inspection and future test seam compatibility.
+## inspection and future test seam compatibility. _input_router post-S8-02
+## (input-handling story-001) is typed `Node` because InputRouter graduated to
+## autoload and dropped `class_name` per G-3 — see input_router.gd header.
 var _hero_db: HeroDatabase
 var _balance_constants: BalanceConstants
 var _terrain_effect: TerrainEffect
 var _unit_role: UnitRole
-var _input_router: InputRouter
+var _input_router: Node
 
 
 # ─── Battle-scoped child Node references ─────────────────────────────────────
@@ -92,16 +94,15 @@ func _ready() -> void:
 	# on typed reference (per G-22). Reflective load(path).new() path bypasses
 	# @abstract enforcement and returns a live RefCounted instance assignable
 	# to typed fields. BalanceConstants + TerrainEffect are not @abstract — direct
-	# .new() works. InputRouter (extends Node) needs add_child after .new().
-	# Sprint-7+ when autoload graduation lands (e.g. InputRouter at input-handling
-	# epic close), revert to autoload-identifier reads.
+	# .new() works. InputRouter graduated to autoload at S8-02 (input-handling
+	# story-001 2026-05-06) — reference via /root/InputRouter directly per
+	# ADR-0005 §1 + ADR-0020 §Decision §6 (boot pos 9). Closes prior TD-058
+	# placeholder + supersedes the "sprint-7+ autoload graduation" pointer.
 	_hero_db = (load("res://src/foundation/hero_database.gd") as GDScript).new()
 	_unit_role = (load("res://src/foundation/unit_role.gd") as GDScript).new()
 	_balance_constants = BalanceConstants.new()
 	_terrain_effect = TerrainEffect.new()
-	_input_router = InputRouter.new()
-	_input_router.name = "InputRouter"
-	add_child(_input_router)  # Node child of BattleScene root (TD-058 placeholder)
+	_input_router = get_node("/root/InputRouter")
 
 	# === SPRINT-7 SCENARIO BOOTSTRAP (mock encoder DELETED 2026-05-05 per IN-10) ===
 	# Standalone-launch mode: bootstrap mvp_shu.json directly. SceneManager-driven
