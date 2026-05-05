@@ -29,6 +29,10 @@ BuildModeSentinel="*res://src/platform/build_mode_sentinel.gd"
 ; (scenario_fault dialog routing) + SaveManager (save_checkpoint_requested).
 ; ADR-0017 §Decision §Class Form. NO `class_name` per G-3 autoload rule.
 ScenarioRunner="*res://src/core/scenario_runner.gd"
+; Boot order position 7: depends on GameBus + ScenarioRunner (subscribes to
+; scenario_beat_retried + chapter_completed) per CR-DS-9. NO `class_name` per G-3.
+; ADR-0003 SaveContext + ADR-0017 ScenarioRunner + ADR-0018 DestinyBranch.
+DestinyState="*res://src/feature/destiny_state/destiny_state.gd"
 
 [physics]
 
