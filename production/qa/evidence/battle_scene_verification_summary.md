@@ -151,6 +151,29 @@ Both candidates are non-blocking; suitable for incorporation into a future TD en
 
 ---
 
+## §E. Migration Plan revert chapter close-out (2026-05-05 — sprint-7 S7-02)
+
+**AC-MIGRATE-5**: §E appended at sprint-7 S7-02 ScenarioRunner acceptance per AC-MIGRATE-5 + ADR-0017 Migration Plan §11.
+
+ADR-0017 Migration Plan Steps 7-11 completed at the 2026-05-05 commit:
+
+| Step | Action | Status |
+|------|--------|--------|
+| §7 | Sprint-6 inline mock encoder DELETED from `src/feature/battle_scene/battle_scene.gd` | ✅ — both marker pairs + 4 helpers (~70 LoC) removed; `_build_battle_units_from_chapter` + `_build_map_resource_for_chapter` replace them |
+| §8 | `project.godot` `run/main_scene` revert | ⚠️ DEFERRED — no revert target exists yet (Main Menu / Overworld scenes do not exist at sprint-7 close). Inline comment updated; revert tracked for sprint-8+ |
+| §9 | `lint_battle_scene_sprint6_mock_marker.sh` semantic flip | ✅ — flipped from "MUST exist" to "MUST NOT exist" semantic; 1st-precedent phase-flipping lint pattern |
+| §10 | Re-author smoke evidence doc | ✅ — `battle_scene_smoke_2026-05-05.md` ships in same patch; sprint-6 doc archived to `battle_scene_smoke_2026-05-04_sprint6_archived.md` |
+| §11 | Update this verification summary §E | ✅ — this section |
+
+The phase-flipping lint pattern (1st in project) is documented in:
+- `tools/ci/lint_battle_scene_sprint6_mock_marker.sh` inline header block
+- `docs/registry/architecture.yaml` `battle_scene_sprint6_mock_marker_must_exist` entry (description + revised: 2026-05-05 annotation)
+- `tests/integration/feature/battle_scene/battle_scene_smoke_test.gd` `test_battle_scene_source_contains_sprint6_mock_markers` body (semantic flip with traceability comment)
+
+Test count post-flip: **911/911 passing** (was 876 baseline at sprint-6 close + 35 net delta).
+
+---
+
 ## §G. Cross-references
 
 - `production/epics/battle-scene/EPIC.md` — epic Status flipped to Complete this turn

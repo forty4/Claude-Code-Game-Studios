@@ -29,6 +29,13 @@
 ## IN-9 (implementation drift): ADR-0016 §4 shows mock tiles as Array[StringName];
 ##   MapResource.tiles is Array[MapTileData]. _make_uniform_grass_tiles() builds
 ##   properly typed Array[MapTileData] with is_passable_base=true + coord set.
+## IN-10 (sprint-7 S7-02 ScenarioRunner integration 2026-05-05): mock encoder
+##   block + 4 helpers DELETED. BattlePayload + ChapterDefinition now sourced
+##   from ScenarioRunner.get_active_battle_config() / get_current_chapter() per
+##   ADR-0017 §BattleConfig + ADR-0016 Migration Plan §1. IN-6/7/8/9 drift
+##   notes preserved for traceability to grid_battle_controller / unit-role /
+##   map-grid contracts. In standalone-launch mode (no SceneManager), BattleScene
+##   bootstraps mvp_shu.json scenario itself for sprint-7 +1 playable-surface delta.
 
 class_name BattleScene
 extends Node2D
@@ -95,20 +102,31 @@ func _ready() -> void:
 	_input_router.name = "InputRouter"
 	add_child(_input_router)  # Node child of BattleScene root (TD-058 placeholder)
 
-	# === SPRINT-6 MOCK ENCOUNTER ===
-	# TODO: REMOVE WHEN ADR-0017 SCENARIO PROGRESSION LANDS
-	# Sprint-7+ replacement: roster + map_resource come from BattleConfig
-	# passed by ScenarioRunner via SceneManager.battle_launch_requested payload.
-	var mock_roster: Array[BattleUnit] = _build_mock_roster_sprint6()
-	# 15×15 minimum per ADR-0016 IN-9 (MapGrid validation enforces MAP_COLS_MIN=15 + MAP_ROWS_MIN=15)
-	var mock_map_resource: MapResource = _build_mock_map_resource_sprint6(15, 15)
-	# === END MOCK ===
+	# === SPRINT-7 SCENARIO BOOTSTRAP (mock encoder DELETED 2026-05-05 per IN-10) ===
+	# Standalone-launch mode: bootstrap mvp_shu.json directly. SceneManager-driven
+	# mode (post-Main-Menu): ScenarioRunner is already in BEAT_4_PREP/BATTLE_LOADING.
+	if ScenarioRunner.get_current_chapter_index() == -1:
+		var loaded: bool = ScenarioRunner.load_scenario("res://assets/data/scenarios/mvp_shu.json")
+		if not loaded:
+			push_error("BattleScene: failed to load mvp_shu.json scenario")
+		# Drive scenario forward to BEAT_5_BATTLE for standalone demo (no UI dwell).
+		if ScenarioRunner.get_state() == ScenarioRunner.State.BEAT_1_ANCHOR:
+			ScenarioRunner.advance_beat()  # -> BEAT_2_ECHO
+			ScenarioRunner.advance_beat()  # -> BEAT_3_BRIEF
+			ScenarioRunner.advance_beat()  # -> BEAT_4_PREP
+			ScenarioRunner.confirm_deployment()  # -> BATTLE_LOADING -> BEAT_5_BATTLE
+	var chapter: ChapterDefinition = ScenarioRunner.get_current_chapter()
+	if chapter == null:
+		push_error("BattleScene: no active chapter from ScenarioRunner")
+		return
+	var roster: Array[BattleUnit] = _build_battle_units_from_chapter(chapter)
+	var map_resource: MapResource = _build_map_resource_for_chapter(chapter)
 
 	# === STEP 1: MapGrid (ADR-0004) ===
 	# load_map() returns bool — warnings logged per IN-6 + IN-7.
 	_map_grid = MapGrid.new()
 	_map_grid.name = "MapGrid"
-	var map_ok: bool = _map_grid.load_map(mock_map_resource)
+	var map_ok: bool = _map_grid.load_map(map_resource)
 	if not map_ok:
 		push_warning("BattleScene: MapGrid.load_map() returned false — check map_resource validation")
 		for err: String in _map_grid.get_last_load_errors():
@@ -126,7 +144,7 @@ func _ready() -> void:
 	# IN-8 drift: no UnitRole.get_class_for_hero(); use unit.unit_class directly.
 	_hp_controller = HPStatusController.new()
 	_hp_controller.name = "HPStatusController"
-	for unit: BattleUnit in mock_roster:
+	for unit: BattleUnit in roster:
 		var hero: HeroData = HeroDatabase.get_hero(unit.hero_id)
 		_hp_controller.initialize_unit(unit.unit_id, hero, unit.unit_class)
 	add_child(_hp_controller)
@@ -134,14 +152,14 @@ func _ready() -> void:
 	# === STEP 4: TurnOrderRunner (ADR-0011) — depends on roster ===
 	_turn_runner = TurnOrderRunner.new()
 	_turn_runner.name = "TurnOrderRunner"
-	_turn_runner.initialize_battle(mock_roster)
+	_turn_runner.initialize_battle(roster)
 	add_child(_turn_runner)
 
 	# === STEP 5: GridBattleController (ADR-0014) — depends on all 4 prior ===
 	_grid_controller = GridBattleController.new()
 	_grid_controller.name = "GridBattleController"
 	_grid_controller.setup(
-		mock_roster,
+		roster,
 		_map_grid,
 		_battle_camera,
 		_hero_db,
@@ -169,30 +187,40 @@ func _ready() -> void:
 	_hud_layer.add_child(_battle_hud)
 
 
-# ─── Sprint-6 mock encounter helpers ─────────────────────────────────────────
-# === SPRINT-6 MOCK ENCOUNTER HELPERS ===
-# TODO: REMOVE WHEN ADR-0017 SCENARIO PROGRESSION LANDS
-# These methods exist solely to ship the +1 playable-surface delta in sprint-6
-# without blocking on Scenario Progression ADR. Delete the entire region
-# between SPRINT-6 MOCK ENCOUNTER markers in _ready() + this entire region.
+# ─── Chapter-driven helpers (sprint-7 S7-02 — replaces deleted mock encoder) ──
 
 
-## Builds the 4-unit sprint-6 mock roster: 2 player (Zhang Fei tank + Zhao Yun→Zhou Yu
-## assassin substitute) + 2 enemy. Per ADR-0016 §4. Hero IDs MUST exist in
-## assets/data/heroes/heroes.json (IN-14 amendment 2026-05-04 — story-002 AC-2 launch
-## surfaced fictional-id `unknown hero_id` push_errors; swapped to real IDs).
-## BattleUnit field names verified against src/core/battle_unit.gd 2026-05-04.
-func _build_mock_roster_sprint6() -> Array[BattleUnit]:
+## Builds Array[BattleUnit] from ChapterDefinition.player_unit_ids + enemy_roster.
+## Player units use chapter.player_unit_ids + chapter.deployment_positions_default.
+## Enemy units use chapter.enemy_roster (Dictionary entries with unit_id/hero_id/archetype).
+## Hero IDs MUST exist in assets/data/heroes/heroes.json.
+func _build_battle_units_from_chapter(chapter: ChapterDefinition) -> Array[BattleUnit]:
 	var roster: Array[BattleUnit] = []
-	roster.append(_make_mock_unit(0, &"shu_003_zhang_fei",  true,  Vector2i(1, 2), &"tank"))
-	roster.append(_make_mock_unit(1, &"wu_003_zhou_yu",     true,  Vector2i(2, 2), &"assassin"))
-	roster.append(_make_mock_unit(2, &"wei_001_cao_cao",    false, Vector2i(4, 2), &"boss"))
-	roster.append(_make_mock_unit(3, &"wei_005_xiahou_dun", false, Vector2i(5, 2), &""))
+	# Player units — minimal stub: bind chapter player_unit_ids to canonical hero IDs.
+	# Sprint-7 S7-05 will fill out chapter-1 (장판파) full content; this stub ships
+	# the structural integration sufficient for sprint-7 demo.
+	var player_default_heroes: Array[StringName] = [&"shu_003_zhang_fei", &"wu_003_zhou_yu"]
+	for i in chapter.player_unit_ids.size():
+		var uid: int = int(chapter.player_unit_ids[i])
+		var hero: StringName = player_default_heroes[i] if i < player_default_heroes.size() else &"shu_003_zhang_fei"
+		var pos: Vector2i = chapter.deployment_positions_default.get(uid, Vector2i(1 + i, 2)) as Vector2i
+		var tag: StringName = &"tank" if i == 0 else &"assassin"
+		roster.append(_make_battle_unit(uid, hero, true, pos, tag))
+	# Enemy units from chapter.enemy_roster Dictionary entries.
+	for entry in chapter.enemy_roster:
+		var d: Dictionary = entry as Dictionary
+		var uid: int = int(d.get("unit_id", 0))
+		var hero: StringName = StringName(d.get("hero_id", "wei_001_cao_cao") as String)
+		var archetype: StringName = StringName(d.get("archetype", "aggressor") as String)
+		# Position fallback: spread enemies across columns 4+ at row 2.
+		var pos: Vector2i = chapter.deployment_positions_default.get(uid, Vector2i(4 + roster.size(), 2)) as Vector2i
+		var tag: StringName = &"boss" if archetype == &"coordinator" else archetype
+		roster.append(_make_battle_unit(uid, hero, false, pos, tag))
 	return roster
 
 
-## Constructs a single BattleUnit for the sprint-6 mock encounter.
-func _make_mock_unit(
+## Constructs a single BattleUnit. Replaces the deleted _make_mock_unit helper.
+func _make_battle_unit(
 		unit_id: int,
 		hero_id: StringName,
 		is_player: bool,
@@ -213,19 +241,20 @@ func _make_mock_unit(
 	return unit
 
 
-## Builds a WxH all-grass MapResource for the sprint-6 mock encounter.
-## Per IN-9: MapResource.tiles is Array[MapTileData]; each tile needs coord +
-## is_passable_base=true. Uses terrain_type=0 (grass/plains) as the default.
-func _build_mock_map_resource_sprint6(width: int, height: int) -> MapResource:
+## Builds a 15×15 all-grass MapResource for the chapter. Sprint-7 S7-05 will
+## load chapter-1 (장판파) authored .tres at assets/data/maps/{map_id}.tres;
+## current stub fixture provides uniform grass per IN-9 + ADR-0016 IN-9.
+func _build_map_resource_for_chapter(_chapter: ChapterDefinition) -> MapResource:
 	var map: MapResource = MapResource.new()
-	map.map_cols = width
-	map.map_rows = height
-	map.tiles = _make_uniform_grass_tiles(width, height)
+	map.map_cols = 15
+	map.map_rows = 15
+	map.tiles = _make_uniform_grass_tiles(15, 15)
 	return map
 
 
 ## Returns a flat row-major Array[MapTileData] with all tiles passable grass.
-## coord.x = col index, coord.y = row index per MapGrid row-major convention.
+## Preserved from sprint-6 mock helpers; sprint-7+ chapter map loading will
+## replace this with assets/data/maps/{map_id}.tres asset loading.
 func _make_uniform_grass_tiles(w: int, h: int) -> Array[MapTileData]:
 	var tiles: Array[MapTileData] = []
 	for row: int in range(h):
@@ -238,5 +267,3 @@ func _make_uniform_grass_tiles(w: int, h: int) -> Array[MapTileData]:
 			tile.occupant_faction = 0
 			tiles.append(tile)
 	return tiles
-
-# === END SPRINT-6 MOCK ENCOUNTER HELPERS ===

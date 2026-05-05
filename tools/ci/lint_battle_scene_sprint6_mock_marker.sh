@@ -1,25 +1,27 @@
 #!/usr/bin/env bash
 # tools/ci/lint_battle_scene_sprint6_mock_marker.sh
 #
-# battle_scene_sprint6_mock_marker_must_exist forbidden_pattern enforcement
-# (ADR-0016 §4 + TR-battle-scene-wiring-004 + TR-battle-scene-wiring-010).
+# battle_scene_sprint6_mock_marker_must_NOT_exist forbidden_pattern enforcement
+# (PHASE-FLIPPED 2026-05-05 per ADR-0017 acceptance + Migration Plan §1).
 #
-# src/feature/battle_scene/battle_scene.gd MUST contain all 4 marker substrings:
+# *** SEMANTIC FLIPPED 2026-05-05 ***
+# This lint previously asserted that the 4 sprint-6 mock-encounter markers
+# MUST EXIST in src/feature/battle_scene/battle_scene.gd. After ADR-0017
+# ScenarioRunner ships and the mock encoder is DELETED, the inverse is true:
+# any of the 4 markers re-appearing in source is now a regression and MUST FAIL.
+#
+# This is the project's 1st-precedent phase-flipping lint pattern: same script
+# file, opposite semantic, atomically flipped at the ADR-0017 acceptance commit
+# alongside the source deletion.
+#
+# Forbidden marker substrings:
 #   "# === SPRINT-6 MOCK ENCOUNTER ==="
 #   "# === END MOCK ==="
 #   "# === SPRINT-6 MOCK ENCOUNTER HELPERS ==="
 #   "# === END SPRINT-6 MOCK ENCOUNTER HELPERS ==="
-# These markers bracket the inline mock encounter loader region in _ready()
-# and the 4 mock helper methods. Sprint-7+ deletion is mechanical: delete content
-# between markers + delete this lint OR flip it to "MUST NOT exist" semantic.
 #
-# *** SEMANTIC FLIPS AT ADR-0017 ACCEPTANCE ***
-# Sprint-7+ (post-ADR-0017): change the loop body to FAIL when any marker is
-# FOUND (i.e., the mock encounter region must be FORBIDDEN per Migration Plan §1
-# deletion checklist). Same patch as ADR-0017 acceptance includes the lint flip.
-#
-# Exit 0: all 4 markers present (sprint-6 clean)
-# Exit 1: any of the 4 markers missing
+# Exit 0: NO marker found (clean post-sprint-7 state)
+# Exit 1: ANY marker present (regression — mock encoder must remain deleted)
 set -euo pipefail
 TARGET="src/feature/battle_scene/battle_scene.gd"
 if [ ! -f "$TARGET" ]; then
@@ -27,7 +29,7 @@ if [ ! -f "$TARGET" ]; then
     exit 1
 fi
 
-REQUIRED_MARKERS=(
+FORBIDDEN_MARKERS=(
     "# === SPRINT-6 MOCK ENCOUNTER ==="
     "# === END MOCK ==="
     "# === SPRINT-6 MOCK ENCOUNTER HELPERS ==="
@@ -35,9 +37,10 @@ REQUIRED_MARKERS=(
 )
 
 FAILED=0
-for marker in "${REQUIRED_MARKERS[@]}"; do
-    if ! grep -F -q "$marker" "$TARGET"; then
-        echo "FAIL: $TARGET missing marker: $marker"
+for marker in "${FORBIDDEN_MARKERS[@]}"; do
+    if grep -F -q "$marker" "$TARGET"; then
+        echo "FAIL: $TARGET contains forbidden marker: $marker"
+        echo "  (sprint-6 mock encoder was DELETED at ADR-0017 acceptance — must NOT return)"
         FAILED=1
     fi
 done
@@ -46,5 +49,5 @@ if [ "$FAILED" -ne 0 ]; then
     exit 1
 fi
 
-echo "PASS: $TARGET contains all 4 SPRINT-6 mock markers (will flip semantic at ADR-0017 acceptance)"
+echo "PASS: $TARGET contains no SPRINT-6 mock-encounter markers (post-mock-deletion state preserved)"
 exit 0

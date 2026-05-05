@@ -20,7 +20,13 @@ signal chapter_started(chapter_id: String, chapter_number: int)
 signal battle_prepare_requested(payload: BattlePayload)
 signal battle_launch_requested(payload: BattlePayload)
 signal chapter_completed(result: ChapterResult)
-signal scenario_complete(scenario_id: String)
+signal scenario_complete(result: ScenarioResult)
+## scenario_fault — emitted by ScenarioRunner when JSON validation or runtime
+## fault prevents scenario progression. Subscribers surface a retry/abort dialog
+## per ADR-0002 §SceneManager scenario_fault handler.
+## EC-SP-8: emitted on malformed branch_table / missing canonical_branch_key /
+## JSON parse failure.
+signal scenario_fault(scenario_id: String, fault: String, details: Dictionary)
 signal scenario_beat_retried(mark: EchoMark)
 
 # ═══ DOMAIN: Grid Battle (emitter: BattleController) ═══════════════════════════

@@ -84,15 +84,27 @@ const EXPECTED_SIGNALS: Array[Dictionary] = [
 		],
 	},
 	{
+		# ScenarioResult (4-field typed Resource) ratified delta #12; widened from String
+		# at /architecture-review delta #12 + ADR-0017 §CR-16 + F-SP-4 GDD intent.
 		"name": "scenario_complete",
 		"args": [
-			{"name": "scenario_id", "type": TYPE_STRING},
+			{"name": "result", "type": TYPE_OBJECT, "class_name": "ScenarioResult"},
 		],
 	},
 	{
 		"name": "scenario_beat_retried",
 		"args": [
 			{"name": "mark", "type": TYPE_OBJECT, "class_name": "EchoMark"},
+		],
+	},
+	{
+		# scenario_fault — emitted by ScenarioRunner on JSON validation / runtime
+		# failure per ADR-0017 EC-SP-8 + S7-02 implementation.
+		"name": "scenario_fault",
+		"args": [
+			{"name": "scenario_id", "type": TYPE_STRING},
+			{"name": "fault", "type": TYPE_STRING},
+			{"name": "details", "type": TYPE_DICTIONARY},
 		],
 	},
 	# ── Domain: Grid Battle (ADR-0001 §Signal Contract Schema §2) ─────────────────

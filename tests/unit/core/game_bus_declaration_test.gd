@@ -7,9 +7,10 @@ extends GdUnitTestSuite
 const GAME_BUS_PATH: String = "res://src/core/game_bus.gd"
 const PROJECT_GODOT_PATH: String = "res://project.godot"
 
-## The 29 signal names declared in game_bus.gd — authoritative list per ADR-0001
+## The 30 signal names declared in game_bus.gd — authoritative list per ADR-0001
 ## (+ ADR-0011 victory_condition_detected + ADR-0014 CR-12 / ADR-0015 §3 R-3
-## formation_bonuses_updated landed in battle-hud story-002).
+## formation_bonuses_updated landed in battle-hud story-002 + ADR-0017
+## scenario_fault landed in scenario-progression S7-02).
 const EXPECTED_SIGNALS: Array[String] = [
 	"chapter_started",
 	"battle_prepare_requested",
@@ -17,6 +18,7 @@ const EXPECTED_SIGNALS: Array[String] = [
 	"chapter_completed",
 	"scenario_complete",
 	"scenario_beat_retried",
+	"scenario_fault",
 	"battle_outcome_resolved",
 	"formation_bonuses_updated",
 	"round_started",
@@ -50,6 +52,7 @@ const EXPECTED_RESOURCE_ARG_CLASSES: Dictionary = {
 	"battle_prepare_requested":  ["BattlePayload"],
 	"battle_launch_requested":   ["BattlePayload"],
 	"chapter_completed":         ["ChapterResult"],
+	"scenario_complete":         ["ScenarioResult"],
 	"battle_outcome_resolved":   ["BattleOutcome"],
 	"input_action_fired":        ["", "InputContext"],  # first arg is String, second is InputContext
 	"scenario_beat_retried":     ["EchoMark"],
@@ -99,7 +102,7 @@ func test_gamebus_extends_node_and_has_no_class_name() -> void:
 		assert_bool(class_name_regex.search(line) == null).is_true()
 
 
-## AC-2 + AC-3: game_bus.gd declares exactly 29 user signals (27 + victory_condition_detected per ADR-0011 + formation_bonuses_updated per ADR-0014 CR-12/ADR-0015 §3 R-3).
+## AC-2 + AC-3: game_bus.gd declares exactly 30 user signals (29 + scenario_fault per ADR-0017 EC-SP-8).
 func test_gamebus_declares_exactly_29_signals() -> void:
 	# Arrange
 	var script: GDScript = load(GAME_BUS_PATH)
@@ -113,8 +116,8 @@ func test_gamebus_declares_exactly_29_signals() -> void:
 		if not (sig["name"] as String) in inherited:
 			user_signals.append(sig)
 
-	# Assert — exactly 29 (27 + victory_condition_detected + formation_bonuses_updated)
-	assert_int(user_signals.size()).is_equal(29)
+	# Assert — exactly 30 (29 + scenario_fault per S7-02)
+	assert_int(user_signals.size()).is_equal(30)
 
 
 ## AC-3: All 28 declared signals match the authoritative name list from ADR-0001 + ADR-0011.

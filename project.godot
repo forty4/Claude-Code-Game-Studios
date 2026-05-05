@@ -9,7 +9,12 @@ config_version=5
 config/name="천명역전"
 config/description="Defying Destiny — Turn-based grid strategy RPG."
 config/features=PackedStringArray("4.6")
-; SPRINT-6 ONLY — REVERT WHEN ADR-0017 LANDS (TR-battle-scene-wiring-005)
+; SPRINT-7+ TEMPORARY — battle_scene.tscn remains as main_scene until Main Menu /
+; Overworld scenes ship (no revert target exists yet at sprint-7 close 2026-05-05).
+; ADR-0017 acceptance via /architecture-review delta #12 retained the
+; sprint-6 inline mock encoder DELETION (per S7-02 atomicity) but the
+; main_scene flip cannot revert until a SceneManager-driven launch surface
+; ships. Tracked as deviation in scenario_runner_3_chapter_mvp_2026-05-05.md.
 run/main_scene="res://scenes/battle/battle_scene.tscn"
 
 [autoload]
@@ -20,6 +25,10 @@ SceneManager="*res://src/core/scene_manager.gd"
 SaveManager="*res://src/core/save_manager.gd"
 GameBusDiagnostics="*res://src/core/game_bus_diagnostics.gd"
 BuildModeSentinel="*res://src/platform/build_mode_sentinel.gd"
+; Boot order position 6: depends on GameBus (signal subscription) + SceneManager
+; (scenario_fault dialog routing) + SaveManager (save_checkpoint_requested).
+; ADR-0017 §Decision §Class Form. NO `class_name` per G-3 autoload rule.
+ScenarioRunner="*res://src/core/scenario_runner.gd"
 
 [physics]
 

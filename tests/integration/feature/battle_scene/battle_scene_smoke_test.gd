@@ -177,27 +177,30 @@ func test_battle_scene_ready_mounts_six_children() -> void:
 	scene.free()
 
 
-# ─── AC-5: mock encoder marker presence ───────────────────────────────────────
+# ─── AC-5: mock encoder marker ABSENCE (PHASE-FLIPPED 2026-05-05 per S7-02) ──
 
 func test_battle_scene_source_contains_sprint6_mock_markers() -> void:
-	# AC-5: 4 explicit comment markers must exist in source so story-003 lint
-	# can mechanically detect their presence (will flip to "must NOT exist" at
-	# ADR-0017 acceptance).
+	# AC-5 (PHASE-FLIPPED 2026-05-05 per ADR-0017 acceptance + Migration Plan §1):
+	# the 4 sprint-6 mock-encounter markers MUST NOT exist after ScenarioRunner
+	# integration. 1st-precedent phase-flipping test in the project: same test
+	# function, opposite semantic, atomically flipped at the scenario_runner.gd
+	# acceptance commit. Test name kept stable for traceability — semantic flip
+	# is documented in this comment block.
 	var content: String = FileAccess.get_file_as_string(BATTLE_SCENE_SOURCE)
 	assert_str(content).override_failure_message(
 		"AC-5: %s must exist and be readable" % BATTLE_SCENE_SOURCE
 	).is_not_empty()
 
-	var required_markers: Array[String] = [
+	var forbidden_markers: Array[String] = [
 		"# === SPRINT-6 MOCK ENCOUNTER ===",
 		"# === END MOCK ===",
 		"# === SPRINT-6 MOCK ENCOUNTER HELPERS ===",
 		"# === END SPRINT-6 MOCK ENCOUNTER HELPERS ===",
 	]
-	for marker: String in required_markers:
+	for marker: String in forbidden_markers:
 		assert_bool(content.contains(marker)).override_failure_message(
-			"AC-5: battle_scene.gd must contain marker: %s" % marker
-		).is_true()
+			"AC-5 (post-S7-02): battle_scene.gd must NOT contain marker: %s" % marker
+		).is_false()
 
 
 # ─── AC-6: auto-tree-free delegation ──────────────────────────────────────────

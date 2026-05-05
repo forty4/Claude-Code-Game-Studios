@@ -450,6 +450,7 @@ func test_diagnostics_route_to_domain_covers_all_29_signals() -> void:
 		"chapter_completed":         "scenario",
 		"scenario_complete":         "scenario",
 		"scenario_beat_retried":     "scenario",
+		"scenario_fault":            "scenario",
 		# §2 Grid Battle (emitter: BattleController + GridBattleController formation-bonus path)
 		"battle_outcome_resolved":   "battle",
 		# formation_bonuses_updated lacks "battle_" prefix — routed via explicit name guard
