@@ -11,7 +11,7 @@ goal: "Unblock input-handling + ship chapter-1 (장판파) end-to-end + flip Pil
 start: "2026-06-07"
 end: "2026-06-13"
 generated: "2026-05-05"
-updated: "2026-05-05"  # Sprint-8 plan written; sprint-7 archive pending appended-to history file.
+updated: "2026-05-05 — S8-01 ADR-0020 Proposed shipped (delta #15 Accepted escalation pending)"
 
 # Sprint-7 closed 9/11 (Must 4/4 + Should 3/3 + Nice 2/4); S7-10 BLOCKED on input-handling epic;
 # S7-11 USER-OWNED. 26th+ consecutive failure-free baseline (978/978 PASSING). Retro AI seeds
@@ -37,6 +37,7 @@ stories:
     estimate_days: 0.4
     blocker: ""
     completed: ""
+    # 2026-05-05 ADR-0020 Proposed shipped (docs/architecture/ADR-0020-input-router-dispatch.md, 406L); awaits fresh-session /architecture-review delta #15 for Accepted escalation
 
   - id: "S8-02"
     name: "input-handling story-001 — module skeleton + autoload registration (/root/InputRouter boot pos 4 per ADR-0005)"
