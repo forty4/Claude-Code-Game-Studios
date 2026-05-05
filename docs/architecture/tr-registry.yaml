@@ -24,8 +24,41 @@
 #
 # STATUS VALUES: active | deprecated | superseded-by: TR-[system]-NNN
 
-version: 14
-last_updated: "2026-05-04"
+version: 15
+last_updated: "2026-05-05"
+# 2026-05-05 (/architecture-review delta #14): structural append — 15 net-new
+# TR-IDs registered for ADR-0019 AI System (TR-ai-system-001 through 015)
+# covering AISystem battle-scoped Node 6th invocation class form + single-class
+# match-dispatch on archetype StringName (NOT subclass hierarchy — 1st invocation
+# of this pattern; closed 4-archetype MVP scope per CR-AI-3) + 2 typed Resource
+# payloads (BattleStateSnapshot flat-data Resource + AIActionCommand Resource
+# with append-only ActionType enum mirroring BattleOutcome.Result discipline) +
+# BattleScene mount sequence step 5.5 insertion (Path A — preserves existing 1-6
+# numbering; full 1-7 renumber deferred to sprint-7+ S7-02) + LOCAL signal
+# subscription to GridBattleController.ai_action_requested with CONNECT_DEFERRED
+# (6th LOCAL signal added via same-patch ADR-0014 §8 amendment) + LOCAL signal
+# emission ai_action_ready declared on AISystem class (NOT GameBus — defense-in-
+# depth lint via ai_system_signal_emission_outside_action_ready) + _exit_tree()
+# disconnect (battle-scoped 6th invocation discipline) + determinism contract
+# (no static var + no randf + no Time.get_ticks_msec + no instance-var caching
+# across calls + no external state read — lint-enforced via 4 forbidden_patterns)
+# + main-thread synchronous MVP execution (WorkerThreadPool deferred to post-MVP
+# amendment per EC-AI-12) + 4 forbidden_patterns (ai_system_signal_emission_outside_action_ready
+# 9-precedent stateless-emit / non-emitter discipline mirror;
+# ai_system_static_var 5-precedent battle-scoped + RefCounted lint pattern mirror;
+# ai_system_reads_destiny_branch_state Pillar 2 architectural lock 4th project
+# precedent of pillar-anchored lint pattern after battle_hud_subscribes_to_hidden_fate_signal
+# + scenario_runner_deferred_seal_in_beat_7_entry +
+# destiny_branch_judge_reads_scenario_runner_state; ai_system_direct_battle_state_read
+# CR-AI-6 enforcement 1-precedent pure-function-takes-snapshot mirror from
+# destiny_branch_judge_reads_scenario_runner_state) + DI null-check assert in
+# _ready() (GridBattleController reference required pre-add_child; mirrors 5-
+# precedent battle-scoped Node DI null-check discipline). Combined session: ADR-0019
+# escalation Proposed → Accepted via delta #14 + this structural append in single
+# fresh session per sprint-7 plan S7-01 (4th consecutive combined-session pattern
+# after delta #11 + #12 + #13 — pattern firmly stable at 4 invocations). Total
+# registered TRs 239 → **254**. Pattern stable at 14 invocations of /architecture-review.
+#
 # 2026-05-04 (/architecture-review delta #13): structural append — 15 net-new
 # TR-IDs registered for ADR-0018 Destiny Branch (TR-destiny-branch-001 through
 # 015) covering DestinyBranchJudge RefCounted pure-function class form + 4-arg
@@ -2153,5 +2186,125 @@ requirements:
     adr: docs/architecture/ADR-0018-destiny-branch.md
     requirement: "§Engine Compatibility Verification Required item (1) + Implementation Notes IN-1 + destiny-branch GDD §F-DB-4 OQ-DB-6 — DestinyBranchChoice ResourceSaver/ResourceLoader round-trip MUST preserve all 9 field types (especially `invalid_reason: StringName` field-type preservation; `outcome: BattleOutcome.Result` typed-enum int storage) on **all 5 export targets**: Linux Editor + Windows D3D12 + macOS Metal + iOS Metal + Android Vulkan. Closes destiny-branch GDD §F-DB-4 OQ-DB-6 (BLOCKING for VS-implementation-story open). Verification protocol per IN-1: GdUnit4 integration test `tests/integration/destiny_branch/destiny_branch_choice_serialization_test.gd::test_round_trip_all_platforms` constructs all-9-field-populated DestinyBranchChoice (including non-empty StringName invalid_reason like `&\"invariant_violation:branch_table_empty\"`), saves via `ResourceSaver.save(choice, \"user://test.tres\")`, loads via `ResourceLoader.load(...) as DestinyBranchChoice`, asserts all 9 fields field-identical + `typeof(loaded.invalid_reason) == TYPE_STRING_NAME` (the OQ-DB-6 critical assertion). CI matrix MUST run on all 5 export targets per AC-DB-24. Status: pending implementation; BLOCKING for VS close."
     created: 2026-05-04
+    revised: ""
+    status: active
+
+  - id: TR-ai-system-001
+    system: ai-system
+    adr: docs/architecture/ADR-0019-ai-system.md
+    requirement: "§Decision §Class Form — AISystem `class_name AISystem extends Node` battle-scoped 6th invocation of battle-scoped Node pattern after HPStatusController + TurnOrderRunner + BattleCamera + GridBattleController + BattleHUD. Lifecycle hooks needed (_ready to subscribe; _exit_tree to disconnect) — RefCounted has neither (Alternative §2 rejected). Scene-tree presence required for BattleScene to mount via add_child() per ADR-0016 6-step sequence. Battle-scoped lifecycle matches the data: archetype assignments are chapter-scoped; no cross-battle state needed (Alternative §1 Autoload rejected). Pattern boundary precedent extended at 6 invocations: stateless-static for systems CALLED (5-precedent ADR-0008 → 0006 → 0012 → 0009 → 0007); Node-based form for systems STATEFUL AND/OR LISTENING (ADR-0005 InputRouter Autoload + ADR-0010 HPStatusController + ADR-0011 TurnOrderRunner + ADR-0013 BattleCamera + ADR-0014 GridBattleController + ADR-0015 BattleHUD + ADR-0019 AISystem battle-scoped Node 6th invocation)."
+    created: 2026-05-05
+    revised: ""
+    status: active
+
+  - id: TR-ai-system-002
+    system: ai-system
+    adr: docs/architecture/ADR-0019-ai-system.md
+    requirement: "§Decision §Archetype Dispatch — Single-source-file with `match archetype` dispatch in `_score_candidate(archetype: StringName, candidate: AICandidateAction, snapshot: BattleStateSnapshot, unit: Dictionary) -> float` body routing to one of 4 per-archetype scoring functions (_score_aggressor / _score_skirmisher / _score_holder / _score_coordinator) per CR-AI-3 closed 4-archetype MVP vocabulary (aggressor / skirmisher / holder / coordinator StringName tags). NOT subclass hierarchy (Alternative §4 rejected for MVP). Justifications: solo dev productivity (1 file vs 5 — 1 base + 4 subclasses + 1 factory); test discoverability (all 4 utility functions live next to each other; cross-archetype edge cases visible in one read); no @abstract test seam needed (DamageCalc.preview() is the only mockable boundary; AI's scoring functions take pure data and don't need stubs); closed archetype set at MVP per CR-AI-3 (extensibility benefit of subclasses unrealized; YAGNI applies). 1st invocation of single-class match-dispatch over subclass hierarchy pattern in the project — establishes pattern boundary: single-class match-dispatch for closed enum-keyed dispatch with closed MVP scope vs ADR-0018 DestinyBranchJudge @abstract subclass hierarchy precedent for open extensibility + complex test stubbing requirements. If post-MVP archetype count exceeds ~6 OR scoring functions diverge dramatically, an amendment refactors to subclass hierarchy with @abstract func _score_candidate test seam mirroring ADR-0018 pattern."
+    created: 2026-05-05
+    revised: ""
+    status: active
+
+  - id: TR-ai-system-003
+    system: ai-system
+    adr: docs/architecture/ADR-0019-ai-system.md
+    requirement: "§Decision §Payload Form — `class_name BattleStateSnapshot extends Resource` with **7 typed @export fields**: `units: Array[Dictionary]` (one entry per unit; archetype + position + hp + ...) + `map_dimensions: Vector2i` + `terrain_grid: PackedInt32Array` + `queue_unit_ids: Array[int]` (turn-order queue snapshot) + `round_number: int` + `chokepoints: Array[Vector2i]` (from ChapterDefinition; empty if none) + `formation_center: Vector2i` (centroid of allied units). **Flat-data only — NO nested Resource references** to avoid duplicate_deep / shared-instance hazards and make ResourceSaver/Loader round-trip trivial (per V-3 5-platform serialization verification). Constructed by GridBattleController._make_battle_state_snapshot() before emitting ai_action_requested signal — sprint-7+ S7-04 implementation patch adds this private helper per ADR-0019 §Migration Plan §6. AISystem accesses inputs ONLY via this Resource passed as ai_action_requested signal payload — direct reads from MapGrid/HPStatusController/TurnOrderRunner forbidden via ai_system_direct_battle_state_read forbidden_pattern (CR-AI-6 enforcement)."
+    created: 2026-05-05
+    revised: ""
+    status: active
+
+  - id: TR-ai-system-004
+    system: ai-system
+    adr: docs/architecture/ADR-0019-ai-system.md
+    requirement: "§Decision §Payload Form — `class_name AIActionCommand extends Resource` with **5 typed @export fields + 6 static factories + ActionType enum**: `unit_id: int` (default -1) + `action_type: ActionType` (typed enum {WAIT=0, MOVE=1, ATTACK=2, MOVE_AND_ATTACK=3, DEFEND=4, USE_SKILL=5}; default WAIT) + `move_target: Vector2i` (used iff action_type in [MOVE, MOVE_AND_ATTACK]) + `attack_target_unit_id: int` (default -1; used iff action_type in [ATTACK, MOVE_AND_ATTACK]) + `skill_id: StringName` (default &\"\"; used iff action_type == USE_SKILL). 6 static factories: wait(unit_id) + move + attack + move_and_attack + defend + use_skill. **ActionType enum is append-only** per ADR-0003 SaveMigrationRegistry contract — same discipline as BattleOutcome.Result enum order locked at grid-battle v5.0; reordering values requires migration registry entry + schema_version bump. Used as ai_action_ready LOCAL signal payload. Round-trips through ResourceSaver/ResourceLoader for replay/debug serialization on all 5 export targets per V-4."
+    created: 2026-05-05
+    revised: ""
+    status: active
+
+  - id: TR-ai-system-005
+    system: ai-system
+    adr: docs/architecture/ADR-0019-ai-system.md
+    requirement: "§Decision §Mount Order + Migration Plan §1 — Mount order: BattleScene `_ready()` mount-sequence **step 5.5** (between current step 5 GridBattleController and step 6 BattleHUD per ADR-0016 §3 R-3 amended via /architecture-review delta #14 2026-05-05). AISystem MUST mount AFTER GridBattleController (step 5) — its `setup()` requires the controller reference for signal subscription. AISystem MUST mount BEFORE BattleHUD (step 6) — BattleHUD's AI-thinking-indicator (UI-GB-N to be added by sprint-7+ battle-hud GDD revision) connects to AISystem's `ai_action_ready` signal at HUD `_ready()`; if AISystem is not present at HUD `_ready()`, the connection fails. **Mount sequence renumber decision (delta #14 Path A)**: insert 'step 5.5' preserves existing 1-6 numbering — minimum-touch keeps existing ADR-0016 cross-references stable; full 1-7 renumber deferred to sprint-7+ S7-02 when ADR-0016 is touched anyway for sprint-6 mock encoder deletion + lint phase-flip + project.godot main_scene revert per ADR-0017 Migration Plan §1 — full renumber + step 5.5 → step 6 promotion coordinated in single sprint-7+ touch."
+    created: 2026-05-05
+    revised: ""
+    status: active
+
+  - id: TR-ai-system-006
+    system: ai-system
+    adr: docs/architecture/ADR-0019-ai-system.md
+    requirement: "§Decision §Decision body + AI System GDD §CR-AI-1 — LOCAL signal subscription to GridBattleController.ai_action_requested with **CONNECT_DEFERRED** at AISystem `_ready()`. Subscription line: `_grid_battle_controller.ai_action_requested.connect(_on_ai_action_requested, CONNECT_DEFERRED)` with `assert(err == OK)` post-check. The 6th LOCAL signal `ai_action_requested(unit_id: int, snapshot: BattleStateSnapshot)` was added to GridBattleController via /architecture-review delta #14 same-patch additive amendment to ADR-0014 §8 (5 → 6 LOCAL signals; per-frame budget consumption < 12/frame still well under ADR-0001 §445 50-emits/frame cap). 5th project precedent of 'ratification widening at upstream-ADR acceptance' after save_checkpoint_requested 2026-04-18 + scenario_complete delta #12 + scenario_beat_retried delta #12 + ADR-0017 line 209 instance-form widening delta #13. Source-code declaration of the 6th signal in src/feature/grid_battle/grid_battle_controller.gd ships at sprint-7+ S7-04 implementation patch (currently 5 signals at lines 85-99 → 6 signals)."
+    created: 2026-05-05
+    revised: ""
+    status: active
+
+  - id: TR-ai-system-007
+    system: ai-system
+    adr: docs/architecture/ADR-0019-ai-system.md
+    requirement: "§Decision §Decision body + grid-battle.md CR-3 — LOCAL signal emission `ai_action_ready(unit_id: int, command: AIActionCommand)` declared on AISystem class itself (NOT GameBus). GridBattleController subscribes via DI'd reference to AISystem instance. Mirrors GridBattleController 6-LOCAL-signal pattern — **2nd invocation of LOCAL-signal-not-GameBus pattern** (after GridBattleController's 6 LOCAL signals; delta #14 codifies this as a stable battle-scoped Node-to-Node communication channel). MUST emit within 500ms timeout per grid-battle.md CR-3 — on receipt GridBattleController validates action (CR-3a) + executes; on timeout GridBattleController substitutes WAIT + increments ai_soft_lock_counter per CR-3b. On EC-AI-1 zero-candidates or EC-AI-2 all-suicidal, AISystem emits AIActionCommand.wait(unit_id) factory result (forfeit-the-turn discipline). Emission happens from `_on_ai_action_requested` handler after archetype scoring + tie-break + materialize. Defense-in-depth via ai_system_signal_emission_outside_action_ready forbidden_pattern enforces zero GameBus emission from AISystem (lint-enforced via tools/ci/lint_ai_system_no_gamebus_emit.sh)."
+    created: 2026-05-05
+    revised: ""
+    status: active
+
+  - id: TR-ai-system-008
+    system: ai-system
+    adr: docs/architecture/ADR-0019-ai-system.md
+    requirement: "§Decision §Decision body + V-2 — MANDATORY `_exit_tree()` body explicitly disconnects GridBattleController.ai_action_requested subscription. Battle-scoped 6th invocation `_exit_tree` discipline mirrors HPStatusController + TurnOrderRunner + BattleCamera + GridBattleController + BattleHUD 5-precedent project pattern from ADR-0010/0011/0013/0014/0015. Implementation: `if _grid_battle_controller != null and _grid_battle_controller.ai_action_requested.is_connected(_on_ai_action_requested): _grid_battle_controller.ai_action_requested.disconnect(_on_ai_action_requested)`. Lint via `grep -E 'is_connected.*disconnect' src/feature/ai/ai_system.gd` returns ≥1 match within `_exit_tree` body. Without this disconnect, if AISystem is freed before GridBattleController (unlikely given mount order but possible during BattleScene teardown reverse-DFS), the leaked Callable would point at freed Node = potential crash on next emit. Pattern stable at 6 invocations of battle-scoped Node `_exit_tree` discipline."
+    created: 2026-05-05
+    revised: ""
+    status: active
+
+  - id: TR-ai-system-009
+    system: ai-system
+    adr: docs/architecture/ADR-0019-ai-system.md
+    requirement: "§Decision §Determinism Contract + AI System GDD §CR-AI-5 — Determinism contract: NO `randf()` / `randi()` / `Time.get_ticks_msec()` / wall-clock reads in scoring functions; NO `static var` (forbidden via ai_system_static_var pattern); NO instance-var state mutation between calls (scoring functions take their inputs as parameters; no caching of prior results); NO external state read (forbidden via ai_system_direct_battle_state_read pattern — AI accesses inputs ONLY via BattleStateSnapshot parameter). Tie-break cascade: `(score DESC, target_unit_id ASC, target_coord.y ASC, target_coord.x ASC)` — always produces unique winner since unit_ids are unique per CR-AI-4 step 4. Identical `(BattleStateSnapshot, unit_id, archetype assignment, round_number)` → field-identical `AIActionCommand` output per AC-AI-2 100-invocation determinism test. Save/load replay (AC-AI-14) is structurally guaranteed by this contract — a saved battle reloaded mid-AI-turn produces the same action because the AI's only inputs are the snapshot Resource + immutable archetype assignment. Lint-enforced via 4 forbidden_patterns (ai_system_signal_emission_outside_action_ready + ai_system_static_var + ai_system_reads_destiny_branch_state + ai_system_direct_battle_state_read)."
+    created: 2026-05-05
+    revised: ""
+    status: active
+
+  - id: TR-ai-system-010
+    system: ai-system
+    adr: docs/architecture/ADR-0019-ai-system.md
+    requirement: "§Decision §Threading + AI System GDD §EC-AI-12 — Main-thread synchronous execution for MVP. `_on_ai_action_requested` runs on the main thread. Decision time budget: P99 < 200ms (AC-AI-11) within 500ms timeout. NO `WorkerThreadPool` use for MVP. If P99 exceeds 200ms on reference Android hardware (Pixel 7-class Adreno 610) per profiling, **future amendment (NOT supersession)** refactors `_on_ai_action_requested` to `WorkerThreadPool.add_task(_score_threaded, snapshot)` + main-thread emit on `task_completed`. The determinism contract (no shared state) makes this trivially thread-safe — but adds task-scheduling overhead that may not be worth it at MVP scale. Premature WorkerThreadPool optimization avoided. Per battle: ~5-7 rounds × ~4 enemies × ~100ms typical = ~2-3 seconds total AI compute time (out of ~5-15 minute battle wall-clock). AI runs synchronously between turn boundaries — does NOT consume the 16.6ms gameplay frame budget. Long AI think (>500ms) is a soft-lock per grid-battle.md CR-3b, not a frame drop."
+    created: 2026-05-05
+    revised: ""
+    status: active
+
+  - id: TR-ai-system-011
+    system: ai-system
+    adr: docs/architecture/ADR-0019-ai-system.md
+    requirement: "§Forbidden Patterns Proposed §1 — `ai_system_signal_emission_outside_action_ready` forbidden_pattern. AISystem (`src/feature/ai/ai_system.gd`) MUST NOT emit any GameBus signal. The single legal signal emission is `ai_action_ready(unit_id: int, command: AIActionCommand)` declared as a LOCAL signal on the AISystem class itself (NOT GameBus). Lint via `tools/ci/lint_ai_system_no_gamebus_emit.sh` (per V-5 + Migration Plan §5): `grep -c 'GameBus\\..*\\.emit' src/feature/ai/ai_system.gd` returns 0. Defense-in-depth lint mirroring 9-precedent stateless-emit / non-emitter discipline (damage_calc_signal_emission + unit_role_signal_emission + hero_database_signal_emission + balance_constants_signal_emission + camera_signal_emission + battle_hud_signal_emission + grid_battle_controller_signal_emission_outside_battle_domain + destiny_branch_judge_emits_gamebus_signal — pattern stable at 9 invocations across stateless calculators + battle-scoped Nodes)."
+    created: 2026-05-05
+    revised: ""
+    status: active
+
+  - id: TR-ai-system-012
+    system: ai-system
+    adr: docs/architecture/ADR-0019-ai-system.md
+    requirement: "§Forbidden Patterns Proposed §2 — `ai_system_static_var` forbidden_pattern. AISystem (`src/feature/ai/ai_system.gd`) and any subclass thereof MUST NOT declare `static var` ANYWHERE in the class hierarchy. CR-AI-5 determinism contract REQUIRES no class-level mutable state — `static var` would introduce shared mutable state that breaks determinism-by-construction + creates order-dependent test failures + breaks battle-scoped Node lifecycle non-persistence contract (CR-AI-1 mandates AISystem freed at battle end with the rest of BattleScene). Lint via `tools/ci/lint_ai_system_no_static_var.sh` (per V-5 + Migration Plan §5): `grep -E '^static var' src/feature/ai/ai_system.gd` returns 0. **5-precedent battle-scoped + RefCounted lint pattern mirror** after grid_battle_controller_static_state + hp_status_static_var_state_addition + turn_order_static_var_state_addition + destiny_branch_judge_static_var. Pattern stable at 5 invocations of battle-scoped + RefCounted state-isolation discipline."
+    created: 2026-05-05
+    revised: ""
+    status: active
+
+  - id: TR-ai-system-013
+    system: ai-system
+    adr: docs/architecture/ADR-0019-ai-system.md
+    requirement: "§Forbidden Patterns Proposed §3 — `ai_system_reads_destiny_branch_state` forbidden_pattern. AISystem (`src/feature/ai/ai_system.gd`) MUST NEVER contain the literal tokens 'hidden_fate_condition_progressed' OR 'DestinyBranchChoice' OR 'destiny_branch_chosen'. Lint via `tools/ci/lint_ai_system_no_destiny_branch_reference.sh` (per V-5 + Migration Plan §5): `grep -E 'hidden_fate_condition_progressed|DestinyBranchChoice|destiny_branch_chosen' src/feature/ai/ai_system.gd` returns 0 matches. **CRITICAL — Pillar 2 architectural lock — 4th project precedent of pillar-anchored lint pattern** after `battle_hud_subscribes_to_hidden_fate_signal` (ADR-0015 1st) + `scenario_runner_deferred_seal_in_beat_7_entry` (ADR-0017 2nd) + `destiny_branch_judge_reads_scenario_runner_state` (ADR-0018 3rd). Pattern firmly stable at 4 invocations. 3-layer enforcement triad codified per control-manifest.md §Pillar 2 Architectural Locks (2026-05-04 path-to-PASS item #3): (1) source-grep lint (zero token occurrences in AI source); (2) ADR-0019 §CR-AI-8 + Forbidden Patterns Proposed §3 inline annotation; (3) integration test (sprint-7+ S7-04) asserting AISystem.scripts contain zero matches via FileAccess source-scan per G-22 structural assertion pattern. game-concept.md Pillar 2 (운명은 바꿀 수 있다) ratifies that fate progress is HIDDEN from the player during battle and surfaces only at Beat 7 reserved-color reveal — AI exposure of fate-state in scoring decisions would create a feedback loop where AI difficulty correlates with player's fate progress, eliminating the surprise/weight/recognition that destiny-branch.md OQ-DB-10 makes a >10% miss-rate Pillar 2 failure threshold against."
+    created: 2026-05-05
+    revised: ""
+    status: active
+
+  - id: TR-ai-system-014
+    system: ai-system
+    adr: docs/architecture/ADR-0019-ai-system.md
+    requirement: "§Forbidden Patterns Proposed §4 — `ai_system_direct_battle_state_read` forbidden_pattern. AISystem (`src/feature/ai/ai_system.gd`) MUST NOT reference `MapGrid.` / `HPStatusController.` / `TurnOrderRunner.` outside the BattleStateSnapshot parameter binding. AI accesses inputs ONLY via the BattleStateSnapshot Resource passed in `ai_action_requested` LOCAL signal — reading `MapGrid.get_X()` / `HPStatusController.get_X()` / `TurnOrderRunner.get_X()` directly during scoring is FORBIDDEN per CR-AI-6. Snapshot construction is GridBattleController's responsibility per `_make_battle_state_snapshot()` private helper added at sprint-7+ S7-04 implementation patch. Lint via `tools/ci/lint_ai_system_no_direct_state_read.sh` (per V-5 + Migration Plan §5): `grep -E 'MapGrid\\.|HPStatusController\\.|TurnOrderRunner\\.' src/feature/ai/ai_system.gd` returns 0 matches outside DI binding lines (the `_grid_battle_controller: GridBattleController` field declaration is exempt — it's the DI'd reference, not a state read). **2nd invocation of pure-function-takes-snapshot pattern** after `destiny_branch_judge_reads_scenario_runner_state` (ADR-0018 1st) — ensures determinism by NEVER reading shared mutable state at evaluation time; the snapshot IS the truth at decision time."
+    created: 2026-05-05
+    revised: ""
+    status: active
+
+  - id: TR-ai-system-015
+    system: ai-system
+    adr: docs/architecture/ADR-0019-ai-system.md
+    requirement: "§Decision §Decision body + V-1 — DI null-check assert in `_ready()`: `assert(_grid_battle_controller != null, \"AISystem: setup() must be called before add_child()\")`. Fail-loud if BattleScene mount sequence skips `setup()` per setup-before-add_child mandate (5-precedent project discipline from ADR-0010/0011/0013/0014/0015). The DI'd backend reference (_grid_battle_controller: GridBattleController) is set by BattleScene at step 5.5 via `var ai_system := AISystem.new(); ai_system.setup(_grid_controller); add_child(ai_system)` per ADR-0019 §Mount Order + ADR-0016 §3 R-3 amended via delta #14. Pattern boundary: every battle-scoped Node with DI'd backend dependencies MUST include a `_ready()` null-check assert mirroring this 6-precedent project discipline."
+    created: 2026-05-05
     revised: ""
     status: active

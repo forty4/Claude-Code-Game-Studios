@@ -25,7 +25,7 @@ The player must feel that **the enemy is reading the same battle they are**.
 
 ### CR-AI-1. AI is a battle-scoped subsystem
 
-`AISystem` is instantiated per battle by `BattleScene` root mount sequence (post-MVP step 6.5, between GridBattleController and BattleHUD per ADR-0019 §Mount Order — to be ratified). Freed at battle end with the rest of BattleScene. Zero cross-battle state; archetype assignment loaded from chapter data per encounter.
+`AISystem` is instantiated per battle by `BattleScene` root mount sequence at **step 5.5** (between GridBattleController step 5 and BattleHUD step 6 per ADR-0019 §Mount Order + ADR-0016 §3 R-3 amended via /architecture-review delta #14 2026-05-05; Path A insert preserves existing 1-6 numbering, full 1-7 renumber deferred to sprint-7+ S7-02). Freed at battle end with the rest of BattleScene. Zero cross-battle state; archetype assignment loaded from chapter data per encounter.
 
 ### CR-AI-2. Archetype assignment is data-driven
 
