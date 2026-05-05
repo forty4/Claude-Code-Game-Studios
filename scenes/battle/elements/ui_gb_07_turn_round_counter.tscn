@@ -1,0 +1,21 @@
+[gd_scene format=3]
+
+;; UI-GB-07 Turn/Round Counter — sprint-7 S7-09 (battle-hud story-004).
+;; HBoxContainer with 2 Labels: round_label + turn_label per battle-hud.md §3.
+;; Updated by _on_round_started + _on_unit_turn_started handlers in BattleHUD.
+;; AccessKit: tooltip_text on root + each Label.
+
+[node name="UI_GB_07_TurnRoundCounter" type="HBoxContainer"]
+tooltip_text = "Round and turn counter"
+custom_minimum_size = Vector2(180, 0)
+
+[node name="RoundLabel" type="Label" parent="."]
+tooltip_text = "Current round"
+text = "Round 0"
+
+[node name="Spacer" type="Label" parent="."]
+text = "  /  "
+
+[node name="TurnLabel" type="Label" parent="."]
+tooltip_text = "Current acting unit"
+text = "Turn: -"

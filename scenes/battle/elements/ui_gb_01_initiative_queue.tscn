@@ -1,0 +1,115 @@
+[gd_scene format=3]
+
+;; UI-GB-01 Initiative Queue — sprint-7 S7-09 (battle-hud story-004).
+;; HBoxContainer root with 8 fixed slots; each slot = TextureRect + Label.
+;; Slots populated via _ui_gb_01_slots Array[Control] in BattleHUD._ready().
+;; Empty/excess slots hidden via slot.visible = false.
+;; AccessKit: per-slot tooltip_text set at populate-time per ADR-0015 §Verification Item 5.
+;; Allocation-free steady state: rebuild swaps Texture refs, never instantiates new nodes.
+
+[node name="UI_GB_01_InitiativeQueue" type="HBoxContainer"]
+tooltip_text = "Initiative queue"
+custom_minimum_size = Vector2(0, 56)
+
+[node name="Slot0" type="VBoxContainer" parent="."]
+custom_minimum_size = Vector2(48, 56)
+
+[node name="Portrait" type="TextureRect" parent="Slot0"]
+custom_minimum_size = Vector2(44, 44)
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NameLabel" type="Label" parent="Slot0"]
+text = ""
+horizontal_alignment = 1
+
+[node name="Slot1" type="VBoxContainer" parent="."]
+custom_minimum_size = Vector2(48, 56)
+visible = false
+
+[node name="Portrait" type="TextureRect" parent="Slot1"]
+custom_minimum_size = Vector2(44, 44)
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NameLabel" type="Label" parent="Slot1"]
+text = ""
+horizontal_alignment = 1
+
+[node name="Slot2" type="VBoxContainer" parent="."]
+custom_minimum_size = Vector2(48, 56)
+visible = false
+
+[node name="Portrait" type="TextureRect" parent="Slot2"]
+custom_minimum_size = Vector2(44, 44)
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NameLabel" type="Label" parent="Slot2"]
+text = ""
+horizontal_alignment = 1
+
+[node name="Slot3" type="VBoxContainer" parent="."]
+custom_minimum_size = Vector2(48, 56)
+visible = false
+
+[node name="Portrait" type="TextureRect" parent="Slot3"]
+custom_minimum_size = Vector2(44, 44)
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NameLabel" type="Label" parent="Slot3"]
+text = ""
+horizontal_alignment = 1
+
+[node name="Slot4" type="VBoxContainer" parent="."]
+custom_minimum_size = Vector2(48, 56)
+visible = false
+
+[node name="Portrait" type="TextureRect" parent="Slot4"]
+custom_minimum_size = Vector2(44, 44)
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NameLabel" type="Label" parent="Slot4"]
+text = ""
+horizontal_alignment = 1
+
+[node name="Slot5" type="VBoxContainer" parent="."]
+custom_minimum_size = Vector2(48, 56)
+visible = false
+
+[node name="Portrait" type="TextureRect" parent="Slot5"]
+custom_minimum_size = Vector2(44, 44)
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NameLabel" type="Label" parent="Slot5"]
+text = ""
+horizontal_alignment = 1
+
+[node name="Slot6" type="VBoxContainer" parent="."]
+custom_minimum_size = Vector2(48, 56)
+visible = false
+
+[node name="Portrait" type="TextureRect" parent="Slot6"]
+custom_minimum_size = Vector2(44, 44)
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NameLabel" type="Label" parent="Slot6"]
+text = ""
+horizontal_alignment = 1
+
+[node name="Slot7" type="VBoxContainer" parent="."]
+custom_minimum_size = Vector2(48, 56)
+visible = false
+
+[node name="Portrait" type="TextureRect" parent="Slot7"]
+custom_minimum_size = Vector2(44, 44)
+expand_mode = 1
+stretch_mode = 5
+
+[node name="NameLabel" type="Label" parent="Slot7"]
+text = ""
+horizontal_alignment = 1

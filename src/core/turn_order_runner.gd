@@ -352,21 +352,25 @@ func declare_action(unit_id: int, action: int, target: ActionTarget) -> ActionRe
 ## Damage Calc consumes per attack for Scout Ambush gate (ADR-0012 line 343 —
 ## unit_id type LOCKED to int per ADR-0011; advisory queued for ADR-0012 amendment).
 ## Returns false for unknown unit_id (dead unit removed from _unit_states);
-## R-2 defensive _unit_states.has() check applied in full implementation (story-003+).
+## R-2 defensive _unit_states.has() check applied in full implementation.
+## Sprint-7 S7-09 prereq: stub `return false` replaced with proper instance-state read.
 ##
 ## Usage:
 ##     var acted: bool = runner.get_acted_this_turn(unit_id)
 func get_acted_this_turn(_unit_id: int) -> bool:
-	return false
+	if not _unit_states.has(_unit_id):
+		return false
+	return _unit_states[_unit_id].acted_this_turn
 
 
 ## Returns the current round counter. 0 before BI-4 / R1 (battle not started).
 ## Damage Calc consumes per attack for Scout Ambush round-2+ gate (ADR-0012).
+## Sprint-7 S7-09 prereq: stub `return 0` replaced with proper instance-state read.
 ##
 ## Usage:
 ##     var round: int = runner.get_current_round_number()
 func get_current_round_number() -> int:
-	return 0
+	return _round_number
 
 
 ## Returns a pull-based deep snapshot of current queue state.
@@ -374,12 +378,26 @@ func get_current_round_number() -> int:
 ## TurnOrderSnapshot is RefCounted with pure value semantics — consumers cannot
 ## mutate _queue or _unit_states via the snapshot
 ## (forbidden_pattern: turn_order_consumer_mutation).
-## Returns null before initialize_battle() (story-002 implements the full body).
+## Returns empty snapshot (round_number=0, queue=[]) before initialize_battle().
+## Sprint-7 S7-09 prereq: stub `return null` replaced with proper instance-state read.
 ##
 ## Usage:
 ##     var snap: TurnOrderSnapshot = runner.get_turn_order_snapshot()
 func get_turn_order_snapshot() -> TurnOrderSnapshot:
-	return null
+	var snap: TurnOrderSnapshot = TurnOrderSnapshot.new()
+	snap.round_number = _round_number
+	for uid: int in _queue:
+		if not _unit_states.has(uid):
+			continue  # Defensive — dead unit removed from _unit_states before queue rebuild
+		var state: UnitTurnState = _unit_states[uid]
+		var entry: TurnOrderEntry = TurnOrderEntry.new()
+		entry.unit_id = state.unit_id
+		entry.is_player_controlled = state.is_player_controlled
+		entry.initiative = state.initiative
+		entry.acted_this_turn = state.acted_this_turn
+		entry.turn_state = state.turn_state as int
+		snap.queue.append(entry)
+	return snap
 
 
 ## Returns true iff _unit_states[unit_id].accumulated_move_cost >=
@@ -400,12 +418,15 @@ func get_charge_ready(unit_id: int) -> bool:
 ## AI System consumes for action selection context at T4.
 ## Returns snapshot() copy — consumer cannot mutate original
 ## (forbidden_pattern: turn_order_consumer_mutation).
-## Returns null for unknown unit_id (story-003+ implementation).
+## Returns null for unknown unit_id.
+## Sprint-7 S7-09 prereq: stub `return null` replaced with proper instance-state read.
 ##
 ## Usage:
 ##     var state: UnitTurnState = runner.get_unit_turn_state(unit_id)
 func get_unit_turn_state(_unit_id: int) -> UnitTurnState:
-	return null
+	if not _unit_states.has(_unit_id):
+		return null
+	return _unit_states[_unit_id].snapshot()
 
 # ── Public test seam ───────────────────────────────────────────────────────────
 

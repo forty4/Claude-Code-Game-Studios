@@ -1,0 +1,16 @@
+[gd_scene format=3]
+
+;; UI-GB-08 Victory Condition — sprint-7 S7-09 (battle-hud story-004).
+;; PanelContainer + Label rendering victory condition text per battle-hud.md §3.
+;; Starts visible=false; BattleScene calls BattleHUD.set_victory_condition() at battle init.
+;; AccessKit: tooltip_text on root.
+
+[node name="UI_GB_08_VictoryCondition" type="PanelContainer"]
+tooltip_text = "Victory condition"
+visible = false
+custom_minimum_size = Vector2(220, 44)
+
+[node name="ConditionLabel" type="Label" parent="."]
+tooltip_text = "Victory condition text"
+text = ""
+autowrap_mode = 3

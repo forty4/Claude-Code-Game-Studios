@@ -68,9 +68,21 @@ var _ui_elements: Dictionary[StringName, Control] = {}
 var _active_status_panel_unit_id: int = -1
 
 
-## Preloaded UI element scenes (story-003 + future stories add more).
+## Story-004 (S7-09): UI-GB-01 slot tracking. Cached at _ready() for O(1) access
+## during _on_round_started rebuild + _on_unit_turn_started highlight + _on_unit_died rebuild.
+## Each entry is the slot's VBoxContainer Control (parent of Portrait + NameLabel).
+## _slot_unit_ids[i] tracks which unit_id is currently in slot[i] (-1 = empty/hidden).
+var _ui_gb_01_slots: Array[Control] = []
+var _ui_gb_01_slot_unit_ids: Array[int] = [-1, -1, -1, -1, -1, -1, -1, -1]
+var _ui_gb_01_active_slot_index: int = -1
+
+
+## Preloaded UI element scenes (story-003 + story-004 + future stories add more).
 const _UI_GB_03_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_03_unit_info_panel.tscn")
 const _UI_GB_11_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_11_defend_stance_badge.tscn")
+const _UI_GB_01_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_01_initiative_queue.tscn")
+const _UI_GB_07_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_07_turn_round_counter.tscn")
+const _UI_GB_08_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_08_victory_condition.tscn")
 
 
 # ─── DI seam ─────────────────────────────────────────────────────────────────
@@ -167,6 +179,23 @@ func _ready() -> void:
 	_ui_elements[&"UI-GB-03"] = ui_gb_03
 	_ui_elements[&"UI-GB-11"] = ui_gb_11
 
+	# ── Story-004 (S7-09): UI-GB-01 + UI-GB-07 + UI-GB-08 element mount ───────
+	# UI-GB-01 + UI-GB-07 visible by default; UI-GB-08 starts hidden (set_victory_condition reveals).
+	var ui_gb_01: Control = _UI_GB_01_SCENE.instantiate() as Control
+	var ui_gb_07: Control = _UI_GB_07_SCENE.instantiate() as Control
+	var ui_gb_08: Control = _UI_GB_08_SCENE.instantiate() as Control
+	add_child(ui_gb_01)
+	add_child(ui_gb_07)
+	add_child(ui_gb_08)
+	_ui_elements[&"UI-GB-01"] = ui_gb_01
+	_ui_elements[&"UI-GB-07"] = ui_gb_07
+	_ui_elements[&"UI-GB-08"] = ui_gb_08
+	# Cache UI-GB-01 slot Controls for O(1) rebuild access (allocation-free steady state per Guardrail).
+	_ui_gb_01_slots.clear()
+	for i: int in range(8):
+		var slot: Control = ui_gb_01.get_node("Slot%d" % i) as Control
+		_ui_gb_01_slots.append(slot)
+
 
 func _exit_tree() -> void:
 	# Disconnect all 11 subscriptions mirroring the connect block in _ready().
@@ -204,6 +233,23 @@ func _exit_tree() -> void:
 
 
 # ─── Public methods ───────────────────────────────────────────────────────────
+
+## set_victory_condition() — story-004 (S7-09). Called by BattleScene at battle init
+## per ADR-0016 §step 6 mount sequence. Sets UI-GB-08 ConditionLabel.text + makes
+## the panel visible. Repeated calls replace the text. No "hide" path within MVP —
+## condition stays visible until BattleScene tears down.
+##
+## condition_text: StringName — i18n key (e.g., &"victory.scenario_01.defeat_commander").
+## Resolved by tr() at render time; if no locale entry, the key itself is used.
+func set_victory_condition(condition_text: StringName) -> void:
+	var panel: Control = _ui_elements.get(&"UI-GB-08")
+	if panel == null:
+		return
+	var label: Label = panel.get_node_or_null("ConditionLabel") as Label
+	if label != null:
+		label.text = tr(String(condition_text))
+	panel.visible = true
+
 
 ## show_unit_info() — InputRouter Touch Tap Preview Protocol (CR-4a).
 ##
@@ -290,6 +336,83 @@ func _set_defend_seal_visible(visible_state: bool) -> void:
 	var seal: Control = _ui_elements.get(&"UI-GB-11")
 	if seal != null:
 		seal.visible = visible_state
+
+
+## _rebuild_initiative_queue() — story-004 (S7-09).
+##
+## Pull-based UI-GB-01 rebuild from `_turn_runner.get_turn_order_snapshot()`.
+## Populates first 8 slots from snapshot.queue; hides remainder. Allocation-free
+## steady state per Guardrail (Texture refs swap, no Node instantiation).
+##
+## Called by _on_round_started + _on_unit_died. The signal is a "queue may have
+## changed — re-read" tap, NOT a state delivery (per story-004 Implementation Note 1).
+func _rebuild_initiative_queue() -> void:
+	if _turn_runner == null or _ui_gb_01_slots.is_empty():
+		return
+	var snap: TurnOrderSnapshot = _turn_runner.get_turn_order_snapshot()
+	if snap == null:
+		return
+	var n: int = mini(8, snap.queue.size())
+	for i: int in range(8):
+		var slot: Control = _ui_gb_01_slots[i]
+		if i < n:
+			var entry: TurnOrderEntry = snap.queue[i]
+			_ui_gb_01_slot_unit_ids[i] = entry.unit_id
+			var name_label: Label = slot.get_node_or_null("NameLabel") as Label
+			if name_label != null:
+				var hero_name: String = "U%d" % entry.unit_id
+				if _hero_db != null and _grid_controller != null:
+					var battle_unit: BattleUnit = _grid_controller.get_battle_unit(entry.unit_id)
+					if battle_unit != null:
+						var hero: HeroData = HeroDatabase.get_hero(battle_unit.hero_id)
+						if hero != null and hero.name_ko != "":
+							hero_name = hero.name_ko
+				name_label.text = hero_name
+			slot.tooltip_text = "Upcoming: %s" % (name_label.text if name_label != null else "U%d" % entry.unit_id)
+			slot.visible = true
+		else:
+			_ui_gb_01_slot_unit_ids[i] = -1
+			slot.visible = false
+	# Clear stale highlight if active unit no longer in queue.
+	if _ui_gb_01_active_slot_index >= 0 and _ui_gb_01_active_slot_index < n:
+		_set_initiative_queue_slot_modulate(_ui_gb_01_active_slot_index, true)
+	else:
+		_ui_gb_01_active_slot_index = -1
+
+
+## _set_initiative_queue_highlight() — story-004 (S7-09).
+##
+## Find the slot whose unit_id matches + apply visual highlight (modulate.a boost).
+## If unit_id NOT in queue, clear active slot index (visual no-op).
+func _set_initiative_queue_highlight(unit_id: int) -> void:
+	# Clear any prior highlight first.
+	if _ui_gb_01_active_slot_index >= 0:
+		_set_initiative_queue_slot_modulate(_ui_gb_01_active_slot_index, false)
+	_ui_gb_01_active_slot_index = -1
+	for i: int in range(_ui_gb_01_slot_unit_ids.size()):
+		if _ui_gb_01_slot_unit_ids[i] == unit_id:
+			_ui_gb_01_active_slot_index = i
+			_set_initiative_queue_slot_modulate(i, true)
+			return
+
+
+## _clear_initiative_queue_highlight() — story-004 (S7-09).
+func _clear_initiative_queue_highlight() -> void:
+	if _ui_gb_01_active_slot_index >= 0:
+		_set_initiative_queue_slot_modulate(_ui_gb_01_active_slot_index, false)
+	_ui_gb_01_active_slot_index = -1
+
+
+## _set_initiative_queue_slot_modulate() — story-004 (S7-09) visual highlight impl.
+## Implementation choice per Implementation Note 3: modulate.a boost
+## (1.0 default → 1.2 when highlighted). Art-director sign-off per epic R-6.
+func _set_initiative_queue_slot_modulate(slot_index: int, highlighted: bool) -> void:
+	if slot_index < 0 or slot_index >= _ui_gb_01_slots.size():
+		return
+	var slot: Control = _ui_gb_01_slots[slot_index]
+	if slot == null:
+		return
+	slot.modulate.a = 1.2 if highlighted else 1.0
 
 
 ## _populate_status_effects_box() — clears + repopulates UI-GB-03 status icons.
@@ -437,36 +560,62 @@ func _on_battle_outcome_resolved(outcome: StringName, fate_data: Dictionary) -> 
 ## Story-003 routing: defensive clear of _active_status_panel_unit_id when the
 ## active panel unit dies (panel may already be hidden by other paths but this
 ## ensures the sentinel is reset even if dismissal didn't happen).
+## Story-004 (S7-09): rebuild UI-GB-01 from fresh turn-order snapshot since the
+## dead unit is removed from initiative queue.
 func _on_unit_died(unit_id: int) -> void:
 	_handle_signal(&"unit_died", [unit_id])
 	if unit_id == _active_status_panel_unit_id:
 		show_unit_info(-1)
+	_rebuild_initiative_queue()
 
 
 ## _on_round_started — GameBus subscriber (emitter: TurnOrderRunner).
+## Story-004 (S7-09): updates UI-GB-07 round_label + rebuilds UI-GB-01 from fresh snapshot.
 func _on_round_started(round_number: int) -> void:
 	_handle_signal(&"round_started", [round_number])
-	# UI-GB-01/07/08 round counter + turn order panel wired in stories 003-004.
+	var counter: Control = _ui_elements.get(&"UI-GB-07")
+	if counter != null:
+		var round_label: Label = counter.get_node_or_null("RoundLabel") as Label
+		if round_label != null:
+			round_label.text = "Round %d" % round_number
+	_rebuild_initiative_queue()
 
 
 ## _on_unit_turn_started — GameBus subscriber (emitter: TurnOrderRunner).
 ##
 ## Story-003 routing: if the panel is currently rendering this unit, re-invoke
 ## show_unit_info() to refresh status-effects HBox + DEFEND_STANCE seal expiry.
-## DEFEND_STANCE has 1-turn duration per hp-status.md SE-3; this handler is the
-## natural expiry tick (status array no longer contains defend_stance after
-## TurnOrderRunner advances the turn).
+## Story-004 (S7-09): updates UI-GB-07 turn_label with active unit name + highlights
+## the matching slot in UI-GB-01.
 func _on_unit_turn_started(unit_id: int) -> void:
 	_handle_signal(&"unit_turn_started", [unit_id])
 	if unit_id == _active_status_panel_unit_id:
 		show_unit_info(unit_id)
+	# UI-GB-07 turn label
+	var counter: Control = _ui_elements.get(&"UI-GB-07")
+	if counter != null:
+		var turn_label: Label = counter.get_node_or_null("TurnLabel") as Label
+		if turn_label != null:
+			var hero_name: String = "Unit %d" % unit_id
+			if _hero_db != null:
+				var battle_unit: BattleUnit = _grid_controller.get_battle_unit(unit_id) if _grid_controller != null else null
+				if battle_unit != null:
+					var hero: HeroData = HeroDatabase.get_hero(battle_unit.hero_id)
+					if hero != null and hero.name_ko != "":
+						hero_name = hero.name_ko
+			turn_label.text = "Turn: %s" % hero_name
+	# UI-GB-01 highlight
+	_set_initiative_queue_highlight(unit_id)
 
 
 ## _on_unit_turn_ended — GameBus subscriber (emitter: TurnOrderRunner).
 ## acted: bool — 2-param signature per GameBus line 32: `signal unit_turn_ended(unit_id: int, acted: bool)`.
+## Story-004 (S7-09): clears UI-GB-01 highlight from the slot matching unit_id.
 func _on_unit_turn_ended(unit_id: int, acted: bool) -> void:
 	_handle_signal(&"unit_turn_ended", [unit_id, acted])
-	# UI-GB-07 turn indicator reset wired in story-004.
+	if _ui_gb_01_active_slot_index >= 0 and _ui_gb_01_active_slot_index < _ui_gb_01_slot_unit_ids.size():
+		if _ui_gb_01_slot_unit_ids[_ui_gb_01_active_slot_index] == unit_id:
+			_clear_initiative_queue_highlight()
 
 
 ## _on_input_state_changed — GameBus subscriber (emitter: InputRouter).

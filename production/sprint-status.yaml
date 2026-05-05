@@ -11,7 +11,7 @@ goal: "Ship chapter-1 (장판파) end-to-end as the first user-experienceable na
 start: "2026-05-31"
 end: "2026-06-06"
 generated: "2026-05-04"
-updated: "2026-05-05"  # S7-06 story-event GDD close — Must+Should 7/7 done (S7-01..S7-07); S7-08..S7-11 nice-to-have remain. Gate-check upgrade-path: claude-owned items closed.
+updated: "2026-05-05"  # S7-09 battle-hud story-004 + 4 turn-order stub-API fills (prereq); 9/11 done. S7-10 nice-to-have + S7-11 user-owned remain. Gate-check upgrade-path: claude-owned items closed.
 
 # Sprint-6 closed 12/12 (must-have 7/7 + should 3/3 + nice 2/2) by 2026-05-04 — all stories
 # Done across 5 deltas. 25th consecutive failure-free baseline (876 → 907 / +31 tests).
@@ -117,11 +117,12 @@ stories:
     name: "battle-hud story-004: UI-GB-01 Initiative Queue + UI-GB-07 Turn/Round Counter + UI-GB-08 Victory Condition Display (carried from sprint-6 nice-to-have S6-12)"
     file: "production/epics/battle-hud/story-004-initiative-queue-counters.md"
     priority: nice-to-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.4
     blocker: ""
-    completed: ""
+    completed: "2026-05-05"
+    # S7-09 done 2026-05-05 — 3 .tscn + battle_hud handlers + set_victory_condition + 6 integration tests; 4 turn-order stub APIs filled (prereq) + 9 query-API tests; 978/978 PASS (+15).
 
   - id: "S7-10"
     name: "battle-hud story-005: UI-GB-02/05/10 + two-tap ATTACK/DEFEND HUD-owns-timer (TR-005/017); AC-UX-HUD-08/09 contract verification"
