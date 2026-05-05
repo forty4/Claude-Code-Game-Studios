@@ -98,6 +98,12 @@ signal battle_outcome_resolved(outcome: StringName, fate_data: Dictionary)
 ## is the SOLE subscriber — Battle HUD MUST NOT subscribe (preserves "hidden" semantic).
 signal hidden_fate_condition_progressed(condition_id: StringName, value: int)
 
+## 6th LOCAL signal — emitted at AI-turn entry per ADR-0019 + ADR-0014 §8 amended
+## via /architecture-review delta #14 2026-05-05. AISystem (battle-scoped Node 6th
+## invocation) subscribes with CONNECT_DEFERRED and responds via its own LOCAL
+## signal `ai_action_ready(unit_id, command)` within 500ms timeout per CR-3.
+signal ai_action_requested(unit_id: int, snapshot: BattleStateSnapshot)
+
 
 # ─── DI dependencies (ADR-0014 §3) ──────────────────────────────────────────
 
@@ -408,7 +414,79 @@ func _on_unit_died(unit_id: int) -> void:
 
 func _on_unit_turn_started(unit_id: int) -> void:
 	# TODO(story-006): reset per-turn acted flag for this unit
-	pass
+	# Per ADR-0019 + grid-battle.md CR-3: AI-turn detection + ai_action_requested emission.
+	# When the active turn unit is non-player-controlled, emit ai_action_requested
+	# so that AISystem (battle-scoped Node 6th invocation) can produce an action.
+	if _battle_over:
+		return
+	if not _units.has(unit_id):
+		return
+	var unit: BattleUnit = _units[unit_id]
+	if unit == null or unit.is_player_controlled:
+		return  # player turn handled by InputRouter / GridBattleController click logic
+	# Build snapshot + emit. AISystem responds via its LOCAL ai_action_ready signal
+	# within 500ms timeout per CR-3 (timeout enforcement is post-MVP — sprint-7
+	# ships the emission protocol; CR-3b WAIT-substitution + ai_soft_lock_counter
+	# defer to post-MVP timer integration).
+	var snapshot: BattleStateSnapshot = _make_battle_state_snapshot()
+	ai_action_requested.emit(unit_id, snapshot)
+
+
+## Builds a flat-data BattleStateSnapshot from the current battle state.
+## Called by `_on_unit_turn_started` for AI-turn entries. Read-only — does not
+## mutate _units, _map_grid, _hp_controller, or _turn_runner. Per ADR-0019
+## §Decision §Payload Form.
+func _make_battle_state_snapshot() -> BattleStateSnapshot:
+	var snap: BattleStateSnapshot = BattleStateSnapshot.new()
+	# Per-unit data.
+	for u: BattleUnit in _units.values():
+		var hp_curr: int = _hp_controller.get_current_hp(u.unit_id) if _hp_controller != null else 0
+		var hp_mx: int = _hp_controller.get_max_hp(u.unit_id) if _hp_controller != null else 1
+		var alive: bool = _hp_controller.is_alive(u.unit_id) if _hp_controller != null else true
+		snap.units.append({
+			"unit_id": u.unit_id,
+			"archetype": u.tag if u.tag != &"" else &"aggressor",
+			"position": u.position,
+			"hp_current": hp_curr,
+			"hp_max": hp_mx,
+			"atk": u.raw_atk,
+			"def": u.raw_def,
+			"move_range": u.move_range,
+			"attack_range": u.attack_range,
+			"side": u.side,
+			"is_player_controlled": u.is_player_controlled,
+			"passive_id": &"",
+			"tag": u.tag,
+			"is_alive": alive,
+		})
+	# Map dimensions + terrain grid.
+	if _map_grid != null:
+		var dims: Vector2i = _map_grid.get_map_dimensions()
+		snap.map_dimensions = dims
+		# Build flat row-major terrain grid for snapshot consumers.
+		var grid: PackedInt32Array = PackedInt32Array()
+		for row in range(dims.y):
+			for col in range(dims.x):
+				var tile: MapTileData = _map_grid.get_tile(Vector2i(col, row))
+				grid.append(tile.terrain_type if tile != null else 0)
+		snap.terrain_grid = grid
+	# Round number.
+	snap.round_number = _turn_runner.get_current_round_number() if _turn_runner != null else 0
+	# Turn queue (best effort; empty if API not available).
+	snap.queue_unit_ids = []
+	# Chokepoints + formation_center: sprint-7 stub fixture has no chokepoints;
+	# formation_center = centroid of allied (enemy-side) units' positions.
+	snap.chokepoints = []
+	var enemy_positions: Array[Vector2i] = []
+	for u: BattleUnit in _units.values():
+		if u.side == 1:
+			enemy_positions.append(u.position)
+	if not enemy_positions.is_empty():
+		var sum: Vector2i = Vector2i.ZERO
+		for p: Vector2i in enemy_positions:
+			sum += p
+		snap.formation_center = Vector2i(sum.x / enemy_positions.size(), sum.y / enemy_positions.size())
+	return snap
 
 
 ## Subscribed to GameBus.round_started via CONNECT_DEFERRED in _ready().

@@ -3,7 +3,7 @@
 > **Layer**: Feature
 > **GDD**: `design/gdd/ai-system.md` (rev 1.0 — Designed; CR-AI-1..8 + F-AI-1..4 + EC-AI-1..12 + AC-AI-1..14 + OQ-AI-1..5; CR-AI-1 step number reconciled "6.5" → "5.5" via delta #14 same-patch wording flip)
 > **Architecture Module**: `AISystem` — `class_name AISystem extends Node` battle-scoped **6th invocation of battle-scoped Node pattern** after HPStatusController + TurnOrderRunner + BattleCamera + GridBattleController + BattleHUD. **Single source file** (`src/feature/ai/ai_system.gd`, target ~300 LoC) with **single-class match-dispatch on archetype StringName** (NOT subclass hierarchy per Alternative §4 rejection — closed 4-archetype MVP set per CR-AI-3; YAGNI applies for solo-dev productivity). Mounted in BattleScene `_ready()` mount sequence at **step 5.5** (post-GridBattleController step 5, pre-BattleHUD step 6 per ADR-0016 §3 R-3 amended via /architecture-review delta #14 2026-05-05; Path A insert preserves existing 1-6 numbering, full 1-7 renumber deferred to sprint-7+ S7-02). Battle-scoped lifecycle (vs autoload) chosen because archetype assignments are chapter-scoped; no cross-battle state needed.
-> **Status**: Ready (1 story created via `/create-stories ai-system` 2026-05-05)
+> **Status**: Complete (1/1 stories shipped 2026-05-05 — single coordinated patch; epic-terminal close)
 > **Stories**: 1 epic-terminal story — see Stories table below
 > **Created**: 2026-05-05 (Sprint 7 — same session as ADR-0019 acceptance via /architecture-review delta #14)
 > **Manifest Version**: 2026-05-04 (`docs/architecture/control-manifest.md` — refreshed via gate-check pre-prod-to-prod-2026-05-04 path-to-PASS item #3)

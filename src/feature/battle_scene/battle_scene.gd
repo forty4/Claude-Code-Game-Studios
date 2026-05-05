@@ -69,6 +69,7 @@ var _battle_camera: BattleCamera
 var _hp_controller: HPStatusController
 var _turn_runner: TurnOrderRunner
 var _grid_controller: GridBattleController
+var _ai_system: AISystem
 var _battle_hud: BattleHUD
 
 
@@ -169,6 +170,15 @@ func _ready() -> void:
 		_unit_role,
 	)
 	add_child(_grid_controller)
+
+	# === STEP 5.5: AISystem (ADR-0019) — battle-scoped Node 6th invocation ===
+	# Inserted via /architecture-review delta #14 2026-05-05 per ADR-0016 §3 R-3
+	# Path A (preserves existing 1-6 numbering; full 1-7 renumber deferred).
+	# Subscribes to GridBattleController.ai_action_requested with CONNECT_DEFERRED.
+	_ai_system = AISystem.new()
+	_ai_system.name = "AISystem"
+	_ai_system.setup(_grid_controller)
+	add_child(_ai_system)
 
 	# === STEP 6: BattleHUD (ADR-0015) — depends on all 5 prior ===
 	_battle_hud = BattleHUD.new()

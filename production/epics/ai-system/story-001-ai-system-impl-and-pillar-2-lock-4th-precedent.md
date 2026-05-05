@@ -1,7 +1,7 @@
 # Story 001: AISystem implementation per ADR-0019 Migration Plan §2..§5 + Pillar 2 architectural lock 4th precedent enforcement
 
 > **Epic**: ai-system
-> **Status**: Ready (depends on scenario-progression story-001 for ChapterDefinition.enemy_roster archetype field consumer + destiny-branch story-001 already covers Pillar 2 lock 3rd precedent setup)
+> **Status**: Complete (2026-05-05 — single coordinated patch; 953/953 tests + 4/4 lints PASS; Pillar 2 lock 4th precedent enforced)
 > **Layer**: Feature
 > **Type**: Logic + Integration (Logic for 4 archetype scoring functions + match-dispatch + tie-break cascade + determinism contract; Integration for GridBattleController LOCAL signal protocol + BattleScene mount step 5.5 + 4 lints including Pillar 2 architectural lock 4th precedent + ChapterDefinition.enemy_roster archetype field consumer + 10 BalanceConstants entries)
 > **Manifest Version**: 2026-05-04 (`docs/architecture/control-manifest.md`)
