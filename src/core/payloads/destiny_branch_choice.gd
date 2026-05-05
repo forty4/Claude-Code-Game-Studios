@@ -53,3 +53,17 @@ extends Resource
 ## Must be a value from the F-DB-3 12-entry invalid_reason vocabulary.
 ## Empty StringName when is_invalid=false.
 @export var invalid_reason: StringName = &""
+
+
+## Factory: constructs an invalid DestinyBranchChoice with the given F-DB-3
+## invariant_violation:* StringName reason. All other fields stay at defaults.
+## Used by DestinyBranchJudge.resolve() to short-circuit on invariant guard failure.
+##
+## Subscribers MUST gate content reads on `is_invalid == false` per CR-DB-10
+## (rev 1.2 D1 BLOCKING for #10/#16/#17 VS).
+static func invalid(reason: StringName) -> DestinyBranchChoice:
+	var choice: DestinyBranchChoice = DestinyBranchChoice.new()
+	choice.is_invalid = true
+	choice.invalid_reason = reason
+	choice.reserved_color_treatment = false
+	return choice

@@ -3,7 +3,7 @@
 > **Layer**: Core
 > **GDD**: `design/gdd/destiny-branch.md` (rev 1.3.2 — Designed; F-DB-1 4-arg signature + canonical_branch_key + worked-examples E1-E6 4th column + test-seam contract per delta #13 same-patch GDD sync)
 > **Architecture Module**: `DestinyBranchJudge` — `class_name DestinyBranchJudge extends RefCounted` pure-function transient class; one instance per chapter constructed at BEAT_7_JUDGMENT tap-exit by ScenarioRunner; discarded via RefCounted scope drop after `resolve()` returns; **1st @abstract test-seam pattern in the project** (Godot 4.5+ G-22 parse-time enforcement on typed references); production subclass `DefaultDestinyBranchJudge` delegates to `ScenarioFormulas.resolve_branch(...)` per ADR-0017 owned F-SP-1 authoritative implementation; test stub `TestDestinyBranchJudgeWithSp1Stub` lives in `tests/helpers/destiny_branch_judge_stub.gd` with instance-level `_stub_output` Dictionary (NO static var per `destiny_branch_judge_static_var` forbidden_pattern — lint scan-set explicitly covers test stub).
-> **Status**: Ready (1 story created via `/create-stories destiny-branch` 2026-05-05)
+> **Status**: Complete (1/1 stories shipped 2026-05-05 — single coordinated patch; epic-terminal close)
 > **Stories**: 1 epic-terminal story — see Stories table below
 > **Created**: 2026-05-05 (Sprint 7 — post-S7-01 ADR-0019 acceptance unblocks the 3-epic scaffold batch)
 > **Manifest Version**: 2026-05-04 (`docs/architecture/control-manifest.md` — refreshed via gate-check pre-prod-to-prod-2026-05-04 path-to-PASS item #3)

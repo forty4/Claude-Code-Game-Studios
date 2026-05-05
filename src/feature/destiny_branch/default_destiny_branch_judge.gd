@@ -1,61 +1,97 @@
-## DefaultDestinyBranchJudge — concrete subclass of DestinyBranchJudge.
+## DefaultDestinyBranchJudge — production concrete subclass of DestinyBranchJudge.
 ##
-## SPRINT-7 S7-02 STATUS: STUB IMPLEMENTATION. The full F-DB-1 algorithm body
-## (echo-gate predicate + branch_table lookup + invariant_violation:* vocabulary)
-## is owned by destiny-branch S7-03 (ADR-0018 §Migration Plan §5).
+## Implements F-DB-1 algorithm body in `_apply_f_sp_1`. Pre/post-call invariant
+## guards live in the base class `resolve()`. F-DB-2 reserved_color_treatment
+## derivation also lives in `resolve()` (post-result derivation).
 ##
-## Current stub returns the chapter's canonical_branch_key as a minimal F-DB-3
-## contract sufficient for ScenarioRunner BEAT_7_JUDGMENT entry to compile +
-## chapter-1 stub fixture tests to pass. Real F-DB-1 algorithm replaces this body
-## (NOT extends — destiny-branch S7-03 patch overwrites _apply_f_sp_1).
+## F-DB-1 algorithm (4-row decision per ADR-0017 §F-SP-1):
+##   Row 1: outcome == DRAW AND NOT chapter.author_draw_branch
+##          → DRAW fallback to WIN row; is_draw_fallback=true
+##   Row 2: outcome == WIN
+##          → WIN_default row; cue tag for win_after_persistence (presentation hint only)
+##   Row 3: outcome == DRAW (with author_draw_branch=true)
+##          → DRAW row; echo-gate predicate F-SP-2 routes to default vs echo branch
+##   Row 4: outcome == LOSS
+##          → LOSS_default row
 ##
-## Tests injecting non-canonical-branch behaviour use TestDestinyBranchJudgeWithSp1Stub
-## (tests/helpers/destiny_branch_judge_stub.gd).
-##
-## ADR: ADR-0018 §Decision §DefaultDestinyBranchJudge.
-## TR: TR-destiny-branch-001 (DestinyBranchJudge concrete subclass).
+## ADR: ADR-0017 §F-SP-1 (algorithm spec) + ADR-0018 §Decision (executor class).
+## TR: TR-destiny-branch-001..015.
 class_name DefaultDestinyBranchJudge
 extends DestinyBranchJudge
 
 
-## Stub F-DB-1 implementation. Returns canonical-branch result for chapter-1 stub.
-## destiny-branch S7-03 will REPLACE this body with the full algorithm per ADR-0018.
+## F-DB-1 algorithm — branch_table lookup via 4-row decision logic.
 func _apply_f_sp_1(
 		chapter: ChapterDefinition,
 		outcome: BattleOutcome.Result,
-		_echo_count: int,
-		_first_attempt_resolved: bool,
+		echo_count: int,
+		first_attempt_resolved: bool,
 ) -> Dictionary:
-	# Minimal F-DB-3 contract: return canonical branch_key + flags.
-	# For LOSS/DRAW outcomes, look up branch_table; for WIN, use canonical.
-	var branch_key: String = chapter.canonical_branch_key
-	var lookup_key: String = ""
-	match outcome:
-		BattleOutcome.Result.WIN:
-			lookup_key = "WIN_default"
-		BattleOutcome.Result.LOSS:
-			lookup_key = "LOSS_default"
-		BattleOutcome.Result.DRAW:
-			lookup_key = "DRAW_default" if chapter.author_draw_branch else "WIN_default"
-	if chapter.branch_table.has(lookup_key):
-		branch_key = chapter.branch_table[lookup_key] as String
-	var is_canonical: bool = (branch_key == chapter.canonical_branch_key)
-	var is_draw_fallback: bool = (
-		outcome == BattleOutcome.Result.DRAW
-		and not chapter.author_draw_branch
-	)
-	# F-DB-2: reserved_color_treatment fires only for non-canonical WIN paths
-	# that are NOT draw-fallback (per art-bible §4.7).
-	var reserved_color: bool = (
-		not is_canonical
-		and outcome == BattleOutcome.Result.WIN
-		and not is_draw_fallback
-	)
+	var branch_table: Dictionary = chapter.branch_table
+	# Row 1: DRAW outcome + chapter has no DRAW branch authored → fallback to WIN.
+	if outcome == BattleOutcome.Result.DRAW and not chapter.author_draw_branch:
+		var fallback_key: String = branch_table.get("WIN_default", "") as String
+		if fallback_key.is_empty():
+			# WIN row missing — return empty to trigger post-call invariant guard.
+			return _empty_result()
+		return {
+			"branch_key": fallback_key,
+			"is_draw_fallback": true,
+			"is_canonical_history": (fallback_key == chapter.canonical_branch_key),
+		}
+	# Row 2: WIN outcome → WIN_default row.
+	if outcome == BattleOutcome.Result.WIN:
+		var win_key: String = branch_table.get("WIN_default", "") as String
+		if win_key.is_empty():
+			return _empty_result()
+		return {
+			"branch_key": win_key,
+			"is_draw_fallback": false,
+			"is_canonical_history": (win_key == chapter.canonical_branch_key),
+		}
+	# Row 3: DRAW outcome (with author_draw_branch=true) → echo-gate routing.
+	if outcome == BattleOutcome.Result.DRAW:
+		var draw_key: String
+		if _is_echo_gate_open(echo_count, chapter.echo_threshold, first_attempt_resolved):
+			# Echo-gate open: prefer DRAW_echo row; fallback to DRAW_default if absent.
+			draw_key = branch_table.get("DRAW_echo", "") as String
+			if draw_key.is_empty():
+				draw_key = branch_table.get("DRAW_default", "") as String
+		else:
+			draw_key = branch_table.get("DRAW_default", "") as String
+		if draw_key.is_empty():
+			return _empty_result()
+		return {
+			"branch_key": draw_key,
+			"is_draw_fallback": false,
+			"is_canonical_history": (draw_key == chapter.canonical_branch_key),
+		}
+	# Row 4: LOSS outcome → LOSS_default row.
+	if outcome == BattleOutcome.Result.LOSS:
+		var loss_key: String = branch_table.get("LOSS_default", "") as String
+		if loss_key.is_empty():
+			return _empty_result()
+		return {
+			"branch_key": loss_key,
+			"is_draw_fallback": false,
+			"is_canonical_history": (loss_key == chapter.canonical_branch_key),
+		}
+	# Outcome enum out of {WIN, DRAW, LOSS} — pre-call guard should have caught.
+	return _empty_result()
+
+
+## F-SP-2 echo-gate predicate (CR-6 formalized).
+## Returns true iff DRAW outcome with sufficient echo accumulation AND
+## first_attempt_resolved is false (anti-farm protection).
+func _is_echo_gate_open(echo_count: int, echo_threshold: int, first_attempt_resolved: bool) -> bool:
+	return (echo_count >= echo_threshold) and (not first_attempt_resolved)
+
+
+## Returns an empty result Dictionary that triggers
+## INVALID_BRANCH_TABLE_MISSING_OUTCOME in the base class post-call guard.
+func _empty_result() -> Dictionary:
 	return {
-		"branch_key": branch_key,
-		"is_canonical_history": is_canonical,
-		"is_draw_fallback": is_draw_fallback,
-		"reserved_color_treatment": reserved_color,
-		"is_invalid": false,
-		"invalid_reason": &"",
+		"branch_key": "",
+		"is_draw_fallback": false,
+		"is_canonical_history": false,
 	}

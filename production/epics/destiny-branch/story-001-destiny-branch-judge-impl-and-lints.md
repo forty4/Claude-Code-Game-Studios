@@ -1,7 +1,7 @@
 # Story 001: DestinyBranchJudge full F-DB-1 implementation + 3 lints + V-12 thread-safety + 5-platform serialization scaffold
 
 > **Epic**: destiny-branch
-> **Status**: Ready (depends on scenario-progression story-001 for stub scaffolding per Decision A coordination)
+> **Status**: Complete (2026-05-05 — single coordinated patch; 943/943 tests + 3/3 lints PASS; REPLACE stub bodies per Decision A)
 > **Layer**: Core
 > **Type**: Logic (F-DB-1 algorithm + F-DB-3 invariant_violation vocabulary + F-DB-2 derivation are pure-function logic) + Integration (V-12 thread-safety + 5-platform serialization round-trip + 3 lint scripts)
 > **Manifest Version**: 2026-05-04 (`docs/architecture/control-manifest.md`)

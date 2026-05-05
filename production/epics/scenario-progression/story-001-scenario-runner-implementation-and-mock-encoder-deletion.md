@@ -1,7 +1,7 @@
 # Story 001: ScenarioRunner implementation per ADR-0017 Migration Plan §1..§11 + sprint-6 mock encoder DELETION
 
 > **Epic**: scenario-progression
-> **Status**: Ready
+> **Status**: Complete (2026-05-05 — single coordinated patch ba02e02; 911/911 tests + 6/6 lints PASS)
 > **Layer**: Core
 > **Type**: Integration (multi-system orchestration: ScenarioRunner ↔ GameBus ↔ SceneManager ↔ SaveManager ↔ GridBattleController ↔ DestinyBranchJudge ↔ BattleScene)
 > **Manifest Version**: 2026-05-04 (`docs/architecture/control-manifest.md` — refreshed via gate-check pre-prod-to-prod-2026-05-04 path-to-PASS item #3)
