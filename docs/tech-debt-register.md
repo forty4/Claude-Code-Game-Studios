@@ -3106,3 +3106,83 @@ Create a manual QA checklist file at `production/qa/evidence/battle-hud-recursiv
 - battle-hud story-002 integration test header (`tests/integration/feature/battle_hud/battle_hud_recursive_filter_test.gd`) — documents the headless-bypass empirical finding
 - /code-review qa-tester finding (this session) — Manual Verification Debt section
 
+
+---
+
+## TD-063 — `_grid_controller.is_action_available(unit_id, action_name)` API placeholder
+
+**Source**: battle-hud story-005 (S8-07) /code-review 2026-05-06 — implementation uses `_grid_controller.has_method("is_action_available")` runtime probe + permissive `disabled = false` fallback because the shipped GridBattleController doesn't expose this method yet.
+
+**Tier**: Implementation (deferred to Grid Battle epic — when production GridBattleController fleshes out the per-unit token-spend tracking surface).
+
+**Scope**:
+- `src/feature/battle_hud/battle_hud.gd:854-861` (`_on_unit_turn_started` extension) — runtime `has_method` probe
+- Production GridBattleController needs to ship `is_action_available(unit_id: int, action_name: StringName) -> bool` method per ADR-0014 §6 single-token MVP semantics
+
+**Resolution path**: When grid-battle epic ships the production query method, remove the `has_method` runtime probe in `_on_unit_turn_started` and call `_grid_controller.is_action_available(unit_id, action_name)` directly. Test coverage at battle-hud story-005's integration test will validate the contract once both sides ship.
+
+**Discovered**: battle-hud story-005 implementation 2026-05-06.
+
+---
+
+## TD-064 — `_grid_controller.is_undo_available(unit_id)` API placeholder
+
+**Source**: battle-hud story-005 (S8-07) — same pattern as TD-063 for the undo-availability query.
+
+**Tier**: Implementation (deferred to input-handling story-006 OR grid-battle epic — input-handling story-006 ships per-unit undo OPEN/CLOSE logic which surfaces the production query).
+
+**Scope**:
+- `src/feature/battle_hud/battle_hud.gd:792-798` (`_on_unit_moved` extension) — runtime `has_method` probe + permissive `should_show = true` fallback
+- Production owner (input-handling story-006 OR GridBattleController) needs to expose `is_undo_available(unit_id: int) -> bool`
+
+**Resolution path**: When input-handling story-006 ships the per-unit undo window OPEN/CLOSE logic + corresponding `is_undo_available` query, remove the `has_method` probe and call directly. Verify at integration test boundary.
+
+**Discovered**: battle-hud story-005 implementation 2026-05-06.
+
+---
+
+## TD-065 — `ui_gb_10_undo_indicator.tscn` UndoLabel hardcoded localized string
+
+**Source**: battle-hud story-005 (S8-07) /code-review 2026-05-06 INFO suggestion — UndoLabel has hardcoded `text = "Undo"`. Forbidden_pattern `battle_hud_hardcoded_localized_strings` is `.gd`-scoped per current control-manifest, so story-008 lint as-currently-spec'd will not catch this. AC-11 ("All visible button labels via tr()") spirit applies; Label is visible text.
+
+**Tier**: Polish (low-impact i18n; English-only build is unaffected; multi-locale support flips this to a real bug).
+
+**Scope**:
+- `scenes/battle/elements/ui_gb_10_undo_indicator.tscn:20` (UndoLabel hardcoded text)
+
+**Resolution paths** (pick one at polish-time):
+1. Empty the Label's `text = ""` + extend `_refresh_action_button_labels` in `battle_hud.gd` to also `_btn_undo_label.text = tr(&"hud.undo.label")` (requires caching the Label reference)
+2. Remove UndoLabel entirely (UndoButton already shows the label) — simpler graph, smaller .tscn
+
+**Discovered**: battle-hud story-005 /code-review 2026-05-06.
+
+---
+
+## TD-066 — `ui_gb_05_skill_list.tscn` nested HBoxContainer mouse_filter not explicitly set to IGNORE
+
+**Source**: battle-hud story-005 (S8-07) /code-review 2026-05-06 INFO suggestion — Slot0Info / Slot1Info HBoxContainer children of skill Buttons may intercept clicks if their `mouse_filter` is ever set to `STOP`. Default `MOUSE_FILTER_PASS` lets clicks propagate, but defensive `MOUSE_FILTER_IGNORE` on decorative children would harden the contract.
+
+**Tier**: Polish (defensive; current default behavior works).
+
+**Scope**:
+- `scenes/battle/elements/ui_gb_05_skill_list.tscn` — Slot0Info, Slot1Info, CooldownLabel0/1, RangeLabel0/1 (4 decorative child Controls)
+
+**Resolution path**: at polish time OR if click-through bug reported, add explicit `mouse_filter = 2` (MOUSE_FILTER_IGNORE) to each decorative child node.
+
+**Discovered**: battle-hud story-005 /code-review 2026-05-06.
+
+---
+
+## TD-067 — Story-008 `battle_hud_hardcoded_localized_strings` lint scope extension to .tscn files
+
+**Source**: battle-hud story-005 (S8-07) /code-review 2026-05-06 INFO suggestion — current spec for story-008 lint scopes to `src/feature/battle_hud/*.gd`. TD-065 surfaces a hardcoded string in `.tscn` that escapes this scope. Recommend extending lint scope at story-008 ship time.
+
+**Tier**: Story-008 implementation extension (not a deferred polish item; absorb into story-008 lint authoring directly).
+
+**Scope**:
+- `tools/ci/lint_battle_hud_hardcoded_localized_strings.sh` (story-008 deliverable) — extend pattern matching to also scan `scenes/battle/elements/ui_gb_*.tscn` for `text = "<non-empty-string>"` on Label/Button nodes (excluding `text = ""` empty-string assignments, which are intentional placeholders for runtime tr() population)
+- Architecture-registry: amend `forbidden_patterns/battle_hud_hardcoded_localized_strings` description to clarify lint scope includes `.tscn` files
+
+**Resolution path**: capture in story-008 implementation; this TD entry is the forward-pointer for the lint author. No code change in story-005 scope.
+
+**Discovered**: battle-hud story-005 /code-review 2026-05-06.

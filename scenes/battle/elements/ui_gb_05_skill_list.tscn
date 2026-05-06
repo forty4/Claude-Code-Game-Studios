@@ -1,0 +1,46 @@
+[gd_scene format=3]
+
+;; UI-GB-05 Skill List — story-005.
+;; PanelContainer root + VBoxContainer + 2 skill slot Buttons per battle-hud.md §3 UI-GB-05.
+;; Revealed when USE_SKILL action button is pressed (sub-panel of UI-GB-02 flow).
+;; Skill slot Buttons custom_minimum_size = Vector2(44, 44) per 44pt touch-target floor.
+;; CooldownLabel + RangeLabel are decorative Labels (no minimum size constraint needed).
+;; tooltip_text set for AccessKit per ADR-0015 Verification Item 5.
+
+[node name="UI_GB_05_SkillList" type="PanelContainer"]
+tooltip_text = "Skill list panel"
+custom_minimum_size = Vector2(44, 0)
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+
+[node name="SkillSlot0Button" type="Button" parent="VBoxContainer"]
+tooltip_text = "Skill slot 0"
+custom_minimum_size = Vector2(44, 44)
+text = ""
+disabled = false
+
+[node name="Slot0Info" type="HBoxContainer" parent="VBoxContainer/SkillSlot0Button"]
+
+[node name="CooldownLabel0" type="Label" parent="VBoxContainer/SkillSlot0Button/Slot0Info"]
+tooltip_text = "Skill 0 cooldown"
+text = ""
+
+[node name="RangeLabel0" type="Label" parent="VBoxContainer/SkillSlot0Button/Slot0Info"]
+tooltip_text = "Skill 0 range"
+text = ""
+
+[node name="SkillSlot1Button" type="Button" parent="VBoxContainer"]
+tooltip_text = "Skill slot 1"
+custom_minimum_size = Vector2(44, 44)
+text = ""
+disabled = false
+
+[node name="Slot1Info" type="HBoxContainer" parent="VBoxContainer/SkillSlot1Button"]
+
+[node name="CooldownLabel1" type="Label" parent="VBoxContainer/SkillSlot1Button/Slot1Info"]
+tooltip_text = "Skill 1 cooldown"
+text = ""
+
+[node name="RangeLabel1" type="Label" parent="VBoxContainer/SkillSlot1Button/Slot1Info"]
+tooltip_text = "Skill 1 range"
+text = ""

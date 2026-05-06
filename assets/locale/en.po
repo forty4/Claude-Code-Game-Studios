@@ -63,3 +63,31 @@ msgstr "S"
 
 msgid "hud.unit_info.facing.w"
 msgstr "W"
+
+# Story-005: UI-GB-02 action menu button labels + two-tap pending states + UI-GB-10 undo.
+msgid "hud.action.move"
+msgstr "Move"
+
+msgid "hud.action.attack"
+msgstr "Attack"
+
+msgid "hud.action.use_skill"
+msgstr "Use Skill"
+
+msgid "hud.action.defend"
+msgstr "Defend"
+
+msgid "hud.action.wait"
+msgstr "Wait"
+
+msgid "hud.action.end_turn"
+msgstr "End Turn"
+
+msgid "hud.action.attack_pending"
+msgstr "Attack — Tap again to confirm"
+
+msgid "hud.action.defend_pending"
+msgstr "Defend — Tap again to confirm"
+
+msgid "hud.undo.label"
+msgstr "Undo"

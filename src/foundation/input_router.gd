@@ -192,7 +192,8 @@ func set_binding(action: StringName, event: InputEvent) -> void:
 ## Internal dispatch entry point — DI seam for synthetic event injection from tests.
 ##
 ## ADR-0020 §Decision §1 locks the 4-phase dispatch sequence:
-##   Phase 1: mode-determine via pure-function _determine_mode_from_event
+##   Phase 1: mode-determine via _determine_mode_from_event — IMPLEMENTED (story-005)
+##            Prepends mode detection + input_mode_changed emit before action match.
 ##   Phase 2: action-resolve via InputMap lookup (story-002: stores _last_matched_action)
 ##   Phase 3: state-transition via inline match dispatch (story-003+)
 ##   Phase 4: signal-emit pair (story-003+)
@@ -202,6 +203,12 @@ func set_binding(action: StringName, event: InputEvent) -> void:
 ## (sole production exception per ADR-0015 §5 line 627).
 ## Story-003+ replaces _last_matched_action store with full _handle_action dispatch.
 func _handle_event(event: InputEvent) -> void:
+	# Phase 1: mode determination (BEFORE action match per ADR-0005 §3 + ADR-0020 §1)
+	var detected_mode: InputMode = _determine_mode_from_event(event)
+	if detected_mode != _active_mode:
+		_active_mode = detected_mode
+		GameBus.input_mode_changed.emit(int(_active_mode))
+	# Phase 2: action-resolve via InputMap lookup
 	for category: StringName in ACTIONS_BY_CATEGORY.keys():
 		for action: StringName in ACTIONS_BY_CATEGORY[category]:
 			if not InputMap.has_action(action):
@@ -285,13 +292,40 @@ func _load_bindings_from_path(path: String) -> Dictionary:
 # ── Private helpers ───────────────────────────────────────────────────────────
 
 ## Constructs a minimal InputContext from a raw InputEvent. Story-003 scope:
-## empty context (target_coord=ZERO, target_unit_id=-1). Story-005 narrows with
-## mode-determine. Story-008-009 narrows with screen→grid coord conversion.
+## empty context (target_coord=ZERO, target_unit_id=-1). Story-008-009 narrows with
+## screen→grid coord conversion.
 ## Production callers wire ctx fields via downstream Battle HUD interactions
 ## (ADR-0015 §5); for now, dispatch happens with empty ctx — _handle_action
 ## arms validate ctx fields before allowing transitions.
 func _make_context_from_event(_event: InputEvent) -> InputContext:
 	return InputContext.new()
+
+
+## Determines the input mode from a single raw event — pure function, no side effects.
+##
+## Implements CR-2 most-recent-event-class rule per ADR-0005 §6:
+##   - InputEventScreenTouch / InputEventScreenDrag → TOUCH
+##   - InputEventMouseButton / InputEventMouseMotion / InputEventKey → KEYBOARD_MOUSE
+##   - InputEventJoypadButton / InputEventJoypadMotion → KEYBOARD_MOUSE (OQ-1 MVP
+##     partial: full GAMEPAD mode deferred; future ADR may add int 2 at Settings/Options)
+##   - Unknown event class → preserve current _active_mode (defensive; no flip)
+##
+## Godot 4.6 event-class identity is NOT altered by dual-focus split at the Control
+## layer — InputRouter operates BELOW the focus layer via _unhandled_input per
+## godot-specialist 2026-04-30 Item 1 PASS. SDL3 backend (4.5+) does not change
+## Joypad event class names (godot-specialist Item 3 advisory).
+func _determine_mode_from_event(event: InputEvent) -> InputMode:
+	if event is InputEventScreenTouch or event is InputEventScreenDrag:
+		return InputMode.TOUCH
+	if event is InputEventMouseButton or event is InputEventMouseMotion or event is InputEventKey:
+		return InputMode.KEYBOARD_MOUSE
+	if event is InputEventJoypadButton or event is InputEventJoypadMotion:
+		# OQ-1 partial: MVP routes joypad to KEYBOARD_MOUSE; future GAMEPAD ADR may
+		# add 3rd mode at int 2 (Settings/Options ADR, post-MVP) without superseding
+		# this ADR (additive enum value). TR-input-handling-011.
+		return InputMode.KEYBOARD_MOUSE
+	# Defensive: unknown event class — preserve current mode (no flip)
+	return _active_mode
 
 
 ## Single dispatch path for all FSM transitions. Routes by current `_state` to

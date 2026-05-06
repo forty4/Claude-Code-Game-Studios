@@ -1,10 +1,11 @@
 # Story 005: UI-GB-02 Action Menu + UI-GB-05 Skill List + UI-GB-10 Undo + Two-Tap ATTACK/DEFEND
 
 > **Epic**: Battle HUD
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: UI + Integration
-> **Manifest Version**: 2026-04-20
+> **Estimate**: 4h (0.5 days)
+> **Manifest Version**: 2026-05-05
 
 ## Context
 
@@ -187,3 +188,31 @@
 
 - Depends on: Stories 003 + 004 (wait for parallel stories — though strict ordering not required since handler bodies are disjoint, sequencing avoids merge conflicts on `_on_unit_selected_changed` and `_on_unit_turn_started`)
 - Unlocks: Story 006 (Combat Forecast renders during ATTACK two-tap window — UI-GB-02 + UI-GB-04 coordinate visually)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-06
+**Criteria**: 14/14 passing (AC-1..AC-14; ADR-0015 §OQ-4 architectural pattern codified at first-story-implementation per OQ-4 implementer-owned resolution path)
+**Deviations**: 5 ADVISORY (0 BLOCKING):
+- API drift — `_grid_controller.is_action_available` shipped API absent → `has_method()` runtime probe + permissive fallback per story Implementation Note 5 (grid-battle epic narrows when shipped)
+- API drift — `_grid_controller.is_undo_available` same pattern (story-006 per-unit undo OPEN/CLOSE narrows)
+- i18n nit — `ui_gb_10_undo_indicator.tscn` UndoLabel has hardcoded `text = "Undo"` (forbidden_pattern is .gd-scoped per manifest; AC-11 spirit applies)
+- UI-GB-05 nested HBoxContainers (Slot0Info/Slot1Info) may intercept clicks if `mouse_filter` ever set to STOP; defensive `MOUSE_FILTER_IGNORE` on decorative children recommended
+- Story-008 lint scope extension — extend `battle_hud_hardcoded_localized_strings` lint from `.gd`-only to also scan `.tscn` files for hardcoded text on Label/Button nodes
+**Test Evidence**:
+- Integration: `tests/integration/feature/battle_hud/battle_hud_two_tap_test.gd` (360L, 10 tests covering AC-1..AC-7 + AC-9; uses local `InputRouterSpy` inner class for synthetic-event capture per ADR-0015 §OQ-4 contract verification)
+- Manual: `production/qa/evidence/battle-hud-story-005-evidence.md` (AC-8 44pt manual pre-flight + AC-9 architectural pattern verification with full coverage map)
+**Code Review**: APPROVED (lean-mode orchestrator-direct, **15th occurrence**; 0 required changes; 3 INFO suggestions captured for traceability — non-blocking)
+**Regression**: 1106 → 1116 (+10) / 0 errors / 0 failures / 0 orphans / Exit 0 — **38th consecutive failure-free baseline**
+**Files modified** (9):
+- `scenes/battle/elements/ui_gb_02_action_menu.tscn` (NEW 43L)
+- `scenes/battle/elements/ui_gb_05_skill_list.tscn` (NEW 46L)
+- `scenes/battle/elements/ui_gb_10_undo_indicator.tscn` (NEW 20L)
+- `src/feature/battle_hud/battle_hud.gd` (645L → 988L; +343L; 11 new functions + 3 signal handler extensions + 9 button signal wiring + 2 two-tap fields + Timer setup)
+- `tests/integration/feature/battle_hud/battle_hud_two_tap_test.gd` (NEW 360L; 10 tests)
+- `production/qa/evidence/battle-hud-story-005-evidence.md` (NEW)
+- `assets/locale/en.po` (+9 entries)
+- This story file (manifest version + Estimate field + Status flip + Completion Notes)
+- `production/sprint-status.yaml` line 98 path correction (separate hygiene fix)

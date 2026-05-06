@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+;; UI-GB-10 Undo Indicator — story-005.
+;; HBoxContainer root + UndoButton + UndoLabel per battle-hud.md §3 UI-GB-10.
+;; Visible during PLAYER_TURN_ACTIVE when undo is available (shown by _on_unit_moved).
+;; UndoButton custom_minimum_size = Vector2(44, 44) per 44pt touch-target floor.
+;; UndoLabel is decorative — no minimum size constraint.
+;; tooltip_text set for AccessKit per ADR-0015 Verification Item 5.
+
+[node name="UI_GB_10_UndoIndicator" type="HBoxContainer"]
+tooltip_text = "Undo indicator"
+
+[node name="UndoButton" type="Button" parent="."]
+tooltip_text = "Undo last move"
+custom_minimum_size = Vector2(44, 44)
+text = ""
+
+[node name="UndoLabel" type="Label" parent="."]
+tooltip_text = "Undo label"
+text = "Undo"

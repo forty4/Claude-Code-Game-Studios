@@ -1,11 +1,11 @@
 # Story 005: Last-device-wins mode determination (CR-2) + most-recent-event-class rule + state preservation across mode switch + input_mode_changed emit + verification evidence #1 (dual-focus) + #2 (SDL3 gamepad)
 
 > **Epic**: Input Handling
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Logic (mode-determination logic) + 2 Polish-deferable verification evidence docs
 > **Estimate**: 3h (+ 2h verification evidence; #1+#2 may Polish-defer per pattern)
-> **Manifest Version**: 2026-04-20
+> **Manifest Version**: 2026-05-05
 
 ## Context
 
@@ -280,3 +280,23 @@
 
 - **Depends on**: Story 002 (`_handle_event` matching loop must exist for extension)
 - **Unlocks**: Story 008 (touch protocol — `_construct_input_context` extends `_handle_event` with Camera stub query for `coord`); Battle HUD epic (consumes `input_mode_changed` for hint icon updates)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-06
+**Criteria**: 11/11 passing (AC-1..AC-11; AC-7 + AC-8 Polish-deferred per 5+ precedent pattern with reactivation triggers + ready-to-ship fallbacks documented)
+**Deviations**: None — implementation fully compliant with ADR-0005 §6 + CR-2 + CR-2c + OQ-1 + ADR-0020 §1 4-phase dispatch sequence; manifest version matches (2026-05-05)
+**Test Evidence**:
+- Logic: `tests/unit/foundation/input_router_mode_test.gd` (365L, 11 tests; G-4 Array.append capture + G-15 `before_test` reset + G-16 typed `Array[Dictionary]` sweep + G-22 source-scan patterns applied)
+- Visual/Feel #1: `production/qa/evidence/input_router_verification_01_dual_focus.md` (Polish-deferred — Android 14+ + macOS Metal end-to-end)
+- Visual/Feel #2: `production/qa/evidence/input_router_verification_02_sdl3_gamepad.md` (Polish-deferred — Android 15 / iOS 17 Bluetooth gamepad)
+**Code Review**: APPROVED (lean-mode orchestrator-direct, 14th occurrence; 0 required changes; 3 INFO suggestions captured for traceability — non-blocking)
+**Regression**: 1095 → 1106 (+11) / 0 errors / 0 failures / 0 orphans / Exit 0 — **37th consecutive failure-free baseline**
+**Files modified** (5):
+- `src/foundation/input_router.gd` (+33L: `_determine_mode_from_event` 12L helper + `_handle_event` Phase 1 prepend 16L total)
+- `tests/unit/foundation/input_router_mode_test.gd` (NEW 365L)
+- `production/qa/evidence/input_router_verification_01_dual_focus.md` (NEW 31L Polish-deferred)
+- `production/qa/evidence/input_router_verification_02_sdl3_gamepad.md` (NEW 29L Polish-deferred)
+- This story file (Status flip + Manifest version 2026-04-20 → 2026-05-05 + Completion Notes)

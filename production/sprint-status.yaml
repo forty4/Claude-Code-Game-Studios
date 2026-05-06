@@ -11,7 +11,7 @@ goal: "Unblock input-handling + ship chapter-1 (장판파) end-to-end + flip Pil
 start: "2026-06-07"
 end: "2026-06-13"
 generated: "2026-05-05"
-updated: "2026-05-06 — S8-05 done; FSM attack S3/S4 + ST2 demotion + end-phase 2-beat gate; 1095/1095 PASS (+24); 36th FFB; Must 5/7 → S8-06 next"
+updated: "2026-05-06 — S8-07 done; battle-hud UI-GB-02/05/10 + two-tap §OQ-4; 1106→1116 PASS (+10); 38th FFB; Must 7/7 ✓ → close-out"
 
 # Sprint-7 closed 9/11 (Must 4/4 + Should 3/3 + Nice 2/4); S7-10 BLOCKED on input-handling epic;
 # S7-11 USER-OWNED. 26th+ consecutive failure-free baseline (978/978 PASSING). Retro AI seeds
@@ -87,21 +87,23 @@ stories:
     name: "input-handling story-005 — mode determination CR-2 + input_mode_changed GameBus emit + BattleHUD Tap Preview Protocol"
     file: "production/epics/input-handling/story-005-mode-determination-cr2.md"
     priority: must-have
-    status: backlog
-    owner: ""
+    status: done
+    owner: claude
     estimate_days: 0.3
-    blocker: "S8-05"
-    completed: ""
+    blocker: ""
+    completed: "2026-05-06"
+    # _determine_mode_from_event 12L + _handle_event Phase 1 prepend 16L; CR-2 + CR-2c + OQ-1; AC-7+8 Polish-deferred; 11 tests / 1106/1106 PASS
 
   - id: "S8-07"
     name: "S7-10 unblock — battle-hud story-005 (UI-GB-02/05/10 + two-tap ATTACK/DEFEND HUD-owns-timer per AC-UX-HUD-08/09)"
-    file: "production/epics/battle-hud/story-005-action-buttons-two-tap.md"
+    file: "production/epics/battle-hud/story-005-action-menu-skill-list-undo-two-tap.md"
     priority: must-have
-    status: backlog
-    owner: ""
+    status: done
+    owner: claude
     estimate_days: 0.5
-    blocker: "S8-06"
-    completed: ""
+    blocker: ""
+    completed: "2026-05-06"
+    # 3 NEW .tscn (UI-GB-02/05/10) + battle_hud.gd +343L; 11 fns + two-tap state machine; ADR-0015 §OQ-4 codified; 10 tests / 1116/1116 PASS
 
   - id: "S8-08"
     name: "/design-system save-load — Save/Load #17 GDD authoring (PROVISIONAL → Designed); carryover from sprint-7 Producer pressure-cut"

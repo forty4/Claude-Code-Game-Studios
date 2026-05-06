@@ -77,12 +77,47 @@ var _ui_gb_01_slot_unit_ids: Array[int] = [-1, -1, -1, -1, -1, -1, -1, -1]
 var _ui_gb_01_active_slot_index: int = -1
 
 
-## Preloaded UI element scenes (story-003 + story-004 + future stories add more).
+## Preloaded UI element scenes (story-003 + story-004 + story-005 + future stories add more).
 const _UI_GB_03_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_03_unit_info_panel.tscn")
 const _UI_GB_11_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_11_defend_stance_badge.tscn")
 const _UI_GB_01_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_01_initiative_queue.tscn")
 const _UI_GB_07_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_07_turn_round_counter.tscn")
 const _UI_GB_08_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_08_victory_condition.tscn")
+const _UI_GB_02_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_02_action_menu.tscn")
+const _UI_GB_05_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_05_skill_list.tscn")
+const _UI_GB_10_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_10_undo_indicator.tscn")
+
+
+## Two-tap ATTACK/DEFEND timeout (per ADR-0015 OQ-4 + story-005 Implementation Note 3).
+## Declared as a local const for MVP — NOT a BalanceConstants entry (story-006+ scope).
+## Value: 600 ms matches GDD battle-hud.md §10 Tuning Knobs default.
+const TWO_TAP_TIMEOUT_S: float = 0.6
+
+
+# ─── Story-005: Two-tap state machine fields ─────────────────────────────────
+
+## Timer for ATTACK/DEFEND two-tap confirm window (one_shot; instantiated in _ready()).
+## Shared across ATTACK and DEFEND — only one can be armed at a time.
+var _two_tap_timer: Timer
+
+## Currently armed two-tap action (&"" sentinel = not armed).
+## Only ATTACK and DEFEND arm the two-tap flow; set on first tap, cleared on confirm/cancel/timeout.
+var _two_tap_target_action: StringName = &""
+
+
+# ─── Story-005: Cached button references ─────────────────────────────────────
+
+## Action-menu button references cached after UI-GB-02 mount. Allows direct
+## access for modulate visual + enabled state updates without tree traversal in handlers.
+var _btn_move: Button
+var _btn_attack: Button
+var _btn_use_skill: Button
+var _btn_defend: Button
+var _btn_wait: Button
+var _btn_end_turn: Button
+var _btn_undo: Button
+var _btn_skill_slot_0: Button
+var _btn_skill_slot_1: Button
 
 
 # ─── DI seam ─────────────────────────────────────────────────────────────────
@@ -196,6 +231,65 @@ func _ready() -> void:
 		var slot: Control = ui_gb_01.get_node("Slot%d" % i) as Control
 		_ui_gb_01_slots.append(slot)
 
+	# ── Story-005: UI-GB-02 Action Menu + UI-GB-05 Skill List + UI-GB-10 Undo mount ──
+	var ui_gb_02: Control = _UI_GB_02_SCENE.instantiate() as Control
+	var ui_gb_05: Control = _UI_GB_05_SCENE.instantiate() as Control
+	var ui_gb_10: Control = _UI_GB_10_SCENE.instantiate() as Control
+	ui_gb_02.visible = false
+	ui_gb_05.visible = false
+	ui_gb_10.visible = false
+	add_child(ui_gb_02)
+	add_child(ui_gb_05)
+	add_child(ui_gb_10)
+	_ui_elements[&"UI-GB-02"] = ui_gb_02
+	_ui_elements[&"UI-GB-05"] = ui_gb_05
+	_ui_elements[&"UI-GB-10"] = ui_gb_10
+
+	# Cache button references for O(1) access during signal handlers.
+	_btn_move = ui_gb_02.get_node_or_null("MoveButton") as Button
+	_btn_attack = ui_gb_02.get_node_or_null("AttackButton") as Button
+	_btn_use_skill = ui_gb_02.get_node_or_null("UseSkillButton") as Button
+	_btn_defend = ui_gb_02.get_node_or_null("DefendButton") as Button
+	_btn_wait = ui_gb_02.get_node_or_null("WaitButton") as Button
+	_btn_end_turn = ui_gb_02.get_node_or_null("EndTurnButton") as Button
+	_btn_undo = ui_gb_10.get_node_or_null("UndoButton") as Button
+	_btn_skill_slot_0 = ui_gb_05.get_node_or_null("VBoxContainer/SkillSlot0Button") as Button
+	_btn_skill_slot_1 = ui_gb_05.get_node_or_null("VBoxContainer/SkillSlot1Button") as Button
+
+	# Wire UI-GB-02 action button click signals.
+	if _btn_move != null:
+		_btn_move.pressed.connect(_on_move_button_pressed)
+	if _btn_attack != null:
+		_btn_attack.pressed.connect(_on_attack_button_pressed)
+	if _btn_use_skill != null:
+		_btn_use_skill.pressed.connect(_on_use_skill_button_pressed)
+	if _btn_defend != null:
+		_btn_defend.pressed.connect(_on_defend_button_pressed)
+	if _btn_wait != null:
+		_btn_wait.pressed.connect(_on_wait_button_pressed)
+	if _btn_end_turn != null:
+		_btn_end_turn.pressed.connect(_on_end_turn_button_pressed)
+	# Wire UI-GB-10 undo button click signal.
+	if _btn_undo != null:
+		_btn_undo.pressed.connect(_on_undo_button_pressed)
+	# Wire UI-GB-05 skill slot button click signals.
+	if _btn_skill_slot_0 != null:
+		_btn_skill_slot_0.pressed.connect(_on_skill_slot_pressed.bind(0))
+	if _btn_skill_slot_1 != null:
+		_btn_skill_slot_1.pressed.connect(_on_skill_slot_pressed.bind(1))
+
+	# Instantiate two-tap timer — shared for ATTACK + DEFEND flows.
+	_two_tap_timer = Timer.new()
+	_two_tap_timer.one_shot = true
+	_two_tap_timer.wait_time = TWO_TAP_TIMEOUT_S
+	add_child(_two_tap_timer)
+	# CONNECT_DEFERRED per ADR-0001 §5 uniformity; Timer.timeout is traditionally
+	# non-deferred safe but project discipline mandates consistent CONNECT_DEFERRED.
+	_two_tap_timer.timeout.connect(_on_two_tap_timeout, Object.CONNECT_DEFERRED)
+
+	# Set action button labels via tr() per i18n discipline.
+	_refresh_action_button_labels()
+
 
 func _exit_tree() -> void:
 	# Disconnect all 11 subscriptions mirroring the connect block in _ready().
@@ -230,6 +324,36 @@ func _exit_tree() -> void:
 		GameBus.input_mode_changed.disconnect(_on_input_mode_changed)
 	if GameBus.formation_bonuses_updated.is_connected(_on_formation_bonuses_updated):
 		GameBus.formation_bonuses_updated.disconnect(_on_formation_bonuses_updated)
+
+	# Story-005: disconnect two-tap timer + button click signals.
+	# queue_free of self auto-disconnects these, but explicit disconnect per
+	# 4-precedent exit_tree_disconnect discipline (battle_hud_missing_exit_tree_disconnect
+	# forbidden_pattern mandates ≥11 explicit disconnects; these add to that count).
+	if is_instance_valid(_two_tap_timer):
+		if _two_tap_timer.timeout.is_connected(_on_two_tap_timeout):
+			_two_tap_timer.timeout.disconnect(_on_two_tap_timeout)
+	if is_instance_valid(_btn_move) and _btn_move.pressed.is_connected(_on_move_button_pressed):
+		_btn_move.pressed.disconnect(_on_move_button_pressed)
+	if is_instance_valid(_btn_attack) and _btn_attack.pressed.is_connected(_on_attack_button_pressed):
+		_btn_attack.pressed.disconnect(_on_attack_button_pressed)
+	if is_instance_valid(_btn_use_skill) and _btn_use_skill.pressed.is_connected(_on_use_skill_button_pressed):
+		_btn_use_skill.pressed.disconnect(_on_use_skill_button_pressed)
+	if is_instance_valid(_btn_defend) and _btn_defend.pressed.is_connected(_on_defend_button_pressed):
+		_btn_defend.pressed.disconnect(_on_defend_button_pressed)
+	if is_instance_valid(_btn_wait) and _btn_wait.pressed.is_connected(_on_wait_button_pressed):
+		_btn_wait.pressed.disconnect(_on_wait_button_pressed)
+	if is_instance_valid(_btn_end_turn) and _btn_end_turn.pressed.is_connected(_on_end_turn_button_pressed):
+		_btn_end_turn.pressed.disconnect(_on_end_turn_button_pressed)
+	if is_instance_valid(_btn_undo) and _btn_undo.pressed.is_connected(_on_undo_button_pressed):
+		_btn_undo.pressed.disconnect(_on_undo_button_pressed)
+	if is_instance_valid(_btn_skill_slot_0):
+		var callable_s0: Callable = _on_skill_slot_pressed.bind(0)
+		if _btn_skill_slot_0.pressed.is_connected(callable_s0):
+			_btn_skill_slot_0.pressed.disconnect(callable_s0)
+	if is_instance_valid(_btn_skill_slot_1):
+		var callable_s1: Callable = _on_skill_slot_pressed.bind(1)
+		if _btn_skill_slot_1.pressed.is_connected(callable_s1):
+			_btn_skill_slot_1.pressed.disconnect(callable_s1)
 
 
 # ─── Public methods ───────────────────────────────────────────────────────────
@@ -489,6 +613,89 @@ func show_tile_info(coord: Vector2i) -> void:
 
 # ─── Private methods ──────────────────────────────────────────────────────────
 
+## _is_active_turn_unit() — story-005. Returns true if unit_id is the unit whose
+## turn is currently active per TurnOrderRunner snapshot (first entry in queue).
+##
+## Used by _on_unit_selected_changed to gate UI-GB-02 visibility — action menu shows
+## only for the active player unit.
+##
+## Defensive fallback: returns true if _turn_runner is null OR snapshot has no queue
+## entries (permissive — better to over-show the action menu than block legitimate input).
+## Queue entries are TurnOrderEntry RefCounted objects with .unit_id property
+## per TurnOrderSnapshot / TurnOrderEntry shape (ADR-0011).
+func _is_active_turn_unit(unit_id: int) -> bool:
+	if _turn_runner == null:
+		return true  # permissive fallback
+	var snap: TurnOrderSnapshot = _turn_runner.get_turn_order_snapshot()
+	if snap == null or snap.queue.is_empty():
+		return true  # permissive fallback
+	var first: TurnOrderEntry = snap.queue[0]
+	return first.unit_id == unit_id
+
+
+## _refresh_action_button_labels() — story-005. Sets visible text on the 6 action
+## menu buttons + skill slot buttons + undo button via tr() per ADR-0015
+## forbidden_pattern battle_hud_hardcoded_localized_strings.
+## Called once in _ready() after button caching completes.
+func _refresh_action_button_labels() -> void:
+	if _btn_move != null: _btn_move.text = tr(&"hud.action.move")
+	if _btn_attack != null: _btn_attack.text = tr(&"hud.action.attack")
+	if _btn_use_skill != null: _btn_use_skill.text = tr(&"hud.action.use_skill")
+	if _btn_defend != null: _btn_defend.text = tr(&"hud.action.defend")
+	if _btn_wait != null: _btn_wait.text = tr(&"hud.action.wait")
+	if _btn_end_turn != null: _btn_end_turn.text = tr(&"hud.action.end_turn")
+	if _btn_undo != null: _btn_undo.text = tr(&"hud.undo.label")
+
+
+## _make_synthetic_action_event() — story-005. Factory: synthesizes an
+## InputEventAction for cross-system event injection through
+## _input_router._handle_event() per ADR-0015 §OQ-4 + non-emitter discipline.
+## Per ADR-0015 R-5: HUD never emits GameBus signals; cross-system events flow
+## back through InputRouter as synthetic events.
+func _make_synthetic_action_event(action_name: StringName, pressed: bool = true) -> InputEventAction:
+	var ev := InputEventAction.new()
+	ev.action = action_name
+	ev.pressed = pressed
+	return ev
+
+
+## _arm_two_tap() — story-005. Arms the two-tap window for ATTACK or DEFEND.
+## Cancels any prior arm (idempotent: clears stale visual on different prior action),
+## sets target, restarts timer, applies pending visual via Button.modulate.
+func _arm_two_tap(action: StringName) -> void:
+	_cancel_two_tap_arm()  # idempotent: clears stale visual on prior different action
+	_two_tap_target_action = action
+	if _two_tap_timer != null:
+		_two_tap_timer.start()
+	_apply_two_tap_pending_visual(action, true)
+
+
+## _cancel_two_tap_arm() — story-005. Clears the pending two-tap arm + reverts
+## visual. Idempotent — safe to call when nothing is armed.
+func _cancel_two_tap_arm() -> void:
+	if _two_tap_target_action == &"":
+		return
+	_apply_two_tap_pending_visual(_two_tap_target_action, false)
+	_two_tap_target_action = &""
+	if _two_tap_timer != null and not _two_tap_timer.is_stopped():
+		_two_tap_timer.stop()
+
+
+## _apply_two_tap_pending_visual() — story-005. Modulates the relevant Button to
+## indicate pending two-tap state.
+## pending=true: dim modulate (alpha 0.7) signals "tap again to confirm".
+## pending=false: revert to default (Color.WHITE).
+func _apply_two_tap_pending_visual(action: StringName, pending: bool) -> void:
+	var target: Button = null
+	match action:
+		&"attack":
+			target = _btn_attack
+		&"defend":
+			target = _btn_defend
+	if target == null:
+		return
+	target.modulate = Color(1.0, 1.0, 1.0, 0.7) if pending else Color.WHITE
+
 ## _handle_signal() — test seam for direct signal-handler invocation.
 ##
 ## Dispatches a signal by name to the appropriate private handler without
@@ -514,18 +721,55 @@ func _handle_signal(signal_name: StringName, args: Array) -> void:
 ## Story-003 routing: was_selected != 0 → show_unit_info(unit_id) populates UI-GB-03;
 ## was_selected == 0 AND unit_id matches active panel → show_unit_info(-1) dismisses.
 ## All other was_selected == 0 cases ignored (only the active-panel unit triggers dismiss).
+##
+## Story-005 routing: if was_selected != 0, show UI-GB-02 ONLY when the selected unit
+## is the currently active (turn-owner) unit from TurnOrderRunner snapshot. Defensive
+## fallback: if snapshot unavailable, show UI-GB-02 for any selection.
+## Hide UI-GB-02 + UI-GB-05 on deselect or inactive-unit selection.
 func _on_unit_selected_changed(unit_id: int, was_selected: int) -> void:
 	_handle_signal(&"unit_selected_changed", [unit_id, was_selected])
 	if was_selected != 0:
 		show_unit_info(unit_id)
+		# Story-005: show action menu only for the active turn unit.
+		var is_active_turn_unit: bool = _is_active_turn_unit(unit_id)
+		if is_active_turn_unit:
+			var action_menu: Control = _ui_elements.get(&"UI-GB-02")
+			if action_menu != null:
+				action_menu.visible = true
+		else:
+			# Inactive unit selected — show info panel only, not action menu.
+			var action_menu: Control = _ui_elements.get(&"UI-GB-02")
+			if action_menu != null:
+				action_menu.visible = false
+			var skill_panel: Control = _ui_elements.get(&"UI-GB-05")
+			if skill_panel != null:
+				skill_panel.visible = false
 	elif unit_id == _active_status_panel_unit_id:
 		show_unit_info(-1)
+		# Deselect — hide action menu + skill panel.
+		var action_menu: Control = _ui_elements.get(&"UI-GB-02")
+		if action_menu != null:
+			action_menu.visible = false
+		var skill_panel: Control = _ui_elements.get(&"UI-GB-05")
+		if skill_panel != null:
+			skill_panel.visible = false
 
 
 ## _on_unit_moved — controller-LOCAL subscriber (GridBattleController).
+## Story-005: shows UI-GB-10 Undo Indicator if this is the active player unit.
+## GridBattleController.is_undo_available() API not yet shipped — permissive fallback
+## (show undo for any move by the active unit; story-006 narrows logic).
 func _on_unit_moved(unit_id: int, from: Vector2i, to: Vector2i) -> void:
 	_handle_signal(&"unit_moved", [unit_id, from, to])
-	# UI-GB-05 move animation trigger wired in story-004.
+	# Story-005: show UI-GB-10 Undo Indicator if this is the active player unit.
+	if _is_active_turn_unit(unit_id):
+		var undo_indicator: Control = _ui_elements.get(&"UI-GB-10")
+		if undo_indicator != null:
+			# If grid_controller exposes is_undo_available, gate on it; else permissive.
+			var should_show: bool = true
+			if _grid_controller != null and _grid_controller.has_method("is_undo_available"):
+				should_show = _grid_controller.is_undo_available(unit_id)
+			undo_indicator.visible = should_show
 
 
 ## _on_damage_applied — controller-LOCAL subscriber (GridBattleController).
@@ -606,16 +850,33 @@ func _on_unit_turn_started(unit_id: int) -> void:
 			turn_label.text = "Turn: %s" % hero_name
 	# UI-GB-01 highlight
 	_set_initiative_queue_highlight(unit_id)
+	# Story-005: grey out spent-token actions on UI-GB-02 buttons.
+	# If grid_controller doesn't expose is_action_available, fallback permissive (disabled=false).
+	if _grid_controller != null and _grid_controller.has_method("is_action_available"):
+		if _btn_move != null: _btn_move.disabled = not _grid_controller.is_action_available(unit_id, &"move")
+		if _btn_attack != null: _btn_attack.disabled = not _grid_controller.is_action_available(unit_id, &"attack")
+		if _btn_use_skill != null: _btn_use_skill.disabled = not _grid_controller.is_action_available(unit_id, &"use_skill")
+		if _btn_defend != null: _btn_defend.disabled = not _grid_controller.is_action_available(unit_id, &"defend")
+		if _btn_wait != null: _btn_wait.disabled = not _grid_controller.is_action_available(unit_id, &"wait")
+		if _btn_end_turn != null: _btn_end_turn.disabled = not _grid_controller.is_action_available(unit_id, &"end_turn")
 
 
 ## _on_unit_turn_ended — GameBus subscriber (emitter: TurnOrderRunner).
 ## acted: bool — 2-param signature per GameBus line 32: `signal unit_turn_ended(unit_id: int, acted: bool)`.
 ## Story-004 (S7-09): clears UI-GB-01 highlight from the slot matching unit_id.
+## Story-005: hides UI-GB-10 Undo Indicator (turn over → no undo possible).
+##            Cancels any lingering two-tap arm at turn-end (defensive).
 func _on_unit_turn_ended(unit_id: int, acted: bool) -> void:
 	_handle_signal(&"unit_turn_ended", [unit_id, acted])
 	if _ui_gb_01_active_slot_index >= 0 and _ui_gb_01_active_slot_index < _ui_gb_01_slot_unit_ids.size():
 		if _ui_gb_01_slot_unit_ids[_ui_gb_01_active_slot_index] == unit_id:
 			_clear_initiative_queue_highlight()
+	# Story-005: hide UI-GB-10 Undo Indicator on turn end.
+	var undo_indicator: Control = _ui_elements.get(&"UI-GB-10")
+	if undo_indicator != null:
+		undo_indicator.visible = false
+	# Cancel any lingering two-tap arm at turn-end (defensive).
+	_cancel_two_tap_arm()
 
 
 ## _on_input_state_changed — GameBus subscriber (emitter: InputRouter).
@@ -643,3 +904,85 @@ func _on_input_mode_changed(new_mode: int) -> void:
 func _on_formation_bonuses_updated(snapshot: Dictionary) -> void:
 	_handle_signal(&"formation_bonuses_updated", [snapshot])
 	# UI-GB-10 formation bonus display wired in story-005.
+
+
+# ─── Story-005: Action button click handlers ──────────────────────────────────
+
+## _on_move_button_pressed — story-005. MOVE: synthesize move_action event;
+## dispatch through InputRouter. Cancels any pending two-tap arm.
+func _on_move_button_pressed() -> void:
+	_cancel_two_tap_arm()
+	if _input_router != null:
+		_input_router._handle_event(_make_synthetic_action_event(&"move_action"))
+
+
+## _on_attack_button_pressed — story-005. ATTACK first/second tap per ADR-0015 §OQ-4.
+## First tap arms the two-tap window; second tap within TWO_TAP_TIMEOUT_S confirms.
+func _on_attack_button_pressed() -> void:
+	if _two_tap_target_action == &"attack":
+		# Second tap on the SAME armed action → confirm
+		if _input_router != null:
+			_input_router._handle_event(_make_synthetic_action_event(&"attack_confirm"))
+		_cancel_two_tap_arm()
+	else:
+		# First tap (or different prior arm) → arm ATTACK
+		_arm_two_tap(&"attack")
+
+
+## _on_use_skill_button_pressed — story-005. USE_SKILL: reveals UI-GB-05 skill list.
+## Cancels any pending two-tap arm.
+func _on_use_skill_button_pressed() -> void:
+	_cancel_two_tap_arm()
+	var skill_panel: Control = _ui_elements.get(&"UI-GB-05")
+	if skill_panel != null:
+		skill_panel.visible = true
+
+
+## _on_defend_button_pressed — story-005. DEFEND first/second tap per ADR-0015 §OQ-4.
+## First tap arms the two-tap window; second tap within TWO_TAP_TIMEOUT_S confirms.
+func _on_defend_button_pressed() -> void:
+	if _two_tap_target_action == &"defend":
+		# Second tap on the SAME armed action → confirm
+		if _input_router != null:
+			_input_router._handle_event(_make_synthetic_action_event(&"defend_confirm"))
+		_cancel_two_tap_arm()
+	else:
+		# First tap (or different prior arm) → arm DEFEND
+		_arm_two_tap(&"defend")
+
+
+## _on_wait_button_pressed — story-005. WAIT: synthesize wait_action event.
+## Cancels any pending two-tap arm.
+func _on_wait_button_pressed() -> void:
+	_cancel_two_tap_arm()
+	if _input_router != null:
+		_input_router._handle_event(_make_synthetic_action_event(&"wait_action"))
+
+
+## _on_end_turn_button_pressed — story-005. END_TURN: synthesize end_turn_action event.
+## Cancels any pending two-tap arm.
+func _on_end_turn_button_pressed() -> void:
+	_cancel_two_tap_arm()
+	if _input_router != null:
+		_input_router._handle_event(_make_synthetic_action_event(&"end_turn_action"))
+
+
+## _on_undo_button_pressed — story-005. UNDO: synthesize undo_action event.
+## No two-tap required for undo (single-tap confirmation per spec).
+func _on_undo_button_pressed() -> void:
+	if _input_router != null:
+		_input_router._handle_event(_make_synthetic_action_event(&"undo_action"))
+
+
+## _on_skill_slot_pressed — story-005. Skill slot clicked: synthesize skill_use_N event
+## where N is the slot_index. Bound via .bind(slot_index) at _ready() time.
+func _on_skill_slot_pressed(slot_index: int) -> void:
+	var action: StringName = StringName("skill_use_%d" % slot_index)
+	if _input_router != null:
+		_input_router._handle_event(_make_synthetic_action_event(action))
+
+
+## _on_two_tap_timeout — story-005. Timer.timeout handler — clears pending arm
+## without firing confirm event. Per ADR-0015 §OQ-4 two-tap cancel path.
+func _on_two_tap_timeout() -> void:
+	_cancel_two_tap_arm()

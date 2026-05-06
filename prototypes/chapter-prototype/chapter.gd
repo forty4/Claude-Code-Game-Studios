@@ -90,10 +90,16 @@ var _result_panel: Control
 # ─── Lifecycle ──────────────────────────────────────────────────────────────
 
 func _ready() -> void:
-	# Resize window for prototype (820x720); restored by editor on quit
+	# Resize window for prototype; 2x scale for HiDPI readability (logical 820x760, physical 1640x1520)
 	if not Engine.is_editor_hint() and DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_WINDOWED:
-		DisplayServer.window_set_size(Vector2i(820, 760))
+		DisplayServer.window_set_size(Vector2i(1640, 1520))
 		DisplayServer.window_set_title("천명역전 — 장판파 [PROTOTYPE]")
+		# Center the window on screen so it doesn't go off-bottom on smaller displays
+		var screen_size: Vector2i = DisplayServer.screen_get_size()
+		var window_size: Vector2i = DisplayServer.window_get_size()
+		DisplayServer.window_set_position((screen_size - window_size) / 2)
+		# Scale content 2x — keeps internal coords at 820x760 but renders 2x larger
+		get_window().content_scale_factor = 2.0
 	_build_all_panels()
 	_show_story_phase()
 

@@ -1,0 +1,43 @@
+[gd_scene format=3]
+
+;; UI-GB-02 Action Menu — story-005.
+;; HBoxContainer root holding 6 action Buttons per battle-hud.md §3 UI-GB-02 layout spec.
+;; Buttons: MOVE / ATTACK / USE_SKILL / DEFEND / WAIT / END_TURN.
+;; All Buttons custom_minimum_size = Vector2(44, 44) per 44pt touch-target floor.
+;; text = "" — set at runtime via tr() per i18n discipline (forbidden_pattern
+;; battle_hud_hardcoded_localized_strings). tooltip_text set for AccessKit per
+;; ADR-0015 Verification Item 5.
+
+[node name="UI_GB_02_ActionMenu" type="HBoxContainer"]
+tooltip_text = "Action menu"
+custom_minimum_size = Vector2(0, 44)
+
+[node name="MoveButton" type="Button" parent="."]
+tooltip_text = "Move action"
+custom_minimum_size = Vector2(44, 44)
+text = ""
+
+[node name="AttackButton" type="Button" parent="."]
+tooltip_text = "Attack action"
+custom_minimum_size = Vector2(44, 44)
+text = ""
+
+[node name="UseSkillButton" type="Button" parent="."]
+tooltip_text = "Use skill action"
+custom_minimum_size = Vector2(44, 44)
+text = ""
+
+[node name="DefendButton" type="Button" parent="."]
+tooltip_text = "Defend action"
+custom_minimum_size = Vector2(44, 44)
+text = ""
+
+[node name="WaitButton" type="Button" parent="."]
+tooltip_text = "Wait action"
+custom_minimum_size = Vector2(44, 44)
+text = ""
+
+[node name="EndTurnButton" type="Button" parent="."]
+tooltip_text = "End turn action"
+custom_minimum_size = Vector2(44, 44)
+text = ""
