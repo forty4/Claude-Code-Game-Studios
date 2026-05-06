@@ -1,11 +1,11 @@
 # Story 006: Per-unit undo window (CR-5) + window OPEN/CLOSE on confirm/attack/end-turn + EC-5 occupied-tile rejection + Grid Battle stub extension
 
 > **Epic**: Input Handling
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Logic
 > **Estimate**: 3-4h
-> **Manifest Version**: 2026-04-20
+> **Manifest Version**: 2026-05-05
 
 ## Context
 
@@ -281,3 +281,35 @@
 
 - **Depends on**: Story 003 (S2 `move_confirm` arm — extends with undo-window OPEN), Story 004 (S4 `attack_confirm` arm — extends with undo-window CLOSE site (a); end-phase 2-beat — extends with site (c))
 - **Unlocks**: Battle HUD epic (consumes `input_action_fired(&"undo_last_move", ctx)` to update undo button visual state per CR-5c)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-06
+**Sprint**: Sprint-9 S9-01 (input-handling epic 10/10 closure begins)
+**Verdict**: COMPLETE WITH NOTES
+**Criteria**: 11/11 passing — 100% traceability via 16 tests in `tests/unit/foundation/input_router_undo_window_test.gd`
+
+**Deviations** (3 ADVISORY, 0 BLOCKING):
+1. `_apply_undo` writes `_state` directly — permitted per ADR-0020 §1 sole-state-mutator delegation pattern (per-state-arm-callee; mirrors `_apply_st2_demotion`). Inline doc comment added at `src/foundation/input_router.gd:287-294` during /code-review pass to formalize the delegation contract.
+2. Story spec `## Implementation Notes §2` uses `ctx.unit_id` typo — implementation correctly uses `ctx.target_unit_id` per actual `InputContext` schema. 4th story with this spec-vs-impl drift; recommend sprint-9 retro doc-correction sweep extending S8-retro work to cover story-006.
+3. Manifest version bumped 2026-04-20 → 2026-05-05 in /dev-story Phase 2 per option [A] (sprint-8 established pattern).
+
+**Test Evidence**: `tests/unit/foundation/input_router_undo_window_test.gd` — 16 tests (story-spec floor was 10; /dev-story added 14, /code-review pass added 2). Full GdUnit4 regression: 1116 → **1132 PASSING / 0 errors / 0 failures / 0 orphans / Exit 0**. 39th consecutive failure-free baseline.
+
+**/code-review-driven changes** (closed in same pass per sprint-8 3-skill-arc precedent — 5th invocation):
+- Added `test_apply_undo_succeeds_silently_when_no_grid_battle` per qa-tester IMPORTANT #1 (locks permissive-on-null pattern)
+- Added `test_ac6_undo_rejected_after_full_move_then_attack_sequence` per godot-gdscript-specialist IMPORTANT #1 (drives full 3-beat AC-6 GDD scenario)
+- Added inline ADR-0020 §1 sole-state-mutator delegation note at `_apply_undo` doc comment per godot-gdscript-specialist IMPORTANT #2
+
+**Code Review**: Complete — `/code-review` APPROVED; 0 BLOCKING / 3 IMPORTANT all closed in same pass / 4 MINOR items deferred (test rename cosmetic + has_method-false branch coverage informational + spec-typo deferred to retro + perf-test flake observation pre-existing). godot-gdscript-specialist + qa-tester both ran in parallel.
+
+**Manifest version**: 2026-04-20 → 2026-05-05 (bumped during /dev-story Phase 2)
+
+**Engine-risk findings**: None new. G-25 (depth-1 typed Dictionary) confirmed safe with `Dictionary[int, Vector2i]` + `Dictionary[int, int]` declarations. G-3/G-15/G-22/G-26/G-28 all observed.
+
+**Tech debt candidates** (3 INFO-level, NOT yet filed):
+- Test rename `test_apply_undo_happy_path_returns_true_and_records_restore_call` → could be more explicit about AC-3+AC-5 dual coverage; cosmetic; sprint-9 retro candidate
+- `_grid_battle.has_method() == false` branches uncovered (GridBattleStub always provides methods); informational; will become reachable when production GridBattleController ships incomplete stubs
+- `tests/unit/core/hp_status_perf_test.gd:141 test_apply_status_perf_under_gate` — pre-existing perf-test timing flake (mean 1.04ms vs 1.00ms gate; 4% over headless CI); UNRELATED to story-006; sprint-9 retro candidate to add to flake-test registry OR widen perf gate by 10%

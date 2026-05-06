@@ -11,7 +11,7 @@ goal: "Close input-handling epic 10/10 (stories 6-10) + absorb sprint-8 Nice bac
 start: "2026-06-14"
 end: "2026-06-20"
 generated: "2026-05-06"
-updated: "2026-05-06 — Sprint-9 plan generated; 14 stories (Must 5 + Should 4 + Nice 3 + 2 USER-OWNED); 3.7d nominal claude-owned; baseline 1116 PASS / 38th FFB; targeting input-handling 10/10"
+updated: "2026-05-06 — S9-01 done; input-handling story-006 per-unit undo CR-5 + EC-5 + 3 close sites; 1116→1132 PASS (+16); 39th FFB; Must 1/5 → S9-02 next"
 
 # Sprint-8 closed 11/16 claude-owned (Must 7/7 + Should 4/4; Nice 0/5: 4 deferred to sprint-9; 1 USER-OWNED).
 # 38th consecutive failure-free baseline (1116/1116 PASSING). Retro AI seeds carried forward — see
@@ -35,12 +35,12 @@ stories:
     name: "input-handling story-006 — per-unit undo window (CR-5) + window OPEN/CLOSE on confirm/attack/end-turn + EC-5 occupied-tile rejection + GridBattleStub extension"
     file: "production/epics/input-handling/story-006-per-unit-undo-window.md"
     priority: must-have
-    status: ready-for-dev
-    owner: ""
+    status: done
+    owner: claude
     estimate_days: 0.4
     blocker: ""
-    completed: ""
-    # Closes TD-064 _grid_controller.is_undo_available API placeholder via real production method
+    completed: "2026-05-06"
+    # 11/11 ACs / 16 tests / 3 ADVISORY (state-mutator note + spec typo + manifest bump); 1132 PASS / 39th FFB; CR-driven +2 tests in same pass
 
   - id: "S9-02"
     name: "input-handling story-007 — input_blocked + menu_open S5/S6 states + 3-arm input_blocked_reason vocabulary + open_game_menu S6 transition"

@@ -241,6 +241,76 @@ func set_grid_battle_for_tests(stub: Variant) -> void:
 	_grid_battle = stub
 
 
+## Clears all per-unit undo windows at battle-end boundary (ADR-0005 §1 R-2 memory bound).
+##
+## Called by SceneManager when transitioning out of BattleScene (production wiring
+## deferred to Battle Preparation ADR; test seam available now). Ensures undo windows
+## are battle-scoped and do NOT leak across battles.
+func clear_for_battle_transition() -> void:
+	_undo_windows.clear()
+
+
+# ── Per-unit undo window helpers (story-006 + CR-5) ──────────────────────────
+
+
+## Opens an undo window for a unit after a confirmed move (CR-5 — opens on COMPLETED move).
+##
+## CR-5b depth 1: if an entry already exists for this unit_id, OVERWRITE it.
+## Only the most recent move per unit is undoable. Called from S2 move_confirm arm.
+func _open_undo_window(unit_id: int, pre_move_coord: Vector2i, pre_move_facing: int) -> void:
+	var entry := UndoEntry.new()
+	entry.unit_id = unit_id
+	entry.pre_move_coord = pre_move_coord
+	entry.pre_move_facing = pre_move_facing
+	_undo_windows[unit_id] = entry  # CR-5b depth 1: overwrite if entry already exists
+
+
+## Closes the undo window for a unit permanently.
+##
+## Called from 3 CR-5 sites: (a) S4 attack_confirm for that unit,
+## (b) S1 end_unit_turn for that unit, (c) S0 end_phase_confirm (all windows via clear).
+## erase() is a no-op when key is absent — safe to call unconditionally.
+func _close_undo_window(unit_id: int) -> void:
+	_undo_windows.erase(unit_id)
+
+
+## Applies the undo for a unit — restores pre-move coord + facing + state → S1.
+##
+## Returns true on success, false on any rejection:
+##   (1) No window open for this unit (AC-13 case) — silent no-op.
+##   (2) Pre-move tile is occupied (EC-5 + CR-5f) — entry retained for retry;
+##       player can attempt again once the tile clears.
+##
+## CR-5e exclusions — undo restores ONLY: unit coord + facing + state → S1.
+## Does NOT restore: HP damage from terrain, status effects applied during/after move,
+## enemy unit reactions triggered by the move, AP spent. These are intentionally
+## excluded to prevent runaway state rollback exploits and scope creep.
+##
+## ADR-0020 §1 sole-state-mutator note: this helper writes `_state` and
+## `_did_visible_work` directly. Permitted because `_apply_undo` is invoked
+## EXCLUSIVELY from per-state arms (`_handle_action_in_s0` / `_handle_action_in_s1`
+## via the `&"undo_last_move"` match arm) — same delegation pattern as
+## `_apply_st2_demotion`. Not callable from `_handle_event`, public API, or any
+## other dispatch path. Story-010 lint will enforce that `_apply_undo` is only
+## referenced from the two undo-dispatch arms.
+func _apply_undo(unit_id: int) -> bool:
+	if not _undo_windows.has(unit_id):
+		return false  # AC-13: no window open for this unit; silent no-op
+	var entry: UndoEntry = _undo_windows[unit_id]
+	# EC-5 + CR-5f: check if pre-move tile is now occupied by another unit.
+	# Rejection does NOT pop the entry — player may retry when the tile clears.
+	if _grid_battle != null and _grid_battle.has_method("is_tile_occupied"):
+		if _grid_battle.is_tile_occupied(entry.pre_move_coord):
+			return false  # AC-14: tile occupied; entry retained for retry (CR-5f)
+	# Restore unit position via Grid Battle stub (provisional §9 method).
+	if _grid_battle != null and _grid_battle.has_method("restore_unit_to_pre_move"):
+		_grid_battle.restore_unit_to_pre_move(unit_id, entry.pre_move_coord, entry.pre_move_facing)
+	_undo_windows.erase(unit_id)  # pop entry — one-shot undo per CR-5
+	_state = InputState.UNIT_SELECTED  # CR-5: restore to S1 (UNIT_SELECTED) after undo
+	_did_visible_work = true
+	return true
+
+
 # ── Boot / lifecycle ──────────────────────────────────────────────────────────
 
 ## Path to the default bindings JSON. Override-able via _load_bindings_from_path
@@ -407,6 +477,8 @@ func _handle_action_in_s0(action: StringName, ctx: InputContext) -> void:
 			# AC-11 second beat: confirm only if armed.
 			if _pending_end_phase:
 				_pending_end_phase = false
+				# CR-5 site (c): clear ALL per-unit undo windows at end-phase boundary.
+				_undo_windows.clear()
 				_did_visible_work = true
 				# Battle HUD subscriber executes actual phase-end on receiving
 				# input_action_fired(&"end_phase_confirm", ctx).
@@ -416,6 +488,10 @@ func _handle_action_in_s0(action: StringName, ctx: InputContext) -> void:
 			# "cancel" event for an unarmed gate.
 			if _pending_end_phase:
 				_pending_end_phase = false
+		&"undo_last_move":
+			# S0 undo path: player can undo from observation state (AC-4 S0 path).
+			# _apply_undo handles _did_visible_work internally (set on success only).
+			_apply_undo(ctx.target_unit_id)
 		# All other actions in S0: silent no-op
 
 
@@ -443,26 +519,47 @@ func _handle_action_in_s1(action: StringName, ctx: InputContext) -> void:
 			if not _is_tile_in_attack_range(ctx.target_coord):
 				return  # target out of attack range per EC-7 silent rejection
 			_state = InputState.ATTACK_TARGET_SELECT
-		&"move_cancel", &"end_unit_turn":
-			_state = InputState.OBSERVATION  # back to observation; undo closes (story-006)
+		&"move_cancel":
+			_state = InputState.OBSERVATION  # back to observation
+		&"end_unit_turn":
+			# Close this unit's undo window before returning to S0 (CR-5 site (b)).
+			_close_undo_window(ctx.target_unit_id)
+			_state = InputState.OBSERVATION
 		&"open_game_menu":
 			pass  # → S6 (story-007)
 		&"open_unit_info":
 			pass  # read-only; S1 retained
 		&"action_confirm":
 			pass  # cursor-based confirm (Camera ADR pending; coord binding deferred)
+		&"undo_last_move":
+			# S1 undo path: player can undo from unit-selected state too (AC-4 S1 path).
+			# _apply_undo handles _did_visible_work internally (set on success only).
+			_apply_undo(ctx.target_unit_id)
 		# All other actions in S1: silent no-op
 
 
 ## S2 MOVEMENT_PREVIEW arm. Destination selected, awaiting confirm. On confirm:
-## apply move via Grid Battle stub + return to S0. On cancel: back to S1.
-## Story-006 will add undo-window-open call after confirm.
+## capture pre-move state, apply move via Grid Battle stub, open undo window,
+## return to S0. On cancel: back to S1.
 func _handle_action_in_s2(action: StringName, ctx: InputContext) -> void:
 	match action:
 		&"move_confirm", &"action_confirm":
+			# Capture pre-move coord + facing BEFORE confirm_move mutates unit state.
+			# Defaults to ZERO / 0 when _grid_battle is null or stub lacks the method.
+			var pre_coord: Vector2i = (
+				_grid_battle.get_unit_coord(ctx.target_unit_id)
+				if _grid_battle != null and _grid_battle.has_method("get_unit_coord")
+				else Vector2i.ZERO
+			)
+			var pre_facing: int = (
+				_grid_battle.get_unit_facing(ctx.target_unit_id)
+				if _grid_battle != null and _grid_battle.has_method("get_unit_facing")
+				else 0
+			)
 			if _grid_battle != null and _grid_battle.has_method("confirm_move"):
 				_grid_battle.confirm_move(ctx.target_unit_id, ctx.target_coord)
-			# Story-006: _open_undo_window(ctx.target_unit_id, ctx.target_coord)
+			# Open undo window after move is applied (CR-5 — window opens on COMPLETED move).
+			_open_undo_window(ctx.target_unit_id, pre_coord, pre_facing)
 			_state = InputState.OBSERVATION
 		&"move_cancel":
 			_state = InputState.UNIT_SELECTED
@@ -506,7 +603,8 @@ func _handle_action_in_s4(action: StringName, ctx: InputContext) -> void:
 				return  # invalid context — no attacker unit identified
 			if _grid_battle != null and _grid_battle.has_method("confirm_attack"):
 				_grid_battle.confirm_attack(ctx.target_unit_id, ctx.target_coord)
-			# Story-006: _close_undo_window(ctx.target_unit_id)
+			# Close undo window AFTER attack confirm but BEFORE state transition (CR-5 site (a)).
+			_close_undo_window(ctx.target_unit_id)
 			_state = InputState.OBSERVATION
 		&"attack_cancel":
 			_state = InputState.ATTACK_TARGET_SELECT
