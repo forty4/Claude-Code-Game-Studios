@@ -6,172 +6,138 @@
 #   - Verify with: awk '{if (length($0) > 200) print NR}' production/sprint-status.yaml
 #   - Enforced by /story-done Phase 7 step 4.
 
-sprint: 8
-goal: "Unblock input-handling + ship chapter-1 (장판파) end-to-end + flip Pillar 2 lock candidates 5+6 to shipped (Story Event #10 + Destiny State #16 implementations)."
-start: "2026-06-07"
-end: "2026-06-13"
-generated: "2026-05-05"
-updated: "2026-05-06 — S8-07 done; battle-hud UI-GB-02/05/10 + two-tap §OQ-4; 1106→1116 PASS (+10); 38th FFB; Must 7/7 ✓ → close-out"
+sprint: 9
+goal: "Close input-handling epic 10/10 (stories 6-10) + absorb sprint-8 Nice backlog (3 char profiles + AD-C3 glyph + main menu UX) + Save/Load #17 Core epic ratification."
+start: "2026-06-14"
+end: "2026-06-20"
+generated: "2026-05-06"
+updated: "2026-05-06 — Sprint-9 plan generated; 14 stories (Must 5 + Should 4 + Nice 3 + 2 USER-OWNED); 3.7d nominal claude-owned; baseline 1116 PASS / 38th FFB; targeting input-handling 10/10"
 
-# Sprint-7 closed 9/11 (Must 4/4 + Should 3/3 + Nice 2/4); S7-10 BLOCKED on input-handling epic;
-# S7-11 USER-OWNED. 26th+ consecutive failure-free baseline (978/978 PASSING). Retro AI seeds
-# carried forward — see sprint-8.md §Sprint-8 Retro AI seed.
-# Sprint-7 history archive: production/sprint-status-history.md ## Sprint 7 section (pending).
-# Sprint-7 retro: production/retrospectives/retro-sprint-7-2026-05-05.md.
+# Sprint-8 closed 11/16 claude-owned (Must 7/7 + Should 4/4; Nice 0/5: 4 deferred to sprint-9; 1 USER-OWNED).
+# 38th consecutive failure-free baseline (1116/1116 PASSING). Retro AI seeds carried forward — see
+# sprint-9.md §Sprint-9 Retro AI seed.
+# Sprint-8 history archive: production/sprint-status-history.md ## Sprint 8 section.
+# Sprint-8 retro: production/retrospectives/retro-sprint-8-2026-05-06.md.
 
-# Sprint-8 retro AI #1 (carried from sprint-7 retro AI #1):
-#   "All shipped work must close its sprint-status row in the same patch."
-#   STATUS: PARTIAL at sprint-7 close (4-story streak S7-05..S7-09); sprint-8 enforcement
-#   target = 6+ consecutive in-patch closes for stability declaration.
-# Sprint-8 retro AI #2 (NEW from sprint-7 retro improvement #1):
-#   "Pre-flight check policy — every carryover story must verify underlying infra has all
-#   referenced APIs at sprint-plan time (S7-10 InputRouter PLACEHOLDER lesson)."
+# Sprint-9 retro AI #1 (NEW from sprint-8 retro Process Improvement #1):
+#   "Codification debt MUST be paid at retro time" — any G-* / TD-* / pattern candidate surfaced
+#   during sprint-9 must be codified in `.claude/rules/` at sprint-9 retro time, not deferred.
+#   Pre-allocate ~30min in retro for codification work.
+# Sprint-9 retro AI #2 (NEW from sprint-8 retro Process Improvement #2):
+#   "Lint scope must include .tscn content for forbidden patterns about visible content" — story-008
+#   ships TD-067 lint scope extension; validate at retro that extension caught additional cases.
+# Sprint-9 retro AI #3 (NEW from sprint-8 retro Process Improvement #3):
+#   "InputContext sentinel-discipline alignment" — Vector2i(-1, -1) "absent" sentinel mirroring
+#   target_unit_id = -1; stories 008-009 own migration; validate at retro.
 
 stories:
-  - id: "S8-01"
-    name: "/architecture-decision — author ADR-0020 InputRouter Proposed → Accepted via combined-session escalation 5th invocation"
-    file: ""  # ADR-only authoring; no story file (precedent: S7-01 architecture-review delta authoring)
+  - id: "S9-01"
+    name: "input-handling story-006 — per-unit undo window (CR-5) + window OPEN/CLOSE on confirm/attack/end-turn + EC-5 occupied-tile rejection + GridBattleStub extension"
+    file: "production/epics/input-handling/story-006-per-unit-undo-window.md"
     priority: must-have
-    status: done
-    owner: claude
+    status: ready-for-dev
+    owner: ""
     estimate_days: 0.4
     blocker: ""
-    completed: "2026-05-06"
-    # 2026-05-06 ADR-0020 Accepted delta #15; tr v15→v16; arch.yaml v13→v14; ADR-0001 +3 Story Event #10 (30/11 doms); Must unblocked S8-02..S8-07
+    completed: ""
+    # Closes TD-064 _grid_controller.is_undo_available API placeholder via real production method
 
-  - id: "S8-02"
-    name: "input-handling story-001 — module skeleton + autoload registration (/root/InputRouter boot pos 9 per ADR-0020 amendment)"
-    file: "production/epics/input-handling/story-001-module-skeleton-and-autoload-registration.md"
+  - id: "S9-02"
+    name: "input-handling story-007 — input_blocked + menu_open S5/S6 states + 3-arm input_blocked_reason vocabulary + open_game_menu S6 transition"
+    file: "production/epics/input-handling/story-007-input-blocked-and-menu-open.md"
     priority: must-have
-    status: done
-    owner: claude
+    status: backlog
+    owner: ""
+    estimate_days: 0.4
+    blocker: "S9-01"
+    completed: ""
+
+  - id: "S9-03"
+    name: "input-handling story-008 — touch protocol Tap Preview Protocol magnifier F1 + i18n .tscn lint scope extension (closes TD-065/066/067)"
+    file: "production/epics/input-handling/story-008-touch-protocol-tpp-magnifier-f1.md"
+    priority: must-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.5
+    blocker: "S9-02"
+    completed: ""
+    # Sprint-9 retro AI #2 + #3 land here: lint .tscn scope + Vector2i(-1,-1) sentinel migration
+
+  - id: "S9-04"
+    name: "input-handling story-009 — touch protocol pan/tap gestures + InfoPanel scrolling per ADR-0005 §1 + CR-1c"
+    file: "production/epics/input-handling/story-009-touch-protocol-pan-tap-gestures-panel.md"
+    priority: must-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.4
+    blocker: "S9-03"
+    completed: ""
+
+  - id: "S9-05"
+    name: "input-handling story-010 — epic-terminal perf+lints+evidence pass; close 8 forbidden_patterns + lint scripts; input-handling epic 10/10 Complete"
+    file: "production/epics/input-handling/story-010-epic-terminal-perf-lints-evidence.md"
+    priority: must-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.4
+    blocker: "S9-04"
+    completed: ""
+    # Target: ≥1180 tests / 0 errors / 0 failures / 0 orphans / Exit 0; input-handling epic 10/10 flip
+
+  - id: "S9-06"
+    name: "Save/Load #17 Core epic creation OR design-only ratification — verify against existing save-manager Platform epic (8/8 Complete since 2026-04-24)"
+    file: ""  # File path TBD — either NEW production/epics/save-load/EPIC.md OR ratification note in production/epics/index.md
+    priority: should-have
+    status: backlog
+    owner: ""
     estimate_days: 0.3
     blocker: ""
-    completed: "2026-05-06"
-    # input_router.gd 124L skeleton (6 fields + 2 enums + 4 stubs); G-3 confirmed fires, class_name OMIT; G-25 codified; 1015 → 1024 PASS; TD-058 closed
+    completed: ""
+    # Conditional creation: only if S8-08 GDD adds NEW schema/contract not yet in save-manager 8/8
 
-  - id: "S8-03"
-    name: "input-handling story-002 — action vocabulary + bindings.json (default schema + emulate_mouse_from_touch=false)"
-    file: "production/epics/input-handling/story-002-action-vocabulary-and-bindings-json.md"
-    priority: must-have
-    status: done
-    owner: claude
-    estimate_days: 0.3
-    blocker: ""
-    completed: "2026-05-06"
-    # 22-action ACTIONS_BY_CATEGORY const + 21-key default_bindings.json + JSON load DI seam + R-5 parity returns int + 23 tests / 1047/1047 PASS
-
-  - id: "S8-04"
-    name: "input-handling story-003 — FSM core S0/S1/S2 move flow + GridBattleController dispatch integration"
-    file: "production/epics/input-handling/story-003-fsm-core-s0-s1-s2-move-flow.md"
-    priority: must-have
-    status: done
-    owner: claude
-    estimate_days: 0.5
-    blocker: ""
-    completed: "2026-05-06"
-    # _handle_action 7-arm match dispatch + S0/S1/S2 real bodies + S3..S6 stubs + GridBattleStub RefCounted helper + 24 tests / 1071/1071 PASS
-
-  - id: "S8-05"
-    name: "input-handling story-004 — FSM attack S3/S4 + ST2 demotion gate per CR-IH-3"
-    file: "production/epics/input-handling/story-004-fsm-attack-s3-s4-and-st2-demotion.md"
-    priority: must-have
-    status: done
-    owner: claude
-    estimate_days: 0.4
-    blocker: ""
-    completed: "2026-05-06"
-    # S3/S4 real bodies + ST2 helper + AC-11 end-phase gate + _did_visible_work emit-decoupling + S4 -1 unit_id guard + 24 tests / 1095/1095 PASS
-
-  - id: "S8-06"
-    name: "input-handling story-005 — mode determination CR-2 + input_mode_changed GameBus emit + BattleHUD Tap Preview Protocol"
-    file: "production/epics/input-handling/story-005-mode-determination-cr2.md"
-    priority: must-have
-    status: done
-    owner: claude
-    estimate_days: 0.3
-    blocker: ""
-    completed: "2026-05-06"
-    # _determine_mode_from_event 12L + _handle_event Phase 1 prepend 16L; CR-2 + CR-2c + OQ-1; AC-7+8 Polish-deferred; 11 tests / 1106/1106 PASS
-
-  - id: "S8-07"
-    name: "S7-10 unblock — battle-hud story-005 (UI-GB-02/05/10 + two-tap ATTACK/DEFEND HUD-owns-timer per AC-UX-HUD-08/09)"
-    file: "production/epics/battle-hud/story-005-action-menu-skill-list-undo-two-tap.md"
-    priority: must-have
-    status: done
-    owner: claude
-    estimate_days: 0.5
-    blocker: ""
-    completed: "2026-05-06"
-    # 3 NEW .tscn (UI-GB-02/05/10) + battle_hud.gd +343L; 11 fns + two-tap state machine; ADR-0015 §OQ-4 codified; 10 tests / 1116/1116 PASS
-
-  - id: "S8-08"
-    name: "/design-system save-load — Save/Load #17 GDD authoring (PROVISIONAL → Designed); carryover from sprint-7 Producer pressure-cut"
-    file: "design/gdd/save-load.md"
+  - id: "S9-07"
+    name: "First 3 character visual profile stubs (유비/장비/리유비 — chapter-1 player roster) — closes AD-C5 ADVISORY"
+    file: ""  # Multiple files; design/art/characters/{liu-bei,zhang-fei,guan-yu}.md (path TBD by world-builder)
     priority: should-have
-    status: done
-    owner: claude
-    estimate_days: 0.4
-    blocker: ""
-    completed: "2026-05-05"
-    # save-load.md NEW 368L (8 sections); 22 CRs + 5 formulas + 11 EC + 20 ACs + 5 OQs; ratifies ADR-0003 + cross-doc F-SP-4 obligation closed; systems-index #17 Not Started → Designed
-
-  - id: "S8-09"
-    name: "Story Event #10 implementation per S7-06 GDD — autoload registered + 3 GameBus signals + Pillar 2 lock 6th invocation flip"
-    file: ""  # Implementation story file authored at story-creation time post-S8-08 epic creation
-    priority: should-have
-    status: done
-    owner: claude
-    estimate_days: 0.5
-    blocker: ""
-    completed: "2026-05-05"
-    # story_event.gd NEW 248L; autoload pos 8; 3 NEW signals + diagnostics route; 2 lints + 15 tests; pattern 5 → 6 shipped; 992 → 1007 PASS
-
-  - id: "S8-10"
-    name: "Destiny State #16 implementation per S7-07 GDD — autoload registered + Array[EchoMark] lifecycle + Pillar 2 lock 5th invocation flip"
-    file: ""  # Implementation story file authored at story-creation time post-S8-08 epic creation
-    priority: should-have
-    status: done
-    owner: claude
-    estimate_days: 0.5
-    blocker: ""
-    completed: "2026-05-05"
-    # destiny_state.gd NEW 161L; autoload pos 7; 2 Pillar 2 lock lints + 14 tests; pattern 4 shipped → 5 shipped; 992/992 PASS (was 978)
-
-  - id: "S8-11"
-    name: "Chapter-1 (장판파) end-to-end integration vertical-slice run — 9-beat ScenarioRunner playthrough + branch_table resolution"
-    file: ""  # Integration test only; no source story file
-    priority: should-have
-    status: done
-    owner: claude
-    estimate_days: 0.4
-    blocker: ""
-    completed: "2026-05-05"
-    # 8 e2e tests + smoke evidence chapter_1_integration_run.md; production bug fix StoryEvent _active_chapter cache; ScenarioRunner reset_for_tests; 1007 → 1015 PASS
-
-  - id: "S8-12"
-    name: "First 2-3 character visual profile stubs (유비/장비/리유비) — closes AD-C5 ADVISORY"
-    file: ""  # Multiple files; design/art/characters/{yu-bei,zhang-fei,liu-bei}.md
-    priority: nice-to-have
     status: backlog
     owner: ""
     estimate_days: 0.3
     blocker: ""
     completed: ""
 
-  - id: "S8-13"
+  - id: "S9-08"
     name: "AD-C3 font glyph check (緣 bond glyph rendering verification across chapter-1 text)"
-    file: ""  # Test + evidence doc; no source story file
-    priority: nice-to-have
+    file: ""  # Test + evidence doc; production/qa/evidence/font_glyph_check_緣.md
+    priority: should-have
     status: backlog
     owner: ""
     estimate_days: 0.2
-    blocker: "S8-09"  # Story Event implementation needed for text-pipeline test
+    blocker: ""
     completed: ""
 
-  - id: "S8-14"
+  - id: "S9-09"
     name: "Main menu UX spec stub at design/ux/main-menu.md — closes AD-C6 ADVISORY"
     file: "design/ux/main-menu.md"
+    priority: should-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.2
+    blocker: ""
+    completed: ""
+
+  - id: "S9-10"
+    name: "Pillar 4 chapter-2 scoping + chapter-1-callback ACs (CD recommendation; carryover from sprint-8 S8-16)"
+    file: "design/scenarios/chapter-2-outline.md"
+    priority: nice-to-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.3
+    blocker: ""
+    completed: ""
+
+  - id: "S9-11"
+    name: "CI lane gap formal decision (sprint-7 AI #5 + sprint-8 AI #8 — 2-sprint deferred; sprint-9 forces decision)"
+    file: ""  # Decision doc path TBD — production/decisions/ci-lane-gap-decision-2026-05-XX.md OR .github/workflows/ extension
     priority: nice-to-have
     status: backlog
     owner: ""
@@ -179,8 +145,18 @@ stories:
     blocker: ""
     completed: ""
 
-  - id: "S8-15"
-    name: "User attestation pass on 4 VS Validation items in prototypes/chapter-prototype/REPORT.md (USER-OWNED carryover from S7-11)"
+  - id: "S9-12"
+    name: "Sprint-plan template refinement — separate user-owned carryovers from claude-owned (sprint-8 retro action item #10)"
+    file: ""  # Template-level change; affects future production/sprints/sprint-N.md authoring
+    priority: nice-to-have
+    status: backlog
+    owner: ""
+    estimate_days: 0.1
+    blocker: ""
+    completed: ""
+
+  - id: "S9-13"
+    name: "S7-11 user attestation pass on 4 VS Validation items in prototypes/chapter-prototype/REPORT.md (USER-OWNED — 3rd time carryover)"
     file: "prototypes/chapter-prototype/REPORT.md"
     priority: nice-to-have
     status: backlog
@@ -189,12 +165,12 @@ stories:
     blocker: ""
     completed: ""
 
-  - id: "S8-16"
-    name: "Pillar 4 chapter-2 scoping + chapter-1-callback ACs per CD recommendation; chapter-2 outline draft"
-    file: "design/scenarios/chapter-2-outline.md"
+  - id: "S9-14"
+    name: "S8-15 user attestation pass on sprint-8 manual smoke check Batches 1+3 (USER-OWNED — 1st time post-introduction)"
+    file: "production/qa/qa-signoff-sprint-8-2026-05-06.md"
     priority: nice-to-have
     status: backlog
-    owner: ""
-    estimate_days: 0.3
-    blocker: "S8-11"  # Chapter-1 e2e validates ScenarioRunner chain works first
+    owner: "user"
+    estimate_days: 0
+    blocker: ""
     completed: ""

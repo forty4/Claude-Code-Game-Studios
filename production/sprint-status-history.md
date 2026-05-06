@@ -16,6 +16,101 @@
 
 ---
 
+## Sprint 8
+
+### Sprint-8 closure summary (2026-05-06; archived at sprint-9 kickoff 2026-05-06)
+
+**Sprint-8 closed 11/16 claude-owned** — Must-Have 7/7 + Should-Have 4/4; Nice-to-Have 0/5 (4 deferred to sprint-9; 1 USER-OWNED).
+
+**Per-row final status** (canonical at sprint-status.yaml v2026-05-06 Sprint 8 snapshot prior to sprint-9 rotation):
+
+| ID | Status | Commit | Note |
+|---|---|---|---|
+| S8-01 | done | `d3c1d78` (Proposed) + `a351b63` (Accepted) | ADR-0020 InputRouter Dispatch via /architecture-review delta #15; 1st cross-calendar-day fresh-session escalation |
+| S8-02 | done | `a351b63` | input-handling story-001 module skeleton + InputRouter autoload boot pos 9 |
+| S8-03 | done | `e7410e8` | input-handling story-002 — 22-action StringName vocab + bindings.json + InputMap population |
+| S8-04 | done | `e7410e8` | input-handling story-003 — 7-state FSM core S0/S1/S2 move flow + GridBattleStub helper |
+| S8-05 | done | `e7410e8` | input-handling story-004 — FSM extended S3/S4 attack + ST-2 demotion + AC-11 end-phase 2-beat gate |
+| S8-06 | done | `ad3c378` | input-handling story-005 — mode determination CR-2 + input_mode_changed emit + Tap Preview Protocol |
+| S8-07 | done | `ad3c378` | battle-hud story-005 — UI-GB-02/05/10 + two-tap ATTACK/DEFEND HUD-owns-timer (S7-10 unblock) |
+| S8-08 | done | `18fa6f4` | Save/Load #17 GDD authoring (PROVISIONAL → Designed) |
+| S8-09 | done | `6dbf494` | Story Event #10 implementation — Pillar 2 lock 6th invocation flip; ADR-0001 minor amendment +3 signals |
+| S8-10 | done | `d1128ee` | Destiny State #16 implementation — Pillar 2 lock 5th invocation flip; reset_for_tests pattern 4th autoload |
+| S8-11 | done | `5283ccd` | Chapter-1 (장판파) end-to-end integration — production bug surfaced+fixed (StoryEvent _active_chapter cache) |
+| S8-12 | backlog | (deferred) | First 3 character profile stubs — deferred to sprint-9 S9-07 |
+| S8-13 | backlog | (deferred) | AD-C3 font glyph check — deferred to sprint-9 S9-08 |
+| S8-14 | backlog | (deferred) | Main menu UX spec stub — deferred to sprint-9 S9-09 |
+| S8-15 | backlog | (USER-OWNED) | Manual smoke check Batches 1+3 + S7-11 attestation carryover — pending user time |
+| S8-16 | backlog | (deferred) | Pillar 4 chapter-2 scoping — deferred to sprint-9 S9-10 |
+
+**Sprint-8 metrics**: 5.5d nominal / ~1d actual = **5× velocity multiplier** (4-sprint trend stable). Test baseline 978 → **1116 PASSING** (+138 net new tests; **38th consecutive failure-free baseline**, +12 streak ratchet from sprint-7's 26th). 8 commits. ADRs: 19 → 20 (ADR-0020 InputRouter Dispatch). 1 production bug surfaced + closed in same-patch (StoryEvent deferred-handler-after-state-advance race in S8-11). 0 user-adjudication points across 11 stories.
+
+**Sprint-8 pattern stability declarations achieved**:
+- **Pillar 2 architectural lock pattern STABILIZED at 6 invocations** (codification threshold reached)
+- **Combined-session escalation pattern STABLE at 5 invocations** + 1st cross-calendar-day variant (deltas #11..#15)
+- **In-patch sprint-status hygiene close STABILIZED at 15-streak** (target was 6+; comfort margin 9)
+- **5× velocity multiplier STABILIZED across 4 sprints** (sprint-5/6/7/8)
+- **Autoload Node pattern at 9 production autoloads** (target 10 missed by 1; sprint-9 may flip if Save/Load #17 creates new autoload)
+- **`reset_for_tests` autoload test-seam pattern STABLE at 4 autoloads**
+- **3-skill arc `/dev-story` → `/code-review` → `/story-done` validated 4× in single session-arc**
+
+**Sprint-8 retro key findings**:
+1. Single most important change: codification debt MUST be paid at retro time (NEW Process Improvement #1 — applied immediately at sprint-8 retro by codifying G-26/G-27/G-28 in `.claude/rules/godot-4x-gotchas.md`)
+2. Lint scope must include `.tscn` content for forbidden patterns about visible content (NEW Process Improvement #2 — TD-067 surface)
+3. InputContext sentinel-discipline alignment: `Vector2i(-1, -1)` "absent" sentinel mirroring `target_unit_id = -1` (NEW Process Improvement #3)
+4. Story-spec doc-correction sweep complete for input-handling stories 002-004 (`ctx.unit_id` → `ctx.target_unit_id` + `ctx.coord` → `ctx.target_coord`)
+
+**Sprint-8 codification debt paid at retro time**:
+- **G-26 NEW**: User-vs-user `class_name` collision. Discovered S8-04.
+- **G-27 NEW**: Deferred-handler-after-state-advance race. Discovered S8-11.
+- **G-28 NEW**: Bulk-disconnect-all in test cleanup severs production autoload subscriptions. Discovered S8-10.
+
+**Tech debt entries added sprint-8** (5; from S8-07 /code-review):
+- TD-063 _grid_controller.is_action_available API placeholder (deferred to grid-battle epic)
+- TD-064 _grid_controller.is_undo_available API placeholder (closed in sprint-9 S9-01 input-handling story-006)
+- TD-065 ui_gb_10_undo_indicator.tscn UndoLabel hardcoded i18n (Polish; absorbed in sprint-9 S9-03)
+- TD-066 ui_gb_05_skill_list.tscn nested HBoxContainer mouse_filter defensive IGNORE (Polish; absorbed in sprint-9 S9-03)
+- TD-067 story-008 lint scope extension to .tscn files (absorbed in sprint-9 S9-03)
+
+**Cross-references**:
+- Sprint-8 plan: `production/sprints/sprint-8.md`
+- Sprint-8 retro: `production/retrospectives/retro-sprint-8-2026-05-06.md`
+- Sprint-9 plan absorbing sprint-8 retro: `production/sprints/sprint-9.md`
+- QA sign-off: `production/qa/qa-signoff-sprint-8-2026-05-06.md` (APPROVED WITH CONDITIONS)
+- Smoke check: `production/qa/smoke-2026-05-06.md` (PASS / 1116/1116 / 38th FFB)
+- Gate-check: `production/gate-checks/pre-prod-to-prod-2026-05-06.md` (CONCERNS unchanged; sole gates = S7-11 + S8-15 USER-OWNED)
+- Architecture-review delta #15: `docs/architecture/architecture-review-2026-05-06.md` (PASS — 0 BLOCKING + 0 ADVISORY; ADR-0020 Accepted)
+
+---
+
+## Sprint 7
+
+### Sprint-7 closure summary (archived at sprint-9 kickoff 2026-05-06; sprint-7→sprint-8 transition skipped this archive due to same-day rotation)
+
+**Sprint-7 closed 9/11** — Must-Have 4/4 + Should-Have 3/3; Nice-to-Have 2/4 (S7-10 BLOCKED on input-handling InputRouter PLACEHOLDER discovery; S7-11 USER-OWNED).
+
+**Per-row final status (restored for archive completeness)**:
+
+| ID | Status | Note |
+|---|---|---|
+| S7-01 | done | ADR-0019 AI System escalation via /architecture-review delta #14 |
+| S7-02 | done | ScenarioRunner autoload + 9-beat lifecycle (Pillar 2 lock 2nd invocation) |
+| S7-03 | done | DestinyBranchJudge + 12-vocab invariant_reason + @abstract test seam (Pillar 2 lock 3rd invocation) |
+| S7-04 | done | AISystem 4 archetypes (Pillar 2 lock 4th invocation: ai_system_reads_destiny_branch_state) |
+| S7-05 | done | Chapter-1 (장판파) data — 9-beat scenario JSON + branch_table |
+| S7-06 | done | Story Event #10 GDD authoring (PROVISIONAL → Designed) — 6-variant closed-vocab |
+| S7-07 | done | Destiny State #16 GDD authoring (PROVISIONAL → Designed) |
+| S7-08 | done | Control-manifest backfill 513 → 634 lines |
+| S7-09 | done | Battle-hud story-004 (carried from sprint-6 S6-12) |
+| S7-10 | blocked | Battle-hud story-005 BLOCKED on InputRouter PLACEHOLDER; deferred → sprint-8 S8-07 |
+| S7-11 | backlog | (USER-OWNED) — 4 VS Validation items; deferred → sprint-8 S8-15 → sprint-9 S9-13 |
+
+**Sprint-7 metrics**: 4.5d nominal / ~1-1.5d actual = **3-5× velocity multiplier**. Test baseline 907 → **978 PASSING** (+71 net new; 26th+ FFB). 24 commits. ADRs: 18 → 19 (ADR-0019 AI System).
+
+**Sprint-7 retro**: `production/retrospectives/retro-sprint-7-2026-05-05.md`. Single most important change: codify sprint-plan pre-flight discipline so carryover stories verify underlying infra at plan time (S7-10 lesson).
+
+---
+
 ## Sprint 6
 
 ### Sprint-6 closure summary (2026-05-04; archived at sprint-7 kickoff 2026-05-05)
