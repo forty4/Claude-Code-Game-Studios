@@ -11,7 +11,7 @@ goal: "Close input-handling epic 10/10 (stories 6-10) + absorb sprint-8 Nice bac
 start: "2026-06-14"
 end: "2026-06-20"
 generated: "2026-05-06"
-updated: "2026-05-06 — S9-02 done; input-handling story-007 S5 INPUT_BLOCKED + S6 MENU_OPEN + nested block stack; 1132→1154 PASS (+22); 41st FFB; 17-streak; Must 2/5 → S9-03 next"
+updated: "2026-05-06 — S9-03 done; story-008 TPP+Magnifier+F-1+stubs+5 BalanceConstants+verification 03/05a; 1154→1176 PASS (+22); 43rd FFB; 18-streak; Must 3/5 → S9-04 next"
 
 # Sprint-8 closed 11/16 claude-owned (Must 7/7 + Should 4/4; Nice 0/5: 4 deferred to sprint-9; 1 USER-OWNED).
 # 38th consecutive failure-free baseline (1116/1116 PASSING). Retro AI seeds carried forward — see
@@ -57,12 +57,12 @@ stories:
     name: "input-handling story-008 — touch protocol Tap Preview Protocol magnifier F1 + i18n .tscn lint scope extension (closes TD-065/066/067)"
     file: "production/epics/input-handling/story-008-touch-protocol-tpp-magnifier-f1.md"
     priority: must-have
-    status: backlog
-    owner: ""
+    status: done
+    owner: "claude"
     estimate_days: 0.5
     blocker: "S9-02"
-    completed: ""
-    # Sprint-9 retro AI #2 + #3 land here: lint .tscn scope + Vector2i(-1,-1) sentinel migration
+    completed: "2026-05-06"
+    # 2026-05-06 — S9-03 done; TPP+Magnifier+F-1+3 stubs+5 BalanceConstants+project.godot+2 evidence; 12/12 ACs / 22 tests; 1154→1176 PASS (+22); 43rd FFB; 18-streak.
 
   - id: "S9-04"
     name: "input-handling story-009 — touch protocol pan/tap gestures + InfoPanel scrolling per ADR-0005 §1 + CR-1c"

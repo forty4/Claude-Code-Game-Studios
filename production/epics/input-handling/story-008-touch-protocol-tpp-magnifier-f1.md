@@ -1,11 +1,11 @@
 # Story 008: Touch protocol part A — Tap Preview Protocol (CR-4a) + Magnifier Panel (CR-4c F-2 trigger) + Selection highlight (CR-4d) + F-1 camera_zoom_min derivation + verification evidence #3 + #5a + Battle HUD/Camera stubs
 
 > **Epic**: Input Handling
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Integration
 > **Estimate**: 4-5h
-> **Manifest Version**: 2026-04-20
+> **Manifest Version**: 2026-05-05
 
 ## Context
 
@@ -352,3 +352,73 @@
 
 - **Depends on**: Story 005 (`_construct_input_context` placeholder — this story implements full version), Story 002 (default_bindings.json must have touch entries for AC-7), Story 001 (InputContext payload — coord + unit_id fields used)
 - **Unlocks**: Story 009 (touch part B — pan-vs-tap classifier extends `_construct_input_context` with InputEventScreenDrag handling); Battle HUD epic (consumes `&"magnifier_open"` + TPP `&"unit_select"` first-tap signals)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-06
+**Verdict**: COMPLETE WITH NOTES
+**Criteria**: 12/12 covered by 22 tests / 100% traceability
+**Test result**: full suite 1154 → 1172 (post-/dev-story; +18) → **1176 PASSING** (post-/code-review; +4 net-new from in-patch refactor) / 0 errors / 0 failures / 0 orphans / Exit 0 / **43rd consecutive failure-free baseline**
+**18-streak in-patch sprint-status hygiene close achieved** (S7-05/06/07/09 + S8-01..S8-11 + S9-01 + S9-02 + S9-03 = 18 in-patch closes; sprint-9 retro AI #6 target maintained)
+**Lean review mode**: QL-STORY-READY + QL-TEST-COVERAGE + LP-CODE-REVIEW gates skipped per phase-gate filter
+
+### Files changed (this 3-skill arc /dev-story → /code-review → /story-done)
+
+- `src/foundation/input_router.gd` 879L → 1021L (+142L /dev-story) → ~1042L (+~21L /code-review: ADR-0020 §1 sole-state-mutator note on `_handle_action_in_s0` matching 4-precedent pattern + `magnifier_open` synthesized action ADR-0005 §7 inline citation for story-010 R-5 lint exemption)
+- `tests/unit/foundation/input_router_touch_part_a_test.gd` NEW 423L → ~590L (+~167L /code-review: AC-3 emit payload assertion + AC-7 reachability sweep rewrite with `_AC7_BATTLE_HUD_REACHABLE` const classification + AC-9 tautology cleanup + 3 integration tests through `_make_context_from_event`) — 22 tests total covering AC-1..AC-12
+- `tests/helpers/battle_hud_stub.gd` NEW 31L — `class_name BattleHUDStub extends RefCounted` with 4 method recorders (G-26 verified non-collision)
+- `tests/helpers/camera_stub.gd` NEW 41L — `class_name CameraStub extends RefCounted` with screen_to_grid + clamp_zoom + zoom getter/setter (G-26 verified non-collision; G-25 safe depth-1 typed Dict)
+- `tests/helpers/map_grid_stub.gd` +14L — `unit_at_coord: Dictionary[Vector2i, int]` field + `get_unit_at(coord) -> int` method (-1 sentinel for "no unit at coord"; matches InputContext.target_unit_id semantics; distinct from production occupant_id=0)
+- `assets/data/balance/balance_entities.json` +3 keys — TPP_DOUBLE_TAP_WINDOW_MS=500, DISAMBIG_EDGE_PX=8, DISAMBIG_TILE_PX=32 (TILE_WORLD_SIZE=64 + TOUCH_TARGET_MIN_PX=44 already present pre-story)
+- `project.godot` +7L — `[input_devices.pointing]` section NEW + `emulate_mouse_from_touch=false` + comment block citing ADR-0005 §3 + CR-2e + R-3
+- `production/qa/evidence/input_router_verification_03_emulate_mouse_from_touch.md` NEW 27L — Status: Verified (headless via project.godot grep)
+- `production/qa/evidence/input_router_verification_05a_displayserver_screen_get_size.md` NEW ~50L (+6L /code-review: filled observed Vector2i value `(0, 0)` for headless macOS with display-backed dev-box explanation) — Status: Verified (headless macOS) | Polish-deferred (Android)
+- `production/sprint-status.yaml` — top updated field + S9-03 row closed (status: backlog → done, owner claude, completed 2026-05-06)
+
+### /code-review specialist findings (godot-gdscript-specialist + qa-tester both spawned in parallel)
+
+**godot-gdscript-specialist**: APPROVED WITH SUGGESTIONS → 0 BLOCKING / 3 IMPORTANT (all closed in same pass: I-1 AC-7 reachability rewrite + I-2 AC-9 tautology cleanup + I-3 AC-3 payload assertion) / 5 MINOR (M-1 explicit int() cast cleanup + M-2 _compute_camera_zoom_min divide-by-zero guard + M-3 CameraStub hardcoded 0.70 + M-4 evidence #5a placeholder fill + M-5 magnifier_open synthesized action exemption-list pattern — M-4 + M-5 closed in-pass; M-1/M-2/M-3 deferred). 1 G-29 candidate proposed: synthesized signal-actions emitted via `input_action_fired` that are not in `ACTIONS_BY_CATEGORY` create R-5 lint false-positives; story-010 lint must accept a `_SYNTHESIZED_ACTIONS` exemption const.
+
+**qa-tester**: GAPS → close requires 3 tests + 2 assertion additions + 1 tautology cleanup → 1 BLOCKING (closed: 3 integration tests added: `test_make_context_from_event_touch_resolves_coord_and_unit_via_stubs` + `..._emits_magnifier_open_when_trigger_condition_true` + `..._no_magnifier_emit_when_trigger_condition_false`) / 3 IMPORTANT (all 3 convergent with godot-gdscript-specialist findings, closed in same pass) / 4 MINOR (MIN-1 TILE_WORLD_SIZE=0 / MIN-2 mode-switch leak / MIN-3 fmod(x,0) NaN / MIN-4 mouse path test — all deferred per existing structural coverage) + 3 SD story spec drift (SD-1 field-name typo + SD-2 helper name + SD-3 evidence #5a placeholder — SD-3 closed inline; SD-1/2 deferred to TD-F sprint-9 retro doc-correction sweep)
+
+### ADVISORY deviations (5, all documented; 4 closed inline)
+
+1. **Field-name typo in story spec** (carryover from stories 002-004; same pattern as S9-01 ADVISORY #2): story uses bare `ctx.unit_id` / `ctx.coord` in implementation notes; actual InputContext fields are `target_unit_id` + `target_coord`. Implementation correctly uses actual field names. **DEFERRED — TD-F sprint-9 retro doc-correction sweep candidate.**
+2. **Helper-name drift in story Implementation Note 4**: `_construct_input_context` in spec → actual `_make_context_from_event` in code. Implementation correctly extended the existing helper without rename. **DEFERRED — TD-F sprint-9 retro doc-correction sweep candidate.**
+3. **AC-11 stale baseline `≥811 tests`**: story authored against story-007 baseline. Actual closure at 1176/1176, vastly exceeding spec floor. **DEFERRED — TD-F sprint-9 retro doc-correction sweep candidate.**
+4. **Manifest Version bumped 2026-04-20 → 2026-05-05** in /story-readiness Phase 0 per option [A] sprint-8/9 established pattern. **CLOSED INLINE.** (18th in-streak bump; pattern stable.)
+5. **AC-7 spec literal-vs-architecture conflict (most substantive)**: literal AC-7 spec ("every non-hover action must have a screen_touch InputMap entry") is structurally impossible — screen_touch is positionless; adding it to 17 actions would multi-fire on every tap. /code-review-driven test rewrite reframed AC-7 as a **reachability sweep** with explicit `_AC7_BATTLE_HUD_REACHABLE` classification list per ADR-0005 §3 + CR-4h: 4 direct-InputMap-touch + 17 Battle-HUD-button-reachable + 1 PC-only. **CLOSED INLINE.** Locks the reachability architecture so future edits cannot silently break the contract. Story-009 + story-010 spec wording should be amended at retro per this pattern.
+
+### Tech debt candidates from this story (8 INFO-level, NOT yet filed; sprint-9 retro)
+
+- **TD-INFO-A** (G-29 candidate): Synthesized signal-actions emitted via `input_action_fired` that are not in `ACTIONS_BY_CATEGORY` create R-5 lint false-positives. Story-010 R-5 lint must accept a `_SYNTHESIZED_ACTIONS` exemption const. Codify in `.claude/rules/godot-4x-gotchas.md` + `tools/ci/lint_input_handling_*.sh` at sprint-9 retro per AI #1 enforcement.
+- **TD-INFO-B**: M-1 explicit `int()` cast cleanup across 5 enum-comparison assertions in test file. Cosmetic; readability debt.
+- **TD-INFO-C**: M-2 `_compute_camera_zoom_min` lacks divide-by-zero guard for `TILE_WORLD_SIZE=0` edge case (would produce `inf`). Production defensive; low risk in current data.
+- **TD-INFO-D**: M-3 `CameraStub.clamp_zoom` hardcodes `0.70` instead of reading `BalanceConstants.get_const(&"CAMERA_ZOOM_MIN")` for symmetry with production derivation.
+- **TD-INFO-E**: MIN-1 TILE_WORLD_SIZE=0 production guard test (paired with TD-INFO-C).
+- **TD-INFO-F**: MIN-2 TPP `_active_mode` switch state-leak regression test (mode switch from TOUCH→KEYBOARD_MOUSE with `_last_tap_unit_id` set should not cause spurious S0→S1).
+- **TD-INFO-G**: MIN-3 `_compute_tap_edge_offset` `tile_display_px=0.0` NaN edge case (`fmod(x, 0.0) → NaN`; NaN comparisons are false; OR-logic short-circuit may not catch).
+- **TD-INFO-H**: MIN-4 Mouse path through `_make_context_from_event` (lines 571-577 InputEventMouseButton branch) has no test at any level. Sprint-9 backlog candidate.
+
+### Mid-implementation discoveries
+
+- **G-29 candidate confirmed (S9-02 carryover)**: `Input.parse_input_event` headless limitation NOT triggered this story — implementation drives `InputRouter._handle_action(action, ctx)` and `_make_context_from_event(event)` directly per the autoload-side dispatch verification pattern from S9-02. Pattern stable; sprint-9 retro AI #1 codification target unchanged.
+- **AC-7 spec-vs-architecture conflict (NEW; sprint-9 retro codification)**: Literal AC-7 reading was structurally impossible. The realistic AC-7 contract per ADR-0005 §3 + CR-4h is reachability-classified, not InputMap-entry-uniform. Codify in story-009 + story-010 spec authoring at retro: when authoring touch-mode reachability ACs, distinguish "direct-dispatch" actions (need InputMap touch entry) from "Battle HUD widget-reachable" actions (reach via Control._gui_input → button.pressed). **G-30 candidate**: spec-time literal-impossibility patterns where the architecture diverges from naive reading.
+
+### Pattern observations
+
+- **In-patch sprint-status hygiene close 18-streak ACHIEVED** (S7-05/06/07/09 + S8-01..S8-11 + S9-01 + S9-02 + S9-03 = 18 in-patch closes). Sprint-9 retro AI #6 target was "maintain streak"; pattern firmly stable post-18.
+- **3-skill arc /dev-story → /code-review → /story-done with /code-review-driven refactor**: 7th-precedent (1st = S8-03 `_load_bindings_from_path` extraction; 2nd = S8-04 Vector2i.ZERO guard removal; 3rd = S8-05 `_did_visible_work` doc-comment INVARIANT + S4 unit_id guard; 4th = S8-06+S8-07 mode-determination + battle-hud closure; 5th = S9-01 _apply_undo doc note + 2 new tests; 6th = S9-02 4-IMPORTANT same-pass closure; 7th = S9-03 1 BLOCKING + 3 IMPORTANT + 2 MINOR same-pass closure with substantive AC-7 architecture-aware rewrite). Pattern rock-solid.
+- **2-spawn /dev-story execution pattern (FIRST IN PROJECT)**: prior 17 stories all completed in 1-spawn /dev-story arcs. Story-008 used 2 spawns due to first agent returning interim status mid-execution before writing test/evidence files. Both spawns returned interim status (mid-iteration) rather than final reports — orchestrator audited working tree directly to validate completion. Sprint-9 retro candidate: **the SendMessage continuation tool is NOT available in the orchestrator session**, so spawn-to-completion must rely on explicit verification (git status + direct test runs) rather than agent self-reporting. Codify as production pattern note.
+- **autoload Node pattern at 9 production autoloads** (unchanged this story). InputRouter functionality extends without adding new autoload.
+- **ADR-0020 §1 sole-state-mutator inline note pattern at 4 invocations**: `_apply_undo` (story-006) + `_on_ui_input_block_requested` (story-007) + `_on_ui_input_unblock_requested` (story-007) + `_handle_action_in_s0` doc-comment (story-008 /code-review pass). Pattern stable; story-010 lint will enforce structurally.
+
+### Sprint-9 status (post-S9-03 close)
+
+**Must 3/5** (S9-01 input-handling story-006 + S9-02 input-handling story-007 + S9-03 input-handling story-008) + Should 0/4 backlog + Nice 0/3 + 2 USER-OWNED. Critical-path next: **S9-04 input-handling story-009 — touch protocol pan/tap gestures + InfoPanel scrolling per ADR-0005 §1 + CR-1c** (estimate 0.4d nominal; blocker S9-03 cleared per this row close).
+
+### Push state
+
+0 commits ahead of origin/main (all changes uncommitted in working tree per autonomous-execution preference; user typically runs "commit and push and clear and continue" terminal directive at session-end).

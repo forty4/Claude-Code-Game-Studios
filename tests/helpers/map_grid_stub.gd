@@ -12,6 +12,8 @@
 ## Story-004 extensions: set_passable_for_test (RIVER/MOUNTAIN testing), no-op
 ## set_occupant + clear_occupant (avoid push_error from production class on
 ## "called before load_map" since _map is null in the stub).
+## Story-008: unit_at_coord field + get_unit_at method for InputRouter touch
+## coord→unit_id resolution (AC-10 DI seam).
 class_name MapGridStub
 extends MapGrid
 
@@ -60,3 +62,15 @@ func set_passable_for_test(coord: Vector2i, passable: bool) -> void:
 
 func set_dimensions_for_test(dims: Vector2i) -> void:
 	_stub_dimensions = dims
+
+
+## Per-coord unit lookup for InputRouter touch coord→unit_id resolution
+## (story-008 AC-10). Uses -1 sentinel for "no unit at coord" — matches
+## InputContext.target_unit_id semantics. Distinct from production MapGrid's
+## occupant_id=0 "unoccupied" sentinel.
+var unit_at_coord: Dictionary[Vector2i, int] = {}
+
+
+## Returns the unit_id at coord per fixture data. -1 if not fixtured.
+func get_unit_at(coord: Vector2i) -> int:
+	return unit_at_coord.get(coord, -1)

@@ -54,6 +54,13 @@ StoryEvent="*res://src/feature/story_event/story_event.gd"
 ; ScenarioRunner/DestinyState/StoryEvent — all autoloads omit class_name.
 InputRouter="*res://src/foundation/input_router.gd"
 
+[input_devices.pointing]
+
+; Story-008 verification #3 (ADR-0005 §Verification Required §3 + CR-2e + R-3):
+; Touch events MUST NOT synthesize fake mouse events that double-fire actions
+; via two dispatch paths. Story-010 wires a CI lint to enforce this.
+emulate_mouse_from_touch=false
+
 [physics]
 
 ; Jolt is the Godot 4.6 default for 3D — explicit per story AC.

@@ -22,7 +22,9 @@
 ##   story-005: last-device-wins mode determination + input_mode_changed emit
 ##   story-006: per-unit undo window open/close + EC-5 occupied-tile rejection
 ##   story-007: S5 INPUT_BLOCKED + S6 MENU_OPEN + GameBus signal subscriptions
-##   story-008-009: touch protocol (TPP + pan-vs-tap + two-finger + safe-area)
+##   story-008: touch protocol part A — F-1 camera_zoom_min derivation + TPP (CR-4a) +
+##             Magnifier Panel trigger (CR-4c F-2) + Camera/MapGrid injection seams
+##   story-009: touch protocol part B — pan-vs-tap + two-finger + safe-area
 ##   story-010: epic terminal — perf baseline + forbidden_pattern lints
 ##
 ## NOTE: class_name InputRouter was verified at story-001 implementation time. Godot 4.6
@@ -112,6 +114,38 @@ var _pending_end_phase: bool = false
 ## _pending_end_phase precedent (story-004) for transient-internal field design.
 ## G-15 obligation: `before_test()` resets to `OBSERVATION` (story-010 lint enforces).
 var _pre_block_state: InputState = InputState.OBSERVATION
+
+## F-1 camera zoom minimum derived from BalanceConstants at _ready() time (story-008).
+## Formula: TOUCH_TARGET_MIN_PX (44) / TILE_WORLD_SIZE (64) = 0.6875 → ceil to next
+## 0.05 increment = 0.70. Cached for runtime use; recomputed only on screen-size-change
+## events. Shadow of the CAMERA_ZOOM_MIN JSON constant — this derived version is the
+## canonical runtime value (proves provenance rather than trusting a raw constant).
+## G-15 obligation: `before_test()` resets to `0.70` (story-010 lint enforces).
+var _camera_zoom_min: float = 0.70
+
+## Transient scratch — last unit_id tapped in TOUCH mode (TPP, story-008 CR-4a).
+## NOT counted in ADR-0005 §1's 6-field architectural-field list — implementation-
+## internal scratch. Initialised to -1 (no tap recorded). Reset to -1 on second-tap
+## advancement or window expiry with different unit.
+## G-15 obligation: `before_test()` resets to `-1` (story-010 lint enforces).
+var _last_tap_unit_id: int = -1
+
+## Transient scratch — Time.get_ticks_msec() at the moment of the last unit tap
+## in TOUCH mode (TPP, story-008 CR-4a). 0 = no tap recorded.
+## G-15 obligation: `before_test()` resets to `0` (story-010 lint enforces).
+var _last_tap_time_ms: int = 0
+
+## Provisional Camera reference (typed Variant — CameraController class doesn't
+## exist yet; story-014 narrows when Camera ADR ships). Tests inject via
+## set_camera_for_tests(). Used by _make_context_from_event for screen→grid coord
+## resolution (story-008).
+var _camera: Variant = null
+
+## Provisional MapGrid reference (typed Variant — MapGrid class exists but is not
+## the InputRouter-relevant contract surface yet; story-014 narrows). Tests inject
+## via set_map_grid_for_tests(). Used by _make_context_from_event for coord→unit_id
+## lookup (story-008).
+var _map_grid: Variant = null
 
 ## Transient flag set by per-state arms when they execute observable behavior
 ## (state change OR re-targeting ctx-update OR end-phase gate toggle). Reset
@@ -267,6 +301,20 @@ func set_grid_battle_for_tests(stub: Variant) -> void:
 	_grid_battle = stub
 
 
+## Test-only seam for injecting a Camera stub (story-008). Production injection
+## happens at battle-prep time when the Camera ADR ships (story-014 narrows type).
+## Matches set_grid_battle_for_tests naming precedent.
+func set_camera_for_tests(stub: Variant) -> void:
+	_camera = stub
+
+
+## Test-only seam for injecting a MapGrid stub (story-008). Production injection
+## happens at battle-prep time when the Grid Battle ADR ships (story-014 narrows
+## type). Matches set_grid_battle_for_tests naming precedent.
+func set_map_grid_for_tests(stub: Variant) -> void:
+	_map_grid = stub
+
+
 ## Clears all per-unit undo windows at battle-end boundary (ADR-0005 §1 R-2 memory bound).
 ##
 ## Called by SceneManager when transitioning out of BattleScene (production wiring
@@ -413,6 +461,12 @@ func _ready() -> void:
 	# CONNECT_DEFERRED mitigates re-entrancy hazard (ADR-0001 §5 + delta #6 Item 4 Advisory D).
 	GameBus.ui_input_block_requested.connect(_on_ui_input_block_requested, Object.CONNECT_DEFERRED)
 	GameBus.ui_input_unblock_requested.connect(_on_ui_input_unblock_requested, Object.CONNECT_DEFERRED)
+	# Story-008: derive F-1 camera_zoom_min from BalanceConstants at boot time.
+	# Called AFTER bindings load (BalanceConstants._cache_loaded must be primed first;
+	# _load_bindings_from_path reads FileAccess which triggers BalanceConstants init on
+	# first call via autoload chain). If BalanceConstants fails to load, falls back
+	# gracefully to the 0.70 default already set on the field.
+	_camera_zoom_min = _compute_camera_zoom_min()
 
 
 ## Loads a bindings JSON file from the given res:// path and returns the parsed
@@ -445,14 +499,90 @@ func _load_bindings_from_path(path: String) -> Dictionary:
 
 # ── Private helpers ───────────────────────────────────────────────────────────
 
-## Constructs a minimal InputContext from a raw InputEvent. Story-003 scope:
-## empty context (target_coord=ZERO, target_unit_id=-1). Story-008-009 narrows with
-## screen→grid coord conversion.
-## Production callers wire ctx fields via downstream Battle HUD interactions
-## (ADR-0015 §5); for now, dispatch happens with empty ctx — _handle_action
-## arms validate ctx fields before allowing transitions.
-func _make_context_from_event(_event: InputEvent) -> InputContext:
-	return InputContext.new()
+## F-1 derivation (story-008 AC-1, ADR-0005 §7):
+##   raw = TOUCH_TARGET_MIN_PX (44) / TILE_WORLD_SIZE (64) = 0.6875
+##   comfort margin: round up to next 0.05 increment → ceilf(raw * 20) / 20 = 0.70
+##   Guarantees tile_world_size * _camera_zoom_min ≥ 44px (actual: 44.8px at 0.70).
+##
+## Reads from BalanceConstants so the formula re-derives whenever the JSON constants
+## change — test AC-1 asserts the result equals 0.70 and also tests the derivation
+## path itself rather than a hardcoded constant. <10 LoC guardrail per story-008 §CM.
+func _compute_camera_zoom_min() -> float:
+	var touch_min: float = float(BalanceConstants.get_const(&"TOUCH_TARGET_MIN_PX"))
+	var tile_world: float = float(BalanceConstants.get_const(&"TILE_WORLD_SIZE"))
+	var raw: float = touch_min / tile_world
+	return ceilf(raw * 20.0) / 20.0
+
+
+## F-2 Magnifier Panel trigger (story-008 AC-5, ADR-0005 §7 + CR-4c):
+## Returns true when tap is near a tile boundary (< DISAMBIG_EDGE_PX) OR when the
+## tile is smaller than DISAMBIG_TILE_PX (camera zoomed too far out to tap precisely).
+## Both conditions are independently sufficient — OR logic per the spec.
+## <15 LoC guardrail per story-008 §CM (this helper + _compute_tap_edge_offset combined).
+func _should_trigger_magnifier(touch_pos: Vector2, tile_display_px: float) -> bool:
+	var edge_threshold: float = float(BalanceConstants.get_const(&"DISAMBIG_EDGE_PX"))
+	var tile_threshold: float = float(BalanceConstants.get_const(&"DISAMBIG_TILE_PX"))
+	var edge_offset: float = _compute_tap_edge_offset(touch_pos, tile_display_px)
+	return edge_offset < edge_threshold or tile_display_px < tile_threshold
+
+
+## Computes the shortest distance (px) from a touch position to the nearest tile
+## boundary in screen space. Uses fmod to find position within the current tile, then
+## returns the minimum of the distance to the left/top boundary vs right/bottom boundary.
+func _compute_tap_edge_offset(touch_pos: Vector2, tile_display_px: float) -> float:
+	var x_in_tile: float = fmod(touch_pos.x, tile_display_px)
+	var y_in_tile: float = fmod(touch_pos.y, tile_display_px)
+	var x_edge: float = min(x_in_tile, tile_display_px - x_in_tile)
+	var y_edge: float = min(y_in_tile, tile_display_px - y_in_tile)
+	return min(x_edge, y_edge)
+
+
+## Constructs an InputContext from a raw InputEvent.
+## Story-003 scope: empty context. Story-008 scope: resolves screen→grid coord via
+## Camera stub + coord→unit_id via MapGrid stub. Story-009 scope: drag detection.
+##
+## For InputEventScreenTouch: resolves coord + unit_id via injected stubs; checks
+## magnifier trigger (F-2 per ADR-0005 §7); emits &"magnifier_open" BEFORE returning
+## if trigger condition true (Battle HUD subscriber renders the 3×3 magnifier panel).
+## For InputEventMouseButton: same coord/unit lookup; NO magnifier check (touch-only).
+## For all other events: returns default empty context.
+func _make_context_from_event(event: InputEvent) -> InputContext:
+	var ctx := InputContext.new()
+	if event is InputEventScreenTouch:
+		var touch: InputEventScreenTouch = event
+		# Resolve screen position → grid coord via Camera stub (story-008 §4 DI seam).
+		if _camera != null and _camera.has_method("screen_to_grid"):
+			ctx.target_coord = _camera.screen_to_grid(touch.position)
+		# Resolve grid coord → unit_id via MapGrid stub (story-008 §4 DI seam).
+		if _map_grid != null and _map_grid.has_method("get_unit_at"):
+			ctx.target_unit_id = _map_grid.get_unit_at(ctx.target_coord)
+		# Compute tile_display_px for magnifier trigger (F-2). Uses Camera zoom if
+		# available, falls back to _camera_zoom_min (worst-case zoom-floor tile size).
+		var tile_world: float = float(BalanceConstants.get_const(&"TILE_WORLD_SIZE"))
+		var cam_zoom: float = (
+			_camera.get_zoom() if (_camera != null and _camera.has_method("get_zoom"))
+			else _camera_zoom_min
+		)
+		var tile_display_px: float = tile_world * cam_zoom
+		# Magnifier Panel trigger (CR-4c F-2): emit before returning ctx so the
+		# action match in _handle_event can continue with the resolved ctx.
+		# &"magnifier_open" is a SYNTHESIZED action — intentionally NOT in
+		# ACTIONS_BY_CATEGORY and NOT in default_bindings.json. It is emitted from
+		# the F-2 edge-proximity heuristic, not from an InputMap event match. Per
+		# ADR-0005 §7, Battle HUD subscribes to this synthesized signal-action to
+		# render the 3×3 magnifier panel. Story-010 R-5 lint must explicitly
+		# exempt synthesized action names from the ACTIONS_BY_CATEGORY-vs-emit
+		# parity check (sibling synthesized names will appear in story-009+).
+		if _should_trigger_magnifier(touch.position, tile_display_px):
+			GameBus.input_action_fired.emit(&"magnifier_open", ctx)
+	elif event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event
+		# Mouse: resolve coord + unit_id same as touch (no magnifier — touch-only per F-2).
+		if _camera != null and _camera.has_method("screen_to_grid"):
+			ctx.target_coord = _camera.screen_to_grid(mb.position)
+		if _map_grid != null and _map_grid.has_method("get_unit_at"):
+			ctx.target_unit_id = _map_grid.get_unit_at(ctx.target_coord)
+	return ctx
 
 
 ## Determines the input mode from a single raw event — pure function, no side effects.
@@ -539,11 +669,40 @@ func _handle_action(action: StringName, ctx: InputContext) -> void:
 ## unit (→ S1), pan/zoom camera (no state change), open menus (→ S6 in story-007),
 ## or initiate the end-player-turn 2-beat confirmation flow (AC-11). All other
 ## actions silently dropped per AC-8 invalid-action discipline.
+##
+## ADR-0020 §1 sole-state-mutator note: this arm writes `_state` directly inside
+## the &"unit_select" / &"open_game_menu" / TPP-second-tap branches. Permitted
+## because per-state arms are the canonical state-mutation site under
+## `_handle_action`'s 4-phase dispatch — same delegation pattern as `_apply_undo`
+## (story-006), `_on_ui_input_block_requested` + `_on_ui_input_unblock_requested`
+## (story-007). Story-008 TPP second-tap continues this 4-precedent pattern;
+## story-010 lint will enforce that direct `_state` writes in `_handle_action_in_s0`
+## are confined to per-state arm match bodies.
 func _handle_action_in_s0(action: StringName, ctx: InputContext) -> void:
 	match action:
 		&"unit_select":
 			if ctx.target_unit_id == -1:
 				return  # invalid context — no unit was actually targeted
+			if _active_mode == InputMode.TOUCH:
+				# TPP (Tap Preview Protocol) — story-008 CR-4a:
+				# First tap shows preview bubble (stays S0 + emits for Battle HUD).
+				# Second tap on same unit within the double-tap window advances to S1.
+				var now: int = Time.get_ticks_msec()
+				var window_ms: int = int(BalanceConstants.get_const(&"TPP_DOUBLE_TAP_WINDOW_MS"))
+				if ctx.target_unit_id == _last_tap_unit_id and (now - _last_tap_time_ms) < window_ms:
+					# Second tap on same unit within window: advance to S1 (full select).
+					_last_tap_unit_id = -1
+					_last_tap_time_ms = 0
+					_state = InputState.UNIT_SELECTED
+					_did_visible_work = true
+					return
+				# First tap OR stale window OR different unit: preview only — stay in S0.
+				# Record the tap and emit input_action_fired so Battle HUD renders preview.
+				_last_tap_unit_id = ctx.target_unit_id
+				_last_tap_time_ms = now
+				_did_visible_work = true  # emit input_action_fired for Battle HUD TPP bubble
+				return  # state stays S0
+			# KEYBOARD_MOUSE mode: single click selects immediately (story-003 behavior).
 			_state = InputState.UNIT_SELECTED
 		&"camera_pan", &"camera_zoom_in", &"camera_zoom_out", &"camera_snap_to_unit":
 			pass  # camera actions pass through without state change
