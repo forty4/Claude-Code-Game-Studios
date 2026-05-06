@@ -104,6 +104,15 @@ var _grid_battle: Variant = null
 ## G-15 obligation: `before_test()` resets to `false` (story-010 lint enforces).
 var _pending_end_phase: bool = false
 
+## Transient scratch state for AC-11 — captures _state at the moment of FIRST
+## block entry; restored on FINAL block exit (when _input_blocked_reasons becomes
+## empty). NOT counted in ADR-0005 §1's 6-field architectural-field list —
+## implementation-internal scratch, scoped per block-stack lifetime (set on first
+## append to _input_blocked_reasons, reset to OBSERVATION on final pop). Mirrors
+## _pending_end_phase precedent (story-004) for transient-internal field design.
+## G-15 obligation: `before_test()` resets to `OBSERVATION` (story-010 lint enforces).
+var _pre_block_state: InputState = InputState.OBSERVATION
+
 ## Transient flag set by per-state arms when they execute observable behavior
 ## (state change OR re-targeting ctx-update OR end-phase gate toggle). Reset
 ## at start of each `_handle_action` dispatch. Drives the action_fired emit
@@ -138,6 +147,23 @@ var _did_visible_work: bool = false
 ##            4.6 syntax (nested typed collections forbidden). Declared as
 ##            `Dictionary[StringName, Array]` with StringName element type
 ##            enforced by the literal initialiser values (&"..." syntax).
+## Grid actions that are silently dropped in S5 INPUT_BLOCKED (story-007 + AC-4).
+## Named with _S5 suffix to distinguish from the ACTIONS_BY_CATEGORY["grid"] slice,
+## which has the same contents but serves a different semantic purpose.
+const _GRID_ACTIONS_S5: Array[StringName] = [
+	&"unit_select", &"move_target_select", &"move_confirm", &"move_cancel",
+	&"attack_target_select", &"attack_confirm", &"attack_cancel",
+	&"undo_last_move", &"end_unit_turn", &"grid_hover",
+]
+
+## Camera + read actions permitted to pass through in S5 INPUT_BLOCKED (story-007 + AC-4).
+## These actions do NOT change _state in S5, but they DO set _did_visible_work so that
+## the input_action_fired emit fires for downstream subscribers (camera, info panel).
+const _PERMITTED_S5_ACTIONS: Array[StringName] = [
+	&"camera_pan", &"camera_zoom_in", &"camera_zoom_out", &"camera_snap_to_unit",
+	&"open_unit_info",
+]
+
 const ACTIONS_BY_CATEGORY: Dictionary[StringName, Array] = {
 	&"grid": [
 		&"unit_select", &"move_target_select", &"move_confirm", &"move_cancel",
@@ -250,6 +276,60 @@ func clear_for_battle_transition() -> void:
 	_undo_windows.clear()
 
 
+## GameBus subscription handler — story-007. Appends reason to nested block stack.
+##
+## First entry transitions S0..S6 → S5 (INPUT_BLOCKED) and emits 1 input_state_changed.
+## Subsequent stacked entries are idempotent — no additional emit (AC-2 + AC-5).
+## Stack supports nested S5 entries from multiple block sources (max depth ~3 observed).
+##
+## CONNECT_DEFERRED at subscription site mitigates re-entrancy hazard per ADR-0001 §5.
+##
+## ADR-0020 §1 sole-state-mutator note: this handler writes `_state` directly.
+## Permitted because it is invoked via GameBus signal dispatch (not from
+## `_handle_event`, public API, or per-state arms) — same delegation pattern as
+## `_apply_undo` (story-006). Phase 4 emit: only `input_state_changed` fires here;
+## no `input_action_fired` (the GameBus emit IS the triggering event). Story-010
+## lint will enforce that this handler is the only state-mutating subscriber path.
+func _on_ui_input_block_requested(reason: String) -> void:
+	_input_blocked_reasons.append(reason)
+	if _input_blocked_reasons.size() == 1:
+		_pre_block_state = _state
+		var prev_state: InputState = _state
+		_state = InputState.INPUT_BLOCKED
+		GameBus.input_state_changed.emit(int(prev_state), int(_state))
+
+
+## GameBus subscription handler — story-007. Removes reason from nested block stack.
+##
+## Final exit (stack becomes empty) restores `_pre_block_state` and emits 1
+## input_state_changed; nested exits leave the stack non-empty and emit nothing
+## (AC-3 + AC-5). Unknown reason fires push_warning (AC-3 edge case).
+##
+## CONNECT_DEFERRED at subscription site mitigates re-entrancy hazard per ADR-0001 §5.
+##
+## ADR-0020 §1 sole-state-mutator note: this handler writes `_state` directly.
+## Permitted because it is invoked via GameBus signal dispatch (not from
+## `_handle_event`, public API, or per-state arms) — same delegation pattern as
+## `_apply_undo` (story-006) + `_on_ui_input_block_requested` (this story). Phase 4
+## emit: only `input_state_changed` fires here; no `input_action_fired` (the
+## GameBus emit IS the triggering event). `_pre_block_state` reset on final pop
+## (mid-stack pops leave it intact for the eventual final unblock).
+func _on_ui_input_unblock_requested(reason: String) -> void:
+	var idx: int = _input_blocked_reasons.find(reason)
+	if idx == -1:
+		push_warning(
+			"InputRouter: unblock requested for unknown reason '%s'; current stack: %s"
+			% [reason, str(_input_blocked_reasons)]
+		)
+		return
+	_input_blocked_reasons.remove_at(idx)
+	if _input_blocked_reasons.is_empty():
+		var prev_state: InputState = _state
+		_state = _pre_block_state
+		GameBus.input_state_changed.emit(int(prev_state), int(_state))
+		_pre_block_state = InputState.OBSERVATION
+
+
 # ── Per-unit undo window helpers (story-006 + CR-5) ──────────────────────────
 
 
@@ -329,6 +409,10 @@ func _ready() -> void:
 		return  # _load_bindings_from_path already emitted push_error on failure
 	_populate_input_map(bindings_dict)
 	_validate_r5_parity(bindings_dict)
+	# Story-007: GameBus subscriptions per ADR-0001 §5 deferred-connect mandate.
+	# CONNECT_DEFERRED mitigates re-entrancy hazard (ADR-0001 §5 + delta #6 Item 4 Advisory D).
+	GameBus.ui_input_block_requested.connect(_on_ui_input_block_requested, Object.CONNECT_DEFERRED)
+	GameBus.ui_input_unblock_requested.connect(_on_ui_input_unblock_requested, Object.CONNECT_DEFERRED)
 
 
 ## Loads a bindings JSON file from the given res:// path and returns the parsed
@@ -466,7 +550,8 @@ func _handle_action_in_s0(action: StringName, ctx: InputContext) -> void:
 		&"open_unit_info":
 			pass  # read-only inspection; no state change
 		&"open_game_menu":
-			pass  # → S6 (story-007 wires)
+			_pre_menu_state = _state
+			_state = InputState.MENU_OPEN
 		&"end_player_turn":
 			# AC-11 first beat: arm the end-phase gate. Battle HUD subscriber
 			# renders confirmation dialog via input_action_fired subscription.
@@ -526,7 +611,8 @@ func _handle_action_in_s1(action: StringName, ctx: InputContext) -> void:
 			_close_undo_window(ctx.target_unit_id)
 			_state = InputState.OBSERVATION
 		&"open_game_menu":
-			pass  # → S6 (story-007)
+			_pre_menu_state = _state
+			_state = InputState.MENU_OPEN
 		&"open_unit_info":
 			pass  # read-only; S1 retained
 		&"action_confirm":
@@ -563,6 +649,9 @@ func _handle_action_in_s2(action: StringName, ctx: InputContext) -> void:
 			_state = InputState.OBSERVATION
 		&"move_cancel":
 			_state = InputState.UNIT_SELECTED
+		&"open_game_menu":
+			_pre_menu_state = _state
+			_state = InputState.MENU_OPEN
 		# All other actions in S2: silent no-op
 
 
@@ -611,15 +700,39 @@ func _handle_action_in_s4(action: StringName, ctx: InputContext) -> void:
 		# All other actions in S4: silent no-op
 
 
-## S5 INPUT_BLOCKED arm — story-007 implements. Stub no-op (input is blocked,
-## so dropping all actions is the correct degenerate behavior even today).
-func _handle_action_in_s5(_action: StringName, _ctx: InputContext) -> void:
-	pass
+## S5 INPUT_BLOCKED arm — story-007. Silently drops grid actions (G-1..G-10),
+## permits camera + read actions per EC-2 + ST-4.
+##
+## Per Advisory C forbidden_pattern (story-010 lint enforces): SILENT-DROP arms
+## (grid-action drop + unrecognised-action fallthrough) MUST call
+## `get_viewport().set_input_as_handled()` before returning. Permitted camera/info
+## arms must NOT call it — they propagate so Camera + BattleHUD `_unhandled_input`
+## handlers can also receive the event.
+##
+## Permitted actions in S5 do NOT change _state — they set `_did_visible_work =
+## true` so the action_fired emit fires for downstream subscribers (camera moves,
+## panel opens) per the story-004 emit-decoupling.
+func _handle_action_in_s5(action: StringName, _ctx: InputContext) -> void:
+	if action in _GRID_ACTIONS_S5:
+		get_viewport().set_input_as_handled()
+		return
+	if action in _PERMITTED_S5_ACTIONS:
+		_did_visible_work = true
+		return
+	# All other actions (menu actions, end_phase, action_confirm, etc.):
+	# silent-drop with set_input_as_handled
+	get_viewport().set_input_as_handled()
 
 
-## S6 MENU_OPEN arm — story-007 implements. Stub no-op.
-func _handle_action_in_s6(_action: StringName, _ctx: InputContext) -> void:
-	pass
+## S6 MENU_OPEN arm — story-007. Handles &"close_menu" → restore via ST-2 demotion
+## (S2/S4 → S1 per Advisory E; other states pass-through). Other actions silently
+## dropped — player must close the menu first before grid interaction resumes.
+func _handle_action_in_s6(action: StringName, _ctx: InputContext) -> void:
+	match action:
+		&"close_menu":
+			_state = _apply_st2_demotion(_pre_menu_state)
+			_did_visible_work = true
+		# All other actions in S6: silent no-op (player must close menu first)
 
 
 ## Range-check helper for S1 → S2 transition gate. Defers to _grid_battle stub

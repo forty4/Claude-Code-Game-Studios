@@ -11,7 +11,7 @@ goal: "Close input-handling epic 10/10 (stories 6-10) + absorb sprint-8 Nice bac
 start: "2026-06-14"
 end: "2026-06-20"
 generated: "2026-05-06"
-updated: "2026-05-06 — S9-01 done; input-handling story-006 per-unit undo CR-5 + EC-5 + 3 close sites; 1116→1132 PASS (+16); 39th FFB; Must 1/5 → S9-02 next"
+updated: "2026-05-06 — S9-02 done; input-handling story-007 S5 INPUT_BLOCKED + S6 MENU_OPEN + nested block stack; 1132→1154 PASS (+22); 41st FFB; 17-streak; Must 2/5 → S9-03 next"
 
 # Sprint-8 closed 11/16 claude-owned (Must 7/7 + Should 4/4; Nice 0/5: 4 deferred to sprint-9; 1 USER-OWNED).
 # 38th consecutive failure-free baseline (1116/1116 PASSING). Retro AI seeds carried forward — see
@@ -46,11 +46,12 @@ stories:
     name: "input-handling story-007 — input_blocked + menu_open S5/S6 states + 3-arm input_blocked_reason vocabulary + open_game_menu S6 transition"
     file: "production/epics/input-handling/story-007-input-blocked-and-menu-open.md"
     priority: must-have
-    status: backlog
-    owner: ""
+    status: done
+    owner: "claude"
     estimate_days: 0.4
     blocker: "S9-01"
-    completed: ""
+    completed: "2026-05-06"
+    # 2026-05-06 — S9-02 done; S5/S6 + nested block stack + ADR-0001 §5 deferred-connect + Advisory C/E + Verification #4; 11/11 ACs / 22 tests; 1132→1154 PASS (+22); 41st FFB; 17-streak.
 
   - id: "S9-03"
     name: "input-handling story-008 — touch protocol Tap Preview Protocol magnifier F1 + i18n .tscn lint scope extension (closes TD-065/066/067)"

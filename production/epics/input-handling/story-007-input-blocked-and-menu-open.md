@@ -1,11 +1,11 @@
 # Story 007: S5 INPUT_BLOCKED + S6 MENU_OPEN + GameBus subscriptions to ADR-0002 SceneManager + nested PackedStringArray stack + set_input_as_handled() + ST-2 menu restoration + verification evidence #4 (recursive Control disable)
 
 > **Epic**: Input Handling
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Integration
 > **Estimate**: 3-4h
-> **Manifest Version**: 2026-04-20
+> **Manifest Version**: 2026-05-05
 
 ## Context
 
@@ -258,3 +258,43 @@
 
 - **Depends on**: Story 003 (S0/S1/S2 arms — extend with `&"open_game_menu"` setting `_pre_menu_state`), Story 004 (`_apply_st2_demotion` helper used by S6 close), Story 002 (`_ready()` body extends with subscriptions)
 - **Unlocks**: Story 008-009 (touch protocol — S5 INPUT_BLOCKED behavior is uniform across input modes); SceneManager's `overworld_pause_during_battle` api_decision is fully consumed (verifies the cross-system contract round-trip)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-06
+**Verdict**: COMPLETE WITH NOTES (11/11 ACs / 22 tests / 100% traceability; 0 BLOCKING / 4 ADVISORY deviations all closed in same /code-review pass)
+**Test result progression**: 1132 (sprint-9 S9-01 close baseline) → 1153 (post-/dev-story; +21 net-new) → **1154 PASSING** (post-/code-review; +1 source-scan AC-4 set_input_as_handled). 41st consecutive failure-free baseline.
+
+**Acceptance criteria coverage** (11/11 — 100% traceability):
+- AC-1 → `test_ac1_gamebus_subscriptions_present_in_ready_source`
+- AC-2 → `test_ac2_first_block_entry_transitions_to_s5_and_emits` + `test_ac2_second_block_is_idempotent_no_additional_emit`
+- AC-3 → `test_ac3_final_unblock_restores_pre_block_state` + `test_ac3_unknown_unblock_reason_no_state_change`
+- AC-4 → `test_ac4_s5_grid_action_silently_dropped` + `test_ac4_s5_camera_pan_permitted_emits_action_fired` + `test_ac4_s5_open_unit_info_permitted_emits_action_fired` + `test_ac4_s5_silent_drop_arms_call_set_input_as_handled_in_source` (added at /code-review per qa-tester IMPORTANT-1)
+- AC-5 → `test_ac5_nested_block_sequence_exactly_two_emits`
+- AC-6 → `test_ac6_close_menu_from_s2_demotes_to_s1` + `test_ac6_close_menu_from_s0_restores_s0_directly`
+- AC-7 → `test_ac7_gdd_ac16_menu_demotion_sequence`
+- AC-8 → `test_ac8_gdd_ac17_s5_drops_grid_permits_camera_and_info`
+- AC-9 → `test_ac9_verification_evidence_doc_exists_and_contains_required_strings` + `test_recursive_control_disable_silences_both_paths` (hybrid approach — direct `_handle_event` baseline + gate-flag state verification; converted from `Input.parse_input_event` injection at /code-review per gdscript-specialist IMPORTANT-3 tautology fix)
+- AC-10 → 1132 → 1154 PASSING (regression baseline preserved)
+- AC-11 → `test_ac11_pre_block_state_field_declared_in_source` + `test_ac11_pre_block_state_reset_to_observation_by_before_test`
+
+**ADVISORY deviations (4 — all closed in same /code-review pass)**:
+1. Manifest version bumped 2026-04-20 → 2026-05-05 in /dev-story Phase 2 per option [A] sprint-8/9 established pattern.
+2. `_handle_action_in_s5` doc-comment originally said "ALL silent-drop paths MUST call set_input_as_handled()" which was a maintenance hazard (permitted-action arm correctly omits the call); rewritten in /code-review to explicitly carve out grid-drop + fallthrough vs camera/info propagation paths. Per godot-gdscript-specialist IMPORTANT-1.
+3. `_on_ui_input_block_requested` + `_on_ui_input_unblock_requested` initially lacked the ADR-0020 §1 sole-state-mutator inline note that `_apply_undo` received at story-006 close (precedent pattern). Both handlers now carry the inline note classifying them as GameBus-dispatched mutators. Per godot-gdscript-specialist IMPORTANT-2.
+4. AC-9 `test_recursive_control_disable_silences_both_paths` originally used `Input.parse_input_event` injection with a vacuous `X > X-1` re-enable assertion. Mid-implementation discovery during /code-review tautology fix: `Input.parse_input_event` does NOT reliably deliver to autoload `_unhandled_input` in headless GdUnit4 mode (queue-but-no-deliver). Test rewritten to hybrid approach: direct `_handle_event` for autoload-side dispatch verification + `is_processing_input/_unhandled_input` flag-state for engine-side BOTH-required contract. Probe action also switched from `toggle_input_hints` (F1, falls through unhandled in S0) to `end_player_turn` (KEY_SPACE, emits in S0 via `_did_visible_work`). Evidence doc updated. Per godot-gdscript-specialist IMPORTANT-3 + qa-tester IMPORTANT-2 convergence.
+
+**Tech-debt candidates (NOT yet filed; sprint-9 retro candidates)**:
+- TD-INFO-A: `Input.parse_input_event` headless limitation discovered during /code-review — possible G-29 codification candidate. Documented in evidence doc + this Completion Notes for sprint-9 retro.
+- TD-INFO-B: 3 `open_game_menu` test names use compressed `test_<action>_from_<state>_<result>` format vs canonical `test_<scenario>_<expected>` per `.claude/rules/test-standards.md`. Cosmetic; deferrable. Per godot-gdscript-specialist MINOR-2.
+- TD-INFO-C: AC-6 S4→S1 ST-2 demotion edge has no runtime test in story-007 (covered by story-004 unit tests on `_apply_st2_demotion` pure function). Per qa-tester MINOR-1.
+- TD-INFO-D: `open_game_menu` from S3 has no runtime dispatch test (covered by `test_open_game_menu_arm_present_in_s0_s1_s2_s3_source` source-scan). Per qa-tester MINOR-2.
+- TD-INFO-E: `_GRID_ACTIONS_S5` / `_PERMITTED_S5_ACTIONS` cross-reference comment to `ACTIONS_BY_CATEGORY` would clarify the deliberate const-vs-runtime duplication. Per godot-gdscript-specialist MINOR-1.
+
+**Test Evidence**:
+- Integration: `tests/unit/foundation/input_router_block_menu_test.gd` — 665L / 22 tests / PASSES.
+- Visual/Verification: `production/qa/evidence/input_router_verification_04_recursive_control_disable.md` — Status: Verified (headless GdUnit4) / hybrid approach documented.
+
+**Code Review**: Complete (godot-gdscript-specialist + qa-tester parallel; APPROVED WITH SUGGESTIONS → 4 IMPORTANT all closed same-pass; 5 MINOR deferred to retro).
