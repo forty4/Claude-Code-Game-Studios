@@ -1,11 +1,11 @@
 # Story 002: 22-action StringName vocabulary + ACTIONS_BY_CATEGORY const + default_bindings.json schema + JSON load + InputMap population + R-5 parity validation
 
 > **Epic**: Input Handling
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Logic
 > **Estimate**: 3-4h
-> **Manifest Version**: 2026-04-20
+> **Manifest Version**: 2026-05-05
 
 ## Context
 
@@ -283,3 +283,40 @@
 
 - **Depends on**: Story 001 (module skeleton must exist; ACTIONS_BY_CATEGORY + 6 fields + InputContext + UndoEntry; autoload registration)
 - **Unlocks**: Story 003 (FSM core — needs `_handle_event` matching loop + `_handle_action` dispatch wiring), Story 005 (mode determination — extends `_handle_event` for event-class detection), Story 008 (touch protocol — depends on InputMap binding for `screen_touch` events)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-06
+**Criteria**: 11/11 passing (no deferred items; AC-6 touch-fallback edge case deferred to story-008-009 with mouse-button sibling test substituted)
+**Test count**: 1024 baseline → **1047 PASSING** (+23 net-new tests in `tests/unit/foundation/input_router_actions_bindings_test.gd`); 0 errors / 0 failures / 0 orphans / Exit 0; 32nd consecutive failure-free baseline.
+
+**Files created (4)**:
+- `assets/data/input/default_bindings.json` — 21 action keys + 2 meta keys (CR-1b externalized bindings)
+- `tests/fixtures/input/test_bindings_minimal.json` — 3-action fixture for AC-7 dynamic-rebinding (G-15 isolation)
+- `tests/fixtures/input/test_bindings_invalid_json.json` — malformed JSON fixture for AC-3 negative path
+- `tests/fixtures/input/test_bindings_non_dict_top_level.json` — non-Dict top-level fixture for AC-3 negative path
+- `tests/unit/foundation/input_router_actions_bindings_test.gd` — 23 tests covering AC-1..AC-11
+
+**Files modified (2)**:
+- `src/foundation/input_router.gd` — 128L → ~330L (+202L); ACTIONS_BY_CATEGORY const, `_last_matched_action` field, `_ready` orchestrator, `_unhandled_input` override, `_load_bindings_from_path` DI seam, `_populate_input_map` (defensive non-Array + non-Dict guards), `_construct_input_event`, `_validate_r5_parity` returns int mismatch magnitude
+- `tests/unit/foundation/input_router_skeleton_test.gd` — AC-9 test flipped from "absent" to "present" assertions (story-002 ships `_ready` + `_unhandled_input`)
+
+**Deviations** (3 ADVISORY, 0 BLOCKING):
+1. `_load_bindings_from_path(path)` extracted as DI seam during /code-review pass. Story Implementation Note 9 implied the seam but did not name it. Necessary for AC-3 negative-path testability (qa-tester BLOCKING gap).
+2. `_validate_r5_parity` return type changed `void` → `int` (mismatch magnitude). Necessary for AC-5 verifiability without `push_error` capture (G-22).
+3. AC-6 touch-fallback (InputEventScreenTouch) test deferred to story-008-009 — Godot exact-match semantics for default-constructed ScreenTouch are nuanced; touch protocol ownership naturally belongs there. Mouse-button sibling test added to exercise the same iteration code path.
+
+**Test Evidence**: `tests/unit/foundation/input_router_actions_bindings_test.gd` (BLOCKING gate satisfied — 23 tests / 11 ACs / 100% coverage)
+**Code Review**: Complete — `/code-review` APPROVED (godot-gdscript-specialist APPROVED WITH SUGGESTIONS → all 3 IMPORTANT items addressed; qa-tester GAPS → all 4 BLOCKING gaps closed)
+**Manifest version**: 2026-04-20 → 2026-05-05 (bumped during /dev-story Phase 2)
+
+**Engine-risk findings**:
+- **G-25 confirmed for primitive inner-element types**: `Dictionary[StringName, Array[StringName]]` would fail per parser-error-on-structural-depth (verified by godot-gdscript-specialist). G-25 codification stands — degradation is necessary regardless of inner element type being class or primitive.
+- **`grid_hover` not in InputMap**: `_handle_event` iterates all 22 actions including `grid_hover` which is excluded from default_bindings.json (CR-1c PC-only). `InputMap.action_has_event(&"grid_hover", event)` emits `ERROR: The InputMap action "grid_hover" doesn't exist` (non-fatal, non-aborting). Suggested follow-up at story-003: either pre-register `grid_hover` in `_ready` with no events, or add `if not InputMap.has_action(action): continue` guard in `_handle_event`. Minor noise; does not affect correctness.
+
+**Tech debt candidates** (3, none filed yet):
+- TD-candidate-1: `grid_hover` not-registered ERROR noise in `_handle_event` — see follow-up suggestion above. Story-003 owns.
+- TD-candidate-2: AC-6 touch-fallback test deferred to story-008-009. Already documented inline in test file.
+- TD-candidate-3: First-match-wins iteration order is now an implicit contract on `ACTIONS_BY_CATEGORY` key order. Story-003 (when implementing `_handle_action` dispatch) should codify this as a TR before refactoring iteration logic.

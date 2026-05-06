@@ -1,0 +1,71 @@
+{
+    "_schema_version": "1.0.0",
+    "_authority": "ADR-0005 §4 + GDD §Action System; story-002 same-patch obligation",
+
+    "unit_select": [
+        {"type": "mouse_button", "button_index": 1},
+        {"type": "screen_touch"}
+    ],
+    "move_target_select": [
+        {"type": "mouse_button", "button_index": 1},
+        {"type": "screen_touch"}
+    ],
+    "move_confirm": [
+        {"type": "key", "keycode": 4194309}
+    ],
+    "move_cancel": [
+        {"type": "key", "keycode": 4194305}
+    ],
+    "attack_target_select": [
+        {"type": "mouse_button", "button_index": 1},
+        {"type": "screen_touch"}
+    ],
+    "attack_confirm": [
+        {"type": "key", "keycode": 4194309}
+    ],
+    "attack_cancel": [
+        {"type": "key", "keycode": 4194305}
+    ],
+    "undo_last_move": [
+        {"type": "key", "keycode": 85}
+    ],
+    "end_unit_turn": [
+        {"type": "key", "keycode": 4194306}
+    ],
+    "camera_pan": [
+        {"type": "screen_drag"}
+    ],
+    "camera_zoom_in": [
+        {"type": "key", "keycode": 61}
+    ],
+    "camera_zoom_out": [
+        {"type": "key", "keycode": 45}
+    ],
+    "camera_snap_to_unit": [
+        {"type": "key", "keycode": 67}
+    ],
+    "open_unit_info": [
+        {"type": "key", "keycode": 77}
+    ],
+    "open_game_menu": [
+        {"type": "key", "keycode": 4194346}
+    ],
+    "close_menu": [
+        {"type": "key", "keycode": 4194305}
+    ],
+    "end_player_turn": [
+        {"type": "key", "keycode": 32}
+    ],
+    "end_phase_confirm": [
+        {"type": "key", "keycode": 4194309}
+    ],
+    "action_confirm": [
+        {"type": "key", "keycode": 4194309}
+    ],
+    "action_cancel": [
+        {"type": "key", "keycode": 4194305}
+    ],
+    "toggle_input_hints": [
+        {"type": "key", "keycode": 4194336}
+    ]
+}

@@ -11,7 +11,7 @@ goal: "Unblock input-handling + ship chapter-1 (장판파) end-to-end + flip Pil
 start: "2026-06-07"
 end: "2026-06-13"
 generated: "2026-05-05"
-updated: "2026-05-06 — S8-01 + S8-02 done; ADR-0020 Accepted; G-25 codified; 1024/1024 PASS; TD-058 closed; Must 1/7 → S8-03 next"
+updated: "2026-05-06 — S8-05 done; FSM attack S3/S4 + ST2 demotion + end-phase 2-beat gate; 1095/1095 PASS (+24); 36th FFB; Must 5/7 → S8-06 next"
 
 # Sprint-7 closed 9/11 (Must 4/4 + Should 3/3 + Nice 2/4); S7-10 BLOCKED on input-handling epic;
 # S7-11 USER-OWNED. 26th+ consecutive failure-free baseline (978/978 PASSING). Retro AI seeds
@@ -54,31 +54,34 @@ stories:
     name: "input-handling story-002 — action vocabulary + bindings.json (default schema + emulate_mouse_from_touch=false)"
     file: "production/epics/input-handling/story-002-action-vocabulary-and-bindings-json.md"
     priority: must-have
-    status: backlog
-    owner: ""
+    status: done
+    owner: claude
     estimate_days: 0.3
-    blocker: "S8-02"
-    completed: ""
+    blocker: ""
+    completed: "2026-05-06"
+    # 22-action ACTIONS_BY_CATEGORY const + 21-key default_bindings.json + JSON load DI seam + R-5 parity returns int + 23 tests / 1047/1047 PASS
 
   - id: "S8-04"
     name: "input-handling story-003 — FSM core S0/S1/S2 move flow + GridBattleController dispatch integration"
     file: "production/epics/input-handling/story-003-fsm-core-s0-s1-s2-move-flow.md"
     priority: must-have
-    status: backlog
-    owner: ""
+    status: done
+    owner: claude
     estimate_days: 0.5
-    blocker: "S8-03"
-    completed: ""
+    blocker: ""
+    completed: "2026-05-06"
+    # _handle_action 7-arm match dispatch + S0/S1/S2 real bodies + S3..S6 stubs + GridBattleStub RefCounted helper + 24 tests / 1071/1071 PASS
 
   - id: "S8-05"
     name: "input-handling story-004 — FSM attack S3/S4 + ST2 demotion gate per CR-IH-3"
     file: "production/epics/input-handling/story-004-fsm-attack-s3-s4-and-st2-demotion.md"
     priority: must-have
-    status: backlog
-    owner: ""
+    status: done
+    owner: claude
     estimate_days: 0.4
-    blocker: "S8-04"
-    completed: ""
+    blocker: ""
+    completed: "2026-05-06"
+    # S3/S4 real bodies + ST2 helper + AC-11 end-phase gate + _did_visible_work emit-decoupling + S4 -1 unit_id guard + 24 tests / 1095/1095 PASS
 
   - id: "S8-06"
     name: "input-handling story-005 — mode determination CR-2 + input_mode_changed GameBus emit + BattleHUD Tap Preview Protocol"

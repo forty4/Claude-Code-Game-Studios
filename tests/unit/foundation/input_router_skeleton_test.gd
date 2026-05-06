@@ -349,29 +349,33 @@ func test_input_router_has_four_public_method_stubs() -> void:
 	).is_true()
 
 
-# ── AC-9: NO _ready / _input / _unhandled_input overrides in story-001 ───────
+# ── AC-9: _unhandled_input + _ready added by story-002; _input forbidden ─────
 
 
-## AC-9: InputRouter has no _ready(), _input(), or _unhandled_input() overrides
-## at this story (story-002 adds _unhandled_input; story-007 adds _ready).
-func test_input_router_has_no_ready_or_input_overrides_yet() -> void:
+## AC-9 (updated at story-002): InputRouter now has _ready() and _unhandled_input()
+## overrides (both added by story-002). It must never declare _input() — Controls
+## own first dispatch via _gui_input (ADR-0005 §1 + delta #6 Advisory C).
+## NOTE: story-001 version of this test asserted these methods did NOT exist.
+## Updated to reflect story-002 shipping them.
+func test_input_router_has_no_input_override_and_has_unhandled_input() -> void:
 	# Arrange
 	var content: String = FileAccess.get_file_as_string(_IR_PATH)
 	assert_bool(content.length() > 0).override_failure_message(
 		"AC-9 pre-condition: failed to read %s" % _IR_PATH
 	).is_true()
 
-	# Assert — no _ready override (story-007 deferred)
+	# Assert — _ready() is present (story-002 added it)
 	assert_bool(content.contains("func _ready()")).override_failure_message(
-		"AC-9: input_router.gd must NOT declare func _ready() at story-001 (story-007 adds it)"
-	).is_false()
+		"AC-9: input_router.gd must declare func _ready() (story-002 added JSON load body)"
+	).is_true()
 
-	# Assert — no _input override (not planned; InputRouter uses _unhandled_input only)
-	assert_bool(content.contains("func _input(event")).override_failure_message(
-		"AC-9: input_router.gd must NOT declare func _input at story-001"
-	).is_false()
-
-	# Assert — no _unhandled_input override (story-002 deferred)
+	# Assert — _unhandled_input is present (story-002 added it)
 	assert_bool(content.contains("func _unhandled_input(event")).override_failure_message(
-		"AC-9: input_router.gd must NOT declare func _unhandled_input at story-001 (story-002 adds it)"
+		"AC-9: input_router.gd must declare func _unhandled_input (story-002 added it)"
+	).is_true()
+
+	# Assert — no _input override (not planned; InputRouter uses _unhandled_input only;
+	# _input would bypass Control focus layer — forbidden per ADR-0005 §1 Advisory C)
+	assert_bool(content.contains("func _input(event")).override_failure_message(
+		"AC-9: input_router.gd must NOT declare func _input at any story"
 	).is_false()

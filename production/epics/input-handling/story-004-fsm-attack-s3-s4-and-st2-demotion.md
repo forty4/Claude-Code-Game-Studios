@@ -1,11 +1,11 @@
 # Story 004: 7-state FSM extended S3↔S4 (ATTACK_TARGET_SELECT ↔ ATTACK_CONFIRM) + ST-2 demotion + end-player-turn safety gate
 
 > **Epic**: Input Handling
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Logic
 > **Estimate**: 3-4h
-> **Manifest Version**: 2026-04-20
+> **Manifest Version**: 2026-05-05
 
 ## Context
 
@@ -293,3 +293,34 @@
 
 - **Depends on**: Story 003 (S0/S1/S2 FSM core + `_handle_action` dispatch + GridBattleStub baseline)
 - **Unlocks**: Story 007 (S6 menu-close transition invokes `_apply_st2_demotion`); Battle HUD epic (consumes `&"end_player_turn"` + `&"end_phase_confirm"` signals to render confirmation dialog)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-06
+**Criteria**: 11/11 passing
+**Test count**: 1071 baseline → **1095 PASSING** (+24 net-new tests in `tests/unit/foundation/input_router_fsm_attack_st2_test.gd`); 0 errors / 0 failures / 0 orphans / Exit 0; 36th consecutive failure-free baseline.
+
+**Files created (1)**: `tests/unit/foundation/input_router_fsm_attack_st2_test.gd` NEW 587L; 24 tests covering AC-1..AC-11
+
+**Files modified (2)**:
+- `src/foundation/input_router.gd` ~510L → 626L (+116L); `_pending_end_phase` + `_did_visible_work` fields with INVARIANT + RE-ENTRANCY doc comments; restructured `_handle_action` emit logic via `_did_visible_work` flag (decouples action_fired from state_changed for AC-8 re-targeting + AC-11 end-phase paths); extended S0 with end-phase 3-arm confirmation flow; extended S1 with attack_target_select branch; replaced S3 + S4 stubs with real bodies; added `_apply_st2_demotion` pure helper; added `_is_tile_in_attack_range` helper; S4 attack_confirm guards target_unit_id == -1 (matching S0 unit_select symmetry per gdscript-specialist I-2 finding)
+- `production/epics/input-handling/story-004-fsm-attack-s3-s4-and-st2-demotion.md` — Manifest Version 2026-04-20 → 2026-05-05
+
+**Deviations** (3 ADVISORY, 0 BLOCKING):
+1. `_handle_action` emit-logic restructure decouples action_fired from state_changed via `_did_visible_work: bool` flag. NOT a spec deviation — required by AC-8 re-targeting + AC-11 end-phase contract. Backward-compatible with story-003 tests via auto-set on state change.
+2. S4 attack_confirm guards `target_unit_id == -1` (mirrors S0 unit_select). Defensive coding consistent with S0; closes gdscript-specialist I-2 finding. Locked by `test_s4_attack_confirm_with_invalid_unit_id_no_transition`.
+3. Story spec field-name typos (`ctx.unit_id` / `ctx.coord`) carried from story-003 — implementation correctly uses `target_unit_id` / `target_coord`. Doc-only correction recommended at sprint-8 retro.
+
+**Test Evidence**: `tests/unit/foundation/input_router_fsm_attack_st2_test.gd` (BLOCKING gate satisfied; 24 tests / 11 ACs / 100% coverage)
+**Code Review**: Complete — `/code-review` APPROVED; godot-gdscript-specialist APPROVED WITH SUGGESTIONS → both 2 IMPORTANT items closed in same /code-review pass (S4 unit_id guard + `_did_visible_work` doc-comment INVARIANT/RE-ENTRANCY clarification); qa-tester TESTABLE → 3 of 5 ADVISORY gaps closed (purity assertion + null-stub mirror + S3 action_cancel silent test); 2 minor gaps deferred (re-entry explicit test + end_player_turn idempotency)
+**Manifest version**: 2026-04-20 → 2026-05-05 (bumped during /dev-story Phase 2)
+
+**Engine-risk findings** (carried to sprint-8 retro):
+- `_did_visible_work` re-entrancy fragility: synchronous re-entry via signal subscriber would corrupt outer call's emit decision. Production safety relies on ADR-0001 §5 CONNECT_DEFERRED mandate. Documented inline at field declaration with INVARIANT + RE-ENTRANCY NOTE.
+- 7-field G-15 reset list now 10 fields (`_pending_end_phase` + `_did_visible_work` added). Story-010 lint enforcement target.
+
+**Tech debt candidates** (2, NOT yet filed):
+- TD-candidate-D: `_did_visible_work` reset-on-entry not explicitly tested. Implicit coverage via signal-capture tests is sufficient; explicit test would close last qa-tester gap.
+- TD-candidate-E: end_player_turn idempotency unspecified — currently double-arm produces double-emit (Battle HUD re-renders dialog harmlessly). Spec doesn't mandate; document explicitly at sprint-8 retro.

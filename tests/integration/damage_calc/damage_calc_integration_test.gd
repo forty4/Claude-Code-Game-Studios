@@ -8,7 +8,7 @@
 ## All tests are deterministic: no randomness, no time-dependent assertions, no I/O.
 ## RNG is injected with a fixed seed per call per F-DC-1 Guard 2.
 ##
-## GridBattleStub is a file-local class (not class_name) that orchestrates
+## DamageCalcGridBattleStub is a file-local class (not class_name) that orchestrates
 ## DamageCalc.resolve() + simulated hp_status.apply_damage() + counter-eligibility
 ## gate + dead-defender pre-condition gate. It records call counts for assertions.
 ##
@@ -26,10 +26,10 @@ extends GdUnitTestSuite
 
 
 # ---------------------------------------------------------------------------
-# File-local GridBattleStub — orchestrates resolve() + apply_damage tracking
+# File-local DamageCalcGridBattleStub — orchestrates resolve() + apply_damage tracking
 # ---------------------------------------------------------------------------
 
-## GridBattleStub simulates the Grid Battle layer that wraps DamageCalc.resolve().
+## DamageCalcGridBattleStub simulates the Grid Battle layer that wraps DamageCalc.resolve().
 ## Responsibilities mirrored from the spec:
 ##   1. Pre-condition gate: dead defender → block before resolve() (AC-DC-29).
 ##   2. Primary resolve() call.
@@ -38,7 +38,7 @@ extends GdUnitTestSuite
 ##   5. Counter resolve() on eligible defender (swapped roles, is_counter=true).
 ##   6. apply_damage() on counter HIT.
 ## AoE variant: attempt_aoe_attack() loops over an array of defenders.
-class GridBattleStub:
+class DamageCalcGridBattleStub:
 	extends RefCounted
 
 	var resolve_call_count: int = 0
@@ -218,7 +218,7 @@ func test_dead_defender_returns_hit_when_called_directly() -> void:
 	var dead_defender: DefenderContext = _make_dead_defender(&"dead_def")
 	var modifiers: ResolveModifiers = _make_hit_modifiers()
 
-	# Act — direct resolve(), bypassing GridBattleStub
+	# Act — direct resolve(), bypassing DamageCalcGridBattleStub
 	var result: ResolveResult = DamageCalc.resolve(attacker, dead_defender, modifiers)
 
 	# Assert: DamageCalc returns HIT (no internal dead-defender guard)
@@ -227,10 +227,10 @@ func test_dead_defender_returns_hit_when_called_directly() -> void:
 	assert_bool(result.source_flags.has(&"invariant_violation:dead_defender")).is_false()
 
 
-## AC-3b: GridBattleStub blocks resolve() when defender is dead (defender_alive=false).
+## AC-3b: DamageCalcGridBattleStub blocks resolve() when defender is dead (defender_alive=false).
 func test_grid_battle_stub_blocks_resolve_when_defender_dead() -> void:
 	# Arrange
-	var stub := GridBattleStub.new()
+	var stub := DamageCalcGridBattleStub.new()
 	var attacker: AttackerContext = _make_infantry_attacker(&"atk_b")
 	var dead_defender: DefenderContext = _make_dead_defender(&"dead_def_b")
 	var modifiers: ResolveModifiers = _make_hit_modifiers()
@@ -250,7 +250,7 @@ func test_grid_battle_stub_blocks_resolve_when_defender_dead() -> void:
 ## AC-4a: Ambush attacker against dead defender — stub blocks before resolve().
 func test_ambush_dead_defender_blocked_by_stub() -> void:
 	# Arrange — Scout with passive_ambush, round=3 (satisfies ambush conditions)
-	var stub := GridBattleStub.new()
+	var stub := DamageCalcGridBattleStub.new()
 	var scout_passives: Array[StringName] = [&"passive_ambush"]
 	var attacker: AttackerContext = AttackerContext.make(
 			&"scout_001", AttackerContext.Class.SCOUT, 50, false, false, scout_passives)
@@ -267,7 +267,7 @@ func test_ambush_dead_defender_blocked_by_stub() -> void:
 ## AC-4b: Ambush attacker against live defender — stub proceeds; resolve() called once.
 func test_ambush_live_defender_proceeds_normally() -> void:
 	# Arrange — Scout with passive_ambush, round=3, live defender
-	var stub := GridBattleStub.new()
+	var stub := DamageCalcGridBattleStub.new()
 	var scout_passives: Array[StringName] = [&"passive_ambush"]
 	var attacker: AttackerContext = AttackerContext.make(
 			&"scout_002", AttackerContext.Class.SCOUT, 50, false, false, scout_passives)
@@ -298,7 +298,7 @@ func test_ambush_live_defender_proceeds_normally() -> void:
 ## AC-5a: Primary HIT + counter-eligible defender → exactly 2 resolve() calls.
 func test_primary_hit_with_counter_eligible_defender_calls_resolve_twice() -> void:
 	# Arrange — Infantry vs Infantry, FRONT, both alive, defender retains action
-	var stub := GridBattleStub.new()
+	var stub := DamageCalcGridBattleStub.new()
 	var attacker: AttackerContext = _make_infantry_attacker(&"inf_atk")
 	var defender: DefenderContext = _make_live_defender(&"inf_def")
 	var modifiers: ResolveModifiers = _make_hit_modifiers()
@@ -313,7 +313,7 @@ func test_primary_hit_with_counter_eligible_defender_calls_resolve_twice() -> vo
 ## AC-5b: Primary HIT + non-counter-eligible defender → exactly 1 resolve() call.
 func test_primary_hit_with_non_counter_eligible_defender_calls_resolve_once() -> void:
 	# Arrange — same setup but defender cannot counter (CR-13 rule 4: suppress_counter flag)
-	var stub := GridBattleStub.new()
+	var stub := DamageCalcGridBattleStub.new()
 	var attacker: AttackerContext = _make_infantry_attacker(&"inf_atk2")
 	var defender: DefenderContext = _make_live_defender(&"inf_def2")
 	var modifiers: ResolveModifiers = _make_hit_modifiers()
@@ -328,7 +328,7 @@ func test_primary_hit_with_non_counter_eligible_defender_calls_resolve_once() ->
 ## AC-5c: Primary MISS → no counter (CR-2) → exactly 1 resolve() call.
 func test_primary_miss_does_not_trigger_counter() -> void:
 	# Arrange — high evasion + seeded RNG forces MISS on primary
-	var stub := GridBattleStub.new()
+	var stub := DamageCalcGridBattleStub.new()
 	var attacker: AttackerContext = _make_infantry_attacker(&"inf_atk3")
 	var evader: DefenderContext = _make_miss_defender()
 	var modifiers: ResolveModifiers = _make_miss_modifiers()
@@ -348,7 +348,7 @@ func test_primary_miss_does_not_trigger_counter() -> void:
 ## AC-6a: Single HIT → apply_damage called exactly once with positive damage.
 func test_single_hit_calls_apply_damage_once_with_positive_damage() -> void:
 	# Arrange
-	var stub := GridBattleStub.new()
+	var stub := DamageCalcGridBattleStub.new()
 	var attacker: AttackerContext = _make_infantry_attacker(&"inf_hit")
 	var defender: DefenderContext = _make_live_defender(&"def_hit")
 	var modifiers: ResolveModifiers = _make_hit_modifiers()
@@ -364,7 +364,7 @@ func test_single_hit_calls_apply_damage_once_with_positive_damage() -> void:
 ## AC-6b: Single MISS → apply_damage NOT called.
 func test_single_miss_does_not_call_apply_damage() -> void:
 	# Arrange
-	var stub := GridBattleStub.new()
+	var stub := DamageCalcGridBattleStub.new()
 	var attacker: AttackerContext = _make_infantry_attacker(&"inf_miss")
 	var evader: DefenderContext = _make_miss_defender()
 	var modifiers: ResolveModifiers = _make_miss_modifiers()
@@ -380,7 +380,7 @@ func test_single_miss_does_not_call_apply_damage() -> void:
 ## All 6 defenders have terrain_evasion=0; seed=0 guarantees HIT on each.
 func test_aoe_six_targets_all_hit_calls_apply_damage_six_times() -> void:
 	# Arrange
-	var stub := GridBattleStub.new()
+	var stub := DamageCalcGridBattleStub.new()
 	var attacker: AttackerContext = _make_infantry_attacker(&"aoe_atk")
 	var targets: Array[DefenderContext] = []
 	for i: int in range(6):
@@ -404,7 +404,7 @@ func test_aoe_six_targets_all_hit_calls_apply_damage_six_times() -> void:
 ## seed=0   → roll is high → HIT for evasion=0 targets.
 func test_aoe_six_targets_two_miss_calls_apply_damage_four_times() -> void:
 	# Arrange
-	var stub := GridBattleStub.new()
+	var stub := DamageCalcGridBattleStub.new()
 	var attacker: AttackerContext = _make_infantry_attacker(&"aoe_atk2")
 
 	# Build 6 targets: indices 0-3 have evasion=0 (will HIT), indices 4-5 have evasion=30 (will MISS)
@@ -436,7 +436,7 @@ func test_aoe_six_targets_two_miss_calls_apply_damage_four_times() -> void:
 ## Verifies the per-target loop early-returns cleanly when given an empty array.
 func test_aoe_empty_targets_calls_no_resolve_or_apply_damage() -> void:
 	# Arrange
-	var stub := GridBattleStub.new()
+	var stub := DamageCalcGridBattleStub.new()
 	var attacker: AttackerContext = _make_infantry_attacker(&"aoe_atk_empty")
 	var targets: Array[DefenderContext] = []
 	var base_mod: ResolveModifiers = _make_hit_modifiers()
@@ -456,7 +456,7 @@ func test_aoe_empty_targets_calls_no_resolve_or_apply_damage() -> void:
 ## All 6 targets have terrain_evasion=30; seed=266 → roll=25 ≤ 30 → MISS for all.
 func test_aoe_six_targets_all_miss_calls_apply_damage_zero_times() -> void:
 	# Arrange
-	var stub := GridBattleStub.new()
+	var stub := DamageCalcGridBattleStub.new()
 	var attacker: AttackerContext = _make_infantry_attacker(&"aoe_atk_all_miss")
 	var targets: Array[DefenderContext] = []
 	for i: int in range(6):

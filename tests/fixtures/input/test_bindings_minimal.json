@@ -1,0 +1,14 @@
+{
+    "_schema_version": "1.0.0",
+    "_authority": "Test fixture for story-002 AC-7 dynamic-rebinding test isolation (G-15 obligation). Production default_bindings.json MUST NOT be modified during tests.",
+
+    "action_confirm": [
+        {"type": "key", "keycode": 32}
+    ],
+    "unit_select": [
+        {"type": "mouse_button", "button_index": 1}
+    ],
+    "move_confirm": [
+        {"type": "key", "keycode": 4194309}
+    ]
+}

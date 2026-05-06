@@ -1,11 +1,11 @@
 # Story 003: 7-state FSM core S0↔S1↔S2 (OBSERVATION ↔ UNIT_SELECTED ↔ MOVEMENT_PREVIEW ↔ MOVE_CONFIRM) + transition signal emit + 2-beat move confirmation
 
 > **Epic**: Input Handling
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Foundation
 > **Type**: Logic
 > **Estimate**: 3-4h
-> **Manifest Version**: 2026-04-20
+> **Manifest Version**: 2026-05-05
 
 ## Context
 
@@ -291,3 +291,37 @@
 
 - **Depends on**: Story 002 (action vocabulary + bindings + `_handle_event` matching loop must exist; this story replaces story-002's `_last_matched_action` with full `_handle_action` dispatch)
 - **Unlocks**: Story 004 (S3/S4 attack flow extends `_handle_action` + GridBattleStub adds `is_tile_in_attack_range`), Story 006 (undo window — story-003 leaves placeholder in S2 arm), Story 007 (S5/S6 arms)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-06
+**Criteria**: 11/11 passing (no deferred items)
+**Test count**: 1047 baseline → **1071 PASSING** (+24 net-new tests in `tests/unit/foundation/input_router_fsm_core_test.gd`); 0 errors / 0 failures / 0 orphans / Exit 0; 34th consecutive failure-free baseline.
+
+**Files created (2)**:
+- `tests/helpers/grid_battle_stub.gd` NEW — `class_name GridBattleStub extends RefCounted`; 4 fixture-data Arrays + 5 stub methods covering stories 003/004/006
+- `tests/unit/foundation/input_router_fsm_core_test.gd` NEW — 24 tests covering AC-1..AC-11
+
+**Files modified (3)**:
+- `src/foundation/input_router.gd` — ~330L → ~510L (+180L); `_handle_action` orchestrator + 7 per-state arms (S0/S1/S2 real bodies + S3/S4/S5/S6 stubs); `_grid_battle: Variant` field + `set_grid_battle_for_tests` seam; `_make_context_from_event` + `_is_tile_in_move_range` helpers; defensive `if not InputMap.has_action(action): continue` guard in `_handle_event` (closes TD-candidate-A from S8-03 — silences `grid_hover` not-registered ERROR noise)
+- `tests/integration/damage_calc/damage_calc_integration_test.gd` — inner class `GridBattleStub` → `DamageCalcGridBattleStub` (13 occurrences); forced by Godot 4.6 user-vs-user class_name collision
+
+**Deviations** (3 ADVISORY, 0 BLOCKING):
+1. `Vector2i.ZERO` guard removed in S1 (input_router.gd line 326+). Story spec AC-3 mandated the sentinel guard but tile (0,0) is a legitimate playfield cell. Validity now delegated entirely to `_is_tile_in_move_range`. New test `test_s1_move_target_select_with_zero_coord_in_range_succeeds` verifies the deviation.
+2. Inner class rename in damage_calc_integration_test.gd — forced by class_name collision when introducing top-level `class_name GridBattleStub`. Smallest fix (13 occurrences in 1 file).
+3. AC-7 assertion strengthened in /code-review pass — was `>= 1` (weak tautology); now `== 2` + 4 sequence assertions verify both transitions complete sequentially in Godot 4.6 synchronous GDScript.
+
+**Test Evidence**: `tests/unit/foundation/input_router_fsm_core_test.gd` (BLOCKING gate satisfied)
+**Code Review**: Complete — `/code-review` APPROVED; 3 IMPORTANT godot-gdscript-specialist items + 3 of 5 qa-tester gaps closed in same /code-review pass; 2 minor gaps deferred to story-007 hardening
+**Manifest version**: 2026-04-20 → 2026-05-05 (bumped during /dev-story Phase 2)
+
+**Engine-risk findings** (carried forward to sprint-8 retro):
+- **G-26 codification candidate NEW**: User-vs-user `class_name` collision when a top-level `class_name X` is registered while another file declares an inner `class X:` (no `class_name`). Godot 4.6 fires `Parse Error: Class "X" hides a global script class` + Exit 0 deceptive (G-7 silent skip applies). Mitigation: rename one side; convention: top-level helpers in `tests/helpers/` own simple names; inner test doubles use `<SystemName><Role>` prefix.
+- **InputContext field-name typo in story spec**: AC-3 + AC-6 + QA Test Cases use `ctx.unit_id` / `ctx.coord` (typo); actual fields are `target_unit_id` / `target_coord`.
+
+**Tech debt candidates** (3, NOT yet filed):
+- TD-candidate-1: AC-8 sweep is no-crash only. Story-007 should add expected-state assertions for invalid combinations.
+- TD-candidate-2: `Vector2i.ZERO` sentinel ambiguity in InputContext default. Future redesign should use `Vector2i(-1, -1)` matching `target_unit_id = -1` pattern. Story-008-009 owns when wiring touch coord binding.
+- TD-candidate-3: Story spec field-name typos. Doc-only spec correction recommended at sprint-8 retro.
