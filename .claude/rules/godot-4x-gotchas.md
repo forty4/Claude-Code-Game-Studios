@@ -918,6 +918,163 @@ for event: InputEvent in _bindings.get(action, []):
 
 ---
 
+## G-26 — User-vs-user `class_name` collision: top-level `class_name X` collides with inner `class X:` in another file
+
+**Context**: a test file (or any file) declares an inner class without `class_name` (e.g. `class GridBattleStub: extends RefCounted`) while ANOTHER file declares a top-level `class_name GridBattleStub` global. Godot 4.6 treats the inner-class name as colliding with the global script class registry.
+
+**Broken**: when the global `class_name X` is registered (e.g. `tests/helpers/grid_battle_stub.gd` declares `class_name GridBattleStub`), Godot 4.6 fires `Parse Error: Class "GridBattleStub" hides a global script class` on the inner-class-declaring file at parse time. The inner-class file fails to load + tests in it are silently skipped — **G-7 silent-skip applies**: Exit 0 reported deceptively; only the Overall Summary count drop reveals the loss.
+
+```gdscript
+# File A: tests/helpers/grid_battle_stub.gd
+class_name GridBattleStub
+extends RefCounted
+
+# File B: tests/integration/damage_calc/damage_calc_integration_test.gd
+class GridBattleStub:  # ← BROKEN: collides with File A's global
+    extends RefCounted
+    # ... 13 occurrences of GridBattleStub() in this file ...
+```
+
+The collision symptom is not a runtime error — it's a parse-time failure that fully unloads File B. The test count silently drops (e.g. 1054 → 1037 in S8-04 discovery).
+
+**Correct**: rename one side. Convention going forward: top-level helpers in `tests/helpers/` own simple names (`GridBattleStub`); inner test doubles use `<SystemName><Role>` prefix to avoid collision (`DamageCalcGridBattleStub`).
+
+```gdscript
+# File B: tests/integration/damage_calc/damage_calc_integration_test.gd
+class DamageCalcGridBattleStub:  # ← CORRECT: prefixed inner class
+    extends RefCounted
+```
+
+**Symptom checklist** — if test count drops between commits without explanation:
+1. Run G-7 silent-skip detection (count vs prior baseline)
+2. `grep -rn 'class [A-Z][A-Za-z]*:' tests/` to enumerate inner-class declarations
+3. For each match, `grep -rln 'class_name <Name>' tests/ src/` to check for global registration of the same name
+4. If both sides exist, rename the inner side per `<SystemName><Role>` convention
+
+**Distinct from G-3**: G-3 is about `class_name` colliding with built-in engine classes (e.g. `class_name Resource`). G-26 is about user-defined `class_name` colliding with another user-defined inner class. Both produce parse errors; G-3 is engine-side, G-26 is user-side.
+
+**Lint candidate**: `tools/ci/lint_inner_class_no_global_collision.sh` could enumerate inner-class declarations + cross-check against global `class_name` registry. Sprint-9+ candidate.
+
+**Discovered**: input-handling story-003 (2026-05-06). `tests/helpers/grid_battle_stub.gd` NEW with `class_name GridBattleStub`; `tests/integration/damage_calc/damage_calc_integration_test.gd` had pre-existing inner `class GridBattleStub:` from earlier damage-calc work. Discovery: G-7 silent-skip detection caught the test-count drop; rename of 13 occurrences in damage_calc test resolved it. Cost: ~5 minutes plus 1 ADVISORY OUT-OF-SCOPE deviation logged in story-003 Completion Notes.
+
+---
+
+## G-27 — Deferred-handler-after-state-advance race: CONNECT_DEFERRED subscribers see post-transition state, not signal-emit-time state
+
+**Context**: an autoload subscriber connects to a signal with `CONNECT_DEFERRED` (per ADR-0001 §5 mandate). When the signal source autoload (e.g. ScenarioRunner) emits the signal AND THEN synchronously advances state (e.g. transitions LOADING → next chapter or → SCENARIO_END), the deferred handler fires AFTER both events have completed.
+
+**Broken**: the subscriber's deferred handler reads "current" state via the source autoload's getter (`get_current_chapter()` / `get_active_unit_id()` / etc.), but the getter now returns the POST-TRANSITION state, not the state at signal-emit time. For Beat 9 reveal of just-completed chapter, this returns the NEXT chapter (or null at scenario end) instead of the chapter that just completed.
+
+```gdscript
+# Source autoload (ScenarioRunner)
+func _advance_to_next_chapter() -> void:
+    chapter_completed.emit(_chapter_index)  # CONNECT_DEFERRED → handler queued
+    _chapter_index += 1                     # state advances synchronously
+    _transition_to(LOADING)                 # state advances synchronously
+
+# Subscriber autoload (StoryEvent)
+func _on_chapter_completed(idx: int) -> void:
+    var ch: Chapter = ScenarioRunner.get_current_chapter()  # ← BROKEN: returns NEXT chapter
+    var text: String = ch.beat_9_reveal_text                # ← wrong chapter's reveal
+```
+
+By the time `_on_chapter_completed` actually fires (deferred to end of frame), `ScenarioRunner._chapter_index` has already advanced. The handler reads chapter N+1's data while it should be reading chapter N's.
+
+**Correct**: cache the relevant state at signal-source emit time (e.g. when `chapter_started` fires), then have the deferred handler READ FROM THE CACHE rather than re-query the source autoload. Clear the cache at the boundary where it's no longer valid.
+
+```gdscript
+# Subscriber autoload (StoryEvent)
+var _active_chapter: Chapter
+
+func _on_chapter_started(_idx: int) -> void:
+    _active_chapter = ScenarioRunner.get_current_chapter()  # cache at emit time
+
+func _on_chapter_completed(_idx: int) -> void:
+    var text: String = _active_chapter.beat_9_reveal_text   # read cache, not getter
+    # ... emit story_event_revelation_committed etc ...
+    _active_chapter = null                                  # clear cache after consumption
+```
+
+**Symptom checklist** — if a subscriber's handler reads "wrong" state in multi-chapter / multi-state-transition scenarios:
+1. Check if the subscriber is `CONNECT_DEFERRED` (almost always true per ADR-0001 §5)
+2. Check if the source emits the signal AND advances state in the same synchronous call
+3. Check if the handler reads source state via getter (vs. signal payload arg)
+4. If all three are true, the handler is racing the state advance — cache at emit time
+
+**Distinct from race conditions in async code**: this is NOT a thread-safety issue. Godot signals are single-threaded; the race is between deferred-call queue and synchronous state mutation in the same frame.
+
+**Pattern recognition**: if you write `Autoload.get_current_X()` inside a deferred handler that handles `Autoload.x_completed` or `Autoload.x_finished`, you are almost certainly hitting this gotcha.
+
+**Discovered**: chapter-1 e2e integration (S8-11, 2026-05-05). Production bug surfaced ONLY by e2e integration test driving full state machine; unit tests in isolation never exercised the deferred-handler-after-state-advance race because they didn't transition the source state after emit. Fix: `StoryEvent._active_chapter` cache; cache cleared on Beat 9 emit so next chapter_started re-primes. The unit-test gap is the moral: integration tests are necessary precisely BECAUSE they exercise these cross-autoload temporal couplings that unit tests can't reach.
+
+---
+
+## G-28 — Bulk-disconnect-all in test cleanup severs production autoload subscriptions
+
+**Context**: a test file uses bulk-disconnect-all on a GameBus signal in its `after_test()` cleanup (e.g. `for c in signal.get_connections(): signal.disconnect(c.callable)`). Production autoload subscribers (DestinyState, StoryEvent, etc.) connect their handlers ONCE at autoload `_ready()` time. The test's bulk-disconnect SEVERS those production subscriptions for the rest of the test run.
+
+**Broken**: subsequent tests in the same run that depend on the autoload responding to GameBus signals see "autoload never fires" behavior, because the autoload's own subscription was disconnected by the prior test's cleanup.
+
+```gdscript
+# tests/unit/core/scenario_runner_signal_contract_test.gd
+func after_test() -> void:
+    for c in GameBus.chapter_started.get_connections():
+        GameBus.chapter_started.disconnect(c.callable)  # ← BROKEN: severs ALL subs
+    # ... DestinyState.chapter_started subscription is now gone ...
+    # ... StoryEvent.chapter_started subscription is now gone ...
+
+# Later test in same run:
+# tests/unit/feature/destiny_state/destiny_state_test.gd
+func test_destiny_state_archives_echo_on_chapter_started() -> void:
+    GameBus.chapter_started.emit(0)
+    assert_int(DestinyState.get_echo_count()).is_equal(1)  # ← FAILS: handler never fired
+```
+
+This is a test-isolation trap distinct from G-10 stub-swap traps: it's not the test setup that's broken, it's that the cleanup is too aggressive.
+
+**Correct**: tests must NEVER bulk-disconnect-all. Tests should either (a) disconnect ONLY the test-side captures they explicitly created, OR (b) rely on autoload `reset_for_tests()` to re-establish subscriptions idempotently.
+
+```gdscript
+# CORRECT pattern (a): disconnect only test-side captures
+var _test_capture: Callable
+
+func before_test() -> void:
+    _test_capture = func(idx: int) -> void: _captured_idx = idx
+    GameBus.chapter_started.connect(_test_capture)
+
+func after_test() -> void:
+    if GameBus.chapter_started.is_connected(_test_capture):
+        GameBus.chapter_started.disconnect(_test_capture)
+    # production autoload subscriptions remain intact
+
+# CORRECT pattern (b): autoload reset_for_tests re-establishes subscriptions
+# In src/feature/destiny_state/destiny_state.gd:
+func reset_for_tests() -> void:
+    _archived_chapter_counts.clear()
+    _echo_archive.clear()
+    _flags.clear()
+    _connect_subscriptions()  # idempotent — disconnect-then-connect is safe
+
+func _connect_subscriptions() -> void:
+    if not GameBus.chapter_started.is_connected(_on_chapter_started):
+        GameBus.chapter_started.connect(_on_chapter_started, CONNECT_DEFERRED)
+    # ... etc ...
+```
+
+**Symptom checklist** — if a test fails with "autoload handler never fired" despite the autoload being correctly registered:
+1. `grep -n 'get_connections()' tests/` to find any bulk-disconnect-all loops
+2. Check whether prior tests in the run leave the GameBus signal in a bulk-disconnected state
+3. If autoload has `reset_for_tests`, ensure it includes `_connect_subscriptions()` re-establishment
+4. If autoload has no `reset_for_tests`, add one — it's a 4-autoload established pattern (BalanceConstants + DestinyState + StoryEvent + ScenarioRunner)
+
+**Distinct from G-10**: G-10 is about test stubs swapping the autoload reference itself (e.g. `GameBus = stub`) which makes production autoload subscribers receive nothing. G-28 is about disconnecting at the SIGNAL level while keeping the production autoload reference intact. Both produce "handler never fires" symptoms but the fix locations differ.
+
+**Pattern**: ANY test cleanup that touches `signal.get_connections()` is a code smell. If a test creates a signal subscription, it must track that subscription explicitly (cache the Callable) and disconnect only that one in cleanup.
+
+**Discovered**: DestinyState implementation (S8-10, 2026-05-05). `tests/unit/core/scenario_runner_signal_contract_test.gd` lines 70-78, 110-111, 147-148, 172-173 each contained bulk-disconnect-all loops; these severed DestinyState's autoload subscriptions and made `destiny_state_test.gd` fail intermittently when run in full-suite order. Fix: `reset_for_tests` extended to call idempotent `_connect_subscriptions()` per before_test invocation. Pattern mirrored to StoryEvent in S8-09 implementation. Recommend codifying as a 5th autoload reset_for_tests precedent at sprint-9.
+
+---
+
 ## Verification Pattern Summary
 
 When testing changes that touch any of the above areas, always:

@@ -30,9 +30,9 @@
 
 *From GDD §Acceptance Criteria AC-10 (attack portion) + AC-11 + ADR-0005 §5 + GDD §Transition Table ST-2:*
 
-- [ ] **AC-1** S1 (UNIT_SELECTED) `_handle_action_in_s1` extended to handle `&"attack_target_select"`: validates `ctx.coord != Vector2i.ZERO` AND queries provisional Grid Battle stub `is_tile_in_attack_range(ctx.coord)` → set `_state = InputState.ATTACK_TARGET_SELECT` (S1 → S3); emit pair via shared `_handle_action` epilogue from story-003
+- [ ] **AC-1** S1 (UNIT_SELECTED) `_handle_action_in_s1` extended to handle `&"attack_target_select"`: validates `ctx.target_coord != Vector2i.ZERO` AND queries provisional Grid Battle stub `is_tile_in_attack_range(ctx.target_coord)` → set `_state = InputState.ATTACK_TARGET_SELECT` (S1 → S3); emit pair via shared `_handle_action` epilogue from story-003
 - [ ] **AC-2** S3 (ATTACK_TARGET_SELECT) `_handle_action_in_s3` arm handles `&"attack_confirm"` and `&"action_confirm"` (alias per CR-3a): set `_state = InputState.ATTACK_CONFIRM` (S3 → S4); emit pair. Also handles `&"attack_cancel"` → S1; `&"attack_target_select"` (re-targeting) → stay in S3 with new ctx (coord change, no state transition — emit `input_action_fired` only without `input_state_changed`); `&"open_game_menu"` → S6 (story-007 implements demotion via `_pre_menu_state = S3`)
-- [ ] **AC-3** S4 (ATTACK_CONFIRM) `_handle_action_in_s4` arm handles `&"attack_confirm"` and `&"action_confirm"` (second confirmation completes attack): calls Grid Battle stub `confirm_attack(ctx.unit_id, ctx.coord)` → closes any open undo window for the unit (CR-5: attack closes undo per story-006 implementation; story-004 adds placeholder comment) → set `_state = InputState.OBSERVATION` (S4 → S0); emit pair. Also handles `&"attack_cancel"` → S3
+- [ ] **AC-3** S4 (ATTACK_CONFIRM) `_handle_action_in_s4` arm handles `&"attack_confirm"` and `&"action_confirm"` (second confirmation completes attack): calls Grid Battle stub `confirm_attack(ctx.target_unit_id, ctx.target_coord)` → closes any open undo window for the unit (CR-5: attack closes undo per story-006 implementation; story-004 adds placeholder comment) → set `_state = InputState.OBSERVATION` (S4 → S0); emit pair. Also handles `&"attack_cancel"` → S3
 - [ ] **AC-4** ST-2 demotion helper: `func _apply_st2_demotion(restored_state: InputState) -> InputState:` returns demoted state per ADR-0005 §5 ST-2 rule — if `restored_state in [InputState.MOVEMENT_PREVIEW, InputState.ATTACK_CONFIRM]` (S2 or S4 — pending-confirm states), demote to `InputState.UNIT_SELECTED` (S1); otherwise return restored_state unchanged. Used by S6 menu-close transition (story-007 invokes; story-004 implements the helper for unit-test coverage)
 - [ ] **AC-5** AC-10 GDD test (attack portion): GIVEN S1 with attack-range target visible, WHEN player taps target — THEN S3 entered; WHEN player taps confirm (`action_confirm` alias) — THEN S4 entered; WHEN player taps confirm again — THEN attack stub fires + state returns to S0; emits 6 signals total (3 transitions × 2-emit-pair)
 - [ ] **AC-6** AC-11 GDD end-player-turn safety gate: 2-beat confirmation flow via `&"end_player_turn"` (request) + `&"end_phase_confirm"` (confirm). Implementation: in S0 (or S1 with no unit having pending move), `&"end_player_turn"` action sets `_pending_end_phase = true` + emits `input_action_fired(&"end_player_turn", ctx)` (NO state change — Battle HUD subscriber renders the confirmation dialog); subsequent `&"end_phase_confirm"` action checks `_pending_end_phase == true`, fires `&"end_phase_confirm"` action through GameBus, resets `_pending_end_phase = false`. `&"action_cancel"` resets `_pending_end_phase = false` without firing confirm
@@ -77,9 +77,9 @@
            &"attack_confirm", &"action_confirm":
                # Second confirmation — execute attack
                if _grid_battle != null and _grid_battle.has_method("confirm_attack"):
-                   _grid_battle.confirm_attack(ctx.unit_id, ctx.coord)
+                   _grid_battle.confirm_attack(ctx.target_unit_id, ctx.target_coord)
                # Close any open undo window for this unit (CR-5; story-006 implements)
-               # _close_undo_window(ctx.unit_id)  # story-006
+               # _close_undo_window(ctx.target_unit_id)  # story-006
                _state = InputState.OBSERVATION
            &"attack_cancel":
                _state = InputState.ATTACK_TARGET_SELECT
@@ -154,9 +154,9 @@
    match action:
        # ... existing arms ...
        &"attack_target_select":
-           if ctx.coord == Vector2i.ZERO:
+           if ctx.target_coord == Vector2i.ZERO:
                return
-           if not _is_tile_in_attack_range(ctx.coord):
+           if not _is_tile_in_attack_range(ctx.target_coord):
                return  # silent rejection per EC-7
            _state = InputState.ATTACK_TARGET_SELECT
    ```
@@ -311,7 +311,7 @@
 **Deviations** (3 ADVISORY, 0 BLOCKING):
 1. `_handle_action` emit-logic restructure decouples action_fired from state_changed via `_did_visible_work: bool` flag. NOT a spec deviation — required by AC-8 re-targeting + AC-11 end-phase contract. Backward-compatible with story-003 tests via auto-set on state change.
 2. S4 attack_confirm guards `target_unit_id == -1` (mirrors S0 unit_select). Defensive coding consistent with S0; closes gdscript-specialist I-2 finding. Locked by `test_s4_attack_confirm_with_invalid_unit_id_no_transition`.
-3. Story spec field-name typos (`ctx.unit_id` / `ctx.coord`) carried from story-003 — implementation correctly uses `target_unit_id` / `target_coord`. Doc-only correction recommended at sprint-8 retro.
+3. Story spec field-name typos carried from story-003 — implementation correctly uses `target_unit_id` / `target_coord`. RESOLVED 2026-05-06 via sprint-8 retro doc-correction sweep (story file now references actual `InputContext` fields per `src/core/payloads/input_context.gd`).
 
 **Test Evidence**: `tests/unit/foundation/input_router_fsm_attack_st2_test.gd` (BLOCKING gate satisfied; 24 tests / 11 ACs / 100% coverage)
 **Code Review**: Complete — `/code-review` APPROVED; godot-gdscript-specialist APPROVED WITH SUGGESTIONS → both 2 IMPORTANT items closed in same /code-review pass (S4 unit_id guard + `_did_visible_work` doc-comment INVARIANT/RE-ENTRANCY clarification); qa-tester TESTABLE → 3 of 5 ADVISORY gaps closed (purity assertion + null-stub mirror + S3 action_cancel silent test); 2 minor gaps deferred (re-entry explicit test + end_player_turn idempotency)

@@ -31,9 +31,9 @@
 *From GDD §Acceptance Criteria AC-10 (move portion) + AC-15 + ADR-0005 §5 + GDD §States and Transitions:*
 
 - [ ] **AC-1** `_handle_action(action: StringName, ctx: InputContext) -> void` implemented on InputRouter; `_handle_event` updated to call `_handle_action` after action match (replaces story-002's `_last_matched_action` test-observable storage)
-- [ ] **AC-2** `match _state` arm for `InputState.OBSERVATION (S0)` handles `&"unit_select"`: validates `ctx.unit_id != -1` (a unit was tapped/clicked) → set `_state = InputState.UNIT_SELECTED`; emit `input_state_changed(int(OBSERVATION), int(UNIT_SELECTED))` + `input_action_fired(&"unit_select", ctx)`. Other actions in S0 either silently ignored or dispatched to camera category (S0 also accepts `camera_pan` / `camera_zoom_in/out` / `camera_snap_to_unit` / `open_unit_info` / `open_game_menu` per GDD §Transition Table)
-- [ ] **AC-3** S1 (UNIT_SELECTED) `match` arm handles `&"move_target_select"`: validates `ctx.coord != Vector2i.ZERO` AND queries provisional Grid Battle stub `is_tile_in_move_range(ctx.coord)` (stub returns true for hardcoded fixture coords) → set `_state = InputState.MOVEMENT_PREVIEW`; emit pair. S1 also handles `&"move_cancel"` → back to S0; `&"end_unit_turn"` → back to S0 (closes undo per CR-5 — actual close logic in story-006); `&"open_game_menu"` → S6 (story-007); `&"open_unit_info"` → no state change (S1 retained)
-- [ ] **AC-4** S2 (MOVEMENT_PREVIEW) `match` arm handles `&"move_confirm"`: applies move (calls Grid Battle stub `confirm_move(ctx.unit_id, ctx.coord)` — stub no-ops for now) → opens undo window for the unit (story-006 implements; story-003 just sets a placeholder boolean) → set `_state = InputState.OBSERVATION` (S2 → S0); emit pair. S2 also handles `&"move_cancel"` → S1; `&"action_confirm"` (alias for `move_confirm` per CR-3a) handled identically
+- [ ] **AC-2** `match _state` arm for `InputState.OBSERVATION (S0)` handles `&"unit_select"`: validates `ctx.target_unit_id != -1` (a unit was tapped/clicked) → set `_state = InputState.UNIT_SELECTED`; emit `input_state_changed(int(OBSERVATION), int(UNIT_SELECTED))` + `input_action_fired(&"unit_select", ctx)`. Other actions in S0 either silently ignored or dispatched to camera category (S0 also accepts `camera_pan` / `camera_zoom_in/out` / `camera_snap_to_unit` / `open_unit_info` / `open_game_menu` per GDD §Transition Table)
+- [ ] **AC-3** S1 (UNIT_SELECTED) `match` arm handles `&"move_target_select"`: validates `ctx.target_coord != Vector2i.ZERO` AND queries provisional Grid Battle stub `is_tile_in_move_range(ctx.target_coord)` (stub returns true for hardcoded fixture coords) → set `_state = InputState.MOVEMENT_PREVIEW`; emit pair. S1 also handles `&"move_cancel"` → back to S0; `&"end_unit_turn"` → back to S0 (closes undo per CR-5 — actual close logic in story-006); `&"open_game_menu"` → S6 (story-007); `&"open_unit_info"` → no state change (S1 retained)
+- [ ] **AC-4** S2 (MOVEMENT_PREVIEW) `match` arm handles `&"move_confirm"`: applies move (calls Grid Battle stub `confirm_move(ctx.target_unit_id, ctx.target_coord)` — stub no-ops for now) → opens undo window for the unit (story-006 implements; story-003 just sets a placeholder boolean) → set `_state = InputState.OBSERVATION` (S2 → S0); emit pair. S2 also handles `&"move_cancel"` → S1; `&"action_confirm"` (alias for `move_confirm` per CR-3a) handled identically
 - [ ] **AC-5** AC-15 GDD test: every state transition emits `input_state_changed(prev, new)` exactly once BEFORE any downstream processing (prev = current `_state` int value, new = target `_state` int value); paired with `input_action_fired(action, ctx)`. Verified via signal-capture pattern (G-4 Array-append captures from `before_test()`-connected lambdas)
 - [ ] **AC-6** AC-10 GDD test (move portion): GIVEN S1 with valid destination visible, WHEN player taps destination — THEN S2 entered (ghost unit / confirm button rendering deferred to Battle HUD epic, not part of FSM scope); WHEN player taps confirm — THEN unit moves (stub no-op acceptable), state returns to S0; both transitions emit signal pairs
 - [ ] **AC-7** Re-entrancy hazard test: GIVEN test subscriber connects to `input_state_changed` WITHOUT `Object.CONNECT_DEFERRED`, WHEN subscriber's handler synchronously calls `InputRouter._handle_event(another_event)` mid-dispatch — THEN test asserts assertion-detectable behavior is well-defined (either: (a) both events process successfully sequentially, OR (b) a documented push_warning fires, OR (c) test fixture documents the actual observed behavior). The test EXISTS to lock the contract; production safety relies on ADR-0001 §5 deferred-connect mandate (downstream-consumer obligation, NOT enforced inside InputRouter itself)
@@ -81,7 +81,7 @@
    func _handle_action_in_s0(action: StringName, ctx: InputContext) -> void:
        match action:
            &"unit_select":
-               if ctx.unit_id == -1:
+               if ctx.target_unit_id == -1:
                    return  # invalid context — silently ignore
                _state = InputState.UNIT_SELECTED
            &"camera_pan", &"camera_zoom_in", &"camera_zoom_out", &"camera_snap_to_unit":
@@ -101,9 +101,9 @@
    func _handle_action_in_s1(action: StringName, ctx: InputContext) -> void:
        match action:
            &"move_target_select":
-               if ctx.coord == Vector2i.ZERO:
+               if ctx.target_coord == Vector2i.ZERO:
                    return  # invalid context
-               if not _is_tile_in_move_range(ctx.coord):
+               if not _is_tile_in_move_range(ctx.target_coord):
                    return  # invalid destination per EC-7
                _state = InputState.MOVEMENT_PREVIEW
            &"move_cancel", &"end_unit_turn":
@@ -122,9 +122,9 @@
            &"move_confirm", &"action_confirm":
                # Apply move via stub (Grid Battle ADR pending)
                if _grid_battle != null and _grid_battle.has_method("confirm_move"):
-                   _grid_battle.confirm_move(ctx.unit_id, ctx.coord)
+                   _grid_battle.confirm_move(ctx.target_unit_id, ctx.target_coord)
                # Open undo window (story-006 implements full logic)
-               # _open_undo_window(ctx.unit_id, ctx.coord)  # story-006
+               # _open_undo_window(ctx.target_unit_id, ctx.target_coord)  # story-006
                _state = InputState.OBSERVATION
            &"move_cancel":
                _state = InputState.UNIT_SELECTED
@@ -197,8 +197,8 @@
                 for action: StringName in InputRouter.ACTIONS_BY_CATEGORY[category]:
                     InputRouter._state = state_int as InputRouter.InputState
                     var ctx := InputContext.new()
-                    ctx.unit_id = 1
-                    ctx.coord = Vector2i(1, 1)
+                    ctx.target_unit_id = 1
+                    ctx.target_coord = Vector2i(1, 1)
                     InputRouter._handle_action(action, ctx)  # MUST NOT crash
     ```
 
@@ -319,9 +319,9 @@
 
 **Engine-risk findings** (carried forward to sprint-8 retro):
 - **G-26 codification candidate NEW**: User-vs-user `class_name` collision when a top-level `class_name X` is registered while another file declares an inner `class X:` (no `class_name`). Godot 4.6 fires `Parse Error: Class "X" hides a global script class` + Exit 0 deceptive (G-7 silent skip applies). Mitigation: rename one side; convention: top-level helpers in `tests/helpers/` own simple names; inner test doubles use `<SystemName><Role>` prefix.
-- **InputContext field-name typo in story spec**: AC-3 + AC-6 + QA Test Cases use `ctx.unit_id` / `ctx.coord` (typo); actual fields are `target_unit_id` / `target_coord`.
+- **InputContext field-name typo in story spec [RESOLVED 2026-05-06 sprint-8 retro doc-correction sweep]**: AC-3 + AC-6 + QA Test Cases originally used the wrong attribute path (without `target_` prefix); corrected to actual `InputContext` fields per `src/core/payloads/input_context.gd` (`target_unit_id` / `target_coord` / `source_device`).
 
 **Tech debt candidates** (3, NOT yet filed):
 - TD-candidate-1: AC-8 sweep is no-crash only. Story-007 should add expected-state assertions for invalid combinations.
 - TD-candidate-2: `Vector2i.ZERO` sentinel ambiguity in InputContext default. Future redesign should use `Vector2i(-1, -1)` matching `target_unit_id = -1` pattern. Story-008-009 owns when wiring touch coord binding.
-- TD-candidate-3: Story spec field-name typos. Doc-only spec correction recommended at sprint-8 retro.
+- TD-candidate-3: Story spec field-name typos. RESOLVED 2026-05-06 via sprint-8 retro doc-correction sweep (AC + Implementation Notes + QA Test Cases now reference `target_unit_id` / `target_coord` consistently).
