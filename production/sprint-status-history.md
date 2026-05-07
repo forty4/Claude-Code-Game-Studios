@@ -16,6 +16,55 @@
 
 ---
 
+## Sprint 11
+
+### Top-level updated:
+
+- 2026-05-07 — S11-01 SHIPPED — Codified drift-correction at /story-readiness as standing pre-flight check (BACKFILL CLOSE-OUT new verdict flavor) + bundled S10-11 sprint-plan template refinement (Carryover Backlog section ahead-of-Tasks per sprint-9 retro AI #2). **Closes sprint-10 retro AI #1 (top-priority)** + sprint-10 retro AI #6 codification debt for the drift-correction pattern that fired 2× in sprint-10. Skill changes: (1) NEW Phase 2.5 "Pre-Check — Story Status Consistency (BACKFILL CLOSE-OUT detector)" — reads 4 canonical Status sources (story file Status header + sprint-status.yaml row + EPIC.md Status + index.md row), detects mismatch where story=Complete but downstream=Ready, returns BACKFILL CLOSE-OUT verdict early-exit (skip Phase 3 checklist); (2) Phase 4 verdict assignment expanded from 3 → 4 verdicts with BACKFILL CLOSE-OUT documented; (3) Phase 5 output format adds BACKFILL CLOSE-OUT block listing 5 doc-only fixes (sprint-status.yaml + EPIC.md Status header + EPIC.md Stories table + index.md row + sprint-status-history.md long-form record) per S10-04 precedent; (4) Phase 5 sprint escalation adds DRIFT CAUGHT positive-signal block when BACKFILL CLOSE-OUT fires on Must Have stories; (5) Phase 6 redirect rule explicitly says "DO NOT run /dev-story" + points at S10-04 precedent record. Bundled S10-11 sprint-plan template refinement: NEW "Carryover Backlog (from Previous Sprint)" section codified in `.claude/skills/sprint-plan/SKILL.md` Phase 2 template, placed AHEAD of Tasks (Must/Should/Nice) per sprint-9 retro AI #2 visibility-threshold rule; section includes 4 dispositions (KEEP/DESCOPE/BUNDLE/CUT) + 2-carryover-visibility-threshold rule. Pattern stable at 2 invocations in sprint-10; codification crystallizes the pattern as project-standard pre-flight check. Future sprints: any /story-readiness invocation will catch already-shipped-but-undocumented stories at zero implementation cost (per S10-04 precedent: ~0.5-0.9d saved per drift catch). **Test progression**: NONE (skill / template documentation work; no source code touched). Baseline holds 1236/1236 PASS (51st FFB). **In-patch sprint-status hygiene close 26-streak ACHIEVED**. **Original byte count**: ~2200 (well over 200-byte cap; truncated to 138-byte pointer in YAML).
+
+### S11-01
+
+**Story**: Codify drift-correction at /story-readiness as standing pre-flight check (BACKFILL CLOSE-OUT new verdict flavor) + bundle S10-11 sprint-plan template refinement (Carryover Backlog section ahead-of-Tasks)
+**Completed**: 2026-05-07
+**Estimate**: 0.3d (sprint-11 plan nominal; actual ~0.15d for both edits + history record = ~50% under estimate)
+**Priority**: must-have
+
+> 2026-05-07 — SHIPPED: skill / template documentation work; no source code touched. Two skill files edited.
+>
+> **`.claude/skills/story-readiness/SKILL.md`** edits (5 sections changed):
+> 1. **NEW Phase 2.5 — Pre-Check Story Status Consistency (BACKFILL CLOSE-OUT detector)** inserted between Phase 2 (Load Supporting Context) and Phase 3 (Story Readiness Checklist). 4-step process: (Step 1) Read 4 canonical Status sources (story file Status header line ~4-6 + sprint-status.yaml row by file path match + parent EPIC.md Status + index.md row Status); (Step 2) Detect mismatch where story file Status = `Complete` but ANY downstream source ≠ Complete/done; (Step 3) On mismatch, return BACKFILL CLOSE-OUT verdict + skip Phase 3 checklist + DO NOT run /dev-story; (Step 4) On no mismatch, proceed to Phase 3 normally OR report fully-closed if all 4 sources reflect Complete. Precedent reference cites S10-04 BACKFILL CLOSE-OUT (sprint-10 2026-05-07 — saved ~0.6d) + 2026-05-07 sprint-10 plan-time sweep for battle-hud 004+005 (saved ~0.9d combined).
+> 2. **Phase 4 Verdict Assignment** updated from 3 → 4 verdicts. NEW verdict BACKFILL CLOSE-OUT documented w/ definition: "Story file Status header is `Complete` (verified via Phase 2.5 pre-check) but downstream documentation sources carry stale Ready/ready-for-dev/Not yet created Status. Story does NOT need fresh implementation work; needs doc-only graduation flip across canonical sources. Phase 3 checklist SKIPPED for this verdict — implementation-readiness is not applicable to already-shipped work."
+> 3. **Phase 5 Output Format** adds new "BACKFILL CLOSE-OUT output" block w/ 5 sections: (a) Pre-check status mismatch detail listing all 4 canonical sources w/ MISMATCH markers; (b) Originally shipped block w/ commit-sha + date + sprint reference extracted from story Status header; (c) Required doc-only fixes (5 numbered items mirroring S10-04 precedent: sprint-status.yaml row + EPIC.md Status header + EPIC.md Stories table row + index.md row Status cell + sprint-status-history.md long-form record); (d) Recommended next pointing at S10-04 precedent + explicit "Do NOT run /dev-story".
+> 4. **Phase 5 Sprint escalation** adds NEW positive-signal block when Must Have stories return BACKFILL CLOSE-OUT: "DRIFT CAUGHT: [N] Must Have stories are already shipped (BACKFILL CLOSE-OUT verdict). [List with originally-shipped commit + sprint reference.] Apply doc-only graduation flips per the per-story output blocks above; do NOT run /dev-story. This is a save: ~0.5-0.9d of would-have-been-wasted /dev-story attempt avoided per drift catch (per S10-04 precedent)."
+> 5. **Phase 6 Collaborative Protocol Redirect Rules** adds NEW rule: "If verdict is BACKFILL CLOSE-OUT: This story is already shipped. The next action is a doc-only graduation flip — DO NOT run /dev-story. Apply the 5 doc-only fixes listed in the BACKFILL CLOSE-OUT output above (mirror the S10-04 precedent at sprint-status-history.md Sprint 10 → S10-04 long-form record). The story-file Status header is correct; only the downstream sources need to catch up. Avoid spawning any implementation agents — the work is on disk + tested + committed already."
+>
+> **`.claude/skills/sprint-plan/SKILL.md`** bundled S10-11 work — NEW "Carryover Backlog (from Previous Sprint)" section inserted in Phase 2 template, placed AHEAD of Tasks (Must Have/Should Have/Nice to Have) per sprint-9 retro AI #2 visibility-threshold rule. Section header includes inline rationale: "Codified per sprint-9 retro AI #2 (codification debt paid via sprint-11 S11-01 bundled work 2026-05-07): Carryover items must be listed in this dedicated section AHEAD of new scope so the cumulative carryover-concentration threshold (≥4 items = visibility breach) is visible at sprint-plan time, not buried after Tasks." Disposition guidance: 4 dispositions (KEEP / DESCOPE / BUNDLE / CUT) + 2-carryover-visibility-threshold rule (any item Times Carried ≥ 2 must have non-KEEP disposition unless explicit user override).
+>
+> **Coverage of sprint-10 retro AIs**:
+> - **AI #1** (Codify drift-correction at /story-readiness as standing pre-flight check) → CLOSED (Phase 2.5 + verdict + output + redirect)
+> - **AI #6** (Codify same-day double-sprint-close naming convention) → REMAINS OPEN (S11-10 Nice-to-Have)
+>
+> **Coverage of sprint-9 retro AIs**:
+> - **AI #2** (Carryover concentration threshold ≥4 — must list in dedicated section ahead of new scope) → CLOSED via bundled S10-11 work (sprint-plan template now has Carryover Backlog section ahead of Tasks; 2-carryover-visibility-threshold rule documented)
+>
+> **Validation**: future /story-readiness invocations will catch already-shipped-but-undocumented stories. Sprint-11 S11-02 will be the first test case (running /story-readiness on destiny-branch + ai-system epics — likely yields 2 BACKFILL CLOSE-OUTs given sprint-7 archive line 146-147 confirms S7-03 + S7-04 shipped).
+>
+> **Files changed (this commit; 4 files)**:
+> 1. `.claude/skills/story-readiness/SKILL.md` MODIFIED — Phase 2.5 NEW + Phase 4 expanded + Phase 5 BACKFILL CLOSE-OUT output block NEW + Phase 5 sprint-escalation DRIFT CAUGHT block NEW + Phase 6 redirect rule NEW (~80 lines added net)
+> 2. `.claude/skills/sprint-plan/SKILL.md` MODIFIED — Carryover Backlog section NEW + 4 disposition guidance items + 2-carryover-visibility-threshold rule (~16 lines added net)
+> 3. `production/sprint-status.yaml` MODIFIED — top-level updated rotated + S11-01 row status: ready-for-dev → done + per-story comment line added (under 200-byte cap)
+> 4. `production/sprint-status-history.md` MODIFIED — Sprint 11 section CREATED (NEW); Top-level updated entry; this S11-01 long-form section
+>
+> **In-patch sprint-status hygiene close 26-streak ACHIEVED** (S7-05/06/07/09 + S8-01..S8-11 + S9-01..S9-05 + S10-01..S10-05 + S11-01 = 26 in-patch closes; pattern stable post-26).
+>
+> **Same-pass /code-review closure**: N/A (skill / template documentation; no code review needed for self-edited skill files).
+>
+> **Test progression**: NONE (skill / template documentation work; no source code touched). Baseline holds 1236/1236 PASS — **51st consecutive failure-free baseline preserved through this commit** (no new test run; S11-01 is sprint-11's first commit and is doc-only).
+>
+> **Original byte count**: ~5500 (well over 200-byte cap; this is the canonical long-form record).
+
+---
+
 ## Sprint 10
 
 ### Top-level updated:

@@ -74,6 +74,49 @@ Before checking any stories, load reference documents once (not per-story):
 
 ---
 
+## 2.5. Pre-Check — Story Status Consistency (BACKFILL CLOSE-OUT detector)
+
+> **Codified 2026-05-07 (sprint-11 S11-01)** in response to sprint-10 retro AI #3 firing 2× in single sprint (battle-hud 004+005 sweep at sprint-plan time + S10-04 scenario-progression at /story-readiness check). Pattern stable at 2 invocations; codified as standing pre-flight check to catch already-shipped-but-undocumented stories at zero implementation cost.
+
+For each story file, **BEFORE** running the standard Phase 3 checklist, perform this status-consistency pre-check:
+
+### Step 1 — Read 4 canonical Status sources
+
+1. **Story file Status header**: scan the first ~15 lines for `> **Status**:` field (typical positions: line 4-6 in standard story templates). Extract the value (e.g., `Complete`, `Ready`, `Draft`, `Blocked`).
+2. **sprint-status.yaml row**: search `production/sprint-status.yaml` for the row whose `file:` field matches this story file path. Extract the `status:` value (`done` / `ready-for-dev` / `in-progress` / `review` / `blocked` / `backlog`).
+3. **EPIC.md Status header**: read the parent epic's `EPIC.md` (path: `production/epics/[epic-slug]/EPIC.md`). Extract the `> **Status**:` field value.
+4. **index.md row**: read `production/epics/index.md`. Find the row referencing this epic. Extract the Status cell value.
+
+### Step 2 — Detect mismatch
+
+A mismatch exists if **the story file Status header is `Complete`** but ANY of the following downstream sources do NOT reflect the completed state:
+
+- sprint-status.yaml row status is anything other than `done`
+- EPIC.md Status is anything other than `Complete`
+- index.md row Status is anything other than `Complete` / `In Progress` (epic in progress is acceptable if other stories remain)
+
+### Step 3 — On mismatch, return BACKFILL CLOSE-OUT verdict (early-exit)
+
+If the pre-check detects a mismatch:
+
+- **DO NOT proceed to Phase 3 checklist** — the story is already shipped; the standard implementation-readiness checks are not applicable.
+- **DO NOT run /dev-story** — there is no implementation work to do.
+- **Return verdict: BACKFILL CLOSE-OUT** per Phase 4.
+- **Output the BACKFILL CLOSE-OUT block** per Phase 5.
+
+### Step 4 — On no mismatch, proceed to Phase 3
+
+If the story file Status is `Complete` AND all downstream sources also reflect Complete: this story is fully closed; report and skip remaining checklist (verdict: COMPLETE — already closed; no action needed).
+
+If the story file Status is anything other than `Complete` (e.g., `Ready`, `Draft`, `Not yet created`): proceed to Phase 3 standard checklist as normal.
+
+### Precedent reference
+
+- **S10-04 BACKFILL CLOSE-OUT** (sprint-10 2026-05-07): scenario-progression story-001 was Status=Complete since 2026-05-05 (commit `ba02e02` shipped at sprint-7 S7-02) but sprint-status.yaml + EPIC.md + index.md were all stale at Ready. Caught at /story-readiness check during sprint-10 S10-04 readiness verification. Saved ~0.6d of would-have-been-wasted /dev-story attempt.
+- **2026-05-07 sprint-10 plan-time sweep**: battle-hud stories 004 + 005 same pattern (already shipped at S7-09 + S8-07 commits). Saved ~0.9d combined.
+
+---
+
 ## 3. Story Readiness Checklist
 
 For each story file, evaluate every item below. A story is READY only if all
@@ -194,7 +237,7 @@ items pass or are explicitly marked N/A with a stated reason.
 
 ## 4. Verdict Assignment
 
-Assign one of three verdicts per story:
+Assign one of four verdicts per story:
 
 **READY** — All checklist items pass or have explicit N/A justifications.
 The story can be assigned immediately.
@@ -206,6 +249,8 @@ exist and are not DRAFT. The story can be fixed before assignment.
 OR a critical design question (flagged UNRESOLVED in a criterion or rule) has
 no owner. The story cannot be assigned until the blocker is resolved. Note:
 a story that is BLOCKED may also have NEEDS WORK items — list both.
+
+**BACKFILL CLOSE-OUT** *(codified sprint-11 S11-01 2026-05-07)* — Story file Status header is `Complete` (verified via Phase 2.5 pre-check) but downstream documentation sources (sprint-status.yaml row / EPIC.md Status / index.md row) carry stale `Ready` / `ready-for-dev` / `Not yet created` Status. The story does NOT need fresh implementation work; it needs a doc-only graduation flip across the canonical sources to reflect the already-shipped state. Phase 3 checklist is SKIPPED for this verdict — implementation-readiness is not applicable to already-shipped work.
 
 ---
 
@@ -252,6 +297,35 @@ Blocked:    [N] stories
 [Full detail for each non-ready story follows, using the single-story format]
 ```
 
+### BACKFILL CLOSE-OUT output (codified sprint-11 S11-01 2026-05-07)
+
+```
+## Story Readiness: [story title] — BACKFILL CLOSE-OUT
+File: [path]
+Verdict: **BACKFILL CLOSE-OUT** (story already shipped; downstream Status flip pending)
+
+### Pre-check status mismatch (Phase 2.5)
+- Story file Status header: Complete (line N: "[verbatim Status line including commit-sha + date]")
+- sprint-status.yaml row [story-id]: status: [stale-value]  ← MISMATCH
+- production/epics/[epic]/EPIC.md Status: [stale-value]  ← MISMATCH (if applicable)
+- production/epics/index.md [epic] row Status: [stale-value]  ← MISMATCH (if applicable)
+
+### Originally shipped
+- Commit: [sha]
+- Date: [from-story-Status-header]
+- Sprint: [from-story-Status-header, e.g., S7-02]
+
+### Required doc-only fixes (zero implementation cost)
+1. Update production/sprint-status.yaml [story-id] row: status → done; owner → claude (or original owner); completed → [date]; add per-story # comment under 200-byte cap
+2. Update production/epics/[epic]/EPIC.md Status header → Complete (with backfill trace: "epic graduation backfill via [current-sprint-id] [date] drift-correction sweep")
+3. Update production/epics/[epic]/EPIC.md Stories table row: Status → Complete (with backfill trace)
+4. Update production/epics/index.md row: Stories cell → "M/M Complete via [commit-sha] [date]" + Status cell → Complete (with backfill trace)
+5. Add long-form record to production/sprint-status-history.md under Sprint N → ### S{N}-{NN} section (mirror S10-04 BACKFILL precedent format)
+
+### Recommended next
+Apply the 5 doc-only fixes per the precedent at `production/sprint-status-history.md` Sprint 10 → ### S10-04 section. Do NOT run /dev-story.
+```
+
 ### Sprint escalation
 
 If the scope is `sprint` and any Must Have stories are NEEDS WORK or BLOCKED,
@@ -261,6 +335,15 @@ add a prominent warning at the top of the output:
 WARNING: [N] Must Have stories are not implementation-ready.
 [List them with their primary gap or blocker.]
 Resolve these before the sprint begins or replan with `/sprint-plan update`.
+```
+
+If any Must Have story returns BACKFILL CLOSE-OUT, treat as a SAVE (not a warning) — surface the catch as a positive signal:
+
+```
+DRIFT CAUGHT: [N] Must Have stories are already shipped (BACKFILL CLOSE-OUT verdict).
+[List them with originally-shipped commit + sprint reference.]
+Apply doc-only graduation flips per the per-story output blocks above; do NOT run /dev-story.
+This is a save: ~0.5-0.9d of would-have-been-wasted /dev-story attempt avoided per drift catch (per S10-04 precedent).
 ```
 
 ---
@@ -288,6 +371,7 @@ in conversation. Do not use Write or Edit tools — the user (or
 - If a story's scope has grown beyond its original sizing: "This story appears
   to have expanded in scope. Consider splitting it or escalating to the producer
   before implementation begins."
+- **If verdict is BACKFILL CLOSE-OUT** *(codified sprint-11 S11-01 2026-05-07)*: "This story is already shipped. The next action is a doc-only graduation flip — DO NOT run `/dev-story`. Apply the 5 doc-only fixes listed in the BACKFILL CLOSE-OUT output above (mirror the S10-04 precedent at `production/sprint-status-history.md` Sprint 10 → S10-04 long-form record). The story-file Status header is correct; only the downstream sources (sprint-status.yaml + EPIC.md + index.md + history) need to catch up. Avoid spawning any implementation agents — the work is on disk + tested + committed already."
 
 ---
 

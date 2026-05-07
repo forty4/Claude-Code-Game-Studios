@@ -50,6 +50,20 @@ For `new`:
 - Buffer (20%): [Y days reserved for unplanned work]
 - Available: [Z days]
 
+## Carryover Backlog (from Previous Sprint)
+
+> **Codified per sprint-9 retro AI #2** (codification debt paid via sprint-11 S11-01 bundled work 2026-05-07): Carryover items must be listed in this dedicated section AHEAD of new scope so the cumulative carryover-concentration threshold (≥4 items = visibility breach) is visible at sprint-plan time, not buried after Tasks. For each carryover item, mark disposition: KEEP (carry to a Tasks tier below) / DESCOPE (carry with reduced scope) / BUNDLE (merge into a future story) / CUT (drop entirely with rationale).
+
+| Carryover Task | Original Sprint | Times Carried | Disposition | New Estimate / Target Tier |
+|----------------|-----------------|---------------|-------------|---------------------------|
+
+**Disposition guidance**:
+- **KEEP** (1st-time carryover, still relevant): place in Should Have or Nice to Have below
+- **DESCOPE** (2nd-time carryover, scope-reduce to land in single sprint): note reduced scope inline + place in Nice to Have
+- **BUNDLE** (carryover whose work belongs to a future epic-terminal story): note target story; remove from current sprint
+- **CUT** (2+ times carried + still no forcing function OR explicit user-approved cut): note rationale; remove from sprint
+- **2-carryover-visibility-threshold rule** per sprint-9 retro AI #2: any item with `Times Carried` ≥ 2 must have a non-KEEP disposition (DESCOPE / BUNDLE / CUT) unless explicit user override
+
 ## Tasks
 
 ### Must Have (Critical Path)
@@ -63,10 +77,6 @@ For `new`:
 ### Nice to Have
 | ID | Task | Agent/Owner | Est. Days | Dependencies | Acceptance Criteria |
 |----|------|-------------|-----------|-------------|-------------------|
-
-## Carryover from Previous Sprint
-| Task | Reason | New Estimate |
-|------|--------|-------------|
 
 ## Risks
 | Risk | Probability | Impact | Mitigation |
