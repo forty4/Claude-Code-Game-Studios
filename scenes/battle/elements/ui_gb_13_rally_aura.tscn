@@ -1,0 +1,20 @@
+[gd_scene format=3]
+
+;; UI-GB-13 Rally Aura — story-007 (S10-02).
+;; Grid-layer overlay (Node2D root; world-space). Mounted as child of
+;; BattleScene/GridLayer per ADR-0016 §2.
+;;
+;; MVP scaffold: empty Node2D. Children rendered at runtime by BattleHUD on
+;; formation_bonuses_updated per AC-6 + Implementation Note 5:
+;;   - 1 Commander adjacent → 황금 #C9A84C 20% opacity tile overlay
+;;   - 2 Commanders → 30% opacity
+;;   - 3+ Commanders (15% cap) → 40% opacity
+;;   - 2px logical dashed border (황금 80% opacity) for colorblind accessibility
+;;     per pass-11c R-3 (battle-hud.md §3 UI-GB-13)
+;;
+;; Story-007 ADVISORY: GridBattleController.get_active_commanders() not yet
+;; exposed — UI-GB-13 render gated via has_method() defensive fallback.
+;; Real opacity scaling + dashed border deferred per ADVISORY in story-007 evidence.
+
+[node name="UI_GB_13_RallyAura" type="Node2D"]
+visible = false

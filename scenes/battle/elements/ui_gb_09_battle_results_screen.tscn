@@ -1,0 +1,51 @@
+[gd_scene format=3]
+
+;; UI-GB-09 Battle Results Screen — story-007 (S10-02).
+;; Full-screen overlay PanelContainer + VBoxContainer holding:
+;;   1. OutcomeLabel — VICTORY / DEFEAT / DRAW (large, prominent text)
+;;   2. SurvivingUnitsLabel — surviving units count
+;;   3. TurnsElapsedLabel — turns elapsed count
+;;   4. ScenarioRewardsList (placeholder VBoxContainer; per-scenario rewards added by config)
+;;   5. ContinueButton — focus_mode FOCUS_ALL for keyboard nav (dual-focus protocol)
+;;
+;; Starts hidden (visible = false); shown by BattleHUD._on_battle_outcome_resolved.
+;; Renders OUTCOME ONLY per Pillar 2 lock (ADR-0015 §8) — no fate_data fields surfaced.
+;; AccessKit: tooltip_text + metadata/_accessibility_label per ADR-0015 Verification §2.
+
+[node name="UI_GB_09_BattleResultsScreen" type="PanelContainer"]
+tooltip_text = "Battle results"
+custom_minimum_size = Vector2(400, 240)
+mouse_filter = 0
+visible = false
+focus_mode = 0
+metadata/_accessibility_label = "Battle results screen"
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+mouse_filter = 1
+
+[node name="OutcomeLabel" type="Label" parent="VBoxContainer"]
+tooltip_text = "Battle outcome"
+text = ""
+mouse_filter = 2
+horizontal_alignment = 1
+
+[node name="SurvivingUnitsLabel" type="Label" parent="VBoxContainer"]
+tooltip_text = "Surviving units count"
+text = ""
+mouse_filter = 2
+
+[node name="TurnsElapsedLabel" type="Label" parent="VBoxContainer"]
+tooltip_text = "Turns elapsed"
+text = ""
+mouse_filter = 2
+
+[node name="ScenarioRewardsList" type="VBoxContainer" parent="VBoxContainer"]
+tooltip_text = "Scenario rewards list"
+mouse_filter = 1
+
+[node name="ContinueButton" type="Button" parent="VBoxContainer"]
+custom_minimum_size = Vector2(120, 44)
+tooltip_text = "Continue to next scenario"
+text = ""
+focus_mode = 2
+mouse_filter = 0

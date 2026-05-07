@@ -1,0 +1,17 @@
+[gd_scene format=3]
+
+;; UI-GB-14 Formation Aura — story-007 (S10-02).
+;; Grid-layer overlay (Node2D root; world-space). Mounted as child of
+;; BattleScene/GridLayer per ADR-0016 §2.
+;;
+;; MVP scaffold: empty Node2D. Children rendered at runtime by BattleHUD on
+;; formation_bonuses_updated per AC-6 + Implementation Note 6:
+;;   - MVP-fallback tier (battle-hud.md §3.1): flat 청록 #3A7D6E 15% opacity tint
+;;     + 陣 corner glyph per pattern role tile
+;;   - Octagonal pulsing outline + 緣 bond glyph: post-MVP per fallback tier disclaimer
+;;
+;; Starts hidden (visible = false); shown by BattleHUD AC-6 update path when
+;; snapshot has at least one active pattern role + relationship bond entry.
+
+[node name="UI_GB_14_FormationAura" type="Node2D"]
+visible = false

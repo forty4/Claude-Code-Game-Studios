@@ -87,6 +87,11 @@ const _UI_GB_02_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb
 const _UI_GB_05_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_05_skill_list.tscn")
 const _UI_GB_10_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_10_undo_indicator.tscn")
 const _UI_GB_04_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_04_combat_forecast.tscn")
+const _UI_GB_06_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_06_tile_info_tooltip.tscn")
+const _UI_GB_09_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_09_battle_results_screen.tscn")
+const _UI_GB_12_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_12_tactical_read_extended_range.tscn")
+const _UI_GB_13_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_13_rally_aura.tscn")
+const _UI_GB_14_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_14_formation_aura.tscn")
 
 
 ## Two-tap ATTACK/DEFEND timeout (per ADR-0015 OQ-4 + story-005 Implementation Note 3).
@@ -138,6 +143,25 @@ var _forecast_render_ms_last: float = 0.0
 ## Active dismiss Tween, or null when no dismiss is in progress.
 ## Retained to allow kill-before-reuse (idempotent dismiss path).
 var _forecast_dismiss_tween: Tween
+
+
+# ─── Story-007: UI-GB-06 + UI-GB-09 + UI-GB-12/13/14 grid-layer overlay fields ───
+
+## Cross-tree NodePath to BattleScene/GridLayer per ADR-0016 §2 scene tree topology.
+## BattleHUD lives at BattleScene/HUDLayer/BattleHUD; GridLayer is a sibling of HUDLayer.
+## Default `^"../../GridLayer"` resolves up 2 (HUDLayer → BattleScene) + down 1 (GridLayer).
+## Overridable from .tscn instance or programmatically before add_child() for test fixtures.
+@export var grid_layer_path: NodePath = ^"../../GridLayer"
+
+## Grid-layer overlay Node2D references keyed by StringName for O(1) access.
+## Keys: &"UI-GB-12", &"UI-GB-13", &"UI-GB-14". Populated in _ready() if cross-tree
+## resolution succeeds; empty dict (graceful degradation) if test fixture lacks BattleScene parent.
+## G-25: Dictionary[StringName, Node2D] depth-1 typed dict — no nested typed collection.
+var _grid_layer_overlays: Dictionary[StringName, Node2D] = {}
+
+## Last measured battle-results render latency in ms. AC-5 instrumentation
+## (≤ 200 ms one-shot per battle). Set in _on_battle_outcome_resolved().
+var _results_render_ms_last: float = 0.0
 
 
 ## Action-menu button references cached after UI-GB-02 mount. Allows direct
@@ -212,9 +236,9 @@ func _ready() -> void:
 	# battle-hud.md §3 layout spec.
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 
-	# No _process work in this skeleton per story-001 AC-7. Story-007 may
-	# re-enable _process for grid-overlay zoom-poll when grid overlays are active.
-	set_process(false)
+	# Story-007: _process re-enabled for grid-overlay zoom-poll per AC-8.
+	# Body gates on _has_active_grid_overlay() — early-returns when no
+	# overlays are visible (steady-state cost ≈ 1 dict-iteration per frame).
 
 	# ── Story-002: 11 signal subscriptions ─────────────────────────────────────
 	# 4 controller-LOCAL on _grid_controller (NOT GameBus) per ADR-0014 §8 +
@@ -336,6 +360,40 @@ func _ready() -> void:
 		if sts_panel != null: _forecast_subpanels[&"status_effects"] = sts_panel
 		if psv_panel != null: _forecast_subpanels[&"passives"] = psv_panel
 
+	# ── Story-007: UI-GB-06 + UI-GB-09 mount as HUD-root children ─────────────
+	# UI-GB-06 (tile info tooltip) + UI-GB-09 (battle results screen) — both
+	# start hidden; shown by show_tile_info() / _on_battle_outcome_resolved().
+	var ui_gb_06: PanelContainer = _UI_GB_06_SCENE.instantiate() as PanelContainer
+	var ui_gb_09: PanelContainer = _UI_GB_09_SCENE.instantiate() as PanelContainer
+	ui_gb_06.visible = false
+	ui_gb_09.visible = false
+	add_child(ui_gb_06)
+	add_child(ui_gb_09)
+	_ui_elements[&"UI-GB-06"] = ui_gb_06
+	_ui_elements[&"UI-GB-09"] = ui_gb_09
+	# Continue button text via tr() per i18n discipline.
+	var continue_btn: Button = ui_gb_09.get_node_or_null(^"VBoxContainer/ContinueButton") as Button
+	if continue_btn != null:
+		continue_btn.text = tr(&"hud.results.continue")
+
+	# ── Story-007: UI-GB-12/13/14 cross-tree mount under BattleScene/GridLayer ─
+	# Per ADR-0016 §2 + story-007 Implementation Note 4. Graceful fallback when
+	# test fixture lacks BattleScene parent — _grid_layer_overlays stays empty +
+	# warning logged; production rendering paths gate on dict.has() before access.
+	var grid_layer: Node2D = get_node_or_null(grid_layer_path) as Node2D
+	if grid_layer == null:
+		push_warning("BattleHUD: grid_layer_path failed to resolve; UI-GB-12/13/14 disabled")
+	else:
+		var ui_gb_12: Node2D = _UI_GB_12_SCENE.instantiate() as Node2D
+		var ui_gb_13: Node2D = _UI_GB_13_SCENE.instantiate() as Node2D
+		var ui_gb_14: Node2D = _UI_GB_14_SCENE.instantiate() as Node2D
+		grid_layer.add_child(ui_gb_12)
+		grid_layer.add_child(ui_gb_13)
+		grid_layer.add_child(ui_gb_14)
+		_grid_layer_overlays[&"UI-GB-12"] = ui_gb_12
+		_grid_layer_overlays[&"UI-GB-13"] = ui_gb_13
+		_grid_layer_overlays[&"UI-GB-14"] = ui_gb_14
+
 	# Instantiate two-tap timer — shared for ATTACK + DEFEND flows.
 	_two_tap_timer = Timer.new()
 	_two_tap_timer.one_shot = true
@@ -420,6 +478,16 @@ func _exit_tree() -> void:
 		_forecast_dismiss_tween.kill()
 		_forecast_dismiss_tween = null
 
+	# Story-007: free cross-tree grid-layer overlays. Cross-tree children (mounted
+	# under BattleScene/GridLayer) are NOT auto-freed when BattleHUD frees, since
+	# they live in a different branch of the scene tree. Defensive is_instance_valid
+	# guards per G-11 cast-on-freed precedent; queue_free() defers to end-of-frame.
+	for overlay_key: StringName in _grid_layer_overlays.keys():
+		var overlay: Node2D = _grid_layer_overlays[overlay_key]
+		if is_instance_valid(overlay) and not overlay.is_queued_for_deletion():
+			overlay.queue_free()
+	_grid_layer_overlays.clear()
+
 
 # ─── Public methods ───────────────────────────────────────────────────────────
 
@@ -498,7 +566,7 @@ func _populate_forecast_section(section: StringName, attacker_id: int, defender_
 	var label: Label = subpanel.get_node_or_null("Label") as Label
 	if label == null:
 		# Fallback: first Label descendant (defensive against .tscn structure drift).
-		for child in subpanel.get_children():
+		for child: Node in subpanel.get_children():
 			if child is Label:
 				label = child as Label
 				break
@@ -815,9 +883,63 @@ func _status_effect_to_i18n_key(effect_id: StringName) -> StringName:
 ## Renders UI-GB-06 tile info tooltip for coord. Called by InputRouter on touch
 ## tap-preview (CR-4a) or PC mouse hover on empty tile.
 ## If coord == Vector2i(-1, -1), dismisses the tooltip.
-## Body implemented in story-007.
+##
+## Backend query path (story-007):
+##   1. _map_grid.get_tile(coord) → MapTileData (terrain_type + elevation)
+##   2. TerrainEffect.get_terrain_modifiers(_map_grid, coord) → TerrainModifiers
+##      (defense_bonus + evasion_bonus)
+##   3. Position derived in screen-space: tile_size from BalanceConstants
+##      TILE_WORLD_SIZE; world_pos = Vector2(coord) * tile_size; screen_pos =
+##      _camera.get_canvas_transform() * world_pos per godot-specialist 2026-05-03
+##      advisory D (Camera2D in 4.6 has no world_to_screen() method).
+##
+## Defensive: if get_tile returns null, log warning + dismiss panel.
 func show_tile_info(coord: Vector2i) -> void:
-	pass
+	var panel: PanelContainer = _ui_elements.get(&"UI-GB-06") as PanelContainer
+	if panel == null:
+		return
+	if coord == Vector2i(-1, -1):
+		panel.visible = false
+		return
+	if _map_grid == null:
+		push_warning("BattleHUD.show_tile_info: _map_grid null; cannot resolve tile data")
+		panel.visible = false
+		return
+	var tile: MapTileData = _map_grid.get_tile(coord)
+	if tile == null:
+		push_warning("BattleHUD.show_tile_info: no MapTileData for coord %s" % str(coord))
+		panel.visible = false
+		return
+	# Populate 4 Labels via tr()-routed format strings per i18n discipline.
+	var vbox: VBoxContainer = panel.get_node_or_null(^"VBoxContainer") as VBoxContainer
+	if vbox != null:
+		var terrain_lbl: Label = vbox.get_node_or_null(^"TerrainLabel") as Label
+		if terrain_lbl != null:
+			terrain_lbl.text = "%s: %d" % [tr(&"hud.tile.terrain_label"), tile.terrain_type]
+		var elev_lbl: Label = vbox.get_node_or_null(^"ElevationLabel") as Label
+		if elev_lbl != null:
+			elev_lbl.text = "%s: %d" % [tr(&"hud.tile.elevation_label"), tile.elevation]
+		# defense/evasion query through TerrainEffect static helper.
+		var modifiers: TerrainModifiers = TerrainEffect.get_terrain_modifiers(_map_grid, coord)
+		var def_bonus: int = modifiers.defense_bonus if modifiers != null else 0
+		var eva_bonus: int = modifiers.evasion_bonus if modifiers != null else 0
+		var def_lbl: Label = vbox.get_node_or_null(^"DefenseLabel") as Label
+		if def_lbl != null:
+			def_lbl.text = tr(&"hud.tile.defense_label") % def_bonus
+		var eva_lbl: Label = vbox.get_node_or_null(^"EvasionLabel") as Label
+		if eva_lbl != null:
+			eva_lbl.text = tr(&"hud.tile.evasion_label") % eva_bonus
+	# Position the panel in screen-space using BattleCamera canvas transform.
+	# tile_size derived from BalanceConstants.TILE_WORLD_SIZE per established
+	# BattleCamera precedent (battle_camera.gd:78). Per godot-specialist advisory D:
+	# use get_canvas_transform() directly — no Camera2D.world_to_screen() in 4.6.
+	if _camera != null:
+		var tile_size: float = float(BalanceConstants.get_const(&"TILE_WORLD_SIZE"))
+		var world_pos: Vector2 = Vector2(float(coord.x) * tile_size, float(coord.y) * tile_size)
+		var screen_pos: Vector2 = _camera.get_canvas_transform() * world_pos
+		# Small offset so the tooltip doesn't overlap the cursor's tile.
+		panel.position = screen_pos + Vector2(8.0, 8.0)
+	panel.visible = true
 
 
 # ─── Private methods ──────────────────────────────────────────────────────────
@@ -953,6 +1075,8 @@ func _on_unit_selected_changed(unit_id: int, was_selected: int) -> void:
 			var skill_panel: Control = _ui_elements.get(&"UI-GB-05")
 			if skill_panel != null:
 				skill_panel.visible = false
+		# Story-007 AC-7: UI-GB-12 TR-extended range visibility for Strategist class.
+		_update_tactical_read_overlay(unit_id)
 	elif unit_id == _active_status_panel_unit_id:
 		show_unit_info(-1)
 		# Deselect — hide action menu + skill panel.
@@ -962,6 +1086,72 @@ func _on_unit_selected_changed(unit_id: int, was_selected: int) -> void:
 		var skill_panel: Control = _ui_elements.get(&"UI-GB-05")
 		if skill_panel != null:
 			skill_panel.visible = false
+		# Story-007 AC-7: hide UI-GB-12 on deselect.
+		var tr_overlay: Node2D = _grid_layer_overlays.get(&"UI-GB-12")
+		if tr_overlay != null:
+			tr_overlay.visible = false
+
+
+## _update_tactical_read_overlay — story-007 (S10-02). AC-7 visibility update.
+## Renders UI-GB-12 only for Strategist class (Commander explicitly excluded per
+## CR-2 v5.0 — Commander passive is passive_rally, not tactical_read).
+##
+## Story-007 ADVISORY: UnitRole.get_tactical_read_tiles() not yet exposed —
+## defensive has_method() gate. When method lands, this handler will populate
+## TR-extended tile children at 황토 70% opacity with 讀 micro-glyph per spec.
+func _update_tactical_read_overlay(unit_id: int) -> void:
+	var tr_overlay: Node2D = _grid_layer_overlays.get(&"UI-GB-12")
+	if tr_overlay == null:
+		return
+	if _grid_controller == null:
+		tr_overlay.visible = false
+		return
+	var battle_unit: BattleUnit = _grid_controller.get_battle_unit(unit_id)
+	if battle_unit == null:
+		tr_overlay.visible = false
+		return
+	var is_strategist: bool = battle_unit.unit_class == UnitRole.UnitClass.STRATEGIST
+	if not is_strategist:
+		tr_overlay.visible = false
+		return
+	# Strategist confirmed. Defensive: query TR-extended tiles only if API exposed.
+	if _unit_role != null and _unit_role.has_method(&"get_tactical_read_tiles"):
+		# Future render: position child Sprite2Ds at each TR-extended tile.
+		# Story-007 ADVISORY: real rendering deferred; visibility flip ships now.
+		tr_overlay.visible = true
+	else:
+		# API not yet exposed — hide overlay (matches MVP placeholder semantics).
+		tr_overlay.visible = false
+
+
+## _has_active_grid_overlay — story-007 (S10-02). Helper for _process gating.
+## Returns true if any of UI-GB-12/13/14 is currently visible. Enables
+## set_process(false) shortcut when no overlays active per godot-specialist
+## revision #3 (avoid _process body when no rendering work needed).
+func _has_active_grid_overlay() -> bool:
+	for key: StringName in _grid_layer_overlays.keys():
+		var overlay: Node2D = _grid_layer_overlays[key]
+		if is_instance_valid(overlay) and overlay.visible:
+			return true
+	return false
+
+
+## _process — story-007 (S10-02). Per-frame zoom-poll for grid overlay
+## counter-scaling per AC-8 + Implementation Note 8. Gated on
+## _has_active_grid_overlay() to avoid no-op work when no overlays active.
+##
+## Per-frame budget: ≤ 0.05 ms when active per TR-battle-hud-014; if breached,
+## raise ADR-0013 amendment for camera_zoom_changed signal subscription.
+##
+## Story-007 ADVISORY: counter-scale rendering deferred — this body ships
+## the gating contract; future story populates real per-overlay scale work.
+func _process(_delta: float) -> void:
+	if not _has_active_grid_overlay():
+		return
+	if _camera == null:
+		return
+	# Real counter-scale rendering deferred to post-MVP per AC-8 ADVISORY.
+	var _zoom: float = _camera.get_zoom_value()
 
 
 ## _on_unit_moved — controller-LOCAL subscriber (GridBattleController).
@@ -1008,7 +1198,47 @@ func _on_damage_applied(attacker_id: int, defender_id: int, damage: int) -> void
 ## Progression per ADR-0015). This handler subscribes to the CONTROLLER-LOCAL signal.
 func _on_battle_outcome_resolved(outcome: StringName, fate_data: Dictionary) -> void:
 	_handle_signal(&"battle_outcome_resolved", [outcome, fate_data])
-	# UI-GB-09 battle result overlay wired in story-006.
+	# Story-007: render UI-GB-09 battle results screen with OUTCOME ONLY per
+	# Pillar 2 lock (ADR-0015 §8). The fate_data dict carries per-condition
+	# progress counters that MUST NOT be surfaced visually — Beat 7 reveal
+	# happens in the post-battle scenario layer (design/gdd/destiny-branch.md
+	# Section B). This handler reads ONLY the categorical `outcome` field.
+	# Render-time instrumentation per AC-5 (≤ 200 ms one-shot per battle).
+	# The `fate_data` parameter is intentionally unread — see Pillar 2 audit
+	# in tests/integration/feature/battle_hud/battle_hud_overlays_test.gd.
+	var _pillar2_locked: Dictionary = fate_data  # explicit read-no-render guard
+	var start_us: int = Time.get_ticks_usec()
+	var panel: PanelContainer = _ui_elements.get(&"UI-GB-09") as PanelContainer
+	if panel == null:
+		return
+	var vbox: VBoxContainer = panel.get_node_or_null(^"VBoxContainer") as VBoxContainer
+	if vbox == null:
+		return
+	# Outcome label — categorical mapping. Match StringName per ADR-0014 §8 line 95.
+	var outcome_label: Label = vbox.get_node_or_null(^"OutcomeLabel") as Label
+	if outcome_label != null:
+		var outcome_key: StringName = &"hud.outcome.draw"
+		match outcome:
+			&"victory": outcome_key = &"hud.outcome.victory"
+			&"defeat":  outcome_key = &"hud.outcome.defeat"
+			&"draw":    outcome_key = &"hud.outcome.draw"
+		outcome_label.text = tr(outcome_key)
+	# Surviving units count (categorical aggregate — NOT a fate counter).
+	var surviving_count: int = 0
+	if _hp_controller != null and _hp_controller.has_method("get_surviving_unit_count"):
+		surviving_count = _hp_controller.get_surviving_unit_count()
+	var surviving_label: Label = vbox.get_node_or_null(^"SurvivingUnitsLabel") as Label
+	if surviving_label != null:
+		surviving_label.text = tr(&"hud.results.surviving_units") % surviving_count
+	# Turns elapsed (categorical aggregate — NOT a fate counter).
+	var turns_elapsed: int = 0
+	if _turn_runner != null and _turn_runner.has_method("get_round_count"):
+		turns_elapsed = _turn_runner.get_round_count()
+	var turns_label: Label = vbox.get_node_or_null(^"TurnsElapsedLabel") as Label
+	if turns_label != null:
+		turns_label.text = tr(&"hud.results.turns_elapsed") % turns_elapsed
+	panel.visible = true
+	_results_render_ms_last = float(Time.get_ticks_usec() - start_us) / 1000.0
 
 
 ## _on_unit_died — GameBus subscriber (emitter: HPStatusController).
@@ -1118,7 +1348,37 @@ func _on_input_mode_changed(new_mode: int) -> void:
 ## snapshot: Dictionary — formation bonus state snapshot per ADR-0014 CR-12 + ADR-0015 §5.
 func _on_formation_bonuses_updated(snapshot: Dictionary) -> void:
 	_handle_signal(&"formation_bonuses_updated", [snapshot])
-	# UI-GB-10 formation bonus display wired in story-005.
+	# Story-007: update UI-GB-13 Rally aura + UI-GB-14 Formation aura per AC-6.
+	# Visible-while-active semantics: overlay visible if at least one applicable
+	# Commander/formation entry present in snapshot; hidden otherwise.
+	# Story-007 ADVISORY: real opacity-tier rendering (20%/30%/40% per Commander
+	# stack count for Rally; 청록 15% tint for Formation MVP-fallback) deferred —
+	# this handler ships visibility toggle structural contract; rendering
+	# children deferred per evidence-doc ADVISORY.
+	var rally: Node2D = _grid_layer_overlays.get(&"UI-GB-13")
+	var formation: Node2D = _grid_layer_overlays.get(&"UI-GB-14")
+	if rally == null and formation == null:
+		# Cross-tree GridLayer absent (graceful fallback per AC-1) — nothing to update.
+		return
+	# Rally visibility: derived from snapshot's Commander adjacency entries.
+	# Snapshot schema TBD by GridBattleController amendment; defensive read.
+	var has_rally: bool = false
+	if snapshot.has(&"rally_active"):
+		has_rally = bool(snapshot.get(&"rally_active", false))
+	elif snapshot.has(&"commanders") and snapshot.get(&"commanders") is Array:
+		var commanders: Array = snapshot.get(&"commanders", [])
+		has_rally = commanders.size() > 0
+	if rally != null:
+		rally.visible = has_rally
+	# Formation visibility: derived from snapshot's pattern-role entries.
+	var has_formation: bool = false
+	if snapshot.has(&"formation_active"):
+		has_formation = bool(snapshot.get(&"formation_active", false))
+	elif snapshot.has(&"pattern_roles") and snapshot.get(&"pattern_roles") is Array:
+		var roles: Array = snapshot.get(&"pattern_roles", [])
+		has_formation = roles.size() > 0
+	if formation != null:
+		formation.visible = has_formation
 
 
 # ─── Story-005: Action button click handlers ──────────────────────────────────

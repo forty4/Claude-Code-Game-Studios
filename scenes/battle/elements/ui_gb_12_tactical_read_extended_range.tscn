@@ -1,0 +1,18 @@
+[gd_scene format=3]
+
+;; UI-GB-12 TacticalRead Extended Range — story-007 (S10-02).
+;; Grid-layer overlay (Node2D root; world-space). Mounted as child of
+;; BattleScene/GridLayer per ADR-0016 §2 scene tree topology.
+;;
+;; MVP scaffold: empty Node2D. Children rendered at runtime by BattleHUD on
+;; unit_selected_changed for Strategist class per AC-7 + Implementation Note 7:
+;;   - Natural attack range tiles: 황토 25% opacity TextureRect/ColorRect
+;;   - TR-extended tiles (within tactical_read_extension_tiles=1 beyond natural):
+;;     황토 70% opacity + 讀 micro-glyph 8px upper-left in 묵 ink
+;;
+;; Commander units do NOT render UI-GB-12 (CR-2 v5.0 — Commander passive_rally).
+;; Starts hidden (visible = false); shown by BattleHUD AC-7 update path.
+;; Per-frame zoom-poll gated via BattleHUD._has_active_grid_overlay().
+
+[node name="UI_GB_12_TacticalReadExtendedRange" type="Node2D"]
+visible = false

@@ -235,11 +235,16 @@ func test_dismiss_completes_within_80ms_budget() -> void:
 	hud.show_forecast(TEST_ATTACKER_ID, TEST_DEFENDER_ID)
 	hud._dismiss_forecast(&"test_direct_invoke")
 
-	# Await the dismiss tween's finished signal (max 0.5s safety timeout).
-	# Tween auto-frees on completion in Godot 4.6.
+	# Await the dismiss tween's finished signal. Tween auto-frees on completion in
+	# Godot 4.6. If the tween is already done by the time we check (transient
+	# headless race), let deferred callbacks settle via process_frame so the
+	# CONNECT_ONE_SHOT _on_forecast_dismiss_finished assignment to
+	# _forecast_dismiss_ms_last has run before we assert on it.
 	var tween: Tween = hud._forecast_dismiss_tween
 	if tween != null and tween.is_running():
 		await tween.finished
+	else:
+		await get_tree().process_frame
 
 	assert_bool(hud._forecast_root.visible).override_failure_message(
 		"AC-3: _forecast_root.visible must be false after dismiss tween finishes"
@@ -296,6 +301,28 @@ func test_round_started_no_op_when_forecast_invisible() -> void:
 	# No dismiss tween should have been created — early return path in _dismiss_forecast.
 	assert_object(hud._forecast_dismiss_tween).override_failure_message(
 		"AC-4 edge: round_started while invisible must NOT create a dismiss tween"
+	).is_null()
+
+	hud.free()
+	_free_node_deps(bag)
+
+
+## AC-3 edge: damage_applied while forecast invisible is a no-op (no tween created).
+## Mirrors test_round_started_no_op_when_forecast_invisible. Per spec QA Test Cases
+## AC-3 edge "forecast invisible at signal time → dismiss is no-op (no error)".
+func test_damage_applied_no_op_when_forecast_invisible() -> void:
+	var bag: Dictionary = _make_hud_with_stubs()
+	var hud: BattleHUD = bag["hud"]
+	add_child(hud)
+
+	# Forecast starts hidden by default (verified in AC-1 test).
+	assert_bool(hud._forecast_root.visible).is_false()
+
+	hud._on_damage_applied(TEST_ATTACKER_ID, TEST_DEFENDER_ID, 30)
+
+	# No dismiss tween should have been created — early return path in _dismiss_forecast.
+	assert_object(hud._forecast_dismiss_tween).override_failure_message(
+		"AC-3 edge: damage_applied while invisible must NOT create a dismiss tween"
 	).is_null()
 
 	hud.free()

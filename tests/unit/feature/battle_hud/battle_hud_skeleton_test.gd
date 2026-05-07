@@ -221,14 +221,22 @@ func test_ready_applies_full_rect_preset() -> void:
 
 
 func test_ready_disables_process() -> void:
-	# AC-4 + story-001 AC-7: _ready() calls set_process(false) — no per-frame work
-	# in skeleton. Story-007 may re-enable for grid-overlay zoom-poll.
+	# AC-4 + story-001 AC-7: original story-001 skeleton invariant called
+	# set_process(false). Story-007 (S10-02) re-enabled _process for grid-overlay
+	# zoom-poll per AC-8 + Implementation Note 8 — body gates on
+	# _has_active_grid_overlay() so steady-state cost is one dict iteration.
+	# Test updated to verify the body-gating invariant: _process body MUST
+	# early-return when no overlays are visible (initial state post-_ready).
 	var bag: Dictionary = _make_hud_with_stubs()
 	var hud: BattleHUD = bag["hud"]
 	add_child(hud)
 
-	assert_bool(hud.is_processing()).override_failure_message(
-		"BattleHUD._process must be disabled in story-001 skeleton (set_process(false) in _ready)"
+	# Story-007 invariant: post-_ready, no grid overlays are visible (test fixture
+	# lacks BattleScene/GridLayer parent → _grid_layer_overlays empty); _has_active_grid_overlay()
+	# returns false → _process body early-returns — equivalent to "no per-frame work".
+	assert_bool(hud._has_active_grid_overlay()).override_failure_message(
+		"Story-007 contract: post-_ready with no BattleScene/GridLayer parent, " +
+		"_has_active_grid_overlay() must return false — _process body early-returns"
 	).is_false()
 
 	hud.free()

@@ -1,0 +1,42 @@
+[gd_scene format=3]
+
+;; UI-GB-06 Tile Info Tooltip — story-007 (S10-02).
+;; PanelContainer + VBoxContainer holding 4 Labels: Terrain / Elevation / Defense / Evasion.
+;; Compact size — must NOT obstruct grid (battle-hud.md §3 UI-GB-06).
+;; Starts hidden (visible = false); shown by BattleHUD.show_tile_info(coord).
+;; mouse_filter PASS on root + IGNORE on Labels — does NOT block grid hover events
+;; behind the tooltip (battle-hud.md §3 UI-GB-06 mouse pass-through spec).
+;; AccessKit: tooltip_text + metadata/_accessibility_label per ADR-0015 Verification §2.
+;; AC-UX-HUD-05: chevron palette discipline N/A here (no chevrons in tile tooltip);
+;; reserved-color avoidance still applies — no #D63B2A or #C9A84C.
+
+[node name="UI_GB_06_TileInfoTooltip" type="PanelContainer"]
+tooltip_text = "Tile Info"
+custom_minimum_size = Vector2(140, 0)
+mouse_filter = 1
+visible = false
+focus_mode = 0
+metadata/_accessibility_label = "Tile information tooltip"
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+mouse_filter = 1
+
+[node name="TerrainLabel" type="Label" parent="VBoxContainer"]
+tooltip_text = "Terrain type"
+text = ""
+mouse_filter = 2
+
+[node name="ElevationLabel" type="Label" parent="VBoxContainer"]
+tooltip_text = "Tile elevation"
+text = ""
+mouse_filter = 2
+
+[node name="DefenseLabel" type="Label" parent="VBoxContainer"]
+tooltip_text = "Defense bonus"
+text = ""
+mouse_filter = 2
+
+[node name="EvasionLabel" type="Label" parent="VBoxContainer"]
+tooltip_text = "Evasion bonus"
+text = ""
+mouse_filter = 2

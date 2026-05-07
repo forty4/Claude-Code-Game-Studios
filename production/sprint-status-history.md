@@ -16,6 +16,26 @@
 
 ---
 
+## Sprint 10
+
+### Top-level updated:
+
+- 2026-05-07 — S10-01 battle-hud story-006 SHIPPED (UI-GB-04 Combat Forecast — show_forecast + _dismiss_forecast + 6 subpanels + Time.get_ticks_usec() instrumentation per ADR-0015 B-4 advisory; 1199→1213 PASS +14 net new; 48th consecutive failure-free baseline; battle-hud epic 5/8 → 6/8 Complete; same-pass closure 9th-precedent stable from S8-03 — B-1 BLOCKING qa-tester gap closed in /code-review same pass + 2 IMPORTANT gdscript fixes (I-1 typed Node loop var + I-3 await tween headless-race robustness)). **Original char count**: 216 (over 200-char cap by 16 chars).
+- 2026-05-07 — sprint-10 plan + drift-correction sweep (battle-hud 3/8 → 5/8 actual; 2 shipped stories removed from Must); 5 Must + 4 Should + 5 Nice (2 user); 1203 baseline.
+
+### S10-01
+
+**Story**: battle-hud story-006 — UI-GB-04 Combat Forecast
+**Completed**: 2026-05-07
+**Estimate**: 0.4d
+**Priority**: must-have
+
+> 2026-05-07 — SHIPPED: UI-GB-04 Combat Forecast (show_forecast + _dismiss_forecast + 6 subpanels Direction/HitCrit/Damage/Counter/StatusEffects/Passives + Time.get_ticks_usec() instrumentation per ADR-0015 B-4 advisory + B-1 BLOCKING closed in /code-review same pass: test_damage_applied_no_op_when_forecast_invisible; 14/14 ACs covered (5 manual deferred to evidence doc); 1199 → 1213 PASS +14 net new; 48th consecutive failure-free baseline; battle-hud epic 5/8 → 6/8 Complete).
+
+**Original char count**: 203 (over 200-char cap by 3 chars).
+
+---
+
 ## Sprint 8
 
 ### Sprint-8 closure summary (2026-05-06; archived at sprint-9 kickoff 2026-05-06)
