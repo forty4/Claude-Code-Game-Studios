@@ -20,9 +20,62 @@
 
 ### Top-level updated:
 
+- 2026-05-08 — S11-04 SHIPPED — Carryover absorption sweep close. Sprint-10 retro AI #5 ("execute cut/descope/keep/bundle decisions") closed via explicit verification that all 9 carryover dispositions from sprint-10 are correctly reflected in sprint-11 plan + sprint-status.yaml: 2 CUT (S10-10 Pillar 4 chapter-2 scoping + S10-12 InputContext sentinel migration — both removed from sprint-11; rationale documented in sprint-11.md Cuts section); 1 BUNDLE (S10-08 緣 font glyph check → folded into future chapter-1 first-text-rendering story; not standalone in sprint-11); 1 DESCOPE (S10-07 character profile stubs 3 → 1 stub via S11-09 Nice-to-Have; closes AD-C5 to first-stub-shipped partial state); 3 KEEP (S10-06 → S11-07 Should-Have / S10-09 → S11-08 Should-Have / S10-11 bundled into S11-01 codification chunk); 2 USER carry (S10-13 → S11-12 4th-time / S10-14 → S11-13 2nd-time). **Sprint-11 Must 4/4 done** ✓ (S11-01 + S11-02 + S11-03 + S11-04 all complete). Sprint-10 retro AI #5 closed; sprint-11 plan reflects intended state. **Carryover concentration AI #2 threshold check**: post-sweep sprint-11 has 2 USER-OWNED carryover items (S11-12 + S11-13) + 4 claude-owned carryover bundled/kept (S11-07 + S11-08 + S11-09 + S11-01-bundled-S10-11) = 6 total carryover, but only 2 are 2nd+ time carry (S10-09 → S11-08 = 2nd / S10-13 → S11-12 = 4th / S10-14 → S11-13 = 2nd). Threshold not breached at sprint-11 entry. **No code; no test changes**; baseline holds 1236/1236 PASS — **51st FFB preserved**. **In-patch sprint-status hygiene close 29-streak ACHIEVED**. **Original byte count**: ~1700 (truncated to 165-byte pointer in YAML).
 - 2026-05-08 — S11-03 SHIPPED — Closes the BACKFILL CLOSE-OUT pattern at the source. S11-01 codified the catch (Phase 2.5 detector); S11-02 empirically validated it (3rd+4th activation); S11-03 fixes the root cause so drift never opens. **3-part defense-in-depth**: (1) audit doc at production/process-audits/story-done-phase-7-audit-2026-05-08.md (NEW directory + first artifact); (2) /story-done SKILL.md Phase 7 step 5+6+7 codified (EPIC.md propagation + index.md propagation + local lint pre-flight); (3) NEW lint at tools/ci/lint_story_status_consistency.sh (~150L) diffs 4 canonical Status sources. **First-run lint findings**: 33 pre-existing drift items (21 index.md row Ready + 12 EPIC.md header Ready when all stories Complete) — accumulated from sprint-7 close-out era. CI wiring deferred to sprint-12 (would break 51st FFB if wired now); sprint-12 plan candidate: bulk-fix 33 drift items + wire lint to CI. **Validation pending**: next epic-terminal /story-done in sprint-12+ should fire new steps without backfill needed; no 5th retro-AI-3 activation expected in sprint-12+. 28-streak in-patch sprint-status hygiene. **Original byte count**: ~1500 (truncated to 195-byte pointer in YAML).
 - 2026-05-07 — S11-02 SHIPPED — Live test of S11-01 BACKFILL CLOSE-OUT verdict on destiny-branch + ai-system Core epics. **3rd + 4th activation of sprint-10 retro AI #3** confirmed (pattern stable at 4 invocations now: sprint-10 plan-time battle-hud 004+005 sweep + S10-04 scenario-progression + S11-02 destiny-branch + S11-02 ai-system). Drift was less severe than S10-04 — both story files Status=Complete + both EPIC.md Status headers already Complete since 2026-05-05 sprint-7 close; only EPIC.md Stories table rows + index.md rows were stale. Doc-only fixes applied (4 files): destiny-branch EPIC.md Stories table row Ready → Complete + ai-system EPIC.md Stories table row Ready → Complete + index.md destiny-branch row Stories cell + Status cell flipped + index.md ai-system row Stories cell + Status cell flipped. **Cross-system epic graduation flips**: Core layer epic count progresses to 5/5 Complete (terrain-effect + turn-order + hp-status + scenario-progression + destiny-branch); Feature layer ai-system completion adds to 5/5 Complete (damage-calc + camera + grid-battle-controller + battle-scene + ai-system). **Pre-Production → Production gate eligibility advances** per ai-system index.md row note ("Pre-Production → Production gate now eligible (mandatory ADR list = 0)"). **Layer coverage summary line (index.md line 6) deferred** — pre-existing drift across multiple unrelated epics (battle-scene + input-handling + battle-hud) not in S11-02 scope; sprint-11 retro candidate for broader index.md summary refresh. **Sprint-11 retro AI #5 trigger evaluation** (Pre-Production → Production gate trigger) — Core 5/5 + Feature 5/5 means mandatory-ADR list is 0; gate-check pass evaluation is candidate for sprint-11 retro time or sprint-12 follow-up. **Test progression**: NONE (doc-only graduation flips). **51st FFB preserved through commit**. **In-patch sprint-status hygiene close 27-streak ACHIEVED**. **Original byte count**: ~1900 (well over 200-byte cap; truncated to 130-byte pointer in YAML).
 - 2026-05-07 — S11-01 SHIPPED — Codified drift-correction at /story-readiness as standing pre-flight check (BACKFILL CLOSE-OUT new verdict flavor) + bundled S10-11 sprint-plan template refinement (Carryover Backlog section ahead-of-Tasks per sprint-9 retro AI #2). **Closes sprint-10 retro AI #1 (top-priority)** + sprint-10 retro AI #6 codification debt for the drift-correction pattern that fired 2× in sprint-10. Skill changes: (1) NEW Phase 2.5 "Pre-Check — Story Status Consistency (BACKFILL CLOSE-OUT detector)" — reads 4 canonical Status sources (story file Status header + sprint-status.yaml row + EPIC.md Status + index.md row), detects mismatch where story=Complete but downstream=Ready, returns BACKFILL CLOSE-OUT verdict early-exit (skip Phase 3 checklist); (2) Phase 4 verdict assignment expanded from 3 → 4 verdicts with BACKFILL CLOSE-OUT documented; (3) Phase 5 output format adds BACKFILL CLOSE-OUT block listing 5 doc-only fixes (sprint-status.yaml + EPIC.md Status header + EPIC.md Stories table + index.md row + sprint-status-history.md long-form record) per S10-04 precedent; (4) Phase 5 sprint escalation adds DRIFT CAUGHT positive-signal block when BACKFILL CLOSE-OUT fires on Must Have stories; (5) Phase 6 redirect rule explicitly says "DO NOT run /dev-story" + points at S10-04 precedent record. Bundled S10-11 sprint-plan template refinement: NEW "Carryover Backlog (from Previous Sprint)" section codified in `.claude/skills/sprint-plan/SKILL.md` Phase 2 template, placed AHEAD of Tasks (Must/Should/Nice) per sprint-9 retro AI #2 visibility-threshold rule; section includes 4 dispositions (KEEP/DESCOPE/BUNDLE/CUT) + 2-carryover-visibility-threshold rule. Pattern stable at 2 invocations in sprint-10; codification crystallizes the pattern as project-standard pre-flight check. Future sprints: any /story-readiness invocation will catch already-shipped-but-undocumented stories at zero implementation cost (per S10-04 precedent: ~0.5-0.9d saved per drift catch). **Test progression**: NONE (skill / template documentation work; no source code touched). Baseline holds 1236/1236 PASS (51st FFB). **In-patch sprint-status hygiene close 26-streak ACHIEVED**. **Original byte count**: ~2200 (well over 200-byte cap; truncated to 138-byte pointer in YAML).
+
+### S11-04
+
+**Story**: Carryover absorption sweep close — execute cut + descope + keep + bundle decisions per sprint-10 retro AI #5
+**Completed**: 2026-05-08
+**Estimate**: 0.1d (sprint-11 plan nominal; actual ~0.05d — verification + acknowledgement; all dispositions already applied at sprint-11 plan time)
+**Priority**: must-have
+
+> 2026-05-08 — SHIPPED: explicit verification + close of sprint-10 retro AI #5. All 9 carryover dispositions from sprint-10 were already applied at sprint-11 /sprint-plan time (commit `1bd8a2f`); S11-04 is the rubber-stamp close acknowledging the sweep is complete + sprint-11 plan reflects intended state.
+>
+> **9 carryover dispositions (verified vs sprint-11.md + sprint-status.yaml)**:
+>
+> | Sprint-10 Item | Disposition | Sprint-11 Disposition | Verified |
+> |---|---|---|---|
+> | S10-06 Save/Load #17 ratification | KEEP (1st-time carryover) | S11-07 Should-Have (0.3d) | ✓ |
+> | S10-07 Character profile stubs 3 stubs | DESCOPE (2nd-time threshold) | S11-09 Nice-to-Have (0.1d; 1 stub only — 유비) | ✓ |
+> | S10-08 緣 font glyph check | BUNDLE (2nd-time threshold) | Folded into future chapter-1 first-text-rendering story; not in sprint-11 | ✓ |
+> | S10-09 Main menu UX spec | KEEP (2nd-time carryover) | S11-08 Should-Have (0.2d) | ✓ |
+> | S10-10 Pillar 4 chapter-2 scoping | CUT (2nd-time CUT CANDIDATE) | Removed; out-of-scope for current MVP focus | ✓ |
+> | S10-11 Sprint-plan template refinement | KEEP+BUNDLE (1st-time carryover) | Bundled into S11-01 codification chunk (Carryover Backlog template — already shipped commit `1a69b9f`) | ✓ |
+> | S10-12 InputContext sentinel migration | CUT (1st-time CUT CANDIDATE) | Removed; no forcing function; awaits Vector2i.ZERO collision case | ✓ |
+> | S10-13 S7-11 user attestation | USER carry (4th-time) | S11-12 USER-OWNED carryover; refusal-to-fabricate posture unchanged | ✓ |
+> | S10-14 S8-15 user attestation | USER carry (2nd-time) | S11-13 USER-OWNED carryover | ✓ |
+>
+> **Sprint-10 retro AI #5 close**: all dispositions correct + applied. Sprint-11 backlog matches intended absorption pattern. **AI #5 closed**.
+>
+> **Carryover concentration AI #2 threshold check at sprint-11 entry**:
+> - Total carryover items in sprint-11: 6 (S11-07 + S11-08 + S11-09 + S11-12 + S11-13 + S11-01-bundled-S10-11)
+> - Items at 2nd+ time carry: 3 (S11-08 = 2nd / S11-12 = 4th USER / S11-13 = 2nd USER)
+> - **AI #2 visibility threshold ≥4 NOT breached at sprint-11 entry** (3 < 4)
+> - **NOTE**: USER-OWNED items (S11-12 + S11-13) cannot be claude-cut; they will continue to accumulate carryover count until user attests. This is a known limitation; sprint-9 retro line 83 documents the refusal-to-fabricate posture.
+>
+> **Sprint-11 Must-Have status post-S11-04 close**: **4/4 done** ✓ (S11-01 + S11-02 + S11-03 + S11-04). Sprint-11 critical path COMPLETE.
+>
+> **Sprint-11 next-up**:
+> - Should-Have remaining (4): S11-05 (production/decisions/ convention codification — 0.3d) + S11-06 (production/polish-backlog.md establish — 0.2d) + S11-07 (Save/Load #17 ratification — 0.3d) + S11-08 (Main menu UX spec — 0.2d). Total Should ~1.0d nominal / ~0.3d actual via mixed-mode multiplier.
+> - Nice-to-Have remaining (5): S11-09 (1 character stub — 0.1d) + S11-10 (same-day double-sprint-close naming codify — 0.1d) + S11-11 (TODO triage pass — 0.1d) + S11-12 + S11-13 USER-OWNED (no claude effort).
+> - **Sprint-11 close-out sequence**: after Should/Nice items chosen + executed, run `/smoke-check sprint` → `/team-qa sprint` → `/retrospective sprint-11` → `/gate-check pre-production-to-production` (S11-02 satisfied the precondition; gate-check eligible).
+>
+> **Files changed (this commit; 2 files)**:
+> 1. `production/sprint-status.yaml` MODIFIED — top-level updated rotated + S11-04 row done + per-story comment under cap
+> 2. `production/sprint-status-history.md` MODIFIED — Sprint 11 → Top-level updated entry + this S11-04 long-form section
+>
+> **In-patch sprint-status hygiene close 29-streak ACHIEVED** (S7-05/06/07/09 + S8-01..S8-11 + S9-01..S9-05 + S10-01..S10-05 + S11-01 + S11-02 + S11-03 + S11-04 = 29 in-patch closes; pattern stable post-29).
+>
+> **Same-pass /code-review closure**: N/A (verification commit; no code review).
+>
+> **Test progression**: NONE. Baseline holds 1236/1236 PASS — **51st FFB preserved through this commit**.
+>
+> **Original byte count**: ~3500 (well over 200-byte cap; this is the canonical long-form record).
+
+---
 
 ### S11-03
 
