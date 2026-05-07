@@ -142,6 +142,21 @@ jobs:
       - name: 'Lint Input Handling BalanceConstants 7 keys (ADR-0005 §Tuning Knobs / story-010 AC-7)'
         run: bash tools/ci/lint_balance_entities_input_handling.sh
 
+      - name: 'Lint BattleHUD Pillar 2 hidden_fate_non_subscription (ADR-0015 §8 + Engine Verification §7 / TR-battle-hud-004 / story-008 AC-1) — CRITICAL'
+        run: bash tools/ci/lint_battle_hud_hidden_fate_non_subscription.sh
+      - name: 'Lint BattleHUD signal emission ban (ADR-0015 §5 R-5 / TR-battle-hud-007 / story-008 AC-2)'
+        run: bash tools/ci/lint_battle_hud_signal_emission_outside_ui_domain.sh
+      - name: 'Lint BattleHUD _exit_tree disconnect (TR-battle-hud-003 / story-008 AC-3)'
+        run: bash tools/ci/lint_battle_hud_missing_exit_tree_disconnect.sh
+      - name: 'Lint BattleHUD 44pt touch target (TR-battle-hud-011 / story-008 AC-4)'
+        run: bash tools/ci/lint_battle_hud_touch_target_size.sh
+      - name: 'Lint BattleHUD i18n no-hardcoded-strings (TR-battle-hud-012 / story-008 AC-5)'
+        run: bash tools/ci/lint_battle_hud_no_hardcoded_strings.sh
+      - name: 'Lint BattleHUD CONNECT_DEFERRED discipline (ADR-0001 §5 / Engine Verification §6 / story-008 AC-6)'
+        run: bash tools/ci/lint_battle_hud_connect_deferred.sh
+      - name: 'Lint BattleHUD BalanceConstants FORECAST_RENDER_BUDGET_MS key (TR-battle-hud-009 / story-008 AC-7)'
+        run: bash tools/ci/lint_balance_entities_battle_hud.sh
+
       - name: Run GdUnit4 tests
         uses: MikeSchulze/gdUnit4-action@v1
         env:

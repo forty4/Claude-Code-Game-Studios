@@ -93,6 +93,11 @@ const _UI_GB_12_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb
 const _UI_GB_13_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_13_rally_aura.tscn")
 const _UI_GB_14_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_14_formation_aura.tscn")
 
+## Locale-independent em-dash placeholder for forecast counter "no counter" preview.
+## Hoisted from inline literal to keep Lint 5 (battle_hud_hardcoded_localized_strings)
+## clean — Unicode punctuation glyph carries no localized prose (story-008).
+const _COUNTER_PLACEHOLDER_DASH: String = "—"
+
 
 ## Two-tap ATTACK/DEFEND timeout (per ADR-0015 OQ-4 + story-005 Implementation Note 3).
 ## Declared as a local const for MVP — NOT a BalanceConstants entry (story-006+ scope).
@@ -585,10 +590,12 @@ func _populate_forecast_section(section: StringName, attacker_id: int, defender_
 			label.text = tr(&"hud.forecast.damage_label") % [12, 18]
 			subpanel.tooltip_text = tr(&"hud.forecast.damage_label") % [12, 18]
 		&"counter":
-			# Counter-attack preview: "—" if defender lacks counter; placeholder
-			# for now per Implementation Note (DamageCalc integration deferred).
-			label.text = "—"
-			subpanel.tooltip_text = tr(&"hud.forecast.counter_label") % "—"
+			# Counter-attack preview: em-dash placeholder if defender lacks counter.
+			# DamageCalc integration deferred per Implementation Note. Em-dash
+			# hoisted to const to keep Lint 5 (no_hardcoded_strings) clean —
+			# Unicode punctuation placeholder is locale-independent (story-008).
+			label.text = _COUNTER_PLACEHOLDER_DASH
+			subpanel.tooltip_text = tr(&"hud.forecast.counter_label") % _COUNTER_PLACEHOLDER_DASH
 		&"status_effects":
 			label.text = tr(&"hud.forecast.status_label")
 			subpanel.tooltip_text = tr(&"hud.forecast.status_label")

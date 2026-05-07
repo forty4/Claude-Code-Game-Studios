@@ -3,7 +3,7 @@
 > **Layer**: Presentation (first Presentation-layer epic in the project — establishes the layer)
 > **GDD**: `design/ux/battle-hud.md` v1.1 (744 lines — UX spec; UI specs live in `design/ux/` not `design/gdd/`)
 > **Architecture Module**: `BattleHUD` — battle-scoped Control mounted under `CanvasLayer` at `BattleScene/HUDLayer/BattleHUD` (**5th invocation** of battle-scoped Node pattern)
-> **Status**: **Ready** (ADR-0015 Accepted 2026-05-03 via /architecture-review delta #10; ADR-0016 Accepted 2026-05-03 via delta #11)
+> **Status**: **Complete** (2026-05-07 — 8/8 stories shipped via S6-05/06/09 + S7-09 + S8-07 + S10-01/02/03; ADR-0015 Accepted 2026-05-03 via /architecture-review delta #10; ADR-0016 Accepted 2026-05-03 via delta #11; epic-terminal verification summary at `production/qa/evidence/battle_hud_verification_summary.md`)
 > **Stories**: 8 stories created 2026-05-03 (Sprint 6 S6-04) — see Stories table below
 > **Created**: 2026-05-03 (Sprint 5 S5-13)
 > **Manifest Version**: 2026-04-20 (`docs/architecture/control-manifest.md`)
@@ -164,7 +164,7 @@ The 9 DI'd backends are **all already shipped to production** — this epic is t
 | 005 | [UI-GB-02 Action Menu + UI-GB-05 Skill List + UI-GB-10 Undo + Two-Tap ATTACK/DEFEND](story-005-action-menu-skill-list-undo-two-tap.md) | UI + Integration | **Complete (2026-05-06; S8-07; commit `ad3c378`)** | ADR-0015 | TR-battle-hud-005 (partial), -017 (two-tap timer) |
 | 006 | [UI-GB-04 Combat Forecast (80ms dismiss + FORECAST_RENDER_BUDGET_MS)](story-006-combat-forecast.md) | UI + Performance | **Complete (2026-05-07; S10-01; commit `d1ce22f`+`6f8b3e6`)** | ADR-0015 | TR-battle-hud-005 (partial), -008 (80ms instr.), -009 (BalanceConstants) |
 | 007 | [UI-GB-06 Tile Tooltip + show_tile_info() + UI-GB-09 Results + UI-GB-12/13/14 Grid Overlays](story-007-tile-tooltip-results-grid-overlays.md) | UI + Integration | **Complete (2026-05-07; S10-02; commit `6f8b3e6` + same-pass closures)** | ADR-0015 | TR-battle-hud-005 (partial), -006 (show_tile_info), -015 (cross-tree NodePath) |
-| 008 | [Epic terminal — 6 CI lints + verification summary + 7 Engine Verification items closure](story-008-epic-terminal-lints-and-verification.md) | Config/Data + Audit | Ready | ADR-0015 | TR-battle-hud-004 (Pillar 2 CRITICAL), -007 (non-emitter), -011 (44pt), -012 (i18n), -013 (5 forbidden_patterns) |
+| 008 | [Epic terminal — 7 CI lints + verification summary + 7 Engine Verification items closure](story-008-epic-terminal-lints-and-verification.md) | Config/Data + Audit | **Complete (2026-05-07; S10-03)** | ADR-0015 | TR-battle-hud-004 (Pillar 2 CRITICAL), -007 (non-emitter), -011 (44pt), -012 (i18n), -013 (5 forbidden_patterns) |
 
 **Total**: 8 stories — 2 Logic, 4 UI, 1 UI+Performance, 1 Config/Data+Audit. Coverage: 17/17 TR-battle-hud-* IDs (TR-014 referenced as perf-budget context in 001 + 006).
 

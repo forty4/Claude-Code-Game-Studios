@@ -11,7 +11,7 @@ goal: "Close battle-hud epic 8/8 (3 remaining stories) + ship scenario-progressi
 start: "2026-06-21"
 end: "2026-06-27"
 generated: "2026-05-07"
-updated: "2026-05-07 — S10-02 SHIPPED (UI-GB-06/09/12-14; 1213→1228 +15; 50th FFB; battle-hud 6/8→7/8; 10th same-pass closure); see sprint-status-history.md Sprint 10 → Top-level updated"
+updated: "2026-05-07 — S10-03 SHIPPED (story-008 epic-terminal 7 lints+verif; 1228→1236 +8; 51st FFB; battle-hud 8/8 Complete); see sprint-status-history.md Sprint 10 → Top-level"
 
 # Sprint-9 closed 5/14 claude-owned (Must 5/5 + Should 0/4; Nice 0/3: all deferred to sprint-10; 2 user-owned).
 # 46th consecutive failure-free baseline (1203/1203 PASSING). Retro AI seeds carried forward — see
@@ -65,11 +65,12 @@ stories:
     name: "battle-hud story-008 — epic-terminal lints + verification + perf baseline + 5 forbidden_patterns; battle-hud epic 8/8 Complete"
     file: "production/epics/battle-hud/story-008-epic-terminal-lints-and-verification.md"
     priority: must-have
-    status: backlog
-    owner: ""
+    status: done
+    owner: "claude"
     estimate_days: 0.4
     blocker: "S10-02"
-    completed: ""
+    completed: "2026-05-07"
+    # 2026-05-07 — SHIPPED: 7 CI lints + smoke test + verif summary; 14/14 ACs; 1228→1236 +8; 51st FFB; battle-hud 8/8 Complete; see sprint-status-history.md → S10-03
 
   - id: "S10-04"
     name: "scenario-progression story-001 — ScenarioRunner Core epic single coordinated patch atomicity (ADR-0017 Migration Plan §1..§11)"
