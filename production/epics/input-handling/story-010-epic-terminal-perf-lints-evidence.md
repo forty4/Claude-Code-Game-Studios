@@ -1,11 +1,11 @@
 # Story 010: Epic terminal — performance baseline + 6+ forbidden_patterns CI lints + lint_emulate_mouse_from_touch.sh + default_bindings.json content authoring + DI test seam G-15 validation lint + 3 TD entries
 
 > **Epic**: Input Handling
-> **Status**: Ready
+> **Status**: Complete (2026-05-07)
 > **Layer**: Foundation
 > **Type**: Config/Data
 > **Estimate**: 3-4h
-> **Manifest Version**: 2026-04-20
+> **Manifest Version**: 2026-05-05
 
 ## Context
 
@@ -414,3 +414,63 @@
 
 - **Depends on**: Story 002-009 (all production code + verification evidence files must exist before story-010 wraps with lints + perf + summary). Story-010 is the EPIC TERMINAL — runs LAST per Implementation Order in EPIC.md.
 - **Unlocks**: Sprint-3 S3-04 marked done; epic graduates to Complete; Camera ADR / Grid Battle ADR / Battle HUD ADR / Settings ADR / Tutorial ADR can begin authoring (provisional-contract widen-not-narrow obligations now locked); Foundation layer 4/5 + 1 Ready → 5/5 Complete on epic close-out
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-07 (sprint-9 S9-05; lean review mode — QL-TEST-COVERAGE + LP-CODE-REVIEW gates skipped per `production/review-mode.txt`)
+**Criteria**: 14/14 covered (AC-1 through AC-14)
+**Final test baseline**: **1203 PASS** / 0 errors / 0 failures / 0 orphans / Exit 0 (with `SKIP_PERF_BUDGETS=1` matching CI workflow); +4 net-new perf tests over 1199 prior baseline; **46th consecutive failure-free baseline**
+**Verification**: 7/7 lints PASS against production code (run from project root); perf test 4/4 PASS standalone; full suite green
+**Code Review**: APPROVED (lead-programmer S9-05 review — no Required Changes, 3 ADVISORY suggestions filed for sprint-9 retro)
+
+### AC Coverage
+
+- [x] **AC-1** Performance baseline test — `tests/performance/foundation/input_router_perf_test.gd` NEW ~165L; 4 tests PASS; gates HANDLE_EVENT_GATE_MS=0.25ms (5× over 0.05ms headline) / HANDLE_ACTION_GATE_MS=0.10ms / THROUGHPUT_TOTAL_GATE_MS=500ms / READY_INIT_GATE_MS=5.0ms; on-device measurement Polish-deferred per damage-calc / hp-status / turn-order epic-terminal 3-precedent
+- [x] **AC-2** `lint_input_router_no_input_override.sh` — PASS
+- [x] **AC-3** `lint_input_router_input_blocked_drop_without_set_input_as_handled.sh` — PASS
+- [x] **AC-4** `lint_input_router_signal_emission_outside_input_domain.sh` — PASS
+- [x] **AC-5** `lint_input_router_hardcoded_bindings.sh` — PASS (`##` doc-comment lines stripped before grep to prevent false positives)
+- [x] **AC-6** `lint_emulate_mouse_from_touch.sh` — PASS (in-patch awk range-pattern bug fixed; `flag/next` replaces self-closing `/^\[/,/^\[/` — bug discovered + fixed during S9-05)
+- [x] **AC-7** `lint_balance_entities_input_handling.sh` — PASS (7/7 keys + safe-range checks)
+- [x] **AC-8** `lint_input_router_g15_reset.sh` — PASS; accepts `InputRouter.reset_for_tests()` shortcut OR explicit 17-field listing per before_test() body
+- [x] **AC-9** `production/qa/evidence/input_router_verification_summary.md` NEW — 6-item rollup table; 4/6 fully headless-verified (#3, #4, #5a-macOS, #5b); 4 Polish-deferred (#1, #2, #5a-Android, #6)
+- [x] **AC-10** `assets/data/input/default_bindings.json` content COMPLETE — 23 actions × PC + touch parity per CR-1a hover-only ban; in-patch fix added `screen_touch` event to `camera_pinch_zoom` for R-5 parity invariant per `test_two_new_camera_actions_in_default_bindings_json`
+- [x] **AC-11** TD entries logged — **TD-068** Polish-tier on-device verification (4 reactivation triggers; 4-6h) + **TD-069** 5 cross-system provisional contracts (widen-not-narrow per provisional-dependency strategy 4-precedent) + **TD-070** ADR-0001 line 168 amendment carried advisory. NOTE: spec said TD-054/055/056 but actual sequence is TD-068/069/070 (S8 epic intervened with TD-064..067)
+- [x] **AC-12** All 7 lint scripts wired into `.github/workflows/tests.yml` after Battle Scene lints, before Run GdUnit4 tests step. NOTE: spec line 252 + AC-12 say "9 new lints" but the actual list enumerates 7 distinct scripts; rolled forward as 7
+- [x] **AC-13** Regression baseline: ≥1203 cases (story-010 SUPERSEDES the spec's stale ≥833 from story-009 author-time baseline; current is 4× the spec figure due to interim epic growth across damage-calc/hp-status/turn-order/grid-battle/battle-hud/save-load epics)
+- [x] **AC-14** EPIC.md updated — Status `Ready` → `Complete (2026-05-07)`; 10/10 stories Complete; closure summary added
+
+### Architectural Decision: `InputRouter.reset_for_tests()` 5th-precedent helper
+
+Rather than mechanically duplicate 17 field-reset lines across 10 test files (~170 lines of boilerplate), a single `reset_for_tests()` method was added to `src/foundation/input_router.gd` (Public API section, after `get_state()`). This is the **5th autoload `reset_for_tests` precedent** (per `.claude/rules/godot-4x-gotchas.md` G-28) after BalanceConstants + DestinyState + StoryEvent + ScenarioRunner. The lint accepts either path (helper call OR explicit 17-field listing) so existing perf-test pattern remains valid; tests use the 1-line shortcut. Additive evolution — future field additions only require updating the helper body, not 10 test files.
+
+### Spec Drift (ADVISORY for sprint-9 retro doc-correction sweep)
+
+1. **9 vs 7 lint count**: Story spec line 252 + AC-12 say "9 new lints" but the actual list enumerates 7 distinct scripts. Authored 7. Discrepancy carried forward in evidence summary line 54.
+2. **TD-054/055/056 vs TD-068/069/070**: Story spec said TD-054/055/056 but tech-debt-register.md tail at story-010 author time was TD-067 (S8 epic added TD-064..067 between story-010 authoring and S9-05 implementation). Used actual next sequence.
+3. **Sprint-3 S3-04 reference**: Story Implementation Note 12 line 346 says "Sprint-3 S3-04" — cosmetic drift; actual sprint is sprint-9 S9-05. No impact on implementation.
+4. **AC-13 stale baseline**: Spec said ≥833 cases (story-009 author-time baseline); current is ≥1203. AC-13 reinterpreted as "regression baseline maintained — no test count drop" rather than a fixed numeric floor.
+5. **`emulate_mouse_from_touch` lint awk bug**: Discovered + fixed during /dev-story execution. Initial implementation used `awk '/^\[input_devices\.pointing\]/,/^\[/'` which self-closes on the start line because the start line itself matches `^\[`. Replaced with `flag/next` pattern. Documented inline in lint script for future reference.
+6. **`camera_pinch_zoom` R-5 parity test failure**: First full-suite run after S9-05 changes failed `test_two_new_camera_actions_in_default_bindings_json` because `camera_pinch_zoom` had only `screen_drag` event, no `screen_touch`. Added `screen_touch` event in same patch.
+
+### 6 Mandatory Verification Items — Final Status
+
+| # | Item | Status |
+|---|------|--------|
+| 1 | Dual-focus end-to-end Android+macOS | Polish-deferred (Android device) |
+| 2 | SDL3 gamepad detection Android+iOS | Polish-deferred (physical hardware) |
+| 3 | emulate_mouse_from_touch in-editor | Verified (project.godot grep + lint) |
+| 4 | Recursive Control disable cross-check | Verified (headless GdUnit4 hybrid pattern) |
+| 5a | DisplayServer.screen_get_size logical pixels | Verified macOS (Polish-deferred Android) |
+| 5b | Safe-area API name | Resolved (Candidate 2 `get_display_safe_area`) |
+| 6 | Touch event index stability physical hardware | Polish-deferred (synthetic coverage in headless) |
+
+### Epic Closure
+
+- **input-handling epic 10/10 Complete** (story-001 through story-010)
+- **Foundation layer**: 5/5 Complete on this epic graduation
+- **5 cross-system provisional contracts locked** (Camera + Grid Battle + Battle HUD + Settings + Tutorial) — TD-069
+- **21-streak in-patch sprint-status hygiene close** (S7-05/06/07/09 + S8-01..S8-11 + S9-01..S9-05 = 21 in-patch closes)
+- **9th-precedent 3-skill arc** /dev-story → /code-review → /story-done with /code-review APPROVED no Required Changes

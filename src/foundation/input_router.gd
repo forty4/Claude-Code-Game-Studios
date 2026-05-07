@@ -24,7 +24,9 @@
 ##   story-007: S5 INPUT_BLOCKED + S6 MENU_OPEN + GameBus signal subscriptions
 ##   story-008: touch protocol part A — F-1 camera_zoom_min derivation + TPP (CR-4a) +
 ##             Magnifier Panel trigger (CR-4c F-2) + Camera/MapGrid injection seams
-##   story-009: touch protocol part B — pan-vs-tap + two-finger + safe-area
+##   story-009: touch protocol part B — pan-vs-tap classifier (CR-4f) + 2-finger
+##             gestures (CR-4g) + persistent action panel positioning (CR-4h) +
+##             safe-area API resolution (TR-012)
 ##   story-010: epic terminal — perf baseline + forbidden_pattern lints
 ##
 ## NOTE: class_name InputRouter was verified at story-001 implementation time. Godot 4.6
@@ -114,6 +116,25 @@ var _pending_end_phase: bool = false
 ## _pending_end_phase precedent (story-004) for transient-internal field design.
 ## G-15 obligation: `before_test()` resets to `OBSERVATION` (story-010 lint enforces).
 var _pre_block_state: InputState = InputState.OBSERVATION
+
+## Transient touch-tracking state for AC-1 pan-vs-tap classifier (story-009 CR-4f).
+## NOT counted in ADR-0005 §1's 6-field architectural-field list — implementation-
+## internal scratch, scoped per single-finger touch gesture.
+## G-15 obligation: `before_test()` resets all 4 fields. Story-010 lint enforces.
+var _touch_start_pos: Vector2 = Vector2.ZERO
+var _touch_start_time_ms: int = 0
+var _touch_travel_px: float = 0.0
+
+## Active touch-finger indices for AC-4 two-finger gesture handling (CR-4g).
+## index 0 = first finger; index >= 1 = second/third+ fingers (multi-touch).
+## G-25 safe — depth-1 PackedInt32Array.
+var _active_touch_indices: PackedInt32Array = []
+
+## Cached safe-area inset resolved at `_ready()` per AC-6 (CR-4h Android edge-to-edge
+## TR-input-handling-012 + verification §5b). Vector4(left, top, right, bottom) margins.
+## Defaults to ZERO (desktop fallback); resolved-at-ready via 3-candidate ladder.
+## Mutated only at `_ready()` and screen-resize handler — convention-enforced.
+var _safe_area_inset: Vector4 = Vector4.ZERO
 
 ## F-1 camera zoom minimum derived from BalanceConstants at _ready() time (story-008).
 ## Formula: TOUCH_TARGET_MIN_PX (44) / TILE_WORLD_SIZE (64) = 0.6875 → ceil to next
@@ -206,6 +227,7 @@ const ACTIONS_BY_CATEGORY: Dictionary[StringName, Array] = {
 	],
 	&"camera": [
 		&"camera_pan", &"camera_zoom_in", &"camera_zoom_out", &"camera_snap_to_unit",
+		&"camera_pinch_zoom", &"camera_two_finger_tap_cancel",  # +2 from story-009 CR-4g (touch-only)
 	],
 	&"menu": [
 		&"open_unit_info", &"open_game_menu", &"close_menu",
@@ -232,6 +254,51 @@ func get_active_input_mode() -> InputMode:
 ## Callers: BattleHUD._on_input_state_changed (per ADR-0015 §5); test assertions.
 func get_state() -> InputState:
 	return _state
+
+
+## Resets all 17 mutable fields to clean defaults — G-15 test-isolation hook.
+##
+## 5th autoload `reset_for_tests` precedent (after BalanceConstants + DestinyState +
+## StoryEvent + ScenarioRunner per .claude/rules/godot-4x-gotchas.md G-28). Tests
+## call this from `before_test()` to prevent state-leak across the suite.
+##
+## Field count breakdown (must match `tools/ci/lint_input_router_g15_reset.sh`
+## REQUIRED_FIELDS list — 17 total):
+##   - 6 architectural (story-001): _state / _active_mode / _pre_menu_state /
+##     _undo_windows / _input_blocked_reasons / _bindings
+##   - 1 transient (story-004): _pending_end_phase
+##   - 1 transient (story-007): _pre_block_state
+##   - 4 transient (story-008): _last_tap_unit_id / _last_tap_time_ms / _camera /
+##     _map_grid
+##   - 4 transient (story-009): _touch_start_pos / _touch_start_time_ms /
+##     _touch_travel_px / _active_touch_indices
+##   - 1 test seam (story-003+): _grid_battle
+##
+## Production code MUST NOT call this — caller-allowlist enforced socially. The
+## `_for_tests` suffix marks the seam.
+func reset_for_tests() -> void:
+	# Architectural (6, ADR-0005 §1)
+	_state = InputState.OBSERVATION
+	_active_mode = InputMode.KEYBOARD_MOUSE
+	_pre_menu_state = InputState.OBSERVATION
+	_undo_windows.clear()
+	_input_blocked_reasons.clear()
+	_bindings.clear()
+	# Transient scratch (story-004 + story-007)
+	_pending_end_phase = false
+	_pre_block_state = InputState.OBSERVATION
+	# Transient touch (story-008)
+	_last_tap_unit_id = -1
+	_last_tap_time_ms = 0
+	_camera = null
+	_map_grid = null
+	# Transient touch (story-009)
+	_touch_start_pos = Vector2.ZERO
+	_touch_start_time_ms = 0
+	_touch_travel_px = 0.0
+	_active_touch_indices = PackedInt32Array()
+	# Test seam (story-003+)
+	_grid_battle = null
 
 
 ## Overrides the default binding for an action at runtime (CR-1b runtime remap).
@@ -268,7 +335,11 @@ func _handle_event(event: InputEvent) -> void:
 	if detected_mode != _active_mode:
 		_active_mode = detected_mode
 		GameBus.input_mode_changed.emit(int(_active_mode))
-	# Phase 2: action-resolve via InputMap lookup
+	# Phase 2: touch tracking (story-009 CR-4f + CR-4g + EC-1).
+	# Returns true when the event was fully handled; false to continue to action-match.
+	if _handle_touch_tracking(event):
+		return  # event consumed by touch tracking; action-match skipped
+	# Phase 3: action-resolve via InputMap lookup
 	for category: StringName in ACTIONS_BY_CATEGORY.keys():
 		for action: StringName in ACTIONS_BY_CATEGORY[category]:
 			if not InputMap.has_action(action):
@@ -313,6 +384,20 @@ func set_camera_for_tests(stub: Variant) -> void:
 ## type). Matches set_grid_battle_for_tests naming precedent.
 func set_map_grid_for_tests(stub: Variant) -> void:
 	_map_grid = stub
+
+
+## Public read-only query — Battle HUD subscribes to `input_action_fired(&"panel_reposition_request")`
+## then calls this method to get the current panel position for the active state.
+## Returns Vector2(-1, -1) for states that do not show a panel (S0/S5/S6).
+## Safe-area-aware: consults `_safe_area_inset` resolved at `_ready()`.
+##
+## Example:
+##   func _on_input_action_fired(action: String, _ctx: InputContext) -> void:
+##       if action == "panel_reposition_request":
+##           var pos: Vector2 = InputRouter.get_action_panel_position(InputRouter.get_state())
+##           action_panel.global_position = pos
+func get_action_panel_position(state: InputState) -> Vector2:
+	return _get_action_panel_position(state)
 
 
 ## Clears all per-unit undo windows at battle-end boundary (ADR-0005 §1 R-2 memory bound).
@@ -467,6 +552,9 @@ func _ready() -> void:
 	# first call via autoload chain). If BalanceConstants fails to load, falls back
 	# gracefully to the 0.70 default already set on the field.
 	_camera_zoom_min = _compute_camera_zoom_min()
+	# Story-009 AC-6: resolve safe-area API at boot (Android edge-to-edge / notch).
+	# Result cached in `_safe_area_inset`; falls back to Vector4.ZERO on desktop.
+	_safe_area_inset = _resolve_safe_area_api()
 
 
 ## Loads a bindings JSON file from the given res:// path and returns the parsed
@@ -535,6 +623,165 @@ func _compute_tap_edge_offset(touch_pos: Vector2, tile_display_px: float) -> flo
 	var x_edge: float = min(x_in_tile, tile_display_px - x_in_tile)
 	var y_edge: float = min(y_in_tile, tile_display_px - y_in_tile)
 	return min(x_edge, y_edge)
+
+
+## Pan-vs-tap classifier per ADR-0005 §F-3 + CR-4f. Returns one of:
+##   &"camera_pan"   — touch_travel_px > PAN_ACTIVATION_PX (gesture detected as pan)
+##   &"_rejected"    — hold_duration_ms < MIN_TOUCH_DURATION_MS AND no pan (accidental tap)
+##   &"unit_select"  — held > MIN duration without significant travel (deliberate tap)
+##
+## Pure function: no side effects. <15 LoC guardrail per story-009 §CM.
+func _classify_pan_or_tap(touch_travel_px: float, hold_duration_ms: int) -> StringName:
+	var pan_threshold: float = float(BalanceConstants.get_const(&"PAN_ACTIVATION_PX"))
+	var min_duration: int = int(BalanceConstants.get_const(&"MIN_TOUCH_DURATION_MS"))
+	if touch_travel_px > pan_threshold:
+		return &"camera_pan"
+	if hold_duration_ms < min_duration:
+		return &"_rejected"
+	return &"unit_select"
+
+
+## Two-finger gesture handler per ADR-0005 §CR-4g. ALWAYS classified as camera
+## operation (NEVER routed to grid actions). Emits via direct GameBus.input_action_fired
+## bypassing the action-match path because two-finger gestures don't have InputMap
+## bindings (multi-touch index discrimination is not InputMap-representable).
+##
+## ADR-0020 §1 sole-state-mutator note: this handler does NOT mutate `_state` —
+## camera operations don't change FSM state. Sets `_did_visible_work = true` for
+## consistency but the dispatch path here is direct-emit, not via `_handle_action`.
+##
+## <15 LoC guardrail per story-009 §CM.
+func _handle_two_finger_gesture(event: InputEvent) -> void:
+	var ctx := InputContext.new()
+	if event is InputEventScreenDrag:
+		_did_visible_work = true
+		GameBus.input_action_fired.emit(&"camera_pinch_zoom", ctx)
+	elif event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed:
+		_did_visible_work = true
+		GameBus.input_action_fired.emit(&"camera_two_finger_tap_cancel", ctx)
+
+
+## Touch tracking + multi-touch handler (story-009 CR-4f + CR-4g + EC-1).
+## Called at start of Phase 2 in _handle_event BEFORE the InputMap action-match loop.
+##
+## Returns true if the event was fully consumed (caller should return early).
+## Returns false to let the action-match phase continue.
+##
+## 7 paths handled:
+##   1. Touch pressed index >= 1: EC-1 cancel + 2-finger gesture; consumed (true)
+##   2. Touch pressed index == 0: start tracking; let action-match continue (false)
+##   3. Touch released index == 0 sole finger: classify + dispatch; consumed (true)
+##   4. Touch released other index: remove from tracking; consumed (true)
+##   5. Drag index >= 1: 2-finger gesture; consumed (true)
+##   6. Drag index == 0: accumulate travel; let action-match continue (false)
+##   7. Other events (key/mouse): not touch-related; let action-match continue (false)
+func _handle_touch_tracking(event: InputEvent) -> bool:
+	if event is InputEventScreenTouch:
+		var touch: InputEventScreenTouch = event
+		if touch.pressed:
+			if touch.index >= 1:
+				# EC-1: second+ finger cancels pending first-finger TPP state
+				_last_tap_unit_id = -1
+				_last_tap_time_ms = 0
+				_active_touch_indices.append(touch.index)
+				_handle_two_finger_gesture(touch)
+				return true  # consumed
+			# First finger pressed: start tracking
+			_touch_start_pos = touch.position
+			_touch_start_time_ms = Time.get_ticks_msec()
+			_touch_travel_px = 0.0
+			_active_touch_indices.append(0)
+			return false  # let action-match try unit_select for TPP first-tap
+		# Touch released
+		if touch.index == 0 and _active_touch_indices.size() == 1:
+			var hold_ms: int = Time.get_ticks_msec() - _touch_start_time_ms
+			var classified: StringName = _classify_pan_or_tap(_touch_travel_px, hold_ms)
+			_active_touch_indices.remove_at(_active_touch_indices.find(0))
+			_reset_touch_tracking()
+			if classified == &"_rejected":
+				return true  # silent drop
+			var ctx: InputContext = _make_context_from_event(touch)
+			_handle_action(classified, ctx)
+			return true  # dispatched
+		# Other index released: just remove from tracking
+		var idx_pos: int = _active_touch_indices.find(touch.index)
+		if idx_pos != -1:
+			_active_touch_indices.remove_at(idx_pos)
+		return true  # consumed (no action-match for non-zero release)
+	if event is InputEventScreenDrag:
+		var drag: InputEventScreenDrag = event
+		if drag.index >= 1:
+			_handle_two_finger_gesture(drag)
+			return true
+		# Drag index == 0: accumulate travel; let action-match handle camera_pan via InputMap
+		_touch_travel_px += drag.relative.length()
+		return false
+	return false  # not a touch event; action-match handles
+
+
+## Resets the 3 single-finger touch-tracking fields after a touch sequence ends
+## (released or classified). _active_touch_indices is managed separately per release
+## event index and is NOT reset by this helper.
+func _reset_touch_tracking() -> void:
+	_touch_start_pos = Vector2.ZERO
+	_touch_start_time_ms = 0
+	_touch_travel_px = 0.0
+
+
+## Safe-area API resolution per AC-6 + ADR-0005 §Verification Required §5b +
+## TR-input-handling-012. Tries 3 candidate DisplayServer methods in order; falls
+## back to Vector4.ZERO (desktop default). Called once at `_ready()`; result cached.
+##
+## 3 candidates per /architecture-review delta #6 Item 5:
+##   1. window_get_safe_title_margins — exists in Godot 4.6 but returns Vector3i
+##      (left, right, bottom title bar margins) NOT Vector4; skip to candidate 2.
+##      NOTE: Empirically confirmed on macOS headless (story-009 verification #5b).
+##   2. get_display_safe_area — returns Rect2i on Godot 4.6; convert to Vector4 margins.
+##      This is the working path on Android edge-to-edge devices.
+##   3. fallback Vector4.ZERO (desktop / no notch — no insets)
+##
+## <20 LoC guardrail per story-009 §CM.
+func _resolve_safe_area_api() -> Vector4:
+	# Candidate 2: get_display_safe_area → Rect2i → Vector4 margins (Android path)
+	if DisplayServer.has_method(&"get_display_safe_area"):
+		var result_2: Variant = DisplayServer.call(&"get_display_safe_area")
+		if result_2 is Rect2i:
+			var screen_size: Vector2i = DisplayServer.screen_get_size()
+			var rect: Rect2i = result_2 as Rect2i
+			if screen_size.x > 0 and screen_size.y > 0:
+				return Vector4(
+					float(rect.position.x),
+					float(rect.position.y),
+					float(screen_size.x - rect.position.x - rect.size.x),
+					float(screen_size.y - rect.position.y - rect.size.y),
+				)
+	return Vector4.ZERO  # desktop fallback / headless
+
+
+## Persistent action panel positioning per ADR-0005 §CR-4h + AC-7. Returns the
+## screen-pixel position where Battle HUD should render the action panel for the
+## given state. Safe-area-aware (consults `_safe_area_inset`). Returns Vector2(-1, -1)
+## for states that don't show a panel (S0/S5/S6).
+##
+## MVP scope: bottom-center for S1/S3; bottom-third for S2/S4 (Camera ADR will
+## refine S2/S4 to "below confirm tile" anti-occlusion when Camera ships).
+##
+## <10 LoC guardrail per story-009 §CM.
+func _get_action_panel_position(state: InputState) -> Vector2:
+	var viewport_size: Vector2i = DisplayServer.window_get_size()
+	var safe_left: float = _safe_area_inset.x
+	var safe_top: float = _safe_area_inset.y
+	var safe_right: float = _safe_area_inset.z
+	var safe_bottom: float = _safe_area_inset.w
+	var usable_w: float = float(viewport_size.x) - safe_left - safe_right
+	var usable_h: float = float(viewport_size.y) - safe_top - safe_bottom
+	match state:
+		InputState.UNIT_SELECTED, InputState.ATTACK_TARGET_SELECT:
+			return Vector2(safe_left + usable_w * 0.5, safe_top + usable_h - 80.0)
+		InputState.MOVEMENT_PREVIEW, InputState.ATTACK_CONFIRM:
+			return Vector2(safe_left + usable_w * 0.5, safe_top + usable_h * 0.66)
+		_:
+			return Vector2(-1.0, -1.0)  # no panel in S0/S5/S6
 
 
 ## Constructs an InputContext from a raw InputEvent.
@@ -705,7 +952,13 @@ func _handle_action_in_s0(action: StringName, ctx: InputContext) -> void:
 			# KEYBOARD_MOUSE mode: single click selects immediately (story-003 behavior).
 			_state = InputState.UNIT_SELECTED
 		&"camera_pan", &"camera_zoom_in", &"camera_zoom_out", &"camera_snap_to_unit":
-			pass  # camera actions pass through without state change
+			# Camera actions don't change state but DO emit input_action_fired
+			# for Battle HUD / Camera subscribers. Mirrors S5 _PERMITTED_S5_ACTIONS
+			# precedent (story-007). Required by story-009 AC-2 touch-mode
+			# camera_pan emit contract — without this, touch-classifier-dispatched
+			# camera_pan would silently drop at the action-match boundary because
+			# `_handle_action`'s emit gate requires `_did_visible_work == true`.
+			_did_visible_work = true
 		&"open_unit_info":
 			pass  # read-only inspection; no state change
 		&"open_game_menu":

@@ -116,6 +116,60 @@ git diff origin/main -- [story-files-mentioned-in-active.md]
 
 ---
 
+## TG-3 — `awk /start/,/end/` range pattern self-closes when start line also matches end pattern
+
+**Context**: extracting a section from a config file via awk's range pattern `/start/,/end/` where both endpoints are section headers using a similar regex (e.g. `^\[` for TOML / INI sections, `^# ` for Markdown headers, or `^- ` for YAML list entries). The intent is "give me everything between the start marker and the next-marker-of-the-same-kind." But if the start line ALSO matches the end pattern (it usually does, when both endpoints are the same kind of thing), awk's range opens AND closes on the same line — the range emits only the start line.
+
+**Broken**: extracting a TOML section from `project.godot`. Section headers all match `^\[`. The start line itself matches `^\[input_devices\.pointing\]` AND `^\[`, so awk closes the range immediately:
+
+```bash
+# BROKEN — range opens + closes on the start line because start matches end
+awk '/^\[input_devices\.pointing\]/,/^\[/' project.godot
+# → emits only:
+# [input_devices.pointing]
+# Section body lines never appear in the output.
+```
+
+This is silently wrong: a downstream `grep` against the awk output for the actual section body content (e.g. `emulate_mouse_from_touch=false`) will fail to match, and the lint will report a false negative ("section is missing the setting") when the setting is in fact present in the file.
+
+**Correct**: use the `flag/next` pattern for section extraction when the start line might also match the end pattern. The `next` keyword skips to the next line BEFORE awk re-evaluates the patterns, so the end check only fires on subsequent lines:
+
+```bash
+# CORRECT — flag/next pattern; end check only fires on lines AFTER the start
+awk '/^\[input_devices\.pointing\]/{flag=1; next} /^\[/{flag=0} flag' project.godot
+# → emits the full section body after the header, until the next `[section]` line.
+```
+
+If you also need the header line in the output, drop the `next` from the start rule and use a separate flag-check before the end rule:
+
+```bash
+# CORRECT — emits header + body (rare; usually you only want the body)
+awk '/^\[input_devices\.pointing\]/{flag=1} flag && /^\[/ && !/^\[input_devices\.pointing\]/{flag=0} flag' project.godot
+```
+
+**Verification recipe**: when writing a section-extraction awk one-liner, count the output lines and compare against expected body length. If the output is exactly 1 line and the section is known to have body content, suspect TG-3 immediately:
+
+```bash
+# Quick TG-3 sanity check
+awk '...' file | wc -l
+# If = 1 and you expected body content, switch to flag/next pattern.
+```
+
+**Symptom checklist** — if a lint script that extracts a config section is producing false-negative "missing setting" errors despite the setting being visibly present in the file:
+1. Open the file at the relevant section + manually confirm the setting exists at the expected location
+2. Run the lint's awk command in isolation: `bash -x tools/ci/lint_xxx.sh` (or copy the awk pipeline directly)
+3. Check whether the awk output contains only the section header (1 line) with no body
+4. If yes, replace the `/start/,/end/` range pattern with the `flag/next` pattern above
+5. Re-run the lint to confirm it now passes
+
+**Where this trap commonly appears**: TOML / INI section extraction (`^\[`), Markdown header-block extraction (`^# `, `^## `), YAML list-block extraction (`^- `, `^[a-z]:`), GDScript `func` body extraction (`^func ` for the start, `^func ` for the next-function-end). Anywhere both endpoints share a regex prefix.
+
+**Cross-references in this codebase**: `tools/ci/lint_input_router_g15_reset.sh` and `tools/ci/lint_input_router_input_blocked_drop_without_set_input_as_handled.sh` both use the `flag/next` pattern correctly (extract `func before_test()` body and `_handle_action_in_s5` body respectively). The fix at `tools/ci/lint_emulate_mouse_from_touch.sh` (S9-05) brings that lint into the same family.
+
+**Discovered**: input-handling story-010 (S9-05, 2026-05-07) — `tools/ci/lint_emulate_mouse_from_touch.sh` first-run failure. Cost: ~5 minutes of confusion ("the setting IS in the file but the lint says it's missing"); fix codified inline in the lint script comment at the awk line. Codified at sprint-9 retro time per Process Improvement #1 (sprint-8: pay codification debt at retro time, not next sprint).
+
+---
+
 ## Adding a new tooling gotcha
 
 When a workflow command bites the team:
@@ -128,6 +182,6 @@ When a workflow command bites the team:
 
 ## Cross-References
 
-- `.claude/rules/godot-4x-gotchas.md` — engine/test-code gotchas (G-1 through G-15)
+- `.claude/rules/godot-4x-gotchas.md` — engine/test-code gotchas (G-1 through G-29)
 - `.claude/rules/test-standards.md` — general test discipline
 - `docs/tech-debt-register.md` TD-013 — original gotcha-codification project

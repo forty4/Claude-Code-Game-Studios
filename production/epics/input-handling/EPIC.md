@@ -4,24 +4,27 @@
 > **GDD**: `design/gdd/input-handling.md` (Designed 2026-04-16; 5 Core Rules CR-1..CR-5 with sub-rules; 22-action vocabulary in 4 categories; 7-state FSM S0..S6; 3 formulas F-1..F-3; 10 Edge Cases EC-1..EC-10; 8 Tuning Knobs; 18 Acceptance Criteria AC-1..AC-18; 5 Open Questions OQ-1..OQ-5)
 > **Architecture Module**: `InputRouter` — **Autoload Node** at `/root/InputRouter` (load order 4: GameBus → SceneManager → SaveManager → **InputRouter**)
 > **Manifest Version**: 2026-04-20 (`docs/architecture/control-manifest.md`)
-> **Status**: **Ready** (2026-05-02 — Sprint 3 S3-04 epic + 10 stories scaffolded; awaiting `/qa-plan input-handling` + `/dev-story`)
-> **Stories**: 10/10 created (2026-05-02 via `/create-stories input-handling`); 0/10 Complete
+> **Status**: **Complete** (2026-05-07 — Sprint 9 S9-05 epic-terminal close; 10/10 stories Complete; final test baseline ≥1203 PASS / 0 errors / 0 failures / 0 orphans / Exit 0; 45+ consecutive failure-free baselines maintained; 21-streak in-patch sprint-status hygiene close)
+> **Stories**: 10/10 created (2026-05-02 via `/create-stories input-handling`); **10/10 Complete** (closed 2026-05-07)
 > **Created**: 2026-05-02 (Sprint 3 S3-04)
+> **Closed**: 2026-05-07 (Sprint 9 S9-05 epic-terminal — story-010 perf+lints+evidence rollup)
 
 ## Stories
 
 | # | Story | Type | Status | TR-IDs | GDD ACs | Estimate |
 |---|-------|------|--------|--------|---------|----------|
-| [001](story-001-module-skeleton-and-autoload-registration.md) | InputRouter Autoload module skeleton + InputState/InputMode enums + InputContext payload + project.godot autoload registration | Logic (borderline-skeleton) | Ready | TR-002 | (structural) | 2h |
-| [002](story-002-action-vocabulary-and-bindings-json.md) | 22-action StringName vocabulary + ACTIONS_BY_CATEGORY const + default_bindings.json schema + JSON load + InputMap population + R-5 parity validation | Logic | Ready | TR-003, TR-004 | AC-1, AC-2 | 3-4h |
-| [003](story-003-fsm-core-s0-s1-s2-move-flow.md) | 7-state FSM core S0↔S1↔S2 move flow + transition signal emit + 2-beat move confirmation | Logic | Ready | TR-006 | AC-10 (move), AC-15 | 3-4h |
-| [004](story-004-fsm-attack-s3-s4-and-st2-demotion.md) | 7-state FSM extended S3↔S4 attack flow + ST-2 demotion + end-player-turn safety gate | Logic | Ready | TR-006 | AC-10 (attack), AC-11 | 3-4h |
-| [005](story-005-mode-determination-cr2.md) | Last-device-wins mode determination + state preservation + verification evidence #1 + #2 | Logic | Ready | TR-005, TR-011 | AC-3, AC-4 | 3h (+2h evidence) |
-| [006](story-006-per-unit-undo-window.md) | Per-unit undo window (CR-5) + EC-5 occupied-tile rejection + Grid Battle stub extension | Logic | Ready | TR-009 | AC-12, AC-13, AC-14 | 3-4h |
-| [007](story-007-input-blocked-and-menu-open.md) | S5 INPUT_BLOCKED + S6 MENU_OPEN + ADR-0002 GameBus subscriptions + nested PackedStringArray stack + verification evidence #4 | Integration | Ready | TR-010 | AC-16, AC-17 | 3-4h |
-| [008](story-008-touch-protocol-tpp-magnifier-f1.md) | Touch protocol part A — TPP + Magnifier + F-1 zoom + verification evidence #3 + #5a + Battle HUD/Camera stubs | Integration | Ready | TR-007, TR-008 | AC-5, AC-6, AC-7, AC-18 | 4-5h |
-| [009](story-009-touch-protocol-pan-tap-gestures-panel.md) | Touch protocol part B — pan-vs-tap + two-finger gestures + persistent action panel + verification evidence #5b + #6 | Integration | Ready | TR-007, TR-012 | AC-8, AC-9 | 3-4h |
-| [010](story-010-epic-terminal-perf-lints-evidence.md) | Epic terminal — perf baseline + 9 CI lint scripts + 6-item verification summary + 3 TD entries (TD-054/055/056) | Config/Data | Ready | TR-013, TR-015, TR-016, TR-017 | (Validation §3..§10) | 3-4h |
+| [001](story-001-module-skeleton-and-autoload-registration.md) | InputRouter Autoload module skeleton + InputState/InputMode enums + InputContext payload + project.godot autoload registration | Logic (borderline-skeleton) | **Complete** | TR-002 | (structural) | 2h |
+| [002](story-002-action-vocabulary-and-bindings-json.md) | 22-action StringName vocabulary + ACTIONS_BY_CATEGORY const + default_bindings.json schema + JSON load + InputMap population + R-5 parity validation | Logic | **Complete** | TR-003, TR-004 | AC-1, AC-2 | 3-4h |
+| [003](story-003-fsm-core-s0-s1-s2-move-flow.md) | 7-state FSM core S0↔S1↔S2 move flow + transition signal emit + 2-beat move confirmation | Logic | **Complete** | TR-006 | AC-10 (move), AC-15 | 3-4h |
+| [004](story-004-fsm-attack-s3-s4-and-st2-demotion.md) | 7-state FSM extended S3↔S4 attack flow + ST-2 demotion + end-player-turn safety gate | Logic | **Complete** | TR-006 | AC-10 (attack), AC-11 | 3-4h |
+| [005](story-005-mode-determination-cr2.md) | Last-device-wins mode determination + state preservation + verification evidence #1 + #2 | Logic | **Complete** | TR-005, TR-011 | AC-3, AC-4 | 3h (+2h evidence) |
+| [006](story-006-per-unit-undo-window.md) | Per-unit undo window (CR-5) + EC-5 occupied-tile rejection + Grid Battle stub extension | Logic | **Complete** | TR-009 | AC-12, AC-13, AC-14 | 3-4h |
+| [007](story-007-input-blocked-and-menu-open.md) | S5 INPUT_BLOCKED + S6 MENU_OPEN + ADR-0002 GameBus subscriptions + nested PackedStringArray stack + verification evidence #4 | Integration | **Complete** | TR-010 | AC-16, AC-17 | 3-4h |
+| [008](story-008-touch-protocol-tpp-magnifier-f1.md) | Touch protocol part A — TPP + Magnifier + F-1 zoom + verification evidence #3 + #5a + Battle HUD/Camera stubs | Integration | **Complete** | TR-007, TR-008 | AC-5, AC-6, AC-7, AC-18 | 4-5h |
+| [009](story-009-touch-protocol-pan-tap-gestures-panel.md) | Touch protocol part B — pan-vs-tap + two-finger gestures + persistent action panel + verification evidence #5b + #6 | Integration | **Complete** | TR-007, TR-012 | AC-8, AC-9 | 3-4h |
+| [010](story-010-epic-terminal-perf-lints-evidence.md) | Epic terminal — perf baseline + 7 CI lint scripts + 6-item verification summary + 3 TD entries (TD-068/069/070) | Config/Data | **Complete** | TR-013, TR-015, TR-016, TR-017 | (Validation §3..§10) | 3-4h |
+
+**Closure summary** (2026-05-07): 10/10 Complete. Final perf baseline: `_handle_event` p99 <0.25ms gate (<0.05ms on-device target Polish-deferred); `_handle_action` p99 <0.10ms gate; 10k synthetic events <500ms; `_ready()` init <5ms. 7 CI lints wired into `.github/workflows/tests.yml` (count corrected from spec's "9" — actual is 7 distinct scripts). 6 mandatory verification items: 4/6 fully headless-verified (#3, #4, #5a-macOS, #5b); 4 Polish-deferred (#1, #2, #5a-Android, #6) tracked in TD-068. 5 cross-system provisional contracts locked in TD-069 (Camera + Grid Battle + Battle HUD + Settings + Tutorial). ADR-0001 line 168 amendment carried forward in TD-070.
 
 **Implementation order**: 001 → 002 → {003, 005, 006 in parallel after 002} → 004 (after 003) → 007 (after 003) → 008 (after 002) → 009 (after 008) → 010 (epic terminal, after all).
 

@@ -26,6 +26,9 @@ var _emit_capture: Callable
 
 
 func before_test() -> void:
+	# G-15 canonical reset (5th-precedent autoload helper, story-010 epic-terminal).
+	# Covers all 17 fields per `tools/ci/lint_input_router_g15_reset.sh`.
+	InputRouter.reset_for_tests()
 	# G-15 reset — full clear of all InputRouter mutable state
 	(load(_BALANCE_CONSTANTS_PATH) as GDScript).set("_cache_loaded", false)
 	InputRouter._state = InputRouter.InputState.OBSERVATION

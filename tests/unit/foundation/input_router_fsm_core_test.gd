@@ -39,6 +39,9 @@ var _action_fired_lambda: Callable
 
 
 func before_test() -> void:
+	# G-15 canonical reset (5th-precedent autoload helper, story-010 epic-terminal).
+	# Covers all 17 fields per `tools/ci/lint_input_router_g15_reset.sh`.
+	InputRouter.reset_for_tests()
 	# G-15 reset — full 8-field clear (6 ADR-0005 §1 fields + _last_matched_action
 	# + _grid_battle added story-003)
 	InputRouter._state = InputRouter.InputState.OBSERVATION

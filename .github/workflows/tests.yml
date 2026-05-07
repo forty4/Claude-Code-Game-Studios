@@ -127,6 +127,21 @@ jobs:
       - name: 'Battle Scene lints — sprint-6 mock marker presence (ADR-0016 §4 / battle_scene_sprint6_mock_marker_must_exist; SEMANTIC FLIPS AT ADR-0017)'
         run: bash tools/ci/lint_battle_scene_sprint6_mock_marker.sh
 
+      - name: 'Lint InputRouter no _input override (ADR-0005 Advisory C / input-handling story-010 AC-2)'
+        run: bash tools/ci/lint_input_router_no_input_override.sh
+      - name: 'Lint InputRouter S5 INPUT_BLOCKED drop pairs set_input_as_handled (Advisory C / story-010 AC-3)'
+        run: bash tools/ci/lint_input_router_input_blocked_drop_without_set_input_as_handled.sh
+      - name: 'Lint InputRouter signal emission outside input domain (TR-input-handling-017 / story-010 AC-4)'
+        run: bash tools/ci/lint_input_router_signal_emission_outside_input_domain.sh
+      - name: 'Lint InputRouter hardcoded bindings (CR-1b / story-010 AC-5)'
+        run: bash tools/ci/lint_input_router_hardcoded_bindings.sh
+      - name: 'Lint InputRouter G-15 reset obligations (TR-input-handling-013 / story-010 AC-8)'
+        run: bash tools/ci/lint_input_router_g15_reset.sh
+      - name: 'Lint emulate_mouse_from_touch=false (R-3 / CR-2e / story-010 AC-6)'
+        run: bash tools/ci/lint_emulate_mouse_from_touch.sh
+      - name: 'Lint Input Handling BalanceConstants 7 keys (ADR-0005 §Tuning Knobs / story-010 AC-7)'
+        run: bash tools/ci/lint_balance_entities_input_handling.sh
+
       - name: Run GdUnit4 tests
         uses: MikeSchulze/gdUnit4-action@v1
         env:

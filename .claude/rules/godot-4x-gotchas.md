@@ -1075,6 +1075,72 @@ func _connect_subscriptions() -> void:
 
 ---
 
+## G-29 — Post-cutoff Godot 4.6 API signature drift between docs and runtime
+
+**Context**: needing to call a documented Godot 4.5+/4.6 API where the LLM training data, the official reference docs, and the engine's actual runtime behavior may all disagree on the method's signature. Common with APIs added between Godot 4.4 (training-data-cutoff-adjacent) and Godot 4.6 (current pinned version) — `docs/engine-reference/godot/VERSION.md` notes the post-cutoff drift risk explicitly.
+
+**Broken**: writing typed code against an API signature claimed by reference docs without runtime verification. Story-009 example — needing `DisplayServer` safe-area inset for Android edge-to-edge. ADR-0005 §7 listed 3 candidate APIs:
+
+```gdscript
+# BROKEN — typed against reference-doc-claimed signature; runtime returned different type
+var safe_area: Vector4 = DisplayServer.window_get_safe_title_margins()
+# Reality: this method returns Vector3i (post-cutoff drift), not Vector4 — typed
+# assignment runtime-errors.
+
+var safe_rect: Rect2i = DisplayServer.get_display_safe_area()
+# Reality: this method returns Vector4 (left/top/right/bottom inset), not Rect2i.
+```
+
+When 3 candidate APIs all had documented signatures that disagreed with runtime behavior, typing-against-spec was strictly wrong.
+
+**Correct**: when the API is post-cutoff Godot 4.5+/4.6 AND the reference doc claims a signature, **use a runtime probe with fallback ladder** — try Candidate 1 via `Object.has_method()` + permissive return-type cast + shape check, fall through to Candidate 2 on shape mismatch, fall back to a safe default if all candidates fail.
+
+```gdscript
+# CORRECT — runtime probe with permissive return + shape match + fallback ladder
+func _resolve_safe_area_api() -> Vector4:
+    # Candidate 2: get_display_safe_area — empirically returns Vector4 inset on Godot 4.6
+    if DisplayServer.has_method("get_display_safe_area"):
+        var result: Variant = DisplayServer.get_display_safe_area()
+        if result is Vector4:
+            return result as Vector4
+    # Candidate 1: window_get_safe_title_margins — empirically returns Vector3i on
+    # Godot 4.6 (post-cutoff drift; ADR-0005 §7 originally listed Vector4)
+    if DisplayServer.has_method("window_get_safe_title_margins"):
+        var result: Variant = DisplayServer.window_get_safe_title_margins()
+        if result is Vector4:
+            return result as Vector4
+        # Vector3i case: synthesize Vector4 from 3 known fields + 0 unknown
+        if result is Vector3i:
+            var v: Vector3i = result as Vector3i
+            return Vector4(float(v.x), float(v.y), float(v.z), 0.0)
+    # Candidate 3: window_get_position_with_decorations — desktop-only fallback
+    return Vector4.ZERO
+```
+
+The pattern is widen-the-probe + narrow-via-shape-check, not type-against-claimed-signature. Document inline at the call site that the probe order reflects empirical-truth-ranking, not doc-order.
+
+**Symptom checklist** — if calling a Godot 4.5+/4.6 API and any of these surface:
+1. Runtime error `Trying to assign a value of type "Vector3i" to a variable of type "Vector4"` (or analogous shape mismatch on a typed-assignment binding the API's return)
+2. The reference doc at `docs/engine-reference/godot/[file].md` claims signature X but the actual return shape is Y — verify by capturing the return as `Variant` and printing `typeof()` + `result is X` checks
+3. Multiple candidate APIs in an ADR all have differing claimed signatures — that's a tell that none have been runtime-verified yet
+4. Engine version is 4.5+ (per `docs/engine-reference/godot/VERSION.md`) — drift risk is HIGH per the version table
+
+When 1 or more of these surface, suspect post-cutoff drift before suspecting a calling-code bug.
+
+**Verification protocol when adding a Godot 4.5+/4.6 API call**:
+1. Read `docs/engine-reference/godot/VERSION.md` for the post-cutoff version risk level (HIGH means check before using)
+2. Test the API in a throwaway script: `print(typeof(DisplayServer.method_name())); print(DisplayServer.method_name() is ExpectedType)`
+3. If typeof or shape mismatch the doc claim, codify the actual signature inline at the production call site
+4. Build a fallback ladder with shape-checks at each rung if the API is critical-path
+
+**Distinct from G-17**: G-17 is API hallucination (`Engine.has_class()` doesn't exist at all). G-29 is API drift (the method exists but its signature is different from docs). Both manifest as runtime errors but the diagnoses + fixes differ. G-17 → use the right method name. G-29 → use shape-checked runtime probe with fallback.
+
+**Distinct from G-12 / G-25**: G-12 is class_name collision; G-25 is parser limitation on nested typed collections. Both are parse-time. G-29 is runtime drift after parse succeeds.
+
+**Discovered**: input-handling story-009 (S9-04, 2026-05-07). 3-candidate fallback ladder shipped at `_resolve_safe_area_api()` in `src/foundation/input_router.gd:699`. ADR-0005 §7 originally listed all 3 candidates with claimed-Vector4 signatures; empirical reality during /dev-story implementation was Candidate 2 returns Vector4, Candidate 1 returns Vector3i, Candidate 3 is desktop-only. Codified at sprint-9 retro time per Process Improvement #1 (sprint-8: pay codification debt at retro time, not next sprint).
+
+---
+
 ## Verification Pattern Summary
 
 When testing changes that touch any of the above areas, always:

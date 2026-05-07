@@ -13,6 +13,14 @@ extends GdUnitTestSuite
 ##   before_test — no mutable autoload state to reset (skeleton story; no field mutation)
 ##   after_test  — no cleanup needed (no nodes, no autoload swaps, no file I/O)
 
+## G-15 canonical reset (5th-precedent autoload helper, story-010 epic-terminal).
+## Skeleton tests are pure source-scan + new() instantiation — they don't mutate
+## InputRouter state. The reset hook is defensive (per-file requirement of
+## `tools/ci/lint_input_router_g15_reset.sh` covering all 17 fields).
+func before_test() -> void:
+	InputRouter.reset_for_tests()
+
+
 const _IR_PATH: String = "res://src/foundation/input_router.gd"
 ## InputContext was already shipped at src/core/payloads/input_context.gd by an
 ## earlier story (per `signal input_action_fired(action: String, context: InputContext)`

@@ -1,6 +1,6 @@
 {
     "_schema_version": "1.0.0",
-    "_authority": "ADR-0005 §4 + GDD §Action System; story-002 same-patch obligation",
+    "_authority": "ADR-0005 §4 + GDD §Action System; story-002 created + story-009 added 2 gestures + story-010 final content (PC + touch parity per CR-1a hover-only ban)",
 
     "unit_select": [
         {"type": "mouse_button", "button_index": 1},
@@ -11,61 +11,86 @@
         {"type": "screen_touch"}
     ],
     "move_confirm": [
-        {"type": "key", "keycode": 4194309}
+        {"type": "key", "keycode": 4194309},
+        {"type": "screen_touch"}
     ],
     "move_cancel": [
-        {"type": "key", "keycode": 4194305}
+        {"type": "key", "keycode": 4194305},
+        {"type": "mouse_button", "button_index": 2}
     ],
     "attack_target_select": [
         {"type": "mouse_button", "button_index": 1},
         {"type": "screen_touch"}
     ],
     "attack_confirm": [
-        {"type": "key", "keycode": 4194309}
+        {"type": "key", "keycode": 4194309},
+        {"type": "screen_touch"}
     ],
     "attack_cancel": [
-        {"type": "key", "keycode": 4194305}
+        {"type": "key", "keycode": 4194305},
+        {"type": "mouse_button", "button_index": 2}
     ],
     "undo_last_move": [
-        {"type": "key", "keycode": 85}
+        {"type": "key", "keycode": 85},
+        {"type": "screen_touch"}
     ],
     "end_unit_turn": [
-        {"type": "key", "keycode": 4194306}
+        {"type": "key", "keycode": 4194306},
+        {"type": "screen_touch"}
     ],
     "camera_pan": [
-        {"type": "screen_drag"}
+        {"type": "screen_drag"},
+        {"type": "mouse_button", "button_index": 3}
     ],
     "camera_zoom_in": [
-        {"type": "key", "keycode": 61}
+        {"type": "key", "keycode": 61},
+        {"type": "screen_touch"}
     ],
     "camera_zoom_out": [
-        {"type": "key", "keycode": 45}
+        {"type": "key", "keycode": 45},
+        {"type": "screen_touch"}
     ],
     "camera_snap_to_unit": [
-        {"type": "key", "keycode": 67}
+        {"type": "key", "keycode": 67},
+        {"type": "screen_touch"}
+    ],
+    "camera_pinch_zoom": [
+        {"type": "screen_drag"},
+        {"type": "screen_touch"}
+    ],
+    "camera_two_finger_tap_cancel": [
+        {"type": "screen_touch"}
     ],
     "open_unit_info": [
-        {"type": "key", "keycode": 77}
+        {"type": "key", "keycode": 77},
+        {"type": "screen_touch"}
     ],
     "open_game_menu": [
-        {"type": "key", "keycode": 4194346}
+        {"type": "key", "keycode": 4194346},
+        {"type": "screen_touch"}
     ],
     "close_menu": [
-        {"type": "key", "keycode": 4194305}
+        {"type": "key", "keycode": 4194305},
+        {"type": "screen_touch"}
     ],
     "end_player_turn": [
-        {"type": "key", "keycode": 32}
+        {"type": "key", "keycode": 32},
+        {"type": "screen_touch"}
     ],
     "end_phase_confirm": [
-        {"type": "key", "keycode": 4194309}
+        {"type": "key", "keycode": 4194309},
+        {"type": "screen_touch"}
     ],
     "action_confirm": [
-        {"type": "key", "keycode": 4194309}
+        {"type": "key", "keycode": 4194309},
+        {"type": "screen_touch"}
     ],
     "action_cancel": [
-        {"type": "key", "keycode": 4194305}
+        {"type": "key", "keycode": 4194305},
+        {"type": "screen_touch"}
     ],
     "toggle_input_hints": [
-        {"type": "key", "keycode": 4194336}
+        {"type": "key", "keycode": 4194336},
+        {"type": "screen_touch"}
     ]
 }

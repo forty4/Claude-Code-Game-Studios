@@ -3186,3 +3186,68 @@ Create a manual QA checklist file at `production/qa/evidence/battle-hud-recursiv
 **Resolution path**: capture in story-008 implementation; this TD entry is the forward-pointer for the lint author. No code change in story-005 scope.
 
 **Discovered**: battle-hud story-005 /code-review 2026-05-06.
+
+---
+
+## TD-068 — Input Handling Polish-tier on-device verification rollup
+
+**Status**: Open
+**Tier**: Polish (Beta blocker)
+**Logged**: 2026-05-07 (input-handling story-010 epic-terminal)
+**Estimated effort**: 4-6h Polish phase
+
+**Reactivation triggers**:
+- Physical Android 14+ device available + first Android export build green
+- Physical iOS 17 device available + first iOS export build green
+- At least 1 device with notch (e.g. Pixel 6+, iPhone 13+) for safe-area #5b Android verification
+
+**Items deferred** (4 of 6 mandatory verification items):
+- Verification #1 dual-focus on Android (macOS verified headless via story-005)
+- Verification #2 SDL3 gamepad on Android+iOS (synthetic event coverage in headless via story-005)
+- Verification #5a Android `DisplayServer.screen_get_size()` logical-pixel return (macOS verified via story-008)
+- Verification #6 touch event index stability physical hardware (synthetic event cancel logic verified headless via story-009 EC-1 multi-touch test)
+
+**Ready-to-ship fallback**: All headless-verifiable items #3, #4, #5b (dev), #5a-macOS (dev) are verified MVP. The 4 Polish-deferred items confirm the engine doesn't subvert behavior on real devices; without confirmation, MVP ship-risk is accepted as LOW (engine reference docs + godot-specialist 2026-04-30 PASS items + headless coverage cumulatively).
+
+**Resolution path**: when both physical-hardware reactivation triggers fire, run the per-item Test Procedure sections in `production/qa/evidence/input_router_verification_0{1,2,5a,6}_*.md`; update each Status field; remove TD-068 once 4/4 confirmed. The full rollup `production/qa/evidence/input_router_verification_summary.md` may also be updated to reflect Verified status per item.
+
+**Discovered**: input-handling story-010 epic-terminal 2026-05-07.
+
+---
+
+## TD-069 — Input Handling 5 cross-system provisional contracts pending downstream ADRs
+
+**Status**: Open
+**Tier**: Architecture (per-ADR resolution)
+**Logged**: 2026-05-07 (input-handling story-010 epic-terminal)
+**Estimated effort**: 1-2h per downstream ADR (cross-doc verification widen-not-narrow check)
+
+**5 unwritten ADRs that must widen-not-narrow the InputRouter locked contracts**:
+1. **Camera ADR** — `screen_to_grid` + `camera_zoom_min` clamp + drag state ownership (OQ-2)
+2. **Grid Battle ADR** — `is_tile_in_move_range` + `is_tile_in_attack_range` + `confirm_move/attack` + `restore_unit_to_pre_move` + `is_tile_occupied` + `get_unit_coord/facing`
+3. **Battle HUD ADR** — `show_unit_info` + `show_tile_info` + `dismiss_preview` + `show_magnifier` + `panel_reposition_request` subscription + reads `get_active_input_mode`
+4. **Settings/Options ADR** — `set_binding(action, event)` runtime remap consumer
+5. **Tutorial ADR** — subscribes to `input_action_fired` for step detection
+
+**Reactivation triggers**: each downstream ADR's `/architecture-decision` invocation. Cross-doc verification sweep documents widen-not-narrow compliance per provisional-dependency strategy (4 prior precedents in damage-calc/hp-status/turn-order/grid-battle epics).
+
+**Ready-to-ship fallback**: provisional contracts are ENCODED in `tests/helpers/grid_battle_stub.gd` + `tests/helpers/battle_hud_stub.gd` + `tests/helpers/camera_stub.gd` + `tests/helpers/map_grid_stub.gd` (extension). Production code uses `_grid_battle: Variant`, `_camera: Variant`, `_map_grid: Variant` typed-Variant fields with `has_method` defensive guards — downstream ADRs widening the contracts (adding methods) does not break InputRouter; downstream narrowing (removing methods) WOULD break, hence the lint pattern at each ADR's authoring.
+
+**Discovered**: input-handling story-010 epic-terminal 2026-05-07.
+
+---
+
+## TD-070 — ADR-0001 line 168 carried advisory amendment (`action: String` → `StringName`)
+
+**Status**: Open
+**Tier**: Cross-doc consistency (LOW priority)
+**Logged**: 2026-05-07 (input-handling story-010 epic-terminal); originally surfaced /architecture-review delta #6 Item 10a 2026-04-30
+**Estimated effort**: 30 min — single-line ADR-0001 edit + downstream consumer audit
+
+**Description**: ADR-0001 line 168 declares `signal input_action_fired(action: String, context: InputContext)` but ADR-0005 + GDD + ACTIONS_BY_CATEGORY all use `StringName` for action names (hot-path StringName literal convention). Amendment: change `action: String` → `action: StringName`. Downstream consumers: any GameBus subscriber to `input_action_fired` must accept `StringName` parameter.
+
+**Reactivation trigger**: next ADR-0001 amendment OR general housekeeping pass.
+
+**Ready-to-ship fallback**: `StringName` auto-converts to `String` at the GameBus emit boundary (verified at story-003 implementation; per `input_router.gd:622-625` doc-comment "GDScript 4.6 auto-coerces StringName → String at the emit call. Subscribers receive String"). The current declaration is FUNCTIONALLY equivalent — does not block any ship-blocking ACs. The amendment is purely cross-doc consistency cleanup.
+
+**Discovered**: input-handling story-010 epic-terminal 2026-05-07; first surfaced delta #6 Item 10a 2026-04-30.

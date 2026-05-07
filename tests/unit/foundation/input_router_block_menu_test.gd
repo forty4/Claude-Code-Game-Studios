@@ -27,6 +27,9 @@ var _action_fired_lambda: Callable
 
 
 func before_test() -> void:
+	# G-15 canonical reset (5th-precedent autoload helper, story-010 epic-terminal).
+	# Covers all 17 fields per `tools/ci/lint_input_router_g15_reset.sh`.
+	InputRouter.reset_for_tests()
 	# G-15 reset — full 11-field clear (story-007 adds _pre_block_state)
 	InputRouter._state = InputRouter.InputState.OBSERVATION
 	InputRouter._active_mode = InputRouter.InputMode.KEYBOARD_MOUSE

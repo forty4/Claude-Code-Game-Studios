@@ -18,6 +18,9 @@ const _STUB_PATH: String = "res://tests/helpers/grid_battle_stub.gd"
 
 
 func before_test() -> void:
+	# G-15 canonical reset (5th-precedent autoload helper, story-010 epic-terminal).
+	# Covers all 17 fields per `tools/ci/lint_input_router_g15_reset.sh`.
+	InputRouter.reset_for_tests()
 	# G-15 reset — full 10-field clear matching story-004 baseline
 	InputRouter._state = InputRouter.InputState.OBSERVATION
 	InputRouter._active_mode = InputRouter.InputMode.KEYBOARD_MOUSE

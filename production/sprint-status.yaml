@@ -11,7 +11,7 @@ goal: "Close input-handling epic 10/10 (stories 6-10) + absorb sprint-8 Nice bac
 start: "2026-06-14"
 end: "2026-06-20"
 generated: "2026-05-06"
-updated: "2026-05-06 — S9-03 done; story-008 TPP+Magnifier+F-1+stubs+5 BalanceConstants+verification 03/05a; 1154→1176 PASS (+22); 43rd FFB; 18-streak; Must 3/5 → S9-04 next"
+updated: "2026-05-07 — S9-05 done; story-010 epic-terminal perf+7 lints+evidence rollup+TD-068/69/70; 1199→1203 PASS (+4); 46th FFB; 21-streak; epic 10/10 → Must 5/5 sprint close-out"
 
 # Sprint-8 closed 11/16 claude-owned (Must 7/7 + Should 4/4; Nice 0/5: 4 deferred to sprint-9; 1 USER-OWNED).
 # 38th consecutive failure-free baseline (1116/1116 PASSING). Retro AI seeds carried forward — see
@@ -68,22 +68,23 @@ stories:
     name: "input-handling story-009 — touch protocol pan/tap gestures + InfoPanel scrolling per ADR-0005 §1 + CR-1c"
     file: "production/epics/input-handling/story-009-touch-protocol-pan-tap-gestures-panel.md"
     priority: must-have
-    status: backlog
-    owner: ""
+    status: done
+    owner: "claude"
     estimate_days: 0.4
     blocker: "S9-03"
-    completed: ""
+    completed: "2026-05-07"
+    # 2026-05-07 — S9-04 done; pan-vs-tap+2finger+panel+safe-area Vector3i drift+CR-1d 22→24 actions+evidence 05b/06; 12/12 ACs / 23 tests; 1176→1199 PASS (+23); 45th FFB; 20-streak.
 
   - id: "S9-05"
     name: "input-handling story-010 — epic-terminal perf+lints+evidence pass; close 8 forbidden_patterns + lint scripts; input-handling epic 10/10 Complete"
     file: "production/epics/input-handling/story-010-epic-terminal-perf-lints-evidence.md"
     priority: must-have
-    status: backlog
+    status: done
     owner: ""
     estimate_days: 0.4
     blocker: "S9-04"
-    completed: ""
-    # Target: ≥1180 tests / 0 errors / 0 failures / 0 orphans / Exit 0; input-handling epic 10/10 flip
+    completed: "2026-05-07"
+    # 2026-05-07 — S9-05 done; epic terminal: 4 perf tests + 7 CI lints + reset_for_tests 5th-precedent + TD-068/069/070 + evidence rollup; 1199→1203 PASS (+4); 46th FFB; 21-streak; epic 10/10.
 
   - id: "S9-06"
     name: "Save/Load #17 Core epic creation OR design-only ratification — verify against existing save-manager Platform epic (8/8 Complete since 2026-04-24)"
