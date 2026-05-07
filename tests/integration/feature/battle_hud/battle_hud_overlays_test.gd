@@ -205,6 +205,31 @@ func test_show_tile_info_handles_null_map_grid_gracefully() -> void:
 	_free_node_deps(bag)
 
 
+## AC-2 edge: when _map_grid.get_tile(coord) returns null on a valid coord
+## (e.g., out-of-bounds tile or sparse map), show_tile_info must hide the
+## panel + push_warning. Distinct from null-_map_grid path: this exercises
+## the second guard at battle_hud.show_tile_info source line ~909
+## (`if tile == null: panel.visible = false; return`).
+func test_show_tile_info_handles_null_get_tile_gracefully() -> void:
+	var bag: Dictionary = _make_hud_with_stubs()
+	var hud: BattleHUD = bag["hud"]
+	var map_grid: MapGridStub = bag["map_grid"]
+	add_child(hud)
+
+	# Force MapGridStub.get_tile to return null per story-007 test seam.
+	map_grid.set_force_null_get_tile_for_test(true)
+
+	hud.show_tile_info(TEST_TILE_COORD)
+
+	var panel: Control = hud._ui_elements.get(&"UI-GB-06")
+	assert_bool(panel.visible).override_failure_message(
+		"AC-2 edge: show_tile_info with get_tile returning null must keep UI-GB-06 hidden"
+	).is_false()
+
+	hud.free()
+	_free_node_deps(bag)
+
+
 # ─── AC-3: dismiss path ───────────────────────────────────────────────────────
 
 
@@ -398,9 +423,21 @@ func test_unit_selected_changed_strategist_runs_ui_gb_12_path_without_crash() ->
 	# without crashing. UI-GB-12 visibility depends on UnitRole.has_method check.
 	hud._on_unit_selected_changed(TEST_STRATEGIST_UNIT_ID, 1)
 
-	# UI-GB-12 still exists; structural reachability of the handler path is
-	# the load-bearing assertion (real visibility deferred to UnitRole API land).
-	assert_object(hud._grid_layer_overlays.get(&"UI-GB-12")).is_not_null()
+	# UI-GB-12 still exists post-handler call.
+	var tr_overlay: Node2D = hud._grid_layer_overlays.get(&"UI-GB-12")
+	assert_object(tr_overlay).is_not_null()
+	# UnitRoleStub does NOT define get_tactical_read_tiles (UnitRole is @abstract
+	# all-static; the stub adds no methods per tests/helpers/unit_role_stub.gd).
+	# Per battle_hud._update_tactical_read_overlay: the has_method gate falls to
+	# the `else` branch → tr_overlay.visible = false. Asserting the false outcome
+	# explicitly converts a trivially-passing structural reachability check into
+	# an honest behavioral assertion of the current MVP-deferred state.
+	# Story-007 ADVISORY: when UnitRole.get_tactical_read_tiles lands,
+	# add an inverse test (visible == true) using a method-providing UnitRole stub.
+	assert_bool(tr_overlay.visible).override_failure_message(
+		"AC-7 Strategist+method-absent: tr_overlay.visible must be false when " +
+		"UnitRole lacks get_tactical_read_tiles (current MVP-deferred state)"
+	).is_false()
 
 	battle_scene.free()
 	_free_node_deps(bag)

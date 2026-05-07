@@ -11,7 +11,7 @@ goal: "Close battle-hud epic 8/8 (3 remaining stories) + ship scenario-progressi
 start: "2026-06-21"
 end: "2026-06-27"
 generated: "2026-05-07"
-updated: "2026-05-07 — S10-01 SHIPPED (UI-GB-04 Combat Forecast; 1199→1213 +14; 48th FFB; battle-hud 5/8→6/8); see sprint-status-history.md Sprint 10 → Top-level updated"
+updated: "2026-05-07 — S10-02 SHIPPED (UI-GB-06/09/12-14; 1213→1228 +15; 50th FFB; battle-hud 6/8→7/8; 10th same-pass closure); see sprint-status-history.md Sprint 10 → Top-level updated"
 
 # Sprint-9 closed 5/14 claude-owned (Must 5/5 + Should 0/4; Nice 0/3: all deferred to sprint-10; 2 user-owned).
 # 46th consecutive failure-free baseline (1203/1203 PASSING). Retro AI seeds carried forward — see
@@ -54,11 +54,12 @@ stories:
     name: "battle-hud story-007 — tile tooltip + results + grid overlays (UI-GB-02 + UI-GB-09 + UI-GB-12 + UI-GB-14)"
     file: "production/epics/battle-hud/story-007-tile-tooltip-results-grid-overlays.md"
     priority: must-have
-    status: backlog
-    owner: ""
+    status: done
+    owner: "claude"
     estimate_days: 0.5
     blocker: "S10-01"
-    completed: ""
+    completed: "2026-05-07"
+    # 2026-05-07 — SHIPPED: UI-GB-06/09 + UI-GB-12/13/14; 14/14 ACs; 1213→1228 +15; 50th FFB; see sprint-status-history.md → S10-02
 
   - id: "S10-03"
     name: "battle-hud story-008 — epic-terminal lints + verification + perf baseline + 5 forbidden_patterns; battle-hud epic 8/8 Complete"

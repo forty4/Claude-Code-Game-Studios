@@ -20,6 +20,9 @@ extends MapGrid
 var _stub_dimensions: Vector2i = Vector2i(8, 8)
 var _occupants: Dictionary = {}  # coord (Vector2i) → unit_id (int)
 var _impassable: Dictionary = {}  # coord (Vector2i) → true if NOT passable
+## Story-007 (S10-02): force get_tile to return null for AC-2 edge-case coverage
+## (battle_hud.show_tile_info "tile data missing" branch).
+var _force_null_get_tile: bool = false
 ## Test seam: set_occupant + clear_occupant calls captured for assertion.
 var set_occupant_calls: Array[Dictionary] = []
 var clear_occupant_calls: Array[Vector2i] = []
@@ -30,11 +33,19 @@ func get_map_dimensions() -> Vector2i:
 
 
 func get_tile(coord: Vector2i) -> MapTileData:
+	if _force_null_get_tile:
+		return null
 	var tile := MapTileData.new()
 	tile.coord = coord
 	tile.occupant_id = _occupants.get(coord, 0)  # 0 = unoccupied per MapTileData @export default
 	tile.is_passable_base = not _impassable.get(coord, false)
 	return tile
+
+
+## Story-007 (S10-02): force get_tile to return null. Exercises the
+## battle_hud.show_tile_info "tile data missing" early-return branch (AC-2 edge).
+func set_force_null_get_tile_for_test(force: bool) -> void:
+	_force_null_get_tile = force
 
 
 func set_occupant(coord: Vector2i, unit_id: int, faction: int) -> void:

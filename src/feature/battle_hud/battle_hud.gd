@@ -600,7 +600,7 @@ func _populate_forecast_section(section: StringName, attacker_id: int, defender_
 			var lines: PackedStringArray = []
 			var visible_cap: int = mini(passives.size(), 3)
 			for i in range(visible_cap):
-				lines.append(tr(String(passives[i])))
+				lines.append(tr(passives[i]))
 			label.text = "\n".join(lines) if lines.size() > 0 else ""
 			subpanel.tooltip_text = tr(&"hud.forecast.passives_label")
 
@@ -1204,9 +1204,10 @@ func _on_battle_outcome_resolved(outcome: StringName, fate_data: Dictionary) -> 
 	# happens in the post-battle scenario layer (design/gdd/destiny-branch.md
 	# Section B). This handler reads ONLY the categorical `outcome` field.
 	# Render-time instrumentation per AC-5 (≤ 200 ms one-shot per battle).
-	# The `fate_data` parameter is intentionally unread — see Pillar 2 audit
-	# in tests/integration/feature/battle_hud/battle_hud_overlays_test.gd.
-	var _pillar2_locked: Dictionary = fate_data  # explicit read-no-render guard
+	# The `fate_data` parameter is intentionally unread by render code — passed
+	# only to _handle_signal test seam above. Pillar 2 audit walks UI-GB-09
+	# Label tree to verify no fate counter value bleeds into UI text. See
+	# tests/integration/feature/battle_hud/battle_hud_overlays_test.gd.
 	var start_us: int = Time.get_ticks_usec()
 	var panel: PanelContainer = _ui_elements.get(&"UI-GB-09") as PanelContainer
 	if panel == null:

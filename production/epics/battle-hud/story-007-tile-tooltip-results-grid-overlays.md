@@ -1,7 +1,7 @@
 # Story 007: UI-GB-06 Tile Tooltip + show_tile_info() + UI-GB-09 Results + UI-GB-12/13/14 Grid Overlays
 
 > **Epic**: Battle HUD
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Presentation
 > **Type**: UI + Integration
 > **Manifest Version**: 2026-05-05 (refreshed 2026-05-07 at sprint-10 plan-time per sprint-9 retro PI #3 — manifest delta 2026-04-20 → 2026-05-05 covered ADR-0014/0015 sections; no new forbidden_patterns affecting this story)
@@ -210,7 +210,7 @@
 - Integration test: `tests/integration/feature/battle_hud/battle_hud_overlays_test.gd` covers AC-1 through AC-7 + AC-8 (perf)
 - Manual: `production/qa/evidence/battle-hud-story-007-evidence.md` covers AC-9 (Pillar 2 audit) + AC-10 (dashed border visual)
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created 2026-05-07 — `production/qa/evidence/battle-hud-story-007-evidence.md` (covers AC-9 Pillar 2 audit + AC-10 dashed border deferred + AC-5 perf gate deferred + AC-8 zoom-poll deferred + 4 ADVISORY render-fidelity items + i18n locale staging)
 
 ---
 
@@ -218,3 +218,63 @@
 
 - Depends on: Story 006 (final UI-element batch comes after forecast — minimizes simultaneous mid-air UI work)
 - Unlocks: Story 008 (epic-terminal lints + verification summary)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-07 (sprint-10 S10-02; autonomous /story-done lean-mode close-out)
+**Criteria**: 14/14 covered (10 PASS automated + 1 PASS manual + 3 ADVISORY scaffold-only [AC-3/4/5] — render fidelity deferred per evidence doc; AC-13 dashed border ADVISORY-deferred to Polish-tier; AC-9 Pillar 2 audit dual-coverage automated + manual)
+**Test progression**: 1213 (post-S10-01 close baseline) → 1227 (/dev-story +14) → **1228 PASSING** (/code-review same-pass closure +1 from new AC-2 null-get_tile edge test). 50th consecutive failure-free baseline. 0 errors / 0 failures / 0 orphans / Exit 0.
+
+**Test Evidence**:
+- Automated (Logic+Integration BLOCKING tier): `tests/integration/feature/battle_hud/battle_hud_overlays_test.gd` 15 tests covering AC-1/2/3/4/6/7/9/14 + non-emitter discipline + Pillar 2 token absence + new AC-2 null-edge + strengthened AC-7 Strategist
+- Skeleton evolution: `tests/unit/feature/battle_hud/battle_hud_skeleton_test.gd::test_ready_disables_process` updated for story-007 body-gating invariant (was `is_processing() == false` per story-001 set_process(false) → now `_has_active_grid_overlay() == false` per story-007 process-body-gating contract)
+- Manual evidence (UI ADVISORY tier): `production/qa/evidence/battle-hud-story-007-evidence.md` covers AC-9 manual audit + 4 ADVISORY render-fidelity deferrals + AC-5/AC-8 perf-suite deferrals + i18n locale entries staged
+
+**Code Review**: Complete with same-pass closures (4 IMPORTANT-class items closed inline)
+- I-1 gdscript: dropped redundant `_pillar2_locked` local at battle_hud.gd:1209 — intent now in doc comment only
+- I-2 gdscript: dropped redundant `String()` cast → `tr(passives[i])` at battle_hud.gd:603
+- IMPORTANT-1 qa: new `test_show_tile_info_handles_null_get_tile_gracefully` test (AC-2 edge) + `MapGridStub.set_force_null_get_tile_for_test` seam
+- IMPORTANT-3 qa: strengthened AC-7 Strategist test from `is_not_null()` to explicit `tr_overlay.visible == false` with comment explaining UnitRoleStub-lacks-method MVP-deferred state
+
+**ADVISORY deviations (5 — all in evidence doc)**:
+1. Real opacity-tier rendering for UI-GB-13 (20%/30%/40% per Commander stack) deferred — MVP ships visibility-toggle structural contract; reactivation gated on GridBattleController snapshot schema amendment
+2. 2px logical dashed border for UI-GB-13 colorblind accessibility (pass-11c R-3) deferred — Polish-tier visual render
+3. UI-GB-14 청록 #3A7D6E 15% tint + 陣 corner glyph rendering deferred — MVP-fallback tier follow-up
+4. UI-GB-12 황토 25%/70% opacity tile fills + 讀 micro-glyph rendering deferred until UnitRole.get_tactical_read_tiles() lands
+5. i18n locale entries for 10 new keys staged via tr() literals — locale infrastructure adds entries in next localization pass
+
+**Sprint-10 retro doc-correction sweep candidates (6 — from /code-review MINOR deferrals)**:
+- gdscript M-1: `_has_active_grid_overlay` cost comment imprecise (~3 iterations worst-case, not "≈1")
+- gdscript M-2: `_zoom` dead-code variable in `_process` needs `@warning_ignore("unused_variable")`
+- gdscript M-3: `push_warning` at battle_hud.gd:385 omits failing `grid_layer_path` value — diagnostic improvement
+- gdscript M-4: `_free_node_deps` skips 3 of 9 deps (terrain_effect/unit_role/hero_db are RefCounted self-frees) — comment-only clarification
+- qa MINOR-2: Pillar 2 walker depth (no current gap; only becomes gap if ScenarioRewardsList populated with fate-data text in future story)
+- qa MINOR-4: `test_ready_disables_process` comment may mislead reader into thinking _process is disabled (it runs but early-returns)
+
+**G-* gotchas avoided**:
+- G-3 (no class_name on test files; both new test files declare extends GdUnitTestSuite only)
+- G-7 (verified Overall Summary 1228/1228 + Exit 0 + 0 Parse Error / Failed to load in stderr)
+- G-11 (cross-tree overlay cleanup uses `is_instance_valid` guard before queue_free)
+- G-14 (`godot --headless --import --path .` ran before test invocation per 5 new .tscn + new fields + new MapGridStub seam)
+- G-15 (`before_test` resets HeroDatabase + TerrainEffect static state in overlays_test)
+- G-22 (source-grep TR-007 non-emitter discipline + Pillar 2 token absence — 2 structural tests)
+- G-23 (no `is_not_equal_approx` used; assertions use `is_less` / `is_equal` / `is_not_empty` / `is_false`)
+- G-25 (`Dictionary[StringName, Node2D]` depth-1 typed; no nested typed collection)
+- G-28 (no bulk-disconnect in test cleanup; `_free_node_deps(bag)` per test)
+
+**Pillar 2 lock verification (AC-9)**:
+- `_on_battle_outcome_resolved` body reads ONLY the categorical `outcome: StringName` field; `fate_data: Dictionary` parameter consumed only by the `_handle_signal` test seam (line 1200)
+- Surviving units count + turns elapsed are categorical aggregates per ADR-0015 §8 Pillar 2 carve-out (NOT per-condition fate counters)
+- Test `test_battle_outcome_resolved_renders_ui_gb_09_with_outcome_only_pillar_2_lock` uses recursive Label walker `_assert_no_label_text_contains` to walk every descendant Label of UI-GB-09 + assert no Label.text contains the per-condition fate sentinel value (88765) from the test payload
+- Test `test_no_hidden_fate_condition_progressed_token_in_battle_hud_source` source-greps battle_hud.gd for the literal forbidden token; passes (zero references)
+
+**Pattern observations**:
+- 10th-precedent same-pass /code-review closure stable (1st = S8-03; 2nd-9th = S8-04..S10-01; 10th = S10-02 with 2 IMPORTANT gdscript + 2 IMPORTANT qa closed in same pass)
+- 22-streak in-patch sprint-status hygiene close (S7-05/06/07/09 + S8-01..S8-11 + S9-01..S9-05 + S10-01 + S10-02 = 22 in-patch closes)
+- 5th-precedent orchestrator-side completion stable (S8-09 + S9-04 + S9-05 + S10-01 + S10-02) — see active.md S10-02 IMPLEMENTED extract for /dev-story sub-agent interim-return analysis
+
+**Battle-hud epic status**: 6/8 → **7/8 Complete** (stories 001/002/003/004/005/006/007). Story 008 remaining for epic graduation at S10-03.
+
+**Next ready story**: S10-03 battle-hud story-008 — epic-terminal lints + verification + perf baseline + 5 forbidden_patterns. File: `production/epics/battle-hud/story-008-epic-terminal-lints-and-verification.md`. Estimate 0.4d. Blocker S10-02 cleared.
