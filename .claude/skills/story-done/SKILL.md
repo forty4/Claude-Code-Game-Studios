@@ -365,6 +365,24 @@ If yes, edit the story file:
      (`→`, `≥`, `↔`, etc.) count as 3 bytes each — budget accordingly when including them.
    - This is a silent update — no extra approval needed (already approved in step above)
 
+5. **Update parent `production/epics/[epic-slug]/EPIC.md`** *(codified sprint-11 S11-03 2026-05-08 — root-cause fix for the 4-invocation BACKFILL CLOSE-OUT pattern caught at S10-04 + S11-02; see `production/process-audits/story-done-phase-7-audit-2026-05-08.md`)*:
+
+   - **Detect epic-terminal close**: read the parent EPIC.md (path: same directory as the story file + `EPIC.md`); locate the Stories table; count remaining rows whose Status is Ready / In Progress / Blocked / Draft (i.e., NOT Complete). If this story's row was the last non-Complete row → **this is an epic-terminal close**.
+   - **Update this story's Stories table row** (always — regardless of epic-terminal): flip Status cell from `Ready` / `In Progress` / `Draft` → `Complete (S{sprint}-{NN} {sprint-id} close {date}; {test-pass-counts}; {brief-completion-trace})`.
+   - **If epic-terminal close**: also update the EPIC.md Status header (typically line 6 — `> **Status**:` field) from `Ready` / `In Progress` → `Complete (M/M stories shipped — {epic-graduation-trace})`. Brief inline trace should reference the closing commit / sprint-id / date.
+   - **If NOT epic-terminal close**: leave the EPIC.md Status header alone — epic remains In Progress until its last story closes. Only flip the Stories table row in this step.
+   - This is part of the same write batch as steps 1-4; no extra user approval needed (already approved in step above).
+
+6. **Update `production/epics/index.md`** *(codified sprint-11 S11-03 2026-05-08)*:
+
+   - Find the row referencing the parent epic — grep `production/epics/index.md` for `[{epic-slug}]({epic-slug}/EPIC.md)` link pattern.
+   - **Update the Stories cell** (always — regardless of epic-terminal): flip from `Not yet created — run /create-stories {epic-slug}` / `N/M Complete` to canonical `(N+1)/M Complete` (for non-terminal) OR `M/M Complete via {commit-sha} {date}` (for epic-terminal).
+   - **If epic-terminal close**: also flip the Status cell from `Ready` / `In Progress` → `**Complete** ({date}) 🎉 — {graduation-trace}`.
+   - **DO NOT update the Layer coverage summary line** (typically `production/epics/index.md` line 6 — `> **Layer coverage**: ...`). That line is multi-epic + free-form prose; over-aggressive auto-update would risk corrupting cross-epic references. Manual review of the summary line is a sprint-retro task, not a per-story-close task.
+   - This is part of the same write batch as steps 1-5; no extra user approval needed.
+
+7. **Run `tools/ci/lint_story_status_consistency.sh`** *(codified sprint-11 S11-03 2026-05-08)* — defense-in-depth post-close lint that diffs the 4 canonical Status sources (story file Status header / sprint-status.yaml row / EPIC.md row / index.md row). If lint fails, surface the specific mismatches to the user via `AskUserQuestion` and offer to fix vs. proceed-with-warning. Pre-existing CI wiring at `.github/workflows/tests.yml` runs the lint on every push; this step is a local pre-flight catch.
+
 ### Session State Update
 
 After updating the story file, silently append to

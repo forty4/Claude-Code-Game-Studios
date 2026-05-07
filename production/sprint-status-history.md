@@ -20,8 +20,64 @@
 
 ### Top-level updated:
 
+- 2026-05-08 — S11-03 SHIPPED — Closes the BACKFILL CLOSE-OUT pattern at the source. S11-01 codified the catch (Phase 2.5 detector); S11-02 empirically validated it (3rd+4th activation); S11-03 fixes the root cause so drift never opens. **3-part defense-in-depth**: (1) audit doc at production/process-audits/story-done-phase-7-audit-2026-05-08.md (NEW directory + first artifact); (2) /story-done SKILL.md Phase 7 step 5+6+7 codified (EPIC.md propagation + index.md propagation + local lint pre-flight); (3) NEW lint at tools/ci/lint_story_status_consistency.sh (~150L) diffs 4 canonical Status sources. **First-run lint findings**: 33 pre-existing drift items (21 index.md row Ready + 12 EPIC.md header Ready when all stories Complete) — accumulated from sprint-7 close-out era. CI wiring deferred to sprint-12 (would break 51st FFB if wired now); sprint-12 plan candidate: bulk-fix 33 drift items + wire lint to CI. **Validation pending**: next epic-terminal /story-done in sprint-12+ should fire new steps without backfill needed; no 5th retro-AI-3 activation expected in sprint-12+. 28-streak in-patch sprint-status hygiene. **Original byte count**: ~1500 (truncated to 195-byte pointer in YAML).
 - 2026-05-07 — S11-02 SHIPPED — Live test of S11-01 BACKFILL CLOSE-OUT verdict on destiny-branch + ai-system Core epics. **3rd + 4th activation of sprint-10 retro AI #3** confirmed (pattern stable at 4 invocations now: sprint-10 plan-time battle-hud 004+005 sweep + S10-04 scenario-progression + S11-02 destiny-branch + S11-02 ai-system). Drift was less severe than S10-04 — both story files Status=Complete + both EPIC.md Status headers already Complete since 2026-05-05 sprint-7 close; only EPIC.md Stories table rows + index.md rows were stale. Doc-only fixes applied (4 files): destiny-branch EPIC.md Stories table row Ready → Complete + ai-system EPIC.md Stories table row Ready → Complete + index.md destiny-branch row Stories cell + Status cell flipped + index.md ai-system row Stories cell + Status cell flipped. **Cross-system epic graduation flips**: Core layer epic count progresses to 5/5 Complete (terrain-effect + turn-order + hp-status + scenario-progression + destiny-branch); Feature layer ai-system completion adds to 5/5 Complete (damage-calc + camera + grid-battle-controller + battle-scene + ai-system). **Pre-Production → Production gate eligibility advances** per ai-system index.md row note ("Pre-Production → Production gate now eligible (mandatory ADR list = 0)"). **Layer coverage summary line (index.md line 6) deferred** — pre-existing drift across multiple unrelated epics (battle-scene + input-handling + battle-hud) not in S11-02 scope; sprint-11 retro candidate for broader index.md summary refresh. **Sprint-11 retro AI #5 trigger evaluation** (Pre-Production → Production gate trigger) — Core 5/5 + Feature 5/5 means mandatory-ADR list is 0; gate-check pass evaluation is candidate for sprint-11 retro time or sprint-12 follow-up. **Test progression**: NONE (doc-only graduation flips). **51st FFB preserved through commit**. **In-patch sprint-status hygiene close 27-streak ACHIEVED**. **Original byte count**: ~1900 (well over 200-byte cap; truncated to 130-byte pointer in YAML).
 - 2026-05-07 — S11-01 SHIPPED — Codified drift-correction at /story-readiness as standing pre-flight check (BACKFILL CLOSE-OUT new verdict flavor) + bundled S10-11 sprint-plan template refinement (Carryover Backlog section ahead-of-Tasks per sprint-9 retro AI #2). **Closes sprint-10 retro AI #1 (top-priority)** + sprint-10 retro AI #6 codification debt for the drift-correction pattern that fired 2× in sprint-10. Skill changes: (1) NEW Phase 2.5 "Pre-Check — Story Status Consistency (BACKFILL CLOSE-OUT detector)" — reads 4 canonical Status sources (story file Status header + sprint-status.yaml row + EPIC.md Status + index.md row), detects mismatch where story=Complete but downstream=Ready, returns BACKFILL CLOSE-OUT verdict early-exit (skip Phase 3 checklist); (2) Phase 4 verdict assignment expanded from 3 → 4 verdicts with BACKFILL CLOSE-OUT documented; (3) Phase 5 output format adds BACKFILL CLOSE-OUT block listing 5 doc-only fixes (sprint-status.yaml + EPIC.md Status header + EPIC.md Stories table + index.md row + sprint-status-history.md long-form record) per S10-04 precedent; (4) Phase 5 sprint escalation adds DRIFT CAUGHT positive-signal block when BACKFILL CLOSE-OUT fires on Must Have stories; (5) Phase 6 redirect rule explicitly says "DO NOT run /dev-story" + points at S10-04 precedent record. Bundled S10-11 sprint-plan template refinement: NEW "Carryover Backlog (from Previous Sprint)" section codified in `.claude/skills/sprint-plan/SKILL.md` Phase 2 template, placed AHEAD of Tasks (Must/Should/Nice) per sprint-9 retro AI #2 visibility-threshold rule; section includes 4 dispositions (KEEP/DESCOPE/BUNDLE/CUT) + 2-carryover-visibility-threshold rule. Pattern stable at 2 invocations in sprint-10; codification crystallizes the pattern as project-standard pre-flight check. Future sprints: any /story-readiness invocation will catch already-shipped-but-undocumented stories at zero implementation cost (per S10-04 precedent: ~0.5-0.9d saved per drift catch). **Test progression**: NONE (skill / template documentation work; no source code touched). Baseline holds 1236/1236 PASS (51st FFB). **In-patch sprint-status hygiene close 26-streak ACHIEVED**. **Original byte count**: ~2200 (well over 200-byte cap; truncated to 138-byte pointer in YAML).
+
+### S11-03
+
+**Story**: Audit /story-done Phase 7 for EPIC+index Status enforcement — S10-04 root cause analysis + codify Phase 7 step 5 (EPIC.md propagation) + step 6 (index.md propagation) + new post-close consistency lint at tools/ci/lint_story_status_consistency.sh
+**Completed**: 2026-05-08
+**Estimate**: 0.3d (sprint-11 plan nominal; actual ~0.25d for audit + 2 skill steps + lint authoring + lint debugging on archive false-positives)
+**Priority**: must-have
+
+> 2026-05-08 — SHIPPED: closes the BACKFILL CLOSE-OUT pattern at the source. S11-01 codified the catch mechanism (/story-readiness Phase 2.5 detector); S11-02 empirically validated it (3rd+4th activation); S11-03 fixes the root cause so the drift never opens in the first place. **3-part defense-in-depth applied**:
+>
+> **Part 1 — Audit doc** at `production/process-audits/story-done-phase-7-audit-2026-05-08.md` (~6KB; first artifact in NEW `production/process-audits/` directory — convention candidate for future skill-process audits). Documents Phase 7 current state (steps 1-4 cover story file + sprint-status.yaml + active.md but NOT EPIC.md or index.md), root cause for S10-04 + S11-02 (5 BACKFILL CLOSE-OUT invocations all share same root: Phase 7 missing EPIC.md + index.md propagation), recommended 3-part fix, effort estimates, risk mitigations, validation criteria, and lint findings inventory.
+>
+> **Part 2 — `.claude/skills/story-done/SKILL.md` Phase 7 codification** (steps 5-7 inserted after step 4):
+>   - **Step 5** Update parent EPIC.md: detect epic-terminal close (count remaining non-Complete rows in Stories table); flip Stories table row Status (always); flip EPIC.md Status header (only if epic-terminal). Inline trace format documented.
+>   - **Step 6** Update production/epics/index.md: find row by epic-slug grep; flip Stories cell (always — N/M Complete or M/M Complete via {sha} {date}); flip Status cell (only if epic-terminal). Explicit "DO NOT update Layer coverage summary line" guidance to prevent over-aggressive auto-update of multi-epic free-form prose.
+>   - **Step 7** Run tools/ci/lint_story_status_consistency.sh as local pre-flight catch — defense-in-depth alongside CI wiring (CI wiring deferred per Lint Findings).
+>
+> **Part 3 — `tools/ci/lint_story_status_consistency.sh`** NEW lint script (~150 lines / executable / chmod +x). For each story file in `production/epics/**/story-*.md` with Status=Complete, diffs the 4 canonical Status sources: (1) story file Status header (extracted via grep + sed); (2) sprint-status.yaml row matched by file: field path (extracted via awk row-block parser); (3) parent EPIC.md Status header + Stories table row (matched by story basename); (4) production/epics/index.md row Status cell (matched by epic-slug link grep). Detection policy: only flag CLEAR Ready/Draft/Backlog mismatches (skip orphan-yaml-row case to avoid sprint-archive false positives — yaml-empty + EPIC + index all Complete = consistent). Output format: `STATUS_CONSISTENCY_FAIL: [story-id]` block with per-source values + REASON list per detected mismatch. Exit code 1 on any failure; exit code 0 on all-pass.
+>
+> **First-run lint findings (2026-05-08)**: lint surfaces **33 pre-existing drift items** distributed across many epics. Two failure categories: 21 cases of "index.md row=Ready but story=Complete" + 12 cases of "EPIC.md Status header=Ready but all stories in epic are Complete (epic-terminal closure not propagated)". These 33 items predate the S11-01 codification + S11-03 audit — they accumulated from sprint-7 close-out era when /story-done Phase 7 had no EPIC.md / index.md update step. **Sprint-12 cleanup target**: bulk-fix via systematic per-epic graduation flips (~0.3-0.5d) → wire lint to CI → maintain green-CI baseline going forward. **NOT applied this commit** (would break green-CI baseline of 1236/1236 PASS). Audit doc documents the 33 findings as sprint-12 candidate.
+>
+> **CI wiring deferral rationale**: if lint were wired to .github/workflows/tests.yml in this commit, CI would FAIL on every push (33 pre-existing failures). Counter-productive to maintaining 51st FFB. Sprint-12 plan candidate: (a) bulk-fix the 33 drift items via systematic per-epic flips, (b) verify lint exits 0 cleanly, (c) wire to CI after baseline clean. Until then, lint is local pre-flight tool only (per /story-done Phase 7 step 7).
+>
+> **Validation status**:
+> - (a) Phase 7 step 5 + 6 codified ✓ DONE this commit
+> - (b) Consistency lint exists ✓ DONE this commit (NOT yet CI-wired)
+> - (c) Next epic-terminal close fires new steps + auto-flips downstream — pending; first test case will be the next /story-done invocation in sprint-11 or sprint-12
+> - (d) No 5th retro-AI-3 activation in sprint-12+ — pending sprint-12 retro evaluation
+>
+> **Cross-references**:
+> - Sprint-10 retro AI #3: `production/retrospectives/retro-sprint-10-2026-05-07.md`
+> - S11-01 codification: commit `1a69b9f`
+> - S11-02 empirical validation: commit `07dda3c`
+> - S10-04 BACKFILL precedent: commit `22b6039`
+> - Audit doc: `production/process-audits/story-done-phase-7-audit-2026-05-08.md`
+> - Lint script: `tools/ci/lint_story_status_consistency.sh`
+> - /story-done skill (modified): `.claude/skills/story-done/SKILL.md` Phase 7 (steps 5-7 inserted)
+>
+> **Files changed (this commit; 5 files; 1 NEW directory)**:
+> 1. `production/process-audits/story-done-phase-7-audit-2026-05-08.md` NEW (~6KB; first artifact in NEW `production/process-audits/` directory)
+> 2. `production/process-audits/` NEW directory (convention candidate for future skill-process audits)
+> 3. `.claude/skills/story-done/SKILL.md` MODIFIED — Phase 7 steps 5/6/7 inserted after step 4 (~25 lines added)
+> 4. `tools/ci/lint_story_status_consistency.sh` NEW (~150 lines + chmod +x; archive-aware + tightened false-positive policy)
+> 5. `production/sprint-status.yaml` MODIFIED — top-level updated rotated + S11-03 row done + per-story comment under cap
+> 6. `production/sprint-status-history.md` MODIFIED — Sprint 11 → Top-level updated entry + this S11-03 long-form section
+>
+> **In-patch sprint-status hygiene close 28-streak ACHIEVED** (S7-05/06/07/09 + S8-01..S8-11 + S9-01..S9-05 + S10-01..S10-05 + S11-01 + S11-02 + S11-03 = 28 in-patch closes; pattern stable post-28).
+>
+> **Same-pass /code-review closure**: N/A (skill / process documentation; no code review needed for self-edited skill files / lint script not in source-code-review scope).
+>
+> **Test progression**: NONE (skill / lint / audit doc only; no source code touched). Baseline holds 1236/1236 PASS — **51st FFB preserved through this commit**.
+>
+> **Original byte count**: ~5800 (well over 200-byte cap; this is the canonical long-form record).
+
+---
 
 ### S11-02
 
