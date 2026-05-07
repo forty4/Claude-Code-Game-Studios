@@ -111,7 +111,7 @@ ADR-0018 closes the **Pillar 2 + Pillar 4 architectural narrative-pillar substra
 
 | # | Story | Type | Status | TR-IDs | Estimate |
 |---|-------|------|--------|--------|----------|
-| [001](story-001-destiny-branch-judge-impl-and-lints.md) | DestinyBranchJudge full F-DB-1 implementation + 3 lints + V-12 thread-safety + 5-platform serialization scaffold (epic-terminal) | Logic + Integration | **Ready** (depends on scenario-progression story-001 for stub scaffolding per Decision A coordination) | TR-destiny-branch-001..015 (all 15) + AC-LINT-1..3 + V-5/V-7/V-12 | ~4-5h (0.5d nominal per sprint-7 plan; multi-spawn-on-scale less likely than scenario-progression story-001 — ~12-15 tests + 3 lints fits cleanly in 1 /dev-story spawn with possibly 1 SendMessage continuation) |
+| [001](story-001-destiny-branch-judge-impl-and-lints.md) | DestinyBranchJudge full F-DB-1 implementation + 3 lints + V-12 thread-safety + 5-platform serialization scaffold (epic-terminal) | Logic + Integration | **Complete** (S7-03 sprint-7 close 2026-05-05; 943/943 tests + 3/3 lints PASS; Stories table row backfill via S11-02 2026-05-07 — 3rd activation of sprint-10 retro AI #3) | TR-destiny-branch-001..015 (all 15) + AC-LINT-1..3 + V-5/V-7/V-12 | ~4-5h (0.5d nominal per sprint-7 plan; multi-spawn-on-scale less likely than scenario-progression story-001 — ~12-15 tests + 3 lints fits cleanly in 1 /dev-story spawn with possibly 1 SendMessage continuation) |
 
 **Decision applied (per `/create-stories destiny-branch` 2026-05-05)**: **Option A — single epic-terminal story**. Rationale:
 - ADR-0018 §Migration Plan §5 explicit single coordinated patch atomicity

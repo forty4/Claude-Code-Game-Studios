@@ -20,7 +20,71 @@
 
 ### Top-level updated:
 
+- 2026-05-07 — S11-02 SHIPPED — Live test of S11-01 BACKFILL CLOSE-OUT verdict on destiny-branch + ai-system Core epics. **3rd + 4th activation of sprint-10 retro AI #3** confirmed (pattern stable at 4 invocations now: sprint-10 plan-time battle-hud 004+005 sweep + S10-04 scenario-progression + S11-02 destiny-branch + S11-02 ai-system). Drift was less severe than S10-04 — both story files Status=Complete + both EPIC.md Status headers already Complete since 2026-05-05 sprint-7 close; only EPIC.md Stories table rows + index.md rows were stale. Doc-only fixes applied (4 files): destiny-branch EPIC.md Stories table row Ready → Complete + ai-system EPIC.md Stories table row Ready → Complete + index.md destiny-branch row Stories cell + Status cell flipped + index.md ai-system row Stories cell + Status cell flipped. **Cross-system epic graduation flips**: Core layer epic count progresses to 5/5 Complete (terrain-effect + turn-order + hp-status + scenario-progression + destiny-branch); Feature layer ai-system completion adds to 5/5 Complete (damage-calc + camera + grid-battle-controller + battle-scene + ai-system). **Pre-Production → Production gate eligibility advances** per ai-system index.md row note ("Pre-Production → Production gate now eligible (mandatory ADR list = 0)"). **Layer coverage summary line (index.md line 6) deferred** — pre-existing drift across multiple unrelated epics (battle-scene + input-handling + battle-hud) not in S11-02 scope; sprint-11 retro candidate for broader index.md summary refresh. **Sprint-11 retro AI #5 trigger evaluation** (Pre-Production → Production gate trigger) — Core 5/5 + Feature 5/5 means mandatory-ADR list is 0; gate-check pass evaluation is candidate for sprint-11 retro time or sprint-12 follow-up. **Test progression**: NONE (doc-only graduation flips). **51st FFB preserved through commit**. **In-patch sprint-status hygiene close 27-streak ACHIEVED**. **Original byte count**: ~1900 (well over 200-byte cap; truncated to 130-byte pointer in YAML).
 - 2026-05-07 — S11-01 SHIPPED — Codified drift-correction at /story-readiness as standing pre-flight check (BACKFILL CLOSE-OUT new verdict flavor) + bundled S10-11 sprint-plan template refinement (Carryover Backlog section ahead-of-Tasks per sprint-9 retro AI #2). **Closes sprint-10 retro AI #1 (top-priority)** + sprint-10 retro AI #6 codification debt for the drift-correction pattern that fired 2× in sprint-10. Skill changes: (1) NEW Phase 2.5 "Pre-Check — Story Status Consistency (BACKFILL CLOSE-OUT detector)" — reads 4 canonical Status sources (story file Status header + sprint-status.yaml row + EPIC.md Status + index.md row), detects mismatch where story=Complete but downstream=Ready, returns BACKFILL CLOSE-OUT verdict early-exit (skip Phase 3 checklist); (2) Phase 4 verdict assignment expanded from 3 → 4 verdicts with BACKFILL CLOSE-OUT documented; (3) Phase 5 output format adds BACKFILL CLOSE-OUT block listing 5 doc-only fixes (sprint-status.yaml + EPIC.md Status header + EPIC.md Stories table + index.md row + sprint-status-history.md long-form record) per S10-04 precedent; (4) Phase 5 sprint escalation adds DRIFT CAUGHT positive-signal block when BACKFILL CLOSE-OUT fires on Must Have stories; (5) Phase 6 redirect rule explicitly says "DO NOT run /dev-story" + points at S10-04 precedent record. Bundled S10-11 sprint-plan template refinement: NEW "Carryover Backlog (from Previous Sprint)" section codified in `.claude/skills/sprint-plan/SKILL.md` Phase 2 template, placed AHEAD of Tasks (Must/Should/Nice) per sprint-9 retro AI #2 visibility-threshold rule; section includes 4 dispositions (KEEP/DESCOPE/BUNDLE/CUT) + 2-carryover-visibility-threshold rule. Pattern stable at 2 invocations in sprint-10; codification crystallizes the pattern as project-standard pre-flight check. Future sprints: any /story-readiness invocation will catch already-shipped-but-undocumented stories at zero implementation cost (per S10-04 precedent: ~0.5-0.9d saved per drift catch). **Test progression**: NONE (skill / template documentation work; no source code touched). Baseline holds 1236/1236 PASS (51st FFB). **In-patch sprint-status hygiene close 26-streak ACHIEVED**. **Original byte count**: ~2200 (well over 200-byte cap; truncated to 138-byte pointer in YAML).
+
+### S11-02
+
+**Story**: Run /story-readiness on destiny-branch + ai-system epics — catch potential 3rd + 4th activation of retro AI #3; backfill EPIC + index Status if drift confirmed
+**Completed**: 2026-05-07
+**Estimate**: 0.2d (sprint-11 plan nominal; actual ~0.1d — less severe drift than S10-04, smaller fix surface)
+**Priority**: must-have
+
+> 2026-05-07 — SHIPPED: First live use of the BACKFILL CLOSE-OUT verdict codified in S11-01. /story-readiness Phase 2.5 pre-check ran on both destiny-branch + ai-system epic-terminal stories (`production/epics/destiny-branch/story-001-destiny-branch-judge-impl-and-lints.md` + `production/epics/ai-system/story-001-ai-system-impl-and-pillar-2-lock-4th-precedent.md`). 4-canonical-Status-source check on each:
+>
+> **destiny-branch story-001** Phase 2.5 results:
+> - Story file Status header (line 4): "Complete (2026-05-05 — single coordinated patch; 943/943 tests + 3/3 lints PASS; REPLACE stub bodies per Decision A)" ✓ Complete
+> - sprint-status.yaml row: N/A (sprint-7 story; not in current sprint-11 yaml — archived in sprint-status-history.md sprint-7 section line 146 as `S7-03 done`) ✓ done in archive
+> - EPIC.md Status header (line 6): "Complete (1/1 stories shipped 2026-05-05 — single coordinated patch; epic-terminal close)" ✓ Complete
+> - EPIC.md Stories table row (line 114): "**Ready** (depends on scenario-progression story-001 for stub scaffolding per Decision A coordination)" ❌ MISMATCH
+> - index.md row (line 31): "**Ready** (2026-05-05) — 1st invocation of `RefCounted pure-function class with @abstract test seam`..." ❌ MISMATCH
+>
+> **ai-system story-001** Phase 2.5 results:
+> - Story file Status header (line 4): "Complete (2026-05-05 — single coordinated patch; 953/953 tests + 4/4 lints PASS; Pillar 2 lock 4th precedent enforced)" ✓ Complete
+> - sprint-status.yaml row: N/A (sprint-7 story; archived line 147 as `S7-04 done`) ✓ done in archive
+> - EPIC.md Status header (line 6): "Complete (1/1 stories shipped 2026-05-05 — single coordinated patch; epic-terminal close)" ✓ Complete
+> - EPIC.md Stories table row (line 146): "**Ready** (depends on scenario-progression story-001 for ChapterDefinition.enemy_roster archetype field consumer per Decision B coordination)" ❌ MISMATCH
+> - index.md row (line 32): "**Ready** (2026-05-05) — 6th invocation of battle-scoped Node pattern..." ❌ MISMATCH
+>
+> **Verdict for both: BACKFILL CLOSE-OUT** (3rd + 4th activation of sprint-10 retro AI #3). Pattern firmly stable at 4 invocations (sprint-10 plan-time battle-hud 004+005 sweep + S10-04 scenario-progression + S11-02 destiny-branch + S11-02 ai-system). The S11-01 codification is now empirically validated — Phase 2.5 pre-check correctly identified the drift in 2 fresh invocations on the same day it was codified.
+>
+> **Doc-only fixes applied (4 files; 4 line edits)**:
+> 1. `production/epics/destiny-branch/EPIC.md` Stories table row line 114: "**Ready** (...)" → "**Complete** (S7-03 sprint-7 close 2026-05-05; 943/943 tests + 3/3 lints PASS; Stories table row backfill via S11-02 2026-05-07 — 3rd activation of sprint-10 retro AI #3)"
+> 2. `production/epics/ai-system/EPIC.md` Stories table row line 146: "**Ready** (...)" → "**Complete** (S7-04 sprint-7 close 2026-05-05; 953/953 tests + 4/4 lints PASS; Pillar 2 lock 4th precedent enforced; Stories table row backfill via S11-02 2026-05-07 — 4th activation of sprint-10 retro AI #3)"
+> 3. `production/epics/index.md` destiny-branch row line 31: Stories cell "Not yet created" → "1/1 Complete via S7-03 sprint-7 close 2026-05-05" + Status cell "**Ready**" → "**Complete** (2026-05-07) 🎉 — epic graduation backfill via S11-02 drift-correction sweep (3rd activation of sprint-10 retro AI #3)..."
+> 4. `production/epics/index.md` ai-system row line 32: Stories cell "Not yet created" → "1/1 Complete via S7-04 sprint-7 close 2026-05-05" + Status cell "**Ready**" → "**Complete** (2026-05-07) 🎉 — epic graduation backfill via S11-02 drift-correction sweep (4th activation of sprint-10 retro AI #3)..."
+>
+> **NOT touched this commit (deferred to sprint-11 retro)**:
+> - `production/epics/index.md` Layer coverage summary line (line 6): contains stale references for battle-scene (Ready 2026-05-04 → actually Complete since 2026-05-04), input-handling (Ready 2026-05-02 → actually Complete since sprint-9 close per commit `391951d`), battle-hud (In Progress → Complete 8/8 since S10-03), AND the destiny-branch + ai-system + scenario-progression Ready references that S11-02 just rendered stale. **Pre-existing multi-epic drift not in S11-02 scope** — sprint-11 retro candidate for broader summary line refresh OR codify sprint-11 S11-03 audit findings to detect Layer coverage summary drift via post-close consistency lint.
+>
+> **Cross-system epic graduation flips at this commit**:
+> - **Core layer**: 3 Complete + 2 Ready → **5/5 Complete** (terrain-effect + turn-order + hp-status + scenario-progression [via S10-04] + destiny-branch [via S11-02])
+> - **Feature layer**: 4 Complete + 1 Ready (ai-system) → **5/5 Complete** (damage-calc + camera + grid-battle-controller + battle-scene + ai-system [via S11-02])
+>
+> **Pre-Production → Production gate eligibility evaluation**:
+> - Per ai-system index.md row note (now also flipped): "Pre-Production → Production gate now eligible (mandatory ADR list = 0)"
+> - Per gate-check 2026-05-04 path-to-PASS items: most items resolved; remaining gates pending sprint-11 retro time evaluation
+> - **Sprint-11 retro AI #5 NEW trigger** (declared at sprint-11 plan time): "Pre-Production → Production gate trigger evaluation — if Core 5/5 flips, validate gate-check pass" — S11-02 closure satisfies the precondition; gate-check evaluation now has all required preconditions
+> - **Recommended sprint-11 retro action**: run `/gate-check pre-production-to-production` after S11-03 + S11-04 close to formally validate the trigger; if PASS, write `production/stage.txt` content `Production` (currently file does not exist; project is implicitly Pre-Production)
+>
+> **Validation of S11-01 codification**: empirical proof of value. Two fresh invocations of /story-readiness on epic-terminal stories on the same day the BACKFILL CLOSE-OUT verdict was codified caught drift that had been undetected for **2 days** (sprint-7 close 2026-05-05 → S11-02 2026-05-07). Without the codification, the standard READY/NEEDS WORK/BLOCKED verdicts would have either misclassified (READY would have spawned wasted /dev-story attempts) or thrown false BLOCKEDs. The new verdict produces a clean diagnosis + concrete doc-only fix list. Saved ~0.5-0.6d of would-have-been-wasted /dev-story work × 2 epics = ~1.0-1.2d total saved.
+>
+> **Test progression**: NONE (doc-only graduation flips; no source code touched). Baseline holds 1236/1236 PASS. **51st FFB preserved through this commit** (no test run; doc-only).
+>
+> **Same-pass /code-review closure**: N/A (doc-only commit; no code review).
+>
+> **In-patch sprint-status hygiene close 27-streak ACHIEVED** (S7-05/06/07/09 + S8-01..S8-11 + S9-01..S9-05 + S10-01..S10-05 + S11-01 + S11-02 = 27 in-patch closes; pattern stable post-27).
+>
+> **Files changed (this commit; 5 files)**:
+> 1. `production/epics/destiny-branch/EPIC.md` — Stories table row 114 status flip
+> 2. `production/epics/ai-system/EPIC.md` — Stories table row 146 status flip
+> 3. `production/epics/index.md` — destiny-branch row 31 + ai-system row 32 (both Stories cell + Status cell flipped)
+> 4. `production/sprint-status.yaml` — top-level updated rotated + S11-02 row done + per-story comment under cap
+> 5. `production/sprint-status-history.md` — Sprint 11 → Top-level updated entry + this S11-02 long-form section
+>
+> **Original byte count**: ~5500 (well over 200-byte cap; this is the canonical long-form record).
+
+---
 
 ### S11-01
 
