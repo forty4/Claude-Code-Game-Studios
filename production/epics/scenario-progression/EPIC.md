@@ -3,7 +3,7 @@
 > **Layer**: Core
 > **GDD**: `design/gdd/scenario-progression.md` (rev 2.2 — Designed; F-SP-3 v2.2 synchronous seal + F-SP-4 ScenarioResult 4-field shape; CR-7 4th-argument invariant)
 > **Architecture Module**: `ScenarioRunner` autoload Node — `extends Node` (NO `class_name` per godot-4x-gotchas G-3 — autoload-registered identifier IS the global name); single autoload registered at `*res://src/core/scenario_runner.gd`; lifecycle owned by SceneTree; persistent across Overworld ↔ BattleScene transitions per ADR-0002. Boot order position **6** (after GameBus → SceneManager → SaveManager → GameBusDiagnostics → BuildModeSentinel — 6th-precedent autoload pattern extension).
-> **Status**: Ready (1 story created via `/create-stories scenario-progression` 2026-05-05)
+> **Status**: Complete (1/1 stories shipped — story-001 single coordinated patch via S7-02 commit `ba02e02` 2026-05-05; epic graduation backfill via S10-04 2026-05-07 drift-correction sweep — 2nd activation of sprint-10 retro AI #3 "story-spec doc-correction at /story-readiness time")
 > **Stories**: 1 epic-terminal story — see Stories table below
 > **Created**: 2026-05-05 (Sprint 7 — post-S7-01 ADR-0019 acceptance unblocks the 3-epic scaffold batch)
 > **Manifest Version**: 2026-05-04 (`docs/architecture/control-manifest.md` — refreshed via gate-check pre-prod-to-prod-2026-05-04 path-to-PASS item #3)
@@ -131,7 +131,7 @@ The lock prevents asynchronous seal of `first_attempt_resolved` — a value visi
 
 | # | Story | Type | Status | TR-IDs | Estimate |
 |---|-------|------|--------|--------|----------|
-| [001](story-001-scenario-runner-implementation-and-mock-encoder-deletion.md) | ScenarioRunner implementation per ADR-0017 Migration Plan §1..§11 + sprint-6 mock encoder DELETION (epic-terminal) | Integration | **Ready** | TR-scenario-progression-001..015 (all 15) + AC-MIGRATE-1..5 + AC-ATOMIC-1 | ~6h (0.6d nominal per sprint-7 plan; multi-spawn-on-scale precedent expects 2-3 SendMessage continuations per hp-status story-008 12-file precedent) |
+| [001](story-001-scenario-runner-implementation-and-mock-encoder-deletion.md) | ScenarioRunner implementation per ADR-0017 Migration Plan §1..§11 + sprint-6 mock encoder DELETION (epic-terminal) | Integration | **Complete** (S7-02 ba02e02 2026-05-05; epic graduation backfill via S10-04 2026-05-07) | TR-scenario-progression-001..015 (all 15) + AC-MIGRATE-1..5 + AC-ATOMIC-1 | ~6h (0.6d nominal per sprint-7 plan; multi-spawn-on-scale precedent expects 2-3 SendMessage continuations per hp-status story-008 12-file precedent) |
 
 **Decision applied (per `/create-stories scenario-progression` 2026-05-05)**: **Option A — single epic-terminal story**. Rationale per autonomy memory:
 - ADR-0017 §Migration Plan line 525 explicitly mandates "Steps 1-11 ship in a single commit" — atomicity is contractual, not stylistic

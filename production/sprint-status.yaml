@@ -11,7 +11,7 @@ goal: "Close battle-hud epic 8/8 (3 remaining stories) + ship scenario-progressi
 start: "2026-06-21"
 end: "2026-06-27"
 generated: "2026-05-07"
-updated: "2026-05-07 — S10-03 SHIPPED (story-008 epic-terminal 7 lints+verif; 1228→1236 +8; 51st FFB; battle-hud 8/8 Complete); see sprint-status-history.md Sprint 10 → Top-level"
+updated: "2026-05-07 — S10-05 SHIPPED (CI lane gap binding decision: POSTPONE to post-MVP w/ 4 reactivation triggers; closes 3-sprint deferral); see sprint-status-history.md Sprint 10 → Top-level"
 
 # Sprint-9 closed 5/14 claude-owned (Must 5/5 + Should 0/4; Nice 0/3: all deferred to sprint-10; 2 user-owned).
 # 46th consecutive failure-free baseline (1203/1203 PASSING). Retro AI seeds carried forward — see
@@ -76,21 +76,23 @@ stories:
     name: "scenario-progression story-001 — ScenarioRunner Core epic single coordinated patch atomicity (ADR-0017 Migration Plan §1..§11)"
     file: "production/epics/scenario-progression/story-001-scenario-runner-implementation-and-mock-encoder-deletion.md"
     priority: must-have
-    status: ready-for-dev
-    owner: ""
+    status: done
+    owner: "claude"
     estimate_days: 0.6
     blocker: ""
-    completed: ""
+    completed: "2026-05-07"
+    # 2026-05-07 — BACKFILL CLOSE-OUT: already shipped S7-02 ba02e02 2026-05-05; doc-only cleanup (EPIC+index Status flip); 2nd retro-AI-3 activation; see sprint-status-history.md → S10-04
 
   - id: "S10-05"
     name: "CI lane gap formal decision (S9-11 carryover; 3rd time; escalated to Must per retro AI #5; binding outcome required)"
-    file: ""  # production/decisions/ci-lane-gap-decision-2026-05-XX.md (path TBD)
+    file: "production/decisions/ci-lane-gap-decision-2026-05-07.md"
     priority: must-have
-    status: ready-for-dev
-    owner: ""
+    status: done
+    owner: "claude"
     estimate_days: 0.2
     blocker: ""
-    completed: ""
+    completed: "2026-05-07"
+    # 2026-05-07 — SHIPPED: binding POSTPONE-TO-POST-MVP w/ 4 reactivation triggers; 3-sprint deferral closed; see history → S10-05
 
   - id: "S10-06"
     name: "Save/Load #17 Core epic creation OR design-only ratification (S9-06 1st carryover; verify against save-manager Platform epic 8/8 Complete)"
