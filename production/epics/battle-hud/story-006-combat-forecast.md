@@ -4,7 +4,7 @@
 > **Status**: Ready
 > **Layer**: Presentation
 > **Type**: UI + Performance
-> **Manifest Version**: 2026-04-20
+> **Manifest Version**: 2026-05-05 (refreshed 2026-05-07 at /story-readiness time per sprint-9 retro PI #3 — manifest delta 2026-04-20 → 2026-05-05 covered ADR-0014/0015 sections that this story already references; no new forbidden_patterns affecting this story)
 
 ## Context
 

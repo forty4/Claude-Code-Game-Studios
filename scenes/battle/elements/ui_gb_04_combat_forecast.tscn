@@ -1,0 +1,162 @@
+[gd_scene format=3]
+
+;; UI-GB-04 Combat Forecast — story-006.
+;; PanelContainer root (read-only forecast display; FOCUS_NONE per ADR-0015 §5 Note 5).
+;; 6 section subpanels inside VBoxContainer:
+;;   1. DirectionPanel     — attacker/defender facing compass arrow + i18n direction label
+;;   2. HitCritPanel       — hit% / crit% percentages
+;;   3. DamagePanel        — damage min-max range + 3 chevron TextureRect tier indicators
+;;   4. CounterPanel       — counter-attack preview or "—" placeholder
+;;   5. StatusEffectsPanel — status-effect icons (HBoxContainer)
+;;   6. PassivesPanel      — passives list, up to 3 visible lines
+;;
+;; Starts hidden (visible = false); shown by BattleHUD.show_forecast().
+;; MOUSE_FILTER_PASS on root and subpanels — does NOT block grid-layer hover events
+;; behind the forecast panel (battle-hud.md §3 UI-GB-04 mouse pass-through spec).
+;; Reserved-color avoidance: no #D63B2A (주홍) or #C9A84C (금색) anywhere.
+;; Chevron tier glyph uses neutral grayscale per Implementation Note 8.
+;; # AC-UX-HUD-05: art-director sign-off pending — see story-006 evidence doc
+
+[node name="UI_GB_04_CombatForecast" type="PanelContainer"]
+tooltip_text = "Combat Forecast"
+custom_minimum_size = Vector2(200, 0)
+mouse_filter = 1
+visible = false
+focus_mode = 0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+mouse_filter = 1
+
+[node name="DirectionPanel" type="PanelContainer" parent="VBoxContainer"]
+tooltip_text = "Attack direction"
+mouse_filter = 1
+metadata/_accessibility_label = "Attack direction panel"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer/DirectionPanel"]
+mouse_filter = 1
+
+[node name="DirectionIcon" type="TextureRect" parent="VBoxContainer/DirectionPanel/HBoxContainer"]
+tooltip_text = "Direction icon"
+custom_minimum_size = Vector2(24, 24)
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="DirectionLabel" type="Label" parent="VBoxContainer/DirectionPanel/HBoxContainer"]
+tooltip_text = "Direction label"
+text = ""
+mouse_filter = 2
+
+[node name="HitCritPanel" type="PanelContainer" parent="VBoxContainer"]
+tooltip_text = "Hit and crit chance"
+mouse_filter = 1
+metadata/_accessibility_label = "Hit and critical chance panel"
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/HitCritPanel"]
+mouse_filter = 1
+
+[node name="HitLabel" type="Label" parent="VBoxContainer/HitCritPanel/VBoxContainer"]
+tooltip_text = "Hit chance"
+text = ""
+mouse_filter = 2
+
+[node name="CritLabel" type="Label" parent="VBoxContainer/HitCritPanel/VBoxContainer"]
+tooltip_text = "Critical hit chance"
+text = ""
+mouse_filter = 2
+
+[node name="DamagePanel" type="PanelContainer" parent="VBoxContainer"]
+tooltip_text = "Damage range"
+mouse_filter = 1
+metadata/_accessibility_label = "Damage range panel"
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/DamagePanel"]
+mouse_filter = 1
+
+[node name="DamageLabel" type="Label" parent="VBoxContainer/DamagePanel/VBoxContainer"]
+tooltip_text = "Damage range label"
+text = ""
+mouse_filter = 2
+
+[node name="ChevronHBox" type="HBoxContainer" parent="VBoxContainer/DamagePanel/VBoxContainer"]
+tooltip_text = "Damage tier chevrons"
+mouse_filter = 2
+
+[node name="Chevron0" type="TextureRect" parent="VBoxContainer/DamagePanel/VBoxContainer/ChevronHBox"]
+tooltip_text = "Damage tier 1"
+custom_minimum_size = Vector2(44, 44)
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Chevron1" type="TextureRect" parent="VBoxContainer/DamagePanel/VBoxContainer/ChevronHBox"]
+tooltip_text = "Damage tier 2"
+custom_minimum_size = Vector2(44, 44)
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Chevron2" type="TextureRect" parent="VBoxContainer/DamagePanel/VBoxContainer/ChevronHBox"]
+tooltip_text = "Damage tier 3"
+custom_minimum_size = Vector2(44, 44)
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="CounterPanel" type="PanelContainer" parent="VBoxContainer"]
+tooltip_text = "Counter-attack preview"
+mouse_filter = 1
+metadata/_accessibility_label = "Counter-attack panel"
+
+[node name="CounterLabel" type="Label" parent="VBoxContainer/CounterPanel"]
+tooltip_text = "Counter-attack label"
+text = ""
+mouse_filter = 2
+
+[node name="StatusEffectsPanel" type="PanelContainer" parent="VBoxContainer"]
+tooltip_text = "Status effects applied or received"
+mouse_filter = 1
+metadata/_accessibility_label = "Status effects panel"
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/StatusEffectsPanel"]
+mouse_filter = 1
+
+[node name="StatusLabel" type="Label" parent="VBoxContainer/StatusEffectsPanel/VBoxContainer"]
+tooltip_text = "Status effects header"
+text = ""
+mouse_filter = 2
+
+[node name="StatusIconsHBox" type="HBoxContainer" parent="VBoxContainer/StatusEffectsPanel/VBoxContainer"]
+tooltip_text = "Status effect icons"
+mouse_filter = 2
+
+[node name="PassivesPanel" type="PanelContainer" parent="VBoxContainer"]
+tooltip_text = "Passives list"
+mouse_filter = 1
+metadata/_accessibility_label = "Passives list panel"
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/PassivesPanel"]
+mouse_filter = 1
+
+[node name="PassivesLabel" type="Label" parent="VBoxContainer/PassivesPanel/VBoxContainer"]
+tooltip_text = "Passives header"
+text = ""
+mouse_filter = 2
+
+[node name="Passive0Label" type="Label" parent="VBoxContainer/PassivesPanel/VBoxContainer"]
+tooltip_text = "Passive slot 0"
+text = ""
+visible = false
+mouse_filter = 2
+
+[node name="Passive1Label" type="Label" parent="VBoxContainer/PassivesPanel/VBoxContainer"]
+tooltip_text = "Passive slot 1"
+text = ""
+visible = false
+mouse_filter = 2
+
+[node name="Passive2Label" type="Label" parent="VBoxContainer/PassivesPanel/VBoxContainer"]
+tooltip_text = "Passive slot 2"
+text = ""
+visible = false
+mouse_filter = 2

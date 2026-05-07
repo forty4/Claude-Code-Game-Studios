@@ -1,7 +1,7 @@
 # Story 004: UI-GB-01 Initiative Queue + UI-GB-07 Turn/Round Counter + UI-GB-08 Victory Condition
 
 > **Epic**: Battle HUD
-> **Status**: Ready
+> **Status**: Complete (2026-05-05 — sprint-7 S7-09; close-out backfilled 2026-05-07)
 > **Layer**: Presentation
 > **Type**: UI
 > **Manifest Version**: 2026-04-20
@@ -154,3 +154,24 @@
 - Depends on: Story 002 (signal handler shims must exist; this story extends `_on_round_started`, `_on_unit_turn_started`, `_on_unit_turn_ended`, `_on_unit_died` bodies)
 - Parallel-runnable with: Story 003 (disjoint elements; both extend handlers from story-002 — author them in either order or simultaneously; merge conflict surface = the 4 handler bodies, manageable)
 - Unlocks: Story 005 (UI-GB-02 anchors near the active unit which UI-GB-01 highlights — non-blocking but cleaner ordering)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-05 (sprint-7 S7-09; close-out backfilled 2026-05-07 sprint-10 plan-time per retro AI #3 story-spec doc-correction discipline)
+
+**Implementation**: shipped in commit `c5237c8` ("feat(battle-hud): sprint-7 S7-09 battle-hud story-004 + 4 turn-order stub-API fills (prereq unblock)") as a coordinated single-patch with 4 turn-order stub API fills (cross-epic prereq unblock that surfaced during S7-09 implementation start: `get_current_round_number()`, `get_acted_this_turn()`, `get_unit_turn_state()`, `get_turn_order_snapshot()` all promoted from `return null/false/0` stubs to fully populated impls in `src/core/turn_order_runner.gd`).
+
+**Files shipped (S7-09)**:
+- `tests/integration/feature/battle_hud/battle_hud_initiative_queue_test.gd` — 6 integration tests (round_started rebuild, unit_turn_started highlight + turn label, unit_turn_ended clear highlight, unit_died rebuild, set_victory_condition show + translated text, mount-at-ready)
+- `tests/unit/core/turn_order_query_apis_test.gd` — 9 turn-order query API tests
+- `src/feature/battle_hud/battle_hud.gd` — `_on_round_started` + `_on_unit_turn_started` + `_on_unit_turn_ended` + `_on_unit_died` handler body extensions; `set_victory_condition()` public method; `_active_queue_slot_index` private field; `_ui_gb_01_slots` slot enumeration
+- `scenes/battle/elements/ui_gb_01_initiative_queue.tscn` + `ui_gb_07_turn_round_counter.tscn` + `ui_gb_08_victory_condition.tscn`
+- `src/core/turn_order_runner.gd` — 4 stub-to-full API fills
+
+**Acceptance criteria coverage**: AC-1..AC-6 covered by integration tests; AC-7 (i18n grep gate) deferred to story-008 lint per spec; AC-8 (AccessKit pre-flight) covered by per-slot tooltip_text population in `_rebuild_initiative_queue()`.
+
+**Test progression**: 963 → 978 PASSING (+15 net new: +9 turn-order query API + +6 battle-hud integration). 26th+ FFB at sprint-7 close.
+
+**Closure deferred from sprint-7 to sprint-10**: Story file Status flip + Completion Notes section was missed during S7-09 ship under Direct-author pattern (Direct-author shipped impl + tests but didn't follow /story-done close-out flow). Caught by /story-readiness invocation 2026-05-07 sprint-10 plan-time per retro AI #3 — applied as part of sprint-10 doc-correction sweep alongside EPIC.md Stories table update + index.md "3/8 → 5/8 Complete" update.

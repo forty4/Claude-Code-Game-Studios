@@ -157,11 +157,11 @@ The 9 DI'd backends are **all already shipped to production** — this epic is t
 
 | # | Story | Type | Status | ADR | TR-IDs |
 |---|-------|------|--------|-----|--------|
-| 001 | [BattleHUD class skeleton + 9-param DI setup](story-001-class-skeleton-and-di.md) | Logic | Ready | ADR-0015 | TR-battle-hud-001, -002, -014 (perf ref) |
-| 002 | [11 GameBus signal subscriptions + DI test seam + S5 INPUT_BLOCKED filter](story-002-gamebus-signal-subscriptions.md) | Logic | Ready | ADR-0015 | TR-battle-hud-003, -010 |
-| 003 | [UI-GB-03 Unit Info Panel + UI-GB-11 DEFEND Stance Badge + show_unit_info()](story-003-unit-info-panel-and-defend-badge.md) | UI | Ready | ADR-0015 | TR-battle-hud-005 (partial), -006 (show_unit_info), -012 (i18n first), -016 (AccessKit) |
-| 004 | [UI-GB-01 Initiative Queue + UI-GB-07 Turn/Round Counter + UI-GB-08 Victory Condition](story-004-initiative-queue-counters.md) | UI | Ready | ADR-0015 | TR-battle-hud-005 (partial) |
-| 005 | [UI-GB-02 Action Menu + UI-GB-05 Skill List + UI-GB-10 Undo + Two-Tap ATTACK/DEFEND](story-005-action-menu-skill-list-undo-two-tap.md) | UI + Integration | Ready | ADR-0015 | TR-battle-hud-005 (partial), -017 (two-tap timer) |
+| 001 | [BattleHUD class skeleton + 9-param DI setup](story-001-class-skeleton-and-di.md) | Logic | **Complete (2026-05-04; S6-05)** | ADR-0015 | TR-battle-hud-001, -002, -014 (perf ref) |
+| 002 | [11 GameBus signal subscriptions + DI test seam + S5 INPUT_BLOCKED filter](story-002-gamebus-signal-subscriptions.md) | Logic | **Complete (2026-05-04; S6-06)** | ADR-0015 | TR-battle-hud-003, -010 |
+| 003 | [UI-GB-03 Unit Info Panel + UI-GB-11 DEFEND Stance Badge + show_unit_info()](story-003-unit-info-panel-and-defend-badge.md) | UI | **Complete (2026-05-04; S6-09)** | ADR-0015 | TR-battle-hud-005 (partial), -006 (show_unit_info), -012 (i18n first), -016 (AccessKit) |
+| 004 | [UI-GB-01 Initiative Queue + UI-GB-07 Turn/Round Counter + UI-GB-08 Victory Condition](story-004-initiative-queue-counters.md) | UI | **Complete (2026-05-05; S7-09; commit `c5237c8`; close-out backfilled 2026-05-07)** | ADR-0015 | TR-battle-hud-005 (partial) |
+| 005 | [UI-GB-02 Action Menu + UI-GB-05 Skill List + UI-GB-10 Undo + Two-Tap ATTACK/DEFEND](story-005-action-menu-skill-list-undo-two-tap.md) | UI + Integration | **Complete (2026-05-06; S8-07; commit `ad3c378`)** | ADR-0015 | TR-battle-hud-005 (partial), -017 (two-tap timer) |
 | 006 | [UI-GB-04 Combat Forecast (80ms dismiss + FORECAST_RENDER_BUDGET_MS)](story-006-combat-forecast.md) | UI + Performance | Ready | ADR-0015 | TR-battle-hud-005 (partial), -008 (80ms instr.), -009 (BalanceConstants) |
 | 007 | [UI-GB-06 Tile Tooltip + show_tile_info() + UI-GB-09 Results + UI-GB-12/13/14 Grid Overlays](story-007-tile-tooltip-results-grid-overlays.md) | UI + Integration | Ready | ADR-0015 | TR-battle-hud-005 (partial), -006 (show_tile_info), -015 (cross-tree NodePath) |
 | 008 | [Epic terminal — 6 CI lints + verification summary + 7 Engine Verification items closure](story-008-epic-terminal-lints-and-verification.md) | Config/Data + Audit | Ready | ADR-0015 | TR-battle-hud-004 (Pillar 2 CRITICAL), -007 (non-emitter), -011 (44pt), -012 (i18n), -013 (5 forbidden_patterns) |
