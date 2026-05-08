@@ -157,6 +157,13 @@ jobs:
       - name: 'Lint BattleHUD BalanceConstants FORECAST_RENDER_BUDGET_MS key (TR-battle-hud-009 / story-008 AC-7)'
         run: bash tools/ci/lint_balance_entities_battle_hud.sh
 
+      - name: 'Lint save-load CACHE_MODE_IGNORE discipline (CR-SL-11 / TR-save-load-018 / save-load story-003 AC-LINT-CACHE_MODE_IGNORE)'
+        run: bash tools/ci/lint_save_resource_loader_cache_mode_ignore.sh
+      - name: 'Lint save-load migration callable purity (CR-SL-13 / TR-save-load-019 / save-load story-003 AC-LINT-MIGRATION_PURITY)'
+        run: bash tools/ci/lint_save_migration_callable_purity.sh
+      - name: 'Lint save-load SaveContext + EchoMark @export discipline (CR-SL-2 / TR-save-load-020 / save-load story-003 AC-LINT-EXPORT_DISCIPLINE)'
+        run: bash tools/ci/lint_save_context_export_discipline.sh
+
       - name: Run GdUnit4 tests
         uses: MikeSchulze/gdUnit4-action@v1
         env:

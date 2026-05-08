@@ -1,7 +1,7 @@
 # Story 003: Failure Surfacing Tests + 3 Enforcement Lints + systems-index Row 17 Flip (Epic-Terminal)
 
 > **Epic**: save-load (#17 Core)
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Integration (failure-injection tests are integration-tier; lint scripts are Config/Data tier; epic-terminal verification summary doc closes the epic)
 > **Estimate**: 4-6 hours (3 lint scripts + integration test for AC-SL-15..17 disk-fail/corrupt/crash + systems-index row 17 flip + verification summary doc)
@@ -203,3 +203,76 @@
   - **Story 002** (Cross-chapter continuity + save_loaded signal) — provides save_loaded for null-payload handling tests (failure path emits save_load_failed instead of save_loaded)
   - save-manager epic 8/8 Complete — atomic write protocol + SaveManager test seam (test seam may need extension at /story-readiness if not present)
 - **Unlocks**: epic-terminal close — `production/epics/save-load/EPIC.md` 3/3 stories ship + systems-index row 17 flip Designed → Implemented + verification summary doc
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-08 (epic-terminal close — save-load epic graduates 3/3)
+**Criteria**: 9/9 COVERED (3 AC-SL-* failure-surfacing + 3 AC-LINT-* + AC-CI-WIRING + AC-INDEX-FLIP + AC-VERIFICATION-SUMMARY); 0 DEFERRED.
+**Code Review**: Complete (godot-gdscript-specialist + qa-tester, lean mode; verdict APPROVED WITH SUGGESTIONS — `_LINT_DIR` → `LINT_DIR` rename applied; 2 missing edge case tests added per qa-tester GAPS finding (alternate error codes ERR_FILE_NO_PERMISSION + ERR_OUT_OF_MEMORY for AC-SL-15; wrong-Resource-type at slot path for AC-SL-16). `_stub: SaveManagerStub` typing suggestion REVERTED — `SaveManagerStub.swap_in()` returns `Node`, not `SaveManagerStub`; the class is RefCounted static utility holder).
+**Test Evidence**: Integration test at `tests/integration/save_load/failure_surfacing_test.gd` (9 test functions) + lint smoke test at `tests/unit/tools_ci/lint_save_load_smoke_test.gd` (4 tests) + 3 lint scripts in `tools/ci/lint_save_*.sh` — full suite 1266/1266 / 0 errors / 0 failures / 0 orphans / exit 0 (56th FFB streak preserved).
+
+### Files created (6 NEW)
+
+- `tools/ci/lint_save_resource_loader_cache_mode_ignore.sh` — CR-SL-11 enforcement; bash + Ruby; scans `src/core/save_manager.gd` + `save_migration_registry.gd`; multi-line lookahead window for spread `ResourceLoader.load(...)` calls
+- `tools/ci/lint_save_migration_callable_purity.sh` — CR-SL-13 enforcement; first heuristic-pattern lint precedent in project; flag/next pattern (TG-3); KNOWN_AUTOLOADS list (manual sync); MVP `_migrations = {}` → vacuous PASS via fast-path early-exit (forward-looking)
+- `tools/ci/lint_save_context_export_discipline.sh` — CR-SL-2 enforcement; backward-walk pattern; excludes `static var`; protects against silent ResourceSaver field-drop regression
+- `tests/integration/save_load/failure_surfacing_test.gd` — 9 test functions covering AC-SL-15 (×3 incl. alternate error codes) + AC-SL-16 (×3 incl. wrong-type) + AC-SL-17 (×2) + failure-path sentinel
+- `tests/unit/tools_ci/lint_save_load_smoke_test.gd` — 4 tests (3 PASS-on-main smoke + 1 lint registry test)
+- `production/qa/evidence/save_load_verification_summary.md` — epic-terminal mandatory artifact (~310 lines); 7 Engine Verification Items + 13 TR coverage table + 20 AC coverage table + 10 ADVISORY deferrals + cross-system closure markers + lint master inventory
+
+### Files modified (2)
+
+- `.github/workflows/tests.yml` — 3 new lint steps after battle-hud lint block (lines ~158-164); before GdUnit4 test runner
+- `design/gdd/systems-index.md` row 17 — Status flipped `Designed (rev 1.0 — 2026-05-05 sprint-8 S8-08)` → `Implemented (rev 1.0 — 2026-05-08 sprint-12 follow-on; epic 3/3 stories Complete)` with verification summary linkage + sprint-12 close-out trace + 5-OQ resolution status
+
+### ACs covered (mapped to test/lint/evidence)
+
+- **AC-SL-15** (×3): `failure_surfacing_test::test_ac_sl15_disk_full_*` + `test_ac_sl15_no_partial_file_*` + `test_ac_sl15_alternate_error_codes_*` (NEW edge per qa-tester GAPS)
+- **AC-SL-16** (×3): `failure_surfacing_test::test_ac_sl16_truncated_file_*` + `test_ac_sl16_zero_byte_file_*` + `test_ac_sl16_wrong_resource_type_*` (NEW edge per qa-tester GAPS)
+- **AC-SL-17** (×2): `failure_surfacing_test::test_ac_sl17_orphan_tmp_file_skipped_*` + `test_ac_sl17_orphan_tmp_only_no_prior_*`
+- **Failure-path sentinel**: `failure_surfacing_test::test_save_loaded_does_not_emit_on_failure_path` (folds in qa-tester ADVISORY from story-002 review)
+- **AC-LINT-CACHE_MODE_IGNORE**: `lint_save_load_smoke_test::test_lint_save_resource_loader_cache_mode_ignore_passes_on_main` + lint Exit 0 on main HEAD
+- **AC-LINT-MIGRATION_PURITY**: `lint_save_load_smoke_test::test_lint_save_migration_callable_purity_passes_on_main` + lint Exit 0 (vacuous-pass on empty `_migrations`)
+- **AC-LINT-EXPORT_DISCIPLINE**: `lint_save_load_smoke_test::test_lint_save_context_export_discipline_passes_on_main` + lint Exit 0 (12 SaveContext + 3 EchoMark fields all `@export`-annotated)
+- **AC-CI-WIRING**: 3 new lint steps in `.github/workflows/tests.yml`
+- **AC-INDEX-FLIP**: `design/gdd/systems-index.md` row 17 Designed → Implemented
+- **AC-VERIFICATION-SUMMARY**: `production/qa/evidence/save_load_verification_summary.md` (~310 lines; 7 Engine Verification Items + 13 TR coverage + 20 AC coverage + 10 ADVISORY deferrals)
+
+### Deviations (5 ADVISORY; 0 BLOCKING)
+
+1. **TR-save-load-016..020 not registered** in `docs/architecture/tr-registry.yaml` — Gap 2 carryover from /story-readiness 2026-05-08; resolution path: `/architecture-review` Phase 8 batch register-update. Inherited from story-001 + story-002 advisories.
+2. **AC-SL-17 multi-slot orphan test** missing — story spec `## QA Test Cases` lists "multiple .tmp orphans across slots → each slot's loader is independent" as edge case; LOW RISK given per-slot loader isolation architecture; not blocking.
+3. **Migration purity lint scanning vacuous-pass** — `_migrations = {}` (MVP empty); the body-scanning code path (lines 106-156 of `lint_save_migration_callable_purity.sh`) is never exercised on main HEAD (only fast-path early-exit at line 100-103). Will gain real coverage when first migration entry lands post-MVP. Documented in lint script header.
+4. **Migration purity lint heuristic limitations** — KNOWN_AUTOLOADS list hardcoded (manual sync needed if new autoloads added); the lint cannot perform full GDScript scope analysis. Forward-looking protection acknowledged in script header comment as "FORWARD-LOOKING".
+5. **AC-SL-16 missing-required-field after migration** — depends on `_migrations` activation; deferred until first schema_v2 migration lands.
+
+### Issues hit + fixed during execution
+
+1. **`ERR_FILE_NO_SPACE` does not exist in Godot 4.6 Error enum** — caused parse error + G-7 silent skip on first test run (1257 ran instead of 1264). Fixed by replacing with `ERR_FILE_CANT_WRITE` (matches `save_manager_test.gd:667` precedent). G-7 silent-skip detection caught this — count delta from baseline was the diagnostic signal. Subsequently added `ERR_FILE_NO_PERMISSION` + `ERR_OUT_OF_MEMORY` parametric edge case test (both verified valid in Godot 4.6).
+2. **Specialist agent stopped reporting at 4/8** but had actually written 5 components; verified via `git status` + `ls`. Components 6-8 (CI wiring + systems-index flip + verification summary doc) completed manually.
+3. **`_stub: SaveManagerStub` typing tightening** suggested by godot-gdscript-specialist caused parse error (Node→SaveManagerStub cast). Reverted with explanatory comment — `SaveManagerStub.swap_in()` returns `Node` (the stub instance), not `SaveManagerStub` (which is the RefCounted static utility class).
+
+### Gotchas applied / surfaced
+
+- **G-3** (no class_name in test files)
+- **G-4** (Array.append capture pattern for signal lambdas)
+- **G-7** (silent-skip detection — caught ERR_FILE_NO_SPACE parse error)
+- **G-10** (real GameBus emit; tests don't stub GameBus identifier)
+- **G-14** (import refresh after new files)
+- **G-15** (`before_test`/`after_test` lifecycle, not `before_each`)
+- **G-28** (per-callable disconnect; never bulk-disconnect-all)
+- **TG-3** (flag/next awk pattern in lint scripts; not range pattern — explicitly cited in lint_save_migration_callable_purity.sh)
+
+### Save-load epic graduation
+
+This is the **epic-terminal close** for save-load (#17 Core). Closes the epic 2/3 → 3/3 + flips:
+- `production/epics/save-load/EPIC.md` Status header: `In Progress` → `Complete (3/3 stories shipped — epic-terminal 2026-05-08 sprint-12 follow-on)`
+- `production/epics/index.md` save-load row Status cell: `In Progress` → `**Complete** (2026-05-08) 🎉`
+- `design/gdd/systems-index.md` row 17 Status: `Designed` → `Implemented` (already flipped in this story patch)
+
+Cross-pillar enabling effects:
+- Pillar 4 cross-session narrative continuity now mechanically observable across game sessions (Destiny State flag + EchoMark archive persistence verified end-to-end)
+- Main Menu / Save Slot UI epic (#18 Alpha) is unblocked — `SaveManager.list_slots()` + Continue button visibility logic can now be authored
+- 운명 분기 (Destiny Branch) outcomes from prior chapters carry forward through save/reload cycles — Pillar 2 + Pillar 4 substrate fully wired

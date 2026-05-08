@@ -3,9 +3,9 @@
 > **Layer**: Core
 > **GDD**: `design/gdd/save-load.md` (rev 1.0 — Designed 2026-05-05 sprint-8 S8-08; 22 CRs + 5 formulas + 11 edge cases + 20 ACs + 5 OQs)
 > **Architecture Module**: Save/Load — Core layer Persistence contract surface (`docs/architecture/architecture.md` §Core layer; depends on Platform-layer SaveManager epic)
-> **Status**: In Progress (2/3 stories Complete since 2026-05-08; story-001 + story-002 shipped sprint-12 follow-on; story-003 Ready for /dev-story)
+> **Status**: **Complete** (3/3 stories shipped — epic-terminal close 2026-05-08 sprint-12 follow-on; story-001 ScenarioRunner CP-1/2/3 emission + story-002 cross-chapter continuity + save_loaded ADR-0001 amendment + story-003 failure surfacing + 3 lints + verification summary; 1266/1266 PASS 56th FFB; systems-index #17 Designed → Implemented)
 > **Tier**: Vertical Slice
-> **Stories**: 3 decomposed + authored (table below); 2/3 Complete
+> **Stories**: 3 decomposed + authored (table below); **3/3 Complete** 🎉
 
 ---
 
@@ -93,7 +93,7 @@ Routing: this epic is the **Core-layer consumer** of save-manager's Platform sub
 |---|-------|------|------|--------|-----|--------|
 | 001 | ScenarioRunner CP-1/2/3 emission contract | [story-001-scenario-runner-cp-emission.md](story-001-scenario-runner-cp-emission.md) | Integration | Complete (2026-05-08 sprint-12 follow-on; 8 tests; 1244/1244 PASS 53rd FFB; integration test at tests/integration/scenario_runner/save_checkpoint_emission_test.gd; zero production code modified — emit sites already shipped at S7-02 ba02e02) | ADR-0017 + ADR-0003 + ADR-0002 | TR-save-load-008/009/010/011; AC-SL-1..4; CR-SL-5..8 |
 | 002 | Cross-chapter continuity — Destiny State populator + `save_loaded` signal addition + idempotent hydration | [story-002-cross-chapter-continuity.md](story-002-cross-chapter-continuity.md) | Integration | Complete (2026-05-08 sprint-12 follow-on; 9 tests; 1253/1253 PASS 54th FFB; integration test at tests/integration/save_load/cross_chapter_continuity_test.gd; ADR-0001 minor amendment +save_loaded shipped; AC-SL-14 deferred to schema_v2 per story spec) | ADR-0003 + ADR-0001 + ADR-0017 | TR-save-load-012/013/014/015; AC-SL-12..14 + AC-SL-20; CR-SL-15..20 |
-| 003 | Failure surfacing tests + 3 enforcement lints + systems-index row 17 flip (epic-terminal) | [story-003-failure-surfacing-and-lints.md](story-003-failure-surfacing-and-lints.md) | Integration | Ready | ADR-0003 + ADR-0001 | TR-save-load-016/017/018/019/020; AC-SL-15..17 + 7 epic-terminal AC; CR-SL-2/11/13/21/22 |
+| 003 | Failure surfacing tests + 3 enforcement lints + systems-index row 17 flip (epic-terminal) | [story-003-failure-surfacing-and-lints.md](story-003-failure-surfacing-and-lints.md) | Integration + Config/Data | Complete (epic-terminal 2026-05-08 sprint-12 follow-on; 13 tests = 9 failure-surfacing + 4 lint smoke; 1266/1266 PASS 56th FFB; 3 NEW lints CACHE_MODE_IGNORE + migration purity + @export discipline shipped; CI wiring `.github/workflows/tests.yml` 3 new steps; systems-index #17 Designed → Implemented; verification summary at `production/qa/evidence/save_load_verification_summary.md`) | ADR-0003 + ADR-0001 | TR-save-load-016/017/018/019/020; AC-SL-15..17 + 7 epic-terminal AC; CR-SL-2/11/13/21/22 |
 
 **Implementation order**: 001 → 002 → 003 (sequential; story-002 depends on the 3-CP emission firing in story-001, story-003 depends on the full pipeline being operational for failure-injection tests)
 
