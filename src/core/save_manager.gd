@@ -197,7 +197,8 @@ func save_checkpoint(source: SaveContext) -> bool:
 ##   3. ResourceLoader.load(path, "", CACHE_MODE_IGNORE) — cache bypass (BLOCKING)
 ##   4. If null or not SaveContext: emit save_load_failed("load", "invalid_resource:…"); return null
 ##   5. Cast to SaveContext
-##   6. Return ctx (migration shim — see TODO below)
+##   6. SaveMigrationRegistry.migrate_to_current(ctx) — apply schema migrations
+##   7. GameBus.save_loaded.emit(migrated); return migrated
 func load_latest_checkpoint() -> SaveContext:
 	var path: String = _find_latest_cp_file(_active_slot)
 	if path.is_empty():

@@ -339,7 +339,9 @@ func get_battle_unit(unit_id: int) -> BattleUnit:
 ## Returns an opaque snapshot of battle state for AI consumer (Battle AI ADR).
 ## Shape is intentionally unspecified at MVP; callers must not rely on field names.
 func get_battle_state_snapshot() -> Dictionary:
-	# TODO(story-003+): populate FSM state, unit positions, acted flags
+	# TODO (Battle AI ADR — not yet written; sprint-7+): populate FSM state, unit
+	# positions, acted flags. Shape locked at ADR authoring time per ADR-0014 §10
+	# Key Interfaces (opaque shape) + ADR-0014 line 598.
 	return {}
 
 
@@ -421,7 +423,6 @@ func _on_unit_died(unit_id: int) -> void:
 
 
 func _on_unit_turn_started(unit_id: int) -> void:
-	# TODO(story-006): reset per-turn acted flag for this unit
 	# Per ADR-0019 + grid-battle.md CR-3: AI-turn detection + ai_action_requested emission.
 	# When the active turn unit is non-player-controlled, emit ai_action_requested
 	# so that AISystem (battle-scoped Node 6th invocation) can produce an action.

@@ -11,7 +11,7 @@ goal: "Close gate-check 2026-05-08 CONCERNS: Pillar 3/4 demo (S12-02) + sprint-1
 start: "2026-05-09"
 end: "2026-05-11"
 generated: "2026-05-08"
-updated: "2026-05-08 — S12-04 done: lint_story_status_consistency 33-drift cleared via 4 surgical edits + CI wire (1273/1273 58th FFB; 42-streak hygiene close)"
+updated: "2026-05-09 — S12-05 done: 5 TODOs triaged → 2 (TODO-01 perf-defer + TODO-04 Battle AI ADR-defer remain); 4 surgical edits across 3 files; 1273/1273 59th FFB; 43-streak hygiene"
 
 # Sprint-11 closed 2026-05-08: 11/11 claude-owned ✓ (Must 4 + Should 4 + Nice-claude 3); 7-of-7 sprint-10 retro AIs closed (project first); 52nd FFB; 36-streak hygiene; commits b1e10a0 → e70ecba.
 # Sprint-11 retro: production/retrospectives/retro-sprint-11-2026-05-08.md (7 sprint-12 AIs seeded).
@@ -79,11 +79,12 @@ stories:
     name: "TODO triage Address actions bundle (5 items) — sprint-11 retro AI #4; post-cleanup TODO count 5→2"
     file: ""  # EDIT save_manager.gd:200 (TODO-02) + grid_battle_controller.gd:342+424 (TODO-04+05) + beat_cue.gd:6 (TODO-03 reformat) + TODO-01 disposition
     priority: should-have
-    status: backlog
-    owner: ""
+    status: done
+    owner: "claude"
     estimate_days: 0.2
     blocker: ""
-    completed: ""
+    completed: "2026-05-09"
+    # 2026-05-09 — done: 5 TODOs triaged → 2 (TODO-01 perf-defer + TODO-04 Battle AI ADR-defer remain); 4 edits across 3 files; 1273/1273 59th FFB; 43-streak hygiene
 
   - id: "S12-06"
     name: "USER-OWNED 5th-time threshold codification — sprint-11 retro AI #7 + gate-check 2026-05-08 CD recommendation; explicit handling rule for S7-11/S8-15"
