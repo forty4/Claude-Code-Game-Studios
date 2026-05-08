@@ -11,7 +11,7 @@ goal: "Codify sprint-10 process patterns + absorb carryover + /story-readiness d
 start: "2026-05-07"
 end: "2026-05-09"
 generated: "2026-05-07"
-updated: "2026-05-08 — S11-08 SHIPPED (design/ux/main-menu.md NEW: 14-section UX spec stub Intermediate a11y; AD-C6 main-menu side closed at next gate-check; pause-menu remains open)"
+updated: "2026-05-08 — S11-07 SHIPPED (NEW save-load Core epic 3-story decomposition; systems-index #17 stays Designed — impl gap 4 hooks; sprint-11 Should 4/4 ✓)"
 
 # Sprint-10 closed 2026-05-07: Must-Have 5/5 done (100%); Should/Nice 0/7 (carryover); 6 commits d1ce22f → 04e8ca6 → 3481d18; 51st FFB preserved; 25-streak in-patch hygiene close.
 # Sprint-10 retro: production/retrospectives/retro-sprint-10-2026-05-07.md.
@@ -104,13 +104,14 @@ stories:
 
   - id: "S11-07"
     name: "S10-06 carryover — Save/Load #17 Core epic creation OR ratification (1st carryover; verify against existing save-manager Platform 8/8 Complete)"
-    file: ""  # production/epics/save-load/EPIC.md (NEW) OR systems-index.md row 17 ratification flip
+    file: "production/epics/save-load/EPIC.md"
     priority: should-have
-    status: backlog
-    owner: ""
+    status: done
+    owner: "claude"
     estimate_days: 0.3
     blocker: ""
-    completed: ""
+    completed: "2026-05-08"
+    # 2026-05-08 — SHIPPED: NEW save-load Core epic 3-story decomposition (TR-save-load-008..020); systems-index #17 stays Designed (impl gap 4 hooks); sprint-12 /create-stories
 
   - id: "S11-08"
     name: "S10-09 carryover — Main menu UX spec stub (2nd carryover; closes AD-C6 ADVISORY)"
