@@ -182,13 +182,41 @@ When a sprint task is authored to address a POLISH-NNN entry, the sprint plan ta
 - Const declaration: `src/feature/battle_hud/battle_hud.gd` line 96
 - Dependent on: POLISH-004 closure
 
+### POLISH-006 — Guan Yu + Zhang Fei character visual profile stubs (DESCOPED carryover from sprint-10 S10-07)
+
+| Field | Value |
+|---|---|
+| **Source** | `production/gate-checks/pre-prod-to-prod-2026-05-08.md` line 136 (NEW ADVISORY-CANDIDATE flagged at gate-check) + `production/gate-checks/pre-prod-to-prod-2026-05-08-rerun.md` line 142 (ADVISORY-1 carried) + `production/sprints/sprint-11.md` S11-09 (Liu Bei first-stub-shipped partial-state closure) + sprint-10 retro AI #5 (3-stub → 1-stub DESCOPE decision) |
+| **Tier** | ADVISORY (graduates to BLOCKING-at-character-art-sprint-entry: stubs MUST land before any character-art commission sprint closes story-readiness; ALSO graduates to BLOCKING-at-Polish-gate per gate-check rerun line 142 "must resolve before Polish gate") |
+| **Closure trigger** | (a) FIRST: any sprint plan adds a character-art commission story (forcing function — stubs must precede commission); OR (b) `production/stage.txt` content equals `Polish` (Polish gate hard-blocker per gate-check rerun); whichever fires first |
+| **Owner** | unassigned (art-director at pickup; claude may co-author with art-director routing) |
+| **Status** | Open |
+| **Added** | 2026-05-09 |
+| **Resolved** | — |
+
+**Description**: Guan Yu (관우 / 关羽 / 云长 — `shu_002_guan_yu` per `assets/data/heroes/heroes.json`) and Zhang Fei (장비 / 张飞 / 翼德 — `shu_003_zhang_fei`) character visual profile stubs remain unauthored. Original 3-stub scope (sprint-10 S10-07: Liu Bei + Guan Yu + Zhang Fei) was DESCOPED at sprint-10 retro AI #5 to 1 stub when sprint-11 absorbed the carryover via S11-09 (Liu Bei only at `design/art/characters/liu-bei.md`). The 1-stub closure satisfied AD-C5 to "first-stub-shipped partial state" but explicitly did NOT cancel Guan Yu + Zhang Fei — they must land before character-art production begins, per the silhouette-distinguishability benchmark established by the Liu Bei stub (Pillar 4 minimum recognition triplet + reserved-color discipline). The Peach Garden Oath triangle composition documented in liu-bei.md cross-references both characters as `SWORN_BROTHER` per `heroes.json` `bond_oath_peach_garden` symmetric relations — so the triangle is structurally incomplete until both Guan Yu + Zhang Fei stubs ship.
+
+**Action when picked up**: Author `design/art/characters/guan-yu.md` + `design/art/characters/zhang-fei.md` mirroring the Liu Bei stub format (Sections 1-3 minimum: silhouette + costume + role-anchor). Canonical anchors from `assets/data/heroes/heroes.json`: Guan Yu = COMMANDER class (per heroes.json class field), bond effect `bond_oath_peach_garden` (SWORN_BROTHER symmetric with Liu Bei + Zhang Fei), portrait_id `portrait_shu_guan_yu`, battle_sprite_id `sprite_shu_guan_yu`; Zhang Fei = COMMANDER class (verify per heroes.json), same Peach Garden Oath bond, portrait_id `portrait_shu_zhang_fei`, battle_sprite_id `sprite_shu_zhang_fei`. Pillar 4 minimum recognition triplet must be defined per stub (visual signature distinguishable in a 32px silhouette; non-default color allocation respects reserved-color discipline — 주홍 `#C0392B` and 금색 `#D4A017` are reserved for destiny-branch reveals only). Peach Garden Oath triangle composition update: Liu Bei stub already documents the triangle anchor; Guan Yu + Zhang Fei stubs should cite it back with their relative positioning rationale (Guan Yu typically associated with halberd 偃月刀 + full beard 美髯公; Zhang Fei with 蛇矛 + bristled-hog beard + dark complexion per traditional iconography). 8 ACs target per Liu Bei stub format; 5 OQs deferred per same. Verify no reserved-color baseline violation. Cross-bind to art-bible.md ink-wash palette + game-concept.md Pillar 4 (삼국지의 숨결).
+
+**Cross-references**:
+- Source flag: `production/gate-checks/pre-prod-to-prod-2026-05-08.md` line 136 NEW ADVISORY-CANDIDATE block ("On the descope-to-1-stub risk")
+- Carry-forward: `production/gate-checks/pre-prod-to-prod-2026-05-08-rerun.md` line 142 ADVISORY-1 (carried; "must resolve before Polish gate")
+- Originating descope: sprint-10 retro AI #5 + sprint-11 S11-09 (Liu Bei) close-out at `production/retrospectives/retro-sprint-11-2026-05-08.md` "What Went Well" item 7 (descope-not-cancel pattern)
+- Reference stub (silhouette-distinguishability benchmark): `design/art/characters/liu-bei.md` (Sections 1-3 + 8 ACs + 5 OQs + Peach Garden Oath triangle anchor)
+- Canonical character data: `assets/data/heroes/heroes.json` keys `shu_002_guan_yu` + `shu_003_zhang_fei` (name_ko + name_zh + name_courtesy + class + portrait_id + battle_sprite_id + bond relations)
+- Sprint-12 plan row: `production/sprints/sprint-12.md` S12-08 (this entry's authoring task)
+- AD-C5 partial-state closure: gate-check 2026-05-08 (AD-C5 closed to first-stub-shipped via Liu Bei; remains "first-stub-shipped" until Guan Yu + Zhang Fei land)
+- Closure trigger (a) monitoring: any future sprint plan in `production/sprints/` containing scope referencing character-art commission OR portrait/sprite asset production
+- Closure trigger (b) monitoring: `production/stage.txt` content (when flips to `Polish`)
+- Cross-binding: `design/art/art-bible.md` ink-wash palette + reserved-color discipline; `design/game-concept.md` Pillar 4 (삼국지의 숨결) experiential bar
+
 ---
 
 ## Index — by Status
 
 | Status | Count | IDs |
 |---|---|---|
-| Open | 5 | POLISH-001 / POLISH-002 / POLISH-003 / POLISH-004 / POLISH-005 |
+| Open | 6 | POLISH-001 / POLISH-002 / POLISH-003 / POLISH-004 / POLISH-005 / POLISH-006 |
 | In-progress | 0 | — |
 | Resolved | 0 | — |
 | Cancelled | 0 | — |
@@ -198,6 +226,7 @@ When a sprint task is authored to address a POLISH-NNN entry, the sprint plan ta
 | Source | IDs |
 |---|---|
 | Battle HUD epic verification (story-008) | POLISH-001 / POLISH-002 / POLISH-003 / POLISH-004 / POLISH-005 |
+| Gate-check 2026-05-08 ADVISORY-CANDIDATE (carried into 2026-05-08-rerun ADVISORY-1) | POLISH-006 |
 
 ## Index — by Closure Trigger
 
@@ -206,6 +235,7 @@ When a sprint task is authored to address a POLISH-NNN entry, the sprint plan ta
 | Polish-phase doc-correction sweep | POLISH-001 / POLISH-002 / POLISH-003 |
 | Localization sprint OR `/localize` first run | POLISH-004 |
 | Cascade from POLISH-004 closure | POLISH-005 |
+| Character-art commission sprint enters planning (forcing function) OR Polish gate (`production/stage.txt` = `Polish`) | POLISH-006 |
 
 ---
 
@@ -214,3 +244,4 @@ When a sprint task is authored to address a POLISH-NNN entry, the sprint plan ta
 *Append future amendments below — do not rewrite the body above.*
 
 - 2026-05-08 — Initial backlog established (sprint-11 S11-06 close-out; 5 ADVISORY entries from battle-hud epic verification summary).
+- 2026-05-09 — POLISH-006 added (sprint-12 S12-08 close-out per gate-check 2026-05-08 NEW ADVISORY-CANDIDATE; Guan Yu + Zhang Fei character profile stubs DESCOPED carryover from sprint-10 S10-07 → sprint-11 S11-09 Liu Bei first-stub-shipped). Lightweight conditional path chosen (no character-art sprint scheduled in sprint-12); entry-only authoring per S12-08 spec.

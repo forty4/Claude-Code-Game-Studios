@@ -11,7 +11,7 @@ goal: "Close gate-check 2026-05-08 CONCERNS: Pillar 3/4 demo (S12-02) + sprint-1
 start: "2026-05-09"
 end: "2026-05-11"
 generated: "2026-05-08"
-updated: "2026-05-09 — S12-09 done: lint_sprint_carryover_count.sh authored + CI wired (PASS sprint-12 pre-carryover=2 vs sprint-11 retro forecast=2; <4 threshold); 1273/1273 61st FFB; 45-streak"
+updated: "2026-05-09 — S12-08 done: POLISH-006 added to polish-backlog.md (lightweight path; no character-art sprint scheduled; AD ADVISORY tracked); 1273/1273 62nd FFB; 46-streak hygiene close"
 
 # Sprint-11 closed 2026-05-08: 11/11 claude-owned ✓ (Must 4 + Should 4 + Nice-claude 3); 7-of-7 sprint-10 retro AIs closed (project first); 52nd FFB; 36-streak hygiene; commits b1e10a0 → e70ecba.
 # Sprint-11 retro: production/retrospectives/retro-sprint-11-2026-05-08.md (7 sprint-12 AIs seeded).
@@ -109,13 +109,14 @@ stories:
 
   - id: "S12-08"
     name: "POLISH-006 Guan Yu + Zhang Fei character profile stubs — conditional on AD-flagged ADVISORY (gate-check 2026-05-08); polish-backlog entry OR full stubs"
-    file: ""  # if no character-art sprint scheduled: EDIT production/polish-backlog.md POLISH-006 entry only; if scheduled: NEW design/art/characters/guan-yu.md + zhang-fei.md
+    file: "production/polish-backlog.md"  # SHIPPED (lightweight path)
     priority: nice-to-have
-    status: backlog
-    owner: ""
+    status: done
+    owner: "claude"
     estimate_days: 0.2  # conditional — 0d outcome if polish-backlog entry only; 0.2d if stubs authored
     blocker: ""
-    completed: ""
+    completed: "2026-05-09"
+    # 2026-05-09 — done: POLISH-006 added to polish-backlog.md (lightweight path; no character-art sprint scheduled); Guan Yu + Zhang Fei stubs deferred; 1273/1273 62nd FFB; 46-streak
 
   - id: "S12-09"
     name: "tools/ci/lint_sprint_carryover_count.sh — sprint-11 retro AI #5 (optional automation candidate)"
