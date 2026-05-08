@@ -22,6 +22,8 @@
 **Engine**: Godot 4.6 | **Risk**: LOW (no new post-cutoff API surface; uses existing GameBus signal pattern + existing ScenarioRunner state machine; all primitives already validated by save-manager epic green tests)
 **Engine Notes**: GameBus signal CONNECT_DEFERRED ordering is mandatory per ADR-0001 §5 + ADR-0003 §Decision §3-CP policy. The deferred-handler-after-state-advance race documented in `.claude/rules/godot-4x-gotchas.md` G-27 applies — emit-then-state-advance pattern in ScenarioRunner means subscribers reading source-autoload state via getter MUST cache at signal-emit time, NOT re-query in the deferred handler. This story emits the signal; consumer-side caching is story-002's responsibility.
 
+**Performance**: N/A — signal emission at chapter-boundary state transitions (3 per chapter), not in `_process` / `_physics_process` hot loop. No frame-budget impact expected. Per `.claude/rules/engine-code.md`: emit cost is constant-time signal dispatch + deferred-frame subscriber handler invocation; total across a chapter is O(3) emissions = negligible.
+
 **Control Manifest Rules (Core layer)**:
 - Required: ScenarioRunner is the **sole emitter** of `save_checkpoint_requested(ctx)` per CR-SL-8 + ADR-0001 sole-emitter discipline. No other system may emit this signal.
 - Required: All ScenarioRunner GameBus emissions use the existing autoload pattern (`GameBus.signal.emit(payload)`); no new signal-routing infrastructure needed.
@@ -47,7 +49,7 @@
 
 *From ADR-0017 + ADR-0003 + GDD §3.2 CR-SL-5..8:*
 
-1. **3 emission call sites in `src/feature/scenario_runner/scenario_runner.gd`** (file currently exists; story shipped at sprint-7 S7-02 ba02e02). Locate the state machine entry handlers:
+1. **3 emission call sites in `src/core/scenario_runner.gd`** (file currently exists; story shipped at sprint-7 S7-02 ba02e02). Locate the state machine entry handlers:
    - Site 1 — BEAT_1_INTRO entry handler (CP-1): emits with `last_cp=1`, `chapter_id=current_chapter.id`, `chapter_number=current_chapter.number`, `outcome=0` (no resolution yet), `branch_key=&""` (no branch yet)
    - Site 2 — `_on_battle_outcome_resolved(...)` post-Beat-7 SceneManager RETURNING_FROM_BATTLE→IDLE observer (CP-2): emits with `last_cp=2`, `outcome=BattleOutcome.{WIN|DRAW|LOSS}_AS_INT` per resolution, `branch_key=resolved.branch_key` per F-DB-1, `chapter_id` + `chapter_number` carried from current_chapter.
    - Site 3 — Next-chapter BEAT_1_INTRO entry handler (CP-3): same payload as Site 1 BUT `last_cp=3` AND `chapter_number=N+1`. Distinguishes "fresh chapter start" from "first save after a successful transition" per CR-SL-5. ScenarioRunner emits CP-3 of Chapter N at the same timing as CP-1 of Chapter N+1 — see CR-SL-5 + AC-SL-4 note.

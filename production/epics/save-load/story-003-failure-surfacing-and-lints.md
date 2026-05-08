@@ -72,7 +72,7 @@
    - Negative test recipe: introduce `var captured_singleton = SaveManager` outside a lambda + reference inside → re-run → assert Exit 1 → revert
 
 3. **Lint #8 — `tools/ci/lint_save_context_export_discipline.sh`** (CR-SL-2 enforcement):
-   - Pattern: every `var <name>: <type>` declaration in `src/core/save_context.gd` AND `src/core/echo_mark.gd` (any future Resource-derived classes that participate in save serialization) MUST be preceded by `@export` annotation on the line above
+   - Pattern: every `var <name>: <type>` declaration in `src/core/payloads/save_context.gd` AND `src/core/payloads/echo_mark.gd` (any future Resource-derived classes that participate in save serialization) MUST be preceded by `@export` annotation on the line above
    - Recipe: parse each file line-by-line; for each `^\s*var\s+\w+:` line, verify the prior non-empty non-comment line is `@export` OR `@export_*` variant
    - Exit code: 0 on PASS (every var line has @export prior); 1 on FAIL with line numbers + missing-annotation field names
    - Negative test recipe: remove `@export` from one SaveContext field → re-run → assert Exit 1 → revert
