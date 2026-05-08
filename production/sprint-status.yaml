@@ -11,7 +11,7 @@ goal: "Close gate-check 2026-05-08 CONCERNS: Pillar 3/4 demo (S12-02) + sprint-1
 start: "2026-05-09"
 end: "2026-05-11"
 generated: "2026-05-08"
-updated: "2026-05-08 — save-load story-003 epic-terminal Complete (13 tests; 1266/1266 PASS 56th FFB; 3 lints + verif summary); SAVE-LOAD 3/3 🎉; #17 Implemented"
+updated: "2026-05-08 — S12-02 SHIPPED: chapter-prototype-demo 1/1 epic-terminal (Pillar 4 atmospheric REWRITTEN; aa55969; 7 tests; 1273/1273 57th FFB; gate-check item 3 closed)"
 
 # Sprint-11 closed 2026-05-08: 11/11 claude-owned ✓ (Must 4 + Should 4 + Nice-claude 3); 7-of-7 sprint-10 retro AIs closed (project first); 52nd FFB; 36-streak hygiene; commits b1e10a0 → e70ecba.
 # Sprint-11 retro: production/retrospectives/retro-sprint-11-2026-05-08.md (7 sprint-12 AIs seeded).
@@ -45,13 +45,14 @@ stories:
 
   - id: "S12-02"
     name: "Pillar 3 OR Pillar 4 player-facing demonstration — close gate-check 2026-05-08 path-to-PASS item 3 (CD-refined target)"
-    file: ""  # Option A (recommended): prototypes/chapter-prototype/ updates + battle-hud reserved-color treatment + 1 audio asset; Option B: chapter-1 narrative beat + Story Event #10 stub
+    file: "production/epics/chapter-prototype-demo/story-001-pillar-4-atmospheric-moment.md"  # Option A chosen: prototypes/chapter-prototype/ atmospheric REWRITTEN-branch synthesized-cue route
     priority: must-have
-    status: ready-for-dev
-    owner: ""
+    status: done
+    owner: "claude"
     estimate_days: 1.0
     blocker: ""
-    completed: ""
+    completed: "2026-05-08"
+    # 2026-05-08 — SHIPPED: chapter-prototype-demo 1/1 epic-terminal; aa55969; 7 tests; 1273/1273 PASS 57th FFB; gate-check item 3 closed. See sprint-status-history.md S12-02
 
   - id: "S12-03"
     name: "/gate-check pre-prod-to-prod re-run at sprint-12 close — sprint-11 retro AI #1 follow-through; potentially flips stage.txt Pre-Production → Production"

@@ -1,7 +1,7 @@
 # Story 001: Pillar 4 Atmospheric Moment Dispatch (REWRITTEN branch)
 
 > **Epic**: Chapter Prototype Demo
-> **Status**: Ready
+> **Status**: Complete (2026-05-08; sprint-12 S12-02; commit `aa55969`; 7 tests; 1273/1273 PASS 57th FFB; epic-terminal close 1/1)
 > **Layer**: Demo (prototype-isolated)
 > **Type**: Integration
 > **Manifest Version**: (n/a — prototype-isolated; control-manifest does not gate prototype code per `.claude/rules/prototype-code.md`)
@@ -141,3 +141,30 @@ format. Developer implements against these specs.*
 - **Frame budget impact**: <0.5ms per frame during atmospheric envelope (1.7s window). ColorRect modulate animation is GPU-trivial; AudioStreamGenerator buffer feed is one-time at scene-enter.
 - **Memory impact**: ~414 KiB for pre-baked PackedVector2Array (44100 Hz × 1.2s × 8 bytes per Vector2 stereo sample ≈ 423,360 bytes). One-time allocation per chapter scene load; freed at scene exit.
 - **Headless test runtime**: <2.0s (dwell + cue envelope = 1.7s; setup + teardown overhead ~0.3s).
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-08 (sprint-12 S12-02; implementation commit `aa55969` /dev-story patch; close-out via /story-done same day)
+**Criteria**: 7/7 PASSING (all auto-verified via `tests/integration/chapter_prototype/atmospheric_moment_test.gd` 7 functions + full-suite green)
+**Test Coverage**: 100% AC-COVERED via 7 granular test functions (vs spec's 1-composite expectation — better failure isolation)
+**Test budget**: spec called for +1; actual +7 (1266 → 1273); **57th consecutive failure-free baseline** (130/130 suites; 1273/1273 cases; 0 errors / 0 failures / 0 flaky / 0 skipped / 0 orphans)
+
+**Deviations from spec** (4 advisory; none harmful; all documented; no tech-debt entries warranted):
+1. **Test count +7 instead of +1** — agent split AC coverage into 7 granular tests instead of 1 composite. Better failure-isolation; aligned with story's QA Test Cases table (which already enumerated 7 distinct cases). Spec/implementation drift in story's `## Performance Budget` ("1267" target) — actual outcome cleaner.
+2. **`prototypes/chapter-prototype/chapter.tscn` NOT edited** — story's `## Affected Systems` table listed it but the .tscn file is empty (13 lines: Control root + script attach only); all UI in chapter-prototype is programmatic per existing convention. Atmospheric ColorRect + AudioStreamPlayer added programmatically in `_ready()` via `_build_atmospheric_nodes()`. Implementation cleaner than story-spec assumed.
+3. **`AudioStreamGenerator.push_buffer()` bool return not checked** — sample-drop indicator. Acceptable for prototype per `.claude/rules/prototype-code.md` relaxed standards; production-port should check + handle. Documented in Engine Risks section of /dev-story summary.
+4. **`tests/integration/chapter_prototype/` directory created** — was implied by Test Evidence path but not explicitly listed in story's Affected Systems table. Required for the test file to land in conventional location.
+
+**Test Evidence**: Integration story — `tests/integration/chapter_prototype/atmospheric_moment_test.gd` (445 LoC; 7 functions; covers AC-S12-02-1..6; G-3/G-6/G-15 gotcha-aware per docstring; headless-audio caveat documented)
+
+**Code Review**: APPROVED (manual lean review per prototype-relaxed standards + AI #9 mitigation; no specialist spawn; verdict committed inline at conversation 2026-05-08)
+
+**AI #9 codification ratchet** (sprint-12 retro candidate): godot-gdscript-specialist mid-execution stall pattern stable at **4 invocations** now (was 2 at sprint-12 entry; +2 this story — first-spawn + continuation-spawn during /dev-story). Final-report had hallucinated `src/chapter_prototype/atmospheric_moment.gd` path; `git status` verification revealed actual files correctly prototype-scoped. **Codification strengthened**: pre-authorize end-to-end execution (already in retro AI #9) + verify agent's final-report claims against `git status` before trusting narration. Recommend codification at sprint-12 retro.
+
+**Cross-pillar effects** (mechanically observable for first time):
+- **Pillar 4 (삼국지의 숨결)** atmospheric layer demonstrated in-prototype on REWRITTEN branch (reserved colors 주홍 + 금색 + synthesized 묵 hum + 1.5s ceremonial dwell)
+- **Gate-check 2026-05-08 path-to-PASS item 3** ("≥1 player-facing Pillar 3/4 demonstration") — **CLOSED** by this story's ship
+- **chapter-prototype-demo epic** graduates 1/1 — first **Demo-layer epic** in the project; establishes precedent for prototype-side `/quick-design` → `/create-stories` → `/dev-story` chain when design source is not architecturally an epic
+- **REPORT.md Pillar 4 verdict upgraded**: "substrate present" → "substrate present + atmospheric demonstration shipped"

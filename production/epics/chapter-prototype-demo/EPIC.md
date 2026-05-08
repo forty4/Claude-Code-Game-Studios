@@ -1,6 +1,6 @@
 # Epic: Chapter Prototype Demo (Pillar 4 Atmospheric Moment)
 
-> **Status**: In Progress (1 story planned)
+> **Status**: Complete (1/1 stories shipped — sprint-12 S12-02 epic-terminal close 2026-05-08; commit `aa55969` /dev-story + this commit /story-done; 7 tests; 1273/1273 PASS 57th FFB; gate-check 2026-05-08 path-to-PASS item 3 closed; first Demo-layer epic in project) 🎉
 > **Layer**: Demo (prototype-isolated; not production)
 > **Created**: 2026-05-08 (S12-02 sprint task)
 > **Sprint**: sprint-12 (Must-Have)
@@ -42,7 +42,7 @@ tween are stable; modulate-α animation is stable. No post-cutoff API usage.
 
 | # | Story | Type | Status | ADR |
 |---|-------|------|--------|-----|
-| 001 | Pillar 4 atmospheric moment dispatch on REWRITTEN | Integration | Ready | None (prototype) |
+| 001 | Pillar 4 atmospheric moment dispatch on REWRITTEN | Integration | Complete (S12-02 sprint-12 close 2026-05-08; commit `aa55969`; 7 tests; 1273/1273 PASS 57th FFB) | None (prototype) |
 
 ## Pillar Coverage
 
