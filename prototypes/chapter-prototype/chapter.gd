@@ -4,10 +4,23 @@
 #   coherent loop?
 # Date: 2026-05-02
 # Scope: 1 chapter ("장판파") with 4 phases (story → party → battle → fate result)
+# S12-02 (2026-05-08): Pillar 4 atmospheric moment — REWRITTEN branch overlay + audio cue.
 
 extends Control
 
 const BattleV2 := preload("res://prototypes/chapter-prototype/battle_v2.gd")
+
+# ─── Pillar 4 atmospheric moment tuning knobs (inline per prototype-code rules) ──
+
+const RESERVED_COLOR_VERMILION: Color = Color8(0xC0, 0x39, 0x2B)  # 주홍 — Beat 7 panel tint
+const RESERVED_COLOR_GOLD: Color = Color8(0xD4, 0xA0, 0x17)       # 금색 — Beat 7 title color
+const DWELL_LOCKOUT_S: float = 1.5                                  # dwell window in seconds
+const PANEL_TINT_ALPHA: float = 0.35                                # wash, not solid
+const AUDIO_CUE_FUNDAMENTAL_HZ: float = 220.0                       # 묵 wash low-hum
+const AUDIO_CUE_HARMONIC_HZ: float = 330.0                          # perfect-fifth-ish ceremonial
+const AUDIO_CUE_DURATION_S: float = 1.2                             # aligns with dwell envelope
+const AUDIO_CUE_VOLUME_DB: float = -12.0                            # ducks below result text
+const AUDIO_CUE_MIX_RATE: float = 44100.0                           # standard CD-quality mix rate
 
 # ─── Story dialog (Phase 1) ──────────────────────────────────────────────────
 
@@ -80,12 +93,18 @@ var _phase: int = 0   # 0=story, 1=party, 2=battle, 3=result
 var _story_index: int = 0
 var _selected_party: Array[String] = ["zhang_fei", "zhao_yun"]  # forced members start selected
 var _battle_outcome: Dictionary = {}
+var _last_branch: String = ""  # captured from _judge_fate() for atmospheric dispatch
 
 # Panel references (built dynamically in _ready)
 var _story_panel: Control
 var _party_panel: Control
 var _battle_panel: Node2D
 var _result_panel: Control
+
+# Atmospheric moment nodes (created in _ready after _result_panel exists)
+var _atmospheric_overlay: ColorRect
+var _atmospheric_audio: AudioStreamPlayer
+var _atmospheric_buffer: PackedVector2Array  # pre-baked 묵 hum stereo samples
 
 # ─── Lifecycle ──────────────────────────────────────────────────────────────
 
@@ -101,7 +120,60 @@ func _ready() -> void:
 		# Scale content 2x — keeps internal coords at 820x760 but renders 2x larger
 		get_window().content_scale_factor = 2.0
 	_build_all_panels()
+	_prebake_atmospheric_audio()
+	_build_atmospheric_nodes()
 	_show_story_phase()
+
+# Pre-bake the 묵 hum audio buffer into a PackedVector2Array (stereo).
+# Envelope: ease-in 0..0.2s → sustain 0.2..0.8s → ease-out decay 0.8..1.2s.
+# Formula: value = (sin(2π × 220 × t) + 0.5 × sin(2π × 330 × t)) × envelope(t)
+func _prebake_atmospheric_audio() -> void:
+	var total_frames: int = int(AUDIO_CUE_MIX_RATE * AUDIO_CUE_DURATION_S)  # ~52920
+	_atmospheric_buffer = PackedVector2Array()
+	_atmospheric_buffer.resize(total_frames)
+	var attack_end: float = 0.2
+	var sustain_end: float = 0.8
+	var decay_end: float = AUDIO_CUE_DURATION_S
+	for i: int in total_frames:
+		var t: float = float(i) / AUDIO_CUE_MIX_RATE
+		# Envelope calculation
+		var env: float
+		if t < attack_end:
+			# ease-in: quadratic ramp 0→1 over [0, 0.2s]
+			var p: float = t / attack_end
+			env = p * p
+		elif t < sustain_end:
+			# sustain: full amplitude
+			env = 1.0
+		else:
+			# ease-out decay: quadratic ramp 1→0 over [0.8s, 1.2s]
+			var p: float = (t - sustain_end) / (decay_end - sustain_end)
+			env = (1.0 - p) * (1.0 - p)
+		var sample: float = (sin(TAU * AUDIO_CUE_FUNDAMENTAL_HZ * t) +
+				0.5 * sin(TAU * AUDIO_CUE_HARMONIC_HZ * t)) * env
+		_atmospheric_buffer[i] = Vector2(sample, sample)  # L = R (mono-to-stereo)
+
+# Create overlay ColorRect and AudioStreamPlayer under _result_panel.
+# Called after _build_all_panels() so _result_panel already exists.
+func _build_atmospheric_nodes() -> void:
+	# ColorRect overlay — sits over result panel content; MOUSE_FILTER_IGNORE so clicks pass through
+	_atmospheric_overlay = ColorRect.new()
+	_atmospheric_overlay.name = "AtmosphericOverlay"
+	_atmospheric_overlay.size = _result_panel.size
+	_atmospheric_overlay.color = RESERVED_COLOR_VERMILION
+	_atmospheric_overlay.modulate.a = 0.0
+	_atmospheric_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_result_panel.add_child(_atmospheric_overlay)
+
+	# AudioStreamPlayer — uses AudioStreamGenerator for synthesized hum playback
+	var stream: AudioStreamGenerator = AudioStreamGenerator.new()
+	stream.mix_rate = AUDIO_CUE_MIX_RATE
+	stream.buffer_length = 0.1
+	_atmospheric_audio = AudioStreamPlayer.new()
+	_atmospheric_audio.name = "AtmosphericAudio"
+	_atmospheric_audio.stream = stream
+	_atmospheric_audio.volume_db = AUDIO_CUE_VOLUME_DB
+	_result_panel.add_child(_atmospheric_audio)
 
 # ─── Build: Phase 1 — Story panel ────────────────────────────────────────────
 
@@ -398,6 +470,45 @@ func _show_result_phase() -> void:
 	_result_panel.visible = true
 	_judge_fate()
 
+	if _last_branch == "REWRITTEN":
+		await _dispatch_atmospheric_moment()
+
+# Dispatch the Pillar 4 atmospheric moment for the REWRITTEN branch.
+# Sequence: overlay fade-in → audio cue → dwell lockout → overlay fade-out → re-enable buttons.
+func _dispatch_atmospheric_moment() -> void:
+	var retry_btn: Button = _result_panel.get_node("RetryButton")
+	var quit_btn: Button = _result_panel.get_node("QuitButton")
+
+	# Defensive reset — ensure clean state in case of re-entry
+	_atmospheric_overlay.modulate.a = 0.0
+	if _atmospheric_audio.playing:
+		_atmospheric_audio.stop()
+
+	# Disable buttons for dwell lockout (AC-S12-02-3)
+	retry_btn.disabled = true
+	quit_btn.disabled = true
+
+	# Fade overlay in (AC-S12-02-1): 0 → PANEL_TINT_ALPHA over 0.4s easeOut
+	var tween_in: Tween = create_tween()
+	tween_in.tween_property(_atmospheric_overlay, "modulate:a", PANEL_TINT_ALPHA, 0.4).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+	# Emit audio cue (AC-S12-02-2): play then push pre-baked buffer
+	_atmospheric_audio.play()
+	var playback: AudioStreamGeneratorPlayback = _atmospheric_audio.get_stream_playback() as AudioStreamGeneratorPlayback
+	if playback != null:
+		playback.push_buffer(_atmospheric_buffer)
+
+	# Dwell lockout — 1.5s per AC-SP-9
+	await get_tree().create_timer(DWELL_LOCKOUT_S).timeout
+
+	# Fade overlay out: PANEL_TINT_ALPHA → 0 over 0.2s easeIn
+	var tween_out: Tween = create_tween()
+	tween_out.tween_property(_atmospheric_overlay, "modulate:a", 0.0, 0.2).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+
+	# Re-enable buttons after dwell
+	retry_btn.disabled = false
+	quit_btn.disabled = false
+
 func _judge_fate() -> void:
 	var fate: Dictionary = _battle_outcome.get("fate_data", {})
 	var any_player_alive: bool = false
@@ -430,7 +541,7 @@ func _judge_fate() -> void:
 		if c1 and c2 and c3 and c4 and c5:
 			branch = "REWRITTEN"
 			title_text = "운명 역전 (HISTORY REWRITTEN!)"
-			title_color = Color(1, 0.85, 0.2)
+			title_color = RESERVED_COLOR_GOLD  # AC-S12-02-4: canonical 금색 #D4A017
 			body_text = RESULT_REWRITTEN
 		elif any_enemy_alive and conditions_met < 3:
 			branch = "HISTORICAL"
@@ -442,6 +553,8 @@ func _judge_fate() -> void:
 			title_text = "부분 성공 (PARTIAL)"
 			title_color = Color(0.6, 0.85, 0.95)
 			body_text = RESULT_PARTIAL
+
+	_last_branch = branch  # captured for atmospheric dispatch in _show_result_phase()
 
 	var title: Label = _result_panel.get_node("ResultTitle")
 	title.text = title_text
@@ -473,9 +586,20 @@ func _count_fate_conditions(fate: Dictionary) -> int:
 	return n
 
 func _on_retry() -> void:
+	# Defensive atmospheric reset — prevents stacked dispatches on re-entry
+	_atmospheric_overlay.modulate.a = 0.0
+	if _atmospheric_audio.playing:
+		_atmospheric_audio.stop()
+	# Re-enable buttons in case retry fires before dwell completes (edge case guard)
+	var retry_btn: Button = _result_panel.get_node("RetryButton")
+	var quit_btn: Button = _result_panel.get_node("QuitButton")
+	retry_btn.disabled = false
+	quit_btn.disabled = false
+
 	# Reset selection + outcome, return to story phase
 	_selected_party = ["zhang_fei", "zhao_yun"]
 	_battle_outcome = {}
+	_last_branch = ""
 	# Reset party-panel UI checkboxes
 	for hero: Dictionary in HERO_OPTIONS:
 		var card: Button = _party_panel.get_node("Card_" + String(hero["id"]))

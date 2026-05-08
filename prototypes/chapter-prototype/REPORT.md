@@ -98,6 +98,10 @@ The party-select forces 장비 + 조운 (story-locked) and asks the player to pi
 
 **What's NOT verified**: whether the framing is felt as story-integration or skipped as boilerplate. The prototype does not branch the dialog content based on *which* branch was achieved across replays; replays land back at the same story intro.
 
+**Sprint-12 S12-02 update (2026-05-08) — atmospheric demonstration shipped on REWRITTEN branch:**
+The REWRITTEN branch now demonstrates an atmospheric moment in-prototype: reserved colors 주홍 `#C0392B` and 금색 `#D4A017` are applied per Art Bible; a synthesized 묵 hum audio cue (220 Hz fundamental + 330 Hz harmonic, 1.2 s) plays on branch resolution; a 1.5 s dwell lockout prevents UI interaction during the moment per AC-SP-9. Integration coverage: `tests/integration/chapter_prototype/atmospheric_moment_test.gd` — 7 test functions covering all 7 ACs (color application, audio generation, dwell lockout, result-screen integration, skip-on-non-REWRITTEN, silence after dwell, and end-of-test cleanup). Test suite: 1266 baseline → 1273 total, 1273/1273 PASS.
+**Pillar 4 verdict upgraded: substrate present + atmospheric demonstration shipped.** The code now proves not only that narrative text wraps outcomes, but that a sensory/atmospheric layer (color + audio + pacing) can be wired to the fate result with no engine-level obstacles. Subjective quality — whether the 묵 hum and color shift *feel* evocative rather than mechanical — remains a playtest question.
+
 ---
 
 ## MVP Core Hypothesis Assessment
