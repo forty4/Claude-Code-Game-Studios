@@ -91,7 +91,7 @@ Routing: this epic is the **Core-layer consumer** of save-manager's Platform sub
 
 | # | Story | File | Type | Status | ADR | Covers |
 |---|-------|------|------|--------|-----|--------|
-| 001 | ScenarioRunner CP-1/2/3 emission contract | [story-001-scenario-runner-cp-emission.md](story-001-scenario-runner-cp-emission.md) | Integration | Ready | ADR-0017 + ADR-0003 + ADR-0002 | TR-save-load-008/009/010/011; AC-SL-1..4; CR-SL-5..8 |
+| 001 | ScenarioRunner CP-1/2/3 emission contract | [story-001-scenario-runner-cp-emission.md](story-001-scenario-runner-cp-emission.md) | Integration | Complete (2026-05-08 sprint-12 follow-on; 8 tests; 1244/1244 PASS 53rd FFB; integration test at tests/integration/scenario_runner/save_checkpoint_emission_test.gd; zero production code modified — emit sites already shipped at S7-02 ba02e02) | ADR-0017 + ADR-0003 + ADR-0002 | TR-save-load-008/009/010/011; AC-SL-1..4; CR-SL-5..8 |
 | 002 | Cross-chapter continuity — Destiny State populator + `save_loaded` signal addition + idempotent hydration | [story-002-cross-chapter-continuity.md](story-002-cross-chapter-continuity.md) | Integration | Ready | ADR-0003 + ADR-0001 + ADR-0017 | TR-save-load-012/013/014/015; AC-SL-12..14 + AC-SL-20; CR-SL-15..20 |
 | 003 | Failure surfacing tests + 3 enforcement lints + systems-index row 17 flip (epic-terminal) | [story-003-failure-surfacing-and-lints.md](story-003-failure-surfacing-and-lints.md) | Integration | Ready | ADR-0003 + ADR-0001 | TR-save-load-016/017/018/019/020; AC-SL-15..17 + 7 epic-terminal AC; CR-SL-2/11/13/21/22 |
 
