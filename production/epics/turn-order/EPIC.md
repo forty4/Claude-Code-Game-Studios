@@ -3,8 +3,8 @@
 > **Layer**: Core
 > **GDD**: `design/gdd/turn-order.md` (Accepted via ADR-0011 2026-04-30; Contract 5 layer-invariant resolution prose added 2026-05-01 via S2-06)
 > **Architecture Module**: TurnOrderRunner — battle-scoped Node child of BattleScene (`class_name TurnOrderRunner extends Node`), created at battle-init via Battle Preparation, freed automatically with BattleScene per ADR-0002 SceneManager teardown
-> **Status**: Ready
-> **Stories**: 7/7 created (2026-05-01) — see Stories table below
+> **Status**: Complete (2026-05-02) — 7/7 stories shipped; battle-scoped Node form epic closed
+> **Stories**: 7/7 created (2026-05-01); **7/7 Complete (2026-05-02)** — see Stories table below
 > **Manifest Version**: 2026-04-20 (`docs/architecture/control-manifest.md`)
 > **Created**: 2026-05-01 (Sprint 2 S2-08 — `/create-epics turn-order`)
 > **Stories Created**: 2026-05-01 (Sprint 2 S2-08 — `/create-stories turn-order`)

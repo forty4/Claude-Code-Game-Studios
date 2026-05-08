@@ -3,8 +3,8 @@
 > **Layer**: Foundation
 > **GDD**: `design/gdd/balance-data.md` (Designed; ratified by ADR-0006)
 > **Architecture Module**: BalanceConstants — Foundation-layer data infrastructure (`src/foundation/balance/balance_constants.gd` post-relocation)
-> **Status**: Ready
-> **Stories**: 5/5 created (2026-04-30) — see Stories table below
+> **Status**: Complete (2026-05-01) — 5/5 stories shipped; ratification epic closed
+> **Stories**: 5/5 created (2026-04-30); **5/5 Complete (2026-05-01)** — see Stories table below
 > **Manifest Version**: 2026-04-20 (`docs/architecture/control-manifest.md`)
 > **Created**: 2026-04-30 (Sprint 2 S2-01)
 

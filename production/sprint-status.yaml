@@ -11,7 +11,7 @@ goal: "Close gate-check 2026-05-08 CONCERNS: Pillar 3/4 demo (S12-02) + sprint-1
 start: "2026-05-09"
 end: "2026-05-11"
 generated: "2026-05-08"
-updated: "2026-05-08 — S12-02 SHIPPED: chapter-prototype-demo 1/1 epic-terminal (Pillar 4 atmospheric REWRITTEN; aa55969; 7 tests; 1273/1273 57th FFB; gate-check item 3 closed)"
+updated: "2026-05-08 — S12-04 done: lint_story_status_consistency 33-drift cleared via 4 surgical edits + CI wire (1273/1273 58th FFB; 42-streak hygiene close)"
 
 # Sprint-11 closed 2026-05-08: 11/11 claude-owned ✓ (Must 4 + Should 4 + Nice-claude 3); 7-of-7 sprint-10 retro AIs closed (project first); 52nd FFB; 36-streak hygiene; commits b1e10a0 → e70ecba.
 # Sprint-11 retro: production/retrospectives/retro-sprint-11-2026-05-08.md (7 sprint-12 AIs seeded).
@@ -68,11 +68,12 @@ stories:
     name: "lint_story_status_consistency 33-drift bulk cleanup — sprint-11 retro AI #3; CI wiring same-patch"
     file: ""  # bulk EDIT across 33 production/epics/**/EPIC.md + production/epics/index.md rows + .github/workflows/tests.yml CI wiring
     priority: should-have
-    status: backlog
-    owner: ""
+    status: done
+    owner: "claude"
     estimate_days: 0.5
     blocker: ""
-    completed: ""
+    completed: "2026-05-08"
+    # 2026-05-08 — done: 33 lint drifts cleared via 4 surgical edits (balance-data+turn-order EPIC.md headers; damage-calc+input-handling index.md); CI wire same-patch; 1273/1273 58th FFB
 
   - id: "S12-05"
     name: "TODO triage Address actions bundle (5 items) — sprint-11 retro AI #4; post-cleanup TODO count 5→2"
