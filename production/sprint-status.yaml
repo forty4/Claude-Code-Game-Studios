@@ -6,145 +6,135 @@
 #   - Verify with: awk '{if (length($0) > 200) print NR}' production/sprint-status.yaml
 #   - Enforced by /story-done Phase 7 step 4.
 
-sprint: 12
-goal: "Close gate-check 2026-05-08 CONCERNS: Pillar 3/4 demo (S12-02) + sprint-11 retro AIs + S7-11/S8-15 attestations; potentially flip stage.txt at sprint-12 close gate-check re-run."
-start: "2026-05-09"
-end: "2026-05-11"
-generated: "2026-05-08"
-updated: "2026-05-09 — S12-06 done: §11 USER-OWNED 5th-carry HARD GATE rule added to decisions-convention.md; S7-11 fires at sprint-13 entry; S8-15 below; 1273/1273 63rd FFB; 47-streak"
+sprint: 13
+goal: "Resolve §11 5th-carry HARD GATE (S12-10 disposition (a) user-attested) + S12-11 carry + S12-03 close-gate rerun + 2 codification AIs (anchored-regex + byte-cap) + §7 promotion call."
+start: "2026-05-10"
+end: "2026-05-12"
+generated: "2026-05-09"
+updated: "2026-05-09 — sprint-13 plan generated; closure-leaning HYBRID; §11 HARD GATE bound at entry per §11.3; user disposition (a) user-attested; 4-of-5 closure signals satisfied"
 
-# Sprint-11 closed 2026-05-08: 11/11 claude-owned ✓ (Must 4 + Should 4 + Nice-claude 3); 7-of-7 sprint-10 retro AIs closed (project first); 52nd FFB; 36-streak hygiene; commits b1e10a0 → e70ecba.
-# Sprint-11 retro: production/retrospectives/retro-sprint-11-2026-05-08.md (7 sprint-12 AIs seeded).
-# Sprint-11 history archive: production/sprint-status-history.md ## Sprint 11 section.
-# Gate-check 2026-05-08: production/gate-checks/pre-prod-to-prod-2026-05-08.md — CONCERNS verdict (3× READY TD+PR+AD + 1× CONCERNS CD); 3 path-to-PASS items (S7-11 + S8-15 + Pillar 3/4 demo).
+# Sprint-12 closed 2026-05-09: 8/8 canonical ✓ + 3 bonus save-load + S12-03 blocker-bound + 2 USER-OWNED pending; APPROVED W/ COND; 1273/1273 64th FFB; 47-streak; 779f614→fc9adfb.
+# Sprint-12 retro: production/retrospectives/retro-sprint-12-2026-05-09.md (10 sprint-13 AIs seeded; 2 codification AIs forward-debt #5+#6).
+# Sprint-12 history archive: production/sprint-status-history.md ## Sprint 12 section.
+# Gate-check 2026-05-08-rerun: CONCERNS verdict (items 3a + 3b CLOSED; items 1 + 2 USER-OWNED still pending). Sprint-13 close-gate re-runs after attestations land.
 
-# Carryover-Backlog (per sprint-9 retro AI #2 codified at sprint-11 S11-01 — must list deferred items in dedicated section ahead of new scope; sustained sprint-12):
-#   - S11-12 S7-11 user attestation (5th-time USER-OWNED carryover; project record; threshold codification candidate per S12-06) → S12-10 USER-OWNED Nice
-#   - S11-13 S8-15 user attestation (3rd-time USER-OWNED carryover) → S12-11 USER-OWNED Nice
+# Carryover-Backlog (per sprint-9 retro AI #2 codified at sprint-11 S11-01 + §11.4 Trigger 1 binding obligation per S12-06):
+#   - S12-10 S7-11 (6th-carry USER-OWNED; PROJECT-RECORD; §11 HARD GATE BOUND at sprint-13 entry) → S13-02 USER-OWNED CRITICAL Must (disposition (a) per user)
+#   - S12-11 S8-15 user attestation (4th-time USER-OWNED carryover; below 5-time threshold) → S13-10 USER-OWNED Should (normal carry)
+#   - S12-03 close-gate rerun (1st-time blocker-bound) → S13-03 Must (re-runs after S13-02 + S13-10 land)
 
-# Sprint-12 retro AI seeds (carry from sprint-11 retro + gate-check 2026-05-08):
-#   AI #1 (sustained sprint-7→8→9→10→11→12): Codification debt MUST be paid at retro time.
-#   AI #2 (sustained sprint-9→10→11→12): Carryover concentration ≥4 — sprint-12 entry has 2 USER-OWNED; validate post-absorption.
-#   AI #3 (sustained sprint-9→10→11→12; pattern stable at 4 invocations as of S11-02): BACKFILL CLOSE-OUT verdict — sprint-12 may not invoke if no drift surfaces.
-#   AI #4 (validated 3rd time sprint-11): Mixed-mode velocity multiplier — sprint-12 reverts to mixed mode; re-validate ±20%.
-#   AI #5 NEW: Sprint-12 close gate-check re-evaluation — verify S12-02 demo + S12-10/11 attestations upgrade verdict CONCERNS → PASS (stage.txt flip eligible).
-#   AI #6 NEW: Closure-mode sprint pattern decision (S12-07) — embraced / reserved / hybrid; feeds sprint-13 plan.
-#   AI #7 NEW: USER-OWNED 5th-time threshold codification (S12-06) live application — does new rule unblock S7-11/S8-15 OR rename holding pattern?
+# Sprint-13 retro AI seeds (carry from sprint-12 retro + §11 first-binding outcome):
+#   AI #1 (sustained sprint-7→8→9→10→11→12→13): Codification debt MUST be paid at retro time.
+#   AI #2 (sustained sprint-9→10→11→12→13): Carryover concentration ≥4 — sprint-13 entry has 3 (well below); validate post-absorption.
+#   AI #3 (pattern stable 4 invocations): BACKFILL CLOSE-OUT verdict — sprint-13 may not invoke if no drift surfaces.
+#   AI #4 (validated 4th time sprint-12 heavy-closure boundary): Mixed-mode velocity multiplier — sprint-13 closure-leaning re-validates ÷~4.
+#   AI #5 Sprint-13 close gate-check evaluation (verify §11 binding fulfillment + S13-03 verdict).
+#   AI #6 §11 HARD GATE rule live-binding outcome — does (a) user-attested actually close S7-11 OR rename holding pattern? Validate at sprint-13 retro.
+#   AI #7 Closure-mode HYBRID first live signal-evaluation outcome (S13-07) — does signal count match user-perceived sprint mode?
+#   AI #8 production/decisions/ §7 promotion outcome (S13-06) — Route a vs Route c retention decision.
+#   AI #9 First sprint to enter with §11.3 Live application table binding — codify pattern of "structural pre-flight obligations" for sprint-14+.
+#   AI #10 NEW: /story-readiness path-verification gap — sprint-12 fired 3 times; threshold codification candidate at ≥4-invocation-stable.
 
 stories:
-  - id: "S12-01"
-    name: "/create-stories save-load — flesh out 3-story decomposition from S11-07 EPIC.md into ready-for-/dev-story files"
-    file: "production/epics/save-load/"  # 3 NEW story files authored: story-001-scenario-runner-cp-emission.md + story-002-cross-chapter-continuity.md + story-003-failure-surfacing-and-lints.md
+  - id: "S13-01"
+    name: "§11 HARD GATE pre-flight verification — verify Carryover Backlog table includes S12-10 disposition (a) per §11.4 Trigger 1; sprint-12 retro AI #1 CRITICAL closure"
+    file: "production/sprints/sprint-13.md"
     priority: must-have
-    status: done
+    status: ready-for-dev
     owner: "claude"
-    estimate_days: 0.3
+    estimate_days: 0.05
     blocker: ""
-    completed: "2026-05-08"
-    # 2026-05-08 — SHIPPED: 3 story files per /create-stories convention; EPIC.md Stories table → Ready; lean QL-STORY-READY skipped; ready /story-readiness → /dev-story
-
-  - id: "S12-02"
-    name: "Pillar 3 OR Pillar 4 player-facing demonstration — close gate-check 2026-05-08 path-to-PASS item 3 (CD-refined target)"
-    file: "production/epics/chapter-prototype-demo/story-001-pillar-4-atmospheric-moment.md"  # Option A chosen: prototypes/chapter-prototype/ atmospheric REWRITTEN-branch synthesized-cue route
-    priority: must-have
-    status: done
-    owner: "claude"
-    estimate_days: 1.0
-    blocker: ""
-    completed: "2026-05-08"
-    # 2026-05-08 — SHIPPED: chapter-prototype-demo 1/1 epic-terminal; aa55969; 7 tests; 1273/1273 PASS 57th FFB; gate-check item 3 closed. See sprint-status-history.md S12-02
-
-  - id: "S12-03"
-    name: "/gate-check pre-prod-to-prod re-run at sprint-12 close — sprint-11 retro AI #1 follow-through; potentially flips stage.txt Pre-Production → Production"
-    file: "production/gate-checks/"  # NEW pre-prod-to-prod-2026-05-1?.md
-    priority: must-have
-    status: backlog
-    owner: ""
-    estimate_days: 0.1
-    blocker: "S12-02 demo + ideally S12-10 + S12-11 attestations"
     completed: ""
 
-  - id: "S12-04"
-    name: "lint_story_status_consistency 33-drift bulk cleanup — sprint-11 retro AI #3; CI wiring same-patch"
-    file: ""  # bulk EDIT across 33 production/epics/**/EPIC.md + production/epics/index.md rows + .github/workflows/tests.yml CI wiring
-    priority: should-have
-    status: done
-    owner: "claude"
-    estimate_days: 0.5
-    blocker: ""
-    completed: "2026-05-08"
-    # 2026-05-08 — done: 33 lint drifts cleared via 4 surgical edits (balance-data+turn-order EPIC.md headers; damage-calc+input-handling index.md); CI wire same-patch; 1273/1273 58th FFB
-
-  - id: "S12-05"
-    name: "TODO triage Address actions bundle (5 items) — sprint-11 retro AI #4; post-cleanup TODO count 5→2"
-    file: ""  # EDIT save_manager.gd:200 (TODO-02) + grid_battle_controller.gd:342+424 (TODO-04+05) + beat_cue.gd:6 (TODO-03 reformat) + TODO-01 disposition
-    priority: should-have
-    status: done
-    owner: "claude"
-    estimate_days: 0.2
-    blocker: ""
-    completed: "2026-05-09"
-    # 2026-05-09 — done: 5 TODOs triaged → 2 (TODO-01 perf-defer + TODO-04 Battle AI ADR-defer remain); 4 edits across 3 files; 1273/1273 59th FFB; 43-streak hygiene
-
-  - id: "S12-06"
-    name: "USER-OWNED 5th-time threshold codification — sprint-11 retro AI #7 + gate-check 2026-05-08 CD recommendation; explicit handling rule for S7-11/S8-15"
-    file: "docs/process/decisions-convention.md"  # SHIPPED §11 extension (HARD GATE at 5th-carry)
-    priority: should-have
-    status: done
-    owner: "claude"
-    estimate_days: 0.2
-    blocker: ""
-    completed: "2026-05-09"
-    # 2026-05-09 — done: §11 added to decisions-convention.md (HARD GATE at 5th-carry; user concurrence captured); S7-11 fires at sprint-13 entry; 1273/1273 63rd FFB; 47-streak
-
-  - id: "S12-07"
-    name: "Closure-mode sprint planning evaluation — sprint-11 retro AI #6 (producer call); decision per docs/process/decisions-convention.md template"
-    file: "production/decisions/closure-mode-sprint-pattern-2026-05-09.md"  # SHIPPED
-    priority: nice-to-have
-    status: done
-    owner: "claude"
-    estimate_days: 0.1
-    blocker: ""
-    completed: "2026-05-09"
-    # 2026-05-09 — done: HYBRID closure-mode pattern adopted (≥3-of-5 signals); decision doc authored; 1273/1273 60th FFB; 44-streak hygiene
-
-  - id: "S12-08"
-    name: "POLISH-006 Guan Yu + Zhang Fei character profile stubs — conditional on AD-flagged ADVISORY (gate-check 2026-05-08); polish-backlog entry OR full stubs"
-    file: "production/polish-backlog.md"  # SHIPPED (lightweight path)
-    priority: nice-to-have
-    status: done
-    owner: "claude"
-    estimate_days: 0.2  # conditional — 0d outcome if polish-backlog entry only; 0.2d if stubs authored
-    blocker: ""
-    completed: "2026-05-09"
-    # 2026-05-09 — done: POLISH-006 added to polish-backlog.md (lightweight path; no character-art sprint scheduled); Guan Yu + Zhang Fei stubs deferred; 1273/1273 62nd FFB; 46-streak
-
-  - id: "S12-09"
-    name: "tools/ci/lint_sprint_carryover_count.sh — sprint-11 retro AI #5 (optional automation candidate)"
-    file: "tools/ci/lint_sprint_carryover_count.sh"  # SHIPPED
-    priority: nice-to-have
-    status: done
-    owner: "claude"
-    estimate_days: 0.2
-    blocker: ""
-    completed: "2026-05-09"
-    # 2026-05-09 — done: lint authored + CI wired; PASS sprint-12 pre-carryover=2 == sprint-11 retro forecast=2 <4 threshold; 1273/1273 61st FFB; 45-streak hygiene
-
-  - id: "S12-10"
-    name: "S11-12 USER-OWNED carryover — S7-11 user attestation pass on 4 VS Validation items (5th-time carryover; project-record; threshold codification candidate per S12-06)"
+  - id: "S13-02"
+    name: "S12-10 S7-11 USER-OWNED CRITICAL — §11 disposition (a); user boots chapter-prototype + records 4 VS Validation items in REPORT.md; cannot carry per §11"
     file: "prototypes/chapter-prototype/REPORT.md"
-    priority: nice-to-have
-    status: backlog
+    priority: must-have
+    status: ready-for-dev
     owner: "user"
     estimate_days: 0
     blocker: ""
     completed: ""
+    # USER-OWNED CRITICAL — §11 HARD GATE bound; ~30 min user time; refusal-to-fabricate posture preserved; R1 fallback to disposition (b) if attestation slips
 
-  - id: "S12-11"
-    name: "S11-13 USER-OWNED carryover — S8-15 user attestation pass on sprint-8 manual smoke check Batches 1+3 (3rd-time carryover)"
-    file: "production/qa/qa-signoff-sprint-8-2026-05-06.md"
+  - id: "S13-03"
+    name: "S12-03 /gate-check close-gate re-evaluation — runs after S13-02 + S13-10 land; PASS (stage.txt flip) OR CONCERNS; sprint-11 retro AI #1 follow-through closure"
+    file: "production/gate-checks/"
+    priority: must-have
+    status: backlog
+    owner: "claude"
+    estimate_days: 0.1
+    blocker: "S13-02 + S13-10 attestations"
+    completed: ""
+
+  - id: "S13-04"
+    name: "Anchored-regex-extraction discipline codification — sprint-12 retro AI #5; add TG-4 to .claude/rules/tooling-gotchas.md covering S12-09 first-run misfire"
+    file: ".claude/rules/tooling-gotchas.md"
+    priority: should-have
+    status: backlog
+    owner: "claude"
+    estimate_days: 0.1
+    blocker: ""
+    completed: ""
+
+  - id: "S13-05"
+    name: "Byte-cap-recurrence-prevention codification — sprint-12 retro AI #6; make 200-byte changelog check a /story-done Phase 7 step; fired 4th time at S12-08"
+    file: ".claude/skills/story-done/SKILL.md"
+    priority: should-have
+    status: backlog
+    owner: "claude"
+    estimate_days: 0.1
+    blocker: ""
+    completed: ""
+
+  - id: "S13-06"
+    name: "production/decisions/ §7 promotion evaluation — sprint-12 retro AI #4; threshold ≥3 artifacts AND ≥2 sprints HAS FIRED (4 artifacts); producer Route a vs Route c"
+    file: "production/decisions/"
+    priority: should-have
+    status: backlog
+    owner: "producer"
+    estimate_days: 0.2
+    blocker: ""
+    completed: ""
+
+  - id: "S13-07"
+    name: "Sprint-13 closure-mode signal evaluation per §11.4 Trigger 4 — sprint-12 retro AI #3 recurring per-sprint gate; first live signal-evaluation since codification; designate sprint-13 mode"
+    file: "production/sprints/sprint-13.md"
+    priority: nice-to-have
+    status: ready-for-dev
+    owner: "producer"
+    estimate_days: 0.05
+    blocker: ""
+    completed: ""
+    # Inline signal count table embedded in sprint-13.md §Sprint Mode at plan-authoring; companion edit to .claude/skills/sprint-plan/SKILL.md Phase 2 template lands at S13-07 closure
+
+  - id: "S13-08"
+    name: "Convention-extension-via-numbered-section pattern validation — sprint-12 retro AI #7 tracking-only; at next convention extension evaluate §11-style top-level vs §3-style embedding"
+    file: "docs/process/decisions-convention.md"
     priority: nice-to-have
     status: backlog
+    owner: "producer"
+    estimate_days: 0
+    blocker: ""
+    completed: ""
+    # Tracking-only this sprint; no action unless convention extension triggers
+
+  - id: "S13-09"
+    name: "POLISH-006 forcing function monitoring — sprint-12 retro AI #8 tracking-only; AD-C5 closes when stubs ship + character-art sprint OR Polish gate fires"
+    file: "production/polish-backlog.md"
+    priority: nice-to-have
+    status: backlog
+    owner: "art-director"
+    estimate_days: 0
+    blocker: ""
+    completed: ""
+    # Tracking-only this sprint; no action unless commission-sprint forcing function fires
+
+  - id: "S13-10"
+    name: "S12-11 S8-15 user attestation pass — sprint-8 manual smoke check Batches 1+3; 4th-time carryover (below 5-time threshold; normal carry); ~15 min user time"
+    file: "production/qa/qa-signoff-sprint-8-2026-05-06.md"
+    priority: should-have
+    status: ready-for-dev
     owner: "user"
     estimate_days: 0
     blocker: ""
