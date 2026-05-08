@@ -167,6 +167,9 @@ jobs:
       - name: 'Lint story Status consistency across 4 canonical sources (sprint-11 retro AI #3 / S12-04)'
         run: bash tools/ci/lint_story_status_consistency.sh
 
+      - name: 'Lint sprint carryover count vs prior retro forecast (sprint-11 retro AI #5 / S12-09)'
+        run: bash tools/ci/lint_sprint_carryover_count.sh
+
       - name: Run GdUnit4 tests
         uses: MikeSchulze/gdUnit4-action@v1
         env:
