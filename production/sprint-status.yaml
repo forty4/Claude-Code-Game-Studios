@@ -11,7 +11,7 @@ goal: "Close gate-check 2026-05-08 CONCERNS: Pillar 3/4 demo (S12-02) + sprint-1
 start: "2026-05-09"
 end: "2026-05-11"
 generated: "2026-05-08"
-updated: "2026-05-09 — S12-08 done: POLISH-006 added to polish-backlog.md (lightweight path; no character-art sprint scheduled; AD ADVISORY tracked); 1273/1273 62nd FFB; 46-streak hygiene close"
+updated: "2026-05-09 — S12-06 done: §11 USER-OWNED 5th-carry HARD GATE rule added to decisions-convention.md; S7-11 fires at sprint-13 entry; S8-15 below; 1273/1273 63rd FFB; 47-streak"
 
 # Sprint-11 closed 2026-05-08: 11/11 claude-owned ✓ (Must 4 + Should 4 + Nice-claude 3); 7-of-7 sprint-10 retro AIs closed (project first); 52nd FFB; 36-streak hygiene; commits b1e10a0 → e70ecba.
 # Sprint-11 retro: production/retrospectives/retro-sprint-11-2026-05-08.md (7 sprint-12 AIs seeded).
@@ -88,13 +88,14 @@ stories:
 
   - id: "S12-06"
     name: "USER-OWNED 5th-time threshold codification — sprint-11 retro AI #7 + gate-check 2026-05-08 CD recommendation; explicit handling rule for S7-11/S8-15"
-    file: ""  # NEW docs/process/user-owned-carryover-threshold.md OR EXTEND docs/process/decisions-convention.md per producer + user concurrence
+    file: "docs/process/decisions-convention.md"  # SHIPPED §11 extension (HARD GATE at 5th-carry)
     priority: should-have
-    status: backlog
-    owner: ""
+    status: done
+    owner: "claude"
     estimate_days: 0.2
-    blocker: "user concurrence on posture decision"
-    completed: ""
+    blocker: ""
+    completed: "2026-05-09"
+    # 2026-05-09 — done: §11 added to decisions-convention.md (HARD GATE at 5th-carry; user concurrence captured); S7-11 fires at sprint-13 entry; 1273/1273 63rd FFB; 47-streak
 
   - id: "S12-07"
     name: "Closure-mode sprint planning evaluation — sprint-11 retro AI #6 (producer call); decision per docs/process/decisions-convention.md template"
