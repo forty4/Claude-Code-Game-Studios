@@ -16,7 +16,9 @@ report.
 The rule is simple: **a build that fails smoke check does not go to QA.**
 Handing a broken build to QA wastes their time and demoralises the team.
 
-**Output:** `production/qa/smoke-[date].md`
+**Output:**
+- Default (ad-hoc / single-sprint cycle): `production/qa/smoke-[date].md`
+- **Sprint-close mode** (when invoked at sprint close, OR when two sprints may close on the same day): `production/qa/smoke-sprint-[N]-[date].md` — the sprint number disambiguates same-day double-sprint-closes (e.g., sprint-9 + sprint-10 both closed 2026-05-07; the `sprint-N-` prefix is the disambiguator). Use this filename whenever the smoke is gating a sprint's QA hand-off.
 
 ---
 
@@ -368,6 +370,7 @@ Any platform with one or more FAIL checks contributes to the overall FAIL verdic
 Present the full report in conversation, then ask:
 
 "May I write this smoke check report to `production/qa/smoke-[date].md`?"
+(or `production/qa/smoke-sprint-[N]-[date].md` if this is a sprint-close gate — see naming-convention note in §Output above; sprint-N- prefix is mandatory whenever the smoke gates a sprint's QA hand-off, to disambiguate same-day double-sprint-closes)
 
 Write only after approval.
 

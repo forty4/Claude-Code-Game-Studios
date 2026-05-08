@@ -94,6 +94,8 @@ The test plan should cover:
 
 Ask: "May I write the QA plan to `production/qa/qa-plan-[sprint]-[date].md`?"
 
+> **Sprint-close naming convention** (codified sprint-11 S11-10): when this QA cycle is gating a sprint close (rather than a feature/epic mid-sprint), the canonical filename is `production/qa/qa-plan-sprint-[N]-closure-[date].md` (NOT `qa-plan-[feature]-[date].md`). The `sprint-[N]-closure-` prefix disambiguates same-day double-sprint-closes (e.g., sprint-9 + sprint-10 both closed 2026-05-07 — both produced their own `qa-plan-sprint-N-closure-2026-05-07.md` files in parallel). For ad-hoc / feature-scoped QA plans, the prior `qa-plan-[feature]-[date].md` form is preserved.
+
 Write only after receiving approval.
 
 ### Phase 4: Test Case Writing (qa-tester)
@@ -193,6 +195,8 @@ Next step guidance by verdict:
 - NOT APPROVED: "Resolve S1/S2 bugs and re-run `/team-qa` or targeted manual QA before advancing."
 
 Ask: "May I write this QA sign-off report to `production/qa/qa-signoff-[sprint]-[date].md`?"
+
+> **Sprint-close naming convention** (codified sprint-11 S11-10): for sprint-close sign-offs, use `production/qa/qa-signoff-sprint-[N]-[date].md`. The `sprint-[N]-` prefix is mandatory whenever the sign-off gates a sprint close, to disambiguate same-day double-sprint-closes (sprint-9 + sprint-10 both closed 2026-05-07). For ad-hoc / feature-scoped sign-offs, retain the `qa-signoff-[feature]-[date].md` form.
 
 Write only after receiving approval.
 
