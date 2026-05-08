@@ -6,6 +6,7 @@
 > **Type**: Integration
 > **Manifest Version**: (n/a — prototype-isolated; control-manifest does not gate prototype code per `.claude/rules/prototype-code.md`)
 > **Sprint**: sprint-12 (S12-02 Must-Have)
+> **Estimate**: 1.0d nominal (greenfield ÷5 → ~0.2d actual per sprint-12 mixed-mode velocity multiplier)
 
 ## Context
 
@@ -138,5 +139,5 @@ format. Developer implements against these specs.*
 ## Performance Budget
 
 - **Frame budget impact**: <0.5ms per frame during atmospheric envelope (1.7s window). ColorRect modulate animation is GPU-trivial; AudioStreamGenerator buffer feed is one-time at scene-enter.
-- **Memory impact**: ~10KB for pre-baked PackedVector2Array (44100 Hz × 1.2s × 2 channels × 4 bytes ≈ 423KB). One-time allocation per chapter scene load.
+- **Memory impact**: ~414 KiB for pre-baked PackedVector2Array (44100 Hz × 1.2s × 8 bytes per Vector2 stereo sample ≈ 423,360 bytes). One-time allocation per chapter scene load; freed at scene exit.
 - **Headless test runtime**: <2.0s (dwell + cue envelope = 1.7s; setup + teardown overhead ~0.3s).
