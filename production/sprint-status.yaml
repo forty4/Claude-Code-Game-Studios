@@ -11,7 +11,7 @@ goal: "Codify sprint-10 process patterns + absorb carryover + /story-readiness d
 start: "2026-05-07"
 end: "2026-05-09"
 generated: "2026-05-07"
-updated: "2026-05-08 — S11-04 SHIPPED (carryover absorption sweep close: sprint-10 retro AI #5 closed; cuts/descopes/bundles/keeps verified vs sprint-11 plan; sprint-11 Must 4/4 ✓)"
+updated: "2026-05-08 — S11-05 SHIPPED (Route c: docs/process/decisions-convention.md NEW + /architecture-decision SKILL.md scope guard; closes sprint-10 retro AI #4 + sprint-11 R3)"
 
 # Sprint-10 closed 2026-05-07: Must-Have 5/5 done (100%); Should/Nice 0/7 (carryover); 6 commits d1ce22f → 04e8ca6 → 3481d18; 51st FFB preserved; 25-streak in-patch hygiene close.
 # Sprint-10 retro: production/retrospectives/retro-sprint-10-2026-05-07.md.
@@ -82,13 +82,14 @@ stories:
 
   - id: "S11-05"
     name: "Codify production/decisions/ directory convention — sibling skill OR /architecture-decision extension OR standalone process doc"
-    file: ""  # path TBD per S11-05 decision: .claude/skills/decision-record/ OR .claude/skills/architecture-decision/SKILL.md OR docs/process/decisions-convention.md
+    file: "docs/process/decisions-convention.md"
     priority: should-have
-    status: backlog
-    owner: ""
+    status: done
+    owner: "claude"
     estimate_days: 0.3
     blocker: ""
-    completed: ""
+    completed: "2026-05-08"
+    # 2026-05-08 — SHIPPED: Route c — docs/process/decisions-convention.md NEW (10 sections + trigger + Route-a ≥3-artifact promotion); /architecture-decision ADR-vs-process scope guard
 
   - id: "S11-06"
     name: "Establish production/polish-backlog.md for 5 ADVISORY deferrals from battle-hud closure + future Polish-tier carry-forwards"

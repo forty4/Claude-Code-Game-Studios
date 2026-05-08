@@ -8,6 +8,14 @@ allowed-tools: Read, Glob, Grep, Write, Task, AskUserQuestion
 
 When this skill is invoked:
 
+## Scope guard — ADR vs process-decision
+
+This skill produces **Architecture Decision Records (ADRs)** — *technical-architecture* choices that constrain implementation (engine, data format, API shape, system boundary). ADRs land at `docs/architecture/ADR-NNNN-*.md` and are validated by `/architecture-review` traceability.
+
+If the decision being recorded is a **non-architectural binding process decision** (scope postponement, deferral rationale, cross-sprint commitment without technical-architecture impact), it does NOT belong here. Use the `production/decisions/` convention instead: see `docs/process/decisions-convention.md`. Canonical example: `production/decisions/ci-lane-gap-decision-2026-05-07.md`.
+
+If unsure, the test is: "would this decision be cited by a future implementation story's `/story-readiness` ADR-acceptance check?" If yes, it is an ADR. If it is cited by a future sprint plan's *scope* or *carryover* section instead, it is a process-decision.
+
 ## 0. Parse Arguments — Detect Retrofit Mode
 
 Resolve the review mode (once, store for all gate spawns this run):
