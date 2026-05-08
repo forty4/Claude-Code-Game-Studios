@@ -7,10 +7,11 @@ extends GdUnitTestSuite
 const GAME_BUS_PATH: String = "res://src/core/game_bus.gd"
 const PROJECT_GODOT_PATH: String = "res://project.godot"
 
-## The 30 signal names declared in game_bus.gd — authoritative list per ADR-0001
+## The 34 signal names declared in game_bus.gd — authoritative list per ADR-0001
 ## (+ ADR-0011 victory_condition_detected + ADR-0014 CR-12 / ADR-0015 §3 R-3
 ## formation_bonuses_updated landed in battle-hud story-002 + ADR-0017
-## scenario_fault landed in scenario-progression S7-02).
+## scenario_fault landed in scenario-progression S7-02 + save_loaded(SaveContext)
+## added by save-load story-002 Persistence-domain 4th signal per CR-SL-19/20).
 const EXPECTED_SIGNALS: Array[String] = [
 	"chapter_started",
 	"battle_prepare_requested",
@@ -43,6 +44,7 @@ const EXPECTED_SIGNALS: Array[String] = [
 	"save_checkpoint_requested",
 	"save_persisted",
 	"save_load_failed",
+	"save_loaded",
 	"tile_destroyed",
 	"victory_condition_detected",
 ]
@@ -64,6 +66,7 @@ const EXPECTED_RESOURCE_ARG_CLASSES: Dictionary = {
 	"beat_visual_cue_fired":     ["BeatCue"],
 	"beat_audio_cue_fired":      ["BeatCue"],
 	"save_checkpoint_requested": ["SaveContext"],
+	"save_loaded":               ["SaveContext"],
 }
 
 
@@ -105,8 +108,8 @@ func test_gamebus_extends_node_and_has_no_class_name() -> void:
 		assert_bool(class_name_regex.search(line) == null).is_true()
 
 
-## AC-2 + AC-3: game_bus.gd declares exactly 33 user signals (30 + 3 Story Event #10 per S8-09).
-func test_gamebus_declares_exactly_29_signals() -> void:
+## AC-2 + AC-3: game_bus.gd declares exactly 34 user signals (33 prior + save_loaded per save-load story-002).
+func test_gamebus_declares_exactly_34_signals() -> void:
 	# Arrange
 	var script: GDScript = load(GAME_BUS_PATH)
 	var instance: Node = auto_free(script.new())
@@ -119,11 +122,11 @@ func test_gamebus_declares_exactly_29_signals() -> void:
 		if not (sig["name"] as String) in inherited:
 			user_signals.append(sig)
 
-	# Assert — exactly 33 (30 prior baseline + 3 Story Event #10 signals per S8-09)
-	assert_int(user_signals.size()).is_equal(33)
+	# Assert — exactly 34 (33 prior baseline + save_loaded per save-load story-002 Persistence-domain 4th signal)
+	assert_int(user_signals.size()).is_equal(34)
 
 
-## AC-3: All 28 declared signals match the authoritative name list from ADR-0001 + ADR-0011.
+## AC-3: All 34 declared signals match the authoritative name list from ADR-0001 + ADR-0011.
 func test_gamebus_signal_names_match_spec() -> void:
 	# Arrange
 	var script: GDScript = load(GAME_BUS_PATH)
@@ -167,7 +170,7 @@ func test_gamebus_signal_signatures_have_no_untyped_args() -> void:
 
 
 ## AC-3 Edge: Resource-typed signal args carry the exact expected class_name.
-## Spot-checks all 11 signals with Resource payloads. Story 003 will expand.
+## Spot-checks all 12 signals with Resource payloads. Story 003 will expand.
 func test_gamebus_resource_signal_args_have_exact_class_name() -> void:
 	# Arrange
 	var script: GDScript = load(GAME_BUS_PATH)

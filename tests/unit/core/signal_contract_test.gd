@@ -38,9 +38,10 @@ extends GdUnitTestSuite
 
 const GAME_BUS_PATH: String = "res://src/core/game_bus.gd"
 
-## Authoritative reference list — ADR-0001 §Signal Contract Schema (all 29 signals,
+## Authoritative reference list — ADR-0001 §Signal Contract Schema (all 31 signals,
 ## incl. ADR-0011 victory_condition_detected + ADR-0014 CR-12 / ADR-0015 §3 R-3
-## formation_bonuses_updated cross-epic addition landed in battle-hud story-002).
+## formation_bonuses_updated cross-epic addition landed in battle-hud story-002 +
+## save_loaded(SaveContext) added 2026-05-08 by save-load story-002 minor amendment).
 ## Source of truth: docs/architecture/ADR-0001-gamebus-autoload.md + ADR-0011-turn-order
 ##
 ## DO NOT reorder within a domain group — must match ADR §Signal Contract Schema
@@ -284,6 +285,16 @@ const EXPECTED_SIGNALS: Array[Dictionary] = [
 			{"name": "reason", "type": TYPE_STRING},
 		],
 	},
+	{
+		# Added 2026-05-08 by save-load story-002 minor amendment per ADR-0001
+		# §Evolution Rule #1 + #4. Emitted by SaveManager after migrate_to_current
+		# succeeds in load_latest_checkpoint; subscribed by Destiny State for
+		# CR-SL-19/20 idempotent rehydration.
+		"name": "save_loaded",
+		"args": [
+			{"name": "ctx", "type": TYPE_OBJECT, "class_name": "SaveContext"},
+		],
+	},
 	# ── Domain: Environment (ADR-0001 §Signal Contract Schema §10) ───────────────
 	{
 		"name": "tile_destroyed",
@@ -306,7 +317,7 @@ func _get_user_signals(instance: Node) -> Array[Dictionary]:
 # ── Tests ─────────────────────────────────────────────────────────────────────────
 
 
-## AC-1: User-declared signal count on GameBus == EXPECTED_SIGNALS.size() (== 27).
+## AC-1: User-declared signal count on GameBus == EXPECTED_SIGNALS.size() (== 31).
 ## Any addition or removal that is not mirrored in this file causes a count mismatch
 ## and fails with a message listing which signals are missing and which are extra.
 func test_signal_contract_count_matches_expected() -> void:
@@ -317,7 +328,7 @@ func test_signal_contract_count_matches_expected() -> void:
 	# Act
 	var user_signals: Array[Dictionary] = _get_user_signals(instance)
 	var actual_count: int = user_signals.size()
-	var expected_count: int = EXPECTED_SIGNALS.size()  # == 27
+	var expected_count: int = EXPECTED_SIGNALS.size()  # == 31
 
 	var actual_names: Array[String] = []
 	for sig: Dictionary in user_signals:

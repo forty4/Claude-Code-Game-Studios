@@ -1,7 +1,7 @@
 # Story 002: Cross-Chapter Continuity — Destiny State Populator + save_loaded GameBus Signal + Idempotent Hydration
 
 > **Epic**: save-load (#17 Core)
-> **Status**: Ready
+> **Status**: Complete
 > **Layer**: Core
 > **Type**: Integration
 > **Estimate**: 3-4 hours (Destiny State populator subscription + ADR-0001 minor amendment for `save_loaded` signal + idempotent hydration test); resolves OQ-SL-3 (signal-vs-method-call dispatch)
@@ -146,7 +146,7 @@
 **Story Type**: Integration
 **Required evidence**: Integration test at `tests/integration/save_load/cross_chapter_continuity_test.gd` — must exist and pass; ~4 test functions (one per AC) + ~3-4 edge case tests; estimated 7-9 tests total
 
-**Status**: [ ] Not yet created
+**Status**: [x] Created at `tests/integration/save_load/cross_chapter_continuity_test.gd` (9 test functions; passes 1253/1253 with 0 errors / 0 failures / 0 orphans / exit 0; 54th FFB streak preserved)
 
 ---
 
@@ -158,3 +158,54 @@
   - destiny-branch epic 1/1 Complete — DestinyBranchChoice + branch_key (read-only consumer)
   - destiny-state node implementation — if not yet authored, this story scaffolds OR depends on parallel implementation; verify at /story-readiness
 - **Unlocks**: Story 003 (Failure surfacing — depends on save_loaded signal existing for null-payload edge cases + save_load_failed contract validation)
+
+---
+
+## Completion Notes
+
+**Completed**: 2026-05-08
+**Criteria**: 3/4 COVERED + 1/4 DEFERRED (AC-SL-14 deferred to schema_v2 per story §AC-SL-14 explicit MVP-skip — `scenario_path_key` field not yet on `SaveContext`).
+**Code Review**: Complete (godot-gdscript-specialist + qa-tester, lean mode; verdict APPROVED WITH SUGGESTIONS — 2 minor suggestions applied: `_archived_chapter_counts.clear()` added to `_on_save_loaded` for full idempotency; inline comment on `echo_count > 0` guard intent.
+**Test Evidence**: Integration test at `tests/integration/save_load/cross_chapter_continuity_test.gd` (9 test functions) — passes 1253/1253 / 0 errors / 0 failures / 0 orphans / exit 0 (54th FFB streak preserved).
+
+### Files changed (final)
+
+- `src/core/game_bus.gd` — +1 `signal save_loaded(ctx: SaveContext)` (Persistence-domain 4th signal)
+- `src/core/save_manager.gd` — `load_latest_checkpoint()` emits `GameBus.save_loaded.emit(migrated)` after `migrate_to_current` succeeds; failure path unchanged (still emits `save_load_failed`)
+- `src/feature/destiny_state/destiny_state.gd` — 5th GameBus subscription (`save_loaded` CONNECT_DEFERRED) + matching `_exit_tree` disconnect + new `_on_save_loaded` handler (CR-SL-19/20 idempotent rehydration: clears `_full_archive` + `_chapter_echo_counts` + `_archived_chapter_counts` + `_flags_to_set`; deep-copies EchoMarks per CR-DS-16; maps `ctx.echo_count → _chapter_echo_counts[ctx.chapter_id]` per Option A; null-payload guard per CR-SL-22)
+- `tests/integration/save_load/cross_chapter_continuity_test.gd` — NEW (9 test functions covering AC-SL-12 + AC-SL-13 + AC-SL-20 + save_loaded signal contract; AC-SL-14 deferred per story spec)
+- `tests/unit/core/game_bus_declaration_test.gd` — `EXPECTED_SIGNALS` 33 → 34; `EXPECTED_RESOURCE_ARG_CLASSES` +1 entry; function rename + count update
+- `tests/unit/core/signal_contract_test.gd` — `EXPECTED_SIGNALS` Array entry +1 (save_loaded shape); count comments 27 → 31
+- `tests/unit/core/game_bus_diagnostics_test.gd` — `_route_to_domain` regression map +1 entry; function rename
+- `docs/architecture/ADR-0001-gamebus-autoload.md` — §9 Persistence-domain table +1 row; inline GameBus snippet +1 line; total signal count 30 → 31; changelog +1 row 2026-05-08
+
+### ACs covered (mapped to test functions)
+
+- **AC-SL-12**: `test_ac_sl12_populator_fills_echo_count_archive_and_flags_when_state_seeded` + `test_ac_sl12_populator_with_empty_destiny_state_yields_zero_count_and_empty_arrays`
+- **AC-SL-13**: `test_ac_sl13_round_trip_preserves_echo_marks_archive_and_flags_to_set_bitwise` + `test_ac_sl13_round_trip_with_empty_collections`
+- **AC-SL-14**: DEFERRED to schema_v2 (story §AC-SL-14 + §Implementation Notes #5 explicit MVP-skip; `SaveContext` has no `scenario_path_key` field)
+- **AC-SL-20**: `test_ac_sl20_load_latest_checkpoint_twice_yields_distinct_objects_with_field_equality` + `test_ac_sl20_load_twice_on_empty_slot_both_return_null`
+- **save_loaded signal contract**: `test_save_loaded_signal_emits_after_load_and_rehydrates_destiny_state` + `test_save_loaded_handler_null_payload_guard_is_noop` + `test_save_loaded_handler_idempotent_on_repeat_invocation`
+
+### Deviations (4 ADVISORY; 0 BLOCKING)
+
+1. **AC-SL-14 DEFERRED** — `SaveContext` has no `scenario_path_key` field; story §AC-SL-14 + §Implementation Notes #5 explicit MVP-skip pending scenario-progression epic SCENARIO_END epilogue populator (future schema_version 2). Test file header documents the deferral citing both the story Out of Scope section and the missing field. NOT a coverage gap — author's explicit deferral.
+2. **TR-save-load-012..015 not registered** in `docs/architecture/tr-registry.yaml` (Gap 2 carryover from /story-readiness 2026-05-08; resolution path: `/architecture-review` Phase 8 batch). Inherited from story-001 close (story-001 also documented this).
+3. **ADR-0003 + GDD §CR-SL-5 wording divergence** on CP-3 timing inherited from story-001 (story-001 Completion Notes already document; story-002 does not change CP-3 timing — implementation is the rehydration symmetric to populator, not an emit-site change). Resolution candidate: `/propagate-design-change` OR `/architecture-review` Phase 8 batch.
+4. **5 pre-existing tests count-bumped** (`signal_contract_test.gd` +1 entry / `game_bus_diagnostics_test.gd` +1 routing entry / `game_bus_declaration_test.gd` +1 expected signal) — mechanical hygiene patches required by signal-list keeper tests on every GameBus signal addition; no logic change. Structurally required by the test suite design (these are signal-list keepers, not arbitrary test edits).
+
+### Advisory edge case gaps (qa-tester ADVISORY; deferred to follow-up)
+
+1. AC-SL-13 5-EchoMark cap test (boundary)
+2. AC-SL-13 UTF-8 flag-string round-trip (encoding)
+3. AC-SL-20 corrupt-file double-null + `save_load_failed` × 2 (story-003 territory per story author's scoping)
+
+### Gotchas applied
+
+- **G-3**: no `class_name` in test file
+- **G-4**: `var captures: Array = []` + `captures.append(...)` lambda capture pattern
+- **G-10**: emit on REAL `GameBus` autoload identifier (not GameBusStub)
+- **G-14**: `godot --headless --import --path .` between file creation and first test run
+- **G-15**: `before_test()` / `after_test()` lifecycle (not `before_each`)
+- **G-27**: cache state at signal-emit time when querying autoload getters in deferred handlers (not needed here — payload IS the state)
+- **G-28**: per-callable disconnect ONLY; pre-existing anti-pattern in `scenario_runner_signal_contract_test.gd` NOT propagated into new file

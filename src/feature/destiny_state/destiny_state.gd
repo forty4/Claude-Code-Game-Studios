@@ -4,11 +4,12 @@
 ## Implements F-DS-1..5: echo accumulation + echo_count query + flag-effect
 ## resolution + cross-chapter continuity + SaveContext population.
 ##
-## SUBSCRIPTIONS (4, all CONNECT_DEFERRED at _ready):
+## SUBSCRIPTIONS (5, all CONNECT_DEFERRED at _ready):
 ##   - GameBus.scenario_beat_retried(mark)         → F-DS-1 echo accumulation
 ##   - GameBus.destiny_branch_chosen(choice)       → F-DS-3 flag-effect resolution
 ##   - GameBus.chapter_completed(result)           → F-DS-4 cross-chapter snapshot
 ##   - GameBus.save_checkpoint_requested(ctx)      → F-DS-5 SaveContext population
+##   - GameBus.save_loaded(ctx)                    → CR-SL-19/20 idempotent rehydration
 ##
 ## EMISSIONS (2, already declared in game_bus.gd lines 54-55):
 ##   - GameBus.destiny_state_echo_added(mark)
@@ -66,6 +67,8 @@ func _exit_tree() -> void:
 		GameBus.chapter_completed.disconnect(_on_chapter_completed)
 	if GameBus.save_checkpoint_requested.is_connected(_on_save_checkpoint_requested):
 		GameBus.save_checkpoint_requested.disconnect(_on_save_checkpoint_requested)
+	if GameBus.save_loaded.is_connected(_on_save_loaded):
+		GameBus.save_loaded.disconnect(_on_save_loaded)
 
 
 # ─── Public API (CR-DS-4 read-only consumer surface) ──────────────────────────
@@ -114,6 +117,8 @@ func _connect_subscriptions() -> void:
 		GameBus.chapter_completed.connect(_on_chapter_completed, CONNECT_DEFERRED)
 	if not GameBus.save_checkpoint_requested.is_connected(_on_save_checkpoint_requested):
 		GameBus.save_checkpoint_requested.connect(_on_save_checkpoint_requested, CONNECT_DEFERRED)
+	if not GameBus.save_loaded.is_connected(_on_save_loaded):
+		GameBus.save_loaded.connect(_on_save_loaded, CONNECT_DEFERRED)
 
 
 # ─── Signal handlers (F-DS-1, F-DS-3, F-DS-4, F-DS-5) ─────────────────────────
@@ -185,6 +190,39 @@ func _on_save_checkpoint_requested(ctx: SaveContext) -> void:
 		archive_copy.append(mark.duplicate(true) as EchoMark)
 	ctx.echo_marks_archive = archive_copy
 	ctx.flags_to_set = PackedStringArray(_flags_to_set)
+
+
+## CR-SL-19/20 — idempotent rehydration on save_loaded.
+## Re-running with the same ctx produces identical internal state (CR-SL-20).
+## Per user-approved Option A: maps ctx.echo_count to _chapter_echo_counts[ctx.chapter_id].
+## CR-SL-22 never-crash invariant — null payload is a no-op (failure path emits
+## save_load_failed instead of save_loaded; this is defense-in-depth).
+func _on_save_loaded(ctx: SaveContext) -> void:
+	if ctx == null:
+		return
+	# Idempotent reset before hydrate — re-loading same ctx twice yields same state.
+	# _archived_chapter_counts is also cleared: pre-load runtime accumulation
+	# (from prior chapter_completed events in this session) must not bleed into
+	# the loaded timeline; F-DS-4 archive will repopulate as chapters complete
+	# in the loaded session.
+	_full_archive.clear()
+	_chapter_echo_counts.clear()
+	_archived_chapter_counts.clear()
+	_flags_to_set = PackedStringArray()
+	# CR-DS-16 fresh deep-copy policy mirror — no shared references with caller's ctx.
+	for mark: EchoMark in ctx.echo_marks_archive:
+		if mark != null:
+			_full_archive.append(mark.duplicate(true) as EchoMark)
+	# Map ctx.echo_count to per-chapter dict under ctx.chapter_id key (Option A).
+	# echo_count == 0 case intentionally skips dict write — get_echo_count()
+	# returns 0 via Dictionary.get default fallback, so absence is semantically
+	# equivalent to {chapter_id: 0}. Asymmetric with the populator (which writes
+	# 0 explicitly via int() coercion); the asymmetry is benign per CR-SL-19/20.
+	var chapter_id_string: String = String(ctx.chapter_id)
+	if not chapter_id_string.is_empty() and ctx.echo_count > 0:
+		_chapter_echo_counts[chapter_id_string] = ctx.echo_count
+	# Hydrate flags (PackedStringArray copy; not shared reference).
+	_flags_to_set = PackedStringArray(ctx.flags_to_set)
 
 
 # ─── Private helpers ──────────────────────────────────────────────────────────

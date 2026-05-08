@@ -82,6 +82,7 @@ signal scene_transition_failed(context: String, reason: String)
 signal save_checkpoint_requested(ctx: SaveContext)
 signal save_persisted(chapter_number: int, cp: int)
 signal save_load_failed(op: String, reason: String)
+signal save_loaded(ctx: SaveContext)
 
 # ═══ DOMAIN: Environment (emitter: MapGrid) ════════════════════════════════════
 signal tile_destroyed(coord: Vector2i)
