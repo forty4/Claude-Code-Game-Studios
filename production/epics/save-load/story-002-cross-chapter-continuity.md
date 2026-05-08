@@ -25,6 +25,8 @@
 - G-10 (autoload identifier binding) APPLIES: tests must emit on the REAL GameBus identifier, not on a stub mounted at `/root/GameBus` post-subscriber-_ready. See G-10 + Destiny State test pattern at `tests/unit/feature/destiny_state/destiny_state_test.gd`.
 - G-28 (bulk-disconnect-all in test cleanup): tests for this story MUST NOT use bulk-disconnect-all; Destiny State autoload connects in `_ready` ONCE — bulk-disconnect would sever its production subscription and break subsequent tests. Use the cached-Callable disconnect pattern (G-28 Pattern A).
 
+**Performance**: N/A — populator subscriber runs at 3 chapter-boundary CP emissions per chapter (not in hot loop); deferred-frame execution; field-copy operations (echo_count + Array assignment + PackedStringArray assignment) are O(N) where N = number of EchoMarks (typical N=3-10 per chapter; capped per OQ-SL-4 future decision). `save_loaded` signal emit + subscriber rehydration runs once per game-resume (not per-frame); negligible. ResourceSaver/Loader round-trip at AC-SL-13 test fixture is bounded by SaveContext payload size (~12 fields + N EchoMarks); typical <50KB per save per ADR-0003 perf gates.
+
 **Control Manifest Rules (Core layer)**:
 - Required: SaveContext populator pattern — Destiny State subscribes to `save_checkpoint_requested(ctx)` with CONNECT_DEFERRED, populates ctx.echo_count + ctx.echo_marks_archive + ctx.flags_to_set, returns. CR-SL-15 + CR-DS-16.
 - Required: `scenario_path_key` field is `"::"`-delimited per F-SP-4 cross-doc bridge; `branch_path_id` regex `^[A-Za-z0-9_]+$` (CR-SL-16). Migration note: pre-rev-2.1 `"-"` delimiter migration documented but not yet shipped (no real saves exist; project pre-launch).

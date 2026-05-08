@@ -24,6 +24,8 @@
 **Engine**: Godot 4.6 | **Risk**: LOW (lint scripts use existing bash patterns from `tools/ci/lint_*.sh` precedents — battle-hud + grid-battle-controller lint families; failure-injection testing uses existing test seam patterns)
 **Engine Notes**: G-7 (silent-skip detection) APPLIES to lint smoke tests — verify `Overall Summary` test count delta when adding the 3 new lints. G-29 (post-cutoff API drift) does NOT apply — bash lint scripts don't touch Godot APIs.
 
+**Performance**: N/A for runtime — lint scripts run at CI time only (not at runtime); failure-injection tests run at test time only (not at runtime); systems-index row 17 flip is a doc-edit (zero runtime cost). Lint script wall-clock target: ≤5s aggregate per battle-hud lint suite precedent (`production/qa/evidence/battle_hud_verification_summary.md` line 159). Failure-injection integration test target: <1s per test function (consistent with sprint-9..sprint-11 integration test budget; no slow assertions in disk-write/read paths).
+
 **Control Manifest Rules (Core layer + CI lint family)**:
 - Required: 3 NEW CI lint scripts wired into `.github/workflows/tests.yml` Linux Editor + Windows D3D12 lanes (per S10-05 binding decision: macOS / iOS / Android lanes deferred post-MVP; Linux + Windows are sufficient for save-load lint enforcement)
 - Required: lint scripts return Exit 0 on PASS, Exit 1 on detected violation, follow `tools/ci/lint_*.sh` precedent format (header comment + flag/next awk pattern per TG-3 + clear violation reporting)
