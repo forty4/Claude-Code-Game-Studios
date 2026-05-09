@@ -510,6 +510,59 @@ This ADR is correct iff all of the following hold (each maps to one or more GDD 
 - **Advisory B — Typed array mutation** (godot-specialist 2026-04-30 Item 8): `_queue` MUST be mutated in-place (`.clear()` + `.append_array()`), never reassigned. Codified as forbidden_pattern `turn_order_typed_array_reassignment` (§Decision §Forbidden patterns); mirrors G-2 prevention pattern (`var result: Array[T] = []` + `.append()` + `return result` discipline established by ADR-0007 + ADR-0009 godot-specialist reviews).
 - **Advisory C — `_advance_turn` is PUBLIC for tests** (godot-specialist 2026-04-30 Item 5): GDScript 4.x does NOT enforce leading-underscore as private; the underscore is documentation convention only. GdUnit4 v6.1.2 calls `_advance_turn` directly without reflection workaround. 4-precedent extension of ADR-0005 / ADR-0010 / ADR-0012 DI seam patterns.
 
+## Amendment 2026-05-09 — S15-A: T5 Await Mechanism (Sprint-15 POLISH-011 Closure)
+
+### Context
+
+Sprint-15 story S15-A addresses POLISH-011 root cause #1 of 3: `_execute_action_budget` shipped as a stub (`pass` body at `turn_order_runner.gd:561-562`) at story-005 close (2026-05-01) — story-005 was obligated to wire the Callable controller dispatch per §Decision Contract 5 but the implementation never landed. Symptom: the natural battle loop reaches T5 → returns immediately → T6 → next unit, draining the entire battle across deferred slots in 2-3 seconds → DRAW at ROUND_CAP=30. Fix: dual-mode T5 — DI Callable injection + state-flag await for natural-loop play; preserved no-op pass for test-seam discipline (story-001..007 backward compat).
+
+### Decision Contract 5 — Implementation Amendment
+
+**Instance field count raised 5 → 6.** New field:
+
+```gdscript
+var _action_controller: Callable = Callable()
+```
+
+Invariant: `Callable()` (`is_null() == true`) is the TEST-SEAM sentinel. Any non-null Callable is NATURAL-LOOP mode. Set via public setter `set_action_controller(controller: Callable) -> void` called by GridBattleController at battle init BEFORE `initialize_battle()`. The Callable is a DI surface (injection point), not gameplay state — does NOT count toward the "battle-scoped per-unit RUNTIME state" frame established by §CR-1.
+
+### T5 Duality (`_execute_action_budget`)
+
+- **TEST-SEAM mode** (`_action_controller.is_null() == true`): no-op pass. `_advance_turn` continues inline to `_complete_turn_t6_to_t7`. T1→T7 runs synchronously. All story-001..S14 tests that call `_advance_turn` directly without injecting a controller retain their existing behavior unchanged.
+
+- **NATURAL-LOOP mode** (`_action_controller.is_null() == false`): calls `_action_controller.call(unit_id, snapshot)` then returns. `_advance_turn` detects the non-null controller and returns immediately after T5 — T6+T7 are NOT reached inline. The controller MAY call `declare_action` synchronously (AI path) OR defer to a later frame (player input path); both are valid.
+
+### Turn-Complete Predicate (`_maybe_defer_turn_completion`)
+
+T6+T7 fire via `_complete_turn_t6_to_t7.call_deferred(unit_id)` from `declare_action` when EITHER:
+- `state.turn_state == TurnState.DONE` (WAIT path — CR-8: no token spent)
+- `state.action_token_spent == true` (ATTACK / USE_SKILL / DEFEND paths)
+
+MOVE alone does NOT satisfy the predicate — controller is expected to follow up with ATTACK/SKILL/DEFEND/WAIT. Multi-action MOVE+ATTACK works cleanly: first `declare_action(MOVE)` evaluates predicate (false; only `move_token_spent` set); second `declare_action(ATTACK)` evaluates predicate (true; `action_token_spent` now set) and defers completion via `_complete_turn_t6_to_t7.call_deferred(unit_id)`.
+
+### New Helpers (PUBLIC for test namespace per ADR-0005 DI seam pattern, 4th-precedent)
+
+```gdscript
+func set_action_controller(controller: Callable) -> void
+func _complete_turn_t6_to_t7(unit_id: int) -> void
+func _maybe_defer_turn_completion(unit_id: int) -> void
+```
+
+### Backward Compat (R-2 from story-008)
+
+Existing test-seam patterns (story-001..007 direct `_advance_turn` calls without controller injection) continue to operate unchanged. `_action_controller` defaults to `Callable()`; T5 falls through to no-op pass; T6+T7 fire synchronously inline per existing flow. Validated by `test_seam_mode_no_controller_runs_synchronous_t1_to_t7` in `tests/integration/core/turn_order_t5_await_test.gd`.
+
+### Integration Test Coverage
+
+`tests/integration/core/turn_order_t5_await_test.gd` — 6 tests covering AC-1..AC-7 (1294 baseline post-merge; 6 new tests vs 1288 entry baseline — all PASS).
+
+### Open Items for Sprint-15 Follow-up
+
+- **S15-B**: GridBattleController must call `set_action_controller(_on_turn_dispatched)` to enable NATURAL-LOOP mode. AISystem subscriber + declare_action plumbing for AI commands.
+- **S15-C**: Player declare_action plumbing in grid-click handlers (`_handle_grid_click_unit_selected`).
+- **S15-D**: Natural-loop integration test driving full battle to non-DRAW outcome.
+- **G-30 windowed smoke harness**: still pending; this amendment's headless integration test exercises the deferred-chain logic but does not boot a windowed `battle_scene.tscn`.
+
 ## Related Decisions
 
 - **ADR-0001** (GameBus, Accepted 2026-04-18) — declares 3 Turn Order Domain signals + `unit_died` consumer pattern. **THIS ADR adds a 4th signal `victory_condition_detected(result: int)` via §Migration Plan §0 same-patch amendment.** Carried advisories from prior deltas (line 168 `action: String` → `StringName` from delta #6 Item 10a + line 372 prose drift from delta #5 ADR-0007) — both batch with ADR-0001 NEXT amendment after this one. ADR-0011 does NOT itself add to this advisory carry (no new ADR-0001 wording drift this delta beyond the surgical signal addition).

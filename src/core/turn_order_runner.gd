@@ -10,7 +10,8 @@ class_name TurnOrderRunner
 ##  - TurnOrderRunner is created at battle-init by Battle Preparation and freed
 ##    automatically with BattleScene via ADR-0002 SceneManager teardown.
 ##  - State must NOT persist across battles (battle-scoped Node, NOT autoload).
-##  - Instance field count is locked at 5 (any 6th field requires ADR-0011 amendment).
+##  - Instance field count is locked at 6 (raised 5→6 per ADR-0011 amendment
+##    2026-05-09 sprint-15 S15-A — added _action_controller for T5 await mechanism).
 ##  - ALL tuning-constant reads MUST flow through BalanceConstants.get_const(key)
 ##    per ADR-0006 — never hardcoded.
 ##  - _queue MUST be mutated in-place (.clear() + .append_array()); NEVER reassigned
@@ -101,6 +102,15 @@ var _unit_states: Dictionary[int, UnitTurnState] = {}
 
 ## Current battle round lifecycle state.
 var _round_state: RoundState = RoundState.BATTLE_NOT_STARTED
+
+## Optional injected Callable that dispatches the active unit's action selection at T5.
+## When null (default): TEST-SEAM mode — _advance_turn flows T1→T7 synchronously
+## (existing behavior preserved per ADR-0011 amendment 2026-05-09 backward-compat clause).
+## When set: NATURAL-LOOP mode — T5 dispatches to controller + RETURNS; T6+T7 are
+## deferred until external declare_action() completes the turn (state.action_token_spent
+## == true OR state.turn_state == TurnState.DONE per WAIT).
+## Set via set_action_controller() by GridBattleController at battle init.
+var _action_controller: Callable = Callable()
 
 # ── Lifecycle ──────────────────────────────────────────────────────────────────
 
@@ -213,6 +223,23 @@ func initialize_battle(unit_roster: Array[BattleUnit]) -> void:
 	_begin_round.call_deferred()
 
 
+## Inject the Callable controller that handles the active unit's action selection at T5.
+## Called by GridBattleController at battle init BEFORE initialize_battle().
+## When set, _advance_turn enters NATURAL-LOOP mode: T5 dispatches + returns; T6+T7
+## are deferred until declare_action completes the turn. When unset (Callable() default),
+## _advance_turn runs in TEST-SEAM mode (T1→T7 synchronous; existing behavior).
+##
+## The controller signature: `controller.call(unit_id: int, snapshot: TurnOrderSnapshot)`.
+## The controller MAY call declare_action synchronously (AI path) OR defer to a later
+## frame (player input path) — both are valid; T6+T7 fire on declare_action regardless.
+##
+## Usage:
+##     runner.set_action_controller(
+##         func(unit_id: int, snap: TurnOrderSnapshot) -> void: ...)
+func set_action_controller(controller: Callable) -> void:
+	_action_controller = controller
+
+
 ## [TEST SEAM] Direct invocation of T1–T7 sequence for the specified unit_id.
 ## Production: called via internal queue advancement after previous unit's turn ends.
 ## Tests: called directly to bypass GameBus signal infrastructure + per-unit timing.
@@ -237,19 +264,31 @@ func _advance_turn(unit_id: int) -> void:
 	# T4: activate unit turn (token reset + IDLE→ACTING + unit_turn_started emit).
 	_activate_unit_turn(unit_id)
 
-	# T5: action budget — story-004 implements declare_action; story-005 wires Callable.
+	# T5: action budget dispatch (NATURAL-LOOP: dispatches to controller + returns;
+	# TEST-SEAM: no-op pass per AC-7 backward-compat).
 	_execute_action_budget(unit_id)
 
-	# T6: mark acted + unit_turn_ended emit.
-	_mark_acted(unit_id)
+	# NATURAL-LOOP gate: controller injected → T6+T7 deferred until declare_action.
+	# T5's _execute_action_budget already dispatched to the controller; return now.
+	if not _action_controller.is_null():
+		return
 
-	# T7: victory check — story-006 implements full _evaluate_victory().
-	# AC-7/AC-22: T7 emit fires BEFORE RE2 round-cap check (synchronous order).
+	# TEST-SEAM mode: complete T6+T7 synchronously (existing behavior preserved).
+	_complete_turn_t6_to_t7(unit_id)
+
+
+## T6 (mark_acted) + T7 (victory check) + queue advancement helper.
+## Called inline by _advance_turn in TEST-SEAM mode (no controller injected).
+## Called via call_deferred from _maybe_defer_turn_completion in NATURAL-LOOP mode
+## once declare_action has completed the turn (action_token_spent == true OR
+## turn_state == TurnState.DONE per WAIT path).
+func _complete_turn_t6_to_t7(unit_id: int) -> void:
+	_mark_acted(unit_id)  # T6: mark acted + unit_turn_ended emit.
+	# T7: victory check — AC-7/AC-22: T7 emit fires BEFORE RE2 round-cap check.
 	var victory_result: Variant = _evaluate_victory()
 	if victory_result != null:
 		_emit_victory(victory_result as int)
-		return   # AC-3: suppress _advance_to_next_queued_unit after decisive condition
-
+		return  # AC-3: suppress _advance_to_next_queued_unit after decisive condition
 	# Advance queue or end round.
 	_advance_to_next_queued_unit()
 
@@ -316,6 +355,10 @@ func declare_action(unit_id: int, action: int, target: ActionTarget) -> ActionRe
 			# target.movement_cost is the aggregate cost of the entire move path.
 			if target != null:
 				state.accumulated_move_cost += target.movement_cost
+			# MOVE alone does NOT complete the turn — controller may follow up with
+			# ATTACK/SKILL/DEFEND/WAIT. _maybe_defer_turn_completion checks the
+			# turn-complete predicate (action_token_spent OR turn_state==DONE) before deferring.
+			_maybe_defer_turn_completion(unit_id)
 			return ActionResult.make_success()
 
 		ActionType.ATTACK, ActionType.USE_SKILL:
@@ -323,6 +366,7 @@ func declare_action(unit_id: int, action: int, target: ActionTarget) -> ActionRe
 			if state.action_token_spent:
 				return ActionResult.make_failure(ActionError.TOKEN_ALREADY_SPENT as int)
 			state.action_token_spent = true
+			_maybe_defer_turn_completion(unit_id)
 			return ActionResult.make_success()
 
 		ActionType.DEFEND:
@@ -332,6 +376,7 @@ func declare_action(unit_id: int, action: int, target: ActionTarget) -> ActionRe
 				return ActionResult.make_failure(ActionError.TOKEN_ALREADY_SPENT as int)
 			state.action_token_spent = true
 			state.defend_stance_active = true
+			_maybe_defer_turn_completion(unit_id)
 			return ActionResult.make_success()
 
 		ActionType.WAIT:
@@ -339,6 +384,7 @@ func declare_action(unit_id: int, action: int, target: ActionTarget) -> ActionRe
 			# acted_this_turn stays false — T6 _mark_acted computes: false OR false = false.
 			# Both tokens remain FRESH (move_token_spent=false, action_token_spent=false).
 			state.turn_state = TurnState.DONE
+			_maybe_defer_turn_completion(unit_id)
 			return ActionResult.make_success()
 
 		_:
@@ -553,13 +599,38 @@ func _activate_unit_turn(unit_id: int) -> void:
 	GameBus.unit_turn_started.emit(unit_id)
 
 
-## Executes the action budget for the active unit.
-## Story-003 STUB — body intentionally empty.
-## Story-004 implements declare_action() + token validation + DEFEND_STANCE locks.
-## Story-005 wires the Callable controller injection per ADR-0011 §Decision Contract 5
-## (`controller.call(unit_id, queue_snapshot)` synchronous form).
-func _execute_action_budget(_unit_id: int) -> void:
-	pass
+## T5 action budget dispatch.
+## TEST-SEAM mode (no controller injected): no-op pass — preserves story-001..007
+## test patterns that call _advance_turn(unit_id) directly without first injecting
+## a controller (AC-7 backward compat).
+## NATURAL-LOOP mode (controller injected): dispatches to _action_controller with
+## (unit_id, snapshot). Controller MAY call declare_action synchronously (AI path)
+## OR schedule a later declare_action call (player input path); T5 returns either way.
+## T6+T7 will be triggered by declare_action via _complete_turn_t6_to_t7.call_deferred()
+## once the turn is complete (action_token_spent == true OR turn_state == DONE).
+func _execute_action_budget(unit_id: int) -> void:
+	if _action_controller.is_null():
+		return  # TEST-SEAM mode no-op pass
+	var snapshot: TurnOrderSnapshot = get_turn_order_snapshot()
+	_action_controller.call(unit_id, snapshot)
+
+
+## Defers T6+T7 completion if NATURAL-LOOP mode AND turn is now complete.
+## Turn-complete predicate per ADR-0011 §Decision Contract 5 amendment 2026-05-09:
+##   state.turn_state == TurnState.DONE  (WAIT path)
+##   OR state.action_token_spent == true (ATTACK/USE_SKILL/DEFEND paths)
+## NOTE: MOVE alone does NOT complete the turn — controller may follow up with
+## ATTACK/SKILL/DEFEND/WAIT to end. Multi-action MOVE+ATTACK turns work cleanly:
+## first declare_action(MOVE) → no defer (state.move_token_spent only); second
+## declare_action(ATTACK) → defer (state.action_token_spent now true).
+func _maybe_defer_turn_completion(unit_id: int) -> void:
+	if _action_controller.is_null():
+		return  # TEST-SEAM mode: no deferral; T6+T7 fired by _advance_turn inline
+	if not _unit_states.has(unit_id):
+		return  # Defensive
+	var state: UnitTurnState = _unit_states[unit_id]
+	if state.turn_state == TurnState.DONE or state.action_token_spent:
+		_complete_turn_t6_to_t7.call_deferred(unit_id)
 
 
 ## Marks the unit as acted (or not) and transitions to DONE phase.

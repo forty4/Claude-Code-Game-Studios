@@ -11,7 +11,7 @@ goal: "Close POLISH-011 turn-loop architectural integration gap (3-story arc S15
 start: "2026-05-12"
 end: "2026-05-15"
 generated: "2026-05-09"
-updated: "2026-05-09 PM late-late — sprint-15 plan ratified: 4 Must (S15-A/B/C/D POLISH-011 + integration test) + 3 Should + 2 Nice; §11 HARD GATE rebind (concentration ≥5)."
+updated: "2026-05-10 — S15-A done (turn-order story-008): T5 await mechanism + ADR-0011 §Decision Contract 5; 7 new tests; S15-B/C unblocked."
 
 # Sprint-14 closed 2026-05-09 PM late-late ⚠️ APPROVED WITH CONDITIONS: 7/9 done + 1 partial (S14-03) + 1 USER-OWNED carry (S14-05); 4 of 4 prior gate-check items CLOSED (rerun-2 → rerun-3 path-to-PASS items 5/6/8/9; Item 7 partial) — strongest single-sprint closure ratio in chain history; AD's 1st READY verdict in chain history at S14-04; G-30 codified + pattern stability ESCALATED 2→4 invocations within 48hr; ADR-0021 ratified at S14-01 (576 LoC); 6 of 10 sprint-13 retro AIs CLOSED; 1288/1288 PASS / 68th FFB preserved; 9 commits 4f2ea2e→1b59f40.
 # Sprint-14 retro: production/retrospectives/retro-sprint-14-2026-05-09.md (13 sprint-15 AIs seeded; 9 NEW + 4 carry from sprint-13).
@@ -291,12 +291,12 @@ stories:
     name: "POLISH-011 absorption — ADR-0011 §Decision Contract 5 Callable controller wiring + T5 await; replace _execute_action_budget stub at turn_order_runner.gd:561-562 (story-005 obligation unfulfilled)"
     file: "src/core/turn_order_runner.gd"
     priority: must-have
-    status: ready-for-dev
+    status: done
     owner: "godot-gdscript-specialist"
     estimate_days: 0.4
     blocker: ""
-    completed: ""
-    # ~3-5h; entry blocker for S15-B/C/D; ADR-0011 amendment ratifies T5 await mechanism design
+    completed: "2026-05-10"
+    # 2026-05-10 — S15-A done: T5 await wiring + ADR-0011 amendment + 7 new tests (1288→1295); 7/7 ACs verified; backward compat preserved; S15-B/C unblocked.
 
   - id: "S15-B"
     name: "POLISH-011 absorption — AISystem.ai_action_ready subscriber + declare_action plumbing for AI commands; map AIActionCommand → TurnOrderRunner.ActionType + execute via _handle_move/_handle_attack"

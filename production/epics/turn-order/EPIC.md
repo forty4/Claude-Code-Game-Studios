@@ -3,8 +3,8 @@
 > **Layer**: Core
 > **GDD**: `design/gdd/turn-order.md` (Accepted via ADR-0011 2026-04-30; Contract 5 layer-invariant resolution prose added 2026-05-01 via S2-06)
 > **Architecture Module**: TurnOrderRunner — battle-scoped Node child of BattleScene (`class_name TurnOrderRunner extends Node`), created at battle-init via Battle Preparation, freed automatically with BattleScene per ADR-0002 SceneManager teardown
-> **Status**: Complete (2026-05-02) — 7/7 stories shipped; battle-scoped Node form epic closed
-> **Stories**: 7/7 created (2026-05-01); **7/7 Complete (2026-05-02)** — see Stories table below
+> **Status**: Complete (2026-05-10 sprint-15 S15-A close — 8/8 stories shipped; battle-scoped Node form epic re-closed after POLISH-011 absorption; previously Complete (2026-05-02) 7/7 → re-opened 2026-05-09 → re-closed 2026-05-10 with story-008 ADR-0011 §Decision Contract 5 T5 await wiring)
+> **Stories**: 8/8 created (story-008 added 2026-05-09); **8/8 Complete (story-001..007 shipped 2026-05-02; story-008 shipped 2026-05-10 sprint-15 S15-A)** — see Stories table below
 > **Manifest Version**: 2026-04-20 (`docs/architecture/control-manifest.md`)
 > **Created**: 2026-05-01 (Sprint 2 S2-08 — `/create-epics turn-order`)
 > **Stories Created**: 2026-05-01 (Sprint 2 S2-08 — `/create-stories turn-order`)
@@ -20,8 +20,9 @@
 | 005 | [Death handling (CR-7/CR-7d) + R-1 CONNECT_DEFERRED + R-2 + Charge F-2 + CHARGE_THRESHOLD append](story-005-death-handling-and-charge-accumulation.md) | Integration | Complete (2026-05-01) | ADR-0011 + ADR-0001 + ADR-0010 + ADR-0006 + ADR-0009 | 001, 002, 003, 004 |
 | 006 | [Victory detection (T7+RE2 DRAW + AC-18 mutual kill + AC-22 T7-beats-RE2) + ROUND_CAP append](story-006-victory-detection-and-precedence-rules.md) | Logic | Complete (2026-05-01) | ADR-0011 + ADR-0001 + ADR-0006 | 001, 002, 003, 005 |
 | 007 | [Epic terminal — perf baseline + 5+1 forbidden_patterns lint + G-15 6-element reset list lint + Polish-tier scaffolds + 3 TD entries](story-007-perf-lints-g15-and-td-entries.md) | Config/Data | Complete (2026-05-02) | ADR-0011 + ADR-0001 + ADR-0006 | 001, 002, 003, 004, 005, 006 |
+| 008 | [POLISH-011 absorption — ADR-0011 §Decision Contract 5 Callable controller wiring + T5 await](story-008-polish-011-t5-await-wiring.md) | Integration | Complete (2026-05-10 sprint-15 S15-A close — 7/7 ACs; 7 new tests; ADR-0011 §Amendment 2026-05-09) | ADR-0011 + ADR-0001 + ADR-0010 | 001..007 (post-epic-close re-opening) |
 
-**Stories total**: 7 — 5 Logic, 1 Integration, 1 Config/Data.
+**Stories total**: 8 — 5 Logic, 2 Integration, 1 Config/Data (story-008 added 2026-05-09 sprint-15 S15-A POLISH-011 absorption re-opening).
 
 **Implementation order**: **001 → 002 → 003 → 004 → 005 → 006 → 007** (linear chain; story-005 Integration is gating for AC-9 mutual kill scenario in story-006; story-007 is the epic terminal).
 
