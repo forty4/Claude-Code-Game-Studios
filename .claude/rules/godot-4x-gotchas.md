@@ -1141,6 +1141,46 @@ When 1 or more of these surface, suspect post-cutoff drift before suspecting a c
 
 ---
 
+## G-30 — Headless test pass does not gate windowed-mode lifecycle behavior
+
+**Context**: the project has a high-confidence automated test suite (1288/1288 PASS / 67th consecutive failure-free baseline at this gotcha's codification time). Tests exercise individual systems via direct test seams (`_advance_turn(unit_id)`, `declare_action(...)`, `_seed_unit_state_for_test(...)`, `swap_in()` stubs, etc.) so each unit / integration test is fast, isolated, and deterministic. The seams are intentional — they let tests bypass cross-system wiring that would otherwise require an entire BattleScene boot.
+
+**Broken**: treating "headless suite is green" as sufficient verification gate for any windowed-mode functionality. The seams that make tests fast also bypass the cross-system integration boundary where bugs cluster. Specifically, headless tests do NOT exercise:
+
+1. **Cross-system signal wiring at lifecycle boundaries** — autoload subscriptions registered at `_ready()`, signal subscribers connected via `CONNECT_DEFERRED` whose handlers fire only after `await get_tree().process_frame`, and the `_begin_round.call_deferred()` → `_advance_turn.call_deferred()` chain that drives the natural battle loop. Tests call `_advance_turn` directly and never let the deferred chain run.
+2. **Render path** — Polygon2D / Sprite2D / `_draw()` overlay rendering at the GridLayer / HUDLayer boundary. Headless mode runs without a visible CanvasItem tree.
+3. **Input dispatch** — engine `_unhandled_input` → InputRouter `_handle_event` → InputMap action match → `GameBus.input_action_fired` emit → GridBattleController `_on_input_action_fired`. Tests synthesize the action signal directly instead of dispatching via the engine input pipeline.
+4. **Object lifetime under teardown** — `_exit_tree()` disconnects, `queue_free()` propagation, ObjectDB net delta. Tests free explicitly per G-6 + G-11 hygiene; production teardown happens at scene transition.
+5. **Full battle-loop end-to-end** — `initialize_battle(roster)` → `_begin_round.call_deferred()` → `_advance_turn` → T1..T7 → `_advance_to_next_queued_unit` → `_end_round` → outcome emit. Tests never run the natural progression — they call individual T-steps and assert specific emits.
+
+When a bug clusters in #1-#5, the headless suite passes but a windowed boot of `scenes/battle/battle_scene.tscn` (or any production main_scene) fails visibly to a human.
+
+**Correct**: when adding a feature that touches cross-system wiring, render path, input dispatch, lifecycle boundaries, or the natural battle loop, ALSO add a windowed-mode smoke harness that exercises the lifecycle as the engine would. Concrete steps:
+
+1. Add a `tools/ci/smoke_<system>_windowed.sh` that runs `godot --headless --path . scenes/<scene>.tscn --quit-after N` (where N is enough deferred slots for the lifecycle to complete; 30-60 frames typical).
+2. Capture stderr and assert no `push_error` / `push_warning` lines (G-7 silent-skip protection).
+3. For battle-loop coverage: assert the natural sequence emits — `round_started(1)` → `unit_turn_started(<first_unit>)` → eventually `victory_condition_detected(<expected_outcome>)` for a deterministic fixture chapter. If the chapter is supposed to reach DRAW at ROUND_CAP, the harness asserts that. If it's supposed to player-win in N rounds, the harness asserts that.
+4. For visual coverage: assert at least one `_draw()` call fires on the relevant layer (use `--write-movie` capture + frame-pixel grep, or via `CanvasItem.draw_*` signal hook).
+5. For object lifetime coverage: snapshot `Performance.get_monitor(Performance.OBJECT_COUNT)` before scene-load and after scene-free; assert delta within budget.
+6. For input dispatch coverage: synthesize `InputEventMouseButton` via `Input.parse_input_event()` or equivalent + assert that `GameBus.input_action_fired` fires AND that the downstream subscriber's handler ran (cache-via-Array per G-4 + emit-via-real-autoload per G-10).
+
+The harness is slower than headless unit tests (seconds, not milliseconds) but shorter than any human visual smoke. Run it as a separate CI gate after the unit/integration suite — never inline.
+
+**Discovered**: pattern stable at **4 invocations**:
+
+1. **POLISH-008 (sprint-13)** — ObjectDB leak. Headless 1288/1288 PASS / Nth-consecutive-FFB; windowed mode shows ObjectDB count grows on each scene transition. Surfaced via S13-11/12 user attestation.
+2. **POLISH-010 (sprint-13 → sprint-14 S14-02 closure)** — visual rendering. Production main_scene boots to a blank window despite headless logic correct. Root cause: missing `mvp_chapter_01.tscn` + no `_draw()` tile renderer mounted at GridLayer. Closed at S14-02 via Option A (`chapter_visuals.gd` + `mvp_chapter_01.tres/tscn`). Surfaced via S13-10 user attestation.
+3. **POLISH-011 (originally filed, sprint-14 S14-03)** — input non-responsive. Production main_scene visuals render correctly post-S14-02, but mouse input on HUD panel area produces no game response. Originally framed as input-pipeline bug; 5 hypotheses listed at filing time. Surfaced via S14-03 user re-attestation.
+4. **POLISH-011 (actual root cause, sprint-14 PM late-late triage)** — turn-loop integration gap. The 5 input-frame hypotheses were all secondary or unrelated. Real root cause: `turn_order_runner.gd:561-562` `_execute_action_budget` is a stub (body is `pass`); `AISystem.ai_action_ready` has no subscriber in `src/`; `_turn_runner.declare_action()` is only called from the explicit "End Turn" button, never from the natural per-action grid-click path. With ROUND_CAP=30 + T5=`pass`, the entire battle plays out across deferred slots in 2-3 seconds → DRAW. Headless tests don't catch it because they bypass the natural battle loop via direct seam calls. Surfaced via post-/clear triage of POLISH-011's 5-hypothesis list.
+
+**Source-story trace**: sprint-13 retro AI #6 + sprint-14 plan S14-06 (`production/sprints/sprint-14.md:52`) + POLISH-011 TRIAGE FINDING block at `production/polish-backlog.md` (sprint-14 PM late-late triage 2026-05-09). Pattern stability advanced from 2 (sprint-13 retro framing) → 3 (sprint-14 entry POLISH-011 surfacing) → 4 (sprint-14 PM late-late POLISH-011 actual root cause re-attribution) — all within ~48 hours.
+
+**Distinct from G-7**: G-7 is about silent test SKIP (parse error → "no tests" → exit 0). G-30 is about silent test COVERAGE GAP (tests pass legitimately but never exercise the failing path). G-7 you fix by checking Overall Summary + grep for Parse Error. G-30 you fix by adding a windowed smoke harness — there is no "fix the test runner" path because the tests aren't lying, they're just not testing what you think they are.
+
+**No lint feasible** — this is a test-design / coverage pattern, not a code anti-pattern. The mitigation is the windowed smoke harness, not a static-analysis rule. A weak proxy lint could flag any production code path that doesn't have a corresponding `*_windowed_smoke.sh` script, but false-positive rate would be high and the signal poor. Sprint-14+ sprints should track windowed-smoke harness coverage as part of gate-check AD criteria instead.
+
+---
+
 ## Verification Pattern Summary
 
 When testing changes that touch any of the above areas, always:

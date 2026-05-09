@@ -11,7 +11,7 @@ goal: "Resolve 7 sprint-13 carry-conditions (POLISH-010 + ADR-0021 + S8-15 re-at
 start: "2026-05-09"
 end: "2026-05-12"
 generated: "2026-05-09"
-updated: "2026-05-09 PM late — S14-03 partial: §1.2/§3.2 PASS (S14-02 confirmed); §1.3 FAIL → POLISH-011 NEW HIGH; sprint-14 2/9 done + 1 partial; S14-04 verdict CONCERNS expected."
+updated: "2026-05-09 PM late-late — S14-06 done (G-30 codified +40 LoC; 4 invocations); POLISH-011 ESCALATED HIGH→CRITICAL via triage; sprint-14 3/9 done + 1 partial."
 
 # Sprint-13 closed 2026-05-09 PM late ⚠️ APPROVED WITH CONDITIONS: 11/12 stories done; S13-06 carries; 6-sprint S7-11 + 5-sprint S8-15 carry chains TERMINATED simultaneously (project-record); §11 HARD GATE first live binding SUCCESS at S13-02; PRE-FLIGHT byte-check 8× consecutive clean dogfood (recurrence eliminated); 1288/1288 PASS / 66th FFB preserved; 10 commits cca3eda→ef025a6.
 # Sprint-13 retro: production/retrospectives/retro-sprint-13-2026-05-09.md (10 sprint-14 AIs seeded; 6 of 10 sprint-12 AIs closed in-sprint).
@@ -245,12 +245,12 @@ stories:
     name: "Verification gap pattern G-30 codification at .claude/rules/godot-4x-gotchas.md — sprint-13 retro AI #6; pattern stable 2 invocations (POLISH-008 + POLISH-010); structural codification"
     file: ".claude/rules/godot-4x-gotchas.md"
     priority: should-have
-    status: ready-for-dev
+    status: done
     owner: "claude"
     estimate_days: 0.1
     blocker: ""
-    completed: ""
-    # ~30 min doc edit; Context → Broken → Correct → Discovered structure; cross-references POLISH-008 + POLISH-010 surfacings
+    completed: "2026-05-09"
+    # 2026-05-09 — S14-06 done: G-30 +40 LoC at godot-4x-gotchas.md; pattern 2→4 invocations (P-008+P-010+P-011-input+P-011-actual); TD-013 updated; rule file 21→22.
 
   - id: "S14-07"
     name: "AD gate criterion addition — 'world-space visual presence' in .claude/skills/gate-check/SKILL.md AD assessment template; sprint-13 retro AI #7"
