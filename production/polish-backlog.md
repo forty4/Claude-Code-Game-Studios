@@ -342,7 +342,7 @@ The 1288/1288 PASS / 66th FFB baseline gates LOGIC correctness but does not gate
 | Field | Value |
 |---|---|
 | **Source** | S14-03 USER-OWNED re-attestation 2026-05-09 PM late (sprint-14) — distinct from POLISH-010 root cause; surfaced AFTER visual rendering restored |
-| **Tier** | DEFECT (HIGH severity — release-blocker; production main_scene visuals render correctly post-S14-02 but mouse input on HUD panel area produces no game response throughout windowed session — 30-turn auto-progression to DRAW outcome with zero player turn pause; gates `/gate-check pre-prod-to-prod` rerun-3 PASS verdict same as POLISH-010 did before) |
+| **Tier** | DEFECT (CRITICAL severity — release-blocker; ESCALATED 2026-05-09 PM late-late from HIGH after triage finding re-attributed root cause from input non-responsive to turn-loop architectural gap. See TRIAGE FINDING block below.) |
 | **Closure trigger** | (a) MUST resolve before production stage advancement (gate-check rerun verdict cannot return PASS while POLISH-011 open); OR (b) sprint-14+ dedicated bug-fix story absorbs |
 | **Owner** | unassigned (godot-gdscript-specialist + godot-specialist at pickup; input_router.gd + battle_scene.gd integration boundary suspected) |
 | **Status** | Open |
@@ -368,7 +368,28 @@ The 1288/1288 PASS / 66th FFB baseline gates LOGIC correctness but does not gate
 4. If hypothesis 1 (input mode never engages): trace `InputRouter._determine_mode()` (CR-2) to confirm mode transitions on `unit_turn_started` signal for player_unit_ids
 5. If hypothesis 5 (AI dispatching on player units): grep `AISystem.dispatch()` filter logic for player_unit_ids exclusion check
 
-**Verification gap pattern** (3rd invocation): same headless-vs-windowed verification gap as POLISH-008 (ObjectDB leak) + POLISH-010 (visual rendering) — automated 1288/1288 PASS / 67th FFB does NOT exercise mouse input dispatch in windowed mode. Sprint-14 retro AI seed: visual smoke harness (S14-06 G-30 codification candidate) should ALSO include input-dispatch sanity (e.g., synthetic mouse event injection + assertion that an action signal fires on GameBus) — codification target reinforced by 3rd invocation.
+**TRIAGE FINDING (2026-05-09 PM late-late session, post-active.md /clear recovery)** — Root cause is NOT input non-responsive. The 5 listed hypotheses are all secondary or unrelated. Actual root cause is a turn-loop architectural gap:
+
+1. **`src/core/turn_order_runner.gd:561-562` `_execute_action_budget(_unit_id)` is a STUB** (body is `pass`). Every unit's turn falls through T4→T5→T6→T7 synchronously without any external system declaring an action. Documented as "Story-005 wires the Callable controller injection per ADR-0011 §Decision Contract 5" — that wiring was never completed.
+2. **`AISystem.ai_action_ready` signal has NO subscriber in `src/`** (verified via `grep -rn ai_action_ready src/`). AISystem.decide() runs and emits, but no handler exists to call `_turn_runner.declare_action()` with the chosen command.
+3. **`_turn_runner.declare_action()` is only called from `src/feature/grid_battle/grid_battle_controller.gd:721`** inside `end_player_turn()` — the explicit "End Turn" button handler. No path exists to declare MOVE/ATTACK/USE_SKILL/DEFEND during a unit's turn.
+4. **ROUND_CAP=30** in `assets/data/balance/balance_constants.json` matches the user-observed 30-turn DRAW outcome exactly. With T5=`pass` + deferred chaining at `turn_order_runner.gd:534` and `:641`, all 30 rounds tick across deferred slots in 2-3 seconds and `_end_round` emits DRAW per `:626-627`.
+
+**5-hypothesis disposition**:
+
+- H1 (InputRouter FSM mode determination) — InputRouter wiring intact; irrelevant (no time window for input to matter).
+- H2 (GameBus input_action_fired dispatch) — `grid_battle_controller.gd:246` subscribes correctly; not the cause.
+- H3 (HUD chrome occluding clicks) — possibly contributing but secondary; even if clicks reached the grid, T5=`pass` renders any declared action moot.
+- H4 (standalone-launch auto-advance bootstrap) — RIGHT pattern, WRONG file. Auto-advance lives in `turn_order_runner.gd:561` (T5 stub) + `:534/641` (synchronous-deferred chain), not `battle_scene.gd:115-119`.
+- H5 (AISystem dispatching on player units) — `ai_system.gd:152` correctly filters `side != 0`; GBC `:434` correctly filters `is_player_controlled`. Both clean. AI subscriber gap (#2 above) makes this moot anyway.
+
+**Severity re-tier**: HIGH → **CRITICAL** (release-blocker semantics unchanged; escalation reflects scope: not a polish item but an MVP turn-loop integration gap spanning ADR-0011 (TurnOrderRunner) + ADR-0014 (GridBattleController) + ADR-0019 (AISystem)).
+
+**Why headless 1288/1288 PASS doesn't catch it**: tests call `_advance_turn` / `declare_action` / individual T-step methods directly via test seams. The full `initialize_battle` → `_begin_round.call_deferred()` → end-to-battle flow is exercised in windowed-mode boot only.
+
+**Defer to sprint-15** with ADR amendment scope. Sprint-14 closure-mode discipline prohibits new dev; this finding is too large to absorb. Path-to-PASS for `/gate-check pre-prod-to-prod` rerun-3 must list POLISH-011 (CRITICAL) explicitly as a release-blocker requiring sprint-15 resolution.
+
+**Verification gap pattern** (4th invocation, escalated from 3rd): same headless-vs-windowed verification gap as POLISH-008 (ObjectDB leak) + POLISH-010 (visual rendering) + POLISH-011-as-originally-filed (input frame). Now 4th invocation as POLISH-011-actual (turn-loop integration gap). Automated 1288/1288 PASS / 67th FFB does NOT exercise the full battle loop end-to-end in windowed mode. Sprint-14 retro AI seed: visual smoke harness (S14-06 G-30 codification candidate) should ALSO include a full battle-loop end-to-end run (initialize_battle → DRAW or victory), not just "scene loads + visuals render" — codification target strongly reinforced by 4th invocation.
 
 **Cross-references**:
 - Surfacing source: S14-03 re-attestation at `production/qa/qa-signoff-sprint-8-2026-05-06.md` §S8-15 Re-Attestation Batch 1.3 FAIL
@@ -421,3 +442,4 @@ The 1288/1288 PASS / 66th FFB baseline gates LOGIC correctness but does not gate
 - 2026-05-09 PM — POLISH-007 + POLISH-008 added (sprint-13 mid-plan amendment Production VS bug surfacing; deferred non-blocker tier).
 - 2026-05-09 PM late — POLISH-009 + POLISH-010 added (S13-10 USER-OWNED attestation surfaced production main_scene visual rendering FAIL; POLISH-010 is HIGH-tier release-blocker gating gate-check rerun PASS verdict). Verification gap pattern noted for sprint-13 retro: 1288/1288 PASS automated suite gates LOGIC but does not gate VISUAL PRESENCE of production main_scene; headless-only verification cannot surface blank-window symptoms.
 - 2026-05-09 PM late — POLISH-011 added (S14-03 re-attestation post-S14-02 visual fix surfaced input non-responsive in windowed mode). 3rd invocation of headless-vs-windowed verification gap pattern (POLISH-008 / POLISH-010 / POLISH-011); reinforces sprint-14 S14-06 G-30 codification target. POLISH-010 + POLISH-009 effectively closed by S14-02 implementation (visual rendering verified; `mvp_chapter_01.tscn` ERROR eliminated) — formal status flip pending sprint-14 close ceremony amendment.
+- 2026-05-09 PM late-late — POLISH-011 TRIAGE FINDING amendment: tier escalated HIGH → CRITICAL after root-cause re-attribution from input non-responsive to turn-loop architectural gap (TurnOrderRunner._execute_action_budget stub + missing AISystem.ai_action_ready subscriber + missing per-action declare_action wiring in grid-click handlers). 5-hypothesis disposition documented inline (H1/H2/H4 disconfirmed; H3 secondary; H5 moot). Verification gap pattern advanced 3rd → 4th invocation (POLISH-008 / POLISH-010 / POLISH-011-input-frame / POLISH-011-turn-loop-actual). Sprint-15 absorption recommended; sprint-14 closure-mode prohibits this-sprint fix.
