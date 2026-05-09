@@ -290,13 +290,42 @@ When a sprint task is authored to address a POLISH-NNN entry, the sprint plan ta
 
 **Description**: User booted production build (`godot --path .` → main_scene `scenes/battle/battle_scene.tscn`). Window opened cleanly (Metal renderer / Forward Mobile / M4 Pro / engine init clean per stdout); battle visuals did NOT render to screen — user reports "윈도우는 떴음. 배틀화면 안 보임. 그래서 클릭/탭 해보지 못함." Headless boot of the same scene (S13-12 verification) shows game logic runs end-to-end with 391 turn-domain emits + scenario LOAD + AI dispatch all clean, so backend functionality is intact. Failure is rendering-layer / scene-layout / camera-positioning. **This is a production VS release-blocker** — main_scene must render visibly for any user-attestation path to verify gameplay.
 
-**Likely root causes (investigation order)**:
-1. **POLISH-009 cascade**: missing `mvp_chapter_01.tscn` triggers fallback `_build_map_resource_for_chapter()` → 15×15 grass synthesis, which may not include visual children (sprites / placeholder ColorRects) — fix POLISH-009 first, retest.
-2. **BattleCamera positioning**: ADR-0014 §1 mandates camera setup-before-add_child; if camera viewport / zoom is unset for the synthetic fallback map dimensions, the visible region may be off-screen.
-3. **Layer ordering**: `_grid_layer` Node2D at `battle_scene.gd:50` mounts overlays; if z-index / canvas-layer setup expects authored-tscn structure, runtime-built fallback may render to wrong layer.
-4. **Scene-tree-light vs full instantiate**: BattleScene extends Node2D + has @onready scene-tree references (`$GridLayer` etc.); if those nodes are populated only by the missing tscn, they're null at runtime and child-mount paths silently fail.
+**ROOT CAUSE (confirmed 2026-05-09 PM late investigation per S13-10 follow-on)**:
 
-**Action when picked up**: (1) Boot `godot --path . --verbose 2>&1 | head -100` to capture full init log; check for missing-node warnings beyond the mvp_chapter_01.tscn ERROR. (2) Take screenshot of windowed boot to attach as evidence in this entry. (3) Run `godot --debug` to attach Godot's runtime inspector — verify scene tree contents at runtime against expected hierarchy. (4) Bundle fix with POLISH-009 — likely single fix resolves both. (5) Add a smoke-tier "visual not blank" test to CI (verification gap exposed at sprint-13 retro AI #x; current 1288-test suite gates logic but not rendering).
+Production main_scene `scenes/battle/battle_scene.tscn` is **intentionally a container-only scene** (3 nodes: BattleScene Node2D + GridLayer Node2D + HUDLayer CanvasLayer). All 7 systems mounted at runtime in `BattleScene._ready()` are either pure LOGIC or HUD-only:
+
+| Runtime mount | Type | Visual rendering responsibility |
+|---|---|---|
+| MapGrid | `extends Node` (NOT Node2D) | NONE — data + lookup only |
+| BattleCamera | `extends Camera2D` | NONE — viewport framing only, no `_draw()` |
+| HPStatusController | logic | NONE |
+| TurnOrderRunner | logic | NONE |
+| GridBattleController | controller | NONE — no rendering code |
+| AISystem | logic | NONE |
+| BattleHUD | mounts 14 prefab `.tscn` files from `scenes/battle/elements/` | HUD chrome only (initiative queue, turn counter, etc.) — renders at screen edges; does NOT render world-space map/units |
+
+**The world-space tile + unit visuals were INTENDED to come from an authored chapter-specific `.tscn` (e.g., `mvp_chapter_01.tscn` = sprites + TileMap + unit Sprite2D children). That file was never created.** This is a content-authoring gap, not a code regression — production main_scene has been "logic-only renderable" since sprint-3 establishment. It worked for headless E2E test coverage (391 turn-domain emits prove the loop runs) but renders blank world-space in windowed mode.
+
+The 4 sprint-3..sprint-10 epics that "shipped" Production VS (Camera / GridBattleController / BattleHUD / BattleScene per session-state phrasing) shipped the LOGIC layer + HUD chrome. The world-space sprite layer was deferred without an explicit epic to track it.
+
+**What user actually sees (consistent with this analysis)**:
+- HUD chrome around screen edges (initiative queue, turn-round counter, action menu skeleton, etc.) — likely present but visually subtle without map context
+- World-space (center): empty / void / no tiles / no units — this is the "배틀화면 안 보임" experience
+- Camera viewport frames an empty world
+
+**Comparison with prototype (`prototypes/chapter-prototype/chapter.tscn`)**: prototype renders properly because `chapter.gd` builds runtime ColorRect + Label visuals (lines 183/206/251/261/329 — `bg.size = Vector2(820, 720)` etc.). Prototype-tier code is in `prototypes/` per `.claude/rules/prototype-code.md` standards (relaxed; placeholder visuals OK). Production code is NOT supposed to use prototype-tier patterns.
+
+**Fix is NOT a 5-line patch**. Two real options:
+
+- **Option A — author `assets/data/maps/mvp_chapter_01.tres` + `scenes/battle/mvp_chapter_01.tscn`**: proper visual layer; canonical path per ADR-0016 §4 + chapter_definition.gd:23 docstring. Estimated: 1-2 hours including sprite/TileMap setup + integration test + visual evidence doc. Sprint-14 epic candidate ("production VS world-space rendering").
+- **Option B — port prototype-tier ColorRect rendering into BattleScene as fallback**: 30-50 LoC patch in battle_scene.gd that synthesizes placeholder visuals when no authored-tscn exists. Quick-and-dirty; needs ADR alignment (currently ADR-0014/0016 silent on placeholder fallback); blurs prototype/production tier boundary. NOT recommended unless sprint-14 timeline demands a stop-gap.
+
+**Sprint-13 disposition**: defer fix to sprint-14 (scope-too-large for sprint-13 close window). Sprint-13 closes with `/gate-check pre-prod-to-prod` rerun verdict CONCERNS (POLISH-010 + POLISH-009 listed as path-to-PASS items). `production/stage.txt` Pre-Production → Production flip cannot occur this sprint.
+
+**Action when picked up (sprint-14 epic candidate)**: (1) Decide Option A (author proper visuals) vs Option B (placeholder fallback) vs Option C (Production-level epic for full visual tier including sprites + animations). Recommend Option A baseline + Option C as the longer-term arc. (2) Add CI smoke test that boots windowed (or `--xvfb` with a virtual display) + takes screenshot + asserts non-zero non-clear-color pixels. This closes the verification gap. (3) ADR-0021 candidate: "Production world-space rendering responsibility" — codify which Node mounts the visual layer, what fallback exists, what the prototype/production tier boundary is.
+
+**Verification gap** (sprint-13 retro AI seed — UPDATED with full root cause):
+The 1288/1288 PASS / 66th FFB automated suite gates LOGIC + HUD chrome but does NOT gate world-space VISUAL PRESENCE. Headless tests run with `--headless` (no rendering pipeline). Windowed mode reveals architectural content gap that automated tests cannot surface. Sprint-13 retro must address: visual smoke-tier CI test (windowed boot + screenshot + non-blank assertion) is the structural gate that would have caught this 4 sprints ago.
 
 **Verification gap pattern (sprint-13 retro AI seed)**:
 The 1288/1288 PASS / 66th FFB baseline gates LOGIC correctness but does not gate VISUAL PRESENCE of the production main_scene. Headless tests CAN'T detect blank-window symptoms because they run with `--headless` (no rendering pipeline). This pattern surfaced at S13-10 attestation; sprint-13 retro must address: should there be a CI smoke test that boots windowed + screenshots + asserts non-blank? (Cross-reference POLISH-008 ObjectDB leak which surfaced via similar headless-only verification gap.)
