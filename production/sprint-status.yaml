@@ -11,7 +11,7 @@ goal: "Resolve §11 5th-carry HARD GATE (S12-10 disposition (a) user-attested) +
 start: "2026-05-10"
 end: "2026-05-12"
 generated: "2026-05-09"
-updated: "2026-05-09 PM late — S13-11 done: battle_hud _safe_tr_format helper + 7 tests; 1273→1280 65th FFB; 0 fmt err vs 5; ADV 5 (lean skip QL/LP); next S13-12 ready"
+updated: "2026-05-09 PM late — S13-12 done: BattleUnit.archetype field separation; +8 tests 1280→1288 66th FFB; 0 unknown-arch warn vs 4+; ADV 5 (lean skip QL/LP)"
 
 # Sprint-12 closed 2026-05-09: 8/8 canonical ✓ + 3 bonus save-load + S12-03 blocker-bound + 2 USER-OWNED pending; APPROVED W/ COND; 1273/1273 64th FFB; 47-streak; 779f614→fc9adfb.
 # Sprint-12 retro: production/retrospectives/retro-sprint-12-2026-05-09.md (10 sprint-13 AIs seeded; 2 codification AIs forward-debt #5+#6).
@@ -159,9 +159,10 @@ stories:
     name: "2026-05-09 — S13-12 NEW Should-Have+1: BUG #2 BattleUnit.archetype field separation from fate-counter tag; eliminates AISystem unknown-archetype warnings"
     file: "src/core/battle_unit.gd"
     priority: should-have
-    status: backlog
+    status: done
     owner: "claude"
     estimate_days: 0.10
     blocker: ""
-    completed: ""
+    completed: "2026-05-09"
     # Root: grid_battle_controller.gd:457 reads BattleUnit.tag (fate-counter "boss"/"tank"/"assassin") as AI archetype; "boss" leaks → AISystem fallback. Fix: add archetype field.
+    # 2026-05-09 — S13-12 done: archetype field on BattleUnit + battle_scene populates + grid_battle_controller snapshot reads it; +8 tests 1280→1288 66th FFB; 0 unknown-arch warn vs 4+; ADV 5

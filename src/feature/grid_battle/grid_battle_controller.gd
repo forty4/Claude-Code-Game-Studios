@@ -454,7 +454,14 @@ func _make_battle_state_snapshot() -> BattleStateSnapshot:
 		var alive: bool = _hp_controller.is_alive(u.unit_id) if _hp_controller != null else true
 		snap.units.append({
 			"unit_id": u.unit_id,
-			"archetype": u.tag if u.tag != &"" else &"aggressor",
+			# S13-12: read from BattleUnit.archetype field directly. Prior code
+			# read u.tag as the archetype source, which conflated the fate-counter
+			# role (`tank`/`assassin`/`boss`) with the AI archetype dispatch bucket
+			# (`aggressor`/`skirmisher`/`holder`/`coordinator`). When a chapter has a
+			# coordinator-archetyped unit mapped to tag=`boss` for fate tracking,
+			# the conflated read leaked `boss` into AISystem and fell through to
+			# the EC-AI-4 unknown-archetype warning path (×4+ per battle).
+			"archetype": u.archetype,
 			"position": u.position,
 			"hp_current": hp_curr,
 			"hp_max": hp_mx,

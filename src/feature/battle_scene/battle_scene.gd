@@ -219,7 +219,10 @@ func _build_battle_units_from_chapter(chapter: ChapterDefinition) -> Array[Battl
 		var hero: StringName = player_default_heroes[i] if i < player_default_heroes.size() else &"shu_003_zhang_fei"
 		var pos: Vector2i = chapter.deployment_positions_default.get(uid, Vector2i(1 + i, 2)) as Vector2i
 		var tag: StringName = &"tank" if i == 0 else &"assassin"
-		roster.append(_make_battle_unit(uid, hero, true, pos, tag))
+		# Player units default to &"aggressor" archetype (S13-12); chapter fixtures
+		# do not currently author player_unit archetypes — extend ChapterDefinition
+		# if AI-driven player units are introduced post-MVP.
+		roster.append(_make_battle_unit(uid, hero, true, pos, tag, &"aggressor"))
 	# Enemy units from chapter.enemy_roster Dictionary entries.
 	for entry in chapter.enemy_roster:
 		var d: Dictionary = entry as Dictionary
@@ -228,18 +231,26 @@ func _build_battle_units_from_chapter(chapter: ChapterDefinition) -> Array[Battl
 		var archetype: StringName = StringName(d.get("archetype", "aggressor") as String)
 		# Position fallback: spread enemies across columns 4+ at row 2.
 		var pos: Vector2i = chapter.deployment_positions_default.get(uid, Vector2i(4 + roster.size(), 2)) as Vector2i
+		# tag carries the fate-counter role (coordinator → "boss" for fate tracking
+		# per ADR-0014 §2 fate counter pattern). archetype is preserved separately
+		# on the BattleUnit for AISystem dispatch (S13-12 separation).
 		var tag: StringName = &"boss" if archetype == &"coordinator" else archetype
-		roster.append(_make_battle_unit(uid, hero, false, pos, tag))
+		roster.append(_make_battle_unit(uid, hero, false, pos, tag, archetype))
 	return roster
 
 
 ## Constructs a single BattleUnit. Replaces the deleted _make_mock_unit helper.
+## archetype param (S13-12) carries the AI behaviour bucket — distinct from `tag`
+## which carries the fate-counter role. See BattleUnit.archetype docstring for the
+## separation rationale (BUG #2: prior conflation leaked tag="boss" into AISystem
+## dispatch as unknown archetype, triggering EC-AI-4 fallback warning).
 func _make_battle_unit(
 		unit_id: int,
 		hero_id: StringName,
 		is_player: bool,
 		pos: Vector2i,
 		tag: StringName,
+		archetype: StringName,
 ) -> BattleUnit:
 	var unit: BattleUnit = BattleUnit.new()
 	unit.unit_id = unit_id
@@ -248,6 +259,7 @@ func _make_battle_unit(
 	unit.side = 0 if is_player else 1
 	unit.position = pos
 	unit.tag = tag
+	unit.archetype = archetype
 	unit.move_range = 3
 	unit.attack_range = 1
 	unit.raw_atk = 10

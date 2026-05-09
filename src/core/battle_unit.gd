@@ -107,3 +107,15 @@ extends Resource
 ## when constructing DefenderContext per ADR-0012 §8 + CR-3 (DamageCalc applies
 ## clampi(raw_def, 1, DEF_CAP) per AC-DC-11/15). Story-005 addition.
 @export var raw_def: int = 5
+
+## AI archetype identifier — `&"aggressor"` / `&"skirmisher"` / `&"holder"` /
+## `&"coordinator"` per ADR-0019 §4 dispatch table. Distinct from `tag` field
+## above: `tag` carries the FATE-COUNTER role (`tank`/`assassin`/`boss`) while
+## `archetype` carries the AI behaviour bucket. Both coexist because chapter
+## fixtures may map archetype=coordinator → tag=boss for fate tracking, but the
+## AI snapshot builder MUST read this field (not `tag`) to preserve the original
+## archetype dispatch — otherwise `&"boss"` leaks into AISystem and falls
+## through to the EC-AI-4 unknown-archetype warning path. Set at battle init
+## from `chapter.enemy_roster[i].archetype` (player units default to
+## `&"aggressor"`). Sprint-13 S13-12 addition.
+@export var archetype: StringName = &"aggressor"
