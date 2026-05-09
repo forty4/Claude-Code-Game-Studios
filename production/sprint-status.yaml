@@ -6,34 +6,38 @@
 #   - Verify with: awk '{if (length($0) > 200) print NR}' production/sprint-status.yaml
 #   - Enforced by /story-done Phase 7 step 4.
 
-sprint: 13
-goal: "Resolve §11 5th-carry HARD GATE (S12-10 disposition (a) user-attested) + S12-11 carry + S12-03 close-gate rerun + 2 codification AIs (anchored-regex + byte-cap) + §7 promotion call."
-start: "2026-05-10"
+sprint: 14
+goal: "Resolve 7 sprint-13 carry-conditions (POLISH-010 + ADR-0021 + S8-15 re-attestation + S13-06 producer call + 3 retro AI codifications) for /gate-check pre-prod-to-prod rerun-3 PASS verdict + production/stage.txt Pre-Production → Production flip."
+start: "2026-05-09"
 end: "2026-05-12"
 generated: "2026-05-09"
-updated: "2026-05-09 PM late — Sprint-13 CLOSED ⚠️ APPROVED WITH CONDITIONS; 11/12 done; 6+5-sprint carry chains TERMINATED; POLISH-010 carry sprint-14"
+updated: "2026-05-09 PM late — Sprint-14 PLAN: 7 carryover from S13 close (POLISH-010 + ADR-0021 + S8-15-reattest + 4 retro AIs); MIXED HYBRID; ÷~3 actual ~0.7d"
 
-# Sprint-12 closed 2026-05-09: 8/8 canonical ✓ + 3 bonus save-load + S12-03 blocker-bound + 2 USER-OWNED pending; APPROVED W/ COND; 1273/1273 64th FFB; 47-streak; 779f614→fc9adfb.
-# Sprint-12 retro: production/retrospectives/retro-sprint-12-2026-05-09.md (10 sprint-13 AIs seeded; 2 codification AIs forward-debt #5+#6).
-# Sprint-12 history archive: production/sprint-status-history.md ## Sprint 12 section.
-# Gate-check 2026-05-08-rerun: CONCERNS verdict (items 3a + 3b CLOSED; items 1 + 2 USER-OWNED still pending). Sprint-13 close-gate re-runs after attestations land.
+# Sprint-13 closed 2026-05-09 PM late ⚠️ APPROVED WITH CONDITIONS: 11/12 stories done; S13-06 carries; 6-sprint S7-11 + 5-sprint S8-15 carry chains TERMINATED simultaneously (project-record); §11 HARD GATE first live binding SUCCESS at S13-02; PRE-FLIGHT byte-check 8× consecutive clean dogfood (recurrence eliminated); 1288/1288 PASS / 66th FFB preserved; 10 commits cca3eda→ef025a6.
+# Sprint-13 retro: production/retrospectives/retro-sprint-13-2026-05-09.md (10 sprint-14 AIs seeded; 6 of 10 sprint-12 AIs closed in-sprint).
+# Sprint-13 history archive: production/sprint-status-history.md ## Sprint 13 section.
+# Gate-check 2026-05-09-rerun-2: CONCERNS verdict (3 of 4 prior items CLOSED + POLISH-010 NEW HIGH-tier release-blocker). Sprint-14 close-gate rerun-3 expected PASS after S14-01/02/03 land.
 
-# Carryover-Backlog (per sprint-9 retro AI #2 codified at sprint-11 S11-01 + §11.4 Trigger 1 binding obligation per S12-06):
-#   - S12-10 S7-11 (6th-carry USER-OWNED; PROJECT-RECORD; §11 HARD GATE BOUND at sprint-13 entry) → S13-02 USER-OWNED CRITICAL Must (disposition (a) per user)
-#   - S12-11 S8-15 user attestation (4th-time USER-OWNED carryover; below 5-time threshold) → S13-10 USER-OWNED Should (normal carry)
-#   - S12-03 close-gate rerun (1st-time blocker-bound) → S13-03 Must (re-runs after S13-02 + S13-10 land)
+# Carryover-Backlog (per sprint-9 retro AI #2 + §11.4 Trigger 1 binding; §11 HARD GATE binding rebind FIRED at sprint-14 entry per AI #2 — concentration ≥5):
+#   - POLISH-010 production main_scene visual rendering (HIGH release-blocker; gate-check rerun-2 Item 5) → S14-02 Must
+#   - POLISH-009 missing mvp_chapter_01.tscn (likely contributing cause) → BUNDLED with S14-02
+#   - ADR-0021 ratification (HIGH gate blocker; gate-check rerun-2 Item 6 TD-led) → S14-01 Must
+#   - S8-15 §1.2/1.3/3.2 re-attestation (gate-check rerun-2 Item 7 CD-led; user time ~10min) → S14-03 Must
+#   - S13-06 producer §7 promotion call (sprint-12 retro AI #4; 2nd-time carry; user override KEEP) → S14-05 Should
+#   - Verification gap pattern G-30 codification (sprint-13 retro AI #6; pattern stable 2 invocations) → S14-06 Should
+#   - AD gate criterion addition (sprint-13 retro AI #7) → S14-07 Should
 
-# Sprint-13 retro AI seeds (carry from sprint-12 retro + §11 first-binding outcome):
-#   AI #1 (sustained sprint-7→8→9→10→11→12→13): Codification debt MUST be paid at retro time.
-#   AI #2 (sustained sprint-9→10→11→12→13): Carryover concentration ≥4 — sprint-13 entry has 3 (well below); validate post-absorption.
-#   AI #3 (pattern stable 4 invocations): BACKFILL CLOSE-OUT verdict — sprint-13 may not invoke if no drift surfaces.
-#   AI #4 (validated 4th time sprint-12 heavy-closure boundary): Mixed-mode velocity multiplier — sprint-13 closure-leaning re-validates ÷~4.
-#   AI #5 Sprint-13 close gate-check evaluation (verify §11 binding fulfillment + S13-03 verdict).
-#   AI #6 §11 HARD GATE rule live-binding outcome — does (a) user-attested actually close S7-11 OR rename holding pattern? Validate at sprint-13 retro.
-#   AI #7 Closure-mode HYBRID first live signal-evaluation outcome (S13-07) — does signal count match user-perceived sprint mode?
-#   AI #8 production/decisions/ §7 promotion outcome (S13-06) — Route a vs Route c retention decision.
-#   AI #9 First sprint to enter with §11.3 Live application table binding — codify pattern of "structural pre-flight obligations" for sprint-14+.
-#   AI #10 NEW: /story-readiness path-verification gap — sprint-12 fired 3 times; threshold codification candidate at ≥4-invocation-stable.
+# Sprint-14 retro AI seeds (10 active; carry from sprint-13 retro):
+#   AI #1 Codification debt at retro time (sustained sprint-7→8→9→10→11→12→13→14)
+#   AI #2 Carryover concentration ≥5 → §11 HARD GATE rebind triggered THIS sprint; validate post-S14 drops below threshold
+#   AI #3 POLISH-010 disposition outcome (Option A author OR Option C deferral ADR) — first project release-blocker resolved via dedicated sprint
+#   AI #4 ADR-0021 ratification outcome — first project ADR ratified at sprint entry as gate-check carry-condition
+#   AI #5 S8-15 re-attestation outcome (MIXED → PASS path) — first project re-attestation cycle
+#   AI #6 Verification gap pattern G-30 codification outcome
+#   AI #7 AD gate criterion addition outcome (.claude/skills/gate-check/SKILL.md modification)
+#   AI #8 S13-06 producer §7 promotion outcome (Route a vs Route c retention; 2nd-time carry)
+#   AI #9 Mid-sprint mode redesignation precedent — frequency tracking; codification at ≥2 invocations
+#   AI #10 /code-review ADVISORY items batch classification outcome (10 items split tech-debt vs polish; sprint-13 batch)
 
 stories:
   - id: "S13-01"
@@ -176,3 +180,104 @@ stories:
     completed: "2026-05-09"
     # Root: grid_battle_controller.gd:457 reads BattleUnit.tag (fate-counter "boss"/"tank"/"assassin") as AI archetype; "boss" leaks → AISystem fallback. Fix: add archetype field.
     # 2026-05-09 — S13-12 done: archetype field on BattleUnit + battle_scene populates + grid_battle_controller snapshot reads it; +8 tests 1280→1288 66th FFB; 0 unknown-arch warn vs 4+; ADV 5
+
+  # ── Sprint-14 entries (carryover-driven; 7 carry from sprint-13 close + 2 tracking) ──
+
+  - id: "S14-01"
+    name: "ADR-0021 'Production world-space rendering responsibility' ratification — battle_scene/MapGrid/chapter-scene contract; gate-check rerun-2 Item 6; HIGH gate blocker"
+    file: "docs/architecture/ADR-0021-production-world-space-rendering-responsibility.md"
+    priority: must-have
+    status: ready-for-dev
+    owner: "claude"
+    estimate_days: 0.2
+    blocker: ""
+    completed: ""
+    # Sprint-14 entry obligation; references existing ADR-0014 §3 + ADR-0016 §3; 1-2hr scoped doc; status Accepted target
+
+  - id: "S14-02"
+    name: "POLISH-010 disposition: Option A author proper visuals (mvp_chapter_01.tres + .tscn) OR Option C deferral ADR — gate-check rerun-2 Item 5; HIGH release-blocker; bundles POLISH-009"
+    file: "scenes/battle/mvp_chapter_01.tscn"
+    priority: must-have
+    status: ready-for-dev
+    owner: "claude"
+    estimate_days: 0.3
+    blocker: "S14-01 (ADR-0021 defines contract)"
+    completed: ""
+    # Option A path 1.5-2hr; Option C fallback 1hr; both satisfy gate-check rerun-3 Item 5; visual evidence at production/qa/evidence/sprint-14-polish-010-evidence.md; bundles POLISH-009
+
+  - id: "S14-03"
+    name: "S8-15 §1.2/1.3/3.2 re-attestation post-POLISH-010-fix — gate-check rerun-2 Item 7 CD-led; converts MIXED → clean PASS at qa-signoff-sprint-8-2026-05-06.md"
+    file: "production/qa/qa-signoff-sprint-8-2026-05-06.md"
+    priority: must-have
+    status: blocked
+    owner: "user"
+    estimate_days: 0
+    blocker: "S14-02 (POLISH-010 fix shipped)"
+    completed: ""
+    # User time ~10 min; runs after S14-02 lands; if FAIL, S14-02 reopens for round 2 per R5
+
+  - id: "S14-04"
+    name: "/gate-check pre-prod-to-prod rerun-3 — re-evaluate after S14-01/02/03 land; PASS verdict (production/stage.txt flip) OR CONCERNS; sprint-11 retro AI #1 follow-through closure continued"
+    file: "production/gate-checks/"
+    priority: must-have
+    status: blocked
+    owner: "claude"
+    estimate_days: 0.1
+    blocker: "S14-01 + S14-02 + S14-03 land"
+    completed: ""
+    # Closure ÷3 → ~0.03d actual; 4-director panel parallel; first project candidate stage advancement since 2026-04-20 entry
+
+  - id: "S14-05"
+    name: "S13-06 producer §7 promotion call — sprint-12 retro AI #4; threshold ≥3 artifacts AND ≥2 sprints HAS FIRED; producer Route a vs Route c retention decision; 2nd-time carry"
+    file: "production/decisions/"
+    priority: should-have
+    status: ready-for-dev
+    owner: "producer"
+    estimate_days: 0.1
+    blocker: ""
+    completed: ""
+    # User concurrence required; ~10min claude paper + ~5min user decision; Route c-stay default if user unavailable per R7
+
+  - id: "S14-06"
+    name: "Verification gap pattern G-30 codification at .claude/rules/godot-4x-gotchas.md — sprint-13 retro AI #6; pattern stable 2 invocations (POLISH-008 + POLISH-010); structural codification"
+    file: ".claude/rules/godot-4x-gotchas.md"
+    priority: should-have
+    status: ready-for-dev
+    owner: "claude"
+    estimate_days: 0.1
+    blocker: ""
+    completed: ""
+    # ~30 min doc edit; Context → Broken → Correct → Discovered structure; cross-references POLISH-008 + POLISH-010 surfacings
+
+  - id: "S14-07"
+    name: "AD gate criterion addition — 'world-space visual presence' in .claude/skills/gate-check/SKILL.md AD assessment template; sprint-13 retro AI #7"
+    file: ".claude/skills/gate-check/SKILL.md"
+    priority: should-have
+    status: ready-for-dev
+    owner: "claude"
+    estimate_days: 0.05
+    blocker: ""
+    completed: ""
+    # ~15 min doc edit; sprint-14+ /gate-check invocations include this check by default
+
+  - id: "S14-08"
+    name: "/code-review ADVISORY items batch classification — sprint-13 retro AI #10; 10 items from S13-11/S13-12 reviews split tech-debt-register vs documentation polish vs no-action"
+    file: "docs/tech-debt-register.md"
+    priority: should-have
+    status: ready-for-dev
+    owner: "claude"
+    estimate_days: 0.1
+    blocker: ""
+    completed: ""
+    # AC-1 sentinel candidate from qa-tester likely register-tier; W-3/I-1/I-4/edge-cases doc-polish tier
+
+  - id: "S14-09"
+    name: "Mid-sprint mode redesignation precedent tracking — sprint-13 retro AI #9; pattern stable at 1 invocation; track for ≥2-invocation codification trigger"
+    file: "production/sprints/sprint-14.md"
+    priority: nice-to-have
+    status: backlog
+    owner: "producer"
+    estimate_days: 0
+    blocker: ""
+    completed: ""
+    # Tracking-only this sprint unless mid-sprint trigger fires; no-op default
