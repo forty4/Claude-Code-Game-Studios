@@ -584,18 +584,18 @@ func _populate_forecast_section(section: StringName, attacker_id: int, defender_
 			label.text = tr(&"hud.forecast.direction.north")
 			subpanel.tooltip_text = tr(&"hud.forecast.direction.north")
 		&"hit_crit":
-			label.text = tr(&"hud.forecast.hit_label") % 85
-			subpanel.tooltip_text = tr(&"hud.forecast.hit_label") % 85
+			label.text = _safe_tr_format(&"hud.forecast.hit_label", 85)
+			subpanel.tooltip_text = _safe_tr_format(&"hud.forecast.hit_label", 85)
 		&"damage":
-			label.text = tr(&"hud.forecast.damage_label") % [12, 18]
-			subpanel.tooltip_text = tr(&"hud.forecast.damage_label") % [12, 18]
+			label.text = _safe_tr_format(&"hud.forecast.damage_label", [12, 18])
+			subpanel.tooltip_text = _safe_tr_format(&"hud.forecast.damage_label", [12, 18])
 		&"counter":
 			# Counter-attack preview: em-dash placeholder if defender lacks counter.
 			# DamageCalc integration deferred per Implementation Note. Em-dash
 			# hoisted to const to keep Lint 5 (no_hardcoded_strings) clean —
 			# Unicode punctuation placeholder is locale-independent (story-008).
 			label.text = _COUNTER_PLACEHOLDER_DASH
-			subpanel.tooltip_text = tr(&"hud.forecast.counter_label") % _COUNTER_PLACEHOLDER_DASH
+			subpanel.tooltip_text = _safe_tr_format(&"hud.forecast.counter_label", _COUNTER_PLACEHOLDER_DASH)
 		&"status_effects":
 			label.text = tr(&"hud.forecast.status_label")
 			subpanel.tooltip_text = tr(&"hud.forecast.status_label")
@@ -1237,14 +1237,14 @@ func _on_battle_outcome_resolved(outcome: StringName, fate_data: Dictionary) -> 
 		surviving_count = _hp_controller.get_surviving_unit_count()
 	var surviving_label: Label = vbox.get_node_or_null(^"SurvivingUnitsLabel") as Label
 	if surviving_label != null:
-		surviving_label.text = tr(&"hud.results.surviving_units") % surviving_count
+		surviving_label.text = _safe_tr_format(&"hud.results.surviving_units", surviving_count)
 	# Turns elapsed (categorical aggregate — NOT a fate counter).
 	var turns_elapsed: int = 0
 	if _turn_runner != null and _turn_runner.has_method("get_round_count"):
 		turns_elapsed = _turn_runner.get_round_count()
 	var turns_label: Label = vbox.get_node_or_null(^"TurnsElapsedLabel") as Label
 	if turns_label != null:
-		turns_label.text = tr(&"hud.results.turns_elapsed") % turns_elapsed
+		turns_label.text = _safe_tr_format(&"hud.results.turns_elapsed", turns_elapsed)
 	panel.visible = true
 	_results_render_ms_last = float(Time.get_ticks_usec() - start_us) / 1000.0
 
@@ -1469,3 +1469,52 @@ func _on_skill_slot_pressed(slot_index: int) -> void:
 ## without firing confirm event. Per ADR-0015 §OQ-4 two-tap cancel path.
 func _on_two_tap_timeout() -> void:
 	_cancel_two_tap_arm()
+
+
+## Safely formats a translatable string with positional args.
+##
+## Returns tr(key) % args when the translated string contains a format
+## specifier (i.e., `%` character is present after translation — meaning
+## the locale lookup actually happened). Otherwise returns a Korean-default
+## fallback string for the key — defensive against the no-locale-loaded case
+## where tr() returns the key itself, which has no `%d`/`%s` specifier and
+## would runtime-error on % args.
+##
+## Discovered: S13-11 sprint-13 mid-amendment 2026-05-09 PM (Production VS bug
+## #1 surfaced at headless boot of scenes/battle/battle_scene.tscn).
+func _safe_tr_format(key: StringName, args: Variant) -> String:
+	var translated: String = tr(key)
+	# tr() returns the key itself when not in the loaded translation table.
+	# Detect this via the absence of a `%` specifier in the translated string —
+	# all of our format keys must contain `%d` / `%s` / `%v` in the locale file.
+	if "%" in translated:
+		# @warning_ignore("unsafe_cast") is not needed here: GDScript String.% operator
+		# accepts Variant on the right-hand side at runtime. The static analyser does
+		# not flag Variant % on String — the op is dynamically dispatched.
+		return translated % args
+	# Fallback: no locale loaded, or key missing from locale file.
+	return _format_fallback(key, args)
+
+
+## Hardcoded Korean fallback strings for the 5 known tr() % sites in this file.
+## Match these strings to the locale file when keys are added to assets/locale/en.po.
+##
+## NOTE: this fallback ladder is intentionally exhaustive over the 5 known sites.
+## Adding a new tr() %-using key MUST add a match arm here. When the project
+## gains a registered locale + all 5 keys land in en.po + ko.po, this fallback
+## can be removed (the `if "%" in translated` branch always succeeds).
+func _format_fallback(key: StringName, args: Variant) -> String:
+	match key:
+		&"hud.results.surviving_units":
+			return "%d 유닛 생존" % args
+		&"hud.results.turns_elapsed":
+			return "%d 턴 경과" % args
+		&"hud.forecast.hit_label":
+			return "명중 %d%%" % args
+		&"hud.forecast.damage_label":
+			return "%d–%d 피해" % args
+		&"hud.forecast.counter_label":
+			return "반격 %s" % args
+		_:
+			push_warning("BattleHUD._format_fallback: unknown key '%s' — returning translated key" % key)
+			return tr(key)

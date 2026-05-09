@@ -11,7 +11,7 @@ goal: "Resolve §11 5th-carry HARD GATE (S12-10 disposition (a) user-attested) +
 start: "2026-05-10"
 end: "2026-05-12"
 generated: "2026-05-09"
-updated: "2026-05-09 PM — sprint-13 mid-plan amend: Production VS bug-fix absorption (+S13-11 battle_hud format + S13-12 BattleUnit.archetype); mode CLOSURE-LEANING → MIXED HYBRID; +0.17d actual"
+updated: "2026-05-09 PM late — S13-11 done: battle_hud _safe_tr_format helper + 7 tests; 1273→1280 65th FFB; 0 fmt err vs 5; ADV 5 (lean skip QL/LP); next S13-12 ready"
 
 # Sprint-12 closed 2026-05-09: 8/8 canonical ✓ + 3 bonus save-load + S12-03 blocker-bound + 2 USER-OWNED pending; APPROVED W/ COND; 1273/1273 64th FFB; 47-streak; 779f614→fc9adfb.
 # Sprint-12 retro: production/retrospectives/retro-sprint-12-2026-05-09.md (10 sprint-13 AIs seeded; 2 codification AIs forward-debt #5+#6).
@@ -148,12 +148,12 @@ stories:
     name: "2026-05-09 — S13-11 NEW Must-Have+1: BUG #1 battle_hud.gd:1240/1247 results-screen string format error fix (HIGH; first F5 victory/defeat/draw screen blocker)"
     file: "src/feature/battle_hud/battle_hud.gd"
     priority: must-have
-    status: backlog
+    status: done
     owner: "claude"
     estimate_days: 0.07
     blocker: ""
-    completed: ""
-    # Root: tr() returns key when no locale loaded → key has no %d → % runtime fails. Fix: explicit format-string fallback OR locale seeding for hud.results.* keys.
+    completed: "2026-05-09"
+    # 2026-05-09 — S13-11 done: _safe_tr_format helper + _format_fallback ladder (5 sites + 7 tests; 1273→1280; 0 fmt err vs 5; 65th FFB; ADV: 5 code-review)
 
   - id: "S13-12"
     name: "2026-05-09 — S13-12 NEW Should-Have+1: BUG #2 BattleUnit.archetype field separation from fate-counter tag; eliminates AISystem unknown-archetype warnings"
