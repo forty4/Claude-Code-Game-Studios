@@ -123,3 +123,44 @@ The gate-check verdict is expected to upgrade from CONCERNS → PASS based on sp
 - **Path-to-PASS items #1–6** from the 2026-05-04 gate-check: most resolved by sprint-8 closure (ADR mandatory list = 0 outstanding at delta #15 acceptance; cross-director convergent blocker closed at delta #14; all design/architecture tracking inputs consistent with sprint-8 ship). S7-11 + S8-15 user attestations remain as the sole outstanding items.
 - **Pre-condition**: user runs S8-15 attestation first (Condition 1 above), then invokes `/gate-check pre-production`. Expected output: PASS or narrow CONCERNS list (S7-11 + S8-15 attestation evidence docs in `production/qa/evidence/`).
 - **If `/gate-check` returns PASS**: project advances from pre-production stage to Production stage; `production/stage.txt` upgrade is the deliverable.
+
+---
+
+## S8-15 USER-OWNED Attestation — sprint-13 S13-10 carry close
+
+> **Status**: ATTESTED 2026-05-09 PM late
+> **Verdict**: **MIXED — 1.1 PASS / 1.2 FAIL / 1.3 + 3.2 BLOCKED-BY-1.2** (visual rendering regression surfaced; production code-review verification gap exposed)
+> **Sprint binding**: sprint-13 S13-10 (4th-time normal carry; below 5-time §11 HARD GATE threshold; project record carry chain from sprint-8 S8-15 → sprint-9 → sprint-10 → sprint-11 → sprint-12 S12-11 → sprint-13 S13-10 CLOSES)
+> **Refusal-to-fabricate posture**: claude records user observations verbatim; FAIL verdict is honest
+
+### How to run
+
+```bash
+godot --path /Users/forty4/Works/forty4/my-game
+```
+
+(no `--headless`; main_scene per `project.godot` = `scenes/battle/battle_scene.tscn` — boots directly into battle.)
+
+### Batch 1 — core stability
+
+| # | Item | Verdict | Notes |
+|---|---|---|---|
+| 1.1 | Game launches without crash (window appears, process stays alive) | **PASS** | Window opened (Metal renderer / Forward Mobile / Apple M4 Pro); engine init clean |
+| 1.2 | Initial scene loads (battle scene per main_scene config) | **FAIL** | User report: "배틀화면 안 보임" — window opened but battle visuals did not render. Headless boot showed game logic runs end-to-end (391 turn-domain emits + AI dispatch + scenario LOAD), so backend is functional; failure is rendering-layer / scene-layout / camera-positioning. Likely contributing causes: (a) `res://scenes/battle/mvp_chapter_01.tscn` missing (file referenced by `assets/data/scenarios/mvp_shu.json:8` `map_id: "mvp_chapter_01"`; ERROR fired at boot — POLISH-009 candidate); (b) battle_scene visual children may not be positioned visibly without that map fixture; (c) BattleCamera setup may rely on map dimensions resolved through the missing tscn |
+| 1.3 | Input is responsive (click/tap registers; no input deadlock) | **BLOCKED** | Could not test — nothing visible to click on. Per user: "클릭/탭 해보지 못함. 더 이상 할 수 있는것이 없음." |
+
+### Batch 3 — data integrity + performance
+
+| # | Item | Verdict | Notes |
+|---|---|---|---|
+| 3.1 | Save/load round-trip | **N/A** | Production save/load impl is sprint-9+ scope per Condition 1 line 105 |
+| 3.2 | No new frame-rate drops or hitches on target device | **BLOCKED** | Could not test — nothing rendered to measure framerate against |
+
+### Attestation summary
+
+- **S13-10 CLOSES** (attestation landed; verdict MIXED is still attestation per refusal-to-fabricate posture)
+- **S8-15 carry chain terminates** at 6th-time carry (sprint-8 → 9 → 10 → 11 → 12 → 13)
+- **Visual rendering regression surfaced** — files NEW issue: **POLISH-010** (production main_scene battle visual rendering); blocks `/gate-check pre-prod-to-prod` PASS verdict at S13-03 rerun (verdict will return CONCERNS with POLISH-010 + POLISH-009 as path-to-PASS items)
+- **Verification gap exposed**: prior sprint headless tests (1288/1288 PASS / 66th FFB) did NOT exercise visual rendering of the production main_scene. This is a *category* of test-coverage gap — automated suite proves logic correctness but does not gate visual presence. Sprint-13 retro must address: should there be a smoke-tier "boot windowed + screenshot-not-blank" test in CI? Pattern stable: S13-12 also discovered this gap (headless 0 warnings vs. visual rendering unknown).
+- **sprint-13 retro AI #2 (carryover concentration)**: records 6-item-carry-chain-resolved milestone (S8-15 → S13-10 CLOSES) + new path-to-PASS items for sprint-14
+- Concerns flow into sprint-14 (or POLISH gate) as bug-fix work; not blocking sprint-13 close ceremony; gate-check rerun verdict will codify path-to-PASS

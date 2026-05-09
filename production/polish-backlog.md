@@ -253,13 +253,68 @@ When a sprint task is authored to address a POLISH-NNN entry, the sprint plan ta
 - G-28 (bulk-disconnect-all severs production subscriptions) — same file
 - Sprint-13 row: `production/sprints/sprint-13.md` Mid-Sprint Expansion section (entry note: bug #4 of 4 surfaced; deferred to POLISH-008)
 
+### POLISH-009 — Missing `res://scenes/battle/mvp_chapter_01.tscn` referenced by mvp_shu.json
+
+| Field | Value |
+|---|---|
+| **Source** | S13-11 + S13-12 headless verification 2026-05-09 PM late + S13-10 user windowed boot 2026-05-09 PM late (3 independent surfacings) |
+| **Tier** | DEFECT (asset-content gap; LOW severity for headless logic but **likely contributing cause of POLISH-010 visual rendering failure**) |
+| **Closure trigger** | (a) Bundled with POLISH-010 fix at sprint-14 entry; OR (b) authored as part of map-data epic (currently PROVISIONAL per `design/gdd/systems-index.md`) |
+| **Owner** | unassigned (level-designer + godot-specialist at pickup) |
+| **Status** | Open |
+| **Added** | 2026-05-09 |
+| **Resolved** | — |
+
+**Description**: `assets/data/scenarios/mvp_shu.json:8` declares `"map_id": "mvp_chapter_01"`. The chapter loader at `BattleScene._build_map_resource_for_chapter()` (or upstream resolver) attempts to load `res://scenes/battle/mvp_chapter_01.tscn` (or `assets/data/maps/mvp_chapter_01.tres`) and fails with `ERROR: Cannot open file 'res://scenes/battle/mvp_chapter_01.tscn'. ERROR: Failed loading resource: ...`. Fallback path in `battle_scene.gd:_build_map_resource_for_chapter()` synthesizes a 15×15 all-grass MapResource so the battle CAN proceed in headless mode (391 turn-domain emits confirm logic flow), but in windowed mode the fallback grid does NOT render visibly (see POLISH-010).
+
+**Action when picked up**: (1) Author `assets/data/maps/mvp_chapter_01.tres` (canonical MapResource path per ADR-0016 §4) — 15×15 grid with bridge tile pattern matching prototype-chapter-prototype; (2) Or relocate the load attempt to use the existing fallback synthesis as the canonical path (rename map_id to a synthetic-only key); (3) Verify `mvp_shu.json` map_id alignment with the actual file path the loader expects.
+
+**Cross-references**:
+- Surfacing 1: `production/session-state/active.md` (S13-11 verification re-run; deferred at S13-11 close-out as candidate)
+- Surfacing 2: S13-12 headless verification — same ERROR
+- Surfacing 3: S13-10 user windowed boot 2026-05-09 PM late — same ERROR + correlates with POLISH-010 visual rendering failure
+- Source data: `assets/data/scenarios/mvp_shu.json:8`
+- Loader: `src/feature/battle_scene/battle_scene.gd:_build_map_resource_for_chapter()` (fallback path)
+
+### POLISH-010 — Production main_scene `scenes/battle/battle_scene.tscn` does not render battle visuals in windowed mode
+
+| Field | Value |
+|---|---|
+| **Source** | S13-10 USER-OWNED attestation 2026-05-09 PM late (sprint-13) |
+| **Tier** | DEFECT (HIGH severity — release-blocker; production main_scene boots cleanly but renders blank to screen; user attests "배틀화면 안 보임"; gates `/gate-check pre-prod-to-prod` PASS verdict) |
+| **Closure trigger** | (a) MUST resolve before production stage advancement (gate-check rerun verdict cannot return PASS while POLISH-010 open); OR (b) sprint-14 dedicated bug-fix sprint absorbs |
+| **Owner** | unassigned (godot-gdscript-specialist + technical-artist at pickup) |
+| **Status** | Open |
+| **Added** | 2026-05-09 |
+| **Resolved** | — |
+
+**Description**: User booted production build (`godot --path .` → main_scene `scenes/battle/battle_scene.tscn`). Window opened cleanly (Metal renderer / Forward Mobile / M4 Pro / engine init clean per stdout); battle visuals did NOT render to screen — user reports "윈도우는 떴음. 배틀화면 안 보임. 그래서 클릭/탭 해보지 못함." Headless boot of the same scene (S13-12 verification) shows game logic runs end-to-end with 391 turn-domain emits + scenario LOAD + AI dispatch all clean, so backend functionality is intact. Failure is rendering-layer / scene-layout / camera-positioning. **This is a production VS release-blocker** — main_scene must render visibly for any user-attestation path to verify gameplay.
+
+**Likely root causes (investigation order)**:
+1. **POLISH-009 cascade**: missing `mvp_chapter_01.tscn` triggers fallback `_build_map_resource_for_chapter()` → 15×15 grass synthesis, which may not include visual children (sprites / placeholder ColorRects) — fix POLISH-009 first, retest.
+2. **BattleCamera positioning**: ADR-0014 §1 mandates camera setup-before-add_child; if camera viewport / zoom is unset for the synthetic fallback map dimensions, the visible region may be off-screen.
+3. **Layer ordering**: `_grid_layer` Node2D at `battle_scene.gd:50` mounts overlays; if z-index / canvas-layer setup expects authored-tscn structure, runtime-built fallback may render to wrong layer.
+4. **Scene-tree-light vs full instantiate**: BattleScene extends Node2D + has @onready scene-tree references (`$GridLayer` etc.); if those nodes are populated only by the missing tscn, they're null at runtime and child-mount paths silently fail.
+
+**Action when picked up**: (1) Boot `godot --path . --verbose 2>&1 | head -100` to capture full init log; check for missing-node warnings beyond the mvp_chapter_01.tscn ERROR. (2) Take screenshot of windowed boot to attach as evidence in this entry. (3) Run `godot --debug` to attach Godot's runtime inspector — verify scene tree contents at runtime against expected hierarchy. (4) Bundle fix with POLISH-009 — likely single fix resolves both. (5) Add a smoke-tier "visual not blank" test to CI (verification gap exposed at sprint-13 retro AI #x; current 1288-test suite gates logic but not rendering).
+
+**Verification gap pattern (sprint-13 retro AI seed)**:
+The 1288/1288 PASS / 66th FFB baseline gates LOGIC correctness but does not gate VISUAL PRESENCE of the production main_scene. Headless tests CAN'T detect blank-window symptoms because they run with `--headless` (no rendering pipeline). This pattern surfaced at S13-10 attestation; sprint-13 retro must address: should there be a CI smoke test that boots windowed + screenshots + asserts non-blank? (Cross-reference POLISH-008 ObjectDB leak which surfaced via similar headless-only verification gap.)
+
+**Cross-references**:
+- Surfacing source: S13-10 attestation at `production/qa/qa-signoff-sprint-8-2026-05-06.md` §S8-15 USER-OWNED Attestation Batch 1.2 FAIL
+- Likely cause: POLISH-009 (missing map fixture)
+- Affected scene: `src/feature/battle_scene/battle_scene.gd` + `scenes/battle/battle_scene.tscn`
+- Headless verification (passes): S13-11 / S13-12 verification logs (391 turn-domain emits)
+- gate-check binding: `production/gate-checks/pre-prod-to-prod-2026-05-?-rerun-2.md` will list this as path-to-PASS item (S13-03 close-gate rerun)
+
 ---
 
 ## Index — by Status
 
 | Status | Count | IDs |
 |---|---|---|
-| Open | 8 | POLISH-001 / POLISH-002 / POLISH-003 / POLISH-004 / POLISH-005 / POLISH-006 / POLISH-007 / POLISH-008 |
+| Open | 10 | POLISH-001 / POLISH-002 / POLISH-003 / POLISH-004 / POLISH-005 / POLISH-006 / POLISH-007 / POLISH-008 / POLISH-009 / POLISH-010 |
 | In-progress | 0 | — |
 | Resolved | 0 | — |
 | Cancelled | 0 | — |
@@ -271,6 +326,7 @@ When a sprint task is authored to address a POLISH-NNN entry, the sprint plan ta
 | Battle HUD epic verification (story-008) | POLISH-001 / POLISH-002 / POLISH-003 / POLISH-004 / POLISH-005 |
 | Gate-check 2026-05-08 ADVISORY-CANDIDATE (carried into 2026-05-08-rerun ADVISORY-1) | POLISH-006 |
 | Sprint-13 mid-plan Production VS bug surfacing (2026-05-09 PM headless boot deferred non-blocker tier) | POLISH-007 / POLISH-008 |
+| S13-11 + S13-12 + S13-10 verification surfacings (2026-05-09 PM late) | POLISH-009 / POLISH-010 |
 
 ## Index — by Closure Trigger
 
@@ -280,6 +336,7 @@ When a sprint task is authored to address a POLISH-NNN entry, the sprint plan ta
 | Localization sprint OR `/localize` first run | POLISH-004 |
 | Cascade from POLISH-004 closure | POLISH-005 |
 | Character-art commission sprint enters planning (forcing function) OR Polish gate (`production/stage.txt` = `Polish`) | POLISH-006 |
+| Bundled at sprint-14 entry (POLISH-009 likely root cause of POLISH-010) | POLISH-009 / POLISH-010 |
 
 ---
 
@@ -289,3 +346,5 @@ When a sprint task is authored to address a POLISH-NNN entry, the sprint plan ta
 
 - 2026-05-08 — Initial backlog established (sprint-11 S11-06 close-out; 5 ADVISORY entries from battle-hud epic verification summary).
 - 2026-05-09 — POLISH-006 added (sprint-12 S12-08 close-out per gate-check 2026-05-08 NEW ADVISORY-CANDIDATE; Guan Yu + Zhang Fei character profile stubs DESCOPED carryover from sprint-10 S10-07 → sprint-11 S11-09 Liu Bei first-stub-shipped). Lightweight conditional path chosen (no character-art sprint scheduled in sprint-12); entry-only authoring per S12-08 spec.
+- 2026-05-09 PM — POLISH-007 + POLISH-008 added (sprint-13 mid-plan amendment Production VS bug surfacing; deferred non-blocker tier).
+- 2026-05-09 PM late — POLISH-009 + POLISH-010 added (S13-10 USER-OWNED attestation surfaced production main_scene visual rendering FAIL; POLISH-010 is HIGH-tier release-blocker gating gate-check rerun PASS verdict). Verification gap pattern noted for sprint-13 retro: 1288/1288 PASS automated suite gates LOGIC but does not gate VISUAL PRESENCE of production main_scene; headless-only verification cannot surface blank-window symptoms.
