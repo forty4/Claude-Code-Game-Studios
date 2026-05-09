@@ -16,6 +16,22 @@
 
 ---
 
+## Sprint 14
+
+### Top-level updated:
+
+- 2026-05-09 PM late-late — **Sprint-14 CLOSED ⚠️ APPROVED WITH CONDITIONS** (close-ceremony rotation). 7/9 stories effectively complete (S14-01/02/06/07/08/09 done + S14-04 done with FAIL verdict + S14-03 partial + S14-05 USER-OWNED carry-to-sprint-15). 4 of 4 prior gate-check items CLOSED (rerun-2 → rerun-3 path-to-PASS items 5/6/8/9; Item 7 partial) — **strongest single-sprint closure ratio in rerun chain history**. **AD's 1st READY verdict in rerun chain history at S14-04** — POLISH-010 closure via Option A shipped clean at S14-02 (`chapter_visuals.gd` + `mvp_chapter_01.tres/tscn` + ADR-0021 §6 STEP 1.5 mount). **POLISH-011 ESCALATED HIGH→CRITICAL** via post-/clear triage finding — turn-loop architectural integration gap (T5 stub at `turn_order_runner.gd:561` + missing AISystem.ai_action_ready subscriber + missing per-action declare_action plumbing); ROUND_CAP=30 + T5=pass means battle plays out 2-3 sec → DRAW. **G-30 verification gap pattern codified** at S14-06 (+40 LoC); pattern stability ESCALATED 2→4 invocations within 48hr (POLISH-008 + POLISH-010 + POLISH-011-input-frame + POLISH-011-actual). S14-07 AD+TD phase-gate prompts amended at director-gates.md (file pivoted SKILL.md→director-gates.md); S14-08 ADVISORY classification batch closed sprint-13 retro AI #10 (10 items split 3-reg/5-doc/2-noaction; TD-071/072/073 NEW; register 70→73). **S14-04 /gate-check rerun-3 verdict FAIL — 1st verdict downgrade in rerun chain history** (3× NOT READY CD/TD/PR + 1× READY AD); honest pricing of POLISH-011 CRITICAL. PRE-FLIGHT byte-check (S13-05) DOGFOODED ~17× consecutive clean across sprint-14 (3 in-flight trim events at S14-02/06/07 caught pre-commit; pattern stable at 3). 1288/1288 PASS / **68th consecutive failure-free baseline** preserved through 7 commits this sprint window (4f2ea2e → close commit). 6 of 10 sprint-13 retro AIs CLOSED in single-sprint follow-through (best AI-closure-rate to date). Mid-sprint mode redesignation pattern remains stable at 1 invocation (sprint-14 entry-plan classification HOLDS at close). 2nd refusal-to-fabricate invocation in S8-15 lifecycle (S14-03 §1.3 FAIL surface). Carry-conditions to sprint-15: POLISH-011 absorption arc S15-A/B/C (3 stories spanning ADR-0011/0014/0019 amendments; ~10-15h) + S14-05 producer §7 promotion call (2nd-time carry; user concurrence pending) + S14-09 mid-sprint mode redesignation tracking (no-op carry) + optional visual-smoke harness for chapter_visuals.gd (G-30 mitigation deferred; paired with TD-071/073).
+- 2026-05-09 PM late-late — S14-04 done: rerun-3 verdict FAIL (3× NOT READY CD/TD/PR + 1× **READY AD** — 1st in chain history; 1st downgrade in chain history); 4 of 4 prior items CLOSED + Item 7 partial; POLISH-011 sole blocker; sprint-14 6/9 done + 1 partial.
+- 2026-05-09 PM late-late — S14-08 done: 10 ADVISORY classified 3-reg/5-doc/2-noaction; TD-071+072+073 NEW; matrix inline at register; sprint-14 5/9 done + 1 partial.
+- 2026-05-09 PM late-late — S14-07 done: AD+TD phase-gate prompts amended at director-gates.md ref G-30; CONCERNS-min if no smoke harness; file pivoted SKILL.md→director-gates.md; sprint-14 4/9 done + 1 partial.
+- 2026-05-09 PM late-late — S14-06 done: G-30 codified +40 LoC at godot-4x-gotchas.md; pattern stability ESCALATED 2→4 invocations (POLISH-008 + POLISH-010 + POLISH-011-input-frame + POLISH-011-actual); TD-013 register cross-ref updated; rule file 21→22 entries; sprint-14 3/9 done + 1 partial.
+- 2026-05-09 PM late-late — POLISH-011 ESCALATED HIGH→CRITICAL via post-/clear triage finding (turn-loop architectural integration gap; 3 unwired integration boundaries: T5 stub + AISystem.ai_action_ready subscriber + declare_action plumbing); sprint-14 2/9 done + 1 partial.
+- 2026-05-09 PM late — S14-03 partial: §1.2 + §3.2 PASS (S14-02 visual fix validated); §1.3 FAIL (input non-responsive — POLISH-011 NEW HIGH); MIXED → still MIXED; AC #4 not met; sprint-14 2/9 done + 1 partial.
+- 2026-05-09 PM late — S14-02 done: Option A: mvp_chapter_01.tres (Changbanpo 15×15) + .tscn (Polygon2D 6 silhouettes) + chapter_visuals.gd; STEP 1.5; 1288/1288 PASS 67th FFB; user evidence captured; sprint-14 2/9 done.
+- 2026-05-09 PM late — S14-01 done: ADR-0021 ratified Status:Accepted; §1 GridLayer mount + §2 paths + §3 fallback + §4 tier-boundary + §6 ADR-0016 §3 STEP 1.5 amendment; 576 lines; sprint-14 1/9 done.
+
+---
+
 ## Sprint 13
 
 ### Top-level updated:

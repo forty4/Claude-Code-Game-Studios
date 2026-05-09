@@ -11,7 +11,7 @@ goal: "Resolve 7 sprint-13 carry-conditions (POLISH-010 + ADR-0021 + S8-15 re-at
 start: "2026-05-09"
 end: "2026-05-12"
 generated: "2026-05-09"
-updated: "2026-05-09 PM late-late — S14-04 done: rerun-3 verdict FAIL (3 NOT READY + 1st AD READY); POLISH-011 sole blocker; sprint-14 6/9 done + 1 partial."
+updated: "2026-05-09 PM late-late — sprint-14 CLOSED: 7/9 done + 1 partial + 1 carry; APPROVED WITH CONDITIONS; POLISH-011+S14-05 carry to sprint-15."
 
 # Sprint-13 closed 2026-05-09 PM late ⚠️ APPROVED WITH CONDITIONS: 11/12 stories done; S13-06 carries; 6-sprint S7-11 + 5-sprint S8-15 carry chains TERMINATED simultaneously (project-record); §11 HARD GATE first live binding SUCCESS at S13-02; PRE-FLIGHT byte-check 8× consecutive clean dogfood (recurrence eliminated); 1288/1288 PASS / 66th FFB preserved; 10 commits cca3eda→ef025a6.
 # Sprint-13 retro: production/retrospectives/retro-sprint-13-2026-05-09.md (10 sprint-14 AIs seeded; 6 of 10 sprint-12 AIs closed in-sprint).
@@ -278,9 +278,9 @@ stories:
     name: "Mid-sprint mode redesignation precedent tracking — sprint-13 retro AI #9; pattern stable at 1 invocation; track for ≥2-invocation codification trigger"
     file: "production/sprints/sprint-14.md"
     priority: nice-to-have
-    status: backlog
+    status: done
     owner: "producer"
     estimate_days: 0
     blocker: ""
-    completed: ""
-    # Tracking-only this sprint unless mid-sprint trigger fires; no-op default
+    completed: "2026-05-09"
+    # 2026-05-09 — S14-09 done (no-op): sprint-14 entry-plan classification HOLDS at close; no mid-amendment redesignation; pattern stable at 1 invocation; AI carries to sprint-15.
