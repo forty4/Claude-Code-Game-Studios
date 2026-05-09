@@ -11,7 +11,7 @@ goal: "Resolve §11 5th-carry HARD GATE (S12-10 disposition (a) user-attested) +
 start: "2026-05-10"
 end: "2026-05-12"
 generated: "2026-05-09"
-updated: "2026-05-09 PM late — S13-12 done: BattleUnit.archetype field separation; +8 tests 1280→1288 66th FFB; 0 unknown-arch warn vs 4+; ADV 5 (lean skip QL/LP)"
+updated: "2026-05-09 PM late — S13-05 done: PRE-FLIGHT byte-check codification (CODE in 567483a); 3x dogfooded clean (S13-11/12/04); sprint-13 5/12 done"
 
 # Sprint-12 closed 2026-05-09: 8/8 canonical ✓ + 3 bonus save-load + S12-03 blocker-bound + 2 USER-OWNED pending; APPROVED W/ COND; 1273/1273 64th FFB; 47-streak; 779f614→fc9adfb.
 # Sprint-12 retro: production/retrospectives/retro-sprint-12-2026-05-09.md (10 sprint-13 AIs seeded; 2 codification AIs forward-debt #5+#6).
@@ -71,21 +71,23 @@ stories:
     name: "Anchored-regex-extraction discipline codification — sprint-12 retro AI #5; add TG-4 to .claude/rules/tooling-gotchas.md covering S12-09 first-run misfire"
     file: ".claude/rules/tooling-gotchas.md"
     priority: should-have
-    status: backlog
+    status: done
     owner: "claude"
     estimate_days: 0.1
     blocker: ""
-    completed: ""
+    completed: "2026-05-09"
+    # 2026-05-09 — S13-04 done: TG-4 entry at .claude/rules/tooling-gotchas.md (Context→Broken→Correct→Discovered ~75 LoC); CODE shipped 567483a; sprint-12 retro AI #5 closed
 
   - id: "S13-05"
     name: "Byte-cap-recurrence-prevention codification — sprint-12 retro AI #6; make 200-byte changelog check a /story-done Phase 7 step; fired 4th time at S12-08"
     file: ".claude/skills/story-done/SKILL.md"
     priority: should-have
-    status: backlog
+    status: done
     owner: "claude"
     estimate_days: 0.1
     blocker: ""
-    completed: ""
+    completed: "2026-05-09"
+    # 2026-05-09 — S13-05 done: /story-done SKILL.md Phase 7 PRE-FLIGHT byte-check sub-step shipped; 3x dogfooded clean (0 trims); CODE 567483a; retro AI #6 closed
 
   - id: "S13-06"
     name: "production/decisions/ §7 promotion evaluation — sprint-12 retro AI #4; threshold ≥3 artifacts AND ≥2 sprints HAS FIRED (4 artifacts); producer Route a vs Route c"
