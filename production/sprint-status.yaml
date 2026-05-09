@@ -11,7 +11,7 @@ goal: "Resolve §11 5th-carry HARD GATE (S12-10 disposition (a) user-attested) +
 start: "2026-05-10"
 end: "2026-05-12"
 generated: "2026-05-09"
-updated: "2026-05-09 PM late — S13-10 done MIXED: 1.1 PASS / 1.2 FAIL (battle visual blank); POLISH-009/010 NEW HIGH-tier release-blocker; sprint-13 7/12"
+updated: "2026-05-09 PM late — S13-03 done: gate-check rerun-2 verdict CONCERNS (4× director); 3 of 4 prior items CLOSED; POLISH-010 NEW; sprint-13 8/12"
 
 # Sprint-12 closed 2026-05-09: 8/8 canonical ✓ + 3 bonus save-load + S12-03 blocker-bound + 2 USER-OWNED pending; APPROVED W/ COND; 1273/1273 64th FFB; 47-streak; 779f614→fc9adfb.
 # Sprint-12 retro: production/retrospectives/retro-sprint-12-2026-05-09.md (10 sprint-13 AIs seeded; 2 codification AIs forward-debt #5+#6).
@@ -62,11 +62,12 @@ stories:
     name: "S12-03 /gate-check close-gate re-evaluation — runs after S13-02 + S13-10 land; PASS (stage.txt flip) OR CONCERNS; sprint-11 retro AI #1 follow-through closure"
     file: "production/gate-checks/"
     priority: must-have
-    status: backlog
+    status: done
     owner: "claude"
     estimate_days: 0.1
-    blocker: "S13-02 + S13-10 attestations"
-    completed: ""
+    blocker: ""
+    completed: "2026-05-09"
+    # 2026-05-09 — S13-03 done: /gate-check pre-prod-to-prod rerun-2 → CONCERNS (4× CONCURRENT); 3 prior items CLOSED + 2 NEW (POLISH-010 + ADR-0021); stage.txt unchanged
 
   - id: "S13-04"
     name: "Anchored-regex-extraction discipline codification — sprint-12 retro AI #5; add TG-4 to .claude/rules/tooling-gotchas.md covering S12-09 first-run misfire"
