@@ -6,38 +6,40 @@
 #   - Verify with: awk '{if (length($0) > 200) print NR}' production/sprint-status.yaml
 #   - Enforced by /story-done Phase 7 step 4.
 
-sprint: 14
-goal: "Resolve 7 sprint-13 carry-conditions (POLISH-010 + ADR-0021 + S8-15 re-attestation + S13-06 producer call + 3 retro AI codifications) for /gate-check pre-prod-to-prod rerun-3 PASS verdict + production/stage.txt Pre-Production → Production flip."
-start: "2026-05-09"
-end: "2026-05-12"
+sprint: 15
+goal: "Close POLISH-011 turn-loop architectural integration gap (3-story arc S15-A/B/C spanning ADR-0011/0014/0019 amendments) for /gate-check pre-prod-to-prod rerun-4 PASS verdict + production/stage.txt Pre-Production → Production flip. Secondary: resolve S14-05 producer §7 promotion (3rd-time carry; Route c default per R7)."
+start: "2026-05-12"
+end: "2026-05-15"
 generated: "2026-05-09"
-updated: "2026-05-09 PM late-late — sprint-14 CLOSED: 7/9 done + 1 partial + 1 carry; APPROVED WITH CONDITIONS; POLISH-011+S14-05 carry to sprint-15."
+updated: "2026-05-09 PM late-late — sprint-15 plan ratified: 4 Must (S15-A/B/C/D POLISH-011 + integration test) + 3 Should + 2 Nice; §11 HARD GATE rebind (concentration ≥5)."
 
-# Sprint-13 closed 2026-05-09 PM late ⚠️ APPROVED WITH CONDITIONS: 11/12 stories done; S13-06 carries; 6-sprint S7-11 + 5-sprint S8-15 carry chains TERMINATED simultaneously (project-record); §11 HARD GATE first live binding SUCCESS at S13-02; PRE-FLIGHT byte-check 8× consecutive clean dogfood (recurrence eliminated); 1288/1288 PASS / 66th FFB preserved; 10 commits cca3eda→ef025a6.
-# Sprint-13 retro: production/retrospectives/retro-sprint-13-2026-05-09.md (10 sprint-14 AIs seeded; 6 of 10 sprint-12 AIs closed in-sprint).
-# Sprint-13 history archive: production/sprint-status-history.md ## Sprint 13 section.
-# Gate-check 2026-05-09-rerun-2: CONCERNS verdict (3 of 4 prior items CLOSED + POLISH-010 NEW HIGH-tier release-blocker). Sprint-14 close-gate rerun-3 expected PASS after S14-01/02/03 land.
+# Sprint-14 closed 2026-05-09 PM late-late ⚠️ APPROVED WITH CONDITIONS: 7/9 done + 1 partial (S14-03) + 1 USER-OWNED carry (S14-05); 4 of 4 prior gate-check items CLOSED (rerun-2 → rerun-3 path-to-PASS items 5/6/8/9; Item 7 partial) — strongest single-sprint closure ratio in chain history; AD's 1st READY verdict in chain history at S14-04; G-30 codified + pattern stability ESCALATED 2→4 invocations within 48hr; ADR-0021 ratified at S14-01 (576 LoC); 6 of 10 sprint-13 retro AIs CLOSED; 1288/1288 PASS / 68th FFB preserved; 9 commits 4f2ea2e→1b59f40.
+# Sprint-14 retro: production/retrospectives/retro-sprint-14-2026-05-09.md (13 sprint-15 AIs seeded; 9 NEW + 4 carry from sprint-13).
+# Sprint-14 history archive: production/sprint-status-history.md ## Sprint 14 section.
+# Gate-check 2026-05-09-rerun-3: FAIL verdict (1st downgrade in chain history; 3× NOT READY CD/TD/PR + 1× READY AD); POLISH-011 CRITICAL sole blocker. Sprint-15 close-gate rerun-4 expected PASS after S15-A/B/C/D land.
 
-# Carryover-Backlog (per sprint-9 retro AI #2 + §11.4 Trigger 1 binding; §11 HARD GATE binding rebind FIRED at sprint-14 entry per AI #2 — concentration ≥5):
-#   - POLISH-010 production main_scene visual rendering (HIGH release-blocker; gate-check rerun-2 Item 5) → S14-02 Must
-#   - POLISH-009 missing mvp_chapter_01.tscn (likely contributing cause) → BUNDLED with S14-02
-#   - ADR-0021 ratification (HIGH gate blocker; gate-check rerun-2 Item 6 TD-led) → S14-01 Must
-#   - S8-15 §1.2/1.3/3.2 re-attestation (gate-check rerun-2 Item 7 CD-led; user time ~10min) → S14-03 Must
-#   - S13-06 producer §7 promotion call (sprint-12 retro AI #4; 2nd-time carry; user override KEEP) → S14-05 Should
-#   - Verification gap pattern G-30 codification (sprint-13 retro AI #6; pattern stable 2 invocations) → S14-06 Should
-#   - AD gate criterion addition (sprint-13 retro AI #7) → S14-07 Should
+# Carryover-Backlog (per sprint-9 retro AI #2 + §11.4 Trigger 1 binding; §11 HARD GATE binding rebind FIRED at sprint-15 entry per AI #2 — concentration ≥5; 2nd consecutive closure-leaning sprint):
+#   - POLISH-011 turn-loop integration gap (CRITICAL release-blocker; gate-check rerun-3 Item 10 §3) → S15-A + S15-B + S15-C Must (3-story split)
+#   - S13-06 producer §7 promotion call (sprint-12 retro AI #4; 3rd-time carry) → S15-F Should (Route c default per R7 if not resolved)
+#   - S14-09 mid-sprint mode redesignation tracking (sprint-13 retro AI #9; pattern stable at 1 invocation) → S15-H Nice to Have
+#   - Optional visual-smoke harness for chapter_visuals.gd (G-30 mitigation) → S15-I Nice to Have
+#   - POLISH-007 GameBus soft cap (ADVISORY) → DESCOPED (2-carryover-visibility-threshold rule)
+#   - POLISH-008 ObjectDB leak (ADVISORY) → DESCOPED (2-carryover-visibility-threshold rule)
 
-# Sprint-14 retro AI seeds (10 active; carry from sprint-13 retro):
-#   AI #1 Codification debt at retro time (sustained sprint-7→8→9→10→11→12→13→14)
-#   AI #2 Carryover concentration ≥5 → §11 HARD GATE rebind triggered THIS sprint; validate post-S14 drops below threshold
-#   AI #3 POLISH-010 disposition outcome (Option A author OR Option C deferral ADR) — first project release-blocker resolved via dedicated sprint
-#   AI #4 ADR-0021 ratification outcome — first project ADR ratified at sprint entry as gate-check carry-condition
-#   AI #5 S8-15 re-attestation outcome (MIXED → PASS path) — first project re-attestation cycle
-#   AI #6 Verification gap pattern G-30 codification outcome
-#   AI #7 AD gate criterion addition outcome (.claude/skills/gate-check/SKILL.md modification)
-#   AI #8 S13-06 producer §7 promotion outcome (Route a vs Route c retention; 2nd-time carry)
-#   AI #9 Mid-sprint mode redesignation precedent — frequency tracking; codification at ≥2 invocations
-#   AI #10 /code-review ADVISORY items batch classification outcome (10 items split tech-debt vs polish; sprint-13 batch)
+# Sprint-15 retro AI seeds (13 active; 4 carry from sprint-13 retro + 9 NEW from sprint-14 retro):
+#   AI #1 Codification debt at retro time (sustained sprint-7→8→9→10→11→12→13→14→15; 9 sprints continuous)
+#   AI #2 Carryover concentration ≥5 → §11 HARD GATE rebind TRIGGERED THIS sprint (2nd consecutive); validate post-S15 drops below threshold
+#   AI #3 POLISH-011 absorption outcome (S15-A T5 await + S15-B AI subscriber + S15-C player declare_action plumbing) — first project Logic-tier carry-condition closure-mode sprint
+#   AI #4 S8-15 §1.3 third re-attestation outcome (refusal-to-fabricate posture 3rd invocation if invoked; pattern stability ESCALATES 2→3); 7-sprint S8-15 chain TERMINATES (exceeds prior 6-sprint S7-11 record)
+#   AI #5 S13-06 producer §7 promotion outcome (3rd-time carry; Route c default fires per R7 if not resolved)
+#   AI #6 POLISH-011 5-hypothesis miss pattern — sprint-15+ retro tracks 2nd invocation for codification
+#   AI #7 Refusal-to-fabricate posture invocation count — pattern stable at 2; sprint-15 tracks 3rd invocation if S15-G invoked
+#   AI #8 AD's 1st READY verdict pattern check — does AD return READY at rerun-4 after POLISH-011 closure? (predict: yes; POLISH-011 is non-AD scope)
+#   AI #9 Verdict downgrade pattern stability — 1st downgrade at S14-04; sprint-15 tracks if rerun-4 reverses (CONCERNS or PASS expected)
+#   AI #10 Optional visual-smoke harness — paired with TD-071/073 verification-gap test infrastructure
+#   AI #11 Mid-sprint mode redesignation pattern frequency — stable at 1 invocation (sprint-13 only); sprint-15+ codification trigger ≥2
+#   AI #12 PRE-FLIGHT byte-check in-flight trim pattern — stable at 3 invocations; sprint-15+ codification refinement candidate at 4th
+#   AI #13 POLISH-011 triage outcome + 3-integration-boundary fix verification — what was actual implementation pattern; how to prevent similar story-level wiring gaps
 
 stories:
   - id: "S13-01"
@@ -284,3 +286,102 @@ stories:
     blocker: ""
     completed: "2026-05-09"
     # 2026-05-09 — S14-09 done (no-op): sprint-14 entry-plan classification HOLDS at close; no mid-amendment redesignation; pattern stable at 1 invocation; AI carries to sprint-15.
+
+  - id: "S15-A"
+    name: "POLISH-011 absorption — ADR-0011 §Decision Contract 5 Callable controller wiring + T5 await; replace _execute_action_budget stub at turn_order_runner.gd:561-562 (story-005 obligation unfulfilled)"
+    file: "src/core/turn_order_runner.gd"
+    priority: must-have
+    status: ready-for-dev
+    owner: "godot-gdscript-specialist"
+    estimate_days: 0.4
+    blocker: ""
+    completed: ""
+    # ~3-5h; entry blocker for S15-B/C/D; ADR-0011 amendment ratifies T5 await mechanism design
+
+  - id: "S15-B"
+    name: "POLISH-011 absorption — AISystem.ai_action_ready subscriber + declare_action plumbing for AI commands; map AIActionCommand → TurnOrderRunner.ActionType + execute via _handle_move/_handle_attack"
+    file: "src/feature/grid_battle/grid_battle_controller.gd"
+    priority: must-have
+    status: ready-for-dev
+    owner: "godot-gdscript-specialist"
+    estimate_days: 0.3
+    blocker: "S15-A"
+    completed: ""
+    # ~2-4h; ADR-0014 amendment documents subscriber contract; integration test drives AI-only battle to non-DRAW resolution
+
+  - id: "S15-C"
+    name: "POLISH-011 absorption — Player declare_action plumbing in grid-click handlers; extend _handle_grid_click_unit_selected action arms (move/attack/end_unit_turn) to call declare_action"
+    file: "src/feature/grid_battle/grid_battle_controller.gd"
+    priority: must-have
+    status: ready-for-dev
+    owner: "godot-gdscript-specialist"
+    estimate_days: 0.4
+    blocker: "S15-A"
+    completed: ""
+    # ~3-5h; ADR-0019 amendment documents player input → declare_action contract; integration test drives mixed player+AI battle
+
+  - id: "S15-D"
+    name: "Natural-loop integration test (G-30 mitigation infrastructure) — drives full battle via initialize_battle → _begin_round.call_deferred() → outcome emit; closes G-30 verification gap for the turn loop"
+    file: "tests/integration/feature/battle_scene/battle_scene_natural_loop_test.gd"
+    priority: must-have
+    status: ready-for-dev
+    owner: "godot-gdscript-specialist"
+    estimate_days: 0.3
+    blocker: "S15-A + S15-B + S15-C"
+    completed: ""
+    # ~2-3h; first natural-loop integration test in codebase; closes G-30 verification gap pattern; +N tests added to baseline
+
+  - id: "S15-E"
+    name: "/gate-check pre-prod-to-prod rerun-4 — re-evaluate after S15-A/B/C/D land; PASS verdict + production/stage.txt flip OR CONCERNS; sprint-11 retro AI #1 follow-through closure"
+    file: "production/gate-checks/"
+    priority: should-have
+    status: blocked
+    owner: "claude"
+    estimate_days: 0.05
+    blocker: "S15-A + S15-B + S15-C + S15-D + S15-G"
+    completed: ""
+    # ~30min; lean-mode 4-director panel; AD READY expected to hold; CD/TD/PR pivot on natural-loop integration test demonstration
+
+  - id: "S15-F"
+    name: "S14-05 S13-06 producer §7 promotion call — 3rd-time carry; Route c default per R7 if user unavailable; sprint-12 retro AI #4 long-tail closure"
+    file: "production/decisions/"
+    priority: should-have
+    status: ready-for-dev
+    owner: "producer"
+    estimate_days: 0.05
+    blocker: ""
+    completed: ""
+    # ~10min claude paper + ~10min user; 3rd-time carry triggers Route c default if not resolved at sprint-15 close
+
+  - id: "S15-G"
+    name: "S8-15 §1.3 third re-attestation post-POLISH-011-fix — refusal-to-fabricate posture 3rd invocation; user re-runs Batch 1.3 input-responsive; 7-sprint S8-15 chain TERMINATES (exceeds prior 6-sprint S7-11 record)"
+    file: "production/qa/qa-signoff-sprint-8-2026-05-06.md"
+    priority: should-have
+    status: blocked
+    owner: "user"
+    estimate_days: 0
+    blocker: "S15-A + S15-B + S15-C"
+    completed: ""
+    # ~15min user time; refusal-to-fabricate posture pattern stability ESCALATES 2→3 if invoked
+
+  - id: "S15-H"
+    name: "Mid-sprint mode redesignation precedent tracking — carry from S14-09; sprint-13 retro AI #9; pattern stable at 1 invocation; track for ≥2-invocation codification trigger"
+    file: "production/sprints/sprint-15.md"
+    priority: nice-to-have
+    status: backlog
+    owner: "producer"
+    estimate_days: 0
+    blocker: ""
+    completed: ""
+    # Tracking-only; no-op default; codification trigger at 2nd invocation
+
+  - id: "S15-I"
+    name: "Optional visual-smoke harness for chapter_visuals.gd — G-30 mitigation; paired with TD-071/073 verification-gap test infrastructure (same dir as S15-D)"
+    file: "tests/integration/feature/battle_scene/battle_scene_visual_smoke_test.gd"
+    priority: nice-to-have
+    status: backlog
+    owner: "godot-gdscript-specialist"
+    estimate_days: 0.15
+    blocker: "S15-D"
+    completed: ""
+    # ~1-2h; non-blank pixel sentinel OR _draw() invocation count > 0 on chapter_visuals.gd
