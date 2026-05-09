@@ -16,6 +16,50 @@
 
 ---
 
+## Sprint 13
+
+### Top-level updated:
+
+- 2026-05-09 PM late — **Sprint-13 CLOSED ⚠️ APPROVED WITH CONDITIONS** (final close-ceremony rotation). 11/12 stories done (S13-01/02/03/04/05/07/08/09/10/11/12); S13-06 carries to sprint-14 (producer §7 promotion call user concurrence pending). 6-sprint S7-11 carry chain TERMINATED at S13-02 §11 disposition (a) USER-ATTESTED 4-of-4 PASS — **first live §11 HARD GATE binding SUCCESS**. 5-sprint S8-15 carry chain TERMINATED at S13-10 (MIXED outcome surfaced POLISH-009 + POLISH-010 HIGH-tier release-blocker on production main_scene visual rendering). PRE-FLIGHT byte-check (S13-05) DOGFOODED 8× consecutive clean (S13-11/12/04/05/02/10/03 + this close rotation; sprint-3 retro AI #3 root-cause closure CONFIRMED). 1288/1288 PASS / 66th consecutive failure-free baseline preserved through 13 commits this sprint window (cca3eda → close commit). Strongest single-sprint carry-closure pair in project history (project-record).
+- 2026-05-09 PM late — S13-03 done: gate-check rerun-2 verdict CONCERNS (4× director); 3 of 4 prior items CLOSED; POLISH-010 NEW; sprint-13 8/12.
+- 2026-05-09 PM late — S13-10 done MIXED: 1.1 PASS / 1.2 FAIL (battle visual blank); POLISH-009/010 NEW HIGH-tier release-blocker; sprint-13 7/12.
+- 2026-05-09 PM late — S13-02 done: §11 HARD GATE disposition (a) USER-ATTESTED SUCCESS; 4-of-4 PASS; 6-sprint S7-11 carry CLOSES; sprint-13 6/12 done.
+- 2026-05-09 PM late — S13-05 done: PRE-FLIGHT byte-check codification (CODE in 567483a); 3x dogfooded clean (S13-11/12/04); sprint-13 5/12 done.
+- 2026-05-09 PM late — S13-04 done: TG-4 anchored-regex codification (CODE in 567483a; YAML flip only); S13-05 next; sprint-13 4/12 done.
+- 2026-05-09 PM late — S13-12 done: BattleUnit.archetype field separation; +8 tests 1280→1288 66th FFB; 0 unknown-arch warn vs 4+; ADV 5 (lean skip QL/LP).
+- 2026-05-09 PM late — S13-11 done: battle_hud _safe_tr_format helper + 7 tests; 1273→1280 65th FFB; 0 fmt err vs 5; ADV 5 (lean skip QL/LP); next S13-12 ready.
+
+### Sprint-13 Close-out Summary
+
+**Verdict**: APPROVED WITH CONDITIONS ⚠️ (mirrors sprint-12 close pattern; 5 carry-conditions to sprint-14 — POLISH-010 disposition + ADR-0021 ratification + S8-15 §1.2/1.3/3.2 re-attestation + S13-06 producer call + verification-gap pattern codification).
+
+**Key accomplishments**:
+1. **§11 HARD GATE first live binding SUCCESS** — disposition (a) USER-ATTESTED at S13-02 on first live invocation. Establishes precedent for sprint-14+ structural pre-flight obligations.
+2. **6-sprint S7-11 + 5-sprint S8-15 carry chains TERMINATED simultaneously** — strongest single-sprint carry-closure pair in project history.
+3. **PRE-FLIGHT byte-check codification (S13-05) DOGFOODED 8× consecutive clean** — recurrence eliminated at root cause (was 4× across S11/S12 sprints).
+4. **First project mid-sprint scope expansion handled cleanly** — Production VS bug-fix absorption (S13-11 + S13-12) WITHOUT regression on baseline; first project mid-sprint mode redesignation precedent (CLOSURE-LEANING → MIXED HYBRID).
+5. **66th consecutive failure-free baseline** preserved through 13 commits this sprint window.
+
+**NEW path-to-PASS items into sprint-14** (per gate-check rerun-2):
+- POLISH-010 (production main_scene visual rendering — HIGH-tier release-blocker)
+- POLISH-009 (missing `mvp_chapter_01.tscn`)
+- ADR-0021 ratification ("Production world-space rendering responsibility")
+- S8-15 re-attestation post-fix
+- Verification-gap pattern codification (sprint-13 retro AI #6)
+- S13-06 producer §7 promotion call
+
+**Sprint-14 entry obligations**: carryover concentration audit at plan-time (~5 items at threshold; ≥5 triggers §11 HARD GATE binding rebind to closure-leaning).
+
+**Cross-references**:
+- Sprint plan: `production/sprints/sprint-13.md` (cca3eda + amendment 567483a)
+- Smoke check: `production/qa/smoke-sprint-13-2026-05-09.md`
+- QA-plan closure: `production/qa/qa-plan-sprint-13-closure-2026-05-09.md`
+- QA sign-off: `production/qa/qa-signoff-sprint-13-2026-05-09.md`
+- Retrospective: `production/retrospectives/retro-sprint-13-2026-05-09.md`
+- Gate-check rerun-2: `production/gate-checks/pre-prod-to-prod-2026-05-09-rerun-2.md`
+
+---
+
 ## Sprint 12
 
 ### Top-level updated:

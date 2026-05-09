@@ -11,7 +11,7 @@ goal: "Resolve §11 5th-carry HARD GATE (S12-10 disposition (a) user-attested) +
 start: "2026-05-10"
 end: "2026-05-12"
 generated: "2026-05-09"
-updated: "2026-05-09 PM late — S13-03 done: gate-check rerun-2 verdict CONCERNS (4× director); 3 of 4 prior items CLOSED; POLISH-010 NEW; sprint-13 8/12"
+updated: "2026-05-09 PM late — Sprint-13 CLOSED ⚠️ APPROVED WITH CONDITIONS; 11/12 done; 6+5-sprint carry chains TERMINATED; POLISH-010 carry sprint-14"
 
 # Sprint-12 closed 2026-05-09: 8/8 canonical ✓ + 3 bonus save-load + S12-03 blocker-bound + 2 USER-OWNED pending; APPROVED W/ COND; 1273/1273 64th FFB; 47-streak; 779f614→fc9adfb.
 # Sprint-12 retro: production/retrospectives/retro-sprint-12-2026-05-09.md (10 sprint-13 AIs seeded; 2 codification AIs forward-debt #5+#6).
@@ -40,11 +40,12 @@ stories:
     name: "§11 HARD GATE pre-flight verification — verify Carryover Backlog table includes S12-10 disposition (a) per §11.4 Trigger 1; sprint-12 retro AI #1 CRITICAL closure"
     file: "production/sprints/sprint-13.md"
     priority: must-have
-    status: ready-for-dev
+    status: done
     owner: "claude"
     estimate_days: 0.05
     blocker: ""
-    completed: ""
+    completed: "2026-05-09"
+    # 2026-05-09 — S13-01 done: §11 HARD GATE pre-flight verified at sprint-13 entry per cca3eda; Carryover table + DoD §11 binding line landed; sprint-12 retro AI #1 CRITICAL closure
 
   - id: "S13-02"
     name: "S12-10 S7-11 USER-OWNED CRITICAL — §11 disposition (a); user boots chapter-prototype + records 4 VS Validation items in REPORT.md; cannot carry per §11"
@@ -95,44 +96,48 @@ stories:
     name: "production/decisions/ §7 promotion evaluation — sprint-12 retro AI #4; threshold ≥3 artifacts AND ≥2 sprints HAS FIRED (4 artifacts); producer Route a vs Route c"
     file: "production/decisions/"
     priority: should-have
-    status: backlog
+    status: carry-to-sprint-14
     owner: "producer"
     estimate_days: 0.2
-    blocker: ""
+    blocker: "user concurrence Route a vs Route c"
     completed: ""
+    # 2026-05-09 — S13-06 NOT-STARTED at sprint-13 close; carries to sprint-14 per retro AI #8; user concurrence pending; ~10min claude paper + user decision
 
   - id: "S13-07"
     name: "Sprint-13 closure-mode signal evaluation per §11.4 Trigger 4 — sprint-12 retro AI #3 recurring per-sprint gate; first live signal-evaluation since codification; designate sprint-13 mode"
     file: "production/sprints/sprint-13.md"
     priority: nice-to-have
-    status: ready-for-dev
+    status: done
     owner: "producer"
     estimate_days: 0.05
     blocker: ""
-    completed: ""
+    completed: "2026-05-09"
     # Inline signal count table embedded in sprint-13.md §Sprint Mode at plan-authoring; companion edit to .claude/skills/sprint-plan/SKILL.md Phase 2 template lands at S13-07 closure
+    # 2026-05-09 — S13-07 done: signal-eval inline at sprint-13.md §Sprint Mode; first project mid-sprint mode redesignation precedent (CLOSURE-LEANING → MIXED HYBRID after bug-fix absorption)
 
   - id: "S13-08"
     name: "Convention-extension-via-numbered-section pattern validation — sprint-12 retro AI #7 tracking-only; at next convention extension evaluate §11-style top-level vs §3-style embedding"
     file: "docs/process/decisions-convention.md"
     priority: nice-to-have
-    status: backlog
+    status: done
     owner: "producer"
     estimate_days: 0
     blocker: ""
-    completed: ""
+    completed: "2026-05-09"
     # Tracking-only this sprint; no action unless convention extension triggers
+    # 2026-05-09 — S13-08 done (no-op): no convention extension event fired this sprint; tracking continues to sprint-14+ retro AI
 
   - id: "S13-09"
     name: "POLISH-006 forcing function monitoring — sprint-12 retro AI #8 tracking-only; AD-C5 closes when stubs ship + character-art sprint OR Polish gate fires"
     file: "production/polish-backlog.md"
     priority: nice-to-have
-    status: backlog
+    status: done
     owner: "art-director"
     estimate_days: 0
     blocker: ""
-    completed: ""
+    completed: "2026-05-09"
     # Tracking-only this sprint; no action unless commission-sprint forcing function fires
+    # 2026-05-09 — S13-09 done (no-op): no character-art commission sprint entered planning; POLISH-006 tracking continues
 
   - id: "S13-10"
     name: "S12-11 S8-15 user attestation pass — sprint-8 manual smoke check Batches 1+3; 4th-time carryover (below 5-time threshold; normal carry); ~15 min user time"
