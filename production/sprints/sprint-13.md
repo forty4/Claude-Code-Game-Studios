@@ -6,16 +6,19 @@
 
 ## Sprint Goal
 
-Resolve §11 USER-OWNED 5th-carry HARD GATE binding (S12-10 user-attested per disposition (a)) + S12-11 normal-carry attestation + S12-03 close-gate rerun re-evaluation (potential `production/stage.txt` Pre-Production → Production flip) + execute 2 codification AIs (anchored-regex + byte-cap) + producer call on `production/decisions/` §7 promotion trigger evaluation + first live closure-mode HYBRID signal evaluation at sprint-13 plan time.
+Resolve §11 USER-OWNED 5th-carry HARD GATE binding (S12-10 user-attested per disposition (a)) + S12-11 normal-carry attestation + S12-03 close-gate rerun re-evaluation (potential `production/stage.txt` Pre-Production → Production flip) + execute 2 codification AIs (anchored-regex + byte-cap) + producer call on `production/decisions/` §7 promotion trigger evaluation + first live closure-mode HYBRID signal evaluation at sprint-13 plan time + **NEW (2026-05-09 PM mid-plan amendment per user "VS 감각 회복" pivot)** absorb 2 production-VS surfaced bugs surfaced at headless boot of `scenes/battle/battle_scene.tscn` main_scene (S13-11 battle_hud results-screen string format + S13-12 BattleUnit.archetype field separation from fate-counter tag).
 
 **Sprint-13 is structurally-bound by §11.3 Live application table** — first project precedent of "sprint-(N+1) plan authoring obligations" derived from prior-sprint codification.
+
+**Mid-sprint plan amendment (2026-05-09 PM)**: user surfaced "게임이 만들어지고 있는지 감이 없다" frustration; investigation discovered Production VS already shipped (Camera + GridBattleController + BattleHUD + BattleScene 4 epics Complete sprint-3..sprint-10) + main_scene set to `battle_scene.tscn` + game RUNS headlessly. 4 bugs surfaced; 2 absorbed into sprint-13 (#1 + #2 below); 2 deferred to POLISH-007/008 sprint-14 backlog. Sprint-13 mode redesignated CLOSURE-LEANING HYBRID → MIXED HYBRID (signal A weakened by 2 bug-fix stories; signal D still satisfied). User decision via AskUserQuestion option F: "버그 fix 먼저, F5는 나중".
 
 ## Capacity
 
 - Total days: 3
 - Buffer (20%): 0.6d reserved
 - Available: 2.4d nominal (claude-side) + ~45 min user time (S13-02 ~30 min + S13-10 ~15 min)
-- Projected actual via closure-leaning HYBRID multiplier (÷~4 per sprint-11/12 precedent): **~0.5-0.7 calendar day** (claude-side execution; user attestations parallel-track)
+- Projected actual via closure-leaning HYBRID multiplier (÷~4 per sprint-11/12 precedent): **~0.5-0.7 calendar day** for original 9 claude-side stories (claude-side execution; user attestations parallel-track)
+- **Mid-sprint expansion (2026-05-09 PM)**: +2 stories (S13-11 ~0.07d actual + S13-12 ~0.10d actual = +0.17d actual) → **revised projected actual ~0.7-0.9 calendar day**; still well within buffer envelope (0.6d remaining nominal capacity)
 
 ## Carryover Backlog (from Previous Sprint)
 
@@ -55,6 +58,17 @@ Resolve §11 USER-OWNED 5th-carry HARD GATE binding (S12-10 user-attested per di
 | S13-06 | **`production/decisions/` directory §7 promotion trigger evaluation** — sprint-12 retro AI #4. Threshold ≥3 artifacts AND ≥2 distinct sprints **HAS FIRED** (4 artifacts across sprint-10 + sprint-12). Producer call: keep as Route c standalone OR promote to Route a sibling skill `/process-decision`. Document outcome at `production/decisions/decisions-convention-promotion-evaluation-2026-05-1?.md` per Route c convention. | producer (consults user) | 0.2 (admin ÷3 → ~0.07d actual) | sprint-12 retro AI #4 + `docs/process/decisions-convention.md` §7 trigger | Decision recorded; if Route a chosen, `/process-decision` skill scaffolded; if Route c retained, decision rationale documented |
 
 **Should-have subtotal: 0.4d nominal → ~0.13d actual projected** (3 closure × ÷3)
+
+### Mid-Sprint Expansion (Bug Fixes) — Production VS surfaced bug absorption (2026-05-09 PM amendment)
+
+> **Trigger**: user "VS 감각 회복" frustration → headless boot of `scenes/battle/battle_scene.tscn` (main_scene) revealed game IS RUNNING but with 4 surfaced bugs. User chose option F (AskUserQuestion 2026-05-09 PM): "버그 fix 먼저, F5는 나중" → absorb 2 highest-impact bugs into sprint-13; defer remaining 2 to polish-backlog (POLISH-007 + POLISH-008) for sprint-14. Reframe sprint-13 mode CLOSURE-LEANING → MIXED HYBRID (signal A weakened; signal D satisfied; signals B/C/E unchanged).
+
+| ID | Task | Owner | Est. Days | Dependencies | Acceptance Criteria |
+|----|------|-------|-----------|--------------|---------------------|
+| **S13-11** | **BUG #1 — `battle_hud.gd:1240/1247` results-screen string format error** (HIGH; first F5 victory/defeat/draw screen). Root cause: `tr(&"hud.results.surviving_units") % surviving_count` — `tr()` returns the translation KEY when no locale loaded; the key has no `%d` specifier; `%` operator runtime-fails with `String formatting error: not all arguments converted`. Fix: explicit format-string fallback OR translation table seeding for `&"hud.results.surviving_units"` + `&"hud.results.turns_elapsed"` keys to include `%d`. | claude (godot-gdscript-specialist) | 0.07d (closure-tier ÷~3 already factored; HIGH priority bug-fix tier — author-test-verify cycle) | None — localized fix in `src/feature/battle_hud/battle_hud.gd` ± translation seed file | (1) Headless boot of `scenes/battle/battle_scene.tscn` completes 1 battle without `String formatting error` ERROR lines in stderr; (2) `surviving_label.text` and `turns_label.text` render with substituted integer values (verifiable in Godot editor or via assertion test); (3) Existing 1273 tests still pass (no regression); (4) New test `tests/integration/battle_hud/results_screen_format_test.gd` (or unit test) covers format-error reproduction + post-fix expected behavior; (5) Fix does NOT introduce locale-dependent assumptions — works in NO-locale (key returned) AND locale-loaded (substituted) modes |
+| **S13-12** | **BUG #2 — `BattleUnit.archetype` field separation from fate-counter tag** (MEDIUM; architectural smell). Root cause: `grid_battle_controller.gd:457` builds AISystem snapshot with `"archetype": u.tag if u.tag != &"" else &"aggressor"` — but `BattleUnit.tag` holds the FATE-COUNTER tag (`tank`/`assassin`/`boss` per `battle_scene.gd:221+231`), NOT the AI archetype (`aggressor`/`skirmisher`/`holder`/`coordinator`). When chapter has a coordinator unit, battle_scene maps coordinator→`tag="boss"` for fate tracking; that "boss" then leaks into AI archetype dispatch as unknown → AISystem falls back to aggressor (warning at `ai_system.gd:231` × 4+ per battle). Fix: add `archetype: StringName` field to `BattleUnit` (default `&"aggressor"`); populate from `chapter.enemy_roster[i].archetype`; replace `grid_battle_controller.gd:457` with `u.archetype` direct read. | claude (godot-gdscript-specialist) | 0.10d (closure-tier ÷~3 already factored; small architectural change — 1 field add + 2 call site updates + AISystem warning eliminated) | None — localized to `src/core/battle_unit.gd` + `src/feature/battle_scene/battle_scene.gd` + `src/feature/grid_battle/grid_battle_controller.gd` (no ADR amendment required — ADR-0014 §3 already declares 7 fields + this addition is not contradictory; same-patch ADR-0014 Implementation Notes update OK if godot-specialist deems necessary) | (1) Headless boot of `scenes/battle/battle_scene.tscn` runs 1 full battle with **0** `AISystem: unknown archetype` warnings in stderr (was 4+); (2) `BattleUnit.archetype` field declared with @export + default `&"aggressor"`; (3) `_make_battle_unit()` in battle_scene.gd populates `unit.archetype` from chapter roster (player units default `&"aggressor"`); (4) `grid_battle_controller.gd` snapshot builder reads `u.archetype` not `u.tag`; (5) Existing 1273 tests still pass; (6) New test covers archetype propagation through 5+ chapter scenarios + fallback default |
+
+**Mid-sprint expansion subtotal: 0.17d actual projected** (2 bug-fix stories; tier mixed Logic+Integration)
 
 ### Nice to Have — closure-mode signal evaluation + tracking-only retro AIs
 
@@ -96,9 +110,23 @@ Resolve §11 USER-OWNED 5th-carry HARD GATE binding (S12-10 user-attested per di
 
 **Signal count: 4 of 5 (A/C/D/E) — exceeds ≥3-of-5 threshold per §11.4 HYBRID trigger.**
 
-**Sprint-13 mode designation: CLOSURE-LEANING HYBRID** (matches user decision at plan-authoring time).
+**Sprint-13 mode designation (initial, plan-authoring 2026-05-09 AM): CLOSURE-LEANING HYBRID** (matches user decision at plan-authoring time).
 
-This is the **first live signal-evaluation** since S12-07 codification — establishes precedent for sprint-14+ usage.
+**Sprint-13 mode redesignation (mid-plan amendment 2026-05-09 PM after Production VS bug-fix absorption)**:
+
+| Signal | Description | Sprint-13 satisfies post-amendment? | Evidence |
+|---|---|---|---|
+| **A** Primary mode = closure-absorption | Plan dominated by carryover absorption + retro AI execution | ⚠️ **WEAKENED** (3 carryover + 6 retro AI rows + **2 bug-fix stories**; closure no longer 100%) | S13-11 + S13-12 are bug-fix tier, not closure-absorption tier |
+| **B** Carryover concentration ≥4 | At sprint entry | ❌ NO (3 items < 4 threshold) | Unchanged |
+| **C** Zero new architectural risk | No new ADR required this sprint | ✅ YES (S13-12 may produce ADR-0014 Implementation Notes update — minor amendment per Evolution Rule #4, NOT a new ADR) | Unchanged |
+| **D** Test count delta dominated by closure follow-on | ≥80% of expected test additions from closure work | ✅ YES (S13-11 + S13-12 bug-fix tests are post-impl regression tests for shipped systems = closure-tier discipline) | Unchanged |
+| **E** Single-session execution feasibility | Claude-side projected ≤1 calendar day | ✅ YES (revised 0.7-0.9 calendar day still ≤1) | Unchanged |
+
+**Signal count post-amendment: 3 of 5 (C/D/E) — still exceeds ≥3-of-5 HYBRID threshold but at floor.**
+
+**Sprint-13 mode redesignation: MIXED HYBRID** (was CLOSURE-LEANING HYBRID at plan-authoring; reclassified at 2026-05-09 PM mid-sprint amendment after bug-fix absorption).
+
+This is the **first live mid-sprint mode redesignation** in the project — establishes precedent that sprint mode is NOT immutable post-plan; mid-sprint reframings are valid when scope materially shifts. Sprint-13 retro AI #7 (closure-mode HYBRID first live signal-evaluation outcome) gains a 2nd data point: the redesignation mechanism itself.
 
 ## Risks
 
@@ -110,6 +138,9 @@ This is the **first live signal-evaluation** since S12-07 codification — estab
 | **R4 — S13-06 producer §7 promotion outcome contentious** | Low-Medium | Low | Surface 3 candidate options to user before authoring (Route a / Route c-stay / hybrid); default to Route c-stay if user prefers minimal-change |
 | **R5 — Sprint-13 closure-mode designation drift** if greenfield forcing function fires mid-sprint | Low | Low | Producer call mid-sprint at first greenfield-trigger event; redesignate mode if signals shift to mixed-mode |
 | **R6 — Sprint-13 close gate-check (S13-03) returns CONCERNS** with attestations landing but new items surface | Low | Low | Acceptable; sprint-14 absorbs. Same risk pattern as sprint-12 R5 |
+| **R7 (NEW)** — S13-11 fix re-introduces a different format-string regression elsewhere | Low | Low | Same-patch run full 1273-test suite + grep `String formatting error` in stderr; if surfaced, time-box S13-11 to 0.15d max and defer to POLISH-009 if not closable in budget |
+| **R8 (NEW)** — S13-12 BattleUnit.archetype field add breaks existing tests that construct BattleUnit directly | Low | Medium | Pre-flight grep `BattleUnit.new()\|BattleUnit\.\|new BattleUnit` in tests/ to identify all construction sites; ensure default value `&"aggressor"` keeps existing tests passing without modification; if test regressions surface, batch-fix in same-patch |
+| **R9 (NEW)** — Mid-sprint mode redesignation (CLOSURE-LEANING → MIXED) confuses retro analysis | Low | Low | Document the redesignation explicitly in this plan + sprint-13 retro must address as new sub-section "Mode redesignation precedent" |
 
 ## Dependencies on External Factors
 
@@ -133,6 +164,7 @@ This is the **first live signal-evaluation** since S12-07 codification — estab
 ## Definition of Done for this Sprint
 
 - [ ] All Must Have tasks (S13-01 + S13-02 + S13-03) completed
+- [ ] All Mid-Sprint Expansion bug-fix tasks (S13-11 + S13-12) completed (2026-05-09 PM amendment)
 - [ ] All tasks pass acceptance criteria (per Tasks table)
 - [ ] **§11 HARD GATE binding fulfilled** — S13-02 attestation landed OR (R1 fallback) S12-10 cancellation decision authored at sprint-13 close
 - [ ] QA plan exists (`production/qa/qa-plan-sprint-13-[date].md`) — see Phase 5 gate of /sprint-plan

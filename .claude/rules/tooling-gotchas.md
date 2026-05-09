@@ -170,6 +170,58 @@ awk '...' file | wc -l
 
 ---
 
+## TG-4 — Regex extraction from prose-rich text MUST anchor on the literal phrase preceding the target token
+
+**Context**: writing a CI lint that pulls a numeric value (or any token) out of a prose-rich human-authored markdown line — typically retros, sprint plans, or decision artifacts where the same syntactic shape (`**N**`, `**N items**`, `**N stories**`) can appear MULTIPLE times per paragraph. An unanchored shape-based extractor takes the first match and silently captures the wrong token.
+
+**Broken**: `lint_sprint_carryover_count.sh` first-run pattern (S12-09):
+
+```bash
+# BROKEN — unanchored bolded-number capture matches the FIRST bold-number on the line
+grep -oE '\*\*[0-9]+' "$RETRO_FILE" | head -1
+# Source line: "**9 of 9 absorbed.** Carryover concentration into sprint-12: **2 USER-OWNED only**."
+# → captures "**9" (the absorption count) instead of "**2" (the carryover concentration).
+```
+
+The misfire is silent — no parse error, no stderr noise, just a wrong number in the output. Downstream consumers (the next sprint's plan-author who trusts the lint) act on the wrong forecast.
+
+**Correct**: anchor on the literal phrase that uniquely identifies the target token, THEN extract the shape-matched value from the suffix:
+
+```bash
+# CORRECT — literal-phrase anchor first; shape-extract from suffix only
+grep -E "Carryover concentration into sprint-$LATEST_SPRINT" "$RETRO_FILE" \
+  | head -1 \
+  | sed -E "s/.*Carryover concentration into sprint-${LATEST_SPRINT}[: ]+//" \
+  | grep -oE '^\**([0-9]+)' \
+  | grep -oE '[0-9]+' \
+  | head -1
+```
+
+The anchor (`Carryover concentration into sprint-N`) is the discriminator; the shape pattern is applied AFTER discrimination, eliminating any risk of capturing an unrelated bolded number elsewhere on the line.
+
+**Verification recipe**: run the lint against a synthetic line containing TWO instances of the target shape:
+
+```bash
+echo "**9 of 9 absorbed.** Carryover concentration into sprint-12: **2 USER-OWNED only**." | <your-extractor>
+# Expected: 2. If you got 9, the literal-phrase anchor is missing.
+```
+
+**Symptom checklist** — if a lint emits a plausible-but-wrong number from a retro / sprint-plan / decision artifact:
+1. Open the source line + manually count target-shape token occurrences
+2. If >1, the extractor needs a literal-phrase anchor (sed substitution OR grep -E with surrounding context)
+3. The anchor MUST come BEFORE the shape-based extraction in the pipeline, not after
+4. Re-test against a synthetic two-token line to confirm discrimination
+
+**Where this trap commonly appears**: any sed/grep/awk pipeline pulling ONE numeric value out of markdown / prose where the same shape (`**N**`, `N items`, `N stories`) can appear multiple times. Sprint-status.yaml extractors are typically safe (structured); sprint-plan / retro extractors are NOT.
+
+**Same family as**: G-1 (% binds left → use parens), G-9 (string-concat % precedence → use parens), G-24 (`as` operator low precedence → use parens), TG-3 (awk range pattern self-closes → flag/next). Pattern: when a syntactic shape can match multiple sites, anchor on a literal-phrase discriminator BEFORE applying the shape-based match.
+
+**Cross-references in this codebase**: `tools/ci/lint_sprint_carryover_count.sh:117-122` shows the corrected pattern with the `Carryover concentration into sprint-N` literal anchor + trailing-number extraction.
+
+**Discovered**: sprint-12 S12-09 first-run lint authoring (2026-05-09) — `lint_sprint_carryover_count.sh` initial draft used unanchored bolded-number capture; misread `**9 of 9 absorbed.**` as the carryover count. Fixed in same-session second pass with the literal-phrase anchor. Cost: ~10 min of "the lint says 9, the actual carryover is 2 — which is right?" debug. Codified at sprint-13 S13-04 per sprint-12 retro AI #5 + AI #1 sustained directive.
+
+---
+
 ## Adding a new tooling gotcha
 
 When a workflow command bites the team:

@@ -347,7 +347,18 @@ If yes, edit the story file:
    - Add or update the per-story `#` changelog comment with completion notes
    - Update the top-level `updated` field with the latest sprint-wide context
 
-   **200-byte cap discipline** (sprint-3 retro AI #3, enforced from S3-05):
+   **PRE-FLIGHT byte-check** (NEW — codified sprint-13 S13-05 — fail-closed BEFORE Edit invocation; root-cause fix for the 4× recurrence at S11-05/S11-07/S11-09+10+11/S12-08; sprint-11 retro Process Improvement #2 + sprint-12 retro AI #6):
+
+   BEFORE invoking the `Edit` tool against `production/sprint-status.yaml`, draft BOTH the proposed per-story `#` changelog comment AND the proposed top-level `updated:` value as plain text in conversation (scratch-draft). For EACH proposed line:
+
+   - Compute byte length: `printf '%s' "<draft>" | wc -c` (or `awk '{print length}' <<< "<draft>"`).
+   - If length > 200, **FAIL CLOSED** — do NOT proceed to the Edit call. Re-author the draft with abbreviated phrasing and re-check.
+   - Multi-byte UTF-8 reminder: `→` / `≥` / `↔` / `≤` count as 3 bytes each.
+   - Only after BOTH proposed lines pass the byte-check, proceed to the Edit call.
+
+   This converts the recurring post-write trim friction (4× across sprints 11+12) into a 5-second pre-write check. The post-write `awk '{if (length($0) > 200) print NR}'` verification below is retained as defense-in-depth.
+
+   **200-byte cap discipline** (sprint-3 retro AI #3, enforced from S3-05; pre-flight check above is the load-bearing gate — this section retained for reference + post-write verification):
    - The top-level `updated:` field MUST be ≤200 bytes (line length).
    - Each per-story `#` changelog comment MUST be ≤200 bytes (line length).
    - Before writing either, count line length. If the new value would exceed 200 bytes:

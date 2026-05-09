@@ -210,13 +210,56 @@ When a sprint task is authored to address a POLISH-NNN entry, the sprint plan ta
 - Closure trigger (b) monitoring: `production/stage.txt` content (when flips to `Polish`)
 - Cross-binding: `design/art/art-bible.md` ink-wash palette + reserved-color discipline; `design/game-concept.md` Pillar 4 (삼국지의 숨결) experiential bar
 
+### POLISH-007 — GameBus soft cap exceeded (391 turn-domain emits per frame) under headless run
+
+| Field | Value |
+|---|---|
+| **Source** | Headless boot of `scenes/battle/battle_scene.tscn` main_scene (sprint-13 mid-plan amendment 2026-05-09 PM Production VS bug surfacing) |
+| **Tier** | ADVISORY (perf calibration; not a defect — headless artifact + no observable player impact at 60fps with UI animations) |
+| **Closure trigger** | (a) Any future sprint plan with perf-budget hardening scope; OR (b) `production/stage.txt` flips to `Polish`; OR (c) a real-play F5 session reveals soft-cap warnings DURING gameplay (not just at headless exit) |
+| **Owner** | unassigned (performance-analyst at pickup) |
+| **Status** | Open |
+| **Added** | 2026-05-09 |
+| **Resolved** | — |
+
+**Description**: Headless boot of the main_scene (`scenes/battle/battle_scene.tscn`) for ~5 seconds produced `WARNING: GameBus soft cap exceeded: 401 emits this frame (cap=50). Top domains: [scenario=3, battle=0, turn=391, unit=0, destiny=0, beat=1, input=1, ui=3, save=2, environment=0]` from `src/core/game_bus_diagnostics.gd:179`. Root cause hypothesis: AISystem `decide()` runs SYNCHRONOUSLY in headless mode without UI/animation gating; full battles complete in 1 frame; per-turn signals (`unit_turn_started` + `unit_turn_ended` × N units × M rounds) accumulate beyond the 50/frame soft-cap budget. In normal player F5 (60fps + animations + UI dwell), turn cadence is naturally rate-limited.
+
+**Action when picked up**: (1) Run `godot --headless --path . --quit-after 5 --verbose` to confirm the per-domain breakdown matches the hypothesis (`turn=391` is the dominant contributor); (2) Decide between options: (A) increase headless soft-cap to 500 with comment explaining the artifact; (B) add `_process_test_mode` flag to TurnOrderRunner that disables soft-cap in headless; (C) batch emit to amortize across N frames in headless. Recommended: option A (least invasive). (3) Verify normal player F5 produces NO soft-cap warnings; if it does, this graduates to a real perf concern requiring deeper investigation.
+
+**Cross-references**:
+- Source: `src/core/game_bus_diagnostics.gd:179` (`_fire_soft_cap_warning`)
+- Top domain reading: `src/core/turn_order_runner.gd:530/553/566` (`round_started`, `unit_turn_started`, `unit_turn_ended` emit sites)
+- Soft-cap baseline: `BalanceConstants.GAMEBUS_SOFT_CAP_PER_FRAME` (search to confirm; may be hard-coded in diagnostics)
+- Sprint-13 row: `production/sprints/sprint-13.md` Mid-Sprint Expansion section (entry note: bug #3 of 4 surfaced; deferred to POLISH-007)
+
+### POLISH-008 — ObjectDB instances leaked at exit (1+ orphan)
+
+| Field | Value |
+|---|---|
+| **Source** | Headless boot of `scenes/battle/battle_scene.tscn` main_scene (sprint-13 mid-plan amendment 2026-05-09 PM Production VS bug surfacing) |
+| **Tier** | ADVISORY (defect-tier; LOW severity — exit-time leak, no in-session impact; NOT routed to `production/qa/bugs/` because closure is calibration-tier not behavioral-fix) |
+| **Closure trigger** | (a) `production/stage.txt` flips to `Polish`; OR (b) memory ceiling pressure surfaces during multi-chapter playtests (sprint-14+ scenarios) |
+| **Owner** | unassigned (performance-analyst or godot-gdscript-specialist at pickup) |
+| **Status** | Open |
+| **Added** | 2026-05-09 |
+| **Resolved** | — |
+
+**Description**: Headless boot of the main_scene at exit produced `WARNING: ObjectDB instances leaked at exit (run with --verbose for details).` Specific leaked instance(s) not yet identified. Common Godot 4.6 leak sources: orphan Nodes from `queue_free()` deferred past quit, RefCounted cycles, autoload-scoped Resources held by static state, signal connections referencing freed callables. Cross-reference G-6 (orphan detection between test exit and after_test) for related test-side patterns; this exit-time leak is production-side, not test-side.
+
+**Action when picked up**: (1) Re-run with `--verbose` flag: `godot --headless --path . --quit-after 5 --verbose 2>&1 | grep -A5 "ObjectDB instances leaked"` to identify the leaked class + instance address. (2) Likely candidates per project history: TurnOrderRunner internal queue, BattleStateSnapshot RefCounted cache, BattleHUD subscriber Callables. (3) Add `_exit_tree()` cleanup or `reset_for_tests()` analog if a battle-scoped Node is the source. (4) Re-run; verify clean exit `WARNING: ObjectDB ...` line absent.
+
+**Cross-references**:
+- G-6 (orphan detection between test body exit and `after_test`) — `.claude/rules/godot-4x-gotchas.md`
+- G-28 (bulk-disconnect-all severs production subscriptions) — same file
+- Sprint-13 row: `production/sprints/sprint-13.md` Mid-Sprint Expansion section (entry note: bug #4 of 4 surfaced; deferred to POLISH-008)
+
 ---
 
 ## Index — by Status
 
 | Status | Count | IDs |
 |---|---|---|
-| Open | 6 | POLISH-001 / POLISH-002 / POLISH-003 / POLISH-004 / POLISH-005 / POLISH-006 |
+| Open | 8 | POLISH-001 / POLISH-002 / POLISH-003 / POLISH-004 / POLISH-005 / POLISH-006 / POLISH-007 / POLISH-008 |
 | In-progress | 0 | — |
 | Resolved | 0 | — |
 | Cancelled | 0 | — |
@@ -227,6 +270,7 @@ When a sprint task is authored to address a POLISH-NNN entry, the sprint plan ta
 |---|---|
 | Battle HUD epic verification (story-008) | POLISH-001 / POLISH-002 / POLISH-003 / POLISH-004 / POLISH-005 |
 | Gate-check 2026-05-08 ADVISORY-CANDIDATE (carried into 2026-05-08-rerun ADVISORY-1) | POLISH-006 |
+| Sprint-13 mid-plan Production VS bug surfacing (2026-05-09 PM headless boot deferred non-blocker tier) | POLISH-007 / POLISH-008 |
 
 ## Index — by Closure Trigger
 
