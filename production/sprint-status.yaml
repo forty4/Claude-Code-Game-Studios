@@ -11,7 +11,7 @@ goal: "Close POLISH-011 turn-loop architectural integration gap (3-story arc S15
 start: "2026-05-12"
 end: "2026-05-15"
 generated: "2026-05-09"
-updated: "2026-05-10 — S15-B done (grid-battle story-011): ai_action_ready subscriber + ADR-0014 amend + 12 tests (1295→1307); 8/8 ACs; +2 guard post-/code-review; S15-D unblocked."
+updated: "2026-05-10 — S15-C done (grid-battle story-012): player declare_action plumbing + ADR-0014 amend #2 + 7 tests (1307→1314); 9/9 ACs; POLISH-011 3/3 root causes wired; S15-D unblocked."
 
 # Sprint-14 closed 2026-05-09 PM late-late ⚠️ APPROVED WITH CONDITIONS: 7/9 done + 1 partial (S14-03) + 1 USER-OWNED carry (S14-05); 4 of 4 prior gate-check items CLOSED (rerun-2 → rerun-3 path-to-PASS items 5/6/8/9; Item 7 partial) — strongest single-sprint closure ratio in chain history; AD's 1st READY verdict in chain history at S14-04; G-30 codified + pattern stability ESCALATED 2→4 invocations within 48hr; ADR-0021 ratified at S14-01 (576 LoC); 6 of 10 sprint-13 retro AIs CLOSED; 1288/1288 PASS / 68th FFB preserved; 9 commits 4f2ea2e→1b59f40.
 # Sprint-14 retro: production/retrospectives/retro-sprint-14-2026-05-09.md (13 sprint-15 AIs seeded; 9 NEW + 4 carry from sprint-13).
@@ -313,12 +313,12 @@ stories:
     name: "POLISH-011 absorption — Player declare_action plumbing in grid-click handlers; extend _handle_grid_click_unit_selected action arms (move/attack/end_unit_turn) to call declare_action"
     file: "src/feature/grid_battle/grid_battle_controller.gd"
     priority: must-have
-    status: ready-for-dev
+    status: done
     owner: "godot-gdscript-specialist"
     estimate_days: 0.4
     blocker: "S15-A"
-    completed: ""
-    # ~3-5h; ADR-0019 amendment documents player input → declare_action contract; integration test drives mixed player+AI battle
+    completed: "2026-05-10"
+    # 2026-05-10 — S15-C done: player declare_action 3 helpers + 5-arm rewire + ADR-0014 amend #2 + 7 tests (1307→1314); 9/9 ACs; /code-review APPROVED (1 BLOCKING fixed).
 
   - id: "S15-D"
     name: "Natural-loop integration test (G-30 mitigation infrastructure) — drives full battle via initialize_battle → _begin_round.call_deferred() → outcome emit; closes G-30 verification gap for the turn loop"

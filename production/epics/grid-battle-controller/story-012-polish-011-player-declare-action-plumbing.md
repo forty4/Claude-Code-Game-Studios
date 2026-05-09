@@ -1,7 +1,7 @@
 # Story 012: POLISH-011 absorption — Player declare_action plumbing in grid-click handlers
 
 > **Epic**: Grid Battle Controller
-> **Status**: Ready
+> **Status**: Complete (2026-05-10 sprint-15 S15-C close — 9/9 ACs verified; +7 integration tests 1307→1314; /code-review APPROVED with 1 BLOCKING ADR cross-ref fixed inline + 5 ADVISORY suggestions deferred per user Route a)
 > **Layer**: Feature (battle orchestrator)
 > **Type**: Integration
 > **Estimate**: 3-5h (~0.4d)
@@ -166,3 +166,19 @@
 - **R2**: `_handle_player_end_turn` must handle the edge case where ALL player units already acted (early-return short-circuit; no WAIT declared; existing `end_player_turn` auto-handoff still fires). Verified by integration test 5 with pre-acted unit fixture.
 - **R3**: Test isolation — story-004/005/006 tests assert `_consume_unit_action` side effects (deselect + auto-handoff). New helpers do NOT call `_consume_unit_action`, so they bypass auto-handoff. Mitigation: only `_handle_player_end_turn` keeps the auto-handoff path (calls `end_player_turn()` after declaring WAIT for unacted units). Per-action arms (move/attack) leave selection state untouched per natural-loop dispatch flow — controller turn handoff happens via T6+T7 deferred chain triggered by `_maybe_defer_turn_completion` predicate, NOT inline auto-handoff. This is the intended NATURAL-LOOP behavior; documented in ADR amendment.
 - **R4**: Action arm rewiring in `_handle_grid_click_unit_selected` may surface gaps if the existing dispatch had implicit assumptions about `_handle_move` / `_handle_attack` side effects (e.g., MapGrid occupancy bookkeeping is in `_do_move` not `_handle_move` so safe; HP mutations are in `_resolve_attack` not `_handle_attack` so safe). Mitigation: read each wrapper carefully BEFORE rewiring; verify that the underlying primitive (`_do_move` / `_resolve_attack`) covers all the wrapper's side effects.
+
+## Completion Notes
+**Completed**: 2026-05-10 (sprint-15 S15-C — POLISH-011 absorption #3 of 3, final root cause closure)
+**Criteria**: 9/9 passing — all ACs verified via 7 new integration tests + suite-wide regression check (1307→1314)
+**Implementation**:
+- `src/feature/grid_battle/grid_battle_controller.gd` (+69/-7) — 3 new helpers (`_handle_player_end_turn` L524, `_handle_player_move` L831, `_handle_player_attack` L844) + 5 dispatch arms rewired in `_handle_grid_click_unit_selected` (L792 move_target_select+move_confirm, L796 attack_target_select+attack_confirm, L800 end_unit_turn) mirroring S15-B's AI-path bypass at L309-410
+- `tests/integration/feature/grid_battle/grid_battle_controller_player_declare_action_test.gd` (NEW 489 LoC, 7 tests) — covers AC-7-mandated dispatch arms via inner-class doubles `GBCPTurnRunnerDouble` / `GBCPHPControllerStub` / `GBCPUnitRoleStub` / `GBCPHeroDatabaseStub` (G-26 prefix isolation from S15-B's `GBC*`)
+- `docs/architecture/ADR-0014-grid-battle-controller.md` (+78 LoC) — Amendment 2026-05-10 (#2) at L713-787 documenting player-path mirror helpers, order-of-operations, backward-compat preservation, out-of-scope (Token ADR convergence + DEFEND/USE_SKILL deferrals), cross-references
+**Test Results**: 1307 → 1314 PASS (+7); 0 NEW failures; pre-existing `hp_status_perf` flap absent this run; both grid-battle-controller-specific lints PASS (GameBus emit count=0; static var grep=empty)
+**Test Evidence**: Integration — `tests/integration/feature/grid_battle/grid_battle_controller_player_declare_action_test.gd` (BLOCKING gate satisfied per coding-standards.md Test Evidence Matrix)
+**Code Review**: Complete — orchestrator-led /code-review verdict APPROVED (lean mode; LP-CODE-REVIEW + QL-TEST-COVERAGE PHASE-GATE skipped per `production/review-mode.txt`); godot-gdscript-specialist + qa-tester both reported APPROVED WITH SUGGESTIONS; 1 BLOCKING resolved inline (ADR-0014 L784 cross-reference filename suffix `-plumbing` added to match actual on-disk path)
+**Deviations**: NONE blocking. 5 ADVISORY suggestions deferred per user Route a:
+- (1) Test 8 R2 all-acted short-circuit + (2) Test 9 ATTACK re-entrancy mirror + (3) Test 10 dead-unit `is_alive` filter — all 3 absorbed into S15-D natural-loop integration test drafting (R2 mitigation claim in story Risks was technically inaccurate vs Test 5 actual coverage; S15-D will close)
+- (4) `_handle_player_attack` doc-comment expand from 2 → 5 lines + (5) `push_warning` mirror in player helpers' invalid-input paths (vs AI-path discipline) — both logged to retro debt for sprint-15 retrospective
+**POLISH-011 absorption arc status**: 3/3 root causes WIRED (S15-A T5 await ✅ + S15-B AI consumer ✅ + S15-C player path ✅) — final root cause closed. S15-D natural-loop integration test, S15-E /gate-check rerun-4, S15-G S8-15 §1.3 third re-attestation now all UNBLOCKED. Production-stage flip path-to-PASS continues.
+**Pattern observation**: 2nd extension of S15-A's `set_action_controller` Callable-setter DI surface pattern to a 3rd subscriber (player path); helper-bypass pattern symmetrically applied across player + AI paths (single-token MVP simplification preserved per ADR-0014 §6 backward compat for story-004/005/006 wrappers; future Token ADR will retire `_consume_unit_action` and reunify both paths)

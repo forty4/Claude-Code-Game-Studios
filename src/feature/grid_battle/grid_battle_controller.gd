@@ -516,6 +516,25 @@ func get_battle_state_snapshot() -> Dictionary:
 	return {}
 
 
+## Per ADR-0014 §Amendment 2026-05-10 (#2 — player-path mirror).
+## Player explicitly ends turn (`end_unit_turn` action). For each player-side
+## alive unit that has NOT acted, declare WAIT to release the T5 await per
+## S15-A `_maybe_defer_turn_completion` (action_token_spent == true).
+## Preserves existing end_player_turn() side effects (deselect + auto-handoff).
+func _handle_player_end_turn() -> void:
+	for unit: BattleUnit in _units.values():
+		if unit.side != 0:
+			continue  # player-side only
+		if not _hp_controller.is_alive(unit.unit_id):
+			continue  # dead units don't WAIT
+		if _acted_this_turn.get(unit.unit_id, false):
+			continue  # already declared an action this turn
+		_acted_this_turn[unit.unit_id] = true
+		_turn_runner.declare_action(unit.unit_id,
+			TurnOrderRunner.ActionType.WAIT, null)
+	end_player_turn()
+
+
 ## Ends the player turn early. Also auto-called from _consume_unit_action when
 ## all alive player units have acted (AC-4 auto-handoff). Per ADR-0014 §6 +
 ## story-006 AC-5: clears _acted_this_turn for the next round + deselects.
@@ -765,17 +784,20 @@ func _handle_grid_click_unit_selected(action: String, coord: Vector2i, unit_id: 
 		"move_cancel", "attack_cancel":
 			_deselect()
 		"move_target_select", "move_confirm":
-			# is_tile_in_move_range + _handle_move are story-004 implementations.
-			# _handle_move signature takes BattleUnit (not unit_id) per AC-3 —
-			# caller resolves _selected_unit_id → BattleUnit via _units lookup.
+			# Per ADR-0014 §Amendment 2026-05-10 (#2): dispatch to _handle_player_move
+			# (not _handle_move) so declare_action emits correctly-typed MOVE token.
+			# is_tile_in_move_range guard is redundant with _handle_player_move's
+			# internal check but harmless — leaves story-004/005/006 guarantees intact.
 			if is_tile_in_move_range(coord, _selected_unit_id):
-				_handle_move(_units[_selected_unit_id], coord)
+				_handle_player_move(_units[_selected_unit_id], coord)
 		"attack_target_select", "attack_confirm":
-			# Same pattern as move — wire dispatch; defer handler body to story-005.
+			# Per ADR-0014 §Amendment 2026-05-10 (#2): dispatch to _handle_player_attack.
 			if is_tile_in_attack_range(coord, _selected_unit_id):
-				_handle_attack(_selected_unit_id, unit_id)
+				_handle_player_attack(_selected_unit_id, unit_id)
 		"end_unit_turn":
-			end_player_turn()
+			# Per ADR-0014 §Amendment 2026-05-10 (#2): dispatch to _handle_player_end_turn
+			# which declares WAIT for unacted units before calling end_player_turn().
+			_handle_player_end_turn()
 		_:
 			# undo_last_move / grid_hover / unrecognized → silent (MVP scope)
 			return
@@ -800,6 +822,39 @@ func _deselect() -> void:
 
 
 # ─── Action handler stubs (filled by stories 004-005) ───────────────────────
+
+## Per ADR-0014 §Amendment 2026-05-10 (#2 — player-path mirror).
+## Mirrors AI-path bypass (_on_ai_action_ready MOVE arm): calls _do_move directly
+## (not _handle_move wrapper) to avoid _consume_unit_action's hardcoded
+## declare_action(ATTACK). Player MOVE must declare correctly-typed MOVE so
+## _maybe_defer_turn_completion (S15-A) keeps the turn open for follow-up ATTACK.
+func _handle_player_move(unit: BattleUnit, dest: Vector2i) -> void:
+	if _acted_this_turn.get(unit.unit_id, false):
+		return  # re-entrancy guard
+	if not is_tile_in_move_range(dest, unit.unit_id):
+		return  # invalid target — silent
+	_do_move(unit, dest)
+	_acted_this_turn[unit.unit_id] = true
+	_turn_runner.declare_action(unit.unit_id, TurnOrderRunner.ActionType.MOVE,
+		_make_move_target(dest))
+
+
+## Per ADR-0014 §Amendment 2026-05-10 (#2 — player-path mirror).
+## Mirrors AI-path bypass for the attack action.
+func _handle_player_attack(attacker_id: int, defender_id: int) -> void:
+	if _acted_this_turn.get(attacker_id, false):
+		return  # re-entrancy guard
+	if not _units.has(attacker_id) or not _units.has(defender_id):
+		return  # defensive — shouldn't happen if dispatch is correct
+	var attacker: BattleUnit = _units[attacker_id]
+	var defender: BattleUnit = _units[defender_id]
+	if not is_tile_in_attack_range(defender.position, attacker_id):
+		return  # invalid target — silent
+	_resolve_attack(attacker, defender)
+	_acted_this_turn[attacker_id] = true
+	_turn_runner.declare_action(attacker_id, TurnOrderRunner.ActionType.ATTACK,
+		_make_attack_target(defender_id))
+
 
 ## Handles a move action per story-004 AC-3: validates via is_tile_in_move_range,
 ## applies via _do_move, consumes the unit's turn action via _consume_unit_action.

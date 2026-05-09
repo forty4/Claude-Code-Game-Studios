@@ -707,3 +707,81 @@ Per story-011 Out of Scope clause:
 - `production/epics/grid-battle-controller/story-011-polish-011-ai-action-ready-subscriber.md` — story file with AC-1..AC-8 + Implementation Notes §1-§6 + Risks R1/R2/R3
 - `tests/integration/feature/grid_battle/grid_battle_controller_ai_action_ready_test.gd` — 10 integration tests verifying handler dispatch table (NEW this story)
 - `.claude/rules/godot-4x-gotchas.md` G-11 (`is_instance_valid` before `as Node` cast) + G-15 (`before_test` not `before_each`) + G-22 (`@abstract` requires concrete subclass for instantiation in tests) + G-26 (inner-class name prefix) — actively guarded in this story's implementation + test design
+
+---
+
+## Amendment 2026-05-10 (#2) — S15-C: Player Path declare_action Plumbing (Sprint-15 POLISH-011 Closure)
+
+### Context
+
+Sprint-15 story S15-C (story-012) addresses POLISH-011 root cause #3 of 3: the player path's grid-click action arms in `_handle_grid_click_unit_selected` dispatch via `_handle_move` / `_handle_attack` / `end_player_turn`, which either declare the wrong token type or skip the T5 declare entirely.
+
+**Root cause breakdown:**
+
+- `move_target_select` / `move_confirm` arm — calls `_handle_move(unit, dest)`, which internally calls `_consume_unit_action(unit_id)`, which calls `_turn_runner.declare_action(unit_id, ATTACK, null)`. A MOVE action mistakenly declares an **ATTACK** token. Under the S15-A `_maybe_defer_turn_completion` predicate, this may prematurely satisfy `action_token_spent == true` and advance the turn before a follow-up ATTACK can be declared.
+- `attack_target_select` / `attack_confirm` arm — calls `_handle_attack(attacker_id, defender_id)`, which similarly calls `_consume_unit_action` → `declare_action(ATTACK, null)`. The token type is technically correct (ATTACK), but the `ActionTarget` is null per story-006 MVP stub, missing the `target_unit_id` payload that S15-A's `_maybe_defer_turn_completion` and the downstream T6/T7 path rely on.
+- `end_unit_turn` arm — calls `end_player_turn()` directly, which clears `_acted_this_turn` + deselects. No `declare_action` call is made for unacted units, so the T5 await is never released for those units. The natural battle loop stalls.
+
+This amendment introduces three **player-path mirror helpers** that replicate the AI-path bypass pattern from Amendment 2026-05-10 (S15-B): calling `_do_move` / `_resolve_attack` directly with explicit `declare_action` at the correct `ActionType`, bypassing `_consume_unit_action`'s hardcoded ATTACK token.
+
+### Player-Path Mirror Helpers
+
+Three new private helpers are added. The dispatch arm rewires in `_handle_grid_click_unit_selected` point to these helpers instead of the old wrappers.
+
+**`_handle_player_move(unit: BattleUnit, dest: Vector2i) -> void`**
+Mirrors the AI-path MOVE arm in `_on_ai_action_ready`. Calls `_do_move` directly (not `_handle_move`), sets `_acted_this_turn[unit.unit_id] = true`, then calls `_turn_runner.declare_action(unit.unit_id, TurnOrderRunner.ActionType.MOVE, _make_move_target(dest))`. Re-entrancy guard: early-return if `_acted_this_turn` already set. Validation guard: early-return if `is_tile_in_move_range` fails (internal check; dispatch arm also has this guard — redundant but harmless per story-004/005/006 behavioural guarantee preservation).
+
+**`_handle_player_attack(attacker_id: int, defender_id: int) -> void`**
+Mirrors the AI-path ATTACK arm. Calls `_resolve_attack` directly (not `_handle_attack`), sets `_acted_this_turn[attacker_id] = true`, then calls `_turn_runner.declare_action(attacker_id, TurnOrderRunner.ActionType.ATTACK, _make_attack_target(defender_id))`. Re-entrancy guard: early-return if `_acted_this_turn` already set. Validation guards: `_units.has` check + `is_tile_in_attack_range` check — match the existing `_handle_attack` wrapper's defensive guards.
+
+**`_handle_player_end_turn() -> void`**
+Declares WAIT for every alive player-side unit that has NOT yet acted this turn, releasing their T5 await slots. After iterating, calls `end_player_turn()` to preserve existing side effects (clear `_acted_this_turn`, deselect). Filter logic: `unit.side != 0` skip (enemy units excluded); `_hp_controller.is_alive` check (dead units excluded); `_acted_this_turn.get(unit.unit_id, false)` check (already-acted units excluded — avoids double-declare).
+
+**Dispatch arm rewires in `_handle_grid_click_unit_selected`:**
+
+| Arm | Before (S15-C) | After (S15-C) |
+|-----|----------------|---------------|
+| `move_target_select` / `move_confirm` | `_handle_move(_units[_selected_unit_id], coord)` | `_handle_player_move(_units[_selected_unit_id], coord)` |
+| `attack_target_select` / `attack_confirm` | `_handle_attack(_selected_unit_id, unit_id)` | `_handle_player_attack(_selected_unit_id, unit_id)` |
+| `end_unit_turn` | `end_player_turn()` | `_handle_player_end_turn()` |
+
+Cross-reference: S15-B AI-path bypass precedent — Amendment 2026-05-10 §"Why `_do_move` / `_resolve_attack` Directly (NOT `_handle_move` / `_handle_attack`)".
+
+### Order of Operations
+
+Same as S15-B AI-path: **game-state mutation FIRST, `declare_action` SECOND**.
+
+For `_handle_player_move`: `_do_move` (position + MapGrid occupancy mutation) → `_acted_this_turn` flag → `declare_action(MOVE)`.
+
+For `_handle_player_attack`: `_resolve_attack` (HP mutation via `_hp_controller.apply_damage`) → `_acted_this_turn` flag → `declare_action(ATTACK)`.
+
+For `_handle_player_end_turn`: `_acted_this_turn` flag per unit → `declare_action(WAIT)` per unit → `end_player_turn()` (clear + deselect side effects).
+
+This ordering is load-bearing for the same reasons documented in S15-B §Order of Operations: state changes must commit before `declare_action` triggers the T6/T7 deferred completion path via S15-A `_maybe_defer_turn_completion`.
+
+### Backward Compatibility
+
+The amendment is backward-compatible with all story-004 through story-012 tests:
+
+- **`_handle_move(unit, dest)` UNCHANGED** — body still calls `_do_move` + `_consume_unit_action`. Story-004 tests that call `_handle_move` directly (or tests that verify `_consume_unit_action` path via `_handle_move`) continue to pass. The backward-compatibility regression sentinel test (Test 7 in the new test file) pins this explicitly: `_handle_move` still declares `ATTACK` via `_consume_unit_action`.
+- **`_handle_attack(attacker_id, defender_id)` UNCHANGED** — body still calls `_resolve_attack` + `_consume_unit_action`. Story-005 tests continue to pass.
+- **`_consume_unit_action(unit_id)` UNCHANGED** — body still sets `_acted_this_turn` + calls `declare_action(ATTACK, null)` + deselects + auto-handoff. Story-006 tests continue to pass.
+- **`end_player_turn()` UNCHANGED** — public method still clears `_acted_this_turn` + deselects. Called at the end of `_handle_player_end_turn()`; story-006 tests that call it directly continue to pass.
+- **All 4 GameBus subscriptions UNCHANGED** — `_on_input_action_fired` still dispatches to `handle_grid_click`, which dispatches to `_handle_grid_click_unit_selected`. The only change is the call target inside three match arms.
+
+### Out of Scope (Deferred)
+
+Per story-012 Out of Scope clause:
+
+- **Token ADR convergence** (post-MVP) — eventually `_consume_unit_action` will be retired and both player and AI paths will converge on a shared token-split wrapper. Until then the two paths remain separate: player path uses `_handle_player_*` helpers, AI path uses `_on_ai_action_ready` bypass.
+- **DEFEND grid-click arm** — player UI has no DEFEND action button in MVP. Only the AI path emits `AIActionCommand.DEFEND` via `_on_ai_action_ready`. No player-side DEFEND helper is needed.
+- **USE_SKILL deferral** — Skill ADR handles this. Player UI has no USE_SKILL action in MVP.
+- **Full natural-loop integration test (player-vs-AI to non-DRAW)** — S15-D scope, paired with G-30 windowed-smoke harness per `_GRID_ACTIONS` note at ADR-0014 §0.
+- **`tools/ci/smoke_grid_battle_windowed.sh`** — S15-D pairing per G-30 mitigation infrastructure.
+
+### Cross-References
+
+- `production/epics/grid-battle-controller/story-012-polish-011-player-declare-action-plumbing.md` — story file with AC-1..AC-9 + Out of Scope + Engine Notes
+- `docs/architecture/ADR-0011-turn-order.md` §Amendment 2026-05-09 — S15-A T5 await mechanism (`_maybe_defer_turn_completion` predicate; this story's helpers feed the correct `ActionType` to release it)
+- `tests/integration/feature/grid_battle/grid_battle_controller_player_declare_action_test.gd` — 7 integration tests verifying player-path dispatch arm rewiring (NEW this story)
+- `.claude/rules/godot-4x-gotchas.md` G-15 (`before_test` not `before_each`) + G-22 (`@abstract` requires concrete subclass) + G-26 (inner-class prefixed GBCP*) + G-28 (never bulk-disconnect-all) + G-30 (headless test pass does not gate windowed-mode lifecycle — mitigation infrastructure for full-loop coverage deferred to S15-D windowed-smoke harness)
