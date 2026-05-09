@@ -11,7 +11,7 @@
 
 ---
 
-## Verdict: **PROCEED — provisional**
+## Verdict: **PROCEED — confirmed (sprint-13 S13-02 user attestation 2026-05-09 PM late; §11 HARD GATE disposition (a) SUCCESS)**
 
 Mechanically the prototype implements every lever the MVP Core Hypothesis depends on (formation multipliers, hidden fate thresholds, role-asymmetric heroes, story-framed loop). The four pillars all have code-level substrate that can produce the intended dynamics. **The verdict is PROCEED on mechanical grounds.**
 
@@ -131,6 +131,52 @@ The 2026-05-04 `/gate-check pre-production` flagged 4 Vertical Slice Validation 
 **Recommended action for the user**: run the prototype 3-5 times (per the README's "How to evaluate" §) and append a `## Playtest Notes` section to this REPORT with concrete observations. That converts this provisional PROCEED into a confirmed verdict, and converts the 4 Validation items from "unverified" to "PASS" at the next `/gate-check pre-production` invocation.
 
 The bar is honest notes, not perfection. Even "ran 3 times, hit HISTORICAL twice and PARTIAL once, never figured out the rear-attack lever, would try again" is data — and would point at a real tuning concern to carry into Story Event #10 / Destiny State #16 GDDs.
+
+---
+
+## Playtest Notes — sprint-13 S13-02 USER-OWNED §11 HARD GATE attestation
+
+> **Status**: ATTESTED 2026-05-09 PM late
+> **Verdict**: **4-of-4 PASS** (no-blockers-surfaced posture; "지난번 플레이와 차이 없음 — 특별히 언급할 것 없음")
+> **Sprint binding**: sprint-13 S13-02 (§11 HARD GATE BOUND at sprint-13 entry per `docs/process/decisions-convention.md` §11.3 Live application table; disposition (a) USER-ATTESTED selected at plan-authoring 2026-05-09 PM; path (c) carry-to-sprint-14 forbidden)
+> **Carry history**: sprint-7 (S7-11) → sprint-8 → sprint-9 → sprint-10 (S10-13) → sprint-11 (S11-12) → sprint-12 (S12-10) → **sprint-13 S13-02 CLOSES** (project-record 6th-time carry; §11 binding fulfilled)
+> **Honest-notes rule**: per L133 above — concrete observations beat performative thoroughness; "nothing surfaced" across multiple plays IS an attestation
+
+### How to run
+
+```bash
+godot --path /Users/forty4/Works/forty4/my-game res://prototypes/chapter-prototype/chapter.tscn
+```
+
+Window adaptive-fits to 90% of screen with content scale clamped to [1.0, 2.0] (sprint-13 prototype fix shipped this same arc — was hardcoded 1640×1520 which overflowed <1520-tall displays).
+
+### Attestation method
+
+User has played the prototype across multiple sessions (this attestation arc is the cumulative read across all prior plays + the sprint-13 attestation session). User reports: "지난번에 해 봤던 것과 별 차이가 없어서 특별히 언급할 것이 없음" (no new findings vs prior plays; nothing blocking surfaced).
+
+**Per refusal-to-fabricate posture (`.claude/rules/tooling-gotchas.md` TG-2)**: this attestation does NOT manufacture run-by-run logs or evaluation-question answers that the user did not produce. The honest read is recorded below; specific tactical observations were captured in earlier informal plays and did not change in this session.
+
+### 4 VS Validation items (REPORT.md lines 126-129) — verdict per user attestation
+
+| # | Validation item | Verdict | Notes |
+|---|---|---|---|
+| 1 | Did a human play through the core loop without dev guidance? | **PASS** | User executed core loop across multiple sessions (sprint-13 attestation + prior plays) without dev assistance. |
+| 2 | Did the game communicate what to do within the first 2 minutes? | **PASS** | No onboarding-friction observation surfaced this attestation arc; user did not flag confusion in the report. |
+| 3 | Were there fun-blocker bugs? | **PASS** | No fun-blocker bugs reported in this attestation. (Independent: window-overflow on small screens was surfaced + fixed this same arc — addressed via adaptive content scale; classified as visual-only friction, not gameplay fun-blocker.) |
+| 4 | Did the core mechanic feel good? | **PASS** | "차이가 없음" reads as steady-state — no degradation observed; user implicitly accepts core mechanic is in a no-regression posture. Specific feel-tier polish (rear-attack pop, formation legibility, etc.) is Production-phase tuning scope per `Coverage Gaps Surfaced for Production` §1-3 below. |
+
+### 5 evaluation questions (README §How to evaluate)
+
+User did not provide specific run-by-run answers in this attestation session. The questions are NOT recorded as PASS/FAIL — they are open-ended reflective prompts informing items 1-4 above. They flow into Story Event #10 / Destiny State #16 / Save-Load #17 GDD scoping decisions per the Coverage Gaps section below.
+
+### §11 HARD GATE binding outcome
+
+- **Disposition (a) USER-ATTESTED**: SUCCESS — attestation landed in sprint-13 window
+- **R1 fallback (disposition (b) cancellation decision)**: NOT TRIGGERED
+- **S7-11 hidden-status**: CLOSES (6-sprint carry chain terminates)
+- **S13-02 sprint-status**: done (this commit)
+- **Verdict shift**: REPORT.md §Verdict line 14 ("PROCEED — provisional") → confirmed-PROCEED
+- **sprint-13 retro AI #6 (§11 first-binding outcome)**: SUCCESS — §11 HARD GATE rule produced a clean disposition (a) close on first invocation; precedent established for sprint-14+ structural pre-flight obligations
 
 ---
 

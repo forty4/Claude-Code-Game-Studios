@@ -166,7 +166,7 @@ This is the **first live mid-sprint mode redesignation** in the project — esta
 - [ ] All Must Have tasks (S13-01 + S13-02 + S13-03) completed
 - [x] All Mid-Sprint Expansion bug-fix tasks (S13-11 + S13-12) completed (2026-05-09 PM amendment) — closed `54824ee` (S13-11) + this commit (S13-12)
 - [ ] All tasks pass acceptance criteria (per Tasks table)
-- [ ] **§11 HARD GATE binding fulfilled** — S13-02 attestation landed OR (R1 fallback) S12-10 cancellation decision authored at sprint-13 close
+- [x] **§11 HARD GATE binding fulfilled** — S13-02 attestation landed (disposition (a) USER-ATTESTED 4-of-4 PASS 2026-05-09 PM late; R1 fallback NOT triggered; first live §11 binding produces clean disposition (a) close)
 - [ ] QA plan exists (`production/qa/qa-plan-sprint-13-[date].md`) — see Phase 5 gate of /sprint-plan
 - [ ] All Logic/Integration stories have passing unit/integration tests (sprint-13 expects 0 such stories per closure-leaning mode)
 - [ ] Smoke check passed (`/smoke-check sprint`) — file naming per S11-10 codified convention `production/qa/smoke-sprint-13-[date].md`

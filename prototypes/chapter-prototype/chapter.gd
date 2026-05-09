@@ -109,16 +109,25 @@ var _atmospheric_buffer: PackedVector2Array  # pre-baked 묵 hum stereo samples
 # ─── Lifecycle ──────────────────────────────────────────────────────────────
 
 func _ready() -> void:
-	# Resize window for prototype; 2x scale for HiDPI readability (logical 820x760, physical 1640x1520)
+	# Resize window for prototype; adaptive scale based on screen size (2026-05-09 fix
+	# for screen-too-small overflow on <1520-tall displays). Logical content is 820×760;
+	# physical window + content_scale_factor are derived from 90% of screen height.
 	if not Engine.is_editor_hint() and DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_WINDOWED:
-		DisplayServer.window_set_size(Vector2i(1640, 1520))
+		var screen_size: Vector2i = DisplayServer.screen_get_size()
+		# Fit logical 820×760 inside 90% of available screen; pick scale that fits both axes.
+		var max_w: float = float(screen_size.x) * 0.90
+		var max_h: float = float(screen_size.y) * 0.90
+		var scale: float = minf(max_w / 820.0, max_h / 760.0)
+		# Clamp scale to [1.0, 2.0]: never below native, never above the original 2x intent.
+		scale = clampf(scale, 1.0, 2.0)
+		var phys_w: int = int(820.0 * scale)
+		var phys_h: int = int(760.0 * scale)
+		DisplayServer.window_set_size(Vector2i(phys_w, phys_h))
 		DisplayServer.window_set_title("천명역전 — 장판파 [PROTOTYPE]")
 		# Center the window on screen so it doesn't go off-bottom on smaller displays
-		var screen_size: Vector2i = DisplayServer.screen_get_size()
 		var window_size: Vector2i = DisplayServer.window_get_size()
 		DisplayServer.window_set_position((screen_size - window_size) / 2)
-		# Scale content 2x — keeps internal coords at 820x760 but renders 2x larger
-		get_window().content_scale_factor = 2.0
+		get_window().content_scale_factor = scale
 	_build_all_panels()
 	_prebake_atmospheric_audio()
 	_build_atmospheric_nodes()

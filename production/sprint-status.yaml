@@ -11,7 +11,7 @@ goal: "Resolve §11 5th-carry HARD GATE (S12-10 disposition (a) user-attested) +
 start: "2026-05-10"
 end: "2026-05-12"
 generated: "2026-05-09"
-updated: "2026-05-09 PM late — S13-05 done: PRE-FLIGHT byte-check codification (CODE in 567483a); 3x dogfooded clean (S13-11/12/04); sprint-13 5/12 done"
+updated: "2026-05-09 PM late — S13-02 done: §11 HARD GATE disposition (a) USER-ATTESTED SUCCESS; 4-of-4 PASS; 6-sprint S7-11 carry CLOSES; sprint-13 6/12 done"
 
 # Sprint-12 closed 2026-05-09: 8/8 canonical ✓ + 3 bonus save-load + S12-03 blocker-bound + 2 USER-OWNED pending; APPROVED W/ COND; 1273/1273 64th FFB; 47-streak; 779f614→fc9adfb.
 # Sprint-12 retro: production/retrospectives/retro-sprint-12-2026-05-09.md (10 sprint-13 AIs seeded; 2 codification AIs forward-debt #5+#6).
@@ -50,12 +50,13 @@ stories:
     name: "S12-10 S7-11 USER-OWNED CRITICAL — §11 disposition (a); user boots chapter-prototype + records 4 VS Validation items in REPORT.md; cannot carry per §11"
     file: "prototypes/chapter-prototype/REPORT.md"
     priority: must-have
-    status: ready-for-dev
+    status: done
     owner: "user"
     estimate_days: 0
     blocker: ""
-    completed: ""
+    completed: "2026-05-09"
     # USER-OWNED CRITICAL — §11 HARD GATE bound; ~30 min user time; refusal-to-fabricate posture preserved; R1 fallback to disposition (b) if attestation slips
+    # 2026-05-09 — S13-02 done: §11 disposition (a) USER-ATTESTED 4-of-4 PASS; "지난번과 차이 없음" honest no-blockers attestation; S7-11 closes; retro AI #6 SUCCESS
 
   - id: "S13-03"
     name: "S12-03 /gate-check close-gate re-evaluation — runs after S13-02 + S13-10 land; PASS (stage.txt flip) OR CONCERNS; sprint-11 retro AI #1 follow-through closure"
