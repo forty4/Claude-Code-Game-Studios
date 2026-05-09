@@ -11,7 +11,7 @@ goal: "Resolve 7 sprint-13 carry-conditions (POLISH-010 + ADR-0021 + S8-15 re-at
 start: "2026-05-09"
 end: "2026-05-12"
 generated: "2026-05-09"
-updated: "2026-05-09 PM late-late — S14-08 done (10 ADVISORY classified 3-reg/5-doc/2-noaction; TD-071+072+073 NEW); sprint-14 5/9 done + 1 partial."
+updated: "2026-05-09 PM late-late — S14-04 done: rerun-3 verdict FAIL (3 NOT READY + 1st AD READY); POLISH-011 sole blocker; sprint-14 6/9 done + 1 partial."
 
 # Sprint-13 closed 2026-05-09 PM late ⚠️ APPROVED WITH CONDITIONS: 11/12 stories done; S13-06 carries; 6-sprint S7-11 + 5-sprint S8-15 carry chains TERMINATED simultaneously (project-record); §11 HARD GATE first live binding SUCCESS at S13-02; PRE-FLIGHT byte-check 8× consecutive clean dogfood (recurrence eliminated); 1288/1288 PASS / 66th FFB preserved; 10 commits cca3eda→ef025a6.
 # Sprint-13 retro: production/retrospectives/retro-sprint-13-2026-05-09.md (10 sprint-14 AIs seeded; 6 of 10 sprint-12 AIs closed in-sprint).
@@ -221,14 +221,14 @@ stories:
 
   - id: "S14-04"
     name: "/gate-check pre-prod-to-prod rerun-3 — re-evaluate after S14-01/02/03 land; PASS verdict (production/stage.txt flip) OR CONCERNS; sprint-11 retro AI #1 follow-through closure continued"
-    file: "production/gate-checks/"
+    file: "production/gate-checks/pre-prod-to-prod-2026-05-09-rerun-3.md"
     priority: must-have
-    status: blocked
+    status: done
     owner: "claude"
     estimate_days: 0.1
-    blocker: "S14-01 + S14-02 + S14-03 land"
-    completed: ""
-    # Closure ÷3 → ~0.03d actual; 4-director panel parallel; first project candidate stage advancement since 2026-04-20 entry
+    blocker: ""
+    completed: "2026-05-09"
+    # 2026-05-09 — S14-04 done: rerun-3 verdict FAIL (3× NOT READY CD/TD/PR + 1× READY AD; 1st downgrade in chain); 4 of 4 prior items CLOSED + Item 7 partial; POLISH-011 sole blocker.
 
   - id: "S14-05"
     name: "S13-06 producer §7 promotion call — sprint-12 retro AI #4; threshold ≥3 artifacts AND ≥2 sprints HAS FIRED; producer Route a vs Route c retention decision; 2nd-time carry"
