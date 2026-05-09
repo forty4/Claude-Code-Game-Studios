@@ -599,3 +599,111 @@ This ADR is correct when (validation in grid-battle-controller epic story-010 ep
 - **Formation Bonus ADR** (NOT YET WRITTEN — post-MVP) — supersedes inline formation math; FormationBonusSystem orchestration per CR-FB-6
 - **Rally ADR** (NOT YET WRITTEN — post-MVP) — adds Rally orchestration per grid-battle.md CR-15
 - **Skill ADR** (NOT YET WRITTEN — post-MVP) — adds USE_SKILL counter eligibility per AC-GB-15 + AOE_ALL handling
+
+---
+
+## Amendment 2026-05-10 — S15-B: AISystem.ai_action_ready Subscriber + Handler Dispatch (Sprint-15 POLISH-011 Closure)
+
+### Context
+
+Sprint-15 story S15-B (story-011) addresses POLISH-011 root cause #2 of 3: shipped `GridBattleController` declares `signal ai_action_requested(unit_id, BattleStateSnapshot)` at line 105 and emits it from `_on_unit_turn_started` for non-player units — but does NOT subscribe to AISystem's response signal `ai_action_ready(unit_id, AIActionCommand)`. AI's command is computed by AISystem and emitted, but no consumer ever calls `_handle_*` or `_turn_runner.declare_action()` to release the S15-A T5 await. Symptom: AI turns drain across deferred slots → ROUND_CAP DRAW. Fix: add controller-side subscriber + 6-way handler dispatch table that maps `AIActionCommand.ActionType` (6 values) → `TurnOrderRunner.ActionType` (5 values) with `USE_SKILL` substituted by `WAIT` per §0 MVP scope.
+
+### §8 Subscriber Contract — Implementation Amendment
+
+Adds a 6th DI-injected reference field on `GridBattleController`:
+
+```gdscript
+var _ai_system: AISystem = null
+```
+
+Mirrors the S15-A `set_action_controller` Callable setter precedent on `TurnOrderRunner` (ADR-0011 §Amendment 2026-05-09) — DI surface (injection point), NOT runtime gameplay state. Set via public setter `set_ai_system(ai_system: AISystem) -> void` called by BattleScene mount sequence AFTER `add_child()` for both GridBattleController (step 5) and AISystem (step 5.5). Order does not matter — connection is established in the setter, not in `_ready()`, so callers can invoke `set_ai_system` at any point post-mount.
+
+Subscription discipline (extends the 4-GameBus DEFERRED + `_exit_tree` disconnect pattern from TR-grid-battle-controller-007 to a 5th LOCAL subscription):
+
+- `Object.CONNECT_DEFERRED` flag MANDATORY (LOAD-BEARING, not stylistic) — handler calls `_do_move` / `_resolve_attack` (NOT the `_handle_move` / `_handle_attack` wrappers — see §"Why `_do_move` / `_resolve_attack` Directly" below) which mutate `_units` / `_map_grid`; deferral prevents reentrance from synchronous AISystem emit paths (test seams may emit synchronously even though production path is itself deferred).
+- Idempotent `is_connected(_on_ai_action_ready)` guard before `connect` — `set_ai_system` is safe to call twice with the same AISystem; second call is a no-op.
+- `_exit_tree()` disconnect MANDATORY with `is_instance_valid(_ai_system)` guard per **G-11** (battle-scoped Node teardown order is undefined — AISystem may free before GridBattleController in edge orders).
+
+### Handler Dispatch Table
+
+`_on_ai_action_ready(unit_id: int, command: AIActionCommand)` dispatches via 6-way `match command.action_type` (5 mapped + 1 substituted):
+
+| `AIActionCommand.ActionType` | Game-state mutation | `TurnOrderRunner.declare_action` call(s) |
+|---|---|---|
+| `WAIT` | none | `(unit_id, WAIT, null)` |
+| `MOVE` | `_do_move(unit, command.move_target)` | `(unit_id, MOVE, _make_move_target(...))` |
+| `ATTACK` | `_resolve_attack(attacker, defender)` | `(unit_id, ATTACK, _make_attack_target(...))` |
+| `MOVE_AND_ATTACK` | `_do_move` then `_resolve_attack` | TWO calls: `(MOVE, ...)` then `(ATTACK, ...)` |
+| `DEFEND` | none (TurnOrderRunner sets `defend_stance_active`) | `(unit_id, DEFEND, null)` |
+| `USE_SKILL` | none + `push_warning` | `(unit_id, WAIT, null)` per §0 MVP scope deferral |
+
+Pre-dispatch guards: early-return on `_battle_over`, on `command == null` (push_warning), and on `unit_id not in _units` (push_warning). Unknown / out-of-enum values fall through to `WAIT` substitution with `push_warning` (defense-in-depth catch-all).
+
+### Order of Operations
+
+For `MOVE` / `ATTACK` / `MOVE_AND_ATTACK` paths: **game-state mutation FIRST, `declare_action` SECOND**. This ordering is load-bearing because:
+
+1. State changes (HP, position, MapGrid occupancy, `_acted_this_turn` flag) must commit before T6+T7 deferred path runs so LOCAL signal subscribers (HUD, animation systems) see consistent snapshot.
+2. `declare_action` triggers the S15-A `_maybe_defer_turn_completion` predicate — after `action_token_spent == true`, `_complete_turn_t6_to_t7.call_deferred(unit_id)` fires on the NEXT deferred slot. Pre-mutation ensures the snapshot at T6 reflects the action's effects.
+3. For `MOVE_AND_ATTACK`, the first `declare_action(MOVE)` does NOT satisfy the predicate (only `move_token_spent` is set per S15-A); the second `declare_action(ATTACK)` does (`action_token_spent == true`) and triggers the deferred completion. Validated in S15-A `test_t5_holds_for_move_does_not_complete_turn`.
+
+### Why `_do_move` / `_resolve_attack` Directly (NOT `_handle_move` / `_handle_attack`)
+
+The `_handle_move(unit, dest)` and `_handle_attack(attacker_id, defender_id)` wrappers each call `_consume_unit_action(unit_id)` internally, which calls `_turn_runner.declare_action(unit_id, ATTACK, null)` (story-006 MVP single-token simplification — single-token model for player path). If the AI handler invoked the wrapper, it would result in TWO `declare_action` calls per AI action: first `ATTACK` from `_consume_unit_action`, then the correctly-typed action from the AI handler. Bypassing the wrappers to call `_do_move` / `_resolve_attack` directly + manually setting `_acted_this_turn[unit_id] = true` keeps the AI path single-call-per-action and emits the correct `ActionType` to TurnOrderRunner's `_maybe_defer_turn_completion` predicate.
+
+This is a clean separation of concerns:
+
+- **Player input path**: uses `_handle_move` / `_handle_attack` wrappers (single-token MVP per story-006 §6).
+- **AI path** (this amendment): uses the underlying `_do_move` / `_resolve_attack` primitives (typed-action MVP per S15-A `_maybe_defer_turn_completion`).
+
+When the post-MVP move-token + action-token split lands (Token ADR — future), both paths converge on the same wrapper, and `_consume_unit_action` is removed in the same patch.
+
+### `ActionTarget` Construction
+
+Two new private factory helpers added in this amendment:
+
+```gdscript
+func _make_move_target(target_pos: Vector2i) -> ActionTarget:
+    var t: ActionTarget = ActionTarget.new()
+    t.target_position = target_pos
+    t.target_unit_id = 0
+    t.movement_cost = 0   # story-007+ refinement: populate from terrain cost matrix
+    return t
+
+func _make_attack_target(target_unit_id: int) -> ActionTarget:
+    var t: ActionTarget = ActionTarget.new()
+    t.target_unit_id = target_unit_id
+    t.target_position = Vector2i.ZERO
+    t.movement_cost = 0
+    return t
+```
+
+`movement_cost: 0` is acceptable for this story's MVP scope because F-2 Cavalry Charge accumulation (per ADR-0011 line 318) is not yet exercised by AI MOVE actions. Story-007+ Grid Battle integration may extend `_make_move_target` to populate from `MapGrid.get_movement_cost(from, to)` or path-cost-summation.
+
+### Backward Compatibility
+
+The amendment is purely additive:
+
+- Existing 6 LOCAL signals preserved (no signature changes).
+- Existing 4 GameBus subscriptions preserved (CONNECT_DEFERRED + `_exit_tree` disconnect discipline per TR-grid-battle-controller-007).
+- Story-001..010 controller tests continue to PASS without regression (validated via post-implementation full-suite run).
+- 8-param `setup(...)` signature LOCKED per §10 — AISystem reference injected via separate `set_ai_system` setter, NOT added as 9th setup param. ADR-0019 mount-sequence step 5.5 unchanged.
+
+### Out of Scope (Deferred)
+
+Per story-011 Out of Scope clause:
+
+- 500ms AI timeout + WAIT-substitution per CR-3b (CR-3b future story; AISystem currently synchronous)
+- `ai_soft_lock_counter` escalation per CR-3 (future story)
+- USE_SKILL execution (Skill ADR — Counter-eligibility AC-GB-15 + AOE_ALL EC-GB-02 per §0 MVP deferral list)
+- Player declare_action plumbing in grid-click handlers (S15-C scope — POLISH-011 absorption #3 of 3)
+- Full natural-loop integration test player-vs-AI to non-DRAW (S15-D scope — first natural-loop test in codebase, paired with G-30 windowed-smoke harness mitigation infrastructure)
+- `tools/ci/smoke_grid_battle_windowed.sh` (S15-D pairing per G-30)
+
+### Cross-References
+
+- `docs/architecture/ADR-0011-turn-order.md` §Amendment 2026-05-09 — S15-A T5 await mechanism + `set_action_controller` Callable setter precedent
+- `docs/architecture/ADR-0019-ai-system.md` §Decision §Payload Form — `AIActionCommand` consumer-side contract (6-ActionType append-only enum)
+- `production/epics/grid-battle-controller/story-011-polish-011-ai-action-ready-subscriber.md` — story file with AC-1..AC-8 + Implementation Notes §1-§6 + Risks R1/R2/R3
+- `tests/integration/feature/grid_battle/grid_battle_controller_ai_action_ready_test.gd` — 10 integration tests verifying handler dispatch table (NEW this story)
+- `.claude/rules/godot-4x-gotchas.md` G-11 (`is_instance_valid` before `as Node` cast) + G-15 (`before_test` not `before_each`) + G-22 (`@abstract` requires concrete subclass for instantiation in tests) + G-26 (inner-class name prefix) — actively guarded in this story's implementation + test design

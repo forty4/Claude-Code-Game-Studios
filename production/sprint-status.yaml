@@ -11,7 +11,7 @@ goal: "Close POLISH-011 turn-loop architectural integration gap (3-story arc S15
 start: "2026-05-12"
 end: "2026-05-15"
 generated: "2026-05-09"
-updated: "2026-05-10 — S15-A done (turn-order story-008): T5 await mechanism + ADR-0011 §Decision Contract 5; 7 new tests; S15-B/C unblocked."
+updated: "2026-05-10 — S15-B done (grid-battle story-011): ai_action_ready subscriber + ADR-0014 amend + 12 tests (1295→1307); 8/8 ACs; +2 guard post-/code-review; S15-D unblocked."
 
 # Sprint-14 closed 2026-05-09 PM late-late ⚠️ APPROVED WITH CONDITIONS: 7/9 done + 1 partial (S14-03) + 1 USER-OWNED carry (S14-05); 4 of 4 prior gate-check items CLOSED (rerun-2 → rerun-3 path-to-PASS items 5/6/8/9; Item 7 partial) — strongest single-sprint closure ratio in chain history; AD's 1st READY verdict in chain history at S14-04; G-30 codified + pattern stability ESCALATED 2→4 invocations within 48hr; ADR-0021 ratified at S14-01 (576 LoC); 6 of 10 sprint-13 retro AIs CLOSED; 1288/1288 PASS / 68th FFB preserved; 9 commits 4f2ea2e→1b59f40.
 # Sprint-14 retro: production/retrospectives/retro-sprint-14-2026-05-09.md (13 sprint-15 AIs seeded; 9 NEW + 4 carry from sprint-13).
@@ -302,12 +302,12 @@ stories:
     name: "POLISH-011 absorption — AISystem.ai_action_ready subscriber + declare_action plumbing for AI commands; map AIActionCommand → TurnOrderRunner.ActionType + execute via _handle_move/_handle_attack"
     file: "src/feature/grid_battle/grid_battle_controller.gd"
     priority: must-have
-    status: ready-for-dev
+    status: done
     owner: "godot-gdscript-specialist"
     estimate_days: 0.3
     blocker: "S15-A"
-    completed: ""
-    # ~2-4h; ADR-0014 amendment documents subscriber contract; integration test drives AI-only battle to non-DRAW resolution
+    completed: "2026-05-10"
+    # 2026-05-10 — S15-B done: ai_action_ready subscriber + 6-way dispatch + ADR-0014 amend + 12 tests (1295→1307); 8/8 ACs; +2 guard post-/code-review.
 
   - id: "S15-C"
     name: "POLISH-011 absorption — Player declare_action plumbing in grid-click handlers; extend _handle_grid_click_unit_selected action arms (move/attack/end_unit_turn) to call declare_action"

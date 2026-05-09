@@ -3,8 +3,8 @@
 > **Layer**: Feature (battle orchestrator)
 > **GDD**: `design/gdd/grid-battle.md` (1259 lines — **MVP subset only** consumed per ADR-0014 §0; full Alpha-tier scope deferred)
 > **Architecture Module**: `GridBattleController` — battle-scoped Node at `BattleScene/GridBattleController` (4th invocation of pattern)
-> **Status**: In Progress (POLISH-011 absorption — sprint-15 S15-B re-opening 2026-05-10) — 10/11 Complete; story-011 added for AISystem.ai_action_ready subscriber closure (POLISH-011 root cause #2 of 3); previously Complete (2026-05-03) 10/10 stories shipped — re-opened per sprint-15 plan
-> **Stories**: 11/11 created (story-011 added 2026-05-10 sprint-15 S15-B); **10/11 Complete (story-001..010 shipped 2026-05-03; story-011 Ready)** — see Stories table below
+> **Status**: Complete (11/11 stories shipped — story-011 closed 2026-05-10 sprint-15 S15-B POLISH-011 absorption #2 of 3; previously Complete 2026-05-03 10/10 stories shipped + re-opened for POLISH-011 absorption; re-graduated 2026-05-10 — note S15-C/POLISH-011 absorption #3 of 3 may add story-012 to extend this epic again)
+> **Stories**: 11/11 created · **11/11 Complete** (story-001..010 shipped 2026-05-03 + story-011 shipped 2026-05-10 sprint-15 S15-B) — see Stories table below
 > **Created**: 2026-05-02 (Sprint 4 S4-04)
 > **Final test baseline**: 841 PASS / 0 errors / 0 failures / 0 orphans / Exit 0 (was 757 → +84 tests; **19th consecutive failure-free**)
 > **Verification**: `production/qa/evidence/grid_battle_controller_verification_summary.md`
@@ -23,7 +23,7 @@
 | [008](story-008-hidden-fate-condition-tracking.md) | 5 hidden counters (formation_turns + boss_killed + assassin_kills + rear_attacks already in story-005) + tank_alive_hp_pct on-demand + `hidden_fate_condition_progressed` (0 default subscribers per AC-8 hidden-semantic test) | Logic | Complete (2026-05-03) | (ADR-0014 §8 + Pillar 2) | +12 tests | 3h |
 | [009](story-009-cross-adr-exit-tree-audit.md) | Cross-ADR `_exit_tree` audit — Path B retrofit: TurnOrderRunner missing → retrofitted in same patch. TD-057 RESOLVED. Pattern stable at 4 invocations. | Config/Data (audit) | Complete (2026-05-03) | (ADR-0013 R-7 follow-up) | 0 tests (smoke check) | 1h |
 | [010](story-010-epic-terminal-perf-lints-evidence.md) | Epic terminal — 4 perf tests + 4 lints (signal_emission + static_state + external_combat_math + BalanceConstants) + 5 BalanceConstants additions + verification summary doc + epic close | Config/Data | Complete (2026-05-03) | (ADR-0014 §11) | +4 tests | 3h |
-| [011](story-011-polish-011-ai-action-ready-subscriber.md) | POLISH-011 absorption #2 of 3 — `_on_ai_action_ready` handler + `ai_action_ready` subscriber + AIActionCommand → TurnOrderRunner.ActionType dispatch + declare_action plumbing for 5 actions (USE_SKILL deferred per ADR-0014 §0) | Integration | Ready (2026-05-10 sprint-15 S15-B; post-epic-close re-opening for POLISH-011 absorption) | (ADR-0014 §8 + ADR-0019 §Decision §Payload Form + ADR-0011 §Amendment 2026-05-09) | +3-5 tests | 2-4h |
+| [011](story-011-polish-011-ai-action-ready-subscriber.md) | POLISH-011 absorption #2 of 3 — `_on_ai_action_ready` handler + `ai_action_ready` subscriber + AIActionCommand → TurnOrderRunner.ActionType dispatch + declare_action plumbing for 5 actions (USE_SKILL deferred per ADR-0014 §0) | Integration | Complete (2026-05-10 sprint-15 S15-B close; 8/8 ACs verified; +12 tests 1295→1307; +2 guard tests added post-/code-review; design deviation `_do_move`/`_resolve_attack` bypass documented in ADR-0014 §Amendment 2026-05-10) | (ADR-0014 §8 + ADR-0019 §Decision §Payload Form + ADR-0011 §Amendment 2026-05-09) | +12 tests | 2-4h |
 
 **Total estimate**: ~28-30h (10 original stories ~26h + story-011 ~2-4h sprint-15 amendment). Larger than camera epic (6h actual) due to 10 stories vs 7 + per-story scope is meaningfully larger (BattleUnit Resource design + FSM + 4 backend integrations per story).
 

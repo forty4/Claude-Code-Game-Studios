@@ -1,7 +1,7 @@
 # Story 011: POLISH-011 absorption — AISystem.ai_action_ready subscriber + declare_action plumbing for AI commands
 
 > **Epic**: Grid Battle Controller
-> **Status**: Ready
+> **Status**: Complete (2026-05-10 sprint-15 S15-B — 8/8 ACs verified; 12 new tests (10 dispatch + 2 guard post-/code-review); full-suite 1295→1307; pre-existing hp_status_perf flap unrelated; ADR-0014 §Amendment 2026-05-10 + design deviation `_do_move`/`_resolve_attack` bypass documented)
 > **Layer**: Feature (battle orchestrator)
 > **Type**: Integration
 > **Estimate**: 2-4h (~0.3d)
@@ -43,7 +43,7 @@
 - [ ] **AC-3** Handler executes the actual game action via existing `_handle_move(unit, target)` / `_handle_attack(attacker_id, defender_id)` methods BEFORE calling `declare_action`. State mutations (HP, position, etc.) occur first; declare_action reflects token spend; T6+T7 fire from S15-A deferred path.
 - [ ] **AC-4** Handler calls `_turn_runner.declare_action(unit_id, action_type, target)` with appropriate `ActionTarget` payload (constructed from AIActionCommand fields). For MOVE: target.move_target = command.move_target; for ATTACK: target.target_unit_id = command.attack_target_unit_id.
 - [ ] **AC-5** ADR-0014 amendment documents the `ai_action_ready` subscriber contract + handler dispatch table (5 supported ActionTypes + USE_SKILL deferral + 500ms timeout WAIT substitution).
-- [ ] **AC-6** Integration test `tests/integration/feature/grid_battle/grid_battle_controller_ai_action_ready_test.gd` drives AI-only battle to non-DRAW resolution: 2-unit roster (1 AI Aggressor, 1 AI Holder OR mock-controlled) → `initialize_battle` + `set_action_controller` + AISystem wired → battle progresses through deferred chain → `victory_condition_detected` emits non-DRAW result.
+- [ ] **AC-6** Integration test `tests/integration/feature/grid_battle/grid_battle_controller_ai_action_ready_test.gd` covers the AISystem→GridBattleController signal-boundary single-action handler dispatch surface. **Reworded 2026-05-10 per /code-review qa-tester finding** — original AC-6 phrasing ("drives AI-only battle to non-DRAW resolution") contradicted this story's Out of Scope clause that explicitly defers full natural-loop battle-end-to-end to S15-D. This story's scope is single-action handler verification: each `AIActionCommand.ActionType` branch (WAIT/MOVE/ATTACK/MOVE_AND_ATTACK/DEFEND/USE_SKILL) dispatches correctly through the handler to `_do_move`/`_resolve_attack` + `declare_action(...)`, with subscriber wiring (AC-1) + dispatch table (AC-2) + order-of-operations (AC-3) + ActionTarget construction (AC-4) all verified. Full natural-loop AI-only battle to non-DRAW resolution via `initialize_battle` + deferred chain + `victory_condition_detected` is **S15-D scope** (paired with G-30 windowed-smoke harness — first natural-loop test in codebase).
 - [ ] **AC-7** Test count delta: 1295 baseline + ~3-5 new tests = ~1298-1300; 0 NEW failures introduced (pre-existing hp_status_perf flap remains unrelated).
 - [ ] **AC-8** Backward compat: existing 5 LOCAL signals + 9 GameBus subscriptions (per ADR-0014 §8) preserved; existing grid-battle-controller story-001..010 tests continue to PASS without regression.
 
@@ -139,3 +139,22 @@
 - **R1**: ActionTarget construction — may surface gap if `_make_move_target` / `_make_attack_target` factories don't exist (would need to be added or refactored from existing `_handle_grid_click_unit_selected` arms). Mitigation: inspect existing target construction in `_handle_grid_click_unit_selected` first; reuse pattern.
 - **R2**: MOVE_AND_ATTACK 2-call sequence may trigger turn-end prematurely if first declare_action(MOVE) somehow sets action_token_spent=true. Verify against S15-A `_maybe_defer_turn_completion` predicate: MOVE only sets `move_token_spent`; predicate requires `action_token_spent` OR `turn_state == DONE` — so MOVE alone won't trigger. Validated in S15-A `test_t5_holds_for_move_does_not_complete_turn`.
 - **R3**: AISystem subscriber may re-fire if same unit_id has multiple deferred ai_action_ready emits. Mitigation: idempotent `is_connected` guard prevents duplicate subscription; AISystem should emit at most once per ai_action_requested per turn.
+
+## Completion Notes
+
+**Completed**: 2026-05-10 (sprint-15 S15-B — POLISH-011 absorption #2 of 3)
+**Criteria**: 8/8 passing (no DEFERRED; AC-6 reworded 2026-05-10 per /code-review qa-tester finding to drop the contradictory "non-DRAW resolution" clause and descope full natural-loop to S15-D per Out-of-Scope clause)
+**Test count**: full-suite 1295→1307 (+12 = 10 dispatch + 2 guard tests added post-/code-review); 12/12 isolated PASS; 0 NEW failures (pre-existing `hp_status_perf` timing flap verified in isolation = unrelated)
+**Test Evidence**: Integration — `tests/integration/feature/grid_battle/grid_battle_controller_ai_action_ready_test.gd` (570 LoC; 12 tests covering AC-1..AC-8 + 2 added guard tests AC-11 `_battle_over` early-return + AC-12 null command guard)
+**Test-Criterion Traceability**: 8/8 COVERED — no UNTESTED criteria (above 50% threshold)
+**Files changed**:
+- `src/feature/grid_battle/grid_battle_controller.gd` (modified +169 LoC: `_ai_system: AISystem` DI field + `set_ai_system(ai_system)` setter mirroring S15-A `set_action_controller` Callable setter precedent + `_on_ai_action_ready(unit_id, command)` 6-way match handler + `_make_move_target` / `_make_attack_target` private factories + `_exit_tree` disconnect with `is_instance_valid` guard per G-11)
+- `tests/integration/feature/grid_battle/grid_battle_controller_ai_action_ready_test.gd` (NEW; directory created)
+- `docs/architecture/ADR-0014-grid-battle-controller.md` (amended +108 LoC: `## Amendment 2026-05-10 — S15-B` section with handler dispatch table + `_do_move`/`_resolve_attack` bypass rationale + ActionTarget factories + Out of Scope deferrals)
+**Deviations**:
+- **ADVISORY (user-approved during /dev-story bundle approval)**: handler bypasses `_handle_move` / `_handle_attack` wrappers in favor of `_do_move` / `_resolve_attack` direct calls + manual `_acted_this_turn[unit_id] = true`. Reason: wrappers call `_consume_unit_action` → `declare_action(ATTACK, null)` (story-006 single-token MVP for player path), which would cause double-`declare_action` per AI action with wrong types + spurious `_deselect()` + spurious `end_player_turn()` auto-handoff. Fully documented in ADR-0014 §Amendment 2026-05-10 §"Why `_do_move` / `_resolve_attack` Directly". This is the intended design for the AI path, NOT tech debt.
+- AC-6 reworded post-/code-review (2026-05-10 same patch): original phrasing contradicted Out-of-Scope clause; reworded to match implementation scope (single-action handler verification) with full natural-loop scoped to S15-D
+**G-Gotchas actively guarded** (8/30): G-4 (Array-of-Dict capture) / G-6 (orphan-detection cleanup) / G-8 (`Signal.get_connections()` untyped Array) / G-11 (`is_instance_valid` before disconnect) / G-15 (`before_test` not `before_each`) / G-16 (typed `Array[Dictionary]`) / G-22 (concrete `GBCUnitRoleStub` / `GBCHeroDatabaseStub` subclasses bypass `@abstract` parse-time block) / G-26 (inner-class `GBC*` prefix) / G-28 (no bulk-disconnect-all in cleanup)
+**Code Review**: Complete — APPROVED (CHANGES REQUIRED resolved); gdscript-specialist + qa-tester both ran; 5 follow-up edits applied (AC-6 reword + 2 guard tests + 2 doc-comment drift fixes); 3 NICE-TO-ADD items deferred to polish backlog or S15-D pairing
+**Tech Debt**: None logged this story — sole deviation (`_do_move`/`_resolve_attack` bypass) is intended design + ADR-documented; not tech debt.
+**Path-to-PASS progress**: POLISH-011 now 2/3 root causes wired (S15-A T5 await ✅ + S15-B AI consumer ✅; S15-C player declare_action plumbing remaining). S15-D natural-loop integration test still pending.

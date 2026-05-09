@@ -122,6 +122,11 @@ var _hp_controller: HPStatusController = null
 var _terrain_effect: TerrainEffect = null
 var _unit_role: UnitRole = null
 
+## AISystem DI field — injected via set_ai_system() AFTER add_child() (not a setup() param).
+## Null = no AI subscriber (player-only mode or battle not yet wired). Per ADR-0014 §8
+## Amendment 2026-05-10 §Subscriber Contract.
+var _ai_system: AISystem = null
+
 
 # ─── FSM + per-turn state (ADR-0014 §2) ─────────────────────────────────────
 
@@ -210,6 +215,35 @@ func setup(
 	_fate_boss_unit_id = _find_unit_by_tag(&"boss")
 
 
+## Injects the AISystem subscriber for `ai_action_ready` signal. Called by
+## BattleScene AFTER add_child(), once both GridBattleController and AISystem
+## are in the scene tree. Safe to call before or after _ready() — connection is
+## established here, not in _ready(), so ORDER of add_child() vs. set_ai_system()
+## call does not matter.
+##
+## Idempotent: calling twice with the same AISystem does nothing (is_connected guard).
+## CONNECT_DEFERRED mandatory: `_on_ai_action_ready` calls `_do_move` /
+## `_resolve_attack` (NOT the `_handle_move` / `_handle_attack` wrappers — see
+## handler doc comment for the bypass rationale) which mutate `_units` /
+## `_map_grid` state; deferral prevents reentrance if AISystem emits synchronously
+## inside `_on_ai_action_requested` (which itself fires deferred from
+## GridBattleController, but AISystem may be called synchronously from tests).
+## Per ADR-0014 §8 Amendment 2026-05-10.
+##
+## DI surface (injection point), not runtime state — mirrors set_action_controller
+## precedent on TurnOrderRunner (ADR-0011 §Amendment 2026-05-09).
+func set_ai_system(ai_system: AISystem) -> void:
+	_ai_system = ai_system
+	if _ai_system == null:
+		return
+	if not _ai_system.ai_action_ready.is_connected(_on_ai_action_ready):
+		var err: int = _ai_system.ai_action_ready.connect(
+			_on_ai_action_ready, Object.CONNECT_DEFERRED
+		)
+		assert(err == OK,
+			"GridBattleController: ai_action_ready.connect failed (err=%d)" % err)
+
+
 # ─── Lifecycle ───────────────────────────────────────────────────────────────
 
 func _ready() -> void:
@@ -263,6 +297,143 @@ func _exit_tree() -> void:
 		GameBus.unit_turn_started.disconnect(_on_unit_turn_started)
 	if GameBus.round_started.is_connected(_on_round_started):
 		GameBus.round_started.disconnect(_on_round_started)
+	# AISystem disconnect — is_instance_valid guard per G-11 (battle-scoped Node,
+	# may be freed before GridBattleController in edge teardown orders). Source
+	# outlives subscriber rule does NOT apply here (both are battle-scoped), so
+	# the guard is purely defensive against unusual teardown order.
+	if is_instance_valid(_ai_system) \
+			and _ai_system.ai_action_ready.is_connected(_on_ai_action_ready):
+		_ai_system.ai_action_ready.disconnect(_on_ai_action_ready)
+
+
+## Handles AISystem.ai_action_ready signal (CONNECT_DEFERRED). Per ADR-0014 §8
+## Amendment 2026-05-10 §Handler Dispatch Table — 6-way ActionType match:
+##
+##   WAIT      → declare_action(WAIT, null) only (no game-state mutation)
+##   MOVE      → _do_move → declare_action(MOVE, target)
+##   ATTACK    → _resolve_attack → declare_action(ATTACK, target)
+##   MOVE_AND_ATTACK → decompose: _do_move → declare_action(MOVE) THEN
+##                     _resolve_attack → declare_action(ATTACK)
+##   DEFEND    → declare_action(WAIT, null) [DEFEND execution deferred to Skill ADR]
+##   USE_SKILL → push_warning + declare_action(WAIT, null) per ADR-0014 §0 MVP scope
+##
+## DESIGN NOTE: This handler bypasses _handle_move/_handle_attack wrappers because
+## both wrappers call _consume_unit_action() which always issues declare_action(ATTACK)
+## internally (MVP single-token simplification). AI path needs the correct MOVE/ATTACK
+## token split for _maybe_defer_turn_completion predicate in S15-A. Directly calling
+## _do_move/_resolve_attack avoids the double declare_action problem. _acted_this_turn
+## is set explicitly here to honour the re-entrancy guard that _handle_move/_handle_attack
+## check. Per ADR-0014 §8 Amendment 2026-05-10 §Order of Operations.
+##
+## Guards: _battle_over early-return; unit_id must be in _units; command must be
+## non-null. Invalid unit_id or null command → push_warning + return (no dispatch).
+func _on_ai_action_ready(unit_id: int, command: AIActionCommand) -> void:
+	if _battle_over:
+		return
+	if command == null:
+		push_warning(
+			"GridBattleController._on_ai_action_ready: null command for unit_id=%d — skipping dispatch"
+			% unit_id
+		)
+		return
+	if not _units.has(unit_id):
+		push_warning(
+			"GridBattleController._on_ai_action_ready: unit_id=%d not in registry — skipping dispatch"
+			% unit_id
+		)
+		return
+	match command.action_type:
+		AIActionCommand.ActionType.WAIT:
+			_acted_this_turn[unit_id] = true
+			_turn_runner.declare_action(unit_id, TurnOrderRunner.ActionType.WAIT, null)
+		AIActionCommand.ActionType.MOVE:
+			var unit: BattleUnit = _units[unit_id]
+			if is_tile_in_move_range(command.move_target, unit_id):
+				_do_move(unit, command.move_target)
+			_acted_this_turn[unit_id] = true
+			_turn_runner.declare_action(
+				unit_id, TurnOrderRunner.ActionType.MOVE,
+				_make_move_target(command.move_target)
+			)
+		AIActionCommand.ActionType.ATTACK:
+			if _units.has(command.attack_target_unit_id):
+				var attacker: BattleUnit = _units[unit_id]
+				var defender: BattleUnit = _units[command.attack_target_unit_id]
+				if is_tile_in_attack_range(defender.position, unit_id):
+					_resolve_attack(attacker, defender)
+			_acted_this_turn[unit_id] = true
+			_turn_runner.declare_action(
+				unit_id, TurnOrderRunner.ActionType.ATTACK,
+				_make_attack_target(command.attack_target_unit_id)
+			)
+		AIActionCommand.ActionType.MOVE_AND_ATTACK:
+			# 2-call decomposition: MOVE action first, ATTACK action second.
+			# _maybe_defer_turn_completion fires on the ATTACK declare_action call
+			# (action_token_spent == true). Per ADR-0014 §8 Amendment §Order of Ops.
+			var unit: BattleUnit = _units[unit_id]
+			if is_tile_in_move_range(command.move_target, unit_id):
+				_do_move(unit, command.move_target)
+			_turn_runner.declare_action(
+				unit_id, TurnOrderRunner.ActionType.MOVE,
+				_make_move_target(command.move_target)
+			)
+			if _units.has(command.attack_target_unit_id):
+				# Re-read unit after potential _do_move position update
+				unit = _units[unit_id]
+				var defender: BattleUnit = _units[command.attack_target_unit_id]
+				if is_tile_in_attack_range(defender.position, unit_id):
+					_resolve_attack(unit, defender)
+			_acted_this_turn[unit_id] = true
+			_turn_runner.declare_action(
+				unit_id, TurnOrderRunner.ActionType.ATTACK,
+				_make_attack_target(command.attack_target_unit_id)
+			)
+		AIActionCommand.ActionType.DEFEND:
+			# DEFEND is a basic action with token-spending semantics per ADR-0011
+			# story-004 amendment (sets defend_stance_active on UnitTurnState).
+			# No game-state mutation here — TurnOrderRunner owns the state flag.
+			_acted_this_turn[unit_id] = true
+			_turn_runner.declare_action(unit_id, TurnOrderRunner.ActionType.DEFEND, null)
+		AIActionCommand.ActionType.USE_SKILL:
+			# USE_SKILL execution deferred per ADR-0014 §0 MVP scope.
+			# Substitutes WAIT so the AI unit's turn completes cleanly.
+			push_warning(
+				("GridBattleController: AIActionCommand.USE_SKILL deferred per ADR-0014 "
+				+ "§0 MVP scope — substituting WAIT for unit_id %d")
+				% unit_id
+			)
+			_acted_this_turn[unit_id] = true
+			_turn_runner.declare_action(unit_id, TurnOrderRunner.ActionType.WAIT, null)
+		_:
+			push_warning(
+				"GridBattleController._on_ai_action_ready: unknown action_type=%d for unit_id=%d"
+				% [command.action_type as int, unit_id]
+			)
+			_acted_this_turn[unit_id] = true
+			_turn_runner.declare_action(unit_id, TurnOrderRunner.ActionType.WAIT, null)
+
+
+## Constructs an ActionTarget for a MOVE action to target_pos.
+## movement_cost is set to 0 (stub per story-007+ refinement candidate).
+## Per ADR-0011 §Key Interfaces + ADR-0014 §8 Amendment 2026-05-10.
+func _make_move_target(target_pos: Vector2i) -> ActionTarget:
+	var t: ActionTarget = ActionTarget.new()
+	t.target_position = target_pos
+	t.target_unit_id = 0
+	t.movement_cost = 0  # story-007+ refinement: populate from terrain cost matrix
+	return t
+
+
+## Constructs an ActionTarget for an ATTACK action targeting target_unit_id.
+## target_position is left at Vector2i.ZERO (unit-targeted attack, position derived
+## by caller from _units registry as needed).
+## Per ADR-0011 §Key Interfaces + ADR-0014 §8 Amendment 2026-05-10.
+func _make_attack_target(target_unit_id: int) -> ActionTarget:
+	var t: ActionTarget = ActionTarget.new()
+	t.target_unit_id = target_unit_id
+	t.target_position = Vector2i.ZERO
+	t.movement_cost = 0
+	return t
 
 
 # ─── Public API: cross-system contract surface (ADR-0014 §10) ────────────────
