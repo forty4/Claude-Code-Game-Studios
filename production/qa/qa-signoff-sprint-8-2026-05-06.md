@@ -164,3 +164,33 @@ godot --path /Users/forty4/Works/forty4/my-game
 - **Verification gap exposed**: prior sprint headless tests (1288/1288 PASS / 66th FFB) did NOT exercise visual rendering of the production main_scene. This is a *category* of test-coverage gap — automated suite proves logic correctness but does not gate visual presence. Sprint-13 retro must address: should there be a smoke-tier "boot windowed + screenshot-not-blank" test in CI? Pattern stable: S13-12 also discovered this gap (headless 0 warnings vs. visual rendering unknown).
 - **sprint-13 retro AI #2 (carryover concentration)**: records 6-item-carry-chain-resolved milestone (S8-15 → S13-10 CLOSES) + new path-to-PASS items for sprint-14
 - Concerns flow into sprint-14 (or POLISH gate) as bug-fix work; not blocking sprint-13 close ceremony; gate-check rerun verdict will codify path-to-PASS
+
+---
+
+## S8-15 Re-Attestation — sprint-14 S14-03 (post-S14-02 POLISH-010 fix)
+
+> **Status**: RE-ATTESTED 2026-05-09 PM late
+> **Verdict**: **MIXED — 1.1 PASS / 1.2 PASS / 1.3 FAIL / 3.2 PASS** (visual rendering RESTORED via S14-02 Option A; new INPUT NON-RESPONSIVE issue surfaced — distinct from POLISH-010 root cause)
+> **Sprint binding**: sprint-14 S14-03 (USER-OWNED; gate-check rerun-2 Item 7 CD-led)
+> **Refusal-to-fabricate posture preserved**: §1.3 FAIL recorded verbatim from user observation; not converted to BLOCKED or other softer verdict
+> **Build under test**: post-S14-02 mvp_chapter_01.tres + .tscn + chapter_visuals.gd shipped 2026-05-09; visual evidence at `production/qa/evidence/sprint-14-polish-010-evidence.md`
+
+### Re-attestation results
+
+| # | Item | Prior verdict | New verdict | Notes |
+|---|---|---|---|---|
+| 1.1 | Game launches without crash | PASS | (not re-tested; preserved) | — |
+| 1.2 | Initial scene loads (battle visuals render) | **FAIL** | **PASS** | Visual rendering RESTORED. Screenshot evidence confirms 15×15 Changbanpo grid + 6 unit silhouettes + bridges/river render correctly in windowed mode. POLISH-010 root cause eliminated by S14-02 Option A. |
+| 1.3 | Input is responsive (click/tap registers; no input deadlock) | **BLOCKED-BY-1.2** | **FAIL** | User report: clicked top-left HUD panel area throughout windowed boot session — no game response observed at any timing (boot / 30-turn auto-progression / DRAW results screen). Continue button (text label "hud.results.continue" visible but apparently no clickable widget rendered). Test scope limited to HUD panel clicks; grid/unit/keyboard input not exhaustively tested. NEW issue distinct from POLISH-010 — files **POLISH-011** candidate (input system non-responsive in windowed mode). |
+| 3.1 | Save/load round-trip | N/A | (preserved) | Production save/load is sprint-9+ scope |
+| 3.2 | No new frame-rate drops or hitches | **BLOCKED-BY-1.2** | **PASS** | User observed 30-turn auto-progression + results screen — no notable frame hitches or drops. Movement consistent and smooth throughout. |
+
+### Re-attestation summary
+
+- **S14-02 visual fix VALIDATED** — §1.2 + §3.2 both flip to PASS confirming POLISH-010 is closed; POLISH-009 (`mvp_chapter_01.tscn` missing ERROR) also closed
+- **§1.3 FAIL is NEW** — distinct from POLISH-010; surfaces an input-system issue invisible to headless tests (1288/1288 PASS / 67th FFB) because automated tests don't drive UI input via mouse events. Symptomatic match: 30-turn auto-progression suggests player units may be falling into AI dispatch instead of pausing for player input, or input dispatch deadlock in windowed mode.
+- **S14-03 AC #4 NOT MET** — sprint-14 plan §3 row S14-03 AC #4 required "MIXED → clean PASS"; verdict remains MIXED (different MIXED composition: was 1.1P/1.2F/1.3B/3.2B → now 1.1P/1.2P/1.3F/3.2P). 2 of 3 deferral items resolved; 1 new release-blocker surfaced.
+- **POLISH-011 candidate** filed at `production/polish-backlog.md` — input system non-responsive (HIGH-tier; gates `/gate-check pre-prod-to-prod` rerun-3 PASS verdict)
+- **Sprint-14 path-to-PASS** updated: S14-04 gate-check rerun-3 will likely return CONCERNS again with POLISH-011 as new path-to-PASS item
+- **Verification gap pattern stable at 3 invocations** (POLISH-008 ObjectDB leak / POLISH-010 visual rendering / POLISH-011 input non-responsive) — sprint-14 S14-06 G-30 codification target reinforced
+- **2nd refusal-to-fabricate invocation in S8-15 lifecycle** — first at sprint-13 S13-10 (FAIL recorded honestly); second now at sprint-14 S14-03 (FAIL recorded honestly despite AC pressure to flip MIXED → clean PASS). Pattern reinforces project discipline: AC pressure does NOT override honest user observation.

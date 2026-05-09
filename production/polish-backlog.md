@@ -337,13 +337,54 @@ The 1288/1288 PASS / 66th FFB baseline gates LOGIC correctness but does not gate
 - Headless verification (passes): S13-11 / S13-12 verification logs (391 turn-domain emits)
 - gate-check binding: `production/gate-checks/pre-prod-to-prod-2026-05-?-rerun-2.md` will list this as path-to-PASS item (S13-03 close-gate rerun)
 
+### POLISH-011 — Production main_scene input non-responsive in windowed mode (post-S14-02 visual fix)
+
+| Field | Value |
+|---|---|
+| **Source** | S14-03 USER-OWNED re-attestation 2026-05-09 PM late (sprint-14) — distinct from POLISH-010 root cause; surfaced AFTER visual rendering restored |
+| **Tier** | DEFECT (HIGH severity — release-blocker; production main_scene visuals render correctly post-S14-02 but mouse input on HUD panel area produces no game response throughout windowed session — 30-turn auto-progression to DRAW outcome with zero player turn pause; gates `/gate-check pre-prod-to-prod` rerun-3 PASS verdict same as POLISH-010 did before) |
+| **Closure trigger** | (a) MUST resolve before production stage advancement (gate-check rerun verdict cannot return PASS while POLISH-011 open); OR (b) sprint-14+ dedicated bug-fix story absorbs |
+| **Owner** | unassigned (godot-gdscript-specialist + godot-specialist at pickup; input_router.gd + battle_scene.gd integration boundary suspected) |
+| **Status** | Open |
+| **Added** | 2026-05-09 |
+| **Resolved** | — |
+
+**Description**: User booted production build (`godot --path .` → main_scene `scenes/battle/battle_scene.tscn`) post-S14-02 fix. **Visual rendering CORRECT** (Changbanpo 15×15 grid + 6 unit silhouettes + bridges/river all render per art-bible per `production/qa/evidence/sprint-14-polish-010-evidence.md`). **However, mouse input on the top-left HUD panel area produced no game response at any timing**: from boot through 30-turn auto-progression through DRAW results screen + "hud.results.continue" label state, no clicks were acknowledged by the game. Player units (유비/장비) appear to have been driven by AI dispatch (or auto-skipped) rather than pausing for player input, given the battle reached MAX_TURNS_PER_BATTLE=30 → DRAW outcome with zero player turn observed.
+
+**HYPOTHESES** (to be confirmed at pickup-time triage):
+
+1. **Player input mode never engaged** — `InputRouter` FSM may not be transitioning to S1/S2 (move/attack input) states for player turns; player units silently fall into AI dispatch. Affected files: `src/foundation/input_router.gd` mode determination + `src/feature/battle_scene/battle_scene.gd` standalone-launch bootstrap (lines 110-119 advance scenario through BEAT_5_BATTLE).
+2. **Input dispatch deadlock** — Mouse events received by `InputRouter` but action signals not emitted on `GameBus` (or emitted but not subscribed by GridBattleController). G-28 (bulk-disconnect-all severs production subscriptions) cross-reference candidate.
+3. **Click coordinates intercepted by HUD chrome** — HUD CanvasLayer covers grid area top-left per S14-02 evidence side observation #4.1; clicks may land on HUD widgets that have no input handler (text labels, not buttons). However, this hypothesis ALONE doesn't explain auto-progression past player turns.
+4. **Standalone-launch bootstrap auto-advances past player input window** — `battle_scene.gd:110-119` calls `advance_beat()` 3× + `confirm_deployment()` synchronously to drive scenario into BATTLE state for standalone demo; possible side effect that player turn input loop never opens.
+5. **AISystem dispatching on player units** — Sprint-13 S13-12 fixed BattleUnit.archetype field separation from tag; possible regression where player_unit_ids aren't filtered out of AI dispatch dispatcher targets.
+
+**Test scope limitation noted at attestation time**: User clicked HUD panel area only — grid tile clicks + unit silhouette clicks + keyboard input (Enter / Space for continue) were NOT exhaustively tested. A more thorough re-test could narrow root cause: if grid clicks DO respond but HUD doesn't, it's hypothesis 3; if NOTHING responds anywhere it's hypothesis 1, 2, or 4.
+
+**Action when picked up**:
+1. Reproduce in windowed mode + try grid tile clicks + unit clicks + keyboard input (Enter/Space) to narrow scope
+2. Add diagnostic logging: `InputRouter` FSM state transitions + GameBus signal emit traces + GridBattleController input subscription status — reproduce + observe at battle start
+3. If hypothesis 4 (standalone-launch auto-advance): the 3× `advance_beat()` calls in `battle_scene.gd:110-119` may need to be guarded by a "first frame after BATTLE state" hook OR removed entirely once non-standalone launch path (Main Menu → Overworld → Battle) ships
+4. If hypothesis 1 (input mode never engages): trace `InputRouter._determine_mode()` (CR-2) to confirm mode transitions on `unit_turn_started` signal for player_unit_ids
+5. If hypothesis 5 (AI dispatching on player units): grep `AISystem.dispatch()` filter logic for player_unit_ids exclusion check
+
+**Verification gap pattern** (3rd invocation): same headless-vs-windowed verification gap as POLISH-008 (ObjectDB leak) + POLISH-010 (visual rendering) — automated 1288/1288 PASS / 67th FFB does NOT exercise mouse input dispatch in windowed mode. Sprint-14 retro AI seed: visual smoke harness (S14-06 G-30 codification candidate) should ALSO include input-dispatch sanity (e.g., synthetic mouse event injection + assertion that an action signal fires on GameBus) — codification target reinforced by 3rd invocation.
+
+**Cross-references**:
+- Surfacing source: S14-03 re-attestation at `production/qa/qa-signoff-sprint-8-2026-05-06.md` §S8-15 Re-Attestation Batch 1.3 FAIL
+- Distinct from POLISH-010 (visual rendering — CLOSED at this attestation §1.2 PASS) — same windowed-mode verification gap pattern
+- Affected files: `src/foundation/input_router.gd` (FSM + mode determination) + `src/feature/battle_scene/battle_scene.gd:110-119` (standalone-launch bootstrap) + `src/feature/ai_system/ai_system.gd` (AI dispatch player_unit_id filter)
+- ADR cross-references: ADR-0005 (input handling) + ADR-0014 (GridBattleController) + ADR-0017 (Scenario Progression) + ADR-0019 (AI System)
+- gate-check binding: `production/gate-checks/pre-prod-to-prod-2026-05-?-rerun-3.md` will list this as new path-to-PASS item replacing POLISH-010
+- Verification gap pattern siblings: POLISH-008 / POLISH-010 — sprint-14 S14-06 G-30 codification target
+
 ---
 
 ## Index — by Status
 
 | Status | Count | IDs |
 |---|---|---|
-| Open | 10 | POLISH-001 / POLISH-002 / POLISH-003 / POLISH-004 / POLISH-005 / POLISH-006 / POLISH-007 / POLISH-008 / POLISH-009 / POLISH-010 |
+| Open | 11 | POLISH-001 / POLISH-002 / POLISH-003 / POLISH-004 / POLISH-005 / POLISH-006 / POLISH-007 / POLISH-008 / POLISH-009 / POLISH-010 / POLISH-011 |
 | In-progress | 0 | — |
 | Resolved | 0 | — |
 | Cancelled | 0 | — |
@@ -356,6 +397,7 @@ The 1288/1288 PASS / 66th FFB baseline gates LOGIC correctness but does not gate
 | Gate-check 2026-05-08 ADVISORY-CANDIDATE (carried into 2026-05-08-rerun ADVISORY-1) | POLISH-006 |
 | Sprint-13 mid-plan Production VS bug surfacing (2026-05-09 PM headless boot deferred non-blocker tier) | POLISH-007 / POLISH-008 |
 | S13-11 + S13-12 + S13-10 verification surfacings (2026-05-09 PM late) | POLISH-009 / POLISH-010 |
+| Sprint-14 S14-03 re-attestation post-S14-02 visual fix (2026-05-09 PM late) | POLISH-011 |
 
 ## Index — by Closure Trigger
 
@@ -366,6 +408,7 @@ The 1288/1288 PASS / 66th FFB baseline gates LOGIC correctness but does not gate
 | Cascade from POLISH-004 closure | POLISH-005 |
 | Character-art commission sprint enters planning (forcing function) OR Polish gate (`production/stage.txt` = `Polish`) | POLISH-006 |
 | Bundled at sprint-14 entry (POLISH-009 likely root cause of POLISH-010) | POLISH-009 / POLISH-010 |
+| MUST resolve before production stage advancement (gate-check rerun-3 path-to-PASS) | POLISH-011 |
 
 ---
 
@@ -377,3 +420,4 @@ The 1288/1288 PASS / 66th FFB baseline gates LOGIC correctness but does not gate
 - 2026-05-09 — POLISH-006 added (sprint-12 S12-08 close-out per gate-check 2026-05-08 NEW ADVISORY-CANDIDATE; Guan Yu + Zhang Fei character profile stubs DESCOPED carryover from sprint-10 S10-07 → sprint-11 S11-09 Liu Bei first-stub-shipped). Lightweight conditional path chosen (no character-art sprint scheduled in sprint-12); entry-only authoring per S12-08 spec.
 - 2026-05-09 PM — POLISH-007 + POLISH-008 added (sprint-13 mid-plan amendment Production VS bug surfacing; deferred non-blocker tier).
 - 2026-05-09 PM late — POLISH-009 + POLISH-010 added (S13-10 USER-OWNED attestation surfaced production main_scene visual rendering FAIL; POLISH-010 is HIGH-tier release-blocker gating gate-check rerun PASS verdict). Verification gap pattern noted for sprint-13 retro: 1288/1288 PASS automated suite gates LOGIC but does not gate VISUAL PRESENCE of production main_scene; headless-only verification cannot surface blank-window symptoms.
+- 2026-05-09 PM late — POLISH-011 added (S14-03 re-attestation post-S14-02 visual fix surfaced input non-responsive in windowed mode). 3rd invocation of headless-vs-windowed verification gap pattern (POLISH-008 / POLISH-010 / POLISH-011); reinforces sprint-14 S14-06 G-30 codification target. POLISH-010 + POLISH-009 effectively closed by S14-02 implementation (visual rendering verified; `mvp_chapter_01.tscn` ERROR eliminated) — formal status flip pending sprint-14 close ceremony amendment.

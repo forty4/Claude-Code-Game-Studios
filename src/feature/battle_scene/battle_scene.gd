@@ -135,6 +135,25 @@ func _ready() -> void:
 			push_warning("BattleScene: MapGrid error: %s" % err)
 	add_child(_map_grid)
 
+	# === STEP 1.5: ChapterVisualScene (ADR-0021 §1 + §6) ===
+	# Mount the chapter-scope authored .tscn under GridLayer so world-space
+	# visuals render. Missing .tscn is a HIGH-tier warning (POLISH-010-class)
+	# but not an error — headless logic continuity preserved via the
+	# _build_map_resource_for_chapter() fallback above.
+	var chapter_scene_path: String = "res://scenes/battle/%s.tscn" % chapter.map_id
+	if ResourceLoader.exists(chapter_scene_path):
+		var chapter_scene: PackedScene = load(chapter_scene_path) as PackedScene
+		if chapter_scene != null:
+			var chapter_visuals: Node = chapter_scene.instantiate()
+			_grid_layer.add_child(chapter_visuals)
+		else:
+			push_warning("ADR-0021: failed to load chapter visual scene at '%s'" % chapter_scene_path)
+	else:
+		push_warning(("ADR-0021: chapter visual scene missing at '%s'; "
+			+ "running with blank world-space (headless logic intact, "
+			+ "windowed mode will render void). POLISH-010-class issue.")
+			% chapter_scene_path)
+
 	# === STEP 2: BattleCamera (ADR-0013) — depends on MapGrid ===
 	_battle_camera = BattleCamera.new()
 	_battle_camera.name = "BattleCamera"
