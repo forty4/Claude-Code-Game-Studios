@@ -406,6 +406,8 @@ or before finalizing any engine-specific implementation approach
 > documented? Are Foundation-layer decisions complete enough to begin implementation?
 > Return READY, CONCERNS [list], or NOT READY [blockers]."
 
+**Production-gate amendment** (sprint-14 S14-07 per POLISH-011 + G-30): for `/gate-check pre-prod-to-prod` specifically, ALSO ask: does the production main_scene exercise the full lifecycle in windowed mode — input dispatch reaches GameBus, signal subscribers fire, the natural battle loop progresses from `initialize_battle()` through `_advance_turn` → outcome emit without auto-fast-forwarding stub T-steps? Headless tests bypass the natural cross-system wiring via direct seams (see `.claude/rules/godot-4x-gotchas.md` G-30 — verification gap pattern, 4 invocations stable). If the automated suite is green but no windowed-smoke harness exercises `initialize_battle → outcome emit` end-to-end, return CONCERNS minimum.
+
 **Verdicts**: READY / CONCERNS / NOT READY
 
 ---
@@ -611,6 +613,8 @@ Agent: `art-director` | Model tier: Sonnet | Domain: Visual identity, art bible,
 > could cause production rework], or NOT READY [visual blockers that must exist
 > before this phase can succeed — specify what artifact is missing and why it
 > matters at this stage]."
+
+**Production-gate amendment** (sprint-14 S14-07 per POLISH-010 + G-30): for `/gate-check pre-prod-to-prod` specifically, ALSO ask: does the production main_scene render world-space visual content (terrain tiles, units, environmental features) when booted in windowed mode (`godot --path .`), or does it boot to a blank window? Headless `1288/1288 PASS` does NOT certify visual presence — see `.claude/rules/godot-4x-gotchas.md` G-30 (verification gap pattern, 4 invocations stable). If the automated suite is green but no `tools/ci/smoke_*_windowed.sh` harness exists for the main scene's render path, return CONCERNS minimum.
 
 **Verdicts**: READY / CONCERNS / NOT READY
 

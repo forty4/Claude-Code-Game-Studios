@@ -11,7 +11,7 @@ goal: "Resolve 7 sprint-13 carry-conditions (POLISH-010 + ADR-0021 + S8-15 re-at
 start: "2026-05-09"
 end: "2026-05-12"
 generated: "2026-05-09"
-updated: "2026-05-09 PM late-late — S14-06 done (G-30 codified +40 LoC; 4 invocations); POLISH-011 ESCALATED HIGH→CRITICAL via triage; sprint-14 3/9 done + 1 partial."
+updated: "2026-05-09 PM late-late — S14-08 done (10 ADVISORY classified 3-reg/5-doc/2-noaction; TD-071+072+073 NEW); sprint-14 5/9 done + 1 partial."
 
 # Sprint-13 closed 2026-05-09 PM late ⚠️ APPROVED WITH CONDITIONS: 11/12 stories done; S13-06 carries; 6-sprint S7-11 + 5-sprint S8-15 carry chains TERMINATED simultaneously (project-record); §11 HARD GATE first live binding SUCCESS at S13-02; PRE-FLIGHT byte-check 8× consecutive clean dogfood (recurrence eliminated); 1288/1288 PASS / 66th FFB preserved; 10 commits cca3eda→ef025a6.
 # Sprint-13 retro: production/retrospectives/retro-sprint-13-2026-05-09.md (10 sprint-14 AIs seeded; 6 of 10 sprint-12 AIs closed in-sprint).
@@ -254,25 +254,25 @@ stories:
 
   - id: "S14-07"
     name: "AD gate criterion addition — 'world-space visual presence' in .claude/skills/gate-check/SKILL.md AD assessment template; sprint-13 retro AI #7"
-    file: ".claude/skills/gate-check/SKILL.md"
+    file: ".claude/docs/director-gates.md"
     priority: should-have
-    status: ready-for-dev
+    status: done
     owner: "claude"
     estimate_days: 0.05
     blocker: ""
-    completed: ""
-    # ~15 min doc edit; sprint-14+ /gate-check invocations include this check by default
+    completed: "2026-05-09"
+    # 2026-05-09 — S14-07 done: AD-GATE (P-010 visual) + TD-GATE (P-011 lifecycle) prompts amended ref G-30; CONCERNS-min if no smoke harness; file SKILL.md→director-gates.md.
 
   - id: "S14-08"
     name: "/code-review ADVISORY items batch classification — sprint-13 retro AI #10; 10 items from S13-11/S13-12 reviews split tech-debt-register vs documentation polish vs no-action"
     file: "docs/tech-debt-register.md"
     priority: should-have
-    status: ready-for-dev
+    status: done
     owner: "claude"
     estimate_days: 0.1
     blocker: ""
-    completed: ""
-    # AC-1 sentinel candidate from qa-tester likely register-tier; W-3/I-1/I-4/edge-cases doc-polish tier
+    completed: "2026-05-09"
+    # 2026-05-09 — S14-08 done: 10 items classified 3-reg/5-doc/2-noaction; TD-071+072+073 NEW (fallback lint + Ko hardcoded + AC-1 sentinel); matrix inline at register.
 
   - id: "S14-09"
     name: "Mid-sprint mode redesignation precedent tracking — sprint-13 retro AI #9; pattern stable at 1 invocation; track for ≥2-invocation codification trigger"

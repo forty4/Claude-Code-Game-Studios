@@ -3253,3 +3253,75 @@ Create a manual QA checklist file at `production/qa/evidence/battle-hud-recursiv
 **Ready-to-ship fallback**: `StringName` auto-converts to `String` at the GameBus emit boundary (verified at story-003 implementation; per `input_router.gd:622-625` doc-comment "GDScript 4.6 auto-coerces StringName → String at the emit call. Subscribers receive String"). The current declaration is FUNCTIONALLY equivalent — does not block any ship-blocking ACs. The amendment is purely cross-doc consistency cleanup.
 
 **Discovered**: input-handling story-010 epic-terminal 2026-05-07; first surfaced delta #6 Item 10a 2026-04-30.
+
+---
+
+## Sprint-14 S14-08 — /code-review ADVISORY items batch classification (2026-05-09)
+
+Sprint-13 retro AI #10 closure. 10 ADVISORY items from S13-11 + S13-12 /code-review reports classified into 3 disposition tiers per AC #1.
+
+**Classification matrix**:
+
+| # | Source | Item | Disposition | Action |
+|---|---|---|---|---|
+| 1 | S13-11 #1 | Doc-comment per-key arg types | DOCUMENTATION-POLISH | Fix at next `battle_hud.gd` touch — no register entry |
+| 2 | S13-11 #6 | Fallback exhaustiveness not lint-enforced | TECH-DEBT-REGISTER | **TD-071 NEW** below |
+| 3 | S13-11 #7 | Cleanup loop omission rationale | DOCUMENTATION-POLISH | No register entry |
+| 4 | S13-11 #8 | Test 7 alphabetical-ordering dependency | TEST-POLISH (no-action) | Minor refactor at next test touch |
+| 5 | S13-11 #10 | Hardcoded Korean fallback strings at locale-ship time | TECH-DEBT-REGISTER | **TD-072 NEW** below |
+| 6 | S13-12 W-3 | `battle_unit.gd:24` "7 fields" docstring drift | DOCUMENTATION-POLISH | Fix at next `battle_unit.gd` touch |
+| 7 | S13-12 I-1 | Parametric case 5 dupes case 1 | TEST-POLISH (no-action) | No register entry |
+| 8 | S13-12 I-4 | Test header "1280→1288" count drift | DOCUMENTATION-POLISH | No register entry |
+| 9 | S13-12 AC-1 | Automated regression sentinel gap (`push_warning` detection) | TECH-DEBT-REGISTER | **TD-073 NEW** below |
+| 10 | S13-12 5 edge cases | empty roster / non-string archetype / empty-string archetype / `_make_battle_unit` `&""` / `player_unit_ids` overflow | DOCUMENTATION-POLISH | Low-priority test sweep — no register entry |
+
+**Disposition totals**: 3 → tech-debt-register (TD-071/072/073) | 5 → documentation-polish (in-place fix at next touch) | 2 → test-polish (no-action). Sprint-15+ retro AI tracks resolution at next `/code-review` trigger per S14-08 AC #3.
+
+---
+
+## TD-071 — Fallback exhaustiveness in `battle_hud._format_fallback` not lint-enforced
+
+**Status**: Open
+**Tier**: Verification gap (LOW-MEDIUM priority — sibling to G-30 + TD-073)
+**Logged**: 2026-05-09 (sprint-14 S14-08 ADVISORY classification batch; originally surfaced S13-11 /code-review #6 2026-05-09)
+**Estimated effort**: ~45 min — `tools/ci/lint_battle_hud_fallback_exhaustiveness.sh` authoring + `.claude/rules/test-standards.md` cross-reference
+
+**Description**: `src/feature/battle_hud/battle_hud.gd::_format_fallback(key, args)` is a match-dispatch ladder over 5 known StringName keys with hardcoded Korean default strings. If a 6th localized key is added at a `_safe_tr_format()` call site WITHOUT extending `_format_fallback`, the fallback path silently returns the raw key (no format, no error). G-7-class silent failure: tests pass, runtime degrades.
+
+**Mitigation**: lint script that scans `battle_hud.gd` for `_safe_tr_format(KEY, ...)` call sites + cross-checks each KEY against `_format_fallback` match arms. Fail-on-mismatch with exit 1.
+
+**Reactivation trigger**: 6th `_safe_tr_format` call site added OR locale-ship sweep (paired with TD-072 closure).
+
+**Discovered**: sprint-13 S13-11 /code-review ADVISORY #6 2026-05-09; classified at sprint-14 S14-08 batch 2026-05-09.
+
+---
+
+## TD-072 — Hardcoded Korean fallback strings in `battle_hud._format_fallback`
+
+**Status**: Open
+**Tier**: Localization boundary (MEDIUM priority — blocks `en.po` + `ko.po` locale ship)
+**Logged**: 2026-05-09 (sprint-14 S14-08 ADVISORY classification batch; originally surfaced S13-11 /code-review #10 2026-05-09)
+**Estimated effort**: ~30 min at locale-ship time — remove `_format_fallback` + `_safe_tr_format` helpers; revert call sites to direct `tr(key) % args` once locale files load all 5 keys
+
+**Description**: `_format_fallback` ladder hardcodes 5 Korean default strings (`%d 유닛 생존` / `라운드 %d 도달` / etc.) as a no-locale-loaded fallback. Helpers exist precisely BECAUSE locale ship is incomplete — `tr(K) % args` fails when K returns the raw key (no `%d` specifier in the key itself). Once `en.po` + `ko.po` ship all 5 keys with proper `%d` specifiers, the helpers become unnecessary and the call sites can revert to `tr(key) % args` directly.
+
+**Closure trigger**: `en.po` + `ko.po` locale files ship for all 5 keys (canonical list in `_format_fallback` match arms — `hud.results.units_alive` / `hud.results.round_reached` / 3 others).
+
+**Discovered**: sprint-13 S13-11 /code-review ADVISORY #10 2026-05-09; classified at sprint-14 S14-08 batch 2026-05-09.
+
+---
+
+## TD-073 — Automated regression sentinel for `AISystem unknown-archetype` push_warning gap
+
+**Status**: Open
+**Tier**: Verification gap (LOW-MEDIUM priority — sibling to G-30 + TD-071)
+**Logged**: 2026-05-09 (sprint-14 S14-08 ADVISORY classification batch; originally surfaced S13-12 /code-review qa-tester AC-1 2026-05-09)
+**Estimated effort**: ~30 min — synthetic test that drives `AISystem._score_candidate` with a deliberately-unknown archetype + asserts `push_warning` fires (or fails the assertion if it doesn't)
+
+**Description**: S13-12 fixed the BattleUnit.archetype/tag conflation that previously triggered 4+ `AISystem: unknown archetype 'boss' — falling back to aggressor` warnings per battle. Verification was via manual stderr grep (`grep -c "AISystem: unknown archetype" = 0` post-fix vs 4+ pre-fix). No automated test asserts the EC-AI-4 fallback path fires its `push_warning` when an unknown archetype DOES leak in. If a future regression introduces a new archetype-source path that bypasses the `BattleUnit.archetype` field, the warning would fire silently and only manual stderr inspection would catch it.
+
+**Mitigation**: synthetic regression test that constructs a BattleUnit with archetype `&"unknown_archetype_for_test"` + invokes `_score_candidate` + asserts the EC-AI-4 fallback warning text. Sibling to `assert_warning()` patterns established at G-22 codification.
+
+**Reactivation trigger**: next AISystem amendment OR sprint-15+ verification-gap-pattern test infrastructure work (paired with TD-071 + the windowed-smoke-harness infrastructure G-30 mitigation calls for).
+
+**Discovered**: sprint-13 S13-12 /code-review qa-tester ADVISORY AC-1 2026-05-09; classified at sprint-14 S14-08 batch 2026-05-09.
