@@ -146,9 +146,11 @@ func test_chapter_1_canonical_win_full_arc() -> void:
 	# Final drain for any remaining deferred handlers.
 	await get_tree().process_frame
 
-	# Verify ScenarioRunner reached terminal state.
+	# After chapter 1 BEAT_9, runner advances to chapter 2 BEAT_1_ANCHOR (mvp_shu.json
+	# is now a 2-chapter scenario). Chapter index moves 0 -> 1.
 	var state_enum: Dictionary = ScenarioRunnerTestSeam.get_state_enum()
-	assert_int(runner.get_state()).is_equal(state_enum["SCENARIO_END"] as int)
+	assert_int(runner.get_state()).is_equal(state_enum["BEAT_1_ANCHOR"] as int)
+	assert_int(runner.get_current_chapter_index()).is_equal(1)
 
 	# Verify Story Event emitted Beat 1 + Beat 8 + Beat 9 narrative resolutions.
 	# (Note: isolated runner emits chapter_started at load_scenario; Beat 1

@@ -372,18 +372,16 @@ func set_grid_battle_for_tests(stub: Variant) -> void:
 	_grid_battle = stub
 
 
-## Test-only seam for injecting a Camera stub (story-008). Production injection
-## happens at battle-prep time when the Camera ADR ships (story-014 narrows type).
-## Matches set_grid_battle_for_tests naming precedent.
-func set_camera_for_tests(stub: Variant) -> void:
-	_camera = stub
+## Camera DI for screen→grid coord resolution. Called by BattleScene at battle-prep
+## time after BattleCamera is instantiated. Same setter is used by tests with a stub.
+func set_camera(camera: Variant) -> void:
+	_camera = camera
 
 
-## Test-only seam for injecting a MapGrid stub (story-008). Production injection
-## happens at battle-prep time when the Grid Battle ADR ships (story-014 narrows
-## type). Matches set_grid_battle_for_tests naming precedent.
-func set_map_grid_for_tests(stub: Variant) -> void:
-	_map_grid = stub
+## MapGrid DI for grid coord→unit_id resolution. Called by BattleScene at battle-prep
+## time after MapGrid is instantiated. Same setter is used by tests with a stub.
+func set_map_grid(map_grid: Variant) -> void:
+	_map_grid = map_grid
 
 
 ## Public read-only query — Battle HUD subscribes to `input_action_fired(&"panel_reposition_request")`

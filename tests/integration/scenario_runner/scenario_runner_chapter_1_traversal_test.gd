@@ -44,19 +44,18 @@ func test_chapter_1_full_traversal_fires_9_beats_in_order() -> void:
 	state_history.append(runner.get_state())
 	# Verify 9 beat states traversed (exact ordinal sequence checked by enum).
 	var state_enum: Dictionary = ScenarioRunnerTestSeam.get_state_enum()
-	# state_history should include BEAT_1 -> ... -> BEAT_8 + final SCENARIO_END.
-	# Enum ordinals 2..11 are the 9 beats; 12 is SCENARIO_END.
-	# Just verify the final state is SCENARIO_END (last chapter completed).
-	assert_int(runner.get_state()).is_equal(state_enum["SCENARIO_END"] as int)
+	# After chapter 1 BEAT_9, runner advances to chapter 2 (CHAPTER_START synchronously
+	# chains to BEAT_1_ANCHOR per _enter_chapter_start). mvp_shu.json now has 2 chapters.
+	assert_int(runner.get_state()).is_equal(state_enum["BEAT_1_ANCHOR"] as int)
+	assert_int(runner.get_current_chapter_index()).is_equal(1)
 
 
-## AC-SP-1: chapter index advances from 0 (the only chapter) to terminal SCENARIO_END.
+## AC-SP-1: chapter index advances from 0 to 1 after chapter 1 BEAT_9.
 func test_chapter_index_advances_through_chapter_1() -> void:
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
 	runner.load_scenario(SCENARIO_JSON)
 	assert_int(runner.get_current_chapter_index()).is_equal(0)
-	# Drive to scenario end.
 	runner.advance_beat()
 	runner.advance_beat()
 	runner.advance_beat()
@@ -67,19 +66,19 @@ func test_chapter_index_advances_through_chapter_1() -> void:
 	runner._on_battle_outcome_resolved(outcome)
 	runner.accept_outcome()
 	runner.advance_beat()
-	# After chapter 1 completes (only chapter), runner is at SCENARIO_END.
-	var state_enum: Dictionary = ScenarioRunnerTestSeam.get_state_enum()
-	assert_int(runner.get_state()).is_equal(state_enum["SCENARIO_END"] as int)
+	# After chapter 1 BEAT_9, runner advances to chapter 2 (index 1).
+	assert_int(runner.get_current_chapter_index()).is_equal(1)
 
 
-## AC-SP-9: scenario_complete emitted at last chapter Beat 9 with ScenarioResult payload.
-func test_scenario_complete_emitted_at_last_chapter() -> void:
+## AC-SP-9: scenario_complete is NOT emitted after chapter 1 when more chapters remain.
+## (Coverage for SCENARIO_END terminal emission is in scenario_runner_chapter_2_advance_test.)
+func test_scenario_complete_not_emitted_when_more_chapters_remain() -> void:
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
 	var captured: Array[ScenarioResult] = []
-	GameBus.scenario_complete.connect(func(r: ScenarioResult) -> void:
+	var capture: Callable = func(r: ScenarioResult) -> void:
 		captured.append(r)
-	)
+	GameBus.scenario_complete.connect(capture)
 	runner.load_scenario(SCENARIO_JSON)
 	runner.advance_beat()
 	runner.advance_beat()
@@ -91,12 +90,11 @@ func test_scenario_complete_emitted_at_last_chapter() -> void:
 	runner._on_battle_outcome_resolved(outcome)
 	runner.accept_outcome()
 	runner.advance_beat()
-	for conn: Dictionary in GameBus.scenario_complete.get_connections():
-		GameBus.scenario_complete.disconnect(conn["callable"] as Callable)
-	assert_int(captured.size()).is_equal(1)
-	var sr: ScenarioResult = captured[0]
-	assert_int(sr.chapter_outcomes.size()).is_equal(1)
-	assert_str(sr.scenario_path_key).contains("WIN_changbanpo_default")
+	if GameBus.scenario_complete.is_connected(capture):
+		GameBus.scenario_complete.disconnect(capture)
+	assert_int(captured.size()).override_failure_message(
+		"scenario_complete must NOT fire after chapter 1 when chapter 2 still pending; got %d" % captured.size()
+	).is_equal(0)
 
 
 ## AC-SP-17: chapter_completed emitted exactly once per chapter completion.

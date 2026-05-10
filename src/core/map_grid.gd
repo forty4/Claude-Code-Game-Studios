@@ -486,6 +486,24 @@ func _apply_load_time_clamps(map: MapResource) -> void:
 ## Writes through to [code]_map.tiles[idx][/code] AND all 6 packed caches in the same call (TR-map-grid-004).
 ## Coord out-of-bounds or null map → push_error + no-op.
 ##
+## Returns the unit_id occupying [param coord], or -1 if the tile is empty
+## or coord is out of bounds / map not loaded. Occupancy is determined by
+## tile_state (not occupant_id == 0, since unit_id 0 is a valid unit, e.g.
+## 유비 in chapter 1). Consumed by InputRouter._make_context_from_event for
+## click → unit_id resolution.
+func get_unit_at(coord: Vector2i) -> int:
+	if _map == null:
+		return -1
+	if coord.x < 0 or coord.x >= _map.map_cols \
+			or coord.y < 0 or coord.y >= _map.map_rows:
+		return -1
+	var idx: int = coord.y * _map.map_cols + coord.x
+	var state: int = _map.tiles[idx].tile_state
+	if state != TILE_STATE_ALLY_OCCUPIED and state != TILE_STATE_ENEMY_OCCUPIED:
+		return -1
+	return _occupant_id_cache[idx]
+
+
 ## Example:
 ##   grid.set_occupant(Vector2i(3, 5), 42, MapGrid.FACTION_ALLY)
 func set_occupant(coord: Vector2i, unit_id: int, faction: int) -> void:

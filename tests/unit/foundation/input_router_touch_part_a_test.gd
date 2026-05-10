@@ -529,7 +529,7 @@ func test_balance_constants_input_handling_5_keys_present_with_expected_values()
 # Closes /code-review BLOCK-1 (qa-tester) — the 3 stub-isolation tests above
 # verified each stub in isolation, but no test drove an InputEventScreenTouch
 # through the production pipeline with stubs INJECTED on the InputRouter autoload
-# via set_camera_for_tests / set_map_grid_for_tests. This story is classified
+# via set_camera / set_map_grid. This story is classified
 # Integration type per spec Test Evidence section (line 341); these 3 tests
 # fulfill the integration evidence requirement.
 
@@ -543,8 +543,8 @@ func test_make_context_from_event_touch_resolves_coord_and_unit_via_stubs() -> v
 	camera.screen_to_grid_map[Vector2i(200, 200)] = Vector2i(3, 3)
 	var map_grid := MapGridStub.new()
 	map_grid.unit_at_coord[Vector2i(3, 3)] = 7
-	InputRouter.set_camera_for_tests(camera)
-	InputRouter.set_map_grid_for_tests(map_grid)
+	InputRouter.set_camera(camera)
+	InputRouter.set_map_grid(map_grid)
 
 	var touch := InputEventScreenTouch.new()
 	touch.position = Vector2(200.0, 200.0)
@@ -581,8 +581,8 @@ func test_make_context_from_event_touch_emits_magnifier_open_when_trigger_condit
 	camera.set_zoom(1.0)  # set_zoom clamps to 0.70 floor; we'll override directly below
 	camera.current_zoom = 0.4  # bypass clamp for test purposes (force F-2 trigger)
 	var map_grid := MapGridStub.new()
-	InputRouter.set_camera_for_tests(camera)
-	InputRouter.set_map_grid_for_tests(map_grid)
+	InputRouter.set_camera(camera)
+	InputRouter.set_map_grid(map_grid)
 
 	var touch := InputEventScreenTouch.new()
 	touch.position = Vector2(100.0, 100.0)
@@ -619,8 +619,8 @@ func test_make_context_from_event_touch_no_magnifier_emit_when_trigger_condition
 	var camera := CameraStub.new()
 	camera.current_zoom = 1.0
 	var map_grid := MapGridStub.new()
-	InputRouter.set_camera_for_tests(camera)
-	InputRouter.set_map_grid_for_tests(map_grid)
+	InputRouter.set_camera(camera)
+	InputRouter.set_map_grid(map_grid)
 
 	var touch := InputEventScreenTouch.new()
 	touch.position = Vector2(20.0, 20.0)

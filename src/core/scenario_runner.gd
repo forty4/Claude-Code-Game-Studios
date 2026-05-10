@@ -318,6 +318,9 @@ func _hydrate_chapter(record: Dictionary) -> ChapterDefinition:
 			var cp_arr: Array = cp_var as Array
 			chokes.append(Vector2i(int(cp_arr[0]), int(cp_arr[1])))
 	c.chokepoints = chokes
+	# branch_overrides (deep-copied; per-prior-branch deployment overrides applied
+	# in _build_battle_payload when a previous chapter's branch_path_id matches).
+	c.branch_overrides = (record.get("branch_overrides", {}) as Dictionary).duplicate(true)
 	return c
 
 
@@ -640,17 +643,58 @@ func _make_save_context(cp_kind: SaveCheckpoint) -> SaveContext:
 func _build_battle_payload(chapter: ChapterDefinition) -> BattlePayload:
 	var payload: BattlePayload = BattlePayload.new()
 	payload.map_id = chapter.map_id
-	# unit_roster combines player + enemy IDs.
+	# Resolve branch override (if any) from the most recent prior chapter outcome.
+	var override: Dictionary = _resolve_branch_override(chapter)
+	# unit_roster combines player + enemy IDs (override-aware).
+	var player_ids: PackedInt64Array = chapter.player_unit_ids
+	if override.has("player_unit_ids"):
+		player_ids = PackedInt64Array()
+		for uid_var in (override["player_unit_ids"] as Array):
+			player_ids.append(int(uid_var))
+	var enemy_ids: PackedInt64Array = chapter.enemy_unit_ids
+	if override.has("enemy_unit_ids"):
+		enemy_ids = PackedInt64Array()
+		for uid_var in (override["enemy_unit_ids"] as Array):
+			enemy_ids.append(int(uid_var))
 	var roster: PackedInt64Array = PackedInt64Array()
-	for uid in chapter.player_unit_ids:
+	for uid in player_ids:
 		roster.append(uid)
-	for uid in chapter.enemy_unit_ids:
+	for uid in enemy_ids:
 		roster.append(uid)
 	payload.unit_roster = roster
-	payload.deployment_positions = chapter.deployment_positions_default.duplicate(true)
+	# deployment_positions (override-aware; JSON Array[int,int] -> Vector2i).
+	if override.has("deployment_positions_default"):
+		var dep: Dictionary = {}
+		var dep_raw: Dictionary = override["deployment_positions_default"] as Dictionary
+		for k in dep_raw.keys():
+			var v: Variant = dep_raw[k]
+			if v is Array and (v as Array).size() >= 2:
+				var arr: Array = v as Array
+				dep[int(k as String)] = Vector2i(int(arr[0]), int(arr[1]))
+		payload.deployment_positions = dep
+	else:
+		payload.deployment_positions = chapter.deployment_positions_default.duplicate(true)
 	payload.victory_conditions = chapter.victory_conditions
 	payload.battle_start_effects = chapter.battle_start_effects.duplicate()
 	return payload
+
+
+## Returns the branch_overrides Dictionary entry whose key matches the most
+## recent prior chapter's branch_path_id, or empty {} if no match. Empty dict
+## also returned for chapter 1 (no prior chapter) or when chapter has no
+## branch_overrides defined.
+func _resolve_branch_override(chapter: ChapterDefinition) -> Dictionary:
+	if chapter.branch_overrides.is_empty():
+		return {}
+	if _chapter_outcomes.is_empty():
+		return {}
+	var prior: Dictionary = _chapter_outcomes[_chapter_outcomes.size() - 1] as Dictionary
+	var prior_branch: String = prior.get("branch_path_id", "") as String
+	if prior_branch.is_empty():
+		return {}
+	if not chapter.branch_overrides.has(prior_branch):
+		return {}
+	return chapter.branch_overrides[prior_branch] as Dictionary
 
 
 ## F-SP-4: composes scenario_path_key from per-chapter branch_path_ids joined by "::".

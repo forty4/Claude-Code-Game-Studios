@@ -73,6 +73,7 @@ var _turn_runner: TurnOrderRunner
 var _grid_controller: GridBattleController
 var _ai_system: AISystem
 var _battle_hud: BattleHUD
+var _chapter_visuals: Node = null
 
 
 # ─── Built-in virtual methods ─────────────────────────────────────────────────
@@ -103,6 +104,11 @@ func _ready() -> void:
 	_balance_constants = BalanceConstants.new()
 	_terrain_effect = TerrainEffect.new()
 	_input_router = get_node("/root/InputRouter")
+	# InputRouter needs Camera + MapGrid refs to resolve mouse pixel → grid coord →
+	# unit_id at click time. Without these, _make_context_from_event leaves
+	# ctx.target_unit_id = -1 and _handle_action_in_s0 silently drops every
+	# unit_select click (POLISH-011 production-wiring residual #2).
+	# Wired here AFTER _battle_camera + _map_grid are created (see STEPs 1 + 2 below).
 
 	# === SPRINT-7 SCENARIO BOOTSTRAP (mock encoder DELETED 2026-05-05 per IN-10) ===
 	# Standalone-launch mode: bootstrap mvp_shu.json directly. SceneManager-driven
@@ -135,30 +141,35 @@ func _ready() -> void:
 			push_warning("BattleScene: MapGrid error: %s" % err)
 	add_child(_map_grid)
 
-	# === STEP 1.5: ChapterVisualScene (ADR-0021 §1 + §6) ===
-	# Mount the chapter-scope authored .tscn under GridLayer so world-space
-	# visuals render. Missing .tscn is a HIGH-tier warning (POLISH-010-class)
-	# but not an error — headless logic continuity preserved via the
-	# _build_map_resource_for_chapter() fallback above.
-	var chapter_scene_path: String = "res://scenes/battle/%s.tscn" % chapter.map_id
-	if ResourceLoader.exists(chapter_scene_path):
-		var chapter_scene: PackedScene = load(chapter_scene_path) as PackedScene
-		if chapter_scene != null:
-			var chapter_visuals: Node = chapter_scene.instantiate()
-			_grid_layer.add_child(chapter_visuals)
-		else:
-			push_warning("ADR-0021: failed to load chapter visual scene at '%s'" % chapter_scene_path)
-	else:
-		push_warning(("ADR-0021: chapter visual scene missing at '%s'; "
-			+ "running with blank world-space (headless logic intact, "
-			+ "windowed mode will render void). POLISH-010-class issue.")
-			% chapter_scene_path)
+	# === STEP 1.1: Populate MapGrid occupants from roster deployment positions.
+	# Without this, every InputRouter click resolves to unit_id = -1 because
+	# MapGrid.get_unit_at(coord) returns -1 for tiles whose tile_state is still EMPTY
+	# (POLISH-011 production-wiring residual #3).
+	for unit: BattleUnit in roster:
+		var faction: int = MapGrid.FACTION_ALLY if unit.side == 0 else MapGrid.FACTION_ENEMY
+		_map_grid.set_occupant(unit.position, unit.unit_id, faction)
+
+	# === STEP 1.5 REMOVED: SceneManager._instantiate_and_enter_battle already
+	# mounts res://scenes/battle/<map_id>.tscn at /root via the
+	# battle_launch_requested signal path (ADR-0002 §_instantiate_and_enter_battle).
+	# Mounting it again here under GridLayer was producing a dual-mount: the
+	# visible instance was SceneManager's at /root, but BattleScene wired its own
+	# (invisible) GridLayer instance, so selection-highlight overlays never reached
+	# the rendered scene. Selection now resolves the live instance via /root lookup
+	# in _on_unit_selected_changed.
 
 	# === STEP 2: BattleCamera (ADR-0013) — depends on MapGrid ===
 	_battle_camera = BattleCamera.new()
 	_battle_camera.name = "BattleCamera"
 	_battle_camera.setup(_map_grid)
 	add_child(_battle_camera)
+
+	# === STEP 2.5: InputRouter DI for screen→grid coord + grid→unit_id resolution.
+	# Without these, every mouse click resolves to ctx.target_unit_id = -1 and
+	# unit_select silently drops in InputRouter._handle_action_in_s0
+	# (POLISH-011 production-wiring residual #2).
+	_input_router.set_camera(_battle_camera)
+	_input_router.set_map_grid(_map_grid)
 
 	# === STEP 3: HPStatusController (ADR-0010) — depends on roster ===
 	# initialize_unit(unit_id, hero, unit_class) per shipped ADR-0010 API.
@@ -196,6 +207,11 @@ func _ready() -> void:
 	# battle loop runs to ROUND_CAP_DRAW in ~2-3 seconds without natural input/AI dispatch.
 	_turn_runner.set_action_controller(_grid_controller._on_turn_runner_action_request)
 	add_child(_grid_controller)
+
+	# Wire unit-selection signal to chapter visuals selection-highlight overlay.
+	# Instance lookup is dynamic (in handler) because SceneManager mounts the
+	# chapter visuals AFTER battle_launch_requested fires (post-_ready boundary).
+	_grid_controller.unit_selected_changed.connect(_on_unit_selected_changed)
 
 	# === STEP 5.5: AISystem (ADR-0019) — battle-scoped Node 6th invocation ===
 	# Inserted via /architecture-review delta #14 2026-05-05 per ADR-0016 §3 R-3
@@ -299,6 +315,30 @@ func _build_map_resource_for_chapter(_chapter: ChapterDefinition) -> MapResource
 	map.map_rows = 15
 	map.tiles = _make_uniform_grass_tiles(15, 15)
 	return map
+
+
+## Selection-highlight handler. Looks up the SceneManager-mounted ChapterVisuals
+## instance at /root (by class) at call-time, since the mount happens after
+## BattleScene._ready returns (via battle_launch_requested → SceneManager).
+func _on_unit_selected_changed(unit_id: int, _was_selected: int) -> void:
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null:
+		return
+	if unit_id == -1:
+		visuals.set_selected_coord(Vector2i(-1, -1))
+		return
+	var unit: BattleUnit = _grid_controller.get_battle_unit(unit_id)
+	if unit == null:
+		visuals.set_selected_coord(Vector2i(-1, -1))
+		return
+	visuals.set_selected_coord(unit.position)
+
+
+func _find_chapter_visuals() -> Node:
+	for child: Node in get_tree().root.get_children():
+		if child is ChapterVisuals:
+			return child
+	return null
 
 
 ## Returns a flat row-major Array[MapTileData] with all tiles passable grass.

@@ -240,6 +240,12 @@ func _ready() -> void:
 	# Cover the full viewport — child Controls use individual anchors per
 	# battle-hud.md §3 layout spec.
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	# MUST be PASS, not the Control default STOP. With STOP, the full-rect HUD root
+	# absorbs every mouse click before _unhandled_input fires, so InputRouter never
+	# sees grid clicks and the player cannot interact with units (POLISH-011 root
+	# cause). PASS lets HUD child Controls (panels/buttons) claim their own clicks
+	# while background clicks fall through to InputRouter._unhandled_input.
+	mouse_filter = Control.MOUSE_FILTER_PASS
 
 	# Story-007: _process re-enabled for grid-overlay zoom-poll per AC-8.
 	# Body gates on _has_active_grid_overlay() — early-returns when no
@@ -1334,14 +1340,16 @@ func _on_unit_turn_ended(unit_id: int, acted: bool) -> void:
 
 ## _on_input_state_changed — GameBus subscriber (emitter: InputRouter).
 ## AC-5: sets MOUSE_FILTER_IGNORE on root when transitioning TO S5 (INPUT_BLOCKED),
-## reverts to MOUSE_FILTER_STOP when transitioning AWAY from S5.
+## reverts to MOUSE_FILTER_PASS when transitioning AWAY from S5.
 ## Godot 4.5+ recursive disable: setting IGNORE on root Control propagates to all children.
+## Default is PASS (not STOP) so background clicks fall through to InputRouter
+## via _unhandled_input — STOP would block all gameplay clicks (POLISH-011).
 func _on_input_state_changed(from_state: int, to_state: int) -> void:
 	_handle_signal(&"input_state_changed", [from_state, to_state])
 	if to_state == InputRouter.InputState.INPUT_BLOCKED:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 	elif from_state == InputRouter.InputState.INPUT_BLOCKED:
-		mouse_filter = Control.MOUSE_FILTER_STOP
+		mouse_filter = Control.MOUSE_FILTER_PASS
 
 
 ## _on_input_mode_changed — GameBus subscriber (emitter: InputRouter).

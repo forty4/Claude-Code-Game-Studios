@@ -86,8 +86,9 @@ func test_input_state_changed_to_blocked_propagates_filter_property() -> void:
 	var hud: BattleHUD = bag["hud"]
 	add_child(hud)
 
-	# Pre-condition — Control default mouse_filter is STOP after _ready
-	assert_int(hud.mouse_filter).is_equal(Control.MOUSE_FILTER_STOP)
+	# Pre-condition — HUD default mouse_filter is PASS after _ready (so background
+	# clicks fall through to InputRouter; STOP would block all gameplay = POLISH-011).
+	assert_int(hud.mouse_filter).is_equal(Control.MOUSE_FILTER_PASS)
 
 	GameBus.input_state_changed.emit(
 		InputRouter.InputState.OBSERVATION,
@@ -103,8 +104,9 @@ func test_input_state_changed_to_blocked_propagates_filter_property() -> void:
 	_free_node_deps(bag)
 
 
-func test_input_state_revert_from_blocked_resets_filter_to_stop() -> void:
-	# Inverse chain — exiting S5 reverts the recursive disable.
+func test_input_state_revert_from_blocked_resets_filter_to_pass() -> void:
+	# Inverse chain — exiting S5 reverts to PASS (HUD default; PASS lets background
+	# clicks fall through to InputRouter while child Controls keep their own STOP).
 	var bag: Dictionary = _make_hud_with_stubs()
 	var hud: BattleHUD = bag["hud"]
 	add_child(hud)
@@ -123,8 +125,8 @@ func test_input_state_revert_from_blocked_resets_filter_to_stop() -> void:
 	await get_tree().process_frame
 
 	assert_int(hud.mouse_filter).override_failure_message(
-		"AC-6 chain inverse: hud.mouse_filter must revert to MOUSE_FILTER_STOP after S5 exit; got %d" % hud.mouse_filter
-	).is_equal(Control.MOUSE_FILTER_STOP)
+		"AC-6 chain inverse: hud.mouse_filter must revert to MOUSE_FILTER_PASS after S5 exit; got %d" % hud.mouse_filter
+	).is_equal(Control.MOUSE_FILTER_PASS)
 
 	hud.free()
 	_free_node_deps(bag)

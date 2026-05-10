@@ -110,3 +110,17 @@ extends Resource
 ## BattleScene plumbs these into GridBattleController.set_chokepoints() at
 ## chapter-load so they flow into _make_battle_state_snapshot() per AI turn.
 @export var chokepoints: Array[Vector2i] = []
+
+
+# ─── Branch-conditional deployment overrides ──────────────────────────────────
+
+## Optional per-prior-branch deployment overrides. Keys are prior chapter
+## branch_path_id strings (e.g. "WIN_changbanpo_default"); values are
+## Dictionaries with optional keys: player_unit_ids (Array[int]),
+## player_commander_id (int), enemy_unit_ids (Array[int]),
+## deployment_positions_default (Dictionary[String, Array[int]]),
+## enemy_roster (Array[Dictionary]).
+## ScenarioRunner._build_battle_payload looks up the previous chapter's
+## branch_path_id; if a matching key is present, those fields override the
+## chapter's defaults for this battle. Empty = no overrides (always use defaults).
+@export var branch_overrides: Dictionary = {}

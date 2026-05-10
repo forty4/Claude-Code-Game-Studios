@@ -26,11 +26,10 @@ class_name ChapterVisuals
 extends Node2D
 
 
-## Pixel size of one grid tile. Coordinates the tile-space rendering with
-## unit-silhouette Polygon2D children authored in the .tscn at fixed positions
-## (col * TILE_SIZE + TILE_SIZE/2, row * TILE_SIZE + TILE_SIZE/2). If this
-## constant changes, .tscn unit positions must be re-authored to match.
-const TILE_SIZE: int = 48
+## Pixel size of one grid tile. MUST match BalanceConstants.TILE_WORLD_SIZE
+## so visuals align with InputRouter/BattleCamera/BattleHUD grid math.
+## .tscn unit polygon positions use (col * TILE_SIZE + TILE_SIZE/2, row * TILE_SIZE + TILE_SIZE/2).
+const TILE_SIZE: int = 64
 
 ## Color palette (art-bible §4.1 — non-reserved subset only).
 const COLOR_PLAINS:        Color = Color("6b8c5a")  # 소록 — natural plains
@@ -50,6 +49,23 @@ const COLOR_TILE_BORDER:   Color = Color("1c1a17")  # 묵 — clear ink line
 ## before the first `_draw()` call (battle_scene.gd does this at STEP 1.5 in the
 ## mount sequence). Null-tolerant: `_draw()` no-ops gracefully when unset.
 @export var map_resource: MapResource = null
+
+## Selected unit's grid coord — drives the selection highlight overlay. Updated
+## via set_selected_coord() from BattleScene wiring to GridBattleController.
+## Vector2i(-1, -1) sentinel = no selection (overlay not drawn).
+var _selected_coord: Vector2i = Vector2i(-1, -1)
+
+
+## Selection highlight color (saturated saffron — art-bible reserved color for
+## "destiny moment" usage; here repurposed for tactical selection feedback).
+const COLOR_SELECTION: Color = Color("d4a017")
+
+
+func set_selected_coord(coord: Vector2i) -> void:
+	if _selected_coord == coord:
+		return
+	_selected_coord = coord
+	queue_redraw()
 
 
 func _ready() -> void:
@@ -81,6 +97,14 @@ func _draw() -> void:
 			var fill: Color = _get_terrain_color(tile.terrain_type)
 			draw_rect(rect, fill, true)
 			draw_rect(rect, COLOR_TILE_BORDER, false, 1.0)
+
+	# Selection highlight overlay (drawn last so it sits on top of tiles).
+	if _selected_coord.x >= 0 and _selected_coord.y >= 0:
+		var sel_rect: Rect2 = Rect2(
+			Vector2(_selected_coord.x * TILE_SIZE, _selected_coord.y * TILE_SIZE),
+			Vector2(TILE_SIZE, TILE_SIZE),
+		)
+		draw_rect(sel_rect, COLOR_SELECTION, false, 3.0)
 
 
 ## Maps terrain_type enum (per src/core/terrain_cost.gd) to art-bible color.

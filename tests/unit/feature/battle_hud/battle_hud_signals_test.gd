@@ -391,8 +391,10 @@ func test_input_state_changed_to_input_blocked_sets_filter_ignore() -> void:
 	var hud: BattleHUD = bag["hud"]
 	add_child(hud)
 
-	# Default is STOP after _ready (Control default = STOP, story-001 sets PRESET_FULL_RECT).
-	assert_int(hud.mouse_filter).is_equal(Control.MOUSE_FILTER_STOP)
+	# Default is PASS after _ready — full-rect HUD must NOT absorb background clicks
+	# (STOP would block all gameplay; POLISH-011 root cause). PASS lets InputRouter
+	# receive grid clicks via _unhandled_input while HUD child Controls keep their own STOP.
+	assert_int(hud.mouse_filter).is_equal(Control.MOUSE_FILTER_PASS)
 
 	GameBus.input_state_changed.emit(
 		InputRouter.InputState.OBSERVATION,    # 0
@@ -412,9 +414,9 @@ func test_input_state_changed_to_input_blocked_sets_filter_ignore() -> void:
 	})
 
 
-func test_input_state_changed_away_from_blocked_reverts_to_stop() -> void:
+func test_input_state_changed_away_from_blocked_reverts_to_pass() -> void:
 	# AC-5: enter S5 → mouse_filter == IGNORE. Then transition AWAY from S5 →
-	# mouse_filter reverts to STOP.
+	# mouse_filter reverts to PASS (NOT STOP — STOP blocks all gameplay clicks).
 	var bag: Dictionary = _make_hud_with_stubs()
 	var hud: BattleHUD = bag["hud"]
 	add_child(hud)
@@ -426,8 +428,8 @@ func test_input_state_changed_away_from_blocked_reverts_to_stop() -> void:
 	GameBus.input_state_changed.emit(5, 1)  # INPUT_BLOCKED → UNIT_SELECTED
 	await get_tree().process_frame
 	assert_int(hud.mouse_filter).override_failure_message(
-		"AC-5: after transitioning AWAY from S5, mouse_filter must revert to MOUSE_FILTER_STOP; got %d" % hud.mouse_filter
-	).is_equal(Control.MOUSE_FILTER_STOP)
+		"AC-5: after transitioning AWAY from S5, mouse_filter must revert to MOUSE_FILTER_PASS; got %d" % hud.mouse_filter
+	).is_equal(Control.MOUSE_FILTER_PASS)
 
 	hud.free()
 	_free_bag({
@@ -444,16 +446,16 @@ func test_input_state_changed_neither_involves_s5_leaves_filter_unchanged() -> v
 	var hud: BattleHUD = bag["hud"]
 	add_child(hud)
 
-	# Initial state: STOP (Control default).
-	assert_int(hud.mouse_filter).is_equal(Control.MOUSE_FILTER_STOP)
+	# Initial state: PASS (HUD default — see _ready setup; STOP would block gameplay).
+	assert_int(hud.mouse_filter).is_equal(Control.MOUSE_FILTER_PASS)
 
 	GameBus.input_state_changed.emit(0, 1)  # OBSERVATION → UNIT_SELECTED (no S5)
 	await get_tree().process_frame
 	assert_int(hud.mouse_filter).override_failure_message(
-		"AC-5: non-S5 transition must NOT change mouse_filter; got %d (expected STOP=%d)" % [
-			hud.mouse_filter, Control.MOUSE_FILTER_STOP
+		"AC-5: non-S5 transition must NOT change mouse_filter; got %d (expected PASS=%d)" % [
+			hud.mouse_filter, Control.MOUSE_FILTER_PASS
 		]
-	).is_equal(Control.MOUSE_FILTER_STOP)
+	).is_equal(Control.MOUSE_FILTER_PASS)
 
 	hud.free()
 	_free_bag({
