@@ -191,6 +191,10 @@ func _ready() -> void:
 	)
 	# S7-05: plumb chapter-authored chokepoints to AISystem holder-archetype scoring.
 	_grid_controller.set_chokepoints(chapter.chokepoints)
+	# S15-J: wire NATURAL-LOOP mode per ADR-0011 §Amendment 2026-05-09 + ADR-0014 §Amendment 2026-05-10 (#1+#2+#3).
+	# Without this call, T5 _execute_action_budget falls through TEST-SEAM no-op pass; production
+	# battle loop runs to ROUND_CAP_DRAW in ~2-3 seconds without natural input/AI dispatch.
+	_turn_runner.set_action_controller(_grid_controller._on_turn_runner_action_request)
 	add_child(_grid_controller)
 
 	# === STEP 5.5: AISystem (ADR-0019) — battle-scoped Node 6th invocation ===

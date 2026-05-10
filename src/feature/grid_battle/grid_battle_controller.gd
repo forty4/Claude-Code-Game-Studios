@@ -1230,3 +1230,33 @@ func _check_battle_end() -> bool:
 		_emit_battle_outcome(&"DEFEAT_ANNIHILATION")
 		return true
 	return false
+
+
+## Per ADR-0014 §Amendment 2026-05-10 (#3 — production-wiring residual closure).
+## Bridges T5 await per ADR-0011 §Amendment 2026-05-09 to the appropriate
+## consumer subscriber: enemy-side via ai_action_requested emit → AISystem.decide
+## → ai_action_ready chain (S15-B); player-side defers to natural grid-click input
+## → _handle_player_* helpers (S15-C). Returns immediately for player units (T5
+## stays paused until player declare_action fires); triggers AI dispatch for enemies.
+##
+## Registered as the _action_controller Callable on TurnOrderRunner by BattleScene
+## STEP 5 (see battle_scene.gd S15-J insertion) so T5 calls this instead of the
+## TEST-SEAM no-op pass.
+##
+## IMPORTANT: `snapshot` is a TurnOrderSnapshot (the type T5 passes), NOT UnitTurnState
+## or BattleStateSnapshot. The parameter is typed TurnOrderSnapshot here to satisfy
+## the Callable contract; this handler does not read it. For AI dispatch, a
+## BattleStateSnapshot is built fresh via _make_battle_state_snapshot().
+func _on_turn_runner_action_request(unit_id: int, snapshot: TurnOrderSnapshot) -> void:
+	var unit: BattleUnit = _units.get(unit_id, null)
+	if unit == null:
+		push_warning("S15-J: _on_turn_runner_action_request received unknown unit_id=%d" % unit_id)
+		return
+	match unit.side:
+		0:  # player — natural input path (S15-C); T5 stays paused until grid-click fires declare_action
+			return
+		1:  # enemy — synchronous AI dispatch via existing ai_action_requested → AISystem chain (S15-B)
+			var battle_snapshot: BattleStateSnapshot = _make_battle_state_snapshot()
+			ai_action_requested.emit(unit_id, battle_snapshot)
+		_:
+			push_warning("S15-J: unknown unit.side=%d for unit_id=%d" % [unit.side, unit_id])

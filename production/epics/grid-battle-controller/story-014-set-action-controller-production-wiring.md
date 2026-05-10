@@ -1,7 +1,7 @@
 # Story 014: POLISH-012 closure — `set_action_controller` production-wiring (BattleScene._ready Callable injection)
 
 > **Epic**: Grid Battle Controller
-> **Status**: Ready
+> **Status**: Complete (2026-05-10 sprint-15 S15-J close — 6/6 ACs verified; +6 integration tests 1314→1320; /code-review APPROVED WITH SUGGESTIONS — 1 P1 wildcard arm test added inline + 7 ADVISORY suggestions deferred per user Route a per S15-C precedent)
 > **Layer**: Feature (battle orchestrator + scene-root mount sequence integration)
 > **Type**: Integration
 > **Estimate**: 1-2h (~0.15d)
@@ -156,3 +156,32 @@
 - BattleScene mount-sequence reference: `src/feature/battle_scene/battle_scene.gd:115-200` STEP 1-6
 - POLISH-011 absorption arc precedents: S15-A `ab924aa` + S15-B `d5845de`+`a659b21` + S15-C `971c2ae`
 - §11 HARD GATE rule: `docs/process/decisions-convention.md` §11.3 + §11.4
+
+## Completion Notes
+**Completed**: 2026-05-10 (sprint-15 S15-J — POLISH-012 closure; POLISH-011 absorption arc 4/4 root causes WIRED; final root cause closed)
+**Criteria**: 6/6 passing — all ACs verified via 6 integration tests + suite-wide regression check (1314→1320)
+**Implementation**:
+- `src/feature/grid_battle/grid_battle_controller.gd:1250-1262` (+~30 LoC) — new `_on_turn_runner_action_request(unit_id: int, snapshot: TurnOrderSnapshot) -> void` handler with side-routing (player → return immediately; enemy → emit `ai_action_requested.emit(unit_id, _make_battle_state_snapshot())` reusing S15-B chain; defensive null-check + wildcard match arm)
+- `src/feature/battle_scene/battle_scene.gd:194-197` (+4 LoC) — STEP 5 wire-up `_turn_runner.set_action_controller(_grid_controller._on_turn_runner_action_request)` placed AFTER `set_chokepoints` + BEFORE `add_child(_grid_controller)` per load-bearing Callable-registration-order vs T5-first-fire rationale
+- `docs/architecture/ADR-0014-grid-battle-controller.md:791-864` (+~75 LoC) — §Amendment 2026-05-10 (#3) documenting integration site, handler signature + side-routing logic, 2 design corrections vs spec, backward-compat preservation, cross-references
+- `tests/integration/feature/battle_scene/battle_scene_set_action_controller_wiring_test.gd` (NEW ~390 LoC, 6 tests) — covers AC-1 (3 arms) + AC-2 + AC-6 with proper isolation per G-4/G-6/G-10/G-15/G-27/G-28 disciplines; +1 wildcard-arm test added inline post-/code-review per qa-tester P1
+**Test Results**: 1314 → 1320 PASS (+6); 0 NEW failures; 71st consecutive failure-free baseline; pre-existing POLISH-008 ObjectDB leak warning observed (out of scope)
+**Test Evidence**: Integration — `tests/integration/feature/battle_scene/battle_scene_set_action_controller_wiring_test.gd` (BLOCKING gate satisfied per coding-standards.md Test Evidence Matrix)
+**Code Review**: Complete — orchestrator-led /code-review verdict APPROVED WITH SUGGESTIONS (lean mode; LP-CODE-REVIEW + QL-TEST-COVERAGE PHASE-GATE skipped per `production/review-mode.txt`); godot-gdscript-specialist APPROVED (8/8 focus areas CLEAN); qa-tester GAPS verdict (1 P1 + 3 P2 + minor suggestions). 1 P1 (wildcard `_:` arm coverage) RESOLVED INLINE with `test_unknown_unit_side_pushes_warning_and_returns_without_dispatch`; 7 ADVISORY suggestions DEFERRED per user Route a (mirrors S15-C close-out precedent) → logged to sprint-15 retro debt
+**Deviations** (all ADVISORY documented in ADR Amendment #3 §Key clarifications):
+- (1) snapshot type: `TurnOrderSnapshot` (NOT `UnitTurnState` as story-014 spec assumed) — verified at `turn_order_runner.gd:614`
+- (2) enemy-side dispatch: emit existing `ai_action_requested` signal (NOT direct `_ai_system.decide()` call) — reuses S15-B chain end-to-end; mirrors `_on_unit_turn_started:630-631` precedent
+- (3) AC-4 actual = 6 tests (vs spec target 5; +1 wildcard arm coverage from P1 inline fix; positive scope deviation)
+- (4) AC-5 actual = 1320 baseline (vs spec target 1319; +1 from AC-4 deviation; positive scope deviation)
+**7 ADVISORY suggestions deferred to sprint-15 retro debt** (per user Route a; mirrors S15-C precedent):
+- qa-tester P2: Test for Callable lifetime after `_grid_controller` free
+- qa-tester P2: Test for re-entrant call (same unit T5 fires twice)
+- qa-tester P2: Test for `_make_battle_state_snapshot()` independent fixture
+- qa-tester improvement: Test 1 add `Callable.get_object()` assertion vs grid_ctrl
+- qa-tester improvement: Test 6 round-trip null → non-null → null
+- godot specialist: `battle_scene.gd:197` inline comment conciseness if line-length CI enforced
+- godot specialist: Test 2 G-4 vs G-10 comment block readability split
+- qa-tester: Test 3 secondary assertion confirming grid_ctrl matches scene's GridBattleController
+- qa-tester (deferred to S15-D drafting): extract `_instantiate_and_mount_battle_scene` + `_seed_hero_database` into shared helper at `tests/integration/feature/battle_scene/battle_scene_test_helpers.gd`
+**POLISH-011 absorption arc status**: 4/4 root causes WIRED (S15-A T5 await ✅ + S15-B AI consumer ✅ + S15-C player path ✅ + S15-J production-wiring ✅) — final root cause closed. S15-D natural-loop integration test (story-013) UNBLOCKED for resume; S15-E /gate-check rerun-4 + S15-G S8-15 §1.3 third re-attestation now pivot on S15-D close.
+**Pattern observation**: 5th invocation of headless-vs-windowed verification gap (G-30) — CLOSED-LOOP variant where absorption-arc components ship correctly but production wiring remains unverified; codification candidate for sprint-15 retro per ADR amendment process gap analysis (S15-A/B/C amendments documented component contracts but not the integration test that proves end-to-end wiring at production scope; S15-J ADR Amendment #3 closes this gap by explicitly documenting the BattleScene mount-sequence integration site). Investigation-time catch (orchestrator + 3 specialist agent rounds verified before any code authoring) FASTER + CHEAPER than the sprint-15.md R4 mitigation anticipated path (test-first-run-failure → mid-amendment); saved ~2-3h of would-have-been-wasted test authoring + first-run failure + diagnostic + amendment cycle.

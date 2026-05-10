@@ -785,3 +785,80 @@ Per story-012 Out of Scope clause:
 - `docs/architecture/ADR-0011-turn-order.md` §Amendment 2026-05-09 — S15-A T5 await mechanism (`_maybe_defer_turn_completion` predicate; this story's helpers feed the correct `ActionType` to release it)
 - `tests/integration/feature/grid_battle/grid_battle_controller_player_declare_action_test.gd` — 7 integration tests verifying player-path dispatch arm rewiring (NEW this story)
 - `.claude/rules/godot-4x-gotchas.md` G-15 (`before_test` not `before_each`) + G-22 (`@abstract` requires concrete subclass) + G-26 (inner-class prefixed GBCP*) + G-28 (never bulk-disconnect-all) + G-30 (headless test pass does not gate windowed-mode lifecycle — mitigation infrastructure for full-loop coverage deferred to S15-D windowed-smoke harness)
+
+---
+
+## Amendment 2026-05-10 (#3 — S15-J production-wiring residual closure: BattleScene mount-sequence integration site)
+
+**Status**: Accepted (sprint-15 S15-J — POLISH-012 closure mid-sprint amendment)
+
+### Context
+
+S15-A (story-010) added the `set_action_controller` DI surface — a public setter on `TurnOrderRunner` that registers an arbitrary `Callable` as the T5 action dispatcher, enabling NATURAL-LOOP mode vs TEST-SEAM pass-through. S15-B (story-011) added the consumer path for AI: `_on_ai_action_ready` subscriber + `ai_action_requested` → AISystem chain. S15-C (story-012) added the consumer path for players: `_handle_player_*` mirror helpers + dispatch arm rewiring in `_handle_grid_click_unit_selected`.
+
+**The production gap discovered at S15-D (story-013) Phase 4 investigation**: `grep -rn "set_action_controller" src/ tests/` returned 7 test sites (all in `tests/integration/core/turn_order_t5_await_test.gd`) and **0 production callers**. The `set_action_controller` setter was never called from production code. Without this call, T5's `_execute_action_budget` evaluates `_action_controller.is_null() == true` on every advance and falls through the `# TEST-SEAM mode no-op pass` return. The entire S15-A/B/C absorption arc — AI dispatch via AISystem, player declare_action plumbing via `_handle_player_*` — was inert in production.
+
+At ROUND_CAP=30 with T5 as a no-op, the battle loop runs to completion in ~2-3 seconds across deferred call slots and emits `battle_outcome_resolved("TURN_LIMIT_REACHED")`. No visible errors. Headless tests passed throughout because they bypass the natural battle loop via direct seam calls (G-30 pattern: headless test pass does not gate windowed-mode lifecycle behavior).
+
+This amendment (#3) closes the gap by wiring the production caller at the correct point in BattleScene's mount sequence.
+
+### Decision
+
+**BattleScene._ready STEP 5** calls `_turn_runner.set_action_controller(_grid_controller._on_turn_runner_action_request)` **AFTER** `_grid_controller.set_chokepoints(chapter.chokepoints)` and **BEFORE** `add_child(_grid_controller)`.
+
+This insertion point is load-bearing:
+
+- **After `setup()`** (STEP 5 start): `_grid_controller.setup(...)` must run before the Callable is registered — `_on_turn_runner_action_request` reads `_units`, `_hp_controller`, and calls `_make_battle_state_snapshot()`, all of which are populated only after `setup()` completes. Registering the Callable before `setup()` would bind a handler that can't yet resolve unit state.
+- **After `set_chokepoints()`**: Ordering relative to chokepoints is not load-bearing for correctness, but sequential STEP 5 operations preserve code locality for readability.
+- **Before `add_child(_grid_controller)`**: `_begin_round.call_deferred()` is triggered inside `TurnOrderRunner._ready()`, which fires after `add_child(_turn_runner)` (STEP 4). By the time STEP 5 runs, `_begin_round` has been queued but NOT yet fired — it fires during the deferred call flush after `add_child(_grid_controller)`. The Callable must be registered before that first deferred slot resolves to avoid a one-shot DRAW at the start of the first battle.
+
+### Handler: `_on_turn_runner_action_request`
+
+A new private handler added to `GridBattleController` at the end of file (after the last signal-callback section):
+
+```gdscript
+func _on_turn_runner_action_request(unit_id: int, snapshot: TurnOrderSnapshot) -> void:
+    var unit: BattleUnit = _units.get(unit_id, null)
+    if unit == null:
+        push_warning("S15-J: ...")
+        return
+    match unit.side:
+        0:  # player — returns immediately; T5 stays paused until grid-click fires declare_action
+            return
+        1:  # enemy — emits ai_action_requested → AISystem.decide → ai_action_ready chain
+            var battle_snapshot: BattleStateSnapshot = _make_battle_state_snapshot()
+            ai_action_requested.emit(unit_id, battle_snapshot)
+        _:
+            push_warning("S15-J: unknown unit.side ...")
+```
+
+**Side-routing logic:**
+
+- **Player-side (`unit.side == 0`)**: Returns immediately. T5 stays suspended at `_action_controller.call(unit_id, snapshot)` — the caller (`_execute_action_budget`) returns without advancing T6/T7. T6/T7 are released when the player clicks a valid action target, which fires one of the `_handle_player_*` helpers (S15-C), which calls `declare_action(...)`, which triggers `_maybe_defer_turn_completion.call_deferred()`.
+- **Enemy-side (`unit.side == 1`)**: Emits `ai_action_requested.emit(unit_id, battle_snapshot)`. AISystem's `CONNECT_DEFERRED` subscriber (S15-B) picks up the signal in the next deferred slot, calls `decide(unit_id, snapshot)`, determines the best `AIActionCommand`, and emits `ai_action_ready(unit_id, command)`. `_on_ai_action_ready` (S15-B) processes the command via the 6-way dispatch table and calls `declare_action(...)` to release T5.
+- **Defensive unknown unit_id**: `push_warning + return` — no crash, no dispatch. Does not consume the T5 slot; battle loop gracefully advances to the next unit via the ROUND_CAP timeout.
+- **Defensive unknown side**: `push_warning + return` — same safety guarantee.
+
+**Key clarifications vs story-014 spec assumptions:**
+
+1. **Snapshot type**: `TurnOrderSnapshot` — NOT `UnitTurnState`. Verified at `turn_order_runner.gd:614`: `var snapshot: TurnOrderSnapshot = get_turn_order_snapshot(); _action_controller.call(unit_id, snapshot)`. The handler parameter is typed `TurnOrderSnapshot` to satisfy the Callable contract. The handler does NOT read `snapshot` — it builds a fresh `BattleStateSnapshot` for AI dispatch via `_make_battle_state_snapshot()`.
+2. **Enemy dispatch pattern**: emits existing `ai_action_requested` signal — NOT a direct `_ai_system.decide()` call. This reuses the full S15-B chain end-to-end (AISystem CONNECT_DEFERRED subscriber → `decide` → `ai_action_ready` emit → `_on_ai_action_ready` handler). Mirrors the `_on_unit_turn_started` precedent at lines 630-631 that also emits `ai_action_requested` for enemy-side turns. Direct coupling to AISystem would duplicate emit + executor logic and break the single-responsibility boundary between GridBattleController and AISystem.
+
+### Backward Compatibility
+
+The amendment is fully backward-compatible:
+
+- **`set_action_controller` DI surface (S15-A) UNCHANGED** — the setter signature and semantics are identical. Only a NEW production caller is added in BattleScene. The existing 7 test sites in `tests/integration/core/turn_order_t5_await_test.gd` continue PASS without modification.
+- **BattleScene._ready STEP 1-4 + STEP 5.5 + STEP 6 UNCHANGED** — only STEP 5 receives the ~3-line wire-up addition between `set_chokepoints` and `add_child`.
+- **TEST-SEAM mode preserved** — any test that creates a `TurnOrderRunner` directly (without calling `set_action_controller`) still gets the `is_null()` no-op pass at `_execute_action_budget`. The seam is unaffected.
+
+### Cross-References
+
+- `docs/architecture/ADR-0011-turn-order.md` §Amendment 2026-05-09 (S15-A T5 await Callable contract — defines the DI surface that #3 satisfies at production scope)
+- §Amendment 2026-05-10 (#1 — S15-B AI subscriber + 6-way dispatch chain)
+- §Amendment 2026-05-10 (#2 — S15-C player path mirror helpers)
+- `production/polish-backlog.md` — POLISH-012 entry (production-wiring gap)
+- `production/epics/grid-battle-controller/story-014-set-action-controller-production-wiring.md` — story file with AC-1..AC-6
+- `production/sprints/sprint-15.md` — Mid-Sprint Amendments section (S15-J)
+- `tests/integration/feature/battle_scene/battle_scene_set_action_controller_wiring_test.gd` — 5 integration tests verifying AC-1..AC-6 (NEW this story)
+- `.claude/rules/godot-4x-gotchas.md` G-4 (lambda primitive capture → Array captures) + G-15 (`before_test` not `before_each`) + G-30 (headless test pass does not gate windowed-mode lifecycle — root cause of POLISH-012 discovery gap)
