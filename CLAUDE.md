@@ -1,5 +1,10 @@
 # Claude Code Game Studios -- Game Studio Agent Architecture
 
+> **Active workflow**: see `WORKFLOW.md`. The current mode is "Build, not
+> Ratify" (since 2026-05-10) — most of the heavy sprint/gate/retro process
+> described below is **dormant** by default. WORKFLOW.md is canonical when
+> it conflicts with anything in this file or in `.claude/docs/`.
+
 Indie game development managed through 48 coordinated Claude Code subagents.
 Each agent owns a specific domain, enforcing separation of concerns and quality.
 
