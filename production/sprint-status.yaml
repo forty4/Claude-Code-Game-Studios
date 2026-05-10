@@ -11,7 +11,7 @@ goal: "Close POLISH-011 turn-loop architectural integration gap (3-story arc S15
 start: "2026-05-12"
 end: "2026-05-15"
 generated: "2026-05-09"
-updated: "2026-05-10 — S15-J done (POLISH-012 closure): set_action_controller wiring + ADR-0014 amend #3 + 6 tests (1314→1320); 6/6 ACs; POLISH-011 4/4 root causes wired; S15-D unblock pending."
+updated: "2026-05-10 — S15-D DEFERRED to sprint-16 per POLISH-013 (3-spawn-cycle 0-player-units fixture stall surfaces deferred-chain gap); sprint-15 4/5 Must Have done; S15-J shipped a4636dc."
 
 # Sprint-14 closed 2026-05-09 PM late-late ⚠️ APPROVED WITH CONDITIONS: 7/9 done + 1 partial (S14-03) + 1 USER-OWNED carry (S14-05); 4 of 4 prior gate-check items CLOSED (rerun-2 → rerun-3 path-to-PASS items 5/6/8/9; Item 7 partial) — strongest single-sprint closure ratio in chain history; AD's 1st READY verdict in chain history at S14-04; G-30 codified + pattern stability ESCALATED 2→4 invocations within 48hr; ADR-0021 ratified at S14-01 (576 LoC); 6 of 10 sprint-13 retro AIs CLOSED; 1288/1288 PASS / 68th FFB preserved; 9 commits 4f2ea2e→1b59f40.
 # Sprint-14 retro: production/retrospectives/retro-sprint-14-2026-05-09.md (13 sprint-15 AIs seeded; 9 NEW + 4 carry from sprint-13).
@@ -324,12 +324,12 @@ stories:
     name: "Natural-loop integration test (G-30 mitigation infrastructure) — drives full battle via initialize_battle → _begin_round.call_deferred() → outcome emit; closes G-30 verification gap for the turn loop"
     file: "tests/integration/feature/battle_scene/battle_scene_natural_loop_test.gd"
     priority: must-have
-    status: blocked
+    status: deferred
     owner: "godot-gdscript-specialist"
     estimate_days: 0.3
     blocker: "S15-A + S15-B + S15-C + S15-J"
     completed: ""
-    # 2026-05-10 — story-013 BLOCKED on S15-J close per mid-amend (POLISH-012 wiring residual); resume after S15-J lands; AC-4 both-paths needs production wiring activation
+    # 2026-05-10 — S15-D DEFERRED to sprint-16 per POLISH-013: 3-fixture-iter test stall (chapter-1 / hybrid / 0-player same outcome); test-env-vs-prod unresolved without S15-G re-attest
 
   - id: "S15-J"
     name: "POLISH-012 closure — set_action_controller production-wiring (BattleScene._ready Callable injection); 5-line src addition + handler + ~5 tests"

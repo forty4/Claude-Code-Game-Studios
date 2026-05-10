@@ -1,7 +1,7 @@
 # Story 013: Natural-loop integration test (G-30 mitigation infrastructure)
 
 > **Epic**: Grid Battle Controller
-> **Status**: Ready (BLOCKED on S15-J close per mid-sprint amendment 2026-05-10 PM late-late — POLISH-012 production-wiring residual discovered at /dev-story Phase 4; story-014 must close before story-013 implementation can MEANINGFULLY demonstrate POLISH-011 closure end-to-end)
+> **Status**: Ready (sprint-15 S15-D — DEFERRED to sprint-16 per POLISH-013; 3-spawn-cycle attempt 2026-05-10 PM very-late surfaced deferred-chain progression gap exceeding 2-3h estimate; META-pattern: test designed to close G-30 verification gap surfaced NEW G-30 instance — pattern stability advanced 5 → 6 within hours of S15-J close; sprint-16 reauthoring with reframed scope per POLISH-013 §sprint-16 paths)
 > **Layer**: Feature (integration-tier test infrastructure)
 > **Type**: Integration
 > **Estimate**: 2-3h (~0.3d)
@@ -144,3 +144,26 @@
 - S15-C test pattern (player dispatch arms + re-entrancy guard): `tests/integration/feature/grid_battle/grid_battle_controller_player_declare_action_test.gd`
 - POLISH-011 backlog entry: `production/polish-backlog.md`
 - §11 HARD GATE rule: `docs/process/decisions-convention.md` §11.3 + §11.4
+
+## Deferral Notes (sprint-15 S15-D — 2026-05-10 PM very-late)
+
+**Status flip**: Ready → Ready (DEFERRED to sprint-16). Story file remains Ready for sprint-16 reauthoring with revised scope per POLISH-013 entry.
+
+**3-spawn-cycle attempt summary**:
+1. **Cycle 1 (chapter-1 fixture, 2 player + 4 enemy)**: Test mounted live `BattleScene` via `_instantiate_and_mount_battle_scene()` with default chapter-1 roster. Loop stalled at first `unit_turn_started` emit (player unit; T5 awaits declare_action; no grid-click in headless). 2 emits / 600 frames consumed before timeout. AC-2/3/4 all FAILED.
+2. **Cycle 2 (hybrid 1 stub player + 4 enemy)**: Test pivoted to programmatic mount sequence mirroring `battle_scene.gd` STEP 1-5.5 with synthetic roster (1 stub player + 4 enemies). Hypothesis: player_alive > 0 prevents immediate `_evaluate_victory` enemy_victory at battle init, allowing enemy turns to dispatch + reach ROUND_CAP DRAW. ACTUAL: same stall at first `unit_turn_started` (player unit happens to be first in initiative). 4000 frames consumed (~27s wall-clock). Same outcome.
+3. **Cycle 3 (TRUE 0 player units, 4 enemy only)**: Test pivoted to pure all-enemy fixture per user direction. Hypothesis: 0 player units → `_check_battle_end` fires at round-start with player_alive==0 → enemy_victory immediately → loop reaches terminal emit even without enemy turn dispatch. ACTUAL: same stall at first `unit_turn_started` (presumably first enemy unit's turn awaits AISystem dispatch which never fires). 4000 frames consumed. Same outcome.
+
+**Root cause hypothesis (UNRESOLVED)**: AISystem `CONNECT_DEFERRED` subscriber to `GridBattleController.ai_action_requested` may not be firing in the test scope. Possible reasons: (a) test environment timing differs from production deferred-chain semantics; (b) `AISystem.setup(_grid_controller)` doesn't establish the subscription path that production BattleScene mount establishes; (c) `_make_battle_state_snapshot()` returns a snapshot AISystem can't process due to missing chokepoints / hero_db state. Without further debug instrumentation (e.g., signal-firing trace logs), cannot distinguish between these.
+
+**Critical UNRESOLVED question**: Does production main_scene actually work end-to-end (test-env-only gap; Hypothesis A) OR is POLISH-011 absorption arc not actually closing the natural loop (real production defect; Hypothesis B)? **S15-G windowed re-attestation by user is the gate that determines this.** S15-J wiring test #2 verifies the enemy-side dispatch chain at UNIT scope (handler → ai_action_requested → AISystem → ai_action_ready → declare_action by direct method call) so component contracts are correct; it's the cross-system progression that's unverified.
+
+**Sprint-16 reauthoring paths** (per POLISH-013 §sprint-16 paths):
+1. Debug instrumentation: trace every signal/handler/CONNECT_DEFERRED firing; identify chain break point. ~2-3h. G-31 codification candidate territory.
+2. Input simulation: synthesize InputEventMouseButton + dispatch via GameBus to drive player turns past T5 stall. Combines G-30 mitigation gaps #3 + #5. ~2-3h infra.
+3. Delayed-victory-eval mechanism: add per-unit T5 timeout to TurnOrderRunner (defensive feature; auto-WAIT after N seconds without declare_action). NEW production feature; requires ADR amendment.
+4. Reframe S15-D ACs: reduce to "verify mount + first emit only" (mark AC-2/3/4 as DEFERRED; partial G-30 mitigation). ~30min refactor.
+
+**Test scaffolding (~600 LoC)** authored across 3 cycles is preserved in git history (final pre-delete state at commit `<TBD>` — recoverable via `git show`). Includes: programmatic BattleScene mount sequence mirror; G-4 Array-of-Dict signal capture pattern; G-15 lifecycle hooks; G-31 candidate inline comments. Sprint-16 reauthoring can recover or re-derive.
+
+**G-30 verification gap pattern advanced 5 → 6 invocations** (S14 codified at 4; S15-C close at 5 via POLISH-012; this S15-D defer at 6 — META-pattern: even the test designed to close G-30 surfaces a NEW G-30 instance). Sprint-15 retro AI strongly seeded for: G-30 §Discovered list update; structural review of G-30 mitigation strategy (test infra alone may not be sufficient; may need input simulation + per-unit timeouts + dedicated G-30 mitigation EPIC).

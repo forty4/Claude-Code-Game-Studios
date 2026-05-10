@@ -443,11 +443,61 @@ Where `_on_turn_runner_action_request(unit_id: int, snapshot: UnitTurnState)` is
 
 ---
 
+### POLISH-013 — Natural-loop integration test surfaces deferred-chain progression gap exceeding S15-D scope (test environment vs production unresolved)
+
+| Field | Value |
+|---|---|
+| **Source** | sprint-15 S15-D /dev-story 3-spawn-cycle attempt at natural-loop integration test (2026-05-10 PM very-late) — godot-gdscript-specialist 3 fixture iterations all surfaced same stall pattern |
+| **Tier** | DEFECT (HIGH severity — verification gap; downgraded from CRITICAL because S15-J wiring test #2 already verifies the enemy-side dispatch chain end-to-end at unit-scope; production code IS verified at S15-J level; what's missing is the CI-level natural-loop end-to-end demonstration) |
+| **Closure trigger** | (a) sprint-16+ dedicated test infrastructure story with reframed scope (likely requires input simulation OR delayed-victory-eval mechanism); OR (b) S15-G windowed re-attestation by user PROVES production main_scene loop progresses → POLISH-013 reclassified to test-env-only gap (still requires sprint-16 fix for CI); OR (c) S15-G windowed re-attestation FAILS → POLISH-013 escalates to CRITICAL (real production defect; POLISH-011 not actually closed) |
+| **Owner** | unassigned (sprint-16 pickup; godot-gdscript-specialist + qa-tester at story-013-revised authoring time) |
+| **Status** | Open |
+| **Added** | 2026-05-10 |
+| **Resolved** | — |
+
+**Description**: Sprint-15 S15-D `/dev-story` attempted authoring `tests/integration/feature/battle_scene/battle_scene_natural_loop_test.gd` over 3 godot-gdscript-specialist agent spawn cycles. Each cycle progressed the test design + ran the test; each fixture variant (chapter-1 / hybrid 1-stub-player+4-enemies / TRUE 0-player-units+4-enemies) produced identical stall behavior:
+
+- 2 emits captured: `round_started(1)` + 1 `unit_turn_started(<first_unit>)`
+- 4000 frames consumed (~27s wall-clock @ 60fps virtual time)
+- 0 `ai_action_requested` emits captured (S15-B chain not firing)
+- 0 additional `unit_turn_started` (loop never advances past unit 1)
+- 0 `victory_condition_detected` emits (terminal outcome never reached)
+- AC-7 OBJECT_COUNT delta ~260-272 (POLISH-008 leak surfacing under prolonged loop)
+
+The test mirrors `src/feature/battle_scene/battle_scene.gd` STEP 1-5.5 mount sequence programmatically (instantiates MapGrid + BattleCamera + HPStatusController + TurnOrderRunner + GridBattleController + AISystem in the correct order; wires `set_action_controller(_grid_controller._on_turn_runner_action_request)` per S15-J pattern; calls `_turn_runner.initialize_battle(roster)` to queue `_begin_round.call_deferred()`). Despite mirroring production mount, the natural-loop progression fails to advance.
+
+**Critical UNRESOLVED question** (test-env vs production):
+
+- **Hypothesis A (test-env-only gap)**: AISystem `CONNECT_DEFERRED` subscriber, `_make_battle_state_snapshot()`, or `decide(unit_id, snapshot)` chain has a dependency on a runtime condition that the programmatic test doesn't establish (e.g., chapter chokepoints array emptiness causes silent AI fail; HeroDatabase asset state needed for full enemy decide; map-grid query depends on TileSet being loaded which only happens in BattleScene mount). Production main_scene works fine; only the test setup is incomplete. **S15-G windowed re-attestation by user is the gate that determines this.**
+- **Hypothesis B (real production defect)**: POLISH-011 absorption arc S15-A/B/C/J wired the COMPONENT contracts but the END-TO-END natural deferred-chain progression has a latent stall under any condition (production main_scene would also stall at unit 1; real release-blocker that POLISH-012 closure didn't actually fix). **S15-G windowed re-attestation FAIL would confirm this.**
+
+S15-J wiring test #2 (`battle_scene_set_action_controller_wiring_test.gd:150`) verified the enemy-side dispatch chain works at UNIT scope (handler → ai_action_requested → AISystem → ai_action_ready → declare_action) by direct method call. So Hypothesis A is more likely than B but unresolved without the windowed re-attestation evidence.
+
+**Why headless 1320/1320 PASS doesn't catch the S15-D failure**: ironically, this IS the G-30 verification gap pattern — the existing 1320 tests use direct test seams (`_advance_turn`, `declare_action`, `_seed_unit_state_for_test`) and never exercise the natural deferred-chain progression. S15-D was designed to CLOSE this gap; instead it surfaces a NEW G-30 instance (the meta-pattern: even the test designed to close G-30 hits a G-30 territory issue).
+
+**Defer to sprint-16** with reframed scope. Possible sprint-16 paths:
+1. Debug instrumentation: spawn agent to trace every signal/handler/CONNECT_DEFERRED firing in the test setup; identify where the chain breaks (~2-3h investigation; G-31 codification candidate).
+2. Input simulation: synthesize `InputEventMouseButton` via `Input.parse_input_event()` to drive player turns past T5 stall. Combines G-30 mitigation gaps #3 (input dispatch) + #5 (natural loop) into single test (~2-3h infra).
+3. Delayed-victory-eval mechanism: add per-unit T5 timeout to TurnOrderRunner (defensive feature; if no declare_action within N seconds, auto-WAIT). New production feature; requires ADR amendment.
+4. Reframe S15-D as "verify mount + first emit only" (drop full end-to-end ACs): test asserts programmatic mount completes + round_started(1) + unit_turn_started(first unit) fires; mark AC-2/3/4 as DEFERRED; partial G-30 mitigation (~30min refactor).
+
+**Verification gap pattern (6th invocation, escalated from 5th)**: META-pattern — the test infrastructure designed to close G-30 verification gap pattern #5 (battle-loop end-to-end) ITSELF surfaces a G-30 instance. Pattern stability advanced 5 → 6 within hours of S15-J close. Sprint-15 retro AI strongly seeded for G-30 §Discovered list update + structural review of G-30 mitigation strategy (test infra alone may not be sufficient; may need input simulation + per-unit timeouts + dedicated G-30 mitigation EPIC).
+
+**Cross-references**:
+- Surfacing source: sprint-15 S15-D /dev-story Phase 4-7 spans 3 agent spawn cycles 2026-05-10 PM late-late through PM very-late (chapter-1 stall → hybrid-fixture pivot stall → TRUE 0-player-units stall — same outcome each iteration; orchestrator confirmed stall is reproducible across fixture variants)
+- Affected files: `tests/integration/feature/battle_scene/battle_scene_natural_loop_test.gd` (the failed test; deleted at sprint-15 close-out commit per "never disable failing tests" project discipline; design captured in story-013 spec for sprint-16 reauthoring)
+- Story file (kept Ready for sprint-16 pickup): `production/epics/grid-battle-controller/story-013-natural-loop-integration-test.md`
+- ADR cross-references: ADR-0011 §Amendment 2026-05-09 (T5 await contract), ADR-0014 §Amendment 2026-05-10 (#1+#2+#3) — all Accepted; the chain components verified at unit-scope but not end-to-end
+- gate-check binding: S15-E rerun-4 verdict will weigh POLISH-013 as substrate concern; gate-check verdict CD/TD/PR pivot may be CONCERNS rather than PASS depending on S15-G windowed re-attestation outcome
+- S15-J wiring test (precedent for unit-scope verification of enemy chain): `tests/integration/feature/battle_scene/battle_scene_set_action_controller_wiring_test.gd:150` Test 2
+
+---
+
 ## Index — by Status
 
 | Status | Count | IDs |
 |---|---|---|
-| Open | 12 | POLISH-001 / POLISH-002 / POLISH-003 / POLISH-004 / POLISH-005 / POLISH-006 / POLISH-007 / POLISH-008 / POLISH-009 / POLISH-010 / POLISH-011 / POLISH-012 |
+| Open | 13 | POLISH-001 / POLISH-002 / POLISH-003 / POLISH-004 / POLISH-005 / POLISH-006 / POLISH-007 / POLISH-008 / POLISH-009 / POLISH-010 / POLISH-011 / POLISH-012 / POLISH-013 |
 | In-progress | 0 | — |
 | Resolved | 0 | — |
 | Cancelled | 0 | — |
@@ -462,6 +512,7 @@ Where `_on_turn_runner_action_request(unit_id: int, snapshot: UnitTurnState)` is
 | S13-11 + S13-12 + S13-10 verification surfacings (2026-05-09 PM late) | POLISH-009 / POLISH-010 |
 | Sprint-14 S14-03 re-attestation post-S14-02 visual fix (2026-05-09 PM late) | POLISH-011 |
 | Sprint-15 S15-D /dev-story Phase 4 godot-gdscript-specialist mid-implementation investigation (2026-05-10 PM late-late) | POLISH-012 |
+| Sprint-15 S15-D /dev-story 3-spawn-cycle attempt at natural-loop test (2026-05-10 PM very-late; deferred to sprint-16 with reframed scope) | POLISH-013 |
 
 ## Index — by Closure Trigger
 
@@ -488,3 +539,4 @@ Where `_on_turn_runner_action_request(unit_id: int, snapshot: UnitTurnState)` is
 - 2026-05-09 PM late — POLISH-011 added (S14-03 re-attestation post-S14-02 visual fix surfaced input non-responsive in windowed mode). 3rd invocation of headless-vs-windowed verification gap pattern (POLISH-008 / POLISH-010 / POLISH-011); reinforces sprint-14 S14-06 G-30 codification target. POLISH-010 + POLISH-009 effectively closed by S14-02 implementation (visual rendering verified; `mvp_chapter_01.tscn` ERROR eliminated) — formal status flip pending sprint-14 close ceremony amendment.
 - 2026-05-09 PM late-late — POLISH-011 TRIAGE FINDING amendment: tier escalated HIGH → CRITICAL after root-cause re-attribution from input non-responsive to turn-loop architectural gap (TurnOrderRunner._execute_action_budget stub + missing AISystem.ai_action_ready subscriber + missing per-action declare_action wiring in grid-click handlers). 5-hypothesis disposition documented inline (H1/H2/H4 disconfirmed; H3 secondary; H5 moot). Verification gap pattern advanced 3rd → 4th invocation (POLISH-008 / POLISH-010 / POLISH-011-input-frame / POLISH-011-turn-loop-actual). Sprint-15 absorption recommended; sprint-14 closure-mode prohibits this-sprint fix.
 - 2026-05-10 PM late-late — POLISH-012 added (sprint-15 S15-D /dev-story Phase 4 godot-gdscript-specialist mid-implementation investigation BEFORE first test run): POLISH-011 absorption-arc residual surfaced — `set_action_controller` DI surface added by S15-A is never called from production `src/` (7 test sites + 0 production callers); production main_scene falls through TEST-SEAM no-op pass for T5; battle resolves to ROUND_CAP_DRAW identically with-or-without S15-A/B/C wiring. Verification gap pattern advanced 4th → 5th invocation (CLOSED-LOOP variant: even after the 3 root-cause stories absorb the verification-target, the production WIRING that activates them remains unverified). Sprint-15 R4 risk REALIZED via investigation-time catch (faster + cheaper than the anticipated test-first-run-failure path). Mid-sprint amendment vehicle: S15-J Must Have promotion → story-014 in grid-battle-controller epic; S15-D blocked on S15-J close.
+- 2026-05-10 PM very-late — POLISH-013 added (sprint-15 S15-D /dev-story 3-spawn-cycle attempt at natural-loop integration test): test infrastructure surfaces a deferred-chain progression gap that exceeds achievable verification under current test framework + S15-D 2-3h estimate. 3 fixture iterations attempted (chapter-1 / hybrid 1-stub-player / TRUE 0-player-units) — all stall at unit 1 turn-start with 2 emits captured + 4000 frames consumed. Whether this indicates a test-environment-only gap (production main_scene actually works; needs windowed re-attestation S15-G to confirm) OR a real production defect (POLISH-011 absorption arc didn't close the natural-loop progression chain end-to-end) is UNRESOLVED. S15-D DEFERRED to sprint-16 with reframed scope; sprint-15 closes 4/5 Must Have (S15-A/B/C/J done; S15-D deferred). 6th invocation of headless-vs-windowed verification gap pattern (G-30) — meta-pattern: even the test designed to CLOSE G-30 surfaces a NEW G-30 instance.
