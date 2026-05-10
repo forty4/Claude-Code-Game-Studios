@@ -80,11 +80,24 @@ These directories are intact and can be reactivated:
 Reactivation = update this file's "Current mode" line and start invoking
 the dormant tools. No restoration step needed.
 
-## Per-Session Memory
+## Memory Policy (multi-account aware)
 
-Claude Code keeps a separate per-project memory file (outside this repo)
-that auto-loads in every future session and enforces the current mode in
-agent behavior. **This `WORKFLOW.md` is the human-readable mirror** of
-that memory. Keep the two in sync if either is edited; if they ever
-disagree, this file is canonical and the memory should be updated to
-match.
+This project is worked on across **multiple Claude Code accounts**. Each
+account has its own per-project memory directory (outside this repo), so
+**memory is NOT a source of truth** — different accounts will see
+different memory contents and the system will drift.
+
+**Rule**: anything durable (workflow mode, project conventions,
+architecture decisions, design facts, file conventions) lives **in this
+repo** — `WORKFLOW.md`, `CLAUDE.md`, `.claude/rules/*`, `design/gdd/*`,
+`docs/architecture/*`, `production/decisions/*`. Memory holds only
+short-term info usable within a single account/session (e.g., "user is
+mid-debugging X right now", "feature flag Y is being tested").
+
+If something belongs in memory but feels like it should persist across
+accounts/sessions, it should be promoted to a repo file instead.
+
+Memory files in this project are expected to be **minimal pointers** to
+the canonical repo docs (e.g., "see `WORKFLOW.md` for active mode") so
+that re-deriving full context after an account switch costs only one
+file read.
