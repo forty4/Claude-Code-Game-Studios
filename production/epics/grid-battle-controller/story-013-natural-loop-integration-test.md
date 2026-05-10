@@ -1,7 +1,7 @@
 # Story 013: Natural-loop integration test (G-30 mitigation infrastructure)
 
 > **Epic**: Grid Battle Controller
-> **Status**: Ready
+> **Status**: Ready (BLOCKED on S15-J close per mid-sprint amendment 2026-05-10 PM late-late — POLISH-012 production-wiring residual discovered at /dev-story Phase 4; story-014 must close before story-013 implementation can MEANINGFULLY demonstrate POLISH-011 closure end-to-end)
 > **Layer**: Feature (integration-tier test infrastructure)
 > **Type**: Integration
 > **Estimate**: 2-3h (~0.3d)
@@ -99,7 +99,7 @@
 
 ## Dependencies
 
-- **Depends On**: S15-A (story-008; T5 await + `_maybe_defer_turn_completion`) — ✅ Complete (commit `ab924aa`); S15-B (story-011; AI handler + `_make_move_target` / `_make_attack_target` factories + 6-way dispatch) — ✅ Complete (commits `d5845de` + `a659b21`); S15-C (story-012; player path helpers + dispatch arm rewires) — ✅ Complete (commit `971c2ae`)
+- **Depends On**: S15-A (story-008; T5 await + `_maybe_defer_turn_completion`) — ✅ Complete (commit `ab924aa`); S15-B (story-011; AI handler + `_make_move_target` / `_make_attack_target` factories + 6-way dispatch) — ✅ Complete (commits `d5845de` + `a659b21`); S15-C (story-012; player path helpers + dispatch arm rewires) — ✅ Complete (commit `971c2ae`); **S15-J (story-014; `set_action_controller` production-wiring) — ⏳ in flight (mid-sprint amendment 2026-05-10 PM late-late; POLISH-012 closure)** — without S15-J close, the natural-loop test would technically pass AC-3 (terminal emit fires; ROUND_CAP_DRAW acceptable) but fail to demonstrate POLISH-011 closure end-to-end because production code never injects the controller Callable that activates S15-A/B/C wiring; T5 falls through TEST-SEAM no-op pass; AC-4 both-paths cannot show natural input/AI dispatch
 - **Blocks**: S15-E (`/gate-check pre-prod-to-prod` rerun-4 — natural-loop integration test demonstration is the CD/TD/PR pivot per sprint-15.md S15-E AC-4); S15-G (S8-15 §1.3 third re-attestation post-POLISH-011-fix — natural-loop test PROVES the fix at automated-suite level before user re-attestation)
 
 ## Test Evidence
@@ -126,6 +126,7 @@
 - **R3**: Frame-budget timeout (AC-2 600-frame cap) fires due to legitimate slow battle resolution rather than stalled deferred chain. Mitigation: timeout failure message includes captured emit log per AC-2 diagnostic; if false-positive observed, raise budget to 1200 frames (20s) + re-run; if still timing out, investigate as POLISH-N candidate (deferred-chain stall = bug in S15-A T5 await OR S15-B/C dispatch contract).
 - **R4**: AC-4 both-paths assertion may fail if chapter-1 fixture initiative-order resolves all player units before any enemy turn fires (e.g., player_victory before any AI ai_action_ready emit). Mitigation: chapter-1 fixture has 4 enemies vs 2 players (asymmetric in enemy favor by unit count); enemy unit gets initiative slot in round 1 most plausibly. If observed asymmetry persists, soften AC-4 to "AT LEAST 1 unit_turn_started for each side" (verifies T5 await releases for both side codes; less strict than declare_action emit assertion) + document as known limitation.
 - **R5**: AC-7 `Performance.get_monitor(Performance.OBJECT_COUNT)` delta exceeds +5 budget due to existing POLISH-008 unfixed leak. Mitigation: AC-7 documents observed delta as POLISH-008 baseline; does NOT fail S15-D if delta within reasonable bound (≤ +20 acceptable as documented baseline; >+50 escalates to POLISH-N investigation). S15-D scope is verification, not leak remediation.
+- **R6** *(REALIZED 2026-05-10 PM late-late at /dev-story Phase 4)*: Production-wiring residual — `set_action_controller` DI surface (S15-A `ab924aa`) has 0 production callers; production main_scene falls through TEST-SEAM no-op pass for T5; battle resolves to ROUND_CAP_DRAW identically with-or-without S15-A/B/C wiring; AC-4 both-paths cannot meaningfully demonstrate POLISH-011 closure end-to-end without the wiring fix. **Mitigation**: NEW story S15-J (story-014; POLISH-012 closure) added as mid-sprint amendment per sprint-15.md R4 mitigation pattern; S15-D /dev-story BLOCKED until S15-J close; after S15-J ships, S15-D resumes with the wiring activated and AC-4 will MEANINGFULLY demonstrate POLISH-011 closure. **Pattern**: 5th invocation of headless-vs-windowed verification gap (G-30); CLOSED-LOOP variant where the absorption-arc components ship correctly but the production wiring that activates them remains unverified — codification candidate for sprint-15 retro per ADR amendment process gap analysis (S15-A/B/C amendments documented component contracts but not the integration test that proves end-to-end wiring at production scope).
 
 ## Cross-References
 

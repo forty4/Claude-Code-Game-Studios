@@ -401,11 +401,53 @@ The 1288/1288 PASS / 66th FFB baseline gates LOGIC correctness but does not gate
 
 ---
 
+### POLISH-012 — POLISH-011 absorption-arc residual: `set_action_controller` production-wiring gap (NATURAL-LOOP mode never engages in production)
+
+| Field | Value |
+|---|---|
+| **Source** | sprint-15 S15-D /dev-story Phase 4 (2026-05-10 PM late-late) — godot-gdscript-specialist mid-implementation investigation BEFORE first test run; 4th absorbed POLISH-011 root cause discovered while authoring the natural-loop integration test that was MEANT to verify the 3-root-cause closure |
+| **Tier** | DEFECT (CRITICAL severity — release-blocker; same release-blocker semantics as POLISH-011 since this is the production-wiring residual that activates the S15-A/B/C absorption work; without this fix the 3-story arc S15-A/B/C is functionally inert in production main_scene) |
+| **Closure trigger** | (a) MUST resolve before production stage advancement (gate-check rerun verdict cannot return PASS while POLISH-012 open); OR (b) sprint-15 mid-sprint amendment absorbs as S15-J per sprint-15.md R4 mitigation pattern explicitly anticipated at plan time |
+| **Owner** | godot-gdscript-specialist (BattleScene._ready mount sequence + GridBattleController.setup body — the 5-line fix that wires the missing Callable injection) |
+| **Status** | Open (sprint-15 S15-J mid-amendment in flight 2026-05-10 PM late-late) |
+| **Added** | 2026-05-10 |
+| **Resolved** | — |
+
+**Description**: S15-A wired the `set_action_controller(controller: Callable)` DI surface on `TurnOrderRunner` per ADR-0011 §Amendment 2026-05-09 (commit `ab924aa`). The setter body assigns `_action_controller` and the T5 `_execute_action_budget` body branches on `_action_controller.is_null()` → if injected, calls `_action_controller.call(unit_id, snapshot)` (NATURAL-LOOP mode — awaits external `declare_action`); if NOT injected, falls through to TEST-SEAM mode (no-op pass). 7 sites in `tests/integration/core/turn_order_t5_await_test.gd` exercise the injected NATURAL-LOOP path. **Zero sites in `src/` ever call `set_action_controller`.** `BattleScene._ready()` STEP 4-5 (`battle_scene.gd:175-200`) creates `_turn_runner` + `_grid_controller` and passes `_turn_runner` to `_grid_controller.setup(...)` as 5th positional arg, but neither side registers the Callable that would put T5 into NATURAL-LOOP mode. Production main_scene `scenes/battle/battle_scene.tscn` therefore runs T5 = no-op pass for every unit's turn → all 5 rounds tick across deferred slots in 2-3 seconds → `_end_round` emits ROUND_CAP_DRAW → battle resolves identically with-or-without S15-A/B/C wiring.
+
+**Verification gap pattern (5th invocation, escalated from 4th)**: same headless-vs-windowed verification gap as POLISH-008 (ObjectDB leak) + POLISH-010 (visual rendering) + POLISH-011-input-frame (originally filed) + POLISH-011-turn-loop-actual (TRIAGE FINDING). NEW invocation #5 surfaces a CLOSED-LOOP variant: even after the 3 root-cause stories absorb the verification-target component, the production WIRING that activates them remains unverified. Headless tests use direct test seams (`_runner.set_action_controller(_recording_controller)` injected via test helper); production code never exercises the same injection. Pattern stability advanced 4 → 5 within ~24 hours of POLISH-011 absorption arc closure (S15-C `971c2ae` 2026-05-10 PM late + this discovery 2026-05-10 PM late-late at S15-D /dev-story Phase 4).
+
+**Why discovered BEFORE first test run** (instead of after, as sprint-15.md R4 anticipated): godot-gdscript-specialist Phase 4 investigation ("does production BattleScene._ready actually call set_action_controller?") preceded any code authoring for `battle_scene_natural_loop_test.gd`. `grep -rn "set_action_controller" src/ tests/` returned 7 test sites + 0 production callers. The 3-grep finding was conclusive. This is faster than the sprint-15.md R4 mitigation path ("S15-D natural-loop integration test catches these by failing on first run; mid-sprint amendment absorbs via Should Have promotion") — caught at investigation time, before any code author cycle. Saves ~2-3h of would-have-been-wasted test authoring + first-run failure + diagnostic + amendment.
+
+**S15-J fix scope (single ~5-line wire-up in production code)**: in `BattleScene._ready()` STEP 5 (`battle_scene.gd:182-194`) immediately after `_grid_controller.setup(...)` but BEFORE `add_child(_grid_controller)` (so the Callable is registered before T5 first fires), add:
+
+```gdscript
+# S15-J: wire NATURAL-LOOP mode per ADR-0011 §Amendment 2026-05-09 + ADR-0014 §Amendment 2026-05-10 (#1 + #2).
+# Without this call, T5 _execute_action_budget falls through to TEST-SEAM no-op; production
+# battle loop runs to ROUND_CAP_DRAW in ~2-3 seconds without natural input/AI dispatch.
+_turn_runner.set_action_controller(_grid_controller._on_turn_runner_action_request)
+```
+
+Where `_on_turn_runner_action_request(unit_id: int, snapshot: UnitTurnState)` is a NEW handler method on GridBattleController that the AI / player paths trigger by emitting a deferred-call into. Exact handler signature TBD per S15-J story-014 implementation; the surface contract is per ADR-0011 §Amendment 2026-05-09 §Decision Contract 5 Callable signature.
+
+**Why the 3-story S15-A/B/C arc didn't catch this**: each story scoped its OWN absorption boundary (S15-A internal T5 await; S15-B internal AI handler; S15-C internal player helpers). None of the 3 included AC verification of the production CALL SITE for `set_action_controller`. ADR-0014 §Amendment 2026-05-10 (#1 + #2) documents the helper bypass pattern but neither amendment specifies the BattleScene mount-sequence integration point. ADR amendment process gap: amendments described component contracts but not the integration test that proves end-to-end wiring at production scope.
+
+**Cross-references**:
+- Surfacing source: sprint-15 S15-D /dev-story Phase 4 godot-gdscript-specialist agent investigation 2026-05-10 PM late-late — agent paused before code authoring after `grep -rn "set_action_controller" src/ tests/` finding (verified independently via orchestrator before agent resume direction)
+- Mid-sprint amendment vehicle: sprint-15 S15-J (Must Have promotion per sprint-15.md R4 mitigation pattern; story-014 in `production/epics/grid-battle-controller/story-014-set-action-controller-production-wiring.md`)
+- Blocks: S15-D (story-013 natural-loop integration test — must wait for S15-J close before AC-4 both-paths can MEANINGFULLY demonstrate POLISH-011 closure end-to-end); S15-E (gate-check rerun-4 — natural-loop demonstration is the CD/TD/PR pivot); S15-G (S8-15 §1.3 third re-attestation — user-time test must POST-DATE the production-wiring fix to demonstrate POLISH-011 actually closed)
+- Affected files: `src/feature/battle_scene/battle_scene.gd` STEP 5 (mount sequence) + `src/feature/grid_battle/grid_battle_controller.gd` (NEW handler method `_on_turn_runner_action_request`)
+- ADR cross-references: ADR-0011 §Amendment 2026-05-09 (S15-A T5 await mechanism — defines the Callable contract); ADR-0014 §Amendment 2026-05-10 (#1 S15-B AI subscriber); ADR-0014 §Amendment 2026-05-10 (#2 S15-C player path mirror); both ADR-0014 amendments will receive an Amendment #3 (this S15-J wiring) as part of story-014 close
+- Verification gap pattern siblings: POLISH-008 / POLISH-010 / POLISH-011-input-frame / POLISH-011-turn-loop — sprint-14 S14-06 G-30 codification (5th invocation; escalation candidate to G-30 §Discovered list update at sprint-15 retro)
+- Sprint-15 R4 risk evaluation: REALIZED (anticipated path "test catches it on first run + mid-sprint amendment absorbs"; actual path "investigation catches it BEFORE first run + mid-sprint amendment absorbs"; faster + cheaper)
+
+---
+
 ## Index — by Status
 
 | Status | Count | IDs |
 |---|---|---|
-| Open | 11 | POLISH-001 / POLISH-002 / POLISH-003 / POLISH-004 / POLISH-005 / POLISH-006 / POLISH-007 / POLISH-008 / POLISH-009 / POLISH-010 / POLISH-011 |
+| Open | 12 | POLISH-001 / POLISH-002 / POLISH-003 / POLISH-004 / POLISH-005 / POLISH-006 / POLISH-007 / POLISH-008 / POLISH-009 / POLISH-010 / POLISH-011 / POLISH-012 |
 | In-progress | 0 | — |
 | Resolved | 0 | — |
 | Cancelled | 0 | — |
@@ -419,6 +461,7 @@ The 1288/1288 PASS / 66th FFB baseline gates LOGIC correctness but does not gate
 | Sprint-13 mid-plan Production VS bug surfacing (2026-05-09 PM headless boot deferred non-blocker tier) | POLISH-007 / POLISH-008 |
 | S13-11 + S13-12 + S13-10 verification surfacings (2026-05-09 PM late) | POLISH-009 / POLISH-010 |
 | Sprint-14 S14-03 re-attestation post-S14-02 visual fix (2026-05-09 PM late) | POLISH-011 |
+| Sprint-15 S15-D /dev-story Phase 4 godot-gdscript-specialist mid-implementation investigation (2026-05-10 PM late-late) | POLISH-012 |
 
 ## Index — by Closure Trigger
 
@@ -430,6 +473,7 @@ The 1288/1288 PASS / 66th FFB baseline gates LOGIC correctness but does not gate
 | Character-art commission sprint enters planning (forcing function) OR Polish gate (`production/stage.txt` = `Polish`) | POLISH-006 |
 | Bundled at sprint-14 entry (POLISH-009 likely root cause of POLISH-010) | POLISH-009 / POLISH-010 |
 | MUST resolve before production stage advancement (gate-check rerun-3 path-to-PASS) | POLISH-011 |
+| MUST resolve before production stage advancement (sprint-15 S15-J mid-amendment in flight; production-wiring residual of POLISH-011 absorption arc) | POLISH-012 |
 
 ---
 
@@ -443,3 +487,4 @@ The 1288/1288 PASS / 66th FFB baseline gates LOGIC correctness but does not gate
 - 2026-05-09 PM late — POLISH-009 + POLISH-010 added (S13-10 USER-OWNED attestation surfaced production main_scene visual rendering FAIL; POLISH-010 is HIGH-tier release-blocker gating gate-check rerun PASS verdict). Verification gap pattern noted for sprint-13 retro: 1288/1288 PASS automated suite gates LOGIC but does not gate VISUAL PRESENCE of production main_scene; headless-only verification cannot surface blank-window symptoms.
 - 2026-05-09 PM late — POLISH-011 added (S14-03 re-attestation post-S14-02 visual fix surfaced input non-responsive in windowed mode). 3rd invocation of headless-vs-windowed verification gap pattern (POLISH-008 / POLISH-010 / POLISH-011); reinforces sprint-14 S14-06 G-30 codification target. POLISH-010 + POLISH-009 effectively closed by S14-02 implementation (visual rendering verified; `mvp_chapter_01.tscn` ERROR eliminated) — formal status flip pending sprint-14 close ceremony amendment.
 - 2026-05-09 PM late-late — POLISH-011 TRIAGE FINDING amendment: tier escalated HIGH → CRITICAL after root-cause re-attribution from input non-responsive to turn-loop architectural gap (TurnOrderRunner._execute_action_budget stub + missing AISystem.ai_action_ready subscriber + missing per-action declare_action wiring in grid-click handlers). 5-hypothesis disposition documented inline (H1/H2/H4 disconfirmed; H3 secondary; H5 moot). Verification gap pattern advanced 3rd → 4th invocation (POLISH-008 / POLISH-010 / POLISH-011-input-frame / POLISH-011-turn-loop-actual). Sprint-15 absorption recommended; sprint-14 closure-mode prohibits this-sprint fix.
+- 2026-05-10 PM late-late — POLISH-012 added (sprint-15 S15-D /dev-story Phase 4 godot-gdscript-specialist mid-implementation investigation BEFORE first test run): POLISH-011 absorption-arc residual surfaced — `set_action_controller` DI surface added by S15-A is never called from production `src/` (7 test sites + 0 production callers); production main_scene falls through TEST-SEAM no-op pass for T5; battle resolves to ROUND_CAP_DRAW identically with-or-without S15-A/B/C wiring. Verification gap pattern advanced 4th → 5th invocation (CLOSED-LOOP variant: even after the 3 root-cause stories absorb the verification-target, the production WIRING that activates them remains unverified). Sprint-15 R4 risk REALIZED via investigation-time catch (faster + cheaper than the anticipated test-first-run-failure path). Mid-sprint amendment vehicle: S15-J Must Have promotion → story-014 in grid-battle-controller epic; S15-D blocked on S15-J close.
