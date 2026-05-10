@@ -222,6 +222,67 @@ echo "**9 of 9 absorbed.** Carryover concentration into sprint-12: **2 USER-OWNE
 
 ---
 
+## TG-5 — SendMessage tool unavailable in environment: paused subagents cannot be resumed; must spawn fresh agents with cumulative context
+
+**Context**: spawning a Task subagent that pauses mid-execution to ask the orchestrator a question (e.g., "May I write to [path]?" per CLAUDE.md collaborative protocol; OR "I discovered ambiguity X — should I proceed with approach Y?"). The Task tool's docstring suggests resuming a paused agent via `SendMessage with the agent's ID or name as the 'to' field — that resumes it with full context`. The agent's pause output also instructs `(use SendMessage with to: '<agentId>' to continue this agent)`.
+
+**Broken**: trusting that SendMessage is available without verifying. If the deployed environment does NOT expose the SendMessage tool (current environment as of 2026-05-10 sprint-15 verification: ToolSearch lookup returned `No matching deferred tools found` for `SendMessage`), there is no path to resume the paused subagent. Each fresh `Agent` Task call starts a NEW agent with NO memory of the prior pause + reasoning. The user's approval that arrives between pause + intended-resume is effectively lost; the new agent must re-derive everything from prompt context.
+
+```
+# BROKEN — assumed SendMessage exists; agent paused asking "May I write to [path]?";
+# orchestrator gets user approval; tries SendMessage:
+#
+# (no tool call possible — SendMessage not in tool list nor in deferred tools)
+#
+# → orchestrator forced to spawn fresh agent
+# → fresh agent loads context from scratch (re-reads source files, ADRs, etc.)
+# → high token cost per spawn cycle
+# → if fresh agent ALSO pauses with same kind of permission question, infinite spawn loop risk
+```
+
+**Correct**: assume SendMessage is unavailable until proven otherwise. Two mitigation patterns:
+
+1. **Verify availability at session start** if you anticipate needing agent resumption:
+   ```
+   ToolSearch(query="select:SendMessage", max_results=1)
+   # If returns "No matching deferred tools found" → plan for spawn-only workflow
+   ```
+
+2. **Pre-approve writes in spawn prompt** to avoid the pause-for-permission trap. Structure subagent prompts so the agent does NOT pause for routine permission questions when the user has already approved at the orchestration level (via AskUserQuestion). Use explicit override language:
+   ```
+   # CORRECT — pre-approval directive in spawn prompt
+   "**CRITICAL — pre-approval status**: The user has PRE-APPROVED all N write operations
+   described below. Do NOT ask 'May I write to [path]?' — pre-approved per the AskUserQuestion
+   gate before this spawn was invoked. Per CLAUDE.md collab protocol, this pre-approval
+   directive satisfies the 'ask before writing' rule for THESE specific writes. Just write,
+   test, report. Pause only if you discover a NEW gap that contradicts the design (e.g.,
+   method signature differs from what's documented, test framework gotcha surfaces)."
+   ```
+
+   This explicit override prevents the agent from defaulting to the per-write permission
+   pause that would otherwise create a SendMessage-unavailability trap.
+
+**Symptom checklist** — if a subagent's final message ends with `agentId: <hex> (use SendMessage with to: '<hex>' to continue this agent)` and orchestrator tries SendMessage but it's not in tool list:
+
+1. ToolSearch with query `select:SendMessage` → `No matching deferred tools found` confirms unavailability
+2. The agent's "intended resume context" is GONE — they will not produce more output
+3. Their work-in-progress IS preserved on disk if they wrote files before the pause; verify via `git status` + spot-checks
+4. Orchestrator must spawn FRESH agent with cumulative context (including: original task + pre-approval directive + any user decisions made in the resume window)
+
+**Concrete cost** (sprint-15 S15-J + S15-D, 2026-05-10): **5 agent spawn cycles total** required across 2 stories due to SendMessage unavailability. S15-J: 3 spawn cycles (initial → orchestrator-design-correction → execute-with-pre-approval). S15-D: 3 spawn cycles (initial → hybrid-fixture-pivot → 0-player-units-pivot, all paused with same SendMessage suggestion). Average ~75-95k tokens per agent spawn (cumulative context loading + work performed). Total token cost ~5×85k = ~425k tokens for what could have been ~2×85k + 3×SendMessage-resumes if SendMessage were available. ~3-4x token amplification factor.
+
+**Workflow improvements** to mitigate:
+1. Front-load pre-approval directives in EVERY subagent spawn prompt where multiple file writes are anticipated. Format above ("CRITICAL — pre-approval status").
+2. Spawn agents with maximally complete context including all design decisions resolved at orchestration level (vs. pushing decisions onto agents that will then need to pause).
+3. Accept that some agents will still pause for genuinely-ambiguous architectural questions — those are correct pauses; the gotcha is permission-pauses for routine writes.
+4. If a deployment has SendMessage available, this gotcha doesn't apply; verify via ToolSearch at session-start when planning a multi-write task.
+
+**Cross-references in this codebase**: sprint-15 commits `a4636dc` (S15-J close after 3 spawn cycles) + `dca58a4` (S15-D defer after 3 spawn cycles). Both commit messages document the spawn-cycle counts.
+
+**Discovered**: sprint-15 S15-J + S15-D /dev-story (2026-05-10 PM late-late through PM very-late). 5 spawn cycles in <12 hours surfaced the pattern as stable. Codified at sprint-15 close-out with 13th retro debt item (process observation: SendMessage tool unavailability worth flagging if user has any control over tool availability OR worth permanent codification if environment permanent).
+
+---
+
 ## Adding a new tooling gotcha
 
 When a workflow command bites the team:
