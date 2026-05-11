@@ -55,10 +55,20 @@ const COLOR_TILE_BORDER:   Color = Color("1c1a17")  # 묵 — clear ink line
 ## Vector2i(-1, -1) sentinel = no selection (overlay not drawn).
 var _selected_coord: Vector2i = Vector2i(-1, -1)
 
+## Tiles the selected unit can move to. Updated via set_movable_tiles() at
+## selection time; empty = no preview drawn. Stored as PackedVector2Array of
+## grid coords (matching GridBattleController.get_movable_tiles return shape).
+var _movable_tiles: PackedVector2Array = PackedVector2Array()
+
 
 ## Selection highlight color (saturated saffron — art-bible reserved color for
 ## "destiny moment" usage; here repurposed for tactical selection feedback).
 const COLOR_SELECTION: Color = Color("d4a017")
+
+## Movement-range preview fill: translucent player-faction blue so reachable
+## tiles read as "your strategic space" without competing with the saffron
+## selection outline. Alpha = 0.30 keeps terrain readable underneath.
+const COLOR_MOVE_PREVIEW: Color = Color(0.18, 0.55, 0.67, 0.30)
 
 
 ## Faction colors per art-bible §4.2. Used by spawn_unit_polygons() to color
@@ -75,6 +85,14 @@ func set_selected_coord(coord: Vector2i) -> void:
 	if _selected_coord == coord:
 		return
 	_selected_coord = coord
+	queue_redraw()
+
+
+## Updates the movement-range preview overlay. Pass an empty array to clear.
+## Called from BattleScene._on_unit_selected_changed after computing the
+## movable set via GridBattleController.get_movable_tiles().
+func set_movable_tiles(tiles: PackedVector2Array) -> void:
+	_movable_tiles = tiles
 	queue_redraw()
 
 
@@ -189,7 +207,16 @@ func _draw() -> void:
 			draw_rect(rect, fill, true)
 			draw_rect(rect, COLOR_TILE_BORDER, false, 1.0)
 
-	# Selection highlight overlay (drawn last so it sits on top of tiles).
+	# Movement-range preview (drawn before selection outline so the outline
+	# stays visually on top of all overlays).
+	for v: Vector2 in _movable_tiles:
+		var move_rect: Rect2 = Rect2(
+			Vector2(int(v.x) * TILE_SIZE, int(v.y) * TILE_SIZE),
+			Vector2(TILE_SIZE, TILE_SIZE),
+		)
+		draw_rect(move_rect, COLOR_MOVE_PREVIEW, true)
+
+	# Selection highlight overlay (drawn last so it sits on top of tiles + preview).
 	if _selected_coord.x >= 0 and _selected_coord.y >= 0:
 		var sel_rect: Rect2 = Rect2(
 			Vector2(_selected_coord.x * TILE_SIZE, _selected_coord.y * TILE_SIZE),

@@ -505,6 +505,26 @@ func is_tile_in_attack_range(tile: Vector2i, unit_id: int) -> bool:
 	return false
 
 
+## Enumerates the set of tiles the unit can legally move to. Reuses
+## is_tile_in_move_range as the single source of truth for movement validation,
+## so the preview cannot drift from the click-time check. Scans the Manhattan
+## diamond bounded by unit.move_range (≤ 5 typically, so worst-case 60 checks).
+## Origin tile is excluded (manhattan == 0 returns false in is_tile_in_move_range).
+func get_movable_tiles(unit_id: int) -> PackedVector2Array:
+	var result: PackedVector2Array = PackedVector2Array()
+	if not _units.has(unit_id):
+		return result
+	var unit: BattleUnit = _units[unit_id]
+	for dx: int in range(-unit.move_range, unit.move_range + 1):
+		for dy: int in range(-unit.move_range, unit.move_range + 1):
+			if absi(dx) + absi(dy) > unit.move_range:
+				continue
+			var coord: Vector2i = unit.position + Vector2i(dx, dy)
+			if is_tile_in_move_range(coord, unit_id):
+				result.append(Vector2(coord))
+	return result
+
+
 ## Returns the currently selected unit_id, or -1 if no unit is selected.
 func get_selected_unit_id() -> int:
 	return _selected_unit_id
