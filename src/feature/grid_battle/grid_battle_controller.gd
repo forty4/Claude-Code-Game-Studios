@@ -525,6 +525,25 @@ func get_movable_tiles(unit_id: int) -> PackedVector2Array:
 	return result
 
 
+## Enumerates the set of tiles the unit can legally attack. Reuses
+## is_tile_in_attack_range as the single source of truth, so the preview
+## cannot drift from the click-time check. Scans the Manhattan diamond
+## bounded by unit.attack_range (≤ 2 for MVP, worst-case 12 checks).
+func get_attackable_tiles(unit_id: int) -> PackedVector2Array:
+	var result: PackedVector2Array = PackedVector2Array()
+	if not _units.has(unit_id):
+		return result
+	var unit: BattleUnit = _units[unit_id]
+	for dx: int in range(-unit.attack_range, unit.attack_range + 1):
+		for dy: int in range(-unit.attack_range, unit.attack_range + 1):
+			if absi(dx) + absi(dy) > unit.attack_range:
+				continue
+			var coord: Vector2i = unit.position + Vector2i(dx, dy)
+			if is_tile_in_attack_range(coord, unit_id):
+				result.append(Vector2(coord))
+	return result
+
+
 ## Returns the currently selected unit_id, or -1 if no unit is selected.
 func get_selected_unit_id() -> int:
 	return _selected_unit_id

@@ -60,6 +60,10 @@ var _selected_coord: Vector2i = Vector2i(-1, -1)
 ## grid coords (matching GridBattleController.get_movable_tiles return shape).
 var _movable_tiles: PackedVector2Array = PackedVector2Array()
 
+## Tiles the selected unit can attack (enemy-occupied, within attack_range).
+## Updated via set_attackable_tiles() at selection time; empty = no preview.
+var _attackable_tiles: PackedVector2Array = PackedVector2Array()
+
 
 ## Selection highlight color (saturated saffron — art-bible reserved color for
 ## "destiny moment" usage; here repurposed for tactical selection feedback).
@@ -69,6 +73,11 @@ const COLOR_SELECTION: Color = Color("d4a017")
 ## tiles read as "your strategic space" without competing with the saffron
 ## selection outline. Alpha = 0.30 keeps terrain readable underneath.
 const COLOR_MOVE_PREVIEW: Color = Color(0.18, 0.55, 0.67, 0.30)
+
+## Attack-range preview fill: translucent red on enemy-occupied tiles within
+## attack reach. Distinct hue from movement preview so both can be read at
+## once. NOT 주홍 #c0392b (art-bible reserved); muted brick instead.
+const COLOR_ATTACK_PREVIEW: Color = Color(0.80, 0.28, 0.22, 0.40)
 
 
 ## Faction colors per art-bible §4.2. Used by spawn_unit_polygons() to color
@@ -93,6 +102,14 @@ func set_selected_coord(coord: Vector2i) -> void:
 ## movable set via GridBattleController.get_movable_tiles().
 func set_movable_tiles(tiles: PackedVector2Array) -> void:
 	_movable_tiles = tiles
+	queue_redraw()
+
+
+## Updates the attack-range preview overlay. Pass an empty array to clear.
+## Tiles should be enemy-occupied within attack_range (filtered by
+## GridBattleController.get_attackable_tiles).
+func set_attackable_tiles(tiles: PackedVector2Array) -> void:
+	_attackable_tiles = tiles
 	queue_redraw()
 
 
@@ -215,6 +232,15 @@ func _draw() -> void:
 			Vector2(TILE_SIZE, TILE_SIZE),
 		)
 		draw_rect(move_rect, COLOR_MOVE_PREVIEW, true)
+
+	# Attack-range preview (drawn over movement preview so enemy targets
+	# read as the dominant action when both overlay sets are visible).
+	for v: Vector2 in _attackable_tiles:
+		var atk_rect: Rect2 = Rect2(
+			Vector2(int(v.x) * TILE_SIZE, int(v.y) * TILE_SIZE),
+			Vector2(TILE_SIZE, TILE_SIZE),
+		)
+		draw_rect(atk_rect, COLOR_ATTACK_PREVIEW, true)
 
 	# Selection highlight overlay (drawn last so it sits on top of tiles + preview).
 	if _selected_coord.x >= 0 and _selected_coord.y >= 0:

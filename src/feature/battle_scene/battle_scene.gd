@@ -337,14 +337,17 @@ func _on_unit_selected_changed(unit_id: int, _was_selected: int) -> void:
 	if unit_id == -1:
 		visuals.set_selected_coord(Vector2i(-1, -1))
 		visuals.set_movable_tiles(PackedVector2Array())
+		visuals.set_attackable_tiles(PackedVector2Array())
 		return
 	var unit: BattleUnit = _grid_controller.get_battle_unit(unit_id)
 	if unit == null:
 		visuals.set_selected_coord(Vector2i(-1, -1))
 		visuals.set_movable_tiles(PackedVector2Array())
+		visuals.set_attackable_tiles(PackedVector2Array())
 		return
 	visuals.set_selected_coord(unit.position)
 	visuals.set_movable_tiles(_grid_controller.get_movable_tiles(unit_id))
+	visuals.set_attackable_tiles(_grid_controller.get_attackable_tiles(unit_id))
 
 
 func _find_chapter_visuals() -> Node:
@@ -388,9 +391,15 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 		unit_node.position = world_pos
 	if _grid_controller.get_selected_unit_id() == unit_id:
 		visuals.set_selected_coord(to)
-	# Unit just consumed its move action; clear the preview so the player
-	# doesn't see stale "can move here" tiles. Re-selection will recompute.
+	# Unit just consumed its move action; clear the move preview so stale
+	# "can move here" tiles don't linger. If the unit is still selected,
+	# recompute attack reach from its new position so the player sees what
+	# they can now hit; otherwise clear attack preview too.
 	visuals.set_movable_tiles(PackedVector2Array())
+	if _grid_controller.get_selected_unit_id() == unit_id:
+		visuals.set_attackable_tiles(_grid_controller.get_attackable_tiles(unit_id))
+	else:
+		visuals.set_attackable_tiles(PackedVector2Array())
 
 
 ## Damage feedback: brief red flash on the defender's polygon so the player
