@@ -241,6 +241,13 @@ func _ready() -> void:
 	)
 	_hud_layer.add_child(_battle_hud)
 
+	# ChapterVisuals is mounted at /root by SceneManager AFTER BattleScene._ready
+	# returns (async load + deferred instantiate per ADR-0002). Spawn runtime
+	# unit polygons once the visuals node appears — this replaces .tscn-baked
+	# polygons with roster-driven ones so deployment branch overrides (e.g.
+	# WIN_changbanpo_default placing 유비 at [2,3]) actually render.
+	_spawn_unit_polygons_async(roster)
+
 
 # ─── Chapter-driven helpers (sprint-7 S7-02 — replaces deleted mock encoder) ──
 
@@ -342,6 +349,21 @@ func _find_chapter_visuals() -> Node:
 		if child is ChapterVisuals:
 			return child
 	return null
+
+
+## Polls /root for ChapterVisuals across up to ~0.5s (30 frames @ 60fps) and
+## calls spawn_unit_polygons(roster) once it appears. Required because the
+## chapter visuals scene is async-loaded by SceneManager and mounts after
+## BattleScene._ready returns. Fire-and-forget coroutine from _ready.
+func _spawn_unit_polygons_async(roster: Array[BattleUnit]) -> void:
+	for _attempt: int in 30:
+		var visuals: Node = _find_chapter_visuals()
+		if visuals != null and visuals.has_method("spawn_unit_polygons"):
+			visuals.spawn_unit_polygons(roster)
+			return
+		await get_tree().process_frame
+	push_warning("BattleScene: ChapterVisuals not mounted within 30 frames; "
+		+ "runtime unit polygons not spawned")
 
 
 ## Unit-moved handler. Re-positions the unit's Polygon2D inside the chapter

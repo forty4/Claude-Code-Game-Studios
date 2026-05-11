@@ -61,11 +61,102 @@ var _selected_coord: Vector2i = Vector2i(-1, -1)
 const COLOR_SELECTION: Color = Color("d4a017")
 
 
+## Faction colors per art-bible §4.2. Used by spawn_unit_polygons() to color
+## player vs enemy unit silhouettes. side==0 = player (촉/Shu blue);
+## side==1 = enemy (위/Wei charcoal). Reserved 주홍/금색 must NOT appear here.
+const COLOR_FACTION_PLAYER: Color = Color("2e5f7a")
+const COLOR_FACTION_ENEMY:  Color = Color("4a4a4a")
+
+## Unit polygon half-extent (≈ 40×40 silhouette around the tile center).
+const _UNIT_HALF: int = 20
+
+
 func set_selected_coord(coord: Vector2i) -> void:
 	if _selected_coord == coord:
 		return
 	_selected_coord = coord
 	queue_redraw()
+
+
+## Spawns one Polygon2D per roster unit under PlayerUnits/EnemyUnits, replacing
+## any pre-authored or previously-spawned polygons. Shape is class-coded
+## (UnitRole.UnitClass enum); color is faction-coded (BattleUnit.side); rotation
+## is facing-coded for directional classes (CAVALRY/ARCHER apex points along the
+## facing axis). Names follow the `Unit{unit_id}_*` convention so the existing
+## battle_scene.gd _find_unit_polygon() helper (move/damage/death handlers) keeps
+## working unchanged.
+func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
+	var player_parent: Node2D = _get_or_create_unit_parent("PlayerUnits")
+	var enemy_parent: Node2D = _get_or_create_unit_parent("EnemyUnits")
+	for child: Node in player_parent.get_children():
+		child.queue_free()
+	for child: Node in enemy_parent.get_children():
+		child.queue_free()
+	for unit: BattleUnit in roster:
+		var poly: Polygon2D = Polygon2D.new()
+		poly.name = "Unit%d_%s" % [unit.unit_id, String(unit.hero_id)]
+		poly.position = Vector2(
+			unit.position.x * TILE_SIZE + TILE_SIZE / 2.0,
+			unit.position.y * TILE_SIZE + TILE_SIZE / 2.0,
+		)
+		poly.color = COLOR_FACTION_PLAYER if unit.side == 0 else COLOR_FACTION_ENEMY
+		poly.polygon = _shape_for_class(unit.unit_class)
+		poly.rotation = _rotation_for_facing(unit.facing, unit.unit_class)
+		if unit.side == 0:
+			player_parent.add_child(poly)
+		else:
+			enemy_parent.add_child(poly)
+
+
+func _get_or_create_unit_parent(parent_name: String) -> Node2D:
+	var existing: Node = get_node_or_null(parent_name)
+	if existing is Node2D:
+		return existing as Node2D
+	var parent: Node2D = Node2D.new()
+	parent.name = parent_name
+	add_child(parent)
+	return parent
+
+
+## Class-coded silhouettes (UnitRole.UnitClass enum, see src/foundation/unit_role.gd).
+## Shapes intentionally distinct at a glance: CAVALRY=triangle (apex=facing);
+## INFANTRY=square; ARCHER=inverted triangle; STRATEGIST=diamond;
+## COMMANDER=pentagon; SCOUT=small triangle. All sized ~40×40.
+func _shape_for_class(unit_class: int) -> PackedVector2Array:
+	var h: int = _UNIT_HALF
+	match unit_class:
+		0:  # CAVALRY — east-facing triangle (apex +x); rotation applied separately
+			return PackedVector2Array([Vector2(h, 0), Vector2(-h, -h), Vector2(-h, h)])
+		1:  # INFANTRY — square
+			return PackedVector2Array([Vector2(-h, -h), Vector2(h, -h), Vector2(h, h), Vector2(-h, h)])
+		2:  # ARCHER — inverted triangle (apex -y, baseline +y rotated to facing)
+			return PackedVector2Array([Vector2(-h, -h), Vector2(h, -h), Vector2(0, h)])
+		3:  # STRATEGIST — diamond
+			return PackedVector2Array([Vector2(0, -h), Vector2(h, 0), Vector2(0, h), Vector2(-h, 0)])
+		4:  # COMMANDER — pentagon
+			return PackedVector2Array([
+				Vector2(0, -h), Vector2(h, -h / 3), Vector2(h * 2 / 3, h),
+				Vector2(-h * 2 / 3, h), Vector2(-h, -h / 3),
+			])
+		5:  # SCOUT — small triangle (75% scale)
+			var s: int = h * 3 / 4
+			return PackedVector2Array([Vector2(0, -s), Vector2(s, s), Vector2(-s, s)])
+		_:
+			return PackedVector2Array([Vector2(-h, -h), Vector2(h, -h), Vector2(h, h), Vector2(-h, h)])
+
+
+## Maps facing (0=N, 1=E, 2=S, 3=W) to polygon rotation. CAVALRY's base shape
+## points east (+x) so facing=1 is identity; INFANTRY/STRATEGIST/COMMANDER are
+## rotationally symmetric enough that rotation is a no-op (return 0).
+func _rotation_for_facing(facing: int, unit_class: int) -> float:
+	if unit_class != 0 and unit_class != 2 and unit_class != 5:
+		return 0.0
+	match facing:
+		0: return -PI / 2.0  # N
+		1: return 0.0        # E (base orientation)
+		2: return PI / 2.0   # S
+		3: return PI         # W
+		_: return 0.0
 
 
 func _ready() -> void:

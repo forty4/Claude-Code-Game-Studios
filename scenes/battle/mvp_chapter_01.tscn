@@ -1,25 +1,18 @@
 ; Chapter 1 (장판파 / Changbanpo) production-tier visual scene.
-; Authored per ADR-0021 §1 + §2 — mounted as a child of BattleScene/GridLayer
-; at STEP 1.5 of the BattleScene mount sequence (see ADR-0021 §6).
+; Authored per ADR-0021 §1 + §2 — mounted at /root by SceneManager.
 ;
 ; Tile rendering: chapter_visuals.gd `_draw()` overrides on the root Node2D.
-; Unit silhouettes: Polygon2D children authored at deployment-position pixel
-; coordinates per art-bible §3-2 (보병 사각 / 기병 삼각 / 궁병 역삼각 / 돌격 쐐기).
+; Unit silhouettes: spawned at runtime by BattleScene._spawn_unit_polygons_async
+; → ChapterVisuals.spawn_unit_polygons(roster) so deployment branch overrides
+; render correctly. PlayerUnits/EnemyUnits are kept here as empty container
+; nodes; the spawn helper clears+repopulates them on every battle start.
 ;
 ; TILE_SIZE = 64 (matches chapter_visuals.gd TILE_SIZE = BalanceConstants.TILE_WORLD_SIZE).
 ; Unit position formula: (col * 64 + 32, row * 64 + 32) — center of tile.
 ;
-; Deployment positions per assets/data/scenarios/mvp_shu.json:
-;   unit 0 (유비)        col=1, row=3 → (96, 224)
-;   unit 1 (장비)        col=2, row=3 → (160, 224)
-;   unit 2 (하후돈)       col=4, row=3 → (288, 224)
-;   unit 3 (장료)        col=5, row=2 → (352, 160)
-;   unit 4 (우금)        col=5, row=4 → (352, 288)
-;   unit 5 (허저)        col=6, row=3 → (416, 224)
-;
-; Faction colors per art-bible §4.2 (촉 #2e5f7a / 위 #4a4a4a):
-;   Reserved colors 주홍 #c0392b + 금색 #d4a017 are NOT used here per
-;   art-bible §1.지지 원칙 2 (운명의 색은 한번만 빛난다) + §4.1 절대 금지.
+; Faction colors per art-bible §4.2 (촉 #2e5f7a / 위 #4a4a4a) applied at spawn time.
+; Reserved colors 주홍 #c0392b + 금색 #d4a017 are NOT used for units per
+; art-bible §1.지지 원칙 2 + §4.1 절대 금지.
 
 [gd_scene load_steps=3 format=3]
 
@@ -32,46 +25,4 @@ map_resource = ExtResource("2_map")
 
 [node name="PlayerUnits" type="Node2D" parent="."]
 
-; Unit 0 — 유비 (shu_001_liu_bei) — 보병 사각 / hero size 1.25× (40×40)
-; Position (96, 224) = col 1, row 3
-[node name="Unit0_LiuBei" type="Polygon2D" parent="PlayerUnits"]
-position = Vector2(96, 224)
-color = Color(0.1804, 0.3725, 0.4784, 1)
-polygon = PackedVector2Array(-20, -20, 20, -20, 20, 20, -20, 20)
-
-; Unit 1 — 장비 (shu_003_zhang_fei) — 보병 사각 / hero size 1.25× (40×40)
-; Position (160, 224) = col 2, row 3
-[node name="Unit1_ZhangFei" type="Polygon2D" parent="PlayerUnits"]
-position = Vector2(160, 224)
-color = Color(0.1804, 0.3725, 0.4784, 1)
-polygon = PackedVector2Array(-20, -20, 20, -20, 20, 20, -20, 20)
-
 [node name="EnemyUnits" type="Node2D" parent="."]
-
-; Unit 2 — 하후돈 (wei_005_xiahou_dun, archetype=aggressor) — 기병 삼각 west-facing
-; Position (288, 224) = col 4, row 3 (apex faces -x toward player)
-[node name="Unit2_XiahouDun" type="Polygon2D" parent="EnemyUnits"]
-position = Vector2(288, 224)
-color = Color(0.2902, 0.2902, 0.2902, 1)
-polygon = PackedVector2Array(-22, 0, 18, -20, 18, 20)
-
-; Unit 3 — 장료 (wei_006_zhang_liao, archetype=skirmisher) — 궁병 역삼각
-; Position (352, 160) = col 5, row 2
-[node name="Unit3_ZhangLiao" type="Polygon2D" parent="EnemyUnits"]
-position = Vector2(352, 160)
-color = Color(0.2902, 0.2902, 0.2902, 1)
-polygon = PackedVector2Array(-20, -18, 20, -18, 0, 22)
-
-; Unit 4 — 우금 (wei_007_yu_jin, archetype=holder) — 보병 사각 (32×32)
-; Position (352, 288) = col 5, row 4
-[node name="Unit4_YuJin" type="Polygon2D" parent="EnemyUnits"]
-position = Vector2(352, 288)
-color = Color(0.2902, 0.2902, 0.2902, 1)
-polygon = PackedVector2Array(-16, -16, 16, -16, 16, 16, -16, 16)
-
-; Unit 5 — 허저 (wei_008_xu_chu, archetype=coordinator) — 돌격 쐐기 west-facing
-; Position (416, 224) = col 6, row 3
-[node name="Unit5_XuChu" type="Polygon2D" parent="EnemyUnits"]
-position = Vector2(416, 224)
-color = Color(0.2902, 0.2902, 0.2902, 1)
-polygon = PackedVector2Array(-22, 0, -8, -20, 22, 0, -8, 20)
