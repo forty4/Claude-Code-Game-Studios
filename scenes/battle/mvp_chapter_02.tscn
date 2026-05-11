@@ -1,0 +1,52 @@
+; Chapter 2 (장판교 / Changban Bridge) production-tier visual scene.
+; Mounted as a child of BattleScene/GridLayer at STEP 1.5 of the BattleScene
+; mount sequence (see chapter 1 .tscn header for the canonical contract).
+;
+; TILE_SIZE = 64. Unit position formula: (col * 64 + 32, row * 64 + 32).
+;
+; Default (tragic / LOSS_changbanpo_retreat) deployment per mvp_shu.json:
+;   unit 1 (장비)   col=3, row=3 → (224, 224)   ON bridge — chokepoint
+;   unit 2 (하후돈) col=6, row=3 → (416, 224)
+;   unit 3 (장료)   col=5, row=3 → (352, 224)
+;
+; Heroic (WIN_changbanpo_default) branch override deploys 유비 at [2,3] BEHIND
+; 장비. The 유비 polygon is NOT pre-authored here — the gold selection outline
+; (chapter_visuals.set_selected_coord) is the WIN-path visual cue until dynamic
+; unit-polygon spawning lands. Trade-off accepted for MVP; LOSS path is the
+; default visual.
+;
+; Faction colors per art-bible §4.2 (촉 #2e5f7a / 위 #4a4a4a).
+
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/feature/battle_scene/chapter_visuals.gd" id="1_chapter"]
+[ext_resource type="Resource" path="res://assets/data/maps/mvp_chapter_02.tres" id="2_map"]
+
+[node name="ChapterVisuals" type="Node2D"]
+script = ExtResource("1_chapter")
+map_resource = ExtResource("2_map")
+
+[node name="PlayerUnits" type="Node2D" parent="."]
+
+; Unit 1 — 장비 (shu_003_zhang_fei) — 보병 사각 / hero size 40×40
+; Position (224, 224) = col 3, row 3 — ON the bridge tile (the iconic stand).
+[node name="Unit1_ZhangFei" type="Polygon2D" parent="PlayerUnits"]
+position = Vector2(224, 224)
+color = Color(0.1804, 0.3725, 0.4784, 1)
+polygon = PackedVector2Array(-20, -20, 20, -20, 20, 20, -20, 20)
+
+[node name="EnemyUnits" type="Node2D" parent="."]
+
+; Unit 3 — 장료 (wei_006_zhang_liao, archetype=skirmisher) — 궁병 역삼각
+; Position (352, 224) = col 5, row 3
+[node name="Unit3_ZhangLiao" type="Polygon2D" parent="EnemyUnits"]
+position = Vector2(352, 224)
+color = Color(0.2902, 0.2902, 0.2902, 1)
+polygon = PackedVector2Array(-20, -18, 20, -18, 0, 22)
+
+; Unit 2 — 하후돈 (wei_005_xiahou_dun, archetype=aggressor) — 기병 삼각 west-facing
+; Position (416, 224) = col 6, row 3 (apex faces -x toward player on bridge)
+[node name="Unit2_XiahouDun" type="Polygon2D" parent="EnemyUnits"]
+position = Vector2(416, 224)
+color = Color(0.2902, 0.2902, 0.2902, 1)
+polygon = PackedVector2Array(-22, 0, 18, -20, 18, 20)

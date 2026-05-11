@@ -59,7 +59,7 @@
     {
       "chapter_id": "ch02_changban_bridge",
       "chapter_number": 2,
-      "map_id": "mvp_chapter_01",
+      "map_id": "mvp_chapter_02",
       "author_draw_branch": false,
       "echo_threshold": 1,
       "branch_table": {
@@ -106,7 +106,7 @@
         "WIN_changbanpo_default": {
           "player_unit_ids": [0, 1],
           "deployment_positions_default": {
-            "0": [3, 4],
+            "0": [2, 3],
             "1": [3, 3]
           }
         }
