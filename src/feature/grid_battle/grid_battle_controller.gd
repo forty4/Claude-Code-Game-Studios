@@ -90,6 +90,11 @@ signal unit_moved(unit_id: int, from: Vector2i, to: Vector2i)
 ## Emitted after HPStatusController.apply_damage resolves and returns.
 signal damage_applied(attacker_id: int, defender_id: int, damage: int)
 
+## Controller-scoped re-emit of GameBus.unit_died so scene-tier subscribers
+## (BattleScene visual feedback) can react without subscribing to GameBus
+## directly (battle_scene_smoke_test AC-7: no GameBus subs in BattleScene).
+signal unit_visual_died(unit_id: int)
+
 ## Emitted when the battle is over. outcome is a StringName (e.g. &"TURN_LIMIT_REACHED").
 ## fate_data carries hidden fate condition snapshot per ADR-0014 §8.
 signal battle_outcome_resolved(outcome: StringName, fate_data: Dictionary)
@@ -135,6 +140,12 @@ var _selected_unit_id: int = -1
 
 ## unit_id → already-acted flag for this round.
 var _acted_this_turn: Dictionary[int, bool] = {}
+
+## unit_id → MOVE token spent this turn. Tracked separately from _acted_this_turn
+## so a player unit can MOVE and then ATTACK in the same turn (mirrors the turn
+## runner's move_token_spent / action_token_spent split per ADR-0011). MOVE sets
+## this flag (blocks a second MOVE); ATTACK sets _acted_this_turn (terminal).
+var _moved_this_turn: Dictionary[int, bool] = {}
 
 ## ID of the last attacker — used by fate-counter (assassin kill attribution).
 var _last_attacker_id: int = -1
@@ -547,6 +558,7 @@ func _handle_player_end_turn() -> void:
 ## a synchronous Callable injection per ADR-0011 §Decision Contract 5.
 func end_player_turn() -> void:
 	_acted_this_turn.clear()
+	_moved_this_turn.clear()
 	if _selected_unit_id != -1:
 		_deselect()
 
@@ -596,6 +608,10 @@ func _on_input_action_fired(action: String, ctx: InputContext) -> void:
 func _on_unit_died(unit_id: int) -> void:
 	if _battle_over:
 		return  # AC-7 terminal-state guard — no further outcome processing
+	# Re-emit as a controller-scoped signal for scene-tier visual handlers
+	# (BattleScene polygon hide). Fires before _check_battle_end so the visual
+	# update lands even if this death resolves the battle.
+	unit_visual_died.emit(unit_id)
 	# Story-008 AC-5: boss-killed flag (idempotent — only first kill flips it).
 	if unit_id == _fate_boss_unit_id and not _fate_boss_killed:
 		_fate_boss_killed = true
@@ -777,10 +793,26 @@ func _handle_grid_click_observation(action: String, _coord: Vector2i, unit_id: i
 func _handle_grid_click_unit_selected(action: String, coord: Vector2i, unit_id: int) -> void:
 	match action:
 		"unit_select":
-			# Clicking the selected unit again deselects (toggle semantic).
-			# Clicking a DIFFERENT own unit is silent in MVP — must deselect first.
+			# Toggle: clicking the selected unit again deselects.
 			if unit_id == _selected_unit_id:
 				_deselect()
+				return
+			# Production click disambiguation: every grid action (unit_select /
+			# move_target_select / attack_target_select / …) is bound to MOUSE_LEFT
+			# in default_bindings.json. InputRouter's first-match-wins resolves any
+			# left-click to `unit_select`. In S1 we re-classify by ctx:
+			#   empty tile in move range  → MOVE
+			#   enemy tile in attack range → ATTACK
+			#   different own unit        → silent (MVP — deselect first)
+			if not _units.has(_selected_unit_id):
+				return  # defensive — selection orphaned
+			var selector: BattleUnit = _units[_selected_unit_id]
+			if unit_id == -1:
+				if is_tile_in_move_range(coord, _selected_unit_id):
+					_handle_player_move(selector, coord)
+			elif _units.has(unit_id) and _units[unit_id].side != selector.side:
+				if is_tile_in_attack_range(coord, _selected_unit_id):
+					_handle_player_attack(_selected_unit_id, unit_id)
 		"move_cancel", "attack_cancel":
 			_deselect()
 		"move_target_select", "move_confirm":
@@ -830,11 +862,13 @@ func _deselect() -> void:
 ## _maybe_defer_turn_completion (S15-A) keeps the turn open for follow-up ATTACK.
 func _handle_player_move(unit: BattleUnit, dest: Vector2i) -> void:
 	if _acted_this_turn.get(unit.unit_id, false):
-		return  # re-entrancy guard
+		return  # turn already terminal (attacked/waited) — no more moves
+	if _moved_this_turn.get(unit.unit_id, false):
+		return  # MOVE token already spent — one move per turn
 	if not is_tile_in_move_range(dest, unit.unit_id):
 		return  # invalid target — silent
 	_do_move(unit, dest)
-	_acted_this_turn[unit.unit_id] = true
+	_moved_this_turn[unit.unit_id] = true
 	_turn_runner.declare_action(unit.unit_id, TurnOrderRunner.ActionType.MOVE,
 		_make_move_target(dest))
 

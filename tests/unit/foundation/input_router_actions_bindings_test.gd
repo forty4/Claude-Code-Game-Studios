@@ -311,9 +311,11 @@ func test_handle_event_matches_uniquely_bound_key_to_action() -> void:
 	).is_equal(OK)
 	InputRouter._populate_input_map(json.data)
 
-	# Act — construct KEY_M event (uniquely bound to open_unit_info)
+	# Act — construct KEY_M press event (uniquely bound to open_unit_info).
+	# `pressed = true` required: _handle_event filters out key release/echo events.
 	var ev := InputEventKey.new()
 	ev.keycode = _KEY_M
+	ev.pressed = true
 	InputRouter._handle_event(ev)
 
 	# Assert — open_unit_info matched (uniquely bound to KEY_M)
@@ -328,9 +330,11 @@ func test_handle_event_unbound_key_clears_last_matched_action() -> void:
 	# Arrange — ensure a prior match exists so we can verify the clear
 	InputRouter._last_matched_action = &"action_confirm"
 
-	# Act — construct an unbound key (KEY_F8)
+	# Act — construct an unbound key press (KEY_F8).
+	# `pressed = true` required: _handle_event filters out key release/echo events.
 	var ev := InputEventKey.new()
 	ev.keycode = _KEY_UNBOUND
+	ev.pressed = true
 	InputRouter._handle_event(ev)
 
 	# Assert — _last_matched_action cleared to &""
@@ -683,9 +687,11 @@ func test_handle_event_matches_mouse_left_to_unit_select() -> void:
 	assert_int(json.parse(content)).is_equal(OK)
 	InputRouter._populate_input_map(json.data)
 
-	# Act — construct MOUSE_BUTTON_LEFT event
+	# Act — construct MOUSE_BUTTON_LEFT press event (release events are filtered
+	# in _handle_event so a single physical click doesn't fire the action twice).
 	var ev := InputEventMouseButton.new()
 	ev.button_index = 1  # MOUSE_BUTTON_LEFT
+	ev.pressed = true
 	InputRouter._handle_event(ev)
 
 	# Assert — unit_select is first grid action bound to mouse_button=1

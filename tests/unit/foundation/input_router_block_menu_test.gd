@@ -566,6 +566,7 @@ func test_recursive_control_disable_silences_both_paths() -> void:
 	# falls through unhandled in S0 — no _did_visible_work = true → no emit.
 	var ev := InputEventKey.new()
 	ev.keycode = 32  # KEY_SPACE — bound to end_player_turn in default_bindings.json
+	ev.pressed = true  # _handle_event filters out release/echo events
 
 	# ── Step 1: dispatch-pipeline baseline (direct invocation) ────────────────
 	var captures_baseline: int = _action_fired_captures.size()

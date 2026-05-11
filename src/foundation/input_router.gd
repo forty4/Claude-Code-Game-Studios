@@ -339,6 +339,18 @@ func _handle_event(event: InputEvent) -> void:
 	# Returns true when the event was fully handled; false to continue to action-match.
 	if _handle_touch_tracking(event):
 		return  # event consumed by touch tracking; action-match skipped
+	# Drop button/key release + key-echo events: a single physical click fires both
+	# pressed=true (button-down) and pressed=false (button-up) and InputMap.action_has_event
+	# matches both. Without this filter, every click dispatches its action twice — the
+	# release re-firing `unit_select` in S1 deselects the unit we just selected.
+	if event is InputEventMouseButton and not (event as InputEventMouseButton).pressed:
+		return
+	if event is InputEventKey:
+		var key_event: InputEventKey = event
+		if not key_event.pressed or key_event.echo:
+			return
+	if event is InputEventJoypadButton and not (event as InputEventJoypadButton).pressed:
+		return
 	# Phase 3: action-resolve via InputMap lookup
 	for category: StringName in ACTIONS_BY_CATEGORY.keys():
 		for action: StringName in ACTIONS_BY_CATEGORY[category]:
@@ -1005,6 +1017,13 @@ func _handle_action_in_s0(action: StringName, ctx: InputContext) -> void:
 ## NOT story-003/004's concern.
 func _handle_action_in_s1(action: StringName, ctx: InputContext) -> void:
 	match action:
+		&"unit_select":
+			# Production click flow: every grid action is bound to MOUSE_LEFT in
+			# default_bindings.json; first-match-wins in _handle_event resolves any
+			# left-click to `unit_select`. S1 doesn't transition here — disambiguation
+			# (move / attack / deselect / re-select) lives in GridBattleController.
+			# We flip `_did_visible_work` so the emit fires and the subscriber sees it.
+			_did_visible_work = true
 		&"move_target_select":
 			if not _is_tile_in_move_range(ctx.target_coord):
 				return  # destination out of range per EC-7 silent rejection

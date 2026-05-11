@@ -212,6 +212,9 @@ func _ready() -> void:
 	# Instance lookup is dynamic (in handler) because SceneManager mounts the
 	# chapter visuals AFTER battle_launch_requested fires (post-_ready boundary).
 	_grid_controller.unit_selected_changed.connect(_on_unit_selected_changed)
+	_grid_controller.unit_moved.connect(_on_unit_moved)
+	_grid_controller.damage_applied.connect(_on_damage_applied)
+	_grid_controller.unit_visual_died.connect(_on_unit_died_visual)
 
 	# === STEP 5.5: AISystem (ADR-0019) — battle-scoped Node 6th invocation ===
 	# Inserted via /architecture-review delta #14 2026-05-05 per ADR-0016 §3 R-3
@@ -338,6 +341,67 @@ func _find_chapter_visuals() -> Node:
 	for child: Node in get_tree().root.get_children():
 		if child is ChapterVisuals:
 			return child
+	return null
+
+
+## Unit-moved handler. Re-positions the unit's Polygon2D inside the chapter
+## visuals (.tscn-authored as `Unit{unit_id}_*` under PlayerUnits/EnemyUnits)
+## and updates the selection highlight if the moved unit is the current
+## selection. Without this, BattleUnit.position mutates but the on-screen
+## silhouette stays at its authored deployment coord.
+func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null:
+		return
+	var tile_size: int = ChapterVisuals.TILE_SIZE
+	var world_pos: Vector2 = Vector2(
+		to.x * tile_size + tile_size / 2.0,
+		to.y * tile_size + tile_size / 2.0,
+	)
+	var unit_node: Node2D = _find_unit_polygon(visuals, unit_id)
+	if unit_node != null:
+		unit_node.position = world_pos
+	if _grid_controller.get_selected_unit_id() == unit_id:
+		visuals.set_selected_coord(to)
+
+
+## Damage feedback: brief red flash on the defender's polygon so the player
+## perceives "the attack landed" even when the defender survives. Without this,
+## damage_applied is HUD-only and the grid view shows no change after attack.
+func _on_damage_applied(_attacker_id: int, defender_id: int, _damage: int) -> void:
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null:
+		return
+	var unit_node: Node2D = _find_unit_polygon(visuals, defender_id)
+	if unit_node == null:
+		return
+	var original_modulate: Color = unit_node.modulate
+	unit_node.modulate = Color(2.0, 0.4, 0.4, 1.0)  # bright red flash
+	var tween: Tween = create_tween()
+	tween.tween_property(unit_node, "modulate", original_modulate, 0.25)
+
+
+## Death feedback: hide the dead unit's polygon. Without this, the killed unit
+## stays on screen at its last position, making the kill invisible to the player.
+func _on_unit_died_visual(unit_id: int) -> void:
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null:
+		return
+	var unit_node: Node2D = _find_unit_polygon(visuals, unit_id)
+	if unit_node == null:
+		return
+	unit_node.visible = false
+
+
+func _find_unit_polygon(visuals: Node, unit_id: int) -> Node2D:
+	var prefix: String = "Unit%d_" % unit_id
+	for parent_name: String in ["PlayerUnits", "EnemyUnits"]:
+		var parent: Node = visuals.get_node_or_null(parent_name)
+		if parent == null:
+			continue
+		for child: Node in parent.get_children():
+			if (child.name as String).begins_with(prefix) and child is Node2D:
+				return child as Node2D
 	return null
 
 
