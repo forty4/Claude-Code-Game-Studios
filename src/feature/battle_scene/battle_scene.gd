@@ -74,6 +74,10 @@ var _grid_controller: GridBattleController
 var _ai_system: AISystem
 var _battle_hud: BattleHUD
 var _chapter_visuals: Node = null
+## Single TurnIndicator instance, reparented under the active unit's polygon
+## on each grid_controller.active_unit_changed emit. Lazy-init on first emit
+## so we don't allocate before ChapterVisuals' unit polygons are spawned.
+var _turn_indicator: TurnIndicator = null
 
 
 # ─── Built-in virtual methods ─────────────────────────────────────────────────
@@ -215,6 +219,7 @@ func _ready() -> void:
 	_grid_controller.unit_moved.connect(_on_unit_moved)
 	_grid_controller.damage_applied.connect(_on_damage_applied)
 	_grid_controller.unit_visual_died.connect(_on_unit_died_visual)
+	_grid_controller.active_unit_changed.connect(_on_active_unit_changed)
 
 	# === STEP 5.5: AISystem (ADR-0019) — battle-scoped Node 6th invocation ===
 	# Inserted via /architecture-review delta #14 2026-05-05 per ADR-0016 §3 R-3
@@ -458,6 +463,27 @@ func _on_unit_died_visual(unit_id: int) -> void:
 	if unit_node == null:
 		return
 	unit_node.visible = false
+
+
+## Turn-indicator handler. Lazy-creates the indicator on first call and
+## reparents it under the active unit's polygon on every subsequent emit.
+## ChapterVisuals may not be mounted yet on the first emit (async load) — in
+## that case the call is a graceful no-op; the next emit will land it.
+func _on_active_unit_changed(unit_id: int) -> void:
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null:
+		return
+	var polygon: Node2D = _find_unit_polygon(visuals, unit_id)
+	if polygon == null:
+		return
+	if not is_instance_valid(_turn_indicator):
+		_turn_indicator = TurnIndicator.new()
+		_turn_indicator.name = "TurnIndicator"
+	if _turn_indicator.get_parent() == polygon:
+		return
+	if _turn_indicator.get_parent() != null:
+		_turn_indicator.get_parent().remove_child(_turn_indicator)
+	polygon.add_child(_turn_indicator)
 
 
 func _find_unit_polygon(visuals: Node, unit_id: int) -> Node2D:

@@ -95,6 +95,12 @@ signal damage_applied(attacker_id: int, defender_id: int, damage: int)
 ## directly (battle_scene_smoke_test AC-7: no GameBus subs in BattleScene).
 signal unit_visual_died(unit_id: int)
 
+## Controller-scoped re-emit of GameBus.unit_turn_started for the view layer
+## (BattleScene turn-indicator overlay). Fires for both player and AI turns;
+## the view layer reparents a single TurnIndicator child under the active
+## unit's polygon. Re-emit pattern avoids R-7 (no GameBus subs on BattleScene).
+signal active_unit_changed(unit_id: int)
+
 ## Emitted when the battle is over. outcome is a StringName (e.g. &"TURN_LIMIT_REACHED").
 ## fate_data carries hidden fate condition snapshot per ADR-0014 §8.
 signal battle_outcome_resolved(outcome: StringName, fate_data: Dictionary)
@@ -676,7 +682,12 @@ func _on_unit_turn_started(unit_id: int) -> void:
 	if not _units.has(unit_id):
 		return
 	var unit: BattleUnit = _units[unit_id]
-	if unit == null or unit.is_player_controlled:
+	if unit == null:
+		return
+	# View-layer hook for the turn indicator. Fires for BOTH player and AI turns
+	# so the on-grid cue tracks every active unit, not just AI dispatch entries.
+	active_unit_changed.emit(unit_id)
+	if unit.is_player_controlled:
 		return  # player turn handled by InputRouter / GridBattleController click logic
 	# Build snapshot + emit. AISystem responds via its LOCAL ai_action_ready signal
 	# within 500ms timeout per CR-3 (timeout enforcement is post-MVP — sprint-7
