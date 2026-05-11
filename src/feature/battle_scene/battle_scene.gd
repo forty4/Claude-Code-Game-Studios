@@ -431,7 +431,7 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 ## Damage feedback: brief red flash on the defender's polygon so the player
 ## perceives "the attack landed" even when the defender survives. Without this,
 ## damage_applied is HUD-only and the grid view shows no change after attack.
-func _on_damage_applied(_attacker_id: int, defender_id: int, _damage: int) -> void:
+func _on_damage_applied(_attacker_id: int, defender_id: int, damage: int) -> void:
 	var visuals: Node = _find_chapter_visuals()
 	if visuals == null:
 		return
@@ -451,6 +451,14 @@ func _on_damage_applied(_attacker_id: int, defender_id: int, _damage: int) -> vo
 			_hp_controller.get_current_hp(defender_id),
 			_hp_controller.get_max_hp(defender_id),
 		)
+	# Floating damage number. Parented to ChapterVisuals (NOT the polygon) so
+	# the popup persists if the hit kills the defender — _on_unit_died_visual
+	# hides the polygon and its children, but the popup needs to remain visible
+	# for the player to read what just happened.
+	if damage > 0:
+		var popup: DamagePopup = DamagePopup.make(damage)
+		popup.position = unit_node.position + Vector2(0.0, -36.0)
+		visuals.add_child(popup)
 
 
 ## Death feedback: hide the dead unit's polygon. Without this, the killed unit
