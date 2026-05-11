@@ -366,10 +366,31 @@ func _spawn_unit_polygons_async(roster: Array[BattleUnit]) -> void:
 		var visuals: Node = _find_chapter_visuals()
 		if visuals != null and visuals.has_method("spawn_unit_polygons"):
 			visuals.spawn_unit_polygons(roster)
+			_mount_hp_bars(visuals, roster)
 			return
 		await get_tree().process_frame
 	push_warning("BattleScene: ChapterVisuals not mounted within 30 frames; "
 		+ "runtime unit polygons not spawned")
+
+
+## Attaches a UnitHpBar Node2D child to each spawned unit polygon, seeded from
+## HPStatusController. Polygon transform inheritance gives free repositioning on
+## move; CanvasItem visibility cascade gives free hide-on-death. Per-unit refresh
+## happens in _on_damage_applied.
+func _mount_hp_bars(visuals: Node, roster: Array[BattleUnit]) -> void:
+	if _hp_controller == null:
+		return
+	for unit: BattleUnit in roster:
+		var polygon: Node2D = _find_unit_polygon(visuals, unit.unit_id)
+		if polygon == null:
+			continue
+		var bar: UnitHpBar = UnitHpBar.new()
+		bar.name = "HpBar"
+		polygon.add_child(bar)
+		bar.set_hp(
+			_hp_controller.get_current_hp(unit.unit_id),
+			_hp_controller.get_max_hp(unit.unit_id),
+		)
 
 
 ## Unit-moved handler. Re-positions the unit's Polygon2D inside the chapter
@@ -416,6 +437,15 @@ func _on_damage_applied(_attacker_id: int, defender_id: int, _damage: int) -> vo
 	unit_node.modulate = Color(2.0, 0.4, 0.4, 1.0)  # bright red flash
 	var tween: Tween = create_tween()
 	tween.tween_property(unit_node, "modulate", original_modulate, 0.25)
+	# Refresh the defender's HP bar to reflect the new HP. HPStatusController
+	# applied the damage synchronously before damage_applied was emitted (grid
+	# controller line ~1233-1236), so get_current_hp returns the post-hit value.
+	var bar: Node = unit_node.get_node_or_null("HpBar")
+	if bar is UnitHpBar and _hp_controller != null:
+		(bar as UnitHpBar).set_hp(
+			_hp_controller.get_current_hp(defender_id),
+			_hp_controller.get_max_hp(defender_id),
+		)
 
 
 ## Death feedback: hide the dead unit's polygon. Without this, the killed unit
