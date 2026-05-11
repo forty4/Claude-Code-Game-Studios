@@ -79,6 +79,11 @@ var _chapter_visuals: Node = null
 ## so we don't allocate before ChapterVisuals' unit polygons are spawned.
 var _turn_indicator: TurnIndicator = null
 
+## Movement-tween duration on unit_moved. Short enough to feel responsive
+## (player still perceives the action as instant) but long enough that the
+## slide reads as "moved to here" rather than a teleport jump.
+const MOVE_ANIM_DURATION: float = 0.2
+
 
 # ─── Built-in virtual methods ─────────────────────────────────────────────────
 
@@ -414,7 +419,9 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 	)
 	var unit_node: Node2D = _find_unit_polygon(visuals, unit_id)
 	if unit_node != null:
-		unit_node.position = world_pos
+		var tween: Tween = create_tween()
+		tween.tween_property(unit_node, "position", world_pos, MOVE_ANIM_DURATION) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	if _grid_controller.get_selected_unit_id() == unit_id:
 		visuals.set_selected_coord(to)
 	# Unit just consumed its move action; clear the move preview so stale
