@@ -515,6 +515,11 @@ func _on_damage_applied(attacker_id: int, defender_id: int, damage: int) -> void
 				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 			lunge_tween.tween_property(attacker_node, "position", origin, LUNGE_HALF_DURATION) \
 				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		# Attack line from attacker to defender. Parented to ChapterVisuals so
+		# the line persists if the hit kills the defender or the attacker is
+		# repositioned mid-animation.
+		var line: AttackLine = AttackLine.make(origin, unit_node.position)
+		visuals.add_child(line)
 
 
 ## Death feedback: fade the dead unit's polygon to transparent over
