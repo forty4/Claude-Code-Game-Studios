@@ -467,6 +467,10 @@ func _on_damage_applied(attacker_id: int, defender_id: int, damage: int) -> void
 	var unit_node: Node2D = _find_unit_polygon(visuals, defender_id)
 	if unit_node == null:
 		return
+	# Camera shake on every confirmed hit. Gated by the visuals check above so
+	# tests without ChapterVisuals don't perturb camera offset.
+	if _battle_camera != null and damage > 0:
+		_battle_camera.shake()
 	var original_modulate: Color = unit_node.modulate
 	unit_node.modulate = Color(2.0, 0.4, 0.4, 1.0)  # bright red flash
 	var tween: Tween = create_tween()

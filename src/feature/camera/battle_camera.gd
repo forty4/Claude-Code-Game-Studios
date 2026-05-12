@@ -36,6 +36,12 @@ var _drag_active: bool = false
 var _drag_start_screen_pos: Vector2 = Vector2.ZERO
 var _drag_start_camera_pos: Vector2 = Vector2.ZERO
 
+## Active shake tween reference. Killed on re-entry so consecutive shakes
+## don't stack into unbounded jitter. Field 5 — outside the ADR-0013 §7
+## 4-field state contract by intent; shake is a view-layer afford-ance
+## driven by BattleScene's damage-feedback chain, not by camera input.
+var _shake_tween: Tween = null
+
 
 # ─── DI seam (BattleScene calls before add_child per ADR-0013 §5) ───────────
 
@@ -87,6 +93,32 @@ func screen_to_grid(screen_pos: Vector2) -> Vector2i:
 ## Read-only zoom query for HUD scale-matching by Battle HUD (sprint-5 ADR pending).
 func get_zoom_value() -> float:
 	return zoom.x
+
+
+## Brief camera shake. Walks `offset` through 5 random positions decaying from
+## `intensity` to 0, then resets to Vector2.ZERO. Uses `offset` not `position`
+## so it composes cleanly with pan/zoom (the player-controlled `position` is
+## unaffected). Re-entry kills any in-flight shake so consecutive damage hits
+## don't accumulate into unbounded jitter.
+##
+## Defaults are tuned for the 64px tile grid — 5px / 0.20s reads as a punchy
+## hit without obscuring the playfield. Callers can override per damage tier
+## once we know what feels right after windowed eyeball.
+func shake(intensity: float = 5.0, duration: float = 0.20) -> void:
+	if _shake_tween != null and _shake_tween.is_valid():
+		_shake_tween.kill()
+	_shake_tween = create_tween()
+	var step_count: int = 5
+	var step_duration: float = duration / float(step_count + 1)  # +1 for the return-to-zero step
+	for i: int in step_count:
+		var decay: float = 1.0 - (float(i) / float(step_count))
+		var step_intensity: float = intensity * decay
+		var random_offset: Vector2 = Vector2(
+			randf_range(-step_intensity, step_intensity),
+			randf_range(-step_intensity, step_intensity),
+		)
+		_shake_tween.tween_property(self, "offset", random_offset, step_duration)
+	_shake_tween.tween_property(self, "offset", Vector2.ZERO, step_duration)
 
 
 # ─── Signal handler ─────────────────────────────────────────────────────────
