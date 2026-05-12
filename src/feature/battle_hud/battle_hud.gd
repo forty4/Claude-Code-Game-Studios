@@ -333,6 +333,10 @@ func _ready() -> void:
 			strike.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			strike.visible = false
 			name_label.add_child(strike)
+		# Ribbon click → inspect unit. Slot consumes the input (default STOP filter)
+		# and dispatches show_unit_info via the existing CR-4a Tap Preview path.
+		# Index is bound so the handler doesn't need to scan slot_unit_ids by source.
+		slot.gui_input.connect(_on_initiative_slot_gui_input.bind(i))
 
 	# ── Story-005: UI-GB-02 Action Menu + UI-GB-05 Skill List + UI-GB-10 Undo mount ──
 	var ui_gb_02: Control = _UI_GB_02_SCENE.instantiate() as Control
@@ -891,6 +895,31 @@ func _apply_slot_modulate(slot_index: int) -> void:
 	var acted: bool = _ui_gb_01_slot_acted[slot_index]
 	slot.modulate.a = _UI_GB_01_ACTED_DIM_ALPHA if acted else 1.0
 	_set_slot_strikethrough(slot, acted)
+
+
+## gui_input handler for a single initiative queue slot. Bound at _ready
+## time with the slot_index closed over via Callable.bind so the dispatch
+## doesn't need to search slot_unit_ids by source.
+##
+## On LMB-pressed (or mouse-emulated touch tap per project.godot
+## emulate_mouse_from_touch=true): if the slot's unit is the currently-
+## inspected one, dismiss the panel; otherwise show its info. Matches the
+## existing select-then-deselect toggle pattern in _on_unit_selected_changed.
+func _on_initiative_slot_gui_input(event: InputEvent, slot_index: int) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var mb: InputEventMouseButton = event as InputEventMouseButton
+	if mb.button_index != MOUSE_BUTTON_LEFT or not mb.pressed:
+		return
+	if slot_index < 0 or slot_index >= _ui_gb_01_slot_unit_ids.size():
+		return
+	var uid: int = _ui_gb_01_slot_unit_ids[slot_index]
+	if uid == -1:
+		return  # empty/hidden slot
+	if uid == _active_status_panel_unit_id:
+		show_unit_info(-1)
+	else:
+		show_unit_info(uid)
 
 
 ## Toggles the strikethrough ColorRect on a slot's NameLabel. No-op if the

@@ -333,3 +333,70 @@ func test_set_victory_condition_shows_panel_with_translated_text() -> void:
 
 	hud.free()
 	_free_node_deps(fixture)
+
+
+# ─── Ribbon click → show_unit_info dispatch ────────────────────────────────
+
+
+func test_initiative_slot_click_dispatches_show_unit_info() -> void:
+	var fixture: Dictionary = _make_hud_with_stubs()
+	var hud: BattleHUD = fixture["hud"]
+	var runner: TurnOrderRunnerStub = fixture["turn_runner"]
+	var grid: GridBattleControllerStub = fixture["grid_controller"]
+
+	_seed_hero(&"shu_003", "Zhang Fei")
+	_seed_battle_unit(grid, 7, &"shu_003")
+	_seed_turn_state(runner, 7, 80)
+	runner._queue = [7]
+	runner._round_number = 1
+
+	add_child(hud)
+	await get_tree().process_frame
+	GameBus.round_started.emit(1)
+	await get_tree().process_frame
+	assert_int(hud._ui_gb_01_slot_unit_ids[0]).is_equal(7)
+
+	# Synthesize LMB-press on slot[0] via gui_input emit (CR-4a-equivalent path
+	# but driven by the slot's own input rather than InputRouter Tap Preview).
+	var ev: InputEventMouseButton = InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = true
+	hud._ui_gb_01_slots[0].gui_input.emit(ev)
+	await get_tree().process_frame
+
+	assert_int(hud._active_status_panel_unit_id).override_failure_message(
+		"Ribbon click on slot[0] (unit_id=7) must dispatch show_unit_info(7)"
+	).is_equal(7)
+
+	# Click again → toggles dismissal (matches _on_unit_selected_changed pattern).
+	hud._ui_gb_01_slots[0].gui_input.emit(ev)
+	await get_tree().process_frame
+	assert_int(hud._active_status_panel_unit_id).override_failure_message(
+		"Second click on the same slot must toggle dismissal via show_unit_info(-1)"
+	).is_equal(-1)
+
+	hud.free()
+	_free_node_deps(fixture)
+
+
+func test_initiative_slot_click_on_empty_slot_is_noop() -> void:
+	var fixture: Dictionary = _make_hud_with_stubs()
+	var hud: BattleHUD = fixture["hud"]
+
+	add_child(hud)
+	await get_tree().process_frame
+	# No round_started → slot_unit_ids stay at -1 sentinel
+
+	var ev: InputEventMouseButton = InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = true
+	hud._ui_gb_01_slots[3].gui_input.emit(ev)
+	await get_tree().process_frame
+
+	# Empty slot click must not crash + must not change panel state.
+	assert_int(hud._active_status_panel_unit_id).override_failure_message(
+		"Click on empty (unit_id=-1) slot must be a no-op"
+	).is_equal(-1)
+
+	hud.free()
+	_free_node_deps(fixture)
