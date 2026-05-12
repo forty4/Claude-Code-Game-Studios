@@ -101,19 +101,20 @@ func test_ready_fails_without_setup_units_empty() -> void:
 	assert_object(controller._unit_role).is_null()
 
 
-# ─── AC-5, AC-7: 4 GameBus subscriptions + _exit_tree disconnects all ──────
+# ─── AC-5, AC-7: 5 GameBus subscriptions + _exit_tree disconnects all ──────
 
-func test_exit_tree_disconnects_all_four_gamebus_subscriptions() -> void:
-	# Per ADR-0014 R-10: _exit_tree() MUST explicitly disconnect all 4 GameBus
-	# subscriptions. Verify by:
-	# (a) mount controller → _ready connects 4 signals
-	# (b) confirm all 4 subscriptions live (object == controller)
+func test_exit_tree_disconnects_all_five_gamebus_subscriptions() -> void:
+	# Per ADR-0014 R-10: _exit_tree() MUST explicitly disconnect all GameBus
+	# subscriptions. unit_turn_ended added as the 5th (view-layer re-emit for
+	# end-of-turn polygon dim). Verify by:
+	# (a) mount controller → _ready connects 5 signals
+	# (b) confirm all 5 subscriptions live (object == controller)
 	# (c) free controller → _exit_tree() runs
-	# (d) after free, GameBus has no live subscriber for any of the 4 handlers
+	# (d) after free, GameBus has no live subscriber for any of the 5 handlers
 	#     pointing at this controller (assert via subscription enumeration)
 	var bag: Dictionary = _make_controller_with_deps()
 	var controller: GridBattleController = bag["controller"]
-	add_child(controller)  # triggers _ready → connect 4 signals
+	add_child(controller)  # triggers _ready → connect 5 signals
 	# Camera + Node stubs need to live for controller's _ready assertions
 	# but we'll free them after the controller in cleanup
 	auto_free(bag["map_grid"] as Node)
@@ -121,7 +122,7 @@ func test_exit_tree_disconnects_all_four_gamebus_subscriptions() -> void:
 	auto_free(bag["turn_runner"] as Node)
 	auto_free(bag["hp_controller"] as Node)
 
-	# After _ready, all 4 subscriptions should be live (per ADR-0014 §3)
+	# After _ready, all 5 subscriptions should be live (per ADR-0014 §3)
 	assert_bool(_subscription_on_signal_exists(GameBus.input_action_fired, controller)).override_failure_message(
 		"Expected GameBus.input_action_fired to have a live subscription pointing at GridBattleController after _ready"
 	).is_true()
@@ -131,6 +132,9 @@ func test_exit_tree_disconnects_all_four_gamebus_subscriptions() -> void:
 	assert_bool(_subscription_on_signal_exists(GameBus.unit_turn_started, controller)).override_failure_message(
 		"Expected GameBus.unit_turn_started to have a live subscription pointing at GridBattleController after _ready"
 	).is_true()
+	assert_bool(_subscription_on_signal_exists(GameBus.unit_turn_ended, controller)).override_failure_message(
+		"Expected GameBus.unit_turn_ended to have a live subscription pointing at GridBattleController after _ready"
+	).is_true()
 	assert_bool(_subscription_on_signal_exists(GameBus.round_started, controller)).override_failure_message(
 		"Expected GameBus.round_started to have a live subscription pointing at GridBattleController after _ready"
 	).is_true()
@@ -138,7 +142,7 @@ func test_exit_tree_disconnects_all_four_gamebus_subscriptions() -> void:
 	# Free the controller → _exit_tree() runs
 	controller.free()  # synchronous free for test determinism (NOT queue_free per G-6)
 
-	# After free, no subscription on any of the 4 signals should remain pointing at this controller
+	# After free, no subscription on any of the 5 signals should remain pointing at this controller
 	assert_bool(_subscription_on_signal_exists(GameBus.input_action_fired, controller)).override_failure_message(
 		"GameBus.input_action_fired STILL has a subscription pointing at freed GridBattleController after _exit_tree"
 	).is_false()
@@ -147,6 +151,9 @@ func test_exit_tree_disconnects_all_four_gamebus_subscriptions() -> void:
 	).is_false()
 	assert_bool(_subscription_on_signal_exists(GameBus.unit_turn_started, controller)).override_failure_message(
 		"GameBus.unit_turn_started STILL has a subscription pointing at freed GridBattleController after _exit_tree"
+	).is_false()
+	assert_bool(_subscription_on_signal_exists(GameBus.unit_turn_ended, controller)).override_failure_message(
+		"GameBus.unit_turn_ended STILL has a subscription pointing at freed GridBattleController after _exit_tree"
 	).is_false()
 	assert_bool(_subscription_on_signal_exists(GameBus.round_started, controller)).override_failure_message(
 		"GameBus.round_started STILL has a subscription pointing at freed GridBattleController after _exit_tree"

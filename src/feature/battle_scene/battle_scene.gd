@@ -104,6 +104,13 @@ const DEATH_FADE_DURATION: float = 0.3
 const OUTCOME_DIM_COLOR: Color = Color(0.45, 0.45, 0.50, 1.0)
 const OUTCOME_DIM_DURATION: float = 0.4
 
+## End-of-turn polygon dim. A unit's polygon modulate fades to this alpha when
+## the unit finishes its turn having spent at least one token (acted=true);
+## reset back to WHITE when the next round starts. Reads as "this unit is
+## done for the round" alongside the chevron on the active unit.
+const END_OF_TURN_DIM_ALPHA: float = 0.55
+const END_OF_TURN_DIM_DURATION: float = 0.15
+
 
 # ─── Built-in virtual methods ─────────────────────────────────────────────────
 
@@ -245,6 +252,8 @@ func _ready() -> void:
 	_grid_controller.damage_applied.connect(_on_damage_applied)
 	_grid_controller.unit_visual_died.connect(_on_unit_died_visual)
 	_grid_controller.active_unit_changed.connect(_on_active_unit_changed)
+	_grid_controller.unit_turn_ended_visual.connect(_on_unit_turn_ended_visual)
+	_grid_controller.round_started_visual.connect(_on_round_started_visual)
 	_grid_controller.battle_outcome_resolved.connect(_on_battle_outcome_resolved)
 
 	# === STEP 5.5: AISystem (ADR-0019) — battle-scoped Node 6th invocation ===
@@ -584,6 +593,51 @@ func _on_active_unit_changed(unit_id: int) -> void:
 	if _turn_indicator.get_parent() != null:
 		_turn_indicator.get_parent().remove_child(_turn_indicator)
 	polygon.add_child(_turn_indicator)
+
+
+## End-of-turn dim cue. Fired by GridBattleController as a re-emit of
+## GameBus.unit_turn_ended. Skips passes (acted=false) so units that just
+## advance without action keep full brightness, and skips dead units whose
+## death-fade tween owns modulate.a — running this on a corpse would lift
+## alpha back up mid-fade.
+func _on_unit_turn_ended_visual(unit_id: int, acted: bool) -> void:
+	if not acted:
+		return
+	if _hp_controller != null and not _hp_controller.is_alive(unit_id):
+		return
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null:
+		return
+	var polygon: Node2D = _find_unit_polygon(visuals, unit_id)
+	if polygon == null:
+		return
+	var target: Color = Color(1.0, 1.0, 1.0, END_OF_TURN_DIM_ALPHA)
+	var tween: Tween = create_tween()
+	tween.tween_property(polygon, "modulate", target, END_OF_TURN_DIM_DURATION) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+
+## Round-rollover undim. Iterates every spawned unit polygon under PlayerUnits
+## and EnemyUnits and tweens modulate back to WHITE. Skips invisible polygons
+## (dead units snap-hidden by _on_unit_died_visual) so a corpse doesn't get
+## its alpha briefly lifted before staying invisible.
+func _on_round_started_visual(_round_num: int) -> void:
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null:
+		return
+	for parent_name: String in ["PlayerUnits", "EnemyUnits"]:
+		var parent: Node = visuals.get_node_or_null(parent_name)
+		if parent == null:
+			continue
+		for child: Node in parent.get_children():
+			if not (child is Node2D):
+				continue
+			var poly: Node2D = child as Node2D
+			if not poly.visible:
+				continue
+			var tween: Tween = create_tween()
+			tween.tween_property(poly, "modulate", Color.WHITE, END_OF_TURN_DIM_DURATION) \
+				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
 func _find_unit_polygon(visuals: Node, unit_id: int) -> Node2D:

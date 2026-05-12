@@ -15,7 +15,7 @@
 ## 5-turn limit; single chapter (장판파). AI integration, FormationBonusSystem,
 ## Rally, and USE_SKILL are explicitly deferred to future ADRs.
 ##
-## MANDATORY `_exit_tree()` body explicitly disconnects all 4 signal subscriptions
+## MANDATORY `_exit_tree()` body explicitly disconnects all 5 signal subscriptions
 ## per ADR-0014 R-10 + ADR-0013 R-6 (camera_missing_exit_tree_disconnect forbidden_pattern
 ## extended to this ADR). GameBus is autoload — it outlives GridBattleController; without
 ## disconnect, autoload retains callables pointing at freed Node = leak + crash on next emit.
@@ -31,8 +31,9 @@
 ## `_turn_runner.unit_turn_started.connect(...)` / `.round_started.connect(...)` as INSTANCE
 ## signals. Production-shipped HPStatusController + TurnOrderRunner emit these via the
 ## GameBus autoload (per ADR-0010 §6 + ADR-0011 §Emitted signals + GameBus.gd lines 30/31/36).
-## Therefore this controller subscribes to GameBus.X for all 4 signals (input_action_fired +
-## unit_died + unit_turn_started + round_started) — uniform autoload subscription pattern.
+## Therefore this controller subscribes to GameBus.X for all 5 signals (input_action_fired +
+## unit_died + unit_turn_started + unit_turn_ended + round_started) — uniform autoload subscription
+## pattern. unit_turn_ended was added later (end-of-turn polygon dim) as a view-layer re-emit;
 ## ADR-0014 §3 amended same-patch with "Implementation Notes" delta.
 
 class_name GridBattleController
@@ -100,6 +101,17 @@ signal unit_visual_died(unit_id: int)
 ## the view layer reparents a single TurnIndicator child under the active
 ## unit's polygon. Re-emit pattern avoids R-7 (no GameBus subs on BattleScene).
 signal active_unit_changed(unit_id: int)
+
+## Controller-scoped re-emit of GameBus.unit_turn_ended for the view layer
+## (BattleScene end-of-turn polygon dim). acted=false units (passed without
+## spending a token) don't get dimmed. Re-emit pattern avoids R-7.
+signal unit_turn_ended_visual(unit_id: int, acted: bool)
+
+## Controller-scoped re-emit of GameBus.round_started for the view layer
+## (BattleScene undim-all on round rollover). Distinct from the controller's
+## own _on_round_started handler which owns the turn-limit + fate-counter
+## logic — this signal exists purely as a view-layer rollover cue.
+signal round_started_visual(round_number: int)
 
 ## Emitted when the battle is over. outcome is a StringName (e.g. &"TURN_LIMIT_REACHED").
 ## fate_data carries hidden fate condition snapshot per ADR-0014 §8.
@@ -297,6 +309,7 @@ func _ready() -> void:
 	GameBus.input_action_fired.connect(_on_input_action_fired, Object.CONNECT_DEFERRED)
 	GameBus.unit_died.connect(_on_unit_died, Object.CONNECT_DEFERRED)
 	GameBus.unit_turn_started.connect(_on_unit_turn_started, Object.CONNECT_DEFERRED)
+	GameBus.unit_turn_ended.connect(_on_unit_turn_ended, Object.CONNECT_DEFERRED)
 	GameBus.round_started.connect(_on_round_started, Object.CONNECT_DEFERRED)
 
 
@@ -312,6 +325,8 @@ func _exit_tree() -> void:
 		GameBus.unit_died.disconnect(_on_unit_died)
 	if GameBus.unit_turn_started.is_connected(_on_unit_turn_started):
 		GameBus.unit_turn_started.disconnect(_on_unit_turn_started)
+	if GameBus.unit_turn_ended.is_connected(_on_unit_turn_ended):
+		GameBus.unit_turn_ended.disconnect(_on_unit_turn_ended)
 	if GameBus.round_started.is_connected(_on_round_started):
 		GameBus.round_started.disconnect(_on_round_started)
 	# AISystem disconnect — is_instance_valid guard per G-11 (battle-scoped Node,
@@ -768,6 +783,16 @@ func set_chokepoints(chokepoints: Array[Vector2i]) -> void:
 	_chokepoints = chokepoints.duplicate()
 
 
+## Subscribed to GameBus.unit_turn_ended via CONNECT_DEFERRED in _ready().
+## Pure view-layer re-emit so BattleScene can dim the polygon of any unit that
+## actually spent a token this turn. _battle_over gate suppresses post-resolve
+## dim flicker; subscribers should treat acted=false as a no-op cue.
+func _on_unit_turn_ended(unit_id: int, acted: bool) -> void:
+	if _battle_over:
+		return
+	unit_turn_ended_visual.emit(unit_id, acted)
+
+
 ## Subscribed to GameBus.round_started via CONNECT_DEFERRED in _ready().
 ## Per ADR-0014 §7 + story-007 AC-3: when round_num exceeds _max_turns, emit
 ## battle_outcome_resolved with TURN_LIMIT_REACHED outcome. _max_turns is
@@ -775,6 +800,7 @@ func set_chokepoints(chokepoints: Array[Vector2i]) -> void:
 func _on_round_started(round_num: int) -> void:
 	if _battle_over:
 		return  # AC-7 terminal-state guard
+	round_started_visual.emit(round_num)
 	# Story-008 AC-3: formation_turns counter. If any alive player unit had
 	# ≥1 adjacent ally during this round, increment + emit. Per ADR-0014 §7
 	# sketch + chapter-prototype's formation-active scan.
