@@ -92,6 +92,11 @@ const MOVE_ANIM_DURATION: float = 0.2
 const LUNGE_DISTANCE: float = 12.0
 const LUNGE_HALF_DURATION: float = 0.075
 
+## Death-fade duration. Polygon's modulate:a tweens to 0 then visible is set
+## false. Long enough to read as "this unit just died" rather than a cut,
+## short enough to keep combat pacing tight.
+const DEATH_FADE_DURATION: float = 0.3
+
 
 # ─── Built-in virtual methods ─────────────────────────────────────────────────
 
@@ -500,8 +505,17 @@ func _on_damage_applied(attacker_id: int, defender_id: int, damage: int) -> void
 				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
 
-## Death feedback: hide the dead unit's polygon. Without this, the killed unit
-## stays on screen at its last position, making the kill invisible to the player.
+## Death feedback: fade the dead unit's polygon to transparent over
+## DEATH_FADE_DURATION, then hide it. Without this, the killed unit either
+## stays on screen (no handler) or vanishes instantly (snap-hide), both of
+## which read worse than a brief fade.
+##
+## Tween ordering note: the flash tween from _on_damage_applied is created
+## first (same-frame deferred chain damage_applied → unit_died → handler),
+## so the fade tween's modulate:a writes overlay on top of the flash's full
+## modulate writes per frame — the unit fades to transparent while the red
+## flash recedes. Final visible=false guards via is_instance_valid in case
+## the polygon is freed mid-tween (scene transition).
 func _on_unit_died_visual(unit_id: int) -> void:
 	var visuals: Node = _find_chapter_visuals()
 	if visuals == null:
@@ -509,7 +523,13 @@ func _on_unit_died_visual(unit_id: int) -> void:
 	var unit_node: Node2D = _find_unit_polygon(visuals, unit_id)
 	if unit_node == null:
 		return
-	unit_node.visible = false
+	var fade_tween: Tween = create_tween()
+	fade_tween.tween_property(unit_node, "modulate:a", 0.0, DEATH_FADE_DURATION) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	fade_tween.tween_callback(func() -> void:
+		if is_instance_valid(unit_node):
+			unit_node.visible = false
+	)
 
 
 ## Turn-indicator handler. Lazy-creates the indicator on first call and
