@@ -296,12 +296,16 @@ func test_battle_outcome_resolved_renders_ui_gb_09_with_outcome_only_pillar_2_lo
 		"AC-4: _on_battle_outcome_resolved must set UI-GB-09.visible = true"
 	).is_true()
 
-	# Outcome label tr-routes to "hud.outcome.victory".
+	# Outcome label tr-routes to "hud.outcome.victory". Compare against
+	# tr(expected_key) so the assertion is robust to whether a translation
+	# file is loaded — without locale resources, tr() returns the key string
+	# itself; either way, equality with tr(expected_key) holds when the
+	# mapping is correct and fails when the match arm is wrong.
 	var vbox: VBoxContainer = panel.get_node_or_null(^"VBoxContainer") as VBoxContainer
 	var outcome_label: Label = vbox.get_node_or_null(^"OutcomeLabel") as Label
 	assert_str(outcome_label.text).override_failure_message(
-		"AC-4: outcome label text must be non-empty after victory"
-	).is_not_empty()
+		"AC-4: outcome label must tr-route VICTORY_ANNIHILATION to hud.outcome.victory"
+	).is_equal(tr(&"hud.outcome.victory"))
 
 	# Pillar 2 audit: walk every descendant Label + assert NONE contain the sentinel.
 	var sentinel_str: String = str(pillar2_sentinel)
@@ -311,7 +315,11 @@ func test_battle_outcome_resolved_renders_ui_gb_09_with_outcome_only_pillar_2_lo
 	_free_node_deps(bag)
 
 
-## AC-4 parametric: each outcome value tr-routes to its own locale key.
+## AC-4 parametric: each outcome value tr-routes to its OWN locale key.
+## Stronger than is_not_empty() so a wrong-arm match (e.g. the historical
+## lowercase &"victory" arms that never matched the uppercase emits and
+## silently rendered "hud.outcome.draw" for every battle) is caught.
+## G-16: typed Array[Dictionary] for parametric cases.
 func test_battle_outcome_resolved_emits_for_each_outcome_value() -> void:
 	var bag: Dictionary = _make_hud_with_stubs()
 	var hud: BattleHUD = bag["hud"]
@@ -321,11 +329,19 @@ func test_battle_outcome_resolved_emits_for_each_outcome_value() -> void:
 	var vbox: VBoxContainer = panel.get_node_or_null(^"VBoxContainer") as VBoxContainer
 	var outcome_label: Label = vbox.get_node_or_null(^"OutcomeLabel") as Label
 
-	for outcome: StringName in [&"VICTORY_ANNIHILATION", &"DEFEAT_ANNIHILATION", &"TURN_LIMIT_REACHED"]:
+	var cases: Array[Dictionary] = [
+		{"outcome": &"VICTORY_ANNIHILATION", "expected_key": &"hud.outcome.victory"},
+		{"outcome": &"DEFEAT_ANNIHILATION",  "expected_key": &"hud.outcome.defeat"},
+		{"outcome": &"TURN_LIMIT_REACHED",   "expected_key": &"hud.outcome.draw"},
+	]
+	for case: Dictionary in cases:
+		var outcome: StringName = case["outcome"] as StringName
+		var expected_key: StringName = case["expected_key"] as StringName
 		hud._on_battle_outcome_resolved(outcome, {})
 		assert_str(outcome_label.text).override_failure_message(
-			"AC-4: outcome '%s' must produce non-empty label text" % str(outcome)
-		).is_not_empty()
+			"AC-4: outcome '%s' must tr-route to '%s' (got '%s')" \
+				% [str(outcome), str(expected_key), outcome_label.text]
+		).is_equal(tr(expected_key))
 
 	hud.free()
 	_free_node_deps(bag)
