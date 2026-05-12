@@ -84,6 +84,14 @@ var _turn_indicator: TurnIndicator = null
 ## slide reads as "moved to here" rather than a teleport jump.
 const MOVE_ANIM_DURATION: float = 0.2
 
+## Attack-lunge tuning. On damage_applied, the attacker polygon nudges
+## LUNGE_DISTANCE px toward the defender over LUNGE_HALF_DURATION seconds,
+## then returns to origin over another LUNGE_HALF_DURATION seconds. Total
+## ~0.15s feels snappy without competing with the defender's red-flash +
+## HP-bar refresh that run in parallel.
+const LUNGE_DISTANCE: float = 12.0
+const LUNGE_HALF_DURATION: float = 0.075
+
 
 # ─── Built-in virtual methods ─────────────────────────────────────────────────
 
@@ -447,7 +455,7 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 ## Damage feedback: brief red flash on the defender's polygon so the player
 ## perceives "the attack landed" even when the defender survives. Without this,
 ## damage_applied is HUD-only and the grid view shows no change after attack.
-func _on_damage_applied(_attacker_id: int, defender_id: int, damage: int) -> void:
+func _on_damage_applied(attacker_id: int, defender_id: int, damage: int) -> void:
 	var visuals: Node = _find_chapter_visuals()
 	if visuals == null:
 		return
@@ -475,6 +483,21 @@ func _on_damage_applied(_attacker_id: int, defender_id: int, damage: int) -> voi
 		var popup: DamagePopup = DamagePopup.make(damage)
 		popup.position = unit_node.position + Vector2(0.0, -36.0)
 		visuals.add_child(popup)
+	# Attack lunge: nudge attacker toward defender then return. Sells the
+	# swing without requiring per-class attack animations. Adjacent attackers
+	# get the full distance; ranged attackers (황충 attack_range=2) get the
+	# same px distance projected along the line — reads as "leans into the shot".
+	var attacker_node: Node2D = _find_unit_polygon(visuals, attacker_id)
+	if attacker_node != null:
+		var origin: Vector2 = attacker_node.position
+		var to_defender: Vector2 = unit_node.position - origin
+		if to_defender.length_squared() > 0.0:
+			var lunge_target: Vector2 = origin + to_defender.normalized() * LUNGE_DISTANCE
+			var lunge_tween: Tween = create_tween()
+			lunge_tween.tween_property(attacker_node, "position", lunge_target, LUNGE_HALF_DURATION) \
+				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			lunge_tween.tween_property(attacker_node, "position", origin, LUNGE_HALF_DURATION) \
+				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
 
 ## Death feedback: hide the dead unit's polygon. Without this, the killed unit
