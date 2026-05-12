@@ -1231,11 +1231,16 @@ func _on_battle_outcome_resolved(outcome: StringName, fate_data: Dictionary) -> 
 	# Outcome label — categorical mapping. Match StringName per ADR-0014 §8 line 95.
 	var outcome_label: Label = vbox.get_node_or_null(^"OutcomeLabel") as Label
 	if outcome_label != null:
+		# StringNames match the values emitted by GridBattleController._emit_battle_outcome
+		# (VICTORY_ANNIHILATION / DEFEAT_ANNIHILATION / TURN_LIMIT_REACHED). Earlier
+		# lowercase &"victory"/&"defeat"/&"draw" arms never matched the actual emit
+		# values, so every outcome silently fell through to the default — the label
+		# always rendered "hud.outcome.draw" regardless of who won.
 		var outcome_key: StringName = &"hud.outcome.draw"
 		match outcome:
-			&"victory": outcome_key = &"hud.outcome.victory"
-			&"defeat":  outcome_key = &"hud.outcome.defeat"
-			&"draw":    outcome_key = &"hud.outcome.draw"
+			&"VICTORY_ANNIHILATION": outcome_key = &"hud.outcome.victory"
+			&"DEFEAT_ANNIHILATION":  outcome_key = &"hud.outcome.defeat"
+			&"TURN_LIMIT_REACHED":   outcome_key = &"hud.outcome.draw"
 		outcome_label.text = tr(outcome_key)
 	# Surviving units count (categorical aggregate — NOT a fate counter).
 	var surviving_count: int = 0

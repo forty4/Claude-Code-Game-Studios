@@ -289,7 +289,7 @@ func test_battle_outcome_resolved_renders_ui_gb_09_with_outcome_only_pillar_2_lo
 		"hidden_fate_progress": {"liu_bei_recruitment": pillar2_sentinel},
 	}
 
-	hud._on_battle_outcome_resolved(&"victory", fate_data)
+	hud._on_battle_outcome_resolved(&"VICTORY_ANNIHILATION", fate_data)
 
 	var panel: Control = hud._ui_elements.get(&"UI-GB-09")
 	assert_bool(panel.visible).override_failure_message(
@@ -321,7 +321,7 @@ func test_battle_outcome_resolved_emits_for_each_outcome_value() -> void:
 	var vbox: VBoxContainer = panel.get_node_or_null(^"VBoxContainer") as VBoxContainer
 	var outcome_label: Label = vbox.get_node_or_null(^"OutcomeLabel") as Label
 
-	for outcome: StringName in [&"victory", &"defeat", &"draw"]:
+	for outcome: StringName in [&"VICTORY_ANNIHILATION", &"DEFEAT_ANNIHILATION", &"TURN_LIMIT_REACHED"]:
 		hud._on_battle_outcome_resolved(outcome, {})
 		assert_str(outcome_label.text).override_failure_message(
 			"AC-4: outcome '%s' must produce non-empty label text" % str(outcome)
