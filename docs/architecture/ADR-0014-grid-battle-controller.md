@@ -320,7 +320,7 @@ func _on_unit_died(unit_id: int) -> void:
     _check_battle_end()
 ```
 
-### 8. GridBattleController-LOCAL signal emission (MVP set [5] ratified by ADR-0015 Battle HUD Accepted 2026-05-03 via /architecture-review delta #10; **6th signal `ai_action_requested` ratified by ADR-0019 AI System Accepted 2026-05-05 via /architecture-review delta #14**)
+### 8. GridBattleController-LOCAL signal emission (MVP set [5] ratified by ADR-0015 Battle HUD Accepted 2026-05-03 via /architecture-review delta #10; **6th signal `ai_action_requested` ratified by ADR-0019 AI System Accepted 2026-05-05 via /architecture-review delta #14**; **7th + 8th view-layer re-emit signals added 2026-05-12 — see Amendment 2026-05-12 below**)
 
 This ADR commits 6 controller-LOCAL signals (NOT GameBus — battle-scoped Node-to-Node communication channel per `grid_battle_controller_signal_emission_outside_battle_domain` forbidden_pattern):
 
@@ -336,6 +336,19 @@ signal ai_action_requested(unit_id: int, snapshot: BattleStateSnapshot)  # ADDED
 `hidden_fate_condition_progressed` is consumed ONLY by Destiny Branch ADR (sprint-6); Battle HUD does NOT subscribe (preserves the "hidden" semantic per Pillar 2 architectural lock — first project precedent of pillar-anchored lint pattern via `battle_hud_subscribes_to_hidden_fate_signal` forbidden_pattern).
 
 `ai_action_requested` is consumed ONLY by AISystem (ADR-0019 battle-scoped Node 6th invocation); BattleHUD MAY subscribe to a future "AI thinking" indicator signal pattern at sprint-7+ battle-hud GDD revision (UI-GB-N) per ADR-0019 §Migration Plan §7 — but that subscription targets AISystem.ai_action_ready, NOT GridBattleController.ai_action_requested.
+
+#### Amendment 2026-05-12 — view-layer re-emit signals (no GameBus subs on BattleScene)
+
+Two LOCAL re-emit signals added to bridge GameBus → BattleScene cleanly, mirroring the existing `unit_visual_died` / `active_unit_changed` pattern that codified R-7 (BattleScene must NOT subscribe to GameBus directly). The Build-not-Ratify directive (per `WORKFLOW.md`) applies: this is a structural addition for view-layer feedback, no new architectural meaning.
+
+```gdscript
+signal unit_turn_ended_visual(unit_id: int, acted: bool)  # ADDED 2026-05-12 — re-emit of GameBus.unit_turn_ended for the view layer (BattleScene end-of-turn polygon dim + BattleHUD ribbon-slot dim mirroring polygon). _battle_over gate suppresses post-resolve dim flicker.
+signal round_started_visual(round_number: int)            # ADDED 2026-05-12 — re-emit of GameBus.round_started for the view layer (BattleScene undim-all on round rollover). Distinct from controller's own _on_round_started handler which owns turn-limit + fate-counter logic; this signal is purely a view-layer rollover cue.
+```
+
+**GameBus subscription count amended 4 → 5**: `_ready()` now connects `input_action_fired + unit_died + unit_turn_started + unit_turn_ended + round_started` (was 4 — added `unit_turn_ended`). `_exit_tree()` correspondingly disconnects all 5 unconditionally per R-4. Verified at `grid_battle_controller_lifecycle_test.test_exit_tree_disconnects_all_five_gamebus_subscriptions`.
+
+Total controller-LOCAL signal count: **8** (6 substantive + 2 view-layer re-emit). The 2 new signals are NOT consumed by BattleHUD, Destiny Branch, AISystem, or ScenarioRunner — only BattleScene (the view-layer tier) subscribes, completing the R-7 routing for end-of-turn / round-rollover visual cues shipped 2026-05-12 (commits `255fde6` polygon dim + `a3459ee` ribbon-slot dim).
 
 ### 9. Architecture Diagram
 

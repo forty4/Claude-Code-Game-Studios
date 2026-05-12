@@ -261,8 +261,15 @@ func _handle_signal(signal_name: StringName, args: Array) -> void:
 
 ### §5. Signal Handlers — 11 Subscriptions, Zero Emissions
 
+> **Amendment 2026-05-12 (Build-not-Ratify mode)**: ADR-0014 §8 Amendment 2026-05-12 added 2 view-layer re-emit signals to GridBattleController (`unit_turn_ended_visual` + `round_started_visual`), bringing its controller-LOCAL signal total to 8. **BattleHUD subscription set unchanged**: still 4 substantive subscriptions (`unit_selected_changed` / `unit_moved` / `damage_applied` / `battle_outcome_resolved`) + the existing 2 explicit non-subscriptions (`hidden_fate_condition_progressed` per Pillar 2, `ai_action_requested` per ADR-0019). The 2 new view-layer re-emits are consumed only by BattleScene (R-7 routing for end-of-turn polygon dim + round-rollover undim). Pillar 2 lock + non-emitter discipline preserved.
+>
+> Same-date polish that touched this ADR's surface but did NOT change its contract: ribbon-slot click → `show_unit_info(uid)` dispatch via `gui_input` (commit `957ad4d`) — uses the existing CR-4a Tap Preview Protocol method, no new signal subscriptions; ribbon-slot acted dim + strikethrough (commits `a3459ee` + `65344fe`) — extends `_apply_slot_modulate` from the snapshot `acted_this_turn` field already in `TurnOrderEntry`, no new signal subscriptions.
+
 ```gdscript
-# From ADR-0014 GridBattleController (4 of 5 controller-LOCAL signals — Pillar 2 excludes the 5th)
+# From ADR-0014 GridBattleController (4 substantive subscriptions out of 8 controller-LOCAL signals
+# — Pillar 2 excludes hidden_fate_condition_progressed; ADR-0019 excludes ai_action_requested;
+# the 2 view-layer re-emits are consumed by BattleScene only per R-7. Original "4 of 5" framing
+# preserved historically — denominator drift documented in Amendment 2026-05-12 above.)
 func _on_unit_selected_changed(unit_id: int, was_selected: int) -> void:
     """UI-GB-02 ActionMenu show/hide; UI-GB-03 UnitInfoPanel populate."""
 
