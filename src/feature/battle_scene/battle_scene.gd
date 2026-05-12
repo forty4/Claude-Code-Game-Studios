@@ -97,6 +97,13 @@ const LUNGE_HALF_DURATION: float = 0.075
 ## short enough to keep combat pacing tight.
 const DEATH_FADE_DURATION: float = 0.3
 
+## On battle_outcome_resolved, ChapterVisuals modulate tweens to this color
+## over OUTCOME_DIM_DURATION seconds so the grid recedes and the outcome
+## banner pops. Slight blue cast (B 0.50 > R/G 0.45) reads as "scene cooling
+## down" rather than just gray.
+const OUTCOME_DIM_COLOR: Color = Color(0.45, 0.45, 0.50, 1.0)
+const OUTCOME_DIM_DURATION: float = 0.4
+
 
 # ─── Built-in virtual methods ─────────────────────────────────────────────────
 
@@ -238,6 +245,7 @@ func _ready() -> void:
 	_grid_controller.damage_applied.connect(_on_damage_applied)
 	_grid_controller.unit_visual_died.connect(_on_unit_died_visual)
 	_grid_controller.active_unit_changed.connect(_on_active_unit_changed)
+	_grid_controller.battle_outcome_resolved.connect(_on_battle_outcome_resolved)
 
 	# === STEP 5.5: AISystem (ADR-0019) — battle-scoped Node 6th invocation ===
 	# Inserted via /architecture-review delta #14 2026-05-05 per ADR-0016 §3 R-3
@@ -534,6 +542,22 @@ func _on_unit_died_visual(unit_id: int) -> void:
 		if is_instance_valid(unit_node):
 			unit_node.visible = false
 	)
+
+
+## Battle-outcome handler. Dims the grid (so the banner pops) and spawns the
+## screen-centered OutcomeBanner on HUDLayer. The HUD's UI-GB-09 results
+## panel still renders in parallel via its own subscription — this banner is
+## the grid-level moment cue, not a replacement for the stats sheet.
+func _on_battle_outcome_resolved(outcome: StringName, _fate_data: Dictionary) -> void:
+	var visuals: Node = _find_chapter_visuals()
+	if visuals is CanvasItem:
+		var tween: Tween = create_tween()
+		tween.tween_property(visuals, "modulate", OUTCOME_DIM_COLOR, OUTCOME_DIM_DURATION) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	if _hud_layer != null:
+		var banner: OutcomeBanner = OutcomeBanner.make(outcome)
+		banner.name = "OutcomeBanner"
+		_hud_layer.add_child(banner)
 
 
 ## Turn-indicator handler. Lazy-creates the indicator on first call and
