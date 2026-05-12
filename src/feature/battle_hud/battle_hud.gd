@@ -287,6 +287,19 @@ func _ready() -> void:
 	var ui_gb_01: Control = _UI_GB_01_SCENE.instantiate() as Control
 	var ui_gb_07: Control = _UI_GB_07_SCENE.instantiate() as Control
 	var ui_gb_08: Control = _UI_GB_08_SCENE.instantiate() as Control
+	# Top ribbon layout: round counter (UI-GB-07) at top-left; initiative queue
+	# (UI-GB-01) centered at top; victory condition (UI-GB-08) at top-right.
+	# Each scene defaults to anchor (0,0) which collapses them onto each other —
+	# anchor explicitly here so they read as one cohesive ribbon.
+	ui_gb_07.position = Vector2(12, 12)
+	ui_gb_01.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	ui_gb_01.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	ui_gb_01.offset_top = 12
+	ui_gb_08.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	ui_gb_08.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	ui_gb_08.offset_left = -232  # custom_minimum_size.x (220) + 12 padding
+	ui_gb_08.offset_top = 12
+	ui_gb_08.offset_right = -12
 	add_child(ui_gb_01)
 	add_child(ui_gb_07)
 	add_child(ui_gb_08)
