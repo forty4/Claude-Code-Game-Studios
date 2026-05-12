@@ -248,13 +248,15 @@ func test_unit_turn_ended_clears_highlight() -> void:
 	# Confirm highlight set
 	assert_int(hud._ui_gb_01_active_slot_index).is_equal(0)
 
-	# Now end the turn
+	# Now end the turn (acted=true → slot drops from highlight to acted-dim)
 	GameBus.unit_turn_ended.emit(7, true)
 	await get_tree().process_frame
 
-	# Highlight cleared
+	# Highlight cleared; slot now shows the acted-dim tier (mirrors the
+	# polygon end-of-turn dim so the ribbon agrees with the grid).
 	assert_int(hud._ui_gb_01_active_slot_index).is_equal(-1)
-	assert_float(hud._ui_gb_01_slots[0].modulate.a).is_equal_approx(1.0, 0.01)
+	assert_bool(hud._ui_gb_01_slot_acted[0]).is_true()
+	assert_float(hud._ui_gb_01_slots[0].modulate.a).is_equal_approx(0.5, 0.01)
 
 	hud.free()
 	_free_node_deps(fixture)

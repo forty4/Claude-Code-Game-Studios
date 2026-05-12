@@ -72,9 +72,17 @@ var _active_status_panel_unit_id: int = -1
 ## during _on_round_started rebuild + _on_unit_turn_started highlight + _on_unit_died rebuild.
 ## Each entry is the slot's VBoxContainer Control (parent of Portrait + NameLabel).
 ## _slot_unit_ids[i] tracks which unit_id is currently in slot[i] (-1 = empty/hidden).
+## _slot_acted[i] mirrors entry.acted_this_turn so slot dim reads from local state
+## (no per-frame snapshot re-read needed when re-applying modulate after highlight moves).
 var _ui_gb_01_slots: Array[Control] = []
 var _ui_gb_01_slot_unit_ids: Array[int] = [-1, -1, -1, -1, -1, -1, -1, -1]
+var _ui_gb_01_slot_acted: Array[bool] = [false, false, false, false, false, false, false, false]
 var _ui_gb_01_active_slot_index: int = -1
+
+## Modulate alpha for an initiative-queue slot whose unit has already acted
+## this round. Visually mirrors the polygon end-of-turn dim so the ribbon
+## agrees with the grid at a glance.
+const _UI_GB_01_ACTED_DIM_ALPHA: float = 0.5
 
 
 ## Preloaded UI element scenes (story-003 + story-004 + story-005 + future stories add more).
@@ -785,6 +793,7 @@ func _rebuild_initiative_queue() -> void:
 		if i < n:
 			var entry: TurnOrderEntry = snap.queue[i]
 			_ui_gb_01_slot_unit_ids[i] = entry.unit_id
+			_ui_gb_01_slot_acted[i] = entry.acted_this_turn
 			var name_label: Label = slot.get_node_or_null("NameLabel") as Label
 			if name_label != null:
 				var hero_name: String = "U%d" % entry.unit_id
@@ -799,12 +808,18 @@ func _rebuild_initiative_queue() -> void:
 			slot.visible = true
 		else:
 			_ui_gb_01_slot_unit_ids[i] = -1
+			_ui_gb_01_slot_acted[i] = false
 			slot.visible = false
 	# Clear stale highlight if active unit no longer in queue.
 	if _ui_gb_01_active_slot_index >= 0 and _ui_gb_01_active_slot_index < n:
 		_set_initiative_queue_slot_modulate(_ui_gb_01_active_slot_index, true)
 	else:
 		_ui_gb_01_active_slot_index = -1
+	# Apply acted-dim to every non-active slot now that slot_acted is fresh.
+	for i: int in range(8):
+		if i == _ui_gb_01_active_slot_index:
+			continue
+		_apply_slot_modulate(i)
 
 
 ## _set_initiative_queue_highlight() — story-004 (S7-09).
@@ -833,13 +848,33 @@ func _clear_initiative_queue_highlight() -> void:
 ## _set_initiative_queue_slot_modulate() — story-004 (S7-09) visual highlight impl.
 ## Implementation choice per Implementation Note 3: modulate.a boost
 ## (1.0 default → 1.2 when highlighted). Art-director sign-off per epic R-6.
+## false branch delegates to _apply_slot_modulate so un-highlighted acted slots
+## keep their dim (consistent with the polygon end-of-turn dim).
 func _set_initiative_queue_slot_modulate(slot_index: int, highlighted: bool) -> void:
 	if slot_index < 0 or slot_index >= _ui_gb_01_slots.size():
 		return
 	var slot: Control = _ui_gb_01_slots[slot_index]
 	if slot == null:
 		return
-	slot.modulate.a = 1.2 if highlighted else 1.0
+	if highlighted:
+		slot.modulate.a = 1.2
+	else:
+		_apply_slot_modulate(slot_index)
+
+
+## Resolves the desired modulate.a for a non-active slot from its tracked
+## acted state. Active slots are owned by _set_initiative_queue_slot_modulate
+## (highlight tier); this helper covers everyone else.
+func _apply_slot_modulate(slot_index: int) -> void:
+	if slot_index < 0 or slot_index >= _ui_gb_01_slots.size():
+		return
+	var slot: Control = _ui_gb_01_slots[slot_index]
+	if slot == null:
+		return
+	if _ui_gb_01_slot_acted[slot_index]:
+		slot.modulate.a = _UI_GB_01_ACTED_DIM_ALPHA
+	else:
+		slot.modulate.a = 1.0
 
 
 ## _populate_status_effects_box() — clears + repopulates UI-GB-03 status icons.
@@ -1345,6 +1380,15 @@ func _on_unit_turn_started(unit_id: int) -> void:
 ##            Cancels any lingering two-tap arm at turn-end (defensive).
 func _on_unit_turn_ended(unit_id: int, acted: bool) -> void:
 	_handle_signal(&"unit_turn_ended", [unit_id, acted])
+	# Mark the slot as acted (when applicable) BEFORE clearing the highlight, so
+	# the un-highlight path drops to the dim tier rather than full brightness.
+	if acted:
+		for i: int in range(_ui_gb_01_slot_unit_ids.size()):
+			if _ui_gb_01_slot_unit_ids[i] == unit_id:
+				_ui_gb_01_slot_acted[i] = true
+				if i != _ui_gb_01_active_slot_index:
+					_apply_slot_modulate(i)
+				break
 	if _ui_gb_01_active_slot_index >= 0 and _ui_gb_01_active_slot_index < _ui_gb_01_slot_unit_ids.size():
 		if _ui_gb_01_slot_unit_ids[_ui_gb_01_active_slot_index] == unit_id:
 			_clear_initiative_queue_highlight()
