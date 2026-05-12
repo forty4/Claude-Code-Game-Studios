@@ -315,10 +315,24 @@ func _ready() -> void:
 	_ui_elements[&"UI-GB-07"] = ui_gb_07
 	_ui_elements[&"UI-GB-08"] = ui_gb_08
 	# Cache UI-GB-01 slot Controls for O(1) rebuild access (allocation-free steady state per Guardrail).
+	# Inject a per-slot strikethrough ColorRect child on the NameLabel — toggled
+	# visible when the slot's unit has acted this round. Faster-scan read than
+	# alpha dim alone, especially on small portraits at standard tile zoom.
 	_ui_gb_01_slots.clear()
 	for i: int in range(8):
 		var slot: Control = ui_gb_01.get_node("Slot%d" % i) as Control
 		_ui_gb_01_slots.append(slot)
+		var name_label: Label = slot.get_node_or_null("NameLabel") as Label
+		if name_label != null and name_label.get_node_or_null("StrikethroughLine") == null:
+			var strike: ColorRect = ColorRect.new()
+			strike.name = "StrikethroughLine"
+			strike.color = Color(0.11, 0.10, 0.09, 0.85)  # ink stroke (matches tile borders)
+			strike.set_anchors_preset(Control.PRESET_HCENTER_WIDE)
+			strike.offset_top = -1.0
+			strike.offset_bottom = 1.0
+			strike.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			strike.visible = false
+			name_label.add_child(strike)
 
 	# ── Story-005: UI-GB-02 Action Menu + UI-GB-05 Skill List + UI-GB-10 Undo mount ──
 	var ui_gb_02: Control = _UI_GB_02_SCENE.instantiate() as Control
@@ -858,23 +872,37 @@ func _set_initiative_queue_slot_modulate(slot_index: int, highlighted: bool) -> 
 		return
 	if highlighted:
 		slot.modulate.a = 1.2
+		# Highlight visually trumps strike: the active unit is mid-turn, not done.
+		_set_slot_strikethrough(slot, false)
 	else:
 		_apply_slot_modulate(slot_index)
 
 
-## Resolves the desired modulate.a for a non-active slot from its tracked
-## acted state. Active slots are owned by _set_initiative_queue_slot_modulate
-## (highlight tier); this helper covers everyone else.
+## Resolves the desired modulate.a + strikethrough visibility for a non-active
+## slot from its tracked acted state. Active slots are owned by
+## _set_initiative_queue_slot_modulate (highlight tier, no strike); this
+## helper covers everyone else.
 func _apply_slot_modulate(slot_index: int) -> void:
 	if slot_index < 0 or slot_index >= _ui_gb_01_slots.size():
 		return
 	var slot: Control = _ui_gb_01_slots[slot_index]
 	if slot == null:
 		return
-	if _ui_gb_01_slot_acted[slot_index]:
-		slot.modulate.a = _UI_GB_01_ACTED_DIM_ALPHA
-	else:
-		slot.modulate.a = 1.0
+	var acted: bool = _ui_gb_01_slot_acted[slot_index]
+	slot.modulate.a = _UI_GB_01_ACTED_DIM_ALPHA if acted else 1.0
+	_set_slot_strikethrough(slot, acted)
+
+
+## Toggles the strikethrough ColorRect on a slot's NameLabel. No-op if the
+## label or strike node is missing (test fixtures with stub scenes).
+func _set_slot_strikethrough(slot: Control, visible_state: bool) -> void:
+	var name_label: Label = slot.get_node_or_null("NameLabel") as Label
+	if name_label == null:
+		return
+	var strike: ColorRect = name_label.get_node_or_null("StrikethroughLine") as ColorRect
+	if strike == null:
+		return
+	strike.visible = visible_state
 
 
 ## _populate_status_effects_box() — clears + repopulates UI-GB-03 status icons.
