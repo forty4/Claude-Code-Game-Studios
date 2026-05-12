@@ -136,7 +136,7 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 		)
 		poly.color = COLOR_FACTION_PLAYER if unit.side == 0 else COLOR_FACTION_ENEMY
 		poly.polygon = _shape_for_class(unit.unit_class)
-		poly.rotation = _rotation_for_facing(unit.facing, unit.unit_class)
+		poly.rotation = rotation_for_facing(unit.facing, unit.unit_class)
 		if unit.side == 0:
 			player_parent.add_child(poly)
 		else:
@@ -183,7 +183,9 @@ func _shape_for_class(unit_class: int) -> PackedVector2Array:
 ## Maps facing (0=N, 1=E, 2=S, 3=W) to polygon rotation. CAVALRY's base shape
 ## points east (+x) so facing=1 is identity; INFANTRY/STRATEGIST/COMMANDER are
 ## rotationally symmetric enough that rotation is a no-op (return 0).
-func _rotation_for_facing(facing: int, unit_class: int) -> float:
+## Public so BattleScene can compute the target rotation when tweening a
+## moved unit's polygon toward its new facing.
+func rotation_for_facing(facing: int, unit_class: int) -> float:
 	if unit_class != 0 and unit_class != 2 and unit_class != 5:
 		return 0.0
 	match facing:

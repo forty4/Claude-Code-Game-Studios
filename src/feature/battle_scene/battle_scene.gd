@@ -419,9 +419,18 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 	)
 	var unit_node: Node2D = _find_unit_polygon(visuals, unit_id)
 	if unit_node != null:
-		var tween: Tween = create_tween()
+		var tween: Tween = create_tween().set_parallel(true)
 		tween.tween_property(unit_node, "position", world_pos, MOVE_ANIM_DURATION) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		# Rotation tween: catch directional polygons (CAVALRY/ARCHER/SCOUT) up to
+		# the post-move facing. Non-directional classes return 0 from
+		# rotation_for_facing, so the tween is a no-op for them.
+		var unit: BattleUnit = _grid_controller.get_battle_unit(unit_id)
+		if unit != null:
+			var target_rotation: float = (visuals as ChapterVisuals) \
+				.rotation_for_facing(unit.facing, unit.unit_class)
+			tween.tween_property(unit_node, "rotation", target_rotation, MOVE_ANIM_DURATION) \
+				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	if _grid_controller.get_selected_unit_id() == unit_id:
 		visuals.set_selected_coord(to)
 	# Unit just consumed its move action; clear the move preview so stale
