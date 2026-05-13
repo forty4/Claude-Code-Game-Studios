@@ -83,6 +83,26 @@ func _exit_tree() -> void:
 	if GameBus.battle_outcome_resolved.is_connected(_on_battle_outcome_resolved):
 		GameBus.battle_outcome_resolved.disconnect(_on_battle_outcome_resolved)
 
+
+## Test-only: drops mid-transition state back to IDLE without touching live nodes
+## referenced by `_battle_scene_ref` / `_overworld_ref` (those are owned by the
+## scene tree and freed by whoever mounted them — typically the test's after_test).
+## Mirrors the reset_for_tests() pattern across the 4 other autoloads (G-15
+## test-isolation discipline). Reconnects GameBus subs idempotently in case a
+## prior test bulk-disconnected (G-28).
+func reset_for_tests() -> void:
+	_state = State.IDLE
+	loading_progress = 0.0
+	_battle_scene_ref = null
+	_overworld_ref = null
+	_load_path = ""
+	if _load_timer != null and _load_timer.is_inside_tree() and not _load_timer.is_stopped():
+		_load_timer.stop()
+	if not GameBus.battle_launch_requested.is_connected(_on_battle_launch_requested):
+		GameBus.battle_launch_requested.connect(_on_battle_launch_requested, CONNECT_DEFERRED)
+	if not GameBus.battle_outcome_resolved.is_connected(_on_battle_outcome_resolved):
+		GameBus.battle_outcome_resolved.connect(_on_battle_outcome_resolved, CONNECT_DEFERRED)
+
 # ── Signal callbacks ──────────────────────────────────────────────────────────
 
 ## Handles battle_launch_requested from GameBus.

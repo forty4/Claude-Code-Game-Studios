@@ -15,6 +15,14 @@ var _polygon: Node2D = null
 
 
 func before_test() -> void:
+	# Test-isolation discipline (the prior baseline 1-known-error came from carry-
+	# over state: a previous test booted battle_scene.tscn, SceneManager mounted
+	# a ChapterVisuals at /root + held _battle_scene_ref + flipped _state ≠ IDLE,
+	# ScenarioRunner advanced past LOADING, and our fresh BattleScene instance
+	# couldn't drive a clean boot on top of that residue). Reset the 3 autoloads
+	# that hold cross-test state, then sweep any leftover ChapterVisuals + the
+	# prior test's BattleScene root that didn't fully tear down.
+	_reset_battle_world_for_isolation()
 	var scene: PackedScene = load("res://scenes/battle/battle_scene.tscn") as PackedScene
 	assert(scene != null, "battle_scene.tscn must load")
 	_battle_scene = scene.instantiate()
@@ -25,6 +33,26 @@ func after_test() -> void:
 	if is_instance_valid(_battle_scene):
 		get_tree().root.remove_child(_battle_scene)
 		_battle_scene.queue_free()
+	_reset_battle_world_for_isolation()
+
+
+## Sweeps the /root state that battle_scene.tscn boot leaves behind: the
+## SceneManager-mounted ChapterVisuals + the autoload state (SceneManager FSM,
+## ScenarioRunner chapter list). Idempotent — no-op when nothing is residual.
+func _reset_battle_world_for_isolation() -> void:
+	for child: Node in get_tree().root.get_children():
+		if child is ChapterVisuals:
+			get_tree().root.remove_child(child)
+			child.free()
+		elif child is BattleScene and child != _battle_scene:
+			get_tree().root.remove_child(child)
+			child.free()
+	var sm: Node = get_node_or_null("/root/SceneManager")
+	if sm != null and sm.has_method("reset_for_tests"):
+		sm.reset_for_tests()
+	var runner: Node = get_node_or_null("/root/ScenarioRunner")
+	if runner != null and runner.has_method("reset_for_tests"):
+		runner.reset_for_tests()
 
 
 ## Drives a full slide on an active player unit, then asserts the polygon
