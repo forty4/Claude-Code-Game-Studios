@@ -105,6 +105,36 @@ func test_build_battle_units_propagates_class_for_full_chapter_1_roster() -> voi
 		).is_equal(want)
 
 
+# ─── Data-driven player_hero_ids resolution ─────────────────────────────────
+
+
+func test_player_hero_ids_chapter_field_takes_priority() -> void:
+	# Chapter authors the mapping → used regardless of legacy const overlap.
+	var scene: BattleScene = _instantiate_battle_scene()
+	var chapter: ChapterDefinition = ChapterDefinition.new()
+	chapter.player_unit_ids = PackedInt64Array([0, 1])
+	chapter.player_hero_ids = {0: "shu_002_guan_yu", 1: "shu_001_liu_bei"}
+	assert_str(String(scene._resolve_player_hero_id(chapter, 0))).is_equal("shu_002_guan_yu")
+	assert_str(String(scene._resolve_player_hero_id(chapter, 1))).is_equal("shu_001_liu_bei")
+
+
+func test_player_hero_ids_falls_back_to_legacy_const() -> void:
+	# Chapter has no entry → legacy PLAYER_HERO_BY_UNIT_ID const for uids 0, 1.
+	var scene: BattleScene = _instantiate_battle_scene()
+	var chapter: ChapterDefinition = ChapterDefinition.new()
+	chapter.player_unit_ids = PackedInt64Array([0, 1])
+	chapter.player_hero_ids = {}
+	assert_str(String(scene._resolve_player_hero_id(chapter, 0))).is_equal("shu_001_liu_bei")
+	assert_str(String(scene._resolve_player_hero_id(chapter, 1))).is_equal("shu_003_zhang_fei")
+
+
+func test_player_hero_ids_unknown_uid_falls_back_to_zhang_fei() -> void:
+	# Chapter empty + legacy const has no uid=99 → final fallback.
+	var scene: BattleScene = _instantiate_battle_scene()
+	var chapter: ChapterDefinition = ChapterDefinition.new()
+	assert_str(String(scene._resolve_player_hero_id(chapter, 99))).is_equal("shu_003_zhang_fei")
+
+
 # ─── Class-derived passive + attack_range (wired in same patch) ─────────────
 
 

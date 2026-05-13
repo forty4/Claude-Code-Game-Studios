@@ -301,6 +301,13 @@ func _hydrate_chapter(record: Dictionary) -> ChapterDefinition:
 		p_arr.append(int(x))
 	c.player_unit_ids = p_arr
 	c.player_commander_id = record.get("player_commander_id", -1) as int
+	# player_hero_ids — JSON has String keys (unit_id-as-text → hero_id-as-string);
+	# normalize to {int → String} so consumers can index by unit_id directly.
+	var hero_raw: Dictionary = (record.get("player_hero_ids", {}) as Dictionary)
+	var hero_map: Dictionary = {}
+	for k in hero_raw.keys():
+		hero_map[int(k as String)] = hero_raw[k] as String
+	c.player_hero_ids = hero_map
 	var eids: Array = record.get("enemy_unit_ids", []) as Array
 	var e_arr: PackedInt64Array = PackedInt64Array()
 	for x in eids:

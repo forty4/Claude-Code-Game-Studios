@@ -35,6 +35,7 @@
       "beat_9_text_key": "ch01.beat9.transition_to_xiakou",
       "player_unit_ids": [0, 1],
       "player_commander_id": 0,
+      "player_hero_ids": {"0": "shu_001_liu_bei", "1": "shu_003_zhang_fei"},
       "enemy_unit_ids": [2, 3, 4, 5],
       "deployment_positions_default": {
         "0": [1, 3],
@@ -89,6 +90,7 @@
       "beat_9_text_key": "ch02.beat9.transition_to_xiakou",
       "player_unit_ids": [1],
       "player_commander_id": 1,
+      "player_hero_ids": {"1": "shu_003_zhang_fei"},
       "enemy_unit_ids": [2, 3],
       "deployment_positions_default": {
         "1": [3, 3],
@@ -105,6 +107,7 @@
       "branch_overrides": {
         "WIN_changbanpo_default": {
           "player_unit_ids": [0, 1],
+          "player_hero_ids": {"0": "shu_001_liu_bei", "1": "shu_003_zhang_fei"},
           "deployment_positions_default": {
             "0": [2, 3],
             "1": [3, 3]

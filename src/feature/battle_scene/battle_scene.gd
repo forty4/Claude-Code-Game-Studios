@@ -592,14 +592,15 @@ func _clear_post_battle_ui() -> void:
 ## Hero IDs MUST exist in assets/data/heroes/heroes.json.
 func _build_battle_units_from_chapter(chapter: ChapterDefinition) -> Array[BattleUnit]:
 	var roster: Array[BattleUnit] = []
-	# Player units — bind player unit_ids to narrative-fitting heroes. Keyed by
-	# unit_id (NOT loop index) so the binding is stable across chapters: ch1's
-	# defenders are unit 0 = 유비 + unit 1 = 장비; ch2's bridge-holder is unit 1 = 장비.
-	# Hardcoded here pending a data-driven player_hero_ids ChapterDefinition field
-	# (post-MVP scope). Unknown uid → 장비 (a sensible default front-liner).
+	# Player units — bind player unit_ids to narrative-fitting heroes via a 3-tier
+	# fallback chain: (1) chapter.player_hero_ids (data-driven, scales to any uid
+	# in any chapter — preferred); (2) PLAYER_HERO_BY_UNIT_ID const (covers uids
+	# 0/1 = 유비/장비 from the legacy hardcoded mapping); (3) 장비 (a sensible
+	# default front-liner for unknown uids — keeps the battle bootable even when
+	# new chapters forget to author the mapping).
 	for i in chapter.player_unit_ids.size():
 		var uid: int = int(chapter.player_unit_ids[i])
-		var hero: StringName = PLAYER_HERO_BY_UNIT_ID.get(uid, &"shu_003_zhang_fei") as StringName
+		var hero: StringName = _resolve_player_hero_id(chapter, uid)
 		var pos: Vector2i = chapter.deployment_positions_default.get(uid, Vector2i(1 + i, 2)) as Vector2i
 		var tag: StringName = &"tank" if i == 0 else &"assassin"
 		# Player units default to &"aggressor" archetype (S13-12); chapter fixtures
@@ -620,6 +621,19 @@ func _build_battle_units_from_chapter(chapter: ChapterDefinition) -> Array[Battl
 		var tag: StringName = &"boss" if archetype == &"coordinator" else archetype
 		roster.append(_make_battle_unit(uid, hero, false, pos, tag, archetype))
 	return roster
+
+
+## Resolves the hero_id for a player unit_id via the 3-tier fallback chain
+## documented in _build_battle_units_from_chapter. Public-shaped (no underscore-
+## prefixed args) so tests can drive it directly without poking the full builder.
+func _resolve_player_hero_id(chapter: ChapterDefinition, uid: int) -> StringName:
+	if chapter != null and chapter.player_hero_ids.has(uid):
+		var hid: String = chapter.player_hero_ids[uid] as String
+		if not hid.is_empty():
+			return StringName(hid)
+	if PLAYER_HERO_BY_UNIT_ID.has(uid):
+		return PLAYER_HERO_BY_UNIT_ID[uid] as StringName
+	return &"shu_003_zhang_fei"
 
 
 ## Constructs a single BattleUnit. Replaces the deleted _make_mock_unit helper.

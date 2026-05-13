@@ -74,6 +74,14 @@ extends Resource
 ## Player unit IDs for this chapter (resolved to BattleUnit via HeroDatabase).
 @export var player_unit_ids: PackedInt64Array = PackedInt64Array()
 
+## Per-unit_id → hero_id mapping for player units. Empty Dict = battle_scene
+## falls back to its PLAYER_HERO_BY_UNIT_ID const (uids 0, 1 only) then to
+## 장비 for unknown uids. Authored chapters with player units beyond uid 0/1
+## (e.g. 관우 합류 from ch3 onwards) SHOULD populate this field.
+## Untyped Dictionary at @export per G-25 (no nested typed collections in 4.6).
+## Runtime shape: { unit_id_int → hero_id_string }.
+@export var player_hero_ids: Dictionary = {}
+
 ## Commander unit ID for player side (-1 = no designated commander).
 @export var player_commander_id: int = -1
 
