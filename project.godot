@@ -53,6 +53,11 @@ StoryEvent="*res://src/feature/story_event/story_event.gd"
 ; corrected here). Same pattern as GameBus/SceneManager/SaveManager/
 ; ScenarioRunner/DestinyState/StoryEvent — all autoloads omit class_name.
 InputRouter="*res://src/foundation/input_router.gd"
+; Boot order position 10: depends on GameBus only (subscribes to unit_died +
+; chapter_completed for SFX cues). NO `class_name` per G-3 autoload rule.
+; Procedural-only SFX layer; swap _build_procedural_streams for an asset
+; loader when real audio under assets/audio/sfx/ ships.
+SoundManager="*res://src/feature/audio/sound_manager.gd"
 
 [display]
 

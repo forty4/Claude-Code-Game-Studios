@@ -818,6 +818,7 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 	# polygon teleport to the new tile, the rendering pipeline is fine and
 	# Tween was the problem. If still no visual change, rendering is broken.
 	unit_node.position = world_pos
+	SoundManager.play(SoundManager.SFX_MOVE)
 	_trace("[SLIDE-DONE] unit=%d polygon.position now %s (expected %s)" %
 		[unit_id, str(unit_node.position), str(world_pos)])
 	# Rotation tween: catch directional polygons (CAVALRY/ARCHER/SCOUT) up to
@@ -875,6 +876,8 @@ func _on_damage_applied(attacker_id: int, defender_id: int, damage: int) -> void
 	# tests without ChapterVisuals don't perturb camera offset.
 	if _battle_camera != null and damage > 0:
 		_battle_camera.shake()
+	if damage > 0:
+		SoundManager.play(SoundManager.SFX_HIT)
 	var original_modulate: Color = unit_node.modulate
 	unit_node.modulate = Color(2.0, 0.4, 0.4, 1.0)  # bright red flash
 	# Failsafe: ensure the defender goes back to its non-flash color even if
@@ -1371,6 +1374,10 @@ func _on_active_unit_changed(unit_id: int) -> void:
 	var unit: BattleUnit = _grid_controller.get_battle_unit(unit_id)
 	if unit != null and visuals.has_method("set_active_turn_coord"):
 		visuals.set_active_turn_coord(unit.position)
+	# Player-side units only — AI turns can chain rapid-fire and a chirp on every
+	# enemy turn would feel like spam. Player chirp signals "your turn now" cleanly.
+	if unit != null and unit.is_player_controlled:
+		SoundManager.play(SoundManager.SFX_TURN)
 	var polygon: Node2D = _find_unit_polygon(visuals, unit_id)
 	if polygon == null:
 		return
