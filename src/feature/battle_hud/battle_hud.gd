@@ -724,8 +724,31 @@ func _populate_forecast_section(section: StringName, attacker_id: int, defender_
 				label.text = _COUNTER_PLACEHOLDER_DASH
 				subpanel.tooltip_text = _safe_tr_format(&"hud.forecast.counter_label", _COUNTER_PLACEHOLDER_DASH)
 		&"status_effects":
-			label.text = tr(&"hud.forecast.status_label")
-			subpanel.tooltip_text = tr(&"hud.forecast.status_label")
+			# Preview carries defender's active StatusEffect ids as
+			# Array[StringName]. Render comma-separated tr()-routed labels.
+			# Empty → fall back to the legacy placeholder string so the panel
+			# still reads as "Status" rather than going blank.
+			if _last_preview.has("defender_status_ids"):
+				var raw: Variant = _last_preview["defender_status_ids"]
+				var ids: Array[StringName] = []
+				if raw is Array:
+					for id_var: Variant in (raw as Array):
+						if id_var is StringName:
+							ids.append(id_var as StringName)
+				if ids.is_empty():
+					# Defender has no active statuses — show em-dash to make
+					# "clean defender" explicit rather than blank.
+					label.text = _COUNTER_PLACEHOLDER_DASH
+					subpanel.tooltip_text = tr(&"hud.forecast.status_label")
+				else:
+					var labels: PackedStringArray = []
+					for sid: StringName in ids:
+						labels.append(_status_id_label_fallback(sid))
+					label.text = ", ".join(labels)
+					subpanel.tooltip_text = tr(&"hud.forecast.status_label")
+			else:
+				label.text = tr(&"hud.forecast.status_label")
+				subpanel.tooltip_text = tr(&"hud.forecast.status_label")
 		&"passives":
 			# Section 6 passives list — Rally > Formation > TR precedence per
 			# Implementation Note 4. Cap at 3 visible lines. Session-10 reads
@@ -746,6 +769,26 @@ func _populate_forecast_section(section: StringName, attacker_id: int, defender_
 				lines.append(tr(passives[i]))
 			label.text = "\n".join(lines) if lines.size() > 0 else ""
 			subpanel.tooltip_text = tr(&"hud.forecast.passives_label")
+
+
+## Maps a StatusEffect.effect_id to a Korean display label. Used by the
+## forecast status_effects subpanel; mirrors the existing _format_fallback
+## hardcoded-Korean convention. Unknown ids return the raw token (capitalized
+## for visual cleanliness) so designers can spot missing translations.
+func _status_id_label_fallback(effect_id: StringName) -> String:
+	match effect_id:
+		&"demoralized":
+			return "사기저하"
+		&"exhausted":
+			return "탈진"
+		&"defend_stance":
+			return "방어"
+		&"inspired":
+			return "고무"
+		&"poisoned":
+			return "독"
+		_:
+			return String(effect_id).capitalize()
 
 
 ## Maps a FRONT/FLANK/REAR direction StringName to a Korean display label.

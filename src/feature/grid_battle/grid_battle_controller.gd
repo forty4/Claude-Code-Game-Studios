@@ -1513,6 +1513,10 @@ func preview_attack(attacker_id: int, defender_id: int) -> Dictionary:
 	# MVP context construction; surfaces as a real read-out when terrain
 	# bonuses ship. Negative defender.terrain_evasion is clamped per F-DC-2.
 	var hit_pct: int = 100 - clampi(0, 0, 30)
+	# Defender status effects — listed as StringName effect_id tokens so the
+	# UI can render localized labels via tr(). HPStatusController is null in
+	# some test rigs (defensive); empty array is the safe default.
+	var status_ids: Array[StringName] = _preview_collect_defender_status_ids(defender.unit_id)
 	return {
 		"direction": _angle_to_direction_rel(angle),
 		"damage": final_damage,
@@ -1523,7 +1527,26 @@ func preview_attack(attacker_id: int, defender_id: int) -> Dictionary:
 		"passives": passives,
 		"angle_mult": angle_mult,
 		"aura_mult": aura_mult,
+		"defender_status_ids": status_ids,
 	}
+
+
+## Collects the defender's active status effect IDs for the preview. Returns
+## an empty typed array when HPStatusController is missing or the defender
+## has no statuses. StatusEffect.effect_id is a StringName per ADR-0010.
+func _preview_collect_defender_status_ids(defender_id: int) -> Array[StringName]:
+	var result: Array[StringName] = []
+	if _hp_controller == null:
+		return result
+	if not _hp_controller.has_method("get_status_effects"):
+		return result
+	var effects: Array = _hp_controller.get_status_effects(defender_id) as Array
+	for effect_var: Variant in effects:
+		if effect_var is StatusEffect:
+			var e: StatusEffect = effect_var as StatusEffect
+			if e.effect_id != &"":
+				result.append(e.effect_id)
+	return result
 
 
 ## Counter eligibility check for preview. Returns true if defender CAN

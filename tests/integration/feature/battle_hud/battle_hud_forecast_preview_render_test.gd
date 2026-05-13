@@ -204,6 +204,70 @@ func test_show_forecast_without_preview_uses_placeholder_path() -> void:
 	_free_node_deps(bag)
 
 
+# ─── Status effects subpanel reads preview ───────────────────────────────────
+
+
+func test_status_effects_subpanel_shows_korean_labels_when_present() -> void:
+	var bag: Dictionary = _make_hud_with_stubs()
+	var hud: BattleHUD = bag["hud"]
+	add_child(hud)
+
+	var preview: Dictionary = {
+		"direction": &"FRONT",
+		"damage": 25,
+		"hit_pct": 100,
+		"counter_damage": 0,
+		"counter_eligible": false,
+		"kind": 0,
+		"passives": [],
+		"angle_mult": 1.00,
+		"aura_mult": 1.00,
+		"defender_status_ids": [&"demoralized", &"exhausted"],
+	}
+	hud.show_forecast(TEST_ATTACKER_ID, TEST_DEFENDER_ID, preview)
+
+	var subpanel: Control = hud._forecast_subpanels.get(&"status_effects")
+	var label: Label = _find_label(subpanel)
+	assert_str(label.text).override_failure_message(
+		"status_effects subpanel must render Korean labels comma-joined; got '%s'"
+		% label.text
+	).is_equal("사기저하, 탈진")
+
+	hud.free()
+	_free_node_deps(bag)
+
+
+func test_status_effects_subpanel_shows_dash_when_defender_has_no_statuses() -> void:
+	var bag: Dictionary = _make_hud_with_stubs()
+	var hud: BattleHUD = bag["hud"]
+	add_child(hud)
+
+	var preview: Dictionary = {
+		"direction": &"FRONT",
+		"damage": 25,
+		"hit_pct": 100,
+		"counter_damage": 0,
+		"counter_eligible": false,
+		"kind": 0,
+		"passives": [],
+		"angle_mult": 1.00,
+		"aura_mult": 1.00,
+		"defender_status_ids": [] as Array[StringName],
+	}
+	hud.show_forecast(TEST_ATTACKER_ID, TEST_DEFENDER_ID, preview)
+
+	var subpanel: Control = hud._forecast_subpanels.get(&"status_effects")
+	var label: Label = _find_label(subpanel)
+	var dash: String = hud._COUNTER_PLACEHOLDER_DASH
+	assert_str(label.text).override_failure_message(
+		"status_effects subpanel must show em-dash '%s' when defender has no statuses; got '%s'"
+		% [dash, label.text]
+	).is_equal(dash)
+
+	hud.free()
+	_free_node_deps(bag)
+
+
 # ─── Signal handler integration ───────────────────────────────────────────────
 
 
