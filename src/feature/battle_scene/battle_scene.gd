@@ -163,6 +163,10 @@ const CHAPTER_FLAVOR: Dictionary = {
 		"title": "제2장 · 장판교 (長坂橋)",
 		"tagline": "장비, 다리 하나로 적의 전군을 멈춰 세워라.",
 	},
+	"ch03_xiakou_outskirts": {
+		"title": "제3장 · 강하 외곽 · 적벽의 서막",
+		"tagline": "관우 합류 — 강을 건너기까지 마지막 후위를 막아내라.",
+	},
 }
 ## How long the title card stays on screen before auto-removing (seconds).
 const TITLE_CARD_DURATION: float = 3.5

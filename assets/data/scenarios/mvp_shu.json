@@ -114,6 +114,66 @@
           }
         }
       }
+    },
+    {
+      "chapter_id": "ch03_xiakou_outskirts",
+      "chapter_number": 3,
+      "map_id": "mvp_chapter_03",
+      "author_draw_branch": false,
+      "echo_threshold": 1,
+      "branch_table": {
+        "WIN_default":  "WIN_xiakou_breakthrough",
+        "LOSS_default": "LOSS_xiakou_pursuit_continues"
+      },
+      "canonical_branch_key": "WIN_xiakou_breakthrough",
+      "beat_1_text_key": "ch03.beat1.anchor",
+      "beat_2_fragment": {
+        "variant": "silent_visual",
+        "visual_cue_id": "scenario.river_glyph",
+        "audio_cue_id": null
+      },
+      "beat_3_text_key": "ch03.beat3.brief",
+      "beat_8_revelations": [
+        {
+          "branch_key": "WIN_xiakou_breakthrough",
+          "text_key": "ch03.beat8.win_xiakou_breakthrough",
+          "cue_tag": "tag.beat8.canonical_win"
+        },
+        {
+          "branch_key": "LOSS_xiakou_pursuit_continues",
+          "text_key": "ch03.beat8.loss_xiakou_pursuit_continues",
+          "cue_tag": "tag.beat8.canonical_loss"
+        }
+      ],
+      "beat_9_text_key": "ch03.beat9.transition_to_chibi",
+      "player_unit_ids": [0, 1, 6],
+      "player_commander_id": 0,
+      "player_hero_ids": {
+        "0": "shu_001_liu_bei",
+        "1": "shu_003_zhang_fei",
+        "6": "shu_002_guan_yu"
+      },
+      "enemy_unit_ids": [2, 3, 5, 7],
+      "deployment_positions_default": {
+        "0": [11, 4],
+        "1": [10, 4],
+        "6": [11, 3],
+        "2": [3, 4],
+        "3": [3, 3],
+        "5": [2, 5],
+        "7": [2, 4]
+      },
+      "enemy_roster": [
+        {"unit_id": 2, "hero_id": "wei_005_xiahou_dun", "archetype": "aggressor"},
+        {"unit_id": 3, "hero_id": "wei_006_zhang_liao", "archetype": "skirmisher"},
+        {"unit_id": 5, "hero_id": "wei_008_xu_chu",     "archetype": "coordinator"},
+        {"unit_id": 7, "hero_id": "wei_001_cao_cao",    "archetype": "coordinator"}
+      ],
+      "chokepoints": [
+        [4, 3],
+        [4, 4],
+        [13, 4]
+      ]
     }
   ]
 }
