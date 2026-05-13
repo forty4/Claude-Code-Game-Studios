@@ -493,11 +493,41 @@ S15-J wiring test #2 (`battle_scene_set_action_controller_wiring_test.gd:150`) v
 
 ---
 
+### POLISH-014 — BattleScene teardown leaves ~270 ObjectDB orphans across the 2 battle_scene-booting suites (full-suite exit 101 warning)
+
+| Field | Value |
+|---|---|
+| **Source** | Session 7 Phase 7 production_slide test isolation fix (2026-05-13) — surfaced when exit code transitioned from 100 [error] to 101 [warning] after the 1-known-error was eliminated by SceneManager.reset_for_tests + battle-world isolation cleanup |
+| **Tier** | DEFECT (LOW severity — functional pass rate unaffected: 1370/1370 tests still pass; gdUnit4 emits exit 101 = RETURN_WARNING when any suite has orphans even though all assertions hold) |
+| **Closure trigger** | Pre-release CI green requirement (`exit 0` enforced by deploy pipeline) OR dedicated hygiene sweep when a sprint surfaces capacity for it |
+| **Owner** | unassigned |
+| **Status** | Open |
+| **Added** | 2026-05-13 |
+| **Resolved** | — |
+
+**Description**: every test suite that boots `scenes/battle/battle_scene.tscn` (currently `tests/integration/feature/battle_scene/battle_scene_chapter_progression_test.gd` and `battle_scene_production_slide_test.gd`) reports 130-140 orphan ObjectDB instances on the FOLLOWING test's setup. Confirmed structural to BattleScene teardown — **the same orphan count appears when each suite runs solo**, meaning the leak originates from `_battle_scene.free()` not fully releasing the subtree, NOT from cross-test contamination. Full-suite total: ~270 orphan baseline.
+
+The session-7 production_slide isolation fix (commit `ba4f83c` — adds `SceneManager.reset_for_tests` + sweeps `/root` ChapterVisuals before each test) eliminated the 1 known functional error baseline but did NOT address the orphan count. Result: exit code 101 (`RETURN_WARNING` per `addons/gdUnit4/src/core/runners/GdUnitTestCIRunner.gd:466-468`) instead of exit 0.
+
+**Suspected leak sources** (ordered by hypothesis priority — root cause not yet pinned):
+1. **Polygon2D + Line2D + Label children of ChapterVisuals at `/root`** — spawned at runtime by `_spawn_unit_polygons_async` → `ChapterVisuals.spawn_unit_polygons(roster)`. ChapterVisuals is freed in test cleanup but its children may have detached refs via the polygon-finding loops in BattleScene handlers.
+2. **HUD widget subtree** (UI-GB-01..14 elements under `_hud_layer`) — heavily nested Controls; if any Tween/Timer/Callable holds a ref, the widgets detach from the freed parent.
+3. **Signal-captured Callables** holding strong refs to BattleScene children — would prevent the cascade-free from reaching those nodes.
+
+**Mitigation hypotheses** (ordered by yield-to-effort):
+- Audit `_find_unit_polygon` / `_list_polygon_names` consumers — they walk the polygon subtree, may capture refs in closures.
+- Add a defensive `BattleScene._exit_tree()` body that explicitly `free()`s known suspects (currently empty per R-6 "no _exit_tree body" rule — would need an R-6 amendment if pursued).
+- Run with `--verbose` to capture `Window.print_orphan_nodes()` output and identify the specific node types in the orphan set.
+
+**Cross-refs**: TD-074 (this entry's tech-debt mirror), G-31 (Tween process_mode binding — fixed adjacent, doesn't affect orphan count), G-6 (orphan detection timing).
+
+---
+
 ## Index — by Status
 
 | Status | Count | IDs |
 |---|---|---|
-| Open | 13 | POLISH-001 / POLISH-002 / POLISH-003 / POLISH-004 / POLISH-005 / POLISH-006 / POLISH-007 / POLISH-008 / POLISH-009 / POLISH-010 / POLISH-011 / POLISH-012 / POLISH-013 |
+| Open | 14 | POLISH-001 / POLISH-002 / POLISH-003 / POLISH-004 / POLISH-005 / POLISH-006 / POLISH-007 / POLISH-008 / POLISH-009 / POLISH-010 / POLISH-011 / POLISH-012 / POLISH-013 / POLISH-014 |
 | In-progress | 0 | — |
 | Resolved | 0 | — |
 | Cancelled | 0 | — |
@@ -513,6 +543,7 @@ S15-J wiring test #2 (`battle_scene_set_action_controller_wiring_test.gd:150`) v
 | Sprint-14 S14-03 re-attestation post-S14-02 visual fix (2026-05-09 PM late) | POLISH-011 |
 | Sprint-15 S15-D /dev-story Phase 4 godot-gdscript-specialist mid-implementation investigation (2026-05-10 PM late-late) | POLISH-012 |
 | Sprint-15 S15-D /dev-story 3-spawn-cycle attempt at natural-loop test (2026-05-10 PM very-late; deferred to sprint-16 with reframed scope) | POLISH-013 |
+| Session 7 Phase 7 production_slide test isolation fix (2026-05-13 — surfaced when exit code transitioned 100→101 after eliminating the 1-known-error) | POLISH-014 |
 
 ## Index — by Closure Trigger
 
@@ -525,6 +556,7 @@ S15-J wiring test #2 (`battle_scene_set_action_controller_wiring_test.gd:150`) v
 | Bundled at sprint-14 entry (POLISH-009 likely root cause of POLISH-010) | POLISH-009 / POLISH-010 |
 | MUST resolve before production stage advancement (gate-check rerun-3 path-to-PASS) | POLISH-011 |
 | MUST resolve before production stage advancement (sprint-15 S15-J mid-amendment in flight; production-wiring residual of POLISH-011 absorption arc) | POLISH-012 |
+| Pre-release CI green requirement OR dedicated hygiene sweep (gdUnit4 exit 101 warning, not error) | POLISH-014 |
 
 ---
 
@@ -540,3 +572,4 @@ S15-J wiring test #2 (`battle_scene_set_action_controller_wiring_test.gd:150`) v
 - 2026-05-09 PM late-late — POLISH-011 TRIAGE FINDING amendment: tier escalated HIGH → CRITICAL after root-cause re-attribution from input non-responsive to turn-loop architectural gap (TurnOrderRunner._execute_action_budget stub + missing AISystem.ai_action_ready subscriber + missing per-action declare_action wiring in grid-click handlers). 5-hypothesis disposition documented inline (H1/H2/H4 disconfirmed; H3 secondary; H5 moot). Verification gap pattern advanced 3rd → 4th invocation (POLISH-008 / POLISH-010 / POLISH-011-input-frame / POLISH-011-turn-loop-actual). Sprint-15 absorption recommended; sprint-14 closure-mode prohibits this-sprint fix.
 - 2026-05-10 PM late-late — POLISH-012 added (sprint-15 S15-D /dev-story Phase 4 godot-gdscript-specialist mid-implementation investigation BEFORE first test run): POLISH-011 absorption-arc residual surfaced — `set_action_controller` DI surface added by S15-A is never called from production `src/` (7 test sites + 0 production callers); production main_scene falls through TEST-SEAM no-op pass for T5; battle resolves to ROUND_CAP_DRAW identically with-or-without S15-A/B/C wiring. Verification gap pattern advanced 4th → 5th invocation (CLOSED-LOOP variant: even after the 3 root-cause stories absorb the verification-target, the production WIRING that activates them remains unverified). Sprint-15 R4 risk REALIZED via investigation-time catch (faster + cheaper than the anticipated test-first-run-failure path). Mid-sprint amendment vehicle: S15-J Must Have promotion → story-014 in grid-battle-controller epic; S15-D blocked on S15-J close.
 - 2026-05-10 PM very-late — POLISH-013 added (sprint-15 S15-D /dev-story 3-spawn-cycle attempt at natural-loop integration test): test infrastructure surfaces a deferred-chain progression gap that exceeds achievable verification under current test framework + S15-D 2-3h estimate. 3 fixture iterations attempted (chapter-1 / hybrid 1-stub-player / TRUE 0-player-units) — all stall at unit 1 turn-start with 2 emits captured + 4000 frames consumed. Whether this indicates a test-environment-only gap (production main_scene actually works; needs windowed re-attestation S15-G to confirm) OR a real production defect (POLISH-011 absorption arc didn't close the natural-loop progression chain end-to-end) is UNRESOLVED. S15-D DEFERRED to sprint-16 with reframed scope; sprint-15 closes 4/5 Must Have (S15-A/B/C/J done; S15-D deferred). 6th invocation of headless-vs-windowed verification gap pattern (G-30) — meta-pattern: even the test designed to CLOSE G-30 surfaces a NEW G-30 instance.
+- 2026-05-13 — POLISH-014 added (session 7 Phase 7 production_slide test isolation fix surfaced the BattleScene-teardown orphan baseline as the next-level CI failure mode). Exit code transitioned 100 [error] → 101 [warning] after `SceneManager.reset_for_tests` + battle-world isolation cleanup eliminated the 1-known-error: 1370/1370 tests pass functionally but the 270 ObjectDB orphan baseline (per `battle_scene_chapter_progression_test` + `battle_scene_production_slide_test`, ~130-140 each, present even when each suite runs solo) trips gdUnit4's `RETURN_WARNING` path. LOW severity (functional pass rate unaffected); closure trigger is pre-release CI green requirement or a dedicated hygiene sweep. Mirrors as TD-074 in tech-debt-register.

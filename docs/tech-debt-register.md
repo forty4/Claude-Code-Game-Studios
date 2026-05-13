@@ -3327,3 +3327,74 @@ Sprint-13 retro AI #10 closure. 10 ADVISORY items from S13-11 + S13-12 /code-rev
 **Reactivation trigger**: next AISystem amendment OR sprint-15+ verification-gap-pattern test infrastructure work (paired with TD-071 + the windowed-smoke-harness infrastructure G-30 mitigation calls for).
 
 **Discovered**: sprint-13 S13-12 /code-review qa-tester ADVISORY AC-1 2026-05-09; classified at sprint-14 S14-08 batch 2026-05-09.
+
+---
+
+## TD-074 — BattleScene teardown leaves ~130 ObjectDB orphans per suite
+
+**Status**: Open
+**Category**: infra (test hygiene)
+**Severity**: low (functional pass-rate unaffected — gdUnit4 exit code 101 = warning, not error)
+**Logged**: 2026-05-13 (session 7 Phase 7 — production_slide test isolation fix)
+**Estimated effort**: ~2-4 hr — trace which BattleScene subtree nodes survive `_battle_scene.free()` (likely Polygon2D children of ChapterVisuals, HUD widgets, or signal-captured Callables). Add explicit cleanup in `before_test`/`after_test` for the survivors. Possibly add a `BattleScene.reset_for_tests()` seam that walks the tree and frees leftovers.
+
+**Description**: every test suite that boots `scenes/battle/battle_scene.tscn` (currently `battle_scene_chapter_progression_test` and `battle_scene_production_slide_test`) reports 130-140 orphan ObjectDB instances on the FOLLOWING test's setup — and crucially, **the same orphan count appears when each suite runs solo**, meaning the leak originates from the BattleScene boot itself, not from cross-test contamination. Full-suite total: ~270 orphan baseline. gdUnit4's GdUnitTestCIRunner reports exit code 101 (`RETURN_WARNING`) when any suite has orphans, even when all tests pass functionally.
+
+**Origin**: long-standing — present at sprint-13 baseline (per `production/session-state/active.md` pre-session-7 notes "1 known error + 268 orphans"). The session-7 P0-P3 sweep (10 file-modifying commits, +37 tests, ch3 content) raised orphan count to 270 but did NOT introduce it. The session-7 production_slide isolation fix (commit `ba4f83c`) eliminated the 1 known error but does not address the orphan count.
+
+**Mitigation candidates** (ordered by yield-to-effort):
+1. Audit `_find_unit_polygon` consumers — Polygon2D children of ChapterVisuals are reparented multiple times during a battle (turn indicator, name labels, hp bars); if any signal-captured Callable references survive `_battle_scene.free()`, the polygons become orphans.
+2. Audit BattleHUD widget subtree — UI-GB-01..14 elements are heavily nested; `_battle_scene.free()` should cascade-free them but if any Tween/Timer holds a ref, they detach.
+3. Add a defensive `BattleScene._exit_tree()` body that explicitly `free()`s known suspects (currently empty per R-6 "no _exit_tree body" rule — would need an R-6 amendment).
+
+**Reactivation trigger**: pre-release CI green requirement OR a sprint-N pause for hygiene cleanup. Until then, the production_slide_test passes functionally and the 270 orphans don't affect runtime.
+
+**Cross-refs**: G-31 (Tween process_mode binding — fixed adjacent, doesn't affect orphan count), G-6 (orphan detection timing).
+
+**Discovered**: session 7 Phase 7 2026-05-13 (commit `ba4f83c` — surfaced when exit code transitioned from 100 [error] to 101 [warning] after the 1-known-error was eliminated).
+
+---
+
+## TD-075 — `_make_battle_unit` raw_atk / move_range hardcoded (not class-derived)
+
+**Status**: Open
+**Category**: code (balance surface drift)
+**Severity**: low-medium (active gameplay impact — cavalry / scout get no extra move; strategist gets no move penalty; raw_atk uses a flat 1.5× multiplier instead of class-specific weights)
+**Logged**: 2026-05-13 (session 7 Phase 1 — partial class-derivation pass)
+**Estimated effort**: ~1 hr — wire `unit.move_range = UnitRole.get_effective_move_range(hero, unit_class)` (helper already exists) and `unit.raw_atk = UnitRole.get_atk(hero, unit_class)` (also exists). Verify the chapter-progression integration test still resolves within its 30s deadline (raised cavalry move could shorten battles further).
+
+**Description**: `src/feature/battle_scene/battle_scene.gd::_make_battle_unit` currently sets `unit.move_range = 3` and `unit.raw_atk = int(hero.stat_might * 1.5)` as flat values. The `attack_range` field WAS class-derived in session 7 Phase 1 (commit `0fd5a4c`: ARCHER → 2, else 1) — but `move_range` and `raw_atk` stayed hardcoded. `UnitRole.get_effective_move_range(hero, unit_class)` exists and applies the class_move_delta (CAVALRY +1, STRATEGIST -1, SCOUT +1, others 0, all clamped to [MOVE_RANGE_MIN, MOVE_RANGE_MAX]). `UnitRole.get_atk(hero, unit_class)` applies primary+secondary stat weights per class (e.g., ARCHER 0.6×might + 0.4×agility).
+
+**Active gameplay effect of the gap**:
+- 관우 / 장료 (cavalry / strategist heroes have hero.move_range = 4 and 5 respectively in heroes.json) all collapse to a flat 3 — neither feels mobile.
+- 우금 (ARCHER class_atk_mult = 1.0, primary stat weight uses agility) doesn't get the agility-weighted raw_atk that the unit-role design calls for.
+- The damage-pipeline `class_atk_mult` still applies downstream of `raw_atk`, so the multiplicative effect is partially preserved — but the additive primary/secondary stat blend is bypassed entirely.
+
+**Closure trigger**: when ch3 + future chapter balance feedback indicates the flat values are wrong (e.g. "관우 too slow", "우금 too weak"), wire the two UnitRole helpers and re-balance from there.
+
+**Cross-refs**: session 7 Phase 1 (`0fd5a4c` only wired attack_range), `src/foundation/unit_role.gd::get_effective_move_range` (already exists, ready to consume).
+
+**Discovered**: session 7 Phase 1 2026-05-13 — noted inline in the commit message "raw_atk / move_range / attack_range stay hardcoded for now (deliberate; not part of this pass)". Codified here for visibility at next balance pass.
+
+---
+
+## TD-076 — `ScenarioRunner.restore_from_save_context` is chapter-start only (no mid-chapter resume)
+
+**Status**: Open
+**Category**: code (save/load fidelity)
+**Severity**: low (acceptable for MVP — players naturally save at chapter boundaries via the existing CP-1/CP-2/CP-3 emission points)
+**Logged**: 2026-05-13 (session 7 Phase 6 — main menu + save UI shipped)
+**Estimated effort**: ~3-5 hr — depends on how much "mid-chapter state" should restore. Minimum-viable additions: HP state (HPStatusController per-unit current_hp) + active turn unit + round number + scenario echo_count. Full fidelity (move tokens, status effects, AI cooldowns, etc.) is post-MVP.
+
+**Description**: `ScenarioRunner.restore_from_save_context(ctx)` shipped at session 7 Phase 6 (commit `cbbfdd8`) only restores to BEAT_1_ANCHOR of the saved chapter. The player replays the saved chapter from the start — `last_cp` (CP-1/CP-2/CP-3), `outcome`, `branch_key`, `echo_count`, `echo_marks_archive`, `flags_to_set` fields in SaveContext are persisted by auto-checkpoints but not consumed during restore.
+
+For the current game flow this is fine: the only save checkpoints are CP-1 (BEAT_1_ANCHOR entry), CP-2 (BEAT_7_JUDGMENT entry), CP-3 (BEAT_9_TRANSITION entry) — all at chapter boundaries or near-boundaries. "Resume from CP-1" = "restart this chapter" is intuitive. Once mid-battle autosave checkpoints are added (no such trigger exists yet), this restore granularity would feel wrong.
+
+**Mitigation candidates** when needed:
+1. Restore `echo_count` + `echo_marks_archive` from ctx before re-emitting `chapter_started` — preserves retry-history continuity.
+2. If `last_cp == 3`, jump to the NEXT chapter's BEAT_1_ANCHOR (player already passed BEAT_9 of the saved chapter — replaying it is redundant).
+3. Full mid-battle: would require BattleScene-level state save (roster HP, positions, active turn, status effects) — out of scope for MVP.
+
+**Reactivation trigger**: when mid-battle autosave is added, OR when playtest feedback shows "replay the whole chapter" feels wrong.
+
+**Discovered**: session 7 Phase 6 2026-05-13 (commit `cbbfdd8` body: "MVP-level resume — re-plays the saved chapter from BEAT_1_ANCHOR rather than restoring exact mid-chapter state").
