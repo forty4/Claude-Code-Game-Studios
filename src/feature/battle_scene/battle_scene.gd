@@ -139,6 +139,17 @@ const OUTCOME_DIM_DURATION: float = 0.4
 const END_OF_TURN_DIM_ALPHA: float = 0.55
 const END_OF_TURN_DIM_DURATION: float = 0.15
 
+## Camera top-padding (pixels). The HUD ribbon (initiative queue / round counter
+## / victory condition) sits in screen-space along the top edge; the camera's
+## `offset.y` is shifted negative by this much so the rendered world slides DOWN
+## by the same amount, leaving an empty band at top for the ribbon to overlay
+## without covering any map tiles. Using `offset` (not `position`) keeps the
+## camera's clamp-to-map limits behaving normally regardless of viewport size —
+## the prior `position.y -= 60` hack worked at 1920×1080 but degraded on smaller
+## windows because the limits would clamp the shifted position back. ~80 px
+## matches the BattleHUD top-ribbon footprint with a few px of breathing room.
+const HUD_TOP_RIBBON_PAD_PX: float = 80.0
+
 ## Per-chapter title-card flavor. Keyed by ChapterDefinition.chapter_id. Shown
 ## briefly at battle start so the fight has narrative framing. Fallback (unknown
 ## id) uses the chapter number alone. Placeholder copy — the eventual string
@@ -278,11 +289,11 @@ func _start_battle() -> void:
 	_battle_camera.setup(_map_grid)
 	add_child(_battle_camera)
 	# Windowed-play camera: keep zoom at 1.0 (matches balance constant + tests)
-	# and shift the camera UP by 60 world px so the HUD ribbon at the top of
-	# the viewport overlays empty space above the map rather than the top
-	# row of tiles (where 장료 sits in chapter 1). 60 is enough to clear the
-	# typical HUD ribbon while not leaving an obvious empty band at top.
-	_battle_camera.position.y -= 60.0
+	# and shift the rendered world DOWN via Camera2D.offset so the HUD ribbon at
+	# the top edge overlays empty space above the map rather than the top row
+	# of tiles. Using `offset` (NOT `position`) so the camera's clamp-to-map
+	# limits keep working at every viewport size — see HUD_TOP_RIBBON_PAD_PX.
+	_battle_camera.offset.y = -HUD_TOP_RIBBON_PAD_PX
 
 	# === STEP 2.5: InputRouter DI for screen→grid coord + grid→unit_id resolution.
 	# Without these, every mouse click resolves to ctx.target_unit_id = -1 and
@@ -390,7 +401,7 @@ func _start_battle() -> void:
 	_mount_controls_hint()
 	# Brief title card so the battle has narrative framing. Auto-removes via a
 	# SceneTreeTimer (fires regardless of process_mode — unlike _process).
-	_mount_title_card(chapter)
+	_mount_title_card(chapter, roster)
 
 	# ChapterVisuals is mounted at /root by SceneManager AFTER BattleScene._ready
 	# returns (async load + deferred instantiate per ADR-0002). Spawn runtime
@@ -956,12 +967,13 @@ func _on_unit_died_visual(unit_id: int) -> void:
 ## (see _on_battle_outcome_resolved) while SceneTreeTimer.timeout still fires.
 ## No fade-out tween: Tween property writes are unreliable in the windowed env
 ## (G-30b), so the card just snaps away when the timer fires.
-func _mount_title_card(chapter: ChapterDefinition) -> void:
+func _mount_title_card(chapter: ChapterDefinition, roster: Array[BattleUnit]) -> void:
 	if _hud_layer == null or chapter == null:
 		return
 	var flavor: Dictionary = CHAPTER_FLAVOR.get(chapter.chapter_id, {}) as Dictionary
 	var title_text: String = flavor.get("title", "제%d장" % chapter.chapter_number) as String
 	var tagline_text: String = flavor.get("tagline", "") as String
+	var roster_text: String = _format_player_roster_line(roster)
 
 	# CenterContainer (full-rect) centers its single child — clean, no offset math.
 	var card: CenterContainer = CenterContainer.new()
@@ -996,6 +1008,19 @@ func _mount_title_card(chapter: ChapterDefinition) -> void:
 		tagline.add_theme_font_size_override("font_size", 22)
 		box.add_child(tagline)
 
+	if not roster_text.is_empty():
+		var roster_label: Label = Label.new()
+		roster_label.text = roster_text
+		roster_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		roster_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# Slight cool tint so the roster reads as "your forces" — distinct from the
+		# warm tagline (situation prose) above it.
+		roster_label.add_theme_color_override("font_color", Color(0.78, 0.86, 0.93, 1.0))
+		roster_label.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.04, 1.0))
+		roster_label.add_theme_constant_override("outline_size", 5)
+		roster_label.add_theme_font_size_override("font_size", 18)
+		box.add_child(roster_label)
+
 	_hud_layer.add_child(card)
 	# Self-destruct via a child Timer (not a SceneTreeTimer): if the scene reloads
 	# before TITLE_CARD_DURATION elapses, the Timer is freed along with `card`, so
@@ -1006,6 +1031,37 @@ func _mount_title_card(chapter: ChapterDefinition) -> void:
 	life.wait_time = TITLE_CARD_DURATION
 	life.timeout.connect(card.queue_free)
 	card.add_child(life)
+
+
+## Builds the "출진: 유비 (지휘) · 장비 (보병)" line shown under the chapter
+## tagline so the player sees who they're commanding before the fight starts.
+## Player-side units only — enemies are revealed via the units themselves.
+## Returns "" when the roster has no player units (no line rendered).
+func _format_player_roster_line(roster: Array[BattleUnit]) -> String:
+	var parts: Array[String] = []
+	for unit: BattleUnit in roster:
+		if unit.side != 0:
+			continue
+		var hero: HeroData = HeroDatabase.get_hero(unit.hero_id)
+		var name_ko: String = hero.name_ko if hero != null and hero.name_ko != "" else String(unit.hero_id)
+		var class_name_ko: String = _class_label_ko(unit.unit_class)
+		parts.append("%s (%s)" % [name_ko, class_name_ko])
+	if parts.is_empty():
+		return ""
+	return "출진: " + "  ·  ".join(parts)
+
+
+## Korean short label for the 6 UnitRole classes. Kept inline so the title card
+## doesn't pull on the BattleHUD's i18n stack (which is en.po only).
+func _class_label_ko(unit_class: int) -> String:
+	match unit_class:
+		int(UnitRole.UnitClass.CAVALRY):    return "기병"
+		int(UnitRole.UnitClass.INFANTRY):   return "보병"
+		int(UnitRole.UnitClass.ARCHER):     return "궁병"
+		int(UnitRole.UnitClass.STRATEGIST): return "책사"
+		int(UnitRole.UnitClass.COMMANDER):  return "지휘"
+		int(UnitRole.UnitClass.SCOUT):      return "척후"
+		_:                                  return "?"
 
 
 ## Mounts a small always-on controls hint at the bottom of the viewport.
