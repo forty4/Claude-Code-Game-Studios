@@ -29,6 +29,29 @@ func test_hp_status_controller_instance_fields() -> void:
 	assert_str(content).contains("_map_grid: MapGrid")
 
 
+## Session-8 regression: HPStatusController must expose `set_map_grid` and
+## BattleScene must call it. Missing wire-up crashed live battles on commander
+## death (the CR-8c DEMORALIZED-radius branch asserts _map_grid != null).
+func test_hp_status_controller_exposes_set_map_grid() -> void:
+	var content: String = FileAccess.get_file_as_string(HP_STATUS_CONTROLLER_PATH)
+	assert_str(content).override_failure_message(
+		"HPStatusController must declare `func set_map_grid(map_grid: MapGrid)` — "
+		+ "without it BattleScene can't inject the grid reference and the CR-8c "
+		+ "DEMORALIZED-radius branch asserts on first commander death."
+	).contains("func set_map_grid(map_grid: MapGrid)")
+
+
+func test_battle_scene_calls_set_map_grid_on_hp_controller() -> void:
+	# Cross-file wiring check — proves the BattleScene side actually consumes
+	# the seam HPStatusController exposes. Pure source-grep (no instantiation)
+	# so it stays fast + framework-free.
+	var content: String = FileAccess.get_file_as_string("res://src/feature/battle_scene/battle_scene.gd")
+	assert_str(content).override_failure_message(
+		"BattleScene._start_battle must call _hp_controller.set_map_grid(_map_grid) — "
+		+ "see STEP 3 wire-up. Missing this is a live-battle crash on commander death."
+	).contains("_hp_controller.set_map_grid(_map_grid)")
+
+
 ## AC-3: UnitHPState extends RefCounted with 6 typed fields.
 func test_unit_hp_state_six_fields() -> void:
 	var content := FileAccess.get_file_as_string(UNIT_HP_STATE_PATH)

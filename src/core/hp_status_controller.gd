@@ -54,6 +54,20 @@ func _on_unit_turn_started(unit_id: int) -> void:
 
 # ── Public API (8 methods + 1 test seam — bodies stubbed for story-001) ──────
 
+## Injects the MapGrid reference used by _propagate_demoralized_radius (CR-8c).
+## Must be called after add_child + before the first damage application so the
+## commander-death branch can resolve unit coords. Idempotent: re-injecting
+## with the same grid is a no-op (the field is a non-owned reference).
+##
+## Why this exists as a setter rather than a constructor param: HPStatusController
+## is .new()'d before the MapGrid scene tree has fully wired its dependencies in
+## BattleScene._ready (terrain config load order), so the two-phase init pattern
+## is the cleanest seam. Pre-session-8 the wire-up was missing entirely — the
+## assertion in _propagate_demoralized_radius fired on first commander death.
+func set_map_grid(map_grid: MapGrid) -> void:
+	_map_grid = map_grid
+
+
 ## Initializes HP state for a unit at battle-start.
 ## Caches max_hp via UnitRole.get_max_hp(hero, unit_class); creates UnitHPState entry.
 ## CR-1a initialization: current_hp = max_hp at battle start (after Formation pre-battle buffs).

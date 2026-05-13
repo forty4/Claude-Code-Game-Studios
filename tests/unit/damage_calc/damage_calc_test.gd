@@ -48,6 +48,62 @@ func after_test() -> void:
 # AC-1 (AC-DC-18) — skill stub early return, RNG call count = 0
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Session-8 regression — AttackerContext.Class enum alignment with UnitRole.UnitClass.
+# Before the fix, the 4-value provisional enum + 4-entry bridge dict silently
+# dropped COMMANDER (UnitRole.UnitClass=4) and SCOUT (UnitRole.UnitClass=5),
+# routing every 유비 (COMMANDER) attack to the `unknown_class` MISS path.
+# These tests pin the new identity bridge so any future enum-reorder regresses
+# loudly at CI rather than silently at runtime.
+# ---------------------------------------------------------------------------
+
+
+func test_commander_attacker_does_not_hit_unknown_class_invariant() -> void:
+	# Arrange — COMMANDER attacker, plains, FRONT, no passives.
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = 1
+	var atk: AttackerContext = AttackerContext.make(
+		&"liu_bei", AttackerContext.Class.COMMANDER, 80, false, false, [])
+	var def: DefenderContext = DefenderContext.make(&"target", 0, 0, 0)
+	var mod: ResolveModifiers = ResolveModifiers.make(
+		ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1)
+
+	# Act
+	var result: ResolveResult = DamageCalc.resolve(atk, def, mod)
+
+	# Assert — must NOT return unknown_class MISS (the pre-fix bug).
+	assert_bool(result.source_flags.has(&"invariant_violation:unknown_class")).override_failure_message(
+		"COMMANDER attacker must NOT trip the unknown_class invariant — that was the 유비 MISS bug. "
+		+ "source_flags=%s" % str(result.source_flags)
+	).is_false()
+
+
+func test_strategist_attacker_does_not_hit_unknown_class_invariant() -> void:
+	# STRATEGIST = 3 in the new enum (was the ARCHER slot in the old enum,
+	# so a regression here would surface as either MISS or wrong D_mult).
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.seed = 1
+	var atk: AttackerContext = AttackerContext.make(
+		&"zhuge_liang", AttackerContext.Class.STRATEGIST, 80, false, false, [])
+	var def: DefenderContext = DefenderContext.make(&"target", 0, 0, 0)
+	var mod: ResolveModifiers = ResolveModifiers.make(
+		ResolveModifiers.AttackType.PHYSICAL, rng, &"FRONT", 1)
+	var result: ResolveResult = DamageCalc.resolve(atk, def, mod)
+	assert_bool(result.source_flags.has(&"invariant_violation:unknown_class")).is_false()
+
+
+func test_attacker_class_enum_matches_unit_role_unit_class_ordering() -> void:
+	# Pins the alignment so future enum edits regress loudly. If anyone adds
+	# a 7th class, this test fails until the bridge dict + the 6-value enum
+	# are extended together.
+	assert_int(AttackerContext.Class.CAVALRY).is_equal(int(UnitRole.UnitClass.CAVALRY))
+	assert_int(AttackerContext.Class.INFANTRY).is_equal(int(UnitRole.UnitClass.INFANTRY))
+	assert_int(AttackerContext.Class.ARCHER).is_equal(int(UnitRole.UnitClass.ARCHER))
+	assert_int(AttackerContext.Class.STRATEGIST).is_equal(int(UnitRole.UnitClass.STRATEGIST))
+	assert_int(AttackerContext.Class.COMMANDER).is_equal(int(UnitRole.UnitClass.COMMANDER))
+	assert_int(AttackerContext.Class.SCOUT).is_equal(int(UnitRole.UnitClass.SCOUT))
+
+
 ## AC-1a: non-empty skill_id returns MISS with skill_unresolved flag; RNG not consumed.
 func test_skill_stub_early_return_zero_rng_calls() -> void:
 	# Arrange

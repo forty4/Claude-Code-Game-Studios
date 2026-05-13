@@ -41,19 +41,31 @@ const PASSIVE_AMBUSH: StringName = &"passive_ambush"
 ## direction values before reaching _direction_multiplier; no bounds-check needed here.
 const _DIR_INT: Dictionary = {&"FRONT": 0, &"FLANK": 1, &"REAR": 2}
 
-## Bridges AttackerContext.Class (local provisional 4-value enum) to
-## UnitRole.UnitClass (authoritative 6-value enum per ADR-0009 §2).
-## AttackerContext.Class ordering: CAVALRY=0, SCOUT=1, INFANTRY=2, ARCHER=3.
-## UnitRole.UnitClass ordering:    CAVALRY=0, INFANTRY=1, ARCHER=2, STRATEGIST=3, COMMANDER=4, SCOUT=5.
-## These enums are NOT numerically aligned — a bridge is required. Bridge lives here
-## per ADV-1 deferral (Grid Battle ADR owns the full int↔StringName encoding layer).
-## Migration path: when AttackerContext.unit_class is typed to UnitRole.UnitClass
-## directly (post ADR-0009 full propagation), this dict becomes a no-op and is removed.
+## Bridges AttackerContext.Class to UnitRole.UnitClass. As of session-8 the
+## AttackerContext.Class enum was re-aligned to the full 6-value UnitRole
+## ordering (CAVALRY=0, INFANTRY=1, ARCHER=2, STRATEGIST=3, COMMANDER=4,
+## SCOUT=5), so this dict is now an IDENTITY map kept for the existing
+## resolve() guard pattern (`has(unit_class)` invariant check at line ~111).
+##
+## Pre-session-8 history: the dict was a 4-value translation table
+## (SCOUT=1→5, INFANTRY=2→1, ARCHER=3→2) that became silently wrong when
+## production started passing UnitRole.UnitClass values directly (S7 wiring
+## `0fd5a4c`). Symptom: 유비 attacks (unit_class=4=COMMANDER) hit the
+## `unknown_class` invariant and returned MISS every time. Fixed by
+## re-ordering the AttackerContext.Class enum so production + tests
+## converge on the same value space.
+##
+## Future cleanup: this dict could be removed entirely and the resolve()
+## guard could test `attacker.unit_class in range(6)` directly, but keeping
+## the explicit map documents the supported class set and produces a
+## better error message if a 7th class is added without updating here.
 const _ATTACKER_CLASS_TO_UNIT_ROLE: Dictionary = {
-	0: 0,  # AttackerContext.Class.CAVALRY  (0) → UnitRole.UnitClass.CAVALRY  (0)
-	1: 5,  # AttackerContext.Class.SCOUT    (1) → UnitRole.UnitClass.SCOUT    (5)
-	2: 1,  # AttackerContext.Class.INFANTRY (2) → UnitRole.UnitClass.INFANTRY (1)
-	3: 2,  # AttackerContext.Class.ARCHER   (3) → UnitRole.UnitClass.ARCHER   (2)
+	0: 0,  # CAVALRY    → CAVALRY
+	1: 1,  # INFANTRY   → INFANTRY
+	2: 2,  # ARCHER     → ARCHER
+	3: 3,  # STRATEGIST → STRATEGIST
+	4: 4,  # COMMANDER  → COMMANDER
+	5: 5,  # SCOUT      → SCOUT
 }
 
 
@@ -234,8 +246,9 @@ static func _consume_formation_def_bonus(eff_def: int, modifiers: ResolveModifie
 ##   - CLASS_DIRECTION_MULT now read via UnitRole.get_class_direction_mult (per-class data
 ##     locality, unit_roles.json). NOT via BalanceConstants.get_const("CLASS_DIRECTION_MULT").
 ##   - _DIR_INT translates StringName direction_rel → int for UnitRole accessor.
-##   - _ATTACKER_CLASS_TO_UNIT_ROLE translates AttackerContext.Class int → UnitRole.UnitClass
-##     int per ADV-1 bridge (4-value provisional enum → 6-value authoritative enum).
+##   - _ATTACKER_CLASS_TO_UNIT_ROLE is the identity bridge (AttackerContext.Class is
+##     now aligned to UnitRole.UnitClass per session-8 enum re-ordering). The map is
+##     retained as the invariant check in resolve(); see the const's doc comment.
 static func _direction_multiplier(unit_class: int, direction_rel: StringName) -> float:
 	var dir_int: int = _DIR_INT[direction_rel] as int
 	var base_dir_mult: Dictionary = BalanceConstants.get_const("BASE_DIRECTION_MULT") as Dictionary

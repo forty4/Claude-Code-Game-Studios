@@ -2,13 +2,24 @@
 ## Constructed exclusively via make() in production code. .new() is reserved for bypass-seam tests (story-008).
 class_name AttackerContext extends RefCounted
 
-# Local provisional enum until ADR-0009 (UnitRole) lands.
-# Values are locked to unit-role.md §EC-7 so migration to UnitRole.Class
-# requires only a type annotation swap — no value changes at call sites.
-enum Class { CAVALRY, SCOUT, INFANTRY, ARCHER }
+# Class enum — aligned 1:1 with UnitRole.UnitClass ordering so the
+# DamageCalc bridge dict is identity (no translation needed):
+#   CAVALRY=0, INFANTRY=1, ARCHER=2, STRATEGIST=3, COMMANDER=4, SCOUT=5
+#
+# History: prior to session-8 this was a 4-value provisional enum
+# (CAVALRY=0, SCOUT=1, INFANTRY=2, ARCHER=3) from before ADR-0009 ratified
+# the full 6-class UnitRole. Production code started passing UnitRole
+# values directly (commit `0fd5a4c`, S7 P0 wiring), but the 4-value bridge
+# dict in damage_calc.gd silently mis-mapped INFANTRY→SCOUT and dropped
+# STRATEGIST/COMMANDER/SCOUT entirely — 유비 (COMMANDER=4) attacks always
+# returned MISS via `unknown_class` invariant. Re-aligning the enum to the
+# authoritative UnitRole ordering closes the gap with zero call-site
+# changes (label semantics preserved).
+enum Class { CAVALRY, INFANTRY, ARCHER, STRATEGIST, COMMANDER, SCOUT }
 
 var unit_id: StringName
-## Maps to AttackerContext.Class enum (CAVALRY=0, SCOUT=1, INFANTRY=2, ARCHER=3) — local until ADR-0009 lands.
+## Maps to AttackerContext.Class enum (now identity to UnitRole.UnitClass:
+## CAVALRY=0, INFANTRY=1, ARCHER=2, STRATEGIST=3, COMMANDER=4, SCOUT=5).
 var unit_class: int = 0
 ## Pre-Damage-Calc-clamp ATK from HP/Status. Set at Grid Battle from
 ## hp_status.get_modified_stat(unit_id, &"atk"). DamageCalc applies

@@ -306,11 +306,15 @@ func _start_battle() -> void:
 	_input_router.set_camera(_battle_camera)
 	_input_router.set_map_grid(_map_grid)
 
-	# === STEP 3: HPStatusController (ADR-0010) — depends on roster ===
+	# === STEP 3: HPStatusController (ADR-0010) — depends on roster + MapGrid ===
 	# initialize_unit(unit_id, hero, unit_class) per shipped ADR-0010 API.
 	# IN-8 drift: no UnitRole.get_class_for_hero(); use unit.unit_class directly.
+	# set_map_grid plumbs the MapGrid reference used by the CR-8c commander-death
+	# DEMORALIZED-radius propagation (asserts non-null at use site). Missing this
+	# wire-up was a session-8 user-reported crash on 유비 death.
 	_hp_controller = HPStatusController.new()
 	_hp_controller.name = "HPStatusController"
+	_hp_controller.set_map_grid(_map_grid)
 	for unit: BattleUnit in roster:
 		var hero: HeroData = HeroDatabase.get_hero(unit.hero_id)
 		_hp_controller.initialize_unit(unit.unit_id, hero, unit.unit_class)
