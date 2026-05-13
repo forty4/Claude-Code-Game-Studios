@@ -1,16 +1,38 @@
-[gd_scene format=3]
+[gd_scene load_steps=2 format=3]
 
 ;; UI-GB-08 Victory Condition — sprint-7 S7-09 (battle-hud story-004).
 ;; PanelContainer + Label rendering victory condition text per battle-hud.md §3.
 ;; Starts visible=false; BattleScene calls BattleHUD.set_victory_condition() at battle init.
 ;; AccessKit: tooltip_text on root.
+;; Inline StyleBoxFlat background ensures the panel renders without depending
+;; on a project theme — PanelContainer's default panel slot is empty otherwise
+;; and the box is invisible against the game canvas.
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
+bg_color = Color(0.08, 0.09, 0.13, 0.88)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.96, 0.78, 0.32, 0.85)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+content_margin_left = 10.0
+content_margin_top = 8.0
+content_margin_right = 10.0
+content_margin_bottom = 8.0
 
 [node name="UI_GB_08_VictoryCondition" type="PanelContainer"]
 tooltip_text = "Victory condition"
 visible = false
 custom_minimum_size = Vector2(220, 44)
+theme_override_styles/panel = SubResource("StyleBoxFlat_panel")
 
 [node name="ConditionLabel" type="Label" parent="."]
 tooltip_text = "Victory condition text"
 text = ""
 autowrap_mode = 3
+theme_override_colors/font_color = Color(0.98, 0.96, 0.90, 1.0)
+theme_override_font_sizes/font_size = 16

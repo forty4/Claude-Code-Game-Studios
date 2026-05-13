@@ -156,6 +156,13 @@ var _ai_system: AISystem = null
 var _state: BattleState = BattleState.OBSERVATION
 var _selected_unit_id: int = -1
 
+## ID of the unit whose turn is currently ACTING per TurnOrderRunner. Player
+## clicks on any other own unit are ignored — only the active turn unit can
+## be selected, moved, or attack. Updated in _on_unit_turn_started; -1 between
+## turns. Mirrors TurnOrderRunner's internal active-unit tracking so the click
+## layer doesn't have to query the runner on every input.
+var _active_turn_unit_id: int = -1
+
 ## unit_id → already-acted flag for this round.
 var _acted_this_turn: Dictionary[int, bool] = {}
 
@@ -387,6 +394,11 @@ func _on_ai_action_ready(unit_id: int, command: AIActionCommand) -> void:
 				unit_id, TurnOrderRunner.ActionType.MOVE,
 				_make_move_target(command.move_target)
 			)
+			# AI MOVE-only finalizes the turn: WAIT sets turn_state=DONE so
+			# _maybe_defer_turn_completion can advance to the next unit. Player
+			# MOVE intentionally leaves the turn open for follow-up ATTACK/WAIT;
+			# AI commits its full beat in one _on_ai_action_ready dispatch.
+			_turn_runner.declare_action(unit_id, TurnOrderRunner.ActionType.WAIT, null)
 		AIActionCommand.ActionType.ATTACK:
 			if _units.has(command.attack_target_unit_id):
 				var attacker: BattleUnit = _units[unit_id]
@@ -497,7 +509,10 @@ func is_tile_in_move_range(tile: Vector2i, unit_id: int) -> bool:
 		return false  # out of bounds (defensive — get_tile may return null at edges)
 	if not tile_data.is_passable_base:
 		return false  # RIVER / MOUNTAIN / impassable terrain
-	if tile_data.occupant_id != 0:
+	# Use tile_state (not occupant_id) — occupant_id is the unit_id which is 0
+	# for the commander (unit 0), making that tile spuriously read as empty.
+	if tile_data.tile_state == MapGrid.TILE_STATE_ALLY_OCCUPIED \
+			or tile_data.tile_state == MapGrid.TILE_STATE_ENEMY_OCCUPIED:
 		return false  # tile occupied by some unit
 	return true
 
@@ -576,6 +591,14 @@ func get_selected_unit_id() -> int:
 ## Read-only query per ADR-0014 §3 contract.
 func get_battle_unit(unit_id: int) -> BattleUnit:
 	return _units.get(unit_id)
+
+
+## Returns the unit_id of the unit whose turn is currently ACTING. -1 if no
+## unit is active (between turns, before battle start, after resolution).
+## Used by view-layer code (battle_scene) to track the active-turn highlight
+## through slides without having to subscribe to active_unit_changed separately.
+func get_active_turn_unit_id() -> int:
+	return _active_turn_unit_id
 
 
 ## Returns an opaque snapshot of battle state for AI consumer (Battle AI ADR).
@@ -662,6 +685,11 @@ func _on_input_action_fired(action: String, ctx: InputContext) -> void:
 		coord = _camera.screen_to_grid(get_viewport().get_mouse_position())
 	if coord == Vector2i(-1, -1):
 		return  # off-grid sentinel from BattleCamera.screen_to_grid
+	# Eyeball trace — kept lean enough to leave on; helps the user diagnose
+	# why a click did or didn't do what they expected.
+	print("[CLICK] action=%s coord=%s unit_id=%d state=%d active=%d selected=%d" %
+		[action, str(coord), ctx.target_unit_id, int(_state),
+		_active_turn_unit_id, _selected_unit_id])
 	handle_grid_click(action, coord, ctx.target_unit_id)
 
 
@@ -699,17 +727,21 @@ func _on_unit_turn_started(unit_id: int) -> void:
 	var unit: BattleUnit = _units[unit_id]
 	if unit == null:
 		return
+	# Track the active turn unit so click handlers can reject input on other own
+	# units (only the active unit may move/attack on a given turn).
+	_active_turn_unit_id = unit_id
+	print("[TURN] active unit changed to %d (side=%d, player=%s)" %
+		[unit_id, unit.side, unit.is_player_controlled])
+	# Auto-deselect a stale selection if the new active unit differs — keeps
+	# the gold-outline + range overlays on the unit the player can actually move.
+	if _selected_unit_id != -1 and _selected_unit_id != unit_id:
+		_deselect()
 	# View-layer hook for the turn indicator. Fires for BOTH player and AI turns
 	# so the on-grid cue tracks every active unit, not just AI dispatch entries.
 	active_unit_changed.emit(unit_id)
-	if unit.is_player_controlled:
-		return  # player turn handled by InputRouter / GridBattleController click logic
-	# Build snapshot + emit. AISystem responds via its LOCAL ai_action_ready signal
-	# within 500ms timeout per CR-3 (timeout enforcement is post-MVP — sprint-7
-	# ships the emission protocol; CR-3b WAIT-substitution + ai_soft_lock_counter
-	# defer to post-MVP timer integration).
-	var snapshot: BattleStateSnapshot = _make_battle_state_snapshot()
-	ai_action_requested.emit(unit_id, snapshot)
+	# AI dispatch happens via TurnOrderRunner T5 _action_controller →
+	# _on_turn_runner_action_request (NATURAL-LOOP path per S15-J amendment).
+	# Pre-S15-J emit removed here to prevent ai_action_requested dup-fire.
 
 
 ## Builds a flat-data BattleStateSnapshot from the current battle state.
@@ -800,6 +832,12 @@ func _on_unit_turn_ended(unit_id: int, acted: bool) -> void:
 func _on_round_started(round_num: int) -> void:
 	if _battle_over:
 		return  # AC-7 terminal-state guard
+	# Clear per-round per-unit action flags so units can act in the new round.
+	# Without this, _handle_grid_click_observation silently rejects re-selection
+	# of any unit that acted in the prior round (user-reported "after 2 moves
+	# the unit can't be selected again" symptom).
+	_acted_this_turn.clear()
+	_moved_this_turn.clear()
 	round_started_visual.emit(round_num)
 	# Story-008 AC-3: formation_turns counter. If any alive player unit had
 	# ≥1 adjacent ally during this round, increment + emit. Per ADR-0014 §7
@@ -856,6 +894,13 @@ func _handle_grid_click_observation(action: String, _coord: Vector2i, unit_id: i
 		return  # only own units (player side) can be selected (MVP — no enemy inspection)
 	if _acted_this_turn.get(unit_id, false):
 		return  # acted-this-turn click guard per AC-7 (silent no-op)
+	# Active-turn enforcement: only the unit whose turn is ACTING may be selected.
+	# Prior behavior allowed any own unit to be selected, then declare_action would
+	# silently fail with NOT_UNIT_TURN — confusing the player into thinking input
+	# was broken. Now the click is rejected upfront with a console hint.
+	if _active_turn_unit_id != -1 and unit_id != _active_turn_unit_id:
+		print("[TURN] Not unit %d's turn — active unit is %d" % [unit_id, _active_turn_unit_id])
+		return
 	_select_unit(unit_id)
 
 
@@ -869,9 +914,17 @@ func _handle_grid_click_observation(action: String, _coord: Vector2i, unit_id: i
 func _handle_grid_click_unit_selected(action: String, coord: Vector2i, unit_id: int) -> void:
 	match action:
 		"unit_select":
-			# Toggle: clicking the selected unit again deselects.
+			# Toggle: clicking the selected unit again ends its turn if it has
+			# already moved (declare WAIT — finalises the turn so the next unit
+			# can act). If it hasn't moved yet, just deselect (existing flow).
 			if unit_id == _selected_unit_id:
-				_deselect()
+				if _moved_this_turn.get(_selected_unit_id, false):
+					print("[HINT] unit %d re-clicked after move — declaring WAIT to end turn" % _selected_unit_id)
+					_acted_this_turn[_selected_unit_id] = true
+					_turn_runner.declare_action(_selected_unit_id, TurnOrderRunner.ActionType.WAIT, null)
+					_deselect()
+				else:
+					_deselect()
 				return
 			# Production click disambiguation: every grid action (unit_select /
 			# move_target_select / attack_target_select / …) is bound to MOUSE_LEFT
@@ -917,6 +970,7 @@ func _select_unit(unit_id: int) -> void:
 	var prev: int = _selected_unit_id
 	_selected_unit_id = unit_id
 	_state = BattleState.UNIT_SELECTED
+	print("[SELECT] unit=%d (active=%d)" % [unit_id, _active_turn_unit_id])
 	unit_selected_changed.emit(unit_id, prev)
 
 
@@ -937,9 +991,12 @@ func _deselect() -> void:
 ## declare_action(ATTACK). Player MOVE must declare correctly-typed MOVE so
 ## _maybe_defer_turn_completion (S15-A) keeps the turn open for follow-up ATTACK.
 func _handle_player_move(unit: BattleUnit, dest: Vector2i) -> void:
+	if _active_turn_unit_id != -1 and unit.unit_id != _active_turn_unit_id:
+		return  # not this unit's turn — declare would silent-fail anyway; reject early
 	if _acted_this_turn.get(unit.unit_id, false):
 		return  # turn already terminal (attacked/waited) — no more moves
 	if _moved_this_turn.get(unit.unit_id, false):
+		print("[HINT] unit %d already moved this turn — click an enemy to attack OR click the unit itself to skip" % unit.unit_id)
 		return  # MOVE token already spent — one move per turn
 	if not is_tile_in_move_range(dest, unit.unit_id):
 		return  # invalid target — silent
@@ -952,6 +1009,8 @@ func _handle_player_move(unit: BattleUnit, dest: Vector2i) -> void:
 ## Per ADR-0014 §Amendment 2026-05-10 (#2 — player-path mirror).
 ## Mirrors AI-path bypass for the attack action.
 func _handle_player_attack(attacker_id: int, defender_id: int) -> void:
+	if _active_turn_unit_id != -1 and attacker_id != _active_turn_unit_id:
+		return  # not this unit's turn — declare would silent-fail anyway; reject early
 	if _acted_this_turn.get(attacker_id, false):
 		return  # re-entrancy guard
 	if not _units.has(attacker_id) or not _units.has(defender_id):
@@ -1015,6 +1074,18 @@ func _handle_attack(attacker_id: int, defender_id: int) -> void:
 ## set_occupant API contract (strict-sync per §EC-6 — clear before set).
 func _do_move(unit: BattleUnit, dest: Vector2i) -> void:
 	var old_pos: Vector2i = unit.position
+	if dest == old_pos:
+		return  # no-op move — don't churn occupancy bookkeeping
+	# Pre-flight: destination must be vacant (the AI snapshot can stale-vote a
+	# tile that another unit moved into in the same frame). Without this guard
+	# _map_grid.set_occupant raises ERR_ILLEGAL_STATE_TRANSITION and the unit
+	# ends up at dest in unit data but with clear_occupant'd old_pos in map_grid.
+	# Use tile_state (not occupant_id) — occupant_id == 0 ambiguously means both
+	# "empty" AND "occupied by unit 0" (the commander has id 0).
+	var dest_tile: MapTileData = _map_grid.get_tile(dest)
+	if dest_tile != null and (dest_tile.tile_state == MapGrid.TILE_STATE_ALLY_OCCUPIED \
+			or dest_tile.tile_state == MapGrid.TILE_STATE_ENEMY_OCCUPIED):
+		return  # tile occupied; silent reject (caller's range check was stale)
 	# 1. MapGrid occupancy clear (must precede set per strict-sync EC-6)
 	_map_grid.clear_occupant(old_pos)
 	# 2. Mutate unit fields
@@ -1291,6 +1362,7 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 ## Idempotency: this method early-returns if _battle_over is already true,
 ## guaranteeing exactly-once outcome emission per battle (CR-7 / AC-7).
 func _emit_battle_outcome(outcome: StringName) -> void:
+	print("[BATTLE-END] outcome=%s" % outcome)
 	if _battle_over:
 		return  # AC-7: idempotent — outcome already resolved
 	_battle_over = true

@@ -79,10 +79,20 @@ var _chapter_visuals: Node = null
 ## so we don't allocate before ChapterVisuals' unit polygons are spawned.
 var _turn_indicator: TurnIndicator = null
 
+## Slide tween reference held to prevent local-scope GC from dropping the
+## completion callback under certain windowed scheduler timings. Overwritten
+## on every move; the previous Tween auto-cleans if already finished.
+var _slide_tween_keepalive: Tween = null
+
+## Set true when battle_outcome_resolved fires. Gates the post-battle restart
+## keyboard handler (R = reload scene, ESC = quit).
+var _battle_resolved: bool = false
+
+
 ## Movement-tween duration on unit_moved. Short enough to feel responsive
 ## (player still perceives the action as instant) but long enough that the
 ## slide reads as "moved to here" rather than a teleport jump.
-const MOVE_ANIM_DURATION: float = 0.2
+const MOVE_ANIM_DURATION: float = 0.6
 
 ## Attack-lunge tuning. On damage_applied, the attacker polygon nudges
 ## LUNGE_DISTANCE px toward the defender over LUNGE_HALF_DURATION seconds,
@@ -199,6 +209,12 @@ func _ready() -> void:
 	_battle_camera.name = "BattleCamera"
 	_battle_camera.setup(_map_grid)
 	add_child(_battle_camera)
+	# Windowed-play camera: keep zoom at 1.0 (matches balance constant + tests)
+	# and shift the camera UP by 60 world px so the HUD ribbon at the top of
+	# the viewport overlays empty space above the map rather than the top
+	# row of tiles (where 장료 sits in chapter 1). 60 is enough to clear the
+	# typical HUD ribbon while not leaving an obvious empty band at top.
+	_battle_camera.position.y -= 60.0
 
 	# === STEP 2.5: InputRouter DI for screen→grid coord + grid→unit_id resolution.
 	# Without these, every mouse click resolves to ctx.target_unit_id = -1 and
@@ -264,6 +280,10 @@ func _ready() -> void:
 	_ai_system.name = "AISystem"
 	_ai_system.setup(_grid_controller)
 	add_child(_ai_system)
+	# Wire reverse direction: GridBattleController subscribes to AISystem.ai_action_ready
+	# so AI commands actually execute. Without this, ai_action_ready emits into the void
+	# and AI turns hang forever (POLISH-013 production-wiring residual).
+	_grid_controller.set_ai_system(_ai_system)
 
 	# === STEP 6: BattleHUD (ADR-0015) — depends on all 5 prior ===
 	_battle_hud = BattleHUD.new()
@@ -280,6 +300,9 @@ func _ready() -> void:
 		_hero_db,
 	)
 	_hud_layer.add_child(_battle_hud)
+	# Victory condition surfaces at battle init — without this UI-GB-08 stays
+	# visible=false and the top-right ribbon slot is empty.
+	_battle_hud.set_victory_condition(&"적 부대 전멸")
 
 	# ChapterVisuals is mounted at /root by SceneManager AFTER BattleScene._ready
 	# returns (async load + deferred instantiate per ADR-0002). Spawn runtime
@@ -351,8 +374,22 @@ func _make_battle_unit(
 	unit.archetype = archetype
 	unit.move_range = 3
 	unit.attack_range = 1
-	unit.raw_atk = 10
-	unit.raw_def = 5
+	# Stats from HeroData — stat_might drives raw_atk so commanders like 유비
+	# vs heavies like 장비 (might 92) feel different in combat. Tuning for
+	# MVP "kills resolve within 5 rounds":
+	#   Max HP per UnitRole formula = hp_seed * class_hp_mult * 2.0 + 50
+	#     → infantry hp_seed 95 → 297 max_hp (very tanky)
+	#   raw_atk = stat_might × 1.5 (장비 92 → 138) so 2-3 hits land a kill
+	#     after the DamageCalc multiplier chain trims to ~80-110 effective
+	#   raw_def = stat_command × 0.05 (small reduction so damage swings high)
+	# Falls back to 10/5 if HeroData lookup fails (defensive only).
+	var hero_data: HeroData = HeroDatabase.get_hero(hero_id)
+	if hero_data != null:
+		unit.raw_atk = int(hero_data.stat_might * 1.5)
+		unit.raw_def = int(hero_data.stat_command * 0.05)
+	else:
+		unit.raw_atk = 10
+		unit.raw_def = 5
 	return unit
 
 
@@ -402,15 +439,21 @@ func _find_chapter_visuals() -> Node:
 ## chapter visuals scene is async-loaded by SceneManager and mounts after
 ## BattleScene._ready returns. Fire-and-forget coroutine from _ready.
 func _spawn_unit_polygons_async(roster: Array[BattleUnit]) -> void:
-	for _attempt: int in 30:
+	# Was 30 (~0.5s @ 60fps) — too tight for cold boots on Apple Silicon where
+	# SceneManager's async .tscn load + instantiation can exceed 0.5s. 300 frames
+	# (~5s) gives generous headroom without indefinite wait.
+	for attempt: int in 300:
 		var visuals: Node = _find_chapter_visuals()
 		if visuals != null and visuals.has_method("spawn_unit_polygons"):
 			visuals.spawn_unit_polygons(roster)
 			_mount_hp_bars(visuals, roster)
 			return
 		await get_tree().process_frame
-	push_warning("BattleScene: ChapterVisuals not mounted within 30 frames; "
-		+ "runtime unit polygons not spawned")
+	var root_names: Array = []
+	for c: Node in get_tree().root.get_children():
+		root_names.append(c.name)
+	push_warning("BattleScene: ChapterVisuals not mounted within 300 frames; "
+		+ "root children: " + str(root_names))
 
 
 ## Attaches a UnitHpBar Node2D child to each spawned unit polygon, seeded from
@@ -441,6 +484,7 @@ func _mount_hp_bars(visuals: Node, roster: Array[BattleUnit]) -> void:
 func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 	var visuals: Node = _find_chapter_visuals()
 	if visuals == null:
+		print("[SLIDE] unit=%d visuals=NULL — slide skipped" % unit_id)
 		return
 	var tile_size: int = ChapterVisuals.TILE_SIZE
 	var world_pos: Vector2 = Vector2(
@@ -448,21 +492,50 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 		to.y * tile_size + tile_size / 2.0,
 	)
 	var unit_node: Node2D = _find_unit_polygon(visuals, unit_id)
-	if unit_node != null:
-		var tween: Tween = create_tween().set_parallel(true)
-		tween.tween_property(unit_node, "position", world_pos, MOVE_ANIM_DURATION) \
+	if unit_node == null:
+		print("[SLIDE] unit=%d polygon=NULL (children: %s) — slide skipped" %
+			[unit_id, _list_polygon_names(visuals)])
+		return
+	print("[SLIDE] unit=%d from=%s to=%s (polygon now at %s, target %s)" %
+		[unit_id, str(_from), str(to), str(unit_node.position), str(world_pos)])
+	# DIAGNOSTIC: Tween was firing in headless but callback/finished never fired
+	# in user's windowed env (verified across 5+ retries). Bypassing tween
+	# entirely — set polygon.position INSTANTLY. If the user now sees the
+	# polygon teleport to the new tile, the rendering pipeline is fine and
+	# Tween was the problem. If still no visual change, rendering is broken.
+	unit_node.position = world_pos
+	print("[SLIDE-DONE] unit=%d polygon.position now %s (expected %s)" %
+		[unit_id, str(unit_node.position), str(world_pos)])
+	# Rotation tween: catch directional polygons (CAVALRY/ARCHER/SCOUT) up to
+	# the post-move facing. Non-directional classes return 0 from
+	# rotation_for_facing, so the tween is a no-op for them.
+	if _grid_controller == null:
+		return  # test mode without controller — slide handles position; rotation/active skipped
+	var unit: BattleUnit = _grid_controller.get_battle_unit(unit_id)
+	if unit != null:
+		var target_rotation: float = (visuals as ChapterVisuals) \
+			.rotation_for_facing(unit.facing, unit.unit_class)
+		var rot_tween: Tween = create_tween().set_parallel(true)
+		rot_tween.tween_property(unit_node, "rotation", target_rotation, MOVE_ANIM_DURATION) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		# Rotation tween: catch directional polygons (CAVALRY/ARCHER/SCOUT) up to
-		# the post-move facing. Non-directional classes return 0 from
-		# rotation_for_facing, so the tween is a no-op for them.
-		var unit: BattleUnit = _grid_controller.get_battle_unit(unit_id)
-		if unit != null:
-			var target_rotation: float = (visuals as ChapterVisuals) \
-				.rotation_for_facing(unit.facing, unit.unit_class)
-			tween.tween_property(unit_node, "rotation", target_rotation, MOVE_ANIM_DURATION) \
+		# Counter-rotate the name label so it stays upright through the slide.
+		var label_node: Node = unit_node.get_node_or_null("NameLabel")
+		if label_node is Label:
+			rot_tween.tween_property(label_node, "rotation", -target_rotation, MOVE_ANIM_DURATION) \
 				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		# Counter-rotate the chevron if it's parented to this unit.
+		if is_instance_valid(_turn_indicator) and _turn_indicator.get_parent() == unit_node:
+			rot_tween.tween_property(_turn_indicator, "rotation", -target_rotation, MOVE_ANIM_DURATION) \
+				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	# Active-turn highlight follows the moving unit so the gold border sits on
+	# the new tile by the time the slide finishes.
 	if _grid_controller.get_selected_unit_id() == unit_id:
 		visuals.set_selected_coord(to)
+	if visuals.has_method("set_active_turn_coord"):
+		var active_id: int = _grid_controller.get_active_turn_unit_id() \
+			if _grid_controller.has_method("get_active_turn_unit_id") else -1
+		if active_id == unit_id:
+			visuals.set_active_turn_coord(to)
 	# Unit just consumed its move action; clear the move preview so stale
 	# "can move here" tiles don't linger. If the unit is still selected,
 	# recompute attack reach from its new position so the player sees what
@@ -490,8 +563,12 @@ func _on_damage_applied(attacker_id: int, defender_id: int, damage: int) -> void
 		_battle_camera.shake()
 	var original_modulate: Color = unit_node.modulate
 	unit_node.modulate = Color(2.0, 0.4, 0.4, 1.0)  # bright red flash
-	var tween: Tween = create_tween()
-	tween.tween_property(unit_node, "modulate", original_modulate, 0.25)
+	# Failsafe: ensure the defender goes back to its non-flash color even if
+	# the Tween writes don't advance. Use a timer rather than tween_callback
+	# (which also can drop in the same windowed scenarios).
+	get_tree().create_timer(0.25).timeout.connect(func() -> void:
+		if is_instance_valid(unit_node):
+			unit_node.modulate = original_modulate)
 	# Refresh the defender's HP bar to reflect the new HP. HPStatusController
 	# applied the damage synchronously before damage_applied was emitted (grid
 	# controller line ~1233-1236), so get_current_hp returns the post-hit value.
@@ -549,13 +626,13 @@ func _on_unit_died_visual(unit_id: int) -> void:
 	var unit_node: Node2D = _find_unit_polygon(visuals, unit_id)
 	if unit_node == null:
 		return
-	var fade_tween: Tween = create_tween()
-	fade_tween.tween_property(unit_node, "modulate:a", 0.0, DEATH_FADE_DURATION) \
-		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	fade_tween.tween_callback(func() -> void:
+	# Failsafe pattern (windowed Tween-writes can stall): set the final state
+	# via a SceneTreeTimer that fires unconditionally regardless of tween
+	# scheduler behaviour.
+	get_tree().create_timer(DEATH_FADE_DURATION + 0.05).timeout.connect(func() -> void:
 		if is_instance_valid(unit_node):
-			unit_node.visible = false
-	)
+			unit_node.modulate.a = 0.0
+			unit_node.visible = false)
 
 
 ## Battle-outcome handler. Dims the grid (so the banner pops) and spawns the
@@ -563,15 +640,69 @@ func _on_unit_died_visual(unit_id: int) -> void:
 ## panel still renders in parallel via its own subscription — this banner is
 ## the grid-level moment cue, not a replacement for the stats sheet.
 func _on_battle_outcome_resolved(outcome: StringName, _fate_data: Dictionary) -> void:
+	print("[BATTLE-END] outcome=%s — showing banner + dimming grid (R=restart, ESC=quit)" % outcome)
+	_battle_resolved = true
 	var visuals: Node = _find_chapter_visuals()
 	if visuals is CanvasItem:
-		var tween: Tween = create_tween()
-		tween.tween_property(visuals, "modulate", OUTCOME_DIM_COLOR, OUTCOME_DIM_DURATION) \
-			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		# Instant-set the final dim color so the visual change is guaranteed
+		# even if Tween writes don't advance (observed in user windowed env).
+		(visuals as CanvasItem).modulate = OUTCOME_DIM_COLOR
 	if _hud_layer != null:
 		var banner: OutcomeBanner = OutcomeBanner.make(outcome)
 		banner.name = "OutcomeBanner"
 		_hud_layer.add_child(banner)
+		# Restart prompt — small Label under the main outcome glyph so the
+		# player knows they can re-enter without relaunching Godot.
+		var prompt: Label = Label.new()
+		prompt.text = "R / SPACE: 재시작   ESC: 종료"
+		prompt.add_theme_color_override("font_color", Color(0.98, 0.96, 0.90, 1.0))
+		prompt.add_theme_color_override("font_outline_color", Color(0.05, 0.05, 0.05, 1.0))
+		prompt.add_theme_constant_override("outline_size", 4)
+		prompt.add_theme_font_size_override("font_size", 22)
+		prompt.set_anchors_preset(Control.PRESET_CENTER)
+		prompt.position = Vector2(-90, 60)  # below the outcome glyph
+		prompt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_hud_layer.add_child(prompt)
+
+
+## After battle ends, listen for restart / quit keys. _battle_resolved gates
+## these so they don't trigger mid-battle. The reload_current_scene path
+## rebuilds the whole battle from scratch — fastest way to "play again"
+## without a Main Menu / Overworld surface (those are post-MVP).
+## Post-battle restart hotkeys. We poll Input directly in _process because
+## `_input` and `_unhandled_input` both compete with InputRouter (autoload)
+## which has ESC bound to move_cancel and consumes events before we see them.
+## Polling sidesteps the dispatcher entirely. Trade-off: we check every frame
+## while battle is resolved — cheap (one Input.is_key_pressed per frame).
+var _process_tick: int = 0
+
+func _process(_delta: float) -> void:
+	if not _battle_resolved:
+		return
+	_process_tick += 1
+	if _process_tick % 60 == 1:
+		# Once per second while waiting for restart input — confirms _process
+		# is firing and shows what key state we're observing.
+		print("[POST-BATTLE-WAIT] _process firing; R=%s ESC=%s SPACE=%s ENTER=%s" %
+			[Input.is_physical_key_pressed(KEY_R),
+			Input.is_physical_key_pressed(KEY_ESCAPE),
+			Input.is_physical_key_pressed(KEY_SPACE),
+			Input.is_physical_key_pressed(KEY_ENTER)])
+	# Try both physical and logical key checks (macOS sometimes maps one but
+	# not the other depending on keyboard layout / IME state).
+	if Input.is_physical_key_pressed(KEY_R) or Input.is_key_pressed(KEY_R):
+		print("[BATTLE-END] R pressed — reloading scene")
+		_battle_resolved = false  # prevent re-trigger before scene reload completes
+		get_tree().reload_current_scene()
+	elif Input.is_physical_key_pressed(KEY_ESCAPE) or Input.is_key_pressed(KEY_ESCAPE):
+		print("[BATTLE-END] ESC pressed — quitting")
+		_battle_resolved = false
+		get_tree().quit()
+	elif Input.is_physical_key_pressed(KEY_SPACE) or Input.is_key_pressed(KEY_SPACE):
+		# Bonus: SPACE also restarts (in case R doesn't register on macOS Korean IME).
+		print("[BATTLE-END] SPACE pressed — reloading scene")
+		_battle_resolved = false
+		get_tree().reload_current_scene()
 
 
 ## Turn-indicator handler. Lazy-creates the indicator on first call and
@@ -582,6 +713,11 @@ func _on_active_unit_changed(unit_id: int) -> void:
 	var visuals: Node = _find_chapter_visuals()
 	if visuals == null:
 		return
+	# Tile-level active-turn highlight — bright gold border so the active unit
+	# is visible even at zoomed-out scales where the chevron is too small to spot.
+	var unit: BattleUnit = _grid_controller.get_battle_unit(unit_id)
+	if unit != null and visuals.has_method("set_active_turn_coord"):
+		visuals.set_active_turn_coord(unit.position)
 	var polygon: Node2D = _find_unit_polygon(visuals, unit_id)
 	if polygon == null:
 		return
@@ -593,6 +729,9 @@ func _on_active_unit_changed(unit_id: int) -> void:
 	if _turn_indicator.get_parent() != null:
 		_turn_indicator.get_parent().remove_child(_turn_indicator)
 	polygon.add_child(_turn_indicator)
+	# Counter the polygon's facing rotation so the chevron always points down
+	# regardless of which direction the unit is facing.
+	_turn_indicator.rotation = -polygon.rotation
 
 
 ## End-of-turn dim cue. Fired by GridBattleController as a re-emit of
@@ -612,9 +751,8 @@ func _on_unit_turn_ended_visual(unit_id: int, acted: bool) -> void:
 	if polygon == null:
 		return
 	var target: Color = Color(1.0, 1.0, 1.0, END_OF_TURN_DIM_ALPHA)
-	var tween: Tween = create_tween()
-	tween.tween_property(polygon, "modulate", target, END_OF_TURN_DIM_DURATION) \
-		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	# Instant-set so the dim shows even when Tween writes don't advance.
+	polygon.modulate = target
 
 
 ## Round-rollover undim. Iterates every spawned unit polygon under PlayerUnits
@@ -635,9 +773,20 @@ func _on_round_started_visual(_round_num: int) -> void:
 			var poly: Node2D = child as Node2D
 			if not poly.visible:
 				continue
-			var tween: Tween = create_tween()
-			tween.tween_property(poly, "modulate", Color.WHITE, END_OF_TURN_DIM_DURATION) \
-				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			# Instant-set so units brighten back to full alpha at round start
+			# even if Tween writes don't advance.
+			poly.modulate = Color.WHITE
+
+
+func _list_polygon_names(visuals: Node) -> String:
+	var names: Array = []
+	for parent_name: String in ["PlayerUnits", "EnemyUnits"]:
+		var parent: Node = visuals.get_node_or_null(parent_name)
+		if parent == null:
+			continue
+		for child: Node in parent.get_children():
+			names.append("%s/%s" % [parent_name, child.name])
+	return str(names)
 
 
 func _find_unit_polygon(visuals: Node, unit_id: int) -> Node2D:

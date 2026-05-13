@@ -552,9 +552,30 @@ func set_victory_condition(condition_text: StringName) -> void:
 	var panel: Control = _ui_elements.get(&"UI-GB-08")
 	if panel == null:
 		return
+	# Apply panel style in code (not .tscn) so changes take effect without an
+	# import refresh — PanelContainer's default panel slot is empty otherwise
+	# and the box renders invisibly against the canvas.
+	var sb: StyleBoxFlat = StyleBoxFlat.new()
+	sb.bg_color = Color(0.08, 0.09, 0.13, 0.92)
+	sb.border_color = Color(0.96, 0.78, 0.32, 0.95)
+	sb.border_width_left = 2
+	sb.border_width_top = 2
+	sb.border_width_right = 2
+	sb.border_width_bottom = 2
+	sb.corner_radius_top_left = 4
+	sb.corner_radius_top_right = 4
+	sb.corner_radius_bottom_right = 4
+	sb.corner_radius_bottom_left = 4
+	sb.content_margin_left = 10.0
+	sb.content_margin_top = 8.0
+	sb.content_margin_right = 10.0
+	sb.content_margin_bottom = 8.0
+	panel.add_theme_stylebox_override("panel", sb)
 	var label: Label = panel.get_node_or_null("ConditionLabel") as Label
 	if label != null:
 		label.text = tr(String(condition_text))
+		label.add_theme_color_override("font_color", Color(0.98, 0.96, 0.90, 1.0))
+		label.add_theme_font_size_override("font_size", 18)
 	panel.visible = true
 
 

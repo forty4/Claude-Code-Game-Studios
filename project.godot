@@ -54,6 +54,15 @@ StoryEvent="*res://src/feature/story_event/story_event.gd"
 ; ScenarioRunner/DestinyState/StoryEvent — all autoloads omit class_name.
 InputRouter="*res://src/foundation/input_router.gd"
 
+[display]
+
+; Viewport set generously so the chapter-1 14×10 grid + HUD ribbon stay
+; readable on a Mac desktop. Without this Godot defaults to 1152×648 which
+; left the tiles too small to read names + chevrons during eyeball verification.
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/resizable=true
+
 [input_devices.pointing]
 
 ; Story-008 verification #3 (ADR-0005 §Verification Required §3 + CR-2e + R-3):

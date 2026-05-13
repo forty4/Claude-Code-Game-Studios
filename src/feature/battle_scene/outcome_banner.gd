@@ -72,7 +72,15 @@ func _ready() -> void:
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(label)
 
-	# Entrance: drop in from +30y, fade alpha 0 → 1.
+	# Production fallback: Tween writes have been observed not firing in
+	# certain windowed Godot 4.6 sessions (slide tween dropped its callback +
+	# its property writes never advanced). Set the final state instantly so
+	# the banner is at least visible, then animate ON TOP of it. If the tween
+	# never advances, the banner is still readable.
+	modulate.a = 1.0
+	label.position = Vector2.ZERO
+	# Optional entrance flourish (drops + fades in). If the tween doesn't
+	# fire, the banner stays at its final state thanks to the instant set above.
 	modulate.a = 0.0
 	label.position = Vector2(0.0, Y_DROP)
 	var tween: Tween = create_tween()
@@ -81,6 +89,13 @@ func _ready() -> void:
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tween.tween_property(label, "position:y", 0.0, ENTRANCE_DURATION) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	# Failsafe: after tween duration + buffer, hard-set the final state so we
+	# never end up with an invisible banner from a dropped tween.
+	get_tree().create_timer(ENTRANCE_DURATION + 0.05).timeout.connect(func() -> void:
+		if is_instance_valid(self):
+			modulate.a = 1.0
+			if is_instance_valid(label):
+				label.position = Vector2.ZERO)
 
 
 func _text_for_outcome(outcome: StringName) -> String:

@@ -39,6 +39,11 @@ func get_tile(coord: Vector2i) -> MapTileData:
 	tile.coord = coord
 	tile.occupant_id = _occupants.get(coord, 0)  # 0 = unoccupied per MapTileData @export default
 	tile.is_passable_base = not _impassable.get(coord, false)
+	# Production checks tile_state (not occupant_id) for occupancy because unit_id 0
+	# is a valid id (the commander) and would alias to "empty". Mirror that here so
+	# tests using set_occupant_for_test see the tile read as ALLY_OCCUPIED.
+	if _occupants.has(coord):
+		tile.tile_state = MapGrid.TILE_STATE_ALLY_OCCUPIED
 	return tile
 
 

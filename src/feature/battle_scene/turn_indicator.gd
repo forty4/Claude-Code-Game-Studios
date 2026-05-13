@@ -13,15 +13,15 @@ extends Node2D
 
 ## Y-offset above the polygon center. HP bar sits at -28 with ~5px height, so
 ## the indicator's tip rests just above the bar's top edge.
-const Y_OFFSET: float = -40.0
-const CHEVRON_HALF_WIDTH: float = 7.0
-const CHEVRON_HEIGHT: float = 8.0
+const Y_OFFSET: float = -44.0
+const CHEVRON_HALF_WIDTH: float = 11.0
+const CHEVRON_HEIGHT: float = 13.0
 
-const COLOR_FILL:    Color = Color(0.96, 0.93, 0.82, 0.95)  # warm cream
-const COLOR_OUTLINE: Color = Color(0.11, 0.10, 0.09, 0.95)  # ink stroke
+const COLOR_FILL:    Color = Color(1.00, 0.85, 0.20, 1.00)  # bright gold
+const COLOR_OUTLINE: Color = Color(0.11, 0.10, 0.09, 1.00)  # ink stroke
 
-const BOB_AMPLITUDE: float = 2.5
-const BOB_DURATION: float = 0.6
+const BOB_AMPLITUDE: float = 6.0
+const BOB_DURATION: float = 0.45
 
 var _bob_tween: Tween = null
 
@@ -55,6 +55,6 @@ func _draw() -> void:
 		Vector2(0.0, CHEVRON_HEIGHT),
 	])
 	draw_colored_polygon(pts, COLOR_FILL)
-	# Closed outline (last→first).
+	# Closed outline (last→first) — thicker stroke for visibility.
 	var outline: PackedVector2Array = PackedVector2Array([pts[0], pts[1], pts[2], pts[0]])
-	draw_polyline(outline, COLOR_OUTLINE, 1.0, true)
+	draw_polyline(outline, COLOR_OUTLINE, 2.0, true)

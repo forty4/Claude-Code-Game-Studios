@@ -64,6 +64,11 @@ var _movable_tiles: PackedVector2Array = PackedVector2Array()
 ## Updated via set_attackable_tiles() at selection time; empty = no preview.
 var _attackable_tiles: PackedVector2Array = PackedVector2Array()
 
+## Active-turn unit's grid coord — drawn as a bright pulsing border ring so the
+## player can tell at a glance which unit is currently allowed to act. Set via
+## set_active_turn_coord() from BattleScene._on_active_unit_changed.
+var _active_turn_coord: Vector2i = Vector2i(-1, -1)
+
 
 ## Selection highlight color (saturated saffron — art-bible reserved color for
 ## "destiny moment" usage; here repurposed for tactical selection feedback).
@@ -86,14 +91,25 @@ const COLOR_ATTACK_PREVIEW: Color = Color(0.80, 0.28, 0.22, 0.40)
 const COLOR_FACTION_PLAYER: Color = Color("2e5f7a")
 const COLOR_FACTION_ENEMY:  Color = Color("4a4a4a")
 
-## Unit polygon half-extent (≈ 40×40 silhouette around the tile center).
-const _UNIT_HALF: int = 20
+## Unit polygon half-extent — bumped from 20 (≈40×40) to 26 (≈52×52) so units
+## occupy ~80% of the 64px tile and read clearly at default 1.0 camera zoom.
+const _UNIT_HALF: int = 26
 
 
 func set_selected_coord(coord: Vector2i) -> void:
 	if _selected_coord == coord:
 		return
 	_selected_coord = coord
+	queue_redraw()
+
+
+## Active turn coord — drawn as a thick gold border on the tile so the player
+## immediately knows which unit may act. Independent from selection (the player
+## may still inspect non-active units by clicking the ribbon).
+func set_active_turn_coord(coord: Vector2i) -> void:
+	if _active_turn_coord == coord:
+		return
+	_active_turn_coord = coord
 	queue_redraw()
 
 
@@ -121,6 +137,7 @@ func set_attackable_tiles(tiles: PackedVector2Array) -> void:
 ## battle_scene.gd _find_unit_polygon() helper (move/damage/death handlers) keeps
 ## working unchanged.
 func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
+	print("[SPAWN] spawn_unit_polygons called for %d units" % roster.size())
 	var player_parent: Node2D = _get_or_create_unit_parent("PlayerUnits")
 	var enemy_parent: Node2D = _get_or_create_unit_parent("EnemyUnits")
 	for child: Node in player_parent.get_children():
@@ -141,6 +158,23 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 			player_parent.add_child(poly)
 		else:
 			enemy_parent.add_child(poly)
+		# Name label above the polygon so the player can identify who's who at
+		# a glance instead of staring at indistinguishable shape+color tokens.
+		# Parented to the polygon so it follows transforms (slide/death-fade).
+		var hero: HeroData = HeroDatabase.get_hero(unit.hero_id)
+		var label: Label = Label.new()
+		label.name = "NameLabel"
+		label.text = hero.name_ko if hero != null and hero.name_ko != "" else String(unit.hero_id)
+		label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+		label.add_theme_color_override("font_outline_color", Color(0.05, 0.05, 0.05, 1.0))
+		label.add_theme_constant_override("outline_size", 6)
+		label.add_theme_font_size_override("font_size", 16)
+		# Counter the polygon's facing rotation so the label always reads upright.
+		label.rotation = -poly.rotation
+		label.position = Vector2(-28, -44)
+		label.size = Vector2(56, 18)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		poly.add_child(label)
 
 
 func _get_or_create_unit_parent(parent_name: String) -> Node2D:
@@ -243,6 +277,18 @@ func _draw() -> void:
 			Vector2(TILE_SIZE, TILE_SIZE),
 		)
 		draw_rect(atk_rect, COLOR_ATTACK_PREVIEW, true)
+
+	# Active turn highlight — drawn before selection so a selected active unit
+	# shows both rings (active=gold thick, selection=lighter thin on top).
+	if _active_turn_coord.x >= 0 and _active_turn_coord.y >= 0:
+		var atc: Rect2 = Rect2(
+			Vector2(_active_turn_coord.x * TILE_SIZE, _active_turn_coord.y * TILE_SIZE),
+			Vector2(TILE_SIZE, TILE_SIZE),
+		)
+		# Outer thick gold border + inner ring for a "halo" read.
+		draw_rect(atc, Color(1.0, 0.85, 0.20, 1.0), false, 4.0)
+		var inner: Rect2 = Rect2(atc.position + Vector2(3, 3), atc.size - Vector2(6, 6))
+		draw_rect(inner, Color(1.0, 0.95, 0.55, 0.85), false, 2.0)
 
 	# Selection highlight overlay (drawn last so it sits on top of tiles + preview).
 	if _selected_coord.x >= 0 and _selected_coord.y >= 0:

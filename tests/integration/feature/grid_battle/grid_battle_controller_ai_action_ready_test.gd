@@ -396,22 +396,30 @@ func test_handler_move_executes_do_move_then_declares_move() -> void:
 		% [dest, moved_to]
 	).is_true()
 
-	# Assert declare_action called with MOVE + correct target position.
+	# AC-5/MOVE: AI MOVE arm declares MOVE then WAIT (the WAIT cap finalises the
+	# turn so _maybe_defer_turn_completion advances; without it AI MOVE-only
+	# stalls forever — POLISH-013 production fix 2026-05-12).
 	assert_int(_turn_double.calls.size()).override_failure_message(
-		("AC-5/MOVE: exactly 1 declare_action call expected; got %d")
+		("AC-5/MOVE: exactly 2 declare_action calls expected (MOVE + WAIT cap); got %d")
 		% _turn_double.calls.size()
-	).is_equal(1)
+	).is_equal(2)
 
 	var call_action: int = _turn_double.calls[0].get("action", -1) as int
 	assert_int(call_action).override_failure_message(
-		("AC-5/MOVE: declare_action action must be MOVE (%d); got %d")
+		("AC-5/MOVE: first declare_action action must be MOVE (%d); got %d")
 		% [TurnOrderRunner.ActionType.MOVE as int, call_action]
 	).is_equal(TurnOrderRunner.ActionType.MOVE as int)
 
 	var call_target: ActionTarget = _turn_double.calls[0].get("target", null) as ActionTarget
 	assert_bool(call_target != null).override_failure_message(
-		"AC-5/MOVE: declare_action ActionTarget must not be null"
+		"AC-5/MOVE: MOVE declare_action ActionTarget must not be null"
 	).is_true()
+
+	var wait_action: int = _turn_double.calls[1].get("action", -1) as int
+	assert_int(wait_action).override_failure_message(
+		("AC-5/MOVE: second declare_action action must be WAIT (%d); got %d")
+		% [TurnOrderRunner.ActionType.WAIT as int, wait_action]
+	).is_equal(TurnOrderRunner.ActionType.WAIT as int)
 
 	assert_bool(call_target.target_position == dest).override_failure_message(
 		("AC-5/MOVE: ActionTarget.target_position must be %s; got %s")
