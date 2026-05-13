@@ -101,6 +101,17 @@ extends Resource
 ## Battle start effects for this chapter.
 @export var battle_start_effects: Array[BattleStartEffect] = []
 
+## Optional per-chapter ENEMY_ATK_MULT override. Sentinel -1.0 = unset, fall
+## back to BalanceConstants.ENEMY_ATK_MULT (global). When set to a non-negative
+## float (typically 0.5–1.0), BattleScene applies THIS value to enemy raw_atk
+## for this chapter instead of the global. Lets ch2 / ch3 carry their own
+## difficulty curve without forcing every chapter to share one MULT.
+##   Authoring convention: omit the JSON field for chapters that should use
+##   the global default; set explicit value for chapters that need tuning.
+##   Valid range: [0.0, 2.0] — outside that and BattleScene falls back to
+##   global with a push_warning (defensive against accidental JSON typos).
+@export var enemy_atk_mult: float = -1.0
+
 
 # ─── Enemy roster (ADR-0019 §Migration Plan §8) ───────────────────────────────
 

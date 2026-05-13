@@ -50,13 +50,24 @@ var _players: Array[AudioStreamPlayer] = []
 var _next_player_idx: int = 0
 
 ## Master enable — flip false in tests / a future "audio off" setting to fully
-## silence the SFX layer without touching call sites.
+## silence the SFX layer without touching call sites. Persisted across runs
+## via user://settings.cfg (see set_enabled / _load_preferences).
 @export var enabled: bool = true
+
+## Persistent preference file (separate namespace from save games — settings
+## should survive save-slot deletion). ConfigFile, not JSON, so values like
+## `audio.enabled = false` are human-editable from the user's data folder.
+const _SETTINGS_PATH: String = "user://settings.cfg"
+const _AUDIO_SECTION: String = "audio"
+const _ENABLED_KEY: String = "enabled"
 
 
 # ─── Lifecycle ────────────────────────────────────────────────────────────────
 
 func _ready() -> void:
+	# Load saved SFX preference BEFORE the headless short-circuit so windowed
+	# runs honour the user's last toggle. Headless still wins for tests / CI.
+	_load_preferences()
 	# Headless runs (CI, GdUnit4 with --ignoreHeadlessMode) typically have no
 	# audio device; AudioStreamPlayer.play() is a no-op there but the build
 	# still costs a few hundred ms — skip when headless to keep the test boot
@@ -102,6 +113,15 @@ func reset_for_tests() -> void:
 
 
 # ─── Public API ───────────────────────────────────────────────────────────────
+
+## Toggles SFX on/off AND persists the preference to user://settings.cfg so
+## the choice survives a game restart. Callers that need a one-shot mute
+## (tests, headless boot) can still poke `enabled` directly — set_enabled is
+## the path for player-driven settings UI.
+func set_enabled(value: bool) -> void:
+	enabled = value
+	_save_preferences()
+
 
 ## Plays the SFX stream registered for `sfx_id`. Silent no-op when:
 ##   - enabled is false (tests, "audio off" setting),
@@ -194,3 +214,34 @@ func _on_unit_died(_unit_id: int) -> void:
 
 func _on_chapter_completed(_result: ChapterResult) -> void:
 	play(SFX_VICTORY)
+
+
+# ─── Preferences (user://settings.cfg) ────────────────────────────────────────
+
+## Loads the persisted SFX preference into `enabled`. Silent no-op when the
+## file is missing (first run) or unreadable — `enabled` keeps its default.
+## ConfigFile.load returns Error; OK means the file existed AND parsed.
+func _load_preferences() -> void:
+	var cfg: ConfigFile = ConfigFile.new()
+	var err: int = cfg.load(_SETTINGS_PATH)
+	if err != OK:
+		return
+	if cfg.has_section_key(_AUDIO_SECTION, _ENABLED_KEY):
+		enabled = bool(cfg.get_value(_AUDIO_SECTION, _ENABLED_KEY, true))
+
+
+## Writes the current `enabled` flag to user://settings.cfg. Best-effort —
+## a failed write (read-only filesystem, etc.) emits push_warning but does
+## NOT crash the game; the in-memory toggle still works for this session.
+func _save_preferences() -> void:
+	var cfg: ConfigFile = ConfigFile.new()
+	# Round-trip prior keys so we don't clobber unrelated sections a future
+	# settings UI may add. Missing file → empty ConfigFile is the no-op path.
+	cfg.load(_SETTINGS_PATH)
+	cfg.set_value(_AUDIO_SECTION, _ENABLED_KEY, enabled)
+	var err: int = cfg.save(_SETTINGS_PATH)
+	if err != OK:
+		push_warning(
+			"SoundManager._save_preferences: ConfigFile.save returned %d for %s"
+			% [err, _SETTINGS_PATH]
+		)

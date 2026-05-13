@@ -114,16 +114,20 @@ func _on_quit_pressed() -> void:
 	get_tree().quit()
 
 
-## Flips SoundManager.enabled in place. Persists across the current session
-## because SoundManager is an autoload (single instance); restart of the game
-## resets to the default `@export enabled = true`. Headless runs keep enabled
-## false regardless — toggling is a no-op there (the player pool is empty so
-## play() is short-circuited anyway).
+## Flips SoundManager.enabled AND persists the choice across restarts via
+## SoundManager.set_enabled (writes user://settings.cfg). Headless runs keep
+## enabled false regardless — toggling is a no-op there (the player pool is
+## empty so play() is short-circuited anyway).
 func _on_sfx_toggle_pressed() -> void:
 	var sm: Node = get_node_or_null("/root/SoundManager")
 	if sm == null:
 		return
-	sm.enabled = not (sm.enabled as bool)
+	# set_enabled persists; falls back to direct assignment when the autoload
+	# is a stub without the API (test harnesses that subclass Node directly).
+	if sm.has_method("set_enabled"):
+		sm.set_enabled(not (sm.enabled as bool))
+	else:
+		sm.enabled = not (sm.enabled as bool)
 	if _sfx_toggle_button != null:
 		_sfx_toggle_button.text = _sfx_label()
 

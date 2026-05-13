@@ -376,6 +376,10 @@ func _hydrate_chapter(record: Dictionary) -> ChapterDefinition:
 	# branch_overrides (deep-copied; per-prior-branch deployment overrides applied
 	# in _build_battle_payload when a previous chapter's branch_path_id matches).
 	c.branch_overrides = (record.get("branch_overrides", {}) as Dictionary).duplicate(true)
+	# enemy_atk_mult — sentinel -1.0 when absent so BattleScene falls back to
+	# BalanceConstants global. Float cast handles JSON int (1) or float (0.85).
+	if record.has("enemy_atk_mult"):
+		c.enemy_atk_mult = float(record.get("enemy_atk_mult", -1.0))
 	return c
 
 

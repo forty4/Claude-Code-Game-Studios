@@ -686,33 +686,41 @@ func _make_battle_unit(
 	# defensive against unknown hero_ids; never used by the live scenario.
 	var hero_data: HeroData = HeroDatabase.get_hero(hero_id)
 	if hero_data != null:
-		unit.raw_atk = int(hero_data.stat_might * 1.0)
-		unit.raw_def = int(hero_data.stat_command * 0.20)
+		# Coefficients data-driven via BalanceConstants — single source of truth
+		# for atk/def derivation. Tune in balance_entities.json (HERO_ATK_COEFF /
+		# HERO_DEF_COEFF / HERO_COMMANDER_DEF_BONUS) rather than touching code.
+		var atk_coeff: float = BalanceConstants.get_const("HERO_ATK_COEFF") as float
+		var def_coeff: float = BalanceConstants.get_const("HERO_DEF_COEFF") as float
+		unit.raw_atk = int(hero_data.stat_might * atk_coeff)
+		unit.raw_def = int(hero_data.stat_command * def_coeff)
 		# Class from the hero's default — without this every unit defaulted to 0
 		# (CAVALRY) and rendered as a triangle, hiding both the per-class shape
 		# and the per-class HP/multiplier behavior. Fallback to INFANTRY (1) when
 		# the hero is unknown — closest to "grunt" semantics.
 		unit.unit_class = hero_data.default_class
-		# COMMANDER survivability bonus — see paragraph above. Applied AFTER
-		# unit_class assignment so the conditional reads the resolved class.
+		# COMMANDER survivability bonus — formation anchor: losing 유비 should be
+		# hard, not a 1-round race. Applied AFTER unit_class assignment so the
+		# conditional reads the resolved class.
 		if unit.unit_class == UnitRole.UnitClass.COMMANDER:
-			unit.raw_def += 10
+			var cmd_bonus: int = BalanceConstants.get_const("HERO_COMMANDER_DEF_BONUS") as int
+			unit.raw_def += cmd_bonus
 	else:
 		unit.raw_atk = 10
 		unit.raw_def = 5
 		unit.unit_class = UnitRole.UnitClass.INFANTRY
 	# Enemy-side ATK penalty — MVP has only 3 player heroes (유비/장비/관우)
 	# vs 5 enemy heroes spread across 3 chapters, which makes the player a
-	# permanent minority. Without a global enemy ATK throttle, even after
-	# the session-8 atk/def retune ch1 is unwinnable: 4 enemies converge on
+	# permanent minority. Without an enemy ATK throttle, even after the
+	# session-8 atk/def retune ch1 is unwinnable: 4 enemies converge on
 	# 유비 in ~3 turns and out-DPS the player's 2-unit retaliation budget.
-	# ENEMY_ATK_MULT=0.7 (data-driven via BalanceConstants) is the tuning
-	# knob — set higher to make AI hit harder, lower for an easier game.
-	# When the hero pool grows past ~8, replace this global knob with
-	# per-encounter difficulty tuning + better enemy archetype variety.
+	#   Resolution chain: chapter.enemy_atk_mult (per-chapter override) →
+	#   BalanceConstants.ENEMY_ATK_MULT (global default). Per-chapter wins
+	#   when set to a value in [0.0, 2.0]; -1.0 sentinel or out-of-range
+	#   falls back to global. This lets ch1 / ch2 / ch3 carry their own
+	#   difficulty curves without forcing the team to retune all chapters
+	#   when one needs adjustment.
 	if not is_player:
-		var enemy_mul: float = BalanceConstants.get_const("ENEMY_ATK_MULT") as float
-		unit.raw_atk = int(unit.raw_atk * enemy_mul)
+		unit.raw_atk = int(unit.raw_atk * _resolve_enemy_atk_mult())
 	# Class-derived combat traits — ORDER-SENSITIVE: must follow unit_class assignment.
 	# attack_range gives ARCHER 우금 actual reach (1→2). passive activates the
 	# command_aura adjacency damage buff (+15% to allies adjacent to a COMMANDER)
@@ -732,6 +740,30 @@ func _make_battle_unit(
 	else:
 		unit.move_range = 3
 	return unit
+
+
+## Resolves the effective enemy_atk_mult for the current battle. Per-chapter
+## override wins over BalanceConstants global; sentinel -1.0 or out-of-range
+## values fall back to global. Out-of-range emits push_warning (defensive
+## against JSON typos that would otherwise silently break difficulty tuning).
+##   Called once per enemy unit at _make_battle_unit. Cheap (autoload getter
+##   + single comparison), so no need to memoize across the build loop.
+func _resolve_enemy_atk_mult() -> float:
+	var global_mul: float = BalanceConstants.get_const("ENEMY_ATK_MULT") as float
+	var chapter: ChapterDefinition = ScenarioRunner.get_current_chapter()
+	if chapter == null:
+		return global_mul
+	var override: float = chapter.enemy_atk_mult
+	if override < 0.0:
+		return global_mul
+	if override > 2.0:
+		push_warning(
+			"BattleScene._resolve_enemy_atk_mult: chapter '%s' enemy_atk_mult=%.3f"
+			% [chapter.chapter_id, override]
+			+ " is out of [0.0, 2.0] range; falling back to global %.3f" % global_mul
+		)
+		return global_mul
+	return override
 
 
 ## Class → melee/ranged reach mapping. ARCHER stands off (range 2); everyone
