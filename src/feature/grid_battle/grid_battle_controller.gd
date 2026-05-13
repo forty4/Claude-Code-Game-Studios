@@ -80,6 +80,19 @@ const _GRID_ACTIONS: Array[String] = [
 ]
 
 
+## Diagnostic-trace gate. Sessions 4-5 used inline raw `print(...)` calls (CLICK
+## / TURN / HINT / SELECT / BATTLE-END categories) to debug input + turn-loop
+## behavior in the windowed env. Now routed through `_trace()` and silenced by
+## default; flip to `true` (then re-import) to surface the full event-stream
+## again.
+const _TRACE_ENABLED: bool = false
+
+
+func _trace(msg: String) -> void:
+	if _TRACE_ENABLED:
+		print(msg)
+
+
 # ─── Signals (Battle-domain per ADR-0014 §8) ────────────────────────────────
 
 ## Emitted when unit selection changes. was_selected == -1 for deselect.
@@ -687,7 +700,7 @@ func _on_input_action_fired(action: String, ctx: InputContext) -> void:
 		return  # off-grid sentinel from BattleCamera.screen_to_grid
 	# Eyeball trace — kept lean enough to leave on; helps the user diagnose
 	# why a click did or didn't do what they expected.
-	print("[CLICK] action=%s coord=%s unit_id=%d state=%d active=%d selected=%d" %
+	_trace("[CLICK] action=%s coord=%s unit_id=%d state=%d active=%d selected=%d" %
 		[action, str(coord), ctx.target_unit_id, int(_state),
 		_active_turn_unit_id, _selected_unit_id])
 	handle_grid_click(action, coord, ctx.target_unit_id)
@@ -730,7 +743,7 @@ func _on_unit_turn_started(unit_id: int) -> void:
 	# Track the active turn unit so click handlers can reject input on other own
 	# units (only the active unit may move/attack on a given turn).
 	_active_turn_unit_id = unit_id
-	print("[TURN] active unit changed to %d (side=%d, player=%s)" %
+	_trace("[TURN] active unit changed to %d (side=%d, player=%s)" %
 		[unit_id, unit.side, unit.is_player_controlled])
 	# Auto-deselect a stale selection if the new active unit differs — keeps
 	# the gold-outline + range overlays on the unit the player can actually move.
@@ -899,7 +912,7 @@ func _handle_grid_click_observation(action: String, _coord: Vector2i, unit_id: i
 	# silently fail with NOT_UNIT_TURN — confusing the player into thinking input
 	# was broken. Now the click is rejected upfront with a console hint.
 	if _active_turn_unit_id != -1 and unit_id != _active_turn_unit_id:
-		print("[TURN] Not unit %d's turn — active unit is %d" % [unit_id, _active_turn_unit_id])
+		_trace("[TURN] Not unit %d's turn — active unit is %d" % [unit_id, _active_turn_unit_id])
 		return
 	_select_unit(unit_id)
 
@@ -919,7 +932,7 @@ func _handle_grid_click_unit_selected(action: String, coord: Vector2i, unit_id: 
 			# can act). If it hasn't moved yet, just deselect (existing flow).
 			if unit_id == _selected_unit_id:
 				if _moved_this_turn.get(_selected_unit_id, false):
-					print("[HINT] unit %d re-clicked after move — declaring WAIT to end turn" % _selected_unit_id)
+					_trace("[HINT] unit %d re-clicked after move — declaring WAIT to end turn" % _selected_unit_id)
 					_acted_this_turn[_selected_unit_id] = true
 					_turn_runner.declare_action(_selected_unit_id, TurnOrderRunner.ActionType.WAIT, null)
 					_deselect()
@@ -970,7 +983,7 @@ func _select_unit(unit_id: int) -> void:
 	var prev: int = _selected_unit_id
 	_selected_unit_id = unit_id
 	_state = BattleState.UNIT_SELECTED
-	print("[SELECT] unit=%d (active=%d)" % [unit_id, _active_turn_unit_id])
+	_trace("[SELECT] unit=%d (active=%d)" % [unit_id, _active_turn_unit_id])
 	unit_selected_changed.emit(unit_id, prev)
 
 
@@ -996,7 +1009,7 @@ func _handle_player_move(unit: BattleUnit, dest: Vector2i) -> void:
 	if _acted_this_turn.get(unit.unit_id, false):
 		return  # turn already terminal (attacked/waited) — no more moves
 	if _moved_this_turn.get(unit.unit_id, false):
-		print("[HINT] unit %d already moved this turn — click an enemy to attack OR click the unit itself to skip" % unit.unit_id)
+		_trace("[HINT] unit %d already moved this turn — click an enemy to attack OR click the unit itself to skip" % unit.unit_id)
 		return  # MOVE token already spent — one move per turn
 	if not is_tile_in_move_range(dest, unit.unit_id):
 		return  # invalid target — silent
@@ -1362,7 +1375,7 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 ## Idempotency: this method early-returns if _battle_over is already true,
 ## guaranteeing exactly-once outcome emission per battle (CR-7 / AC-7).
 func _emit_battle_outcome(outcome: StringName) -> void:
-	print("[BATTLE-END] outcome=%s" % outcome)
+	_trace("[BATTLE-END] outcome=%s" % outcome)
 	if _battle_over:
 		return  # AC-7: idempotent — outcome already resolved
 	_battle_over = true

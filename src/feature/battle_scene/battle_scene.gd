@@ -93,6 +93,20 @@ var _slide_tween_keepalive: Tween = null
 var _battle_resolved: bool = false
 
 
+## Diagnostic-trace gate. Sessions 4-5 used inline raw `print(...)` calls (SLIDE
+## / SLIDE-DONE / BATTLE-END / POST-BATTLE-WAIT categories) to debug windowed-env
+## quirks (Tween scheduler, keyboard poll, scene reload paths). The user confirmed
+## the windowed env now mostly works, so they're routed through `_trace()` and
+## silenced by default. Flip this constant to `true` (then re-import) to surface
+## the full event-stream again.
+const _TRACE_ENABLED: bool = false
+
+
+func _trace(msg: String) -> void:
+	if _TRACE_ENABLED:
+		print(msg)
+
+
 ## Movement-tween duration on unit_moved. Short enough to feel responsive
 ## (player still perceives the action as instant) but long enough that the
 ## slide reads as "moved to here" rather than a teleport jump.
@@ -619,7 +633,6 @@ func _make_battle_unit(
 	unit.tag = tag
 	unit.archetype = archetype
 	unit.move_range = 3
-	unit.attack_range = 1
 	# Stats from HeroData — stat_might drives raw_atk so commanders like 유비
 	# vs heavies like 장비 (might 92) feel different in combat. Tuning for
 	# MVP "kills resolve within 5 rounds":
@@ -642,7 +655,37 @@ func _make_battle_unit(
 		unit.raw_atk = 10
 		unit.raw_def = 5
 		unit.unit_class = UnitRole.UnitClass.INFANTRY
+	# Class-derived combat traits — ORDER-SENSITIVE: must follow unit_class assignment.
+	# attack_range gives ARCHER 우금 actual reach (1→2). passive activates the
+	# command_aura adjacency damage buff (+15% to allies adjacent to a COMMANDER)
+	# that GridBattleController._has_adjacent_command_aura already implements but
+	# never fired before because no unit ever had passive set. The AI hunt for
+	# command_aura targets stays inactive — snapshot's `passive_id` is still
+	# hardcoded to &"" (intentional asymmetry: player gets formation buff,
+	# enemy AI doesn't gain a "kill the king" priority on top of it).
+	unit.attack_range = _attack_range_for_class(unit.unit_class)
+	unit.passive = _passive_for_class(unit.unit_class)
 	return unit
+
+
+## Class → melee/ranged reach mapping. ARCHER stands off (range 2); everyone
+## else is melee (range 1). 황충's `rear_specialist` ranged exception is a
+## per-hero passive override authored elsewhere when that hero ships.
+func _attack_range_for_class(unit_class: int) -> int:
+	if unit_class == int(UnitRole.UnitClass.ARCHER):
+		return 2
+	return 1
+
+
+## Class → default passive mapping. COMMANDER carries `command_aura` so the
+## adjacent-ally damage buff (GridBattleController._has_adjacent_command_aura)
+## actually fires. Other classes' passives (passive_charge / shield_wall / etc.
+## per unit_roles.json) are advisory tags consumed by other systems, not by the
+## damage pipeline — leave empty until those systems land.
+func _passive_for_class(unit_class: int) -> StringName:
+	if unit_class == int(UnitRole.UnitClass.COMMANDER):
+		return &"command_aura"
+	return &""
 
 
 ## Builds a 15×15 all-grass MapResource for the chapter. Sprint-7 S7-05 will
@@ -744,7 +787,7 @@ func _mount_hp_bars(visuals: Node, roster: Array[BattleUnit]) -> void:
 func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 	var visuals: Node = _find_chapter_visuals()
 	if visuals == null:
-		print("[SLIDE] unit=%d visuals=NULL — slide skipped" % unit_id)
+		_trace("[SLIDE] unit=%d visuals=NULL — slide skipped" % unit_id)
 		return
 	var tile_size: int = ChapterVisuals.TILE_SIZE
 	var world_pos: Vector2 = Vector2(
@@ -753,10 +796,10 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 	)
 	var unit_node: Node2D = _find_unit_polygon(visuals, unit_id)
 	if unit_node == null:
-		print("[SLIDE] unit=%d polygon=NULL (children: %s) — slide skipped" %
+		_trace("[SLIDE] unit=%d polygon=NULL (children: %s) — slide skipped" %
 			[unit_id, _list_polygon_names(visuals)])
 		return
-	print("[SLIDE] unit=%d from=%s to=%s (polygon now at %s, target %s)" %
+	_trace("[SLIDE] unit=%d from=%s to=%s (polygon now at %s, target %s)" %
 		[unit_id, str(_from), str(to), str(unit_node.position), str(world_pos)])
 	# DIAGNOSTIC: Tween was firing in headless but callback/finished never fired
 	# in user's windowed env (verified across 5+ retries). Bypassing tween
@@ -764,7 +807,7 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 	# polygon teleport to the new tile, the rendering pipeline is fine and
 	# Tween was the problem. If still no visual change, rendering is broken.
 	unit_node.position = world_pos
-	print("[SLIDE-DONE] unit=%d polygon.position now %s (expected %s)" %
+	_trace("[SLIDE-DONE] unit=%d polygon.position now %s (expected %s)" %
 		[unit_id, str(unit_node.position), str(world_pos)])
 	# Rotation tween: catch directional polygons (CAVALRY/ARCHER/SCOUT) up to
 	# the post-move facing. Non-directional classes return 0 from
@@ -994,7 +1037,7 @@ func _mount_controls_hint() -> void:
 ## which is also connected to the controller's signal (R-7: scene root never
 ## emits GameBus). The HUD's UI-GB-09 results panel renders in parallel.
 func _on_battle_outcome_resolved(outcome: StringName, _fate_data: Dictionary) -> void:
-	print("[BATTLE-END] outcome=%s — showing banner + post-battle options" % outcome)
+	_trace("[BATTLE-END] outcome=%s — showing banner + post-battle options" % outcome)
 	_battle_resolved = true
 	_pending_outcome = _outcome_result(outcome)
 	# Root cause of "restart hotkey doesn't fire" (session 4): in standalone
@@ -1074,7 +1117,7 @@ func _add_post_battle_button(row: HBoxContainer, label: String, on_press: Callab
 	btn.custom_minimum_size = Vector2(200, 50)
 	btn.add_theme_font_size_override("font_size", 22)
 	btn.pressed.connect(func() -> void:
-		print("[BATTLE-END] button pressed: %s" % label)
+		_trace("[BATTLE-END] button pressed: %s" % label)
 		on_press.call())
 	row.add_child(btn)
 	return btn
@@ -1168,7 +1211,7 @@ func _wait_for_scenario_state(target: int) -> bool:
 ## card + 처음부터 / 종료. Shown when _proceed_scenario walks the last chapter
 ## off the end (ScenarioRunner state == SCENARIO_END).
 func _show_ending_screen() -> void:
-	print("[BATTLE-END] scenario complete — showing ending screen")
+	_trace("[BATTLE-END] scenario complete — showing ending screen")
 	if _hud_layer == null:
 		return
 	var old_buttons: Node = _hud_layer.get_node_or_null("PostBattleButtons")
@@ -1231,7 +1274,7 @@ func _process(_delta: float) -> void:
 	_process_tick += 1
 	if _process_tick % 60 == 1:
 		# Once per second while waiting for input — confirms _process is firing.
-		print("[POST-BATTLE-WAIT] _process firing; ENTER=%s R=%s SPACE=%s ESC=%s" %
+		_trace("[POST-BATTLE-WAIT] _process firing; ENTER=%s R=%s SPACE=%s ESC=%s" %
 			[Input.is_physical_key_pressed(KEY_ENTER) or Input.is_physical_key_pressed(KEY_KP_ENTER),
 			Input.is_physical_key_pressed(KEY_R),
 			Input.is_physical_key_pressed(KEY_SPACE),
@@ -1240,12 +1283,12 @@ func _process(_delta: float) -> void:
 			or Input.is_physical_key_pressed(KEY_KP_ENTER)
 			or Input.is_physical_key_pressed(KEY_R) or Input.is_key_pressed(KEY_R)
 			or Input.is_physical_key_pressed(KEY_SPACE) or Input.is_key_pressed(KEY_SPACE)):
-		print("[BATTLE-END] forward key pressed — invoking primary post-battle action")
+		_trace("[BATTLE-END] forward key pressed — invoking primary post-battle action")
 		_battle_resolved = false  # gate further key handling until the next battle
 		set_process(false)
 		_invoke_primary_post_battle_action()
 	elif Input.is_physical_key_pressed(KEY_ESCAPE) or Input.is_key_pressed(KEY_ESCAPE):
-		print("[BATTLE-END] ESC pressed — quitting")
+		_trace("[BATTLE-END] ESC pressed — quitting")
 		_battle_resolved = false
 		get_tree().quit()
 

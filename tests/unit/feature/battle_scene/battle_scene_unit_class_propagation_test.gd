@@ -105,6 +105,53 @@ func test_build_battle_units_propagates_class_for_full_chapter_1_roster() -> voi
 		).is_equal(want)
 
 
+# ─── Class-derived passive + attack_range (wired in same patch) ─────────────
+
+
+func test_commander_carries_command_aura_passive() -> void:
+	# COMMANDER class units (유비, 허저) need passive == &"command_aura" so the
+	# GridBattleController._has_adjacent_command_aura adjacency check actually
+	# fires the +15% damage buff for adjacent allies. Without this the buff
+	# system was dead code (see session 6 P0 wiring).
+	var scene: BattleScene = _instantiate_battle_scene()
+	var liu_bei: BattleUnit = scene._make_battle_unit(0, &"shu_001_liu_bei", true, Vector2i.ZERO, &"tank", &"aggressor")
+	assert_str(String(liu_bei.passive)).is_equal("command_aura")
+	var xu_chu: BattleUnit = scene._make_battle_unit(5, &"wei_008_xu_chu", false, Vector2i.ZERO, &"boss", &"coordinator")
+	assert_str(String(xu_chu.passive)).is_equal("command_aura")
+
+
+func test_non_commander_classes_carry_no_default_passive() -> void:
+	# INFANTRY 장비, STRATEGIST 장료, ARCHER 우금 — none get an auto passive.
+	# The unit_roles.json passive_tag (passive_charge / passive_shield_wall /
+	# etc.) is an advisory tag for future systems, not the damage-pipeline
+	# `passive` value, so it stays empty until those systems land.
+	var scene: BattleScene = _instantiate_battle_scene()
+	for hid: StringName in [&"shu_003_zhang_fei", &"wei_006_zhang_liao", &"wei_007_yu_jin"]:
+		var unit: BattleUnit = scene._make_battle_unit(99, hid, false, Vector2i.ZERO, &"", &"aggressor")
+		assert_str(String(unit.passive)).override_failure_message(
+			"%s should NOT auto-get a passive (got '%s')" % [String(hid), String(unit.passive)]
+		).is_equal("")
+
+
+func test_archer_attack_range_is_two() -> void:
+	# 우금 ARCHER → range 2 (was hardcoded 1 before P0 wiring).
+	var scene: BattleScene = _instantiate_battle_scene()
+	var yu_jin: BattleUnit = scene._make_battle_unit(4, &"wei_007_yu_jin", false, Vector2i.ZERO, &"holder", &"holder")
+	assert_int(yu_jin.attack_range).is_equal(2)
+
+
+func test_non_archer_attack_range_is_one() -> void:
+	var scene: BattleScene = _instantiate_battle_scene()
+	for hid: StringName in [&"shu_001_liu_bei", &"shu_003_zhang_fei", &"wei_005_xiahou_dun", &"wei_006_zhang_liao", &"wei_008_xu_chu"]:
+		var unit: BattleUnit = scene._make_battle_unit(99, hid, false, Vector2i.ZERO, &"", &"aggressor")
+		assert_int(unit.attack_range).override_failure_message(
+			"%s (class=%d) should be melee (range 1); got %d" % [String(hid), unit.unit_class, unit.attack_range]
+		).is_equal(1)
+
+
+# ─── Existing class-distinction sanity ───────────────────────────────────────
+
+
 func test_build_battle_units_yields_at_least_three_distinct_classes_for_chapter_1() -> void:
 	# Sanity: the chapter-1 roster covers enough class variety that the visuals
 	# differentiate. Today's roster uses 4 distinct classes (commander, infantry,

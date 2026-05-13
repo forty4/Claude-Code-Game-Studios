@@ -178,8 +178,15 @@ func set_attackable_tiles(tiles: PackedVector2Array) -> void:
 ## unchanged. The border + name label live as children of that polygon, so the
 ## modulate cascade carries them through damage-flash / death-fade / end-of-turn
 ## dim / round-undim animations automatically.
+## Diagnostic-trace gate. The single `[SPAWN]` print here was a session 4-5
+## diagnostic ("did unit polygons mount?"); silenced now that windowed boots
+## reliably. Flip to `true` (then re-import) when investigating spawn issues.
+const _TRACE_ENABLED: bool = false
+
+
 func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
-	print("[SPAWN] spawn_unit_polygons called for %d units" % roster.size())
+	if _TRACE_ENABLED:
+		print("[SPAWN] spawn_unit_polygons called for %d units" % roster.size())
 	var player_parent: Node2D = _get_or_create_unit_parent("PlayerUnits")
 	var enemy_parent: Node2D = _get_or_create_unit_parent("EnemyUnits")
 	for child: Node in player_parent.get_children():
