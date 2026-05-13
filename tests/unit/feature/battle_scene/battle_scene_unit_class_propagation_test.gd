@@ -236,6 +236,28 @@ func test_raw_atk_uses_might_times_one() -> void:
 	).is_equal(70)
 
 
+func test_enemy_units_get_enemy_atk_mult_penalty() -> void:
+	# 하후돈 stat_might=88 → raw_atk = floori(88 × 1.0 × ENEMY_ATK_MULT=0.7) = 61.
+	# Player units (is_player=true) skip the multiplier — 장비 raw_atk stays at 92.
+	var scene: BattleScene = _instantiate_battle_scene()
+	var xiahou_dun: BattleUnit = scene._make_battle_unit(
+		2, &"wei_005_xiahou_dun", false, Vector2i.ZERO, &"skirmisher", &"aggressor")
+	assert_int(xiahou_dun.raw_atk).override_failure_message(
+		"적 하후돈 raw_atk should be int(88×1.0×0.7) = 61 after ENEMY_ATK_MULT penalty; got %d"
+		% xiahou_dun.raw_atk
+	).is_equal(61)
+
+
+func test_player_units_do_not_get_enemy_atk_mult_penalty() -> void:
+	var scene: BattleScene = _instantiate_battle_scene()
+	var zhang_fei: BattleUnit = scene._make_battle_unit(
+		1, &"shu_003_zhang_fei", true, Vector2i.ZERO, &"assassin", &"aggressor")
+	assert_int(zhang_fei.raw_atk).override_failure_message(
+		"Player 장비 raw_atk should stay at might(92)×1.0 = 92 (no enemy penalty); got %d"
+		% zhang_fei.raw_atk
+	).is_equal(92)
+
+
 func test_raw_def_uses_command_times_one_fifth_with_commander_bonus() -> void:
 	# 유비 stat_command=90, COMMANDER → raw_def = floori(90×0.20) + 10 = 18+10 = 28
 	# (was 4 at the 0.05 coefficient — sub-MIN; pushed every attack to BASE_CEILING).

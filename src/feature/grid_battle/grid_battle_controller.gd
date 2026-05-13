@@ -1028,6 +1028,13 @@ func _handle_player_attack(attacker_id: int, defender_id: int) -> void:
 		return  # re-entrancy guard
 	if not _units.has(attacker_id) or not _units.has(defender_id):
 		return  # defensive — shouldn't happen if dispatch is correct
+	# Skip dead defender — corpses stay in _units (we read .position for visuals
+	# and the death animation, plus the unit_id remains stable for fate tracking)
+	# but they MUST NOT be re-attackable. Pre-fix the player could click a dead
+	# unit's tile and HPStatusController.apply_damage push_warning'd
+	# "apply_damage on dead/unknown unit_id N" — turn was consumed for nothing.
+	if _hp_controller != null and not _hp_controller.is_alive(defender_id):
+		return  # silent — defender already dead, no turn consumed
 	var attacker: BattleUnit = _units[attacker_id]
 	var defender: BattleUnit = _units[defender_id]
 	if not is_tile_in_attack_range(defender.position, attacker_id):
@@ -1068,6 +1075,12 @@ func _handle_attack(attacker_id: int, defender_id: int) -> void:
 		return  # re-entrancy guard (mirrors story-004 _handle_move pattern)
 	if not _units.has(attacker_id) or not _units.has(defender_id):
 		return  # defensive — shouldn't happen if dispatch is correct
+	# Dead-defender guard — mirror of the player-path check in
+	# _handle_player_attack. AI snapshot can stale-vote a target that just died
+	# this frame; without this guard apply_damage warns + the attacker's turn
+	# is consumed for a no-op.
+	if _hp_controller != null and not _hp_controller.is_alive(defender_id):
+		return
 	var attacker: BattleUnit = _units[attacker_id]
 	var defender: BattleUnit = _units[defender_id]
 	if not is_tile_in_attack_range(defender.position, attacker_id):

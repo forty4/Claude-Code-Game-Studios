@@ -701,6 +701,18 @@ func _make_battle_unit(
 		unit.raw_atk = 10
 		unit.raw_def = 5
 		unit.unit_class = UnitRole.UnitClass.INFANTRY
+	# Enemy-side ATK penalty — MVP has only 3 player heroes (유비/장비/관우)
+	# vs 5 enemy heroes spread across 3 chapters, which makes the player a
+	# permanent minority. Without a global enemy ATK throttle, even after
+	# the session-8 atk/def retune ch1 is unwinnable: 4 enemies converge on
+	# 유비 in ~3 turns and out-DPS the player's 2-unit retaliation budget.
+	# ENEMY_ATK_MULT=0.7 (data-driven via BalanceConstants) is the tuning
+	# knob — set higher to make AI hit harder, lower for an easier game.
+	# When the hero pool grows past ~8, replace this global knob with
+	# per-encounter difficulty tuning + better enemy archetype variety.
+	if not is_player:
+		var enemy_mul: float = BalanceConstants.get_const("ENEMY_ATK_MULT") as float
+		unit.raw_atk = int(unit.raw_atk * enemy_mul)
 	# Class-derived combat traits — ORDER-SENSITIVE: must follow unit_class assignment.
 	# attack_range gives ARCHER 우금 actual reach (1→2). passive activates the
 	# command_aura adjacency damage buff (+15% to allies adjacent to a COMMANDER)
