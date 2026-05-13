@@ -73,6 +73,10 @@ var _turn_runner: TurnOrderRunner
 var _grid_controller: GridBattleController
 var _ai_system: AISystem
 var _battle_hud: BattleHUD
+## Bridges the controller's LOCAL battle_outcome_resolved → GameBus.battle_outcome_resolved
+## (which ScenarioRunner + SceneManager consume) — see battle_outcome_bridge.gd for why
+## this hop needs a dedicated child rather than being done on the scene root.
+var _outcome_bridge: BattleOutcomeBridge = null
 var _chapter_visuals: Node = null
 ## Single TurnIndicator instance, reparented under the active unit's polygon
 ## on each grid_controller.active_unit_changed emit. Lazy-init on first emit
@@ -173,19 +177,14 @@ func _ready() -> void:
 	# unit_select click (POLISH-011 production-wiring residual #2).
 	# Wired here AFTER _battle_camera + _map_grid are created (see STEPs 1 + 2 below).
 
-	# === SPRINT-7 SCENARIO BOOTSTRAP (mock encoder DELETED 2026-05-05 per IN-10) ===
-	# Standalone-launch mode: bootstrap mvp_shu.json directly. SceneManager-driven
-	# mode (post-Main-Menu): ScenarioRunner is already in BEAT_4_PREP/BATTLE_LOADING.
-	if ScenarioRunner.get_current_chapter_index() == -1:
-		var loaded: bool = ScenarioRunner.load_scenario("res://assets/data/scenarios/mvp_shu.json")
-		if not loaded:
-			push_error("BattleScene: failed to load mvp_shu.json scenario")
-		# Drive scenario forward to BEAT_5_BATTLE for standalone demo (no UI dwell).
-		if ScenarioRunner.get_state() == ScenarioRunner.State.BEAT_1_ANCHOR:
-			ScenarioRunner.advance_beat()  # -> BEAT_2_ECHO
-			ScenarioRunner.advance_beat()  # -> BEAT_3_BRIEF
-			ScenarioRunner.advance_beat()  # -> BEAT_4_PREP
-			ScenarioRunner.confirm_deployment()  # -> BATTLE_LOADING -> BEAT_5_BATTLE
+	# === SCENARIO BOOTSTRAP ===
+	# Drive ScenarioRunner to BEAT_5_BATTLE for whatever chapter it's currently
+	# on: the very first launch loads mvp_shu.json; a reload after a chapter
+	# transition (_proceed_scenario / _retry_chapter / _restart_scenario) finds
+	# ScenarioRunner already advanced to that chapter's pre-battle beats and just
+	# walks them to battle. SceneManager-driven mode (post-Main-Menu, post-MVP):
+	# ScenarioRunner is already in BEAT_5_BATTLE; this no-ops.
+	_advance_scenario_to_battle()
 	var chapter: ChapterDefinition = ScenarioRunner.get_current_chapter()
 	if chapter == null:
 		push_error("BattleScene: no active chapter from ScenarioRunner")
@@ -302,6 +301,17 @@ func _ready() -> void:
 	# and AI turns hang forever (POLISH-013 production-wiring residual).
 	_grid_controller.set_ai_system(_ai_system)
 
+	# === STEP 5.6: BattleOutcomeBridge — battle-scoped GameBus publisher ===
+	# Without this, GridBattleController's LOCAL battle_outcome_resolved never
+	# reaches GameBus, so ScenarioRunner stays in BEAT_5_BATTLE forever and the
+	# scenario never advances past chapter 1 (R-7 forbids the scene root from
+	# emitting; ADR-0014 §8 forbids the controller from emitting on GameBus).
+	_outcome_bridge = BattleOutcomeBridge.new()
+	_outcome_bridge.name = "BattleOutcomeBridge"
+	_outcome_bridge.setup(chapter.chapter_id)
+	add_child(_outcome_bridge)
+	_grid_controller.battle_outcome_resolved.connect(_outcome_bridge.on_local_outcome)
+
 	# === STEP 6: BattleHUD (ADR-0015) — depends on all 5 prior ===
 	_battle_hud = BattleHUD.new()
 	_battle_hud.name = "BattleHUD"
@@ -336,6 +346,43 @@ func _ready() -> void:
 	# polygons with roster-driven ones so deployment branch overrides (e.g.
 	# WIN_changbanpo_default placing 유비 at [2,3]) actually render.
 	_spawn_unit_polygons_async(roster)
+
+
+# ─── Scenario driving (standalone-launch only) ───────────────────────────────
+
+## Walks ScenarioRunner forward to BEAT_5_BATTLE for the chapter it's currently on.
+##
+## - First launch ever (also after _restart_scenario): no scenario loaded
+##   (index == -1) → load mvp_shu.json (→ CHAPTER_START → BEAT_1_ANCHOR), then walk.
+##   (load_scenario in _restart_scenario re-loads, so index is briefly -1-equivalent —
+##    actually load_scenario resets directly to CHAPTER_START; covered below.)
+## - Reload after a chapter transition: _proceed_scenario already advanced
+##   ScenarioRunner to the next chapter's BEAT_1_ANCHOR → just walk the beats.
+## - Reload after _retry_chapter: ScenarioRunner is in BEAT_4_PREP → confirm.
+## - Already in BEAT_5_BATTLE (SceneManager-driven mode / test fixture): no-op.
+## - Any other (stale post-battle) state: leave it; get_current_chapter() handles null.
+##
+## Story beats are skipped instantly here (no UI dwell yet — beat presentation is
+## post-MVP); the only player-visible pre-battle moment is the title card.
+func _advance_scenario_to_battle() -> void:
+	if ScenarioRunner.get_current_chapter_index() == -1:
+		if not ScenarioRunner.load_scenario("res://assets/data/scenarios/mvp_shu.json"):
+			push_error("BattleScene: failed to load mvp_shu.json scenario")
+			return
+	# Bounded walk — 8 iterations is far more than the longest pre-battle path
+	# (CHAPTER_START is auto-advanced inside ScenarioRunner; we only ever see
+	# BEAT_1 → BEAT_2 → BEAT_3 → BEAT_4 → confirm).
+	for _i: int in 8:
+		match ScenarioRunner.get_state():
+			ScenarioRunner.State.BEAT_1_ANCHOR, \
+			ScenarioRunner.State.BEAT_2_ECHO, \
+			ScenarioRunner.State.BEAT_3_BRIEF:
+				ScenarioRunner.advance_beat()
+			ScenarioRunner.State.BEAT_4_PREP:
+				ScenarioRunner.confirm_deployment()  # -> BATTLE_LOADING -> BEAT_5_BATTLE
+				return
+			_:
+				return  # BEAT_5_BATTLE (already in battle) or a stale state (leave it)
 
 
 # ─── Chapter-driven helpers (sprint-7 S7-02 — replaces deleted mock encoder) ──
@@ -455,7 +502,9 @@ func _on_unit_selected_changed(unit_id: int, _was_selected: int) -> void:
 
 func _find_chapter_visuals() -> Node:
 	for child: Node in get_tree().root.get_children():
-		if child is ChapterVisuals:
+		# Skip a previous chapter's ChapterVisuals that SceneManager has queued
+		# for deletion but the tree hasn't reaped yet (chapter-transition window).
+		if child is ChapterVisuals and not child.is_queued_for_deletion():
 			return child
 	return null
 
@@ -740,13 +789,17 @@ func _mount_controls_hint() -> void:
 	_hud_layer.add_child(hint)
 
 
-## Battle-outcome handler. Dims the grid (so the banner pops) and spawns the
-## screen-centered OutcomeBanner on HUDLayer. The HUD's UI-GB-09 results
-## panel still renders in parallel via its own subscription — this banner is
-## the grid-level moment cue, not a replacement for the stats sheet.
+## Battle-outcome handler (connected to GridBattleController's LOCAL signal).
+## Dims the grid, shows the OutcomeBanner, and mounts outcome-aware post-battle
+## buttons. The ScenarioRunner-side advance (BEAT_6→9, chapter transition) is
+## driven by _proceed_scenario() when the player chooses to move on — the
+## GameBus emit that wakes ScenarioRunner here is done by BattleOutcomeBridge,
+## which is also connected to the controller's signal (R-7: scene root never
+## emits GameBus). The HUD's UI-GB-09 results panel renders in parallel.
 func _on_battle_outcome_resolved(outcome: StringName, _fate_data: Dictionary) -> void:
-	print("[BATTLE-END] outcome=%s — showing banner + dimming grid (R=restart, ESC=quit)" % outcome)
+	print("[BATTLE-END] outcome=%s — showing banner + post-battle options" % outcome)
 	_battle_resolved = true
+	_pending_outcome = _outcome_result(outcome)
 	# Root cause of "restart hotkey doesn't fire" (session 4): in standalone
 	# launch, SceneManager treats this BattleScene as the "overworld" and calls
 	# _pause_overworld() on it (process_mode = DISABLED + set_process_input(false)
@@ -760,9 +813,11 @@ func _on_battle_outcome_resolved(outcome: StringName, _fate_data: Dictionary) ->
 	set_process_input(true)
 	set_process_unhandled_input(true)
 	var visuals: Node = _find_chapter_visuals()
-	if visuals is CanvasItem:
+	if is_instance_valid(visuals) and visuals is CanvasItem:
 		# Instant-set the final dim color so the visual change is guaranteed
 		# even if Tween writes don't advance (observed in user windowed env).
+		# (SceneManager may free this node a frame or two later on its own
+		# battle_outcome_resolved subscription — guard with is_instance_valid.)
 		(visuals as CanvasItem).modulate = OUTCOME_DIM_COLOR
 	if _hud_layer != null:
 		# Drop the controls hint — the screen now belongs to the outcome banner.
@@ -772,90 +827,222 @@ func _on_battle_outcome_resolved(outcome: StringName, _fate_data: Dictionary) ->
 		var banner: OutcomeBanner = OutcomeBanner.make(outcome)
 		banner.name = "OutcomeBanner"
 		_hud_layer.add_child(banner)
-		_mount_post_battle_buttons()
+		_mount_post_battle_buttons(_pending_outcome)
 
 
-## Post-battle action buttons (재시작 / 종료) below the outcome banner.
-## Belt-and-suspenders for the keyboard hotkeys (which historically failed to
-## register in the windowed env, see session 4 notes): a clickable Button goes
-## through the Viewport GUI path, not the _process key poll. We re-armed this
-## scene's process_mode at the top of _on_battle_outcome_resolved so these
-## Controls now receive input even if SceneManager had disabled the scene.
-func _mount_post_battle_buttons() -> void:
+## Maps a controller outcome StringName to a BattleOutcome.Result int.
+func _outcome_result(outcome: StringName) -> int:
+	match outcome:
+		&"VICTORY_ANNIHILATION": return BattleOutcome.Result.WIN
+		&"DEFEAT_ANNIHILATION": return BattleOutcome.Result.LOSS
+		&"TURN_LIMIT_REACHED": return BattleOutcome.Result.DRAW
+		_: return BattleOutcome.Result.DRAW
+
+
+## Outcome-aware post-battle button cluster below the OutcomeBanner.
+## WIN → 다음 장으로 / 처음부터 / 종료.   DRAW or LOSS → 재시도 / 이대로 진행 / 종료.
+## Buttons go through the Viewport GUI path, so they work even if the keyboard
+## poll in _process doesn't register in the windowed env (session 4). The first
+## button grabs focus so Enter activates it.
+func _mount_post_battle_buttons(result: int) -> void:
 	if _hud_layer == null:
 		return
 	var bar: CenterContainer = CenterContainer.new()
 	bar.name = "PostBattleButtons"
 	bar.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bar.offset_top = 140.0  # push the cluster below the outcome glyph
+	bar.offset_top = 150.0  # push the cluster below the outcome glyph
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE  # only the buttons capture clicks
 	var row: HBoxContainer = HBoxContainer.new()
 	row.add_theme_constant_override("separation", 24)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.add_child(row)
 
-	var restart_btn: Button = Button.new()
-	restart_btn.text = "재시작 (R)"
-	restart_btn.custom_minimum_size = Vector2(180, 48)
-	restart_btn.add_theme_font_size_override("font_size", 22)
-	restart_btn.pressed.connect(func() -> void:
-		print("[BATTLE-END] restart button pressed — reloading scene")
-		_battle_resolved = false
-		get_tree().reload_current_scene())
-	row.add_child(restart_btn)
-
-	var quit_btn: Button = Button.new()
-	quit_btn.text = "종료 (ESC)"
-	quit_btn.custom_minimum_size = Vector2(180, 48)
-	quit_btn.add_theme_font_size_override("font_size", 22)
-	quit_btn.pressed.connect(func() -> void:
-		print("[BATTLE-END] quit button pressed — quitting")
-		get_tree().quit())
-	row.add_child(quit_btn)
+	var first_btn: Button = null
+	if result == BattleOutcome.Result.WIN:
+		first_btn = _add_post_battle_button(row, "다음 장으로 ▶  (Enter)", _proceed_scenario)
+		_add_post_battle_button(row, "처음부터", _restart_scenario)
+	else:
+		first_btn = _add_post_battle_button(row, "재시도  (Enter)", _retry_chapter)
+		_add_post_battle_button(row, "이대로 진행 ▶", _proceed_scenario)
+	_add_post_battle_button(row, "종료 (Esc)", func() -> void: get_tree().quit())
 
 	_hud_layer.add_child(bar)
-	# Focus the restart button so keyboard/gamepad Enter also works.
-	restart_btn.grab_focus()
+	if first_btn != null:
+		first_btn.grab_focus()
 
 
-## After battle ends, listen for restart / quit keys. _battle_resolved gates
-## these so they don't trigger mid-battle. The reload_current_scene path
-## rebuilds the whole battle from scratch — fastest way to "play again"
-## without a Main Menu / Overworld surface (those are post-MVP).
-## Post-battle restart hotkeys. We poll Input directly in _process because
-## `_input` and `_unhandled_input` both compete with InputRouter (autoload)
-## which has ESC bound to move_cancel and consumes events before we see them.
-## Polling sidesteps the dispatcher entirely. Trade-off: we check every frame
-## while battle is resolved — cheap (one Input.is_key_pressed per frame).
+func _add_post_battle_button(row: HBoxContainer, label: String, on_press: Callable) -> Button:
+	var btn: Button = Button.new()
+	btn.text = label
+	btn.custom_minimum_size = Vector2(200, 50)
+	btn.add_theme_font_size_override("font_size", 22)
+	btn.pressed.connect(func() -> void:
+		print("[BATTLE-END] button pressed: %s" % label)
+		on_press.call())
+	row.add_child(btn)
+	return btn
+
+
+## Re-fight the current chapter. On LOSS/DRAW the scenario is in BEAT_6_RESULT;
+## retry_outcome() bounces it back to BEAT_4_PREP (bumping echo_count), then the
+## scene reload re-runs _ready() → _advance_scenario_to_battle() → confirm.
+func _retry_chapter() -> void:
+	if await _wait_for_scenario_state(ScenarioRunner.State.BEAT_6_RESULT):
+		ScenarioRunner.retry_outcome()  # -> BEAT_4_PREP
+	else:
+		push_warning("BattleScene: retry — ScenarioRunner not in BEAT_6_RESULT; reloading anyway")
+	await _reload_via_scenario()
+
+
+## Re-start the whole scenario from chapter 1. load_scenario resets ScenarioRunner
+## to CHAPTER_START → BEAT_1_ANCHOR; the scene reload then drives it to battle.
+func _restart_scenario() -> void:
+	ScenarioRunner.load_scenario("res://assets/data/scenarios/mvp_shu.json")
+	await _reload_via_scenario()
+
+
+## Accept the outcome and move the scenario forward: BEAT_6 → 7 → 8 → 9 → either
+## the next chapter (reload this scene — _ready picks it up via ScenarioRunner)
+## or SCENARIO_END (show the ending screen, no reload).
+func _proceed_scenario() -> void:
+	if not await _wait_for_scenario_state(ScenarioRunner.State.BEAT_6_RESULT):
+		push_warning("BattleScene: proceed — ScenarioRunner never reached BEAT_6_RESULT")
+		return
+	ScenarioRunner.accept_outcome()  # -> BEAT_7_JUDGMENT -> BEAT_8_REVEAL (auto)
+	if ScenarioRunner.get_state() == ScenarioRunner.State.BEAT_8_REVEAL:
+		ScenarioRunner.advance_beat()  # -> BEAT_9_TRANSITION -> next chapter BEAT_1_ANCHOR | SCENARIO_END
+	await get_tree().process_frame
+	if ScenarioRunner.get_state() == ScenarioRunner.State.SCENARIO_END:
+		_show_ending_screen()
+		return
+	# A next chapter is queued in BEAT_1_ANCHOR — reload (the fresh _ready walks
+	# its pre-battle beats and re-triggers SceneManager to mount ch2's tiles).
+	await _reload_via_scenario()
+
+
+## Reloads this scene once SceneManager has settled to IDLE (it's tearing down
+## the just-finished chapter's ChapterVisuals after battle_outcome_resolved). The
+## extra trailing frame lets SceneManager's queue_free() actually land before the
+## reloaded _ready() re-runs _spawn_unit_polygons_async. No-op (warns) if this
+## scene isn't the current scene (non-standalone mode — post-MVP).
+func _reload_via_scenario() -> void:
+	for _i: int in 30:
+		if SceneManager.state == SceneManager.State.IDLE:
+			break
+		await get_tree().process_frame
+	await get_tree().process_frame
+	_battle_resolved = false
+	if get_tree().current_scene == self:
+		get_tree().reload_current_scene()
+	else:
+		push_warning("BattleScene: scenario-driven reload outside standalone mode not implemented")
+
+
+## Awaits (up to ~1s) until ScenarioRunner reaches `target`. Returns true on
+## success, false on timeout. ScenarioRunner advances via a CONNECT_DEFERRED
+## GameBus subscription, so we may need to wait a frame or two after the battle
+## ends before BEAT_6_RESULT is reached.
+func _wait_for_scenario_state(target: int) -> bool:
+	for _i: int in 60:
+		if ScenarioRunner.get_state() == target:
+			return true
+		await get_tree().process_frame
+	return ScenarioRunner.get_state() == target
+
+
+## Scenario-complete screen. Replaces the post-battle buttons with an ending
+## card + 처음부터 / 종료. Shown when _proceed_scenario walks the last chapter
+## off the end (ScenarioRunner state == SCENARIO_END).
+func _show_ending_screen() -> void:
+	print("[BATTLE-END] scenario complete — showing ending screen")
+	if _hud_layer == null:
+		return
+	var old_buttons: Node = _hud_layer.get_node_or_null("PostBattleButtons")
+	if old_buttons != null:
+		old_buttons.queue_free()
+	var old_banner: Node = _hud_layer.get_node_or_null("OutcomeBanner")
+	if old_banner != null:
+		old_banner.queue_free()
+	var card: CenterContainer = CenterContainer.new()
+	card.name = "EndingCard"
+	card.set_anchors_preset(Control.PRESET_FULL_RECT)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var box: VBoxContainer = VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 16)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(box)
+	var title: Label = Label.new()
+	title.text = "시나리오 클리어"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title.add_theme_color_override("font_color", Color(0.95, 0.84, 0.46, 1.0))  # warm gold-ish (not the reserved #D4A017)
+	title.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.04, 1.0))
+	title.add_theme_constant_override("outline_size", 8)
+	title.add_theme_font_size_override("font_size", 48)
+	box.add_child(title)
+	var sub: Label = Label.new()
+	sub.text = "장판파에서 장판교까지 — 촉한은 살아남았다."
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sub.add_theme_color_override("font_color", Color(0.86, 0.84, 0.78, 1.0))
+	sub.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.04, 1.0))
+	sub.add_theme_constant_override("outline_size", 6)
+	sub.add_theme_font_size_override("font_size", 22)
+	box.add_child(sub)
+	var row: HBoxContainer = HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 24)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(row)
+	var again: Button = _add_post_battle_button(row, "처음부터  (Enter)", _restart_scenario)
+	_add_post_battle_button(row, "종료 (Esc)", func() -> void: get_tree().quit())
+	_hud_layer.add_child(card)
+	again.grab_focus()
+
+
+## Post-battle keyboard fallback. _battle_resolved gates these so they never fire
+## mid-battle. Enter/R/Space → the focused button's action (proceed/retry);
+## Esc → quit. (The buttons themselves are the primary path — this poll exists
+## because keyboard events historically didn't register in the windowed env.)
+## Polling sidesteps InputRouter (autoload), which binds Esc to move_cancel and
+## consumes events before BattleScene's _unhandled_input would see them.
 var _process_tick: int = 0
+## BattleOutcome.Result of the just-finished battle (-1 until battle_outcome_resolved).
+var _pending_outcome: int = -1
 
 func _process(_delta: float) -> void:
 	if not _battle_resolved:
 		return
 	_process_tick += 1
 	if _process_tick % 60 == 1:
-		# Once per second while waiting for restart input — confirms _process
-		# is firing and shows what key state we're observing.
-		print("[POST-BATTLE-WAIT] _process firing; R=%s ESC=%s SPACE=%s ENTER=%s" %
-			[Input.is_physical_key_pressed(KEY_R),
-			Input.is_physical_key_pressed(KEY_ESCAPE),
+		# Once per second while waiting for input — confirms _process is firing.
+		print("[POST-BATTLE-WAIT] _process firing; ENTER=%s R=%s SPACE=%s ESC=%s" %
+			[Input.is_physical_key_pressed(KEY_ENTER) or Input.is_physical_key_pressed(KEY_KP_ENTER),
+			Input.is_physical_key_pressed(KEY_R),
 			Input.is_physical_key_pressed(KEY_SPACE),
-			Input.is_physical_key_pressed(KEY_ENTER)])
-	# Try both physical and logical key checks (macOS sometimes maps one but
-	# not the other depending on keyboard layout / IME state).
-	if Input.is_physical_key_pressed(KEY_R) or Input.is_key_pressed(KEY_R):
-		print("[BATTLE-END] R pressed — reloading scene")
-		_battle_resolved = false  # prevent re-trigger before scene reload completes
-		get_tree().reload_current_scene()
+			Input.is_physical_key_pressed(KEY_ESCAPE)])
+	if (Input.is_physical_key_pressed(KEY_ENTER) or Input.is_key_pressed(KEY_ENTER)
+			or Input.is_physical_key_pressed(KEY_KP_ENTER)
+			or Input.is_physical_key_pressed(KEY_R) or Input.is_key_pressed(KEY_R)
+			or Input.is_physical_key_pressed(KEY_SPACE) or Input.is_key_pressed(KEY_SPACE)):
+		print("[BATTLE-END] forward key pressed — invoking primary post-battle action")
+		_battle_resolved = false  # gate further key handling until the next battle
+		set_process(false)
+		_invoke_primary_post_battle_action()
 	elif Input.is_physical_key_pressed(KEY_ESCAPE) or Input.is_key_pressed(KEY_ESCAPE):
 		print("[BATTLE-END] ESC pressed — quitting")
 		_battle_resolved = false
 		get_tree().quit()
-	elif Input.is_physical_key_pressed(KEY_SPACE) or Input.is_key_pressed(KEY_SPACE):
-		# Bonus: SPACE also restarts (in case R doesn't register on macOS Korean IME).
-		print("[BATTLE-END] SPACE pressed — reloading scene")
-		_battle_resolved = false
-		get_tree().reload_current_scene()
+
+
+## Runs the same action as the focused post-battle button: on WIN that's
+## _proceed_scenario; on DRAW/LOSS that's _retry_chapter.
+func _invoke_primary_post_battle_action() -> void:
+	if _pending_outcome == BattleOutcome.Result.WIN:
+		_proceed_scenario()
+	else:
+		_retry_chapter()
 
 
 ## Turn-indicator handler. Lazy-creates the indicator on first call and
