@@ -4,10 +4,11 @@
 # CONNECT_DEFERRED discipline enforcement (ADR-0015 §Engine Verification §6 +
 # ADR-0001 §5 mandate; Engine Verification Item 6 — KEEP forever).
 #
-# All 11 GameBus + GridBattleController-LOCAL signal subscriptions in
+# All 13 GameBus + GridBattleController-LOCAL signal subscriptions in
 # BattleHUD.gd MUST use Object.CONNECT_DEFERRED:
-#   - 4 GridBattleController controller-LOCAL (unit_selected_changed,
-#     unit_moved, damage_applied, battle_outcome_resolved)
+#   - 6 GridBattleController controller-LOCAL (unit_selected_changed,
+#     unit_moved, damage_applied, battle_outcome_resolved,
+#     attack_preview_requested, attack_preview_dismissed [session-10])
 #   - 7 GameBus (unit_died, round_started, unit_turn_started, unit_turn_ended,
 #     input_state_changed, input_mode_changed, formation_bonuses_updated)
 #
@@ -26,7 +27,7 @@
 # Exit 1: any subscription missing CONNECT_DEFERRED OR count != 11
 set -euo pipefail
 TARGET="src/feature/battle_hud/battle_hud.gd"
-EXPECTED_COUNT=11
+EXPECTED_COUNT=13
 if [ ! -f "$TARGET" ]; then
     echo "FAIL: target file missing: $TARGET"
     exit 1

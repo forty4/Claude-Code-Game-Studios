@@ -140,6 +140,18 @@ signal hidden_fate_condition_progressed(condition_id: StringName, value: int)
 ## signal `ai_action_ready(unit_id, command)` within 500ms timeout per CR-3.
 signal ai_action_requested(unit_id: int, snapshot: BattleStateSnapshot)
 
+## Emitted on the FIRST tap of a valid enemy target while a player unit is
+## selected. BattleHUD subscribes and shows UI-GB-04 Combat Forecast with the
+## preview Dictionary contents. The actual attack does NOT commit on this tap —
+## a second tap on the same target commits (2-step pattern matches Fire Emblem /
+## Tactics Ogre convention). Preview is preview_attack()'s return value.
+signal attack_preview_requested(attacker_id: int, defender_id: int, preview: Dictionary)
+
+## Emitted when the pending attack preview should be cleared — caller deselected
+## the unit, clicked elsewhere, ran out of attack range, or the round rolled
+## over. BattleHUD dismisses UI-GB-04 in response. Reason is informational.
+signal attack_preview_dismissed(reason: StringName)
+
 
 # ─── DI dependencies (ADR-0014 §3) ──────────────────────────────────────────
 
@@ -168,6 +180,15 @@ var _ai_system: AISystem = null
 
 var _state: BattleState = BattleState.OBSERVATION
 var _selected_unit_id: int = -1
+
+## Currently-previewed attack target during 2-step attack flow. -1 = no preview
+## armed. Session-10 addition: first click on a valid enemy target sets this +
+## emits attack_preview_requested; second click on the SAME target commits the
+## attack via _handle_player_attack. Cleared on commit, deselect, click on a
+## different target, or round rollover. Lives ONLY in UNIT_SELECTED state — no
+## need to clear on state transitions out of UNIT_SELECTED because _deselect
+## already handles that path.
+var _pending_attack_target_id: int = -1
 
 ## ID of the unit whose turn is currently ACTING per TurnOrderRunner. Player
 ## clicks on any other own unit are ignored — only the active turn unit can
@@ -851,6 +872,9 @@ func _on_round_started(round_num: int) -> void:
 	# the unit can't be selected again" symptom).
 	_acted_this_turn.clear()
 	_moved_this_turn.clear()
+	# Session-10: also clear any pending attack preview — counters reset between
+	# rounds and the relative direction/aura state may have shifted.
+	_clear_attack_preview(&"round_started")
 	round_started_visual.emit(round_num)
 	# Story-008 AC-3: formation_turns counter. If any alive player unit had
 	# ≥1 adjacent ally during this round, increment + emit. Per ADR-0014 §7
@@ -950,11 +974,35 @@ func _handle_grid_click_unit_selected(action: String, coord: Vector2i, unit_id: 
 				return  # defensive — selection orphaned
 			var selector: BattleUnit = _units[_selected_unit_id]
 			if unit_id == -1:
+				# Click on empty tile while a preview was armed — cancel preview
+				# (player wants to move, not attack). MOVE proceeds as before.
+				_clear_attack_preview(&"empty_tile_click")
 				if is_tile_in_move_range(coord, _selected_unit_id):
 					_handle_player_move(selector, coord)
 			elif _units.has(unit_id) and _units[unit_id].side != selector.side:
 				if is_tile_in_attack_range(coord, _selected_unit_id):
-					_handle_player_attack(_selected_unit_id, unit_id)
+					# 2-step attack flow: first tap on a valid enemy target shows
+					# UI-GB-04 Combat Forecast (preview); second tap on the SAME
+					# target commits the attack. Tapping a different enemy
+					# re-arms the preview against the new target.
+					if _pending_attack_target_id == unit_id:
+						# Confirm: commit + clear pending state. Dismiss signal
+						# fires BEFORE the attack so the forecast fades while the
+						# damage animation plays — feels more responsive than
+						# dismissing after damage_applied (which the HUD also
+						# handles redundantly per AC-3).
+						attack_preview_dismissed.emit(&"attack_committed")
+						_pending_attack_target_id = -1
+						_handle_player_attack(_selected_unit_id, unit_id)
+					else:
+						# Arm preview against this target. If another preview
+						# was already armed (player switching targets), the
+						# dismiss is implicit via the replaced signal — HUD
+						# treats successive show_forecast calls as idempotent
+						# replacements per ADR-0015 §5.
+						_pending_attack_target_id = unit_id
+						var preview: Dictionary = preview_attack(_selected_unit_id, unit_id)
+						attack_preview_requested.emit(_selected_unit_id, unit_id, preview)
 		"move_cancel", "attack_cancel":
 			_deselect()
 		"move_target_select", "move_confirm":
@@ -962,10 +1010,16 @@ func _handle_grid_click_unit_selected(action: String, coord: Vector2i, unit_id: 
 			# (not _handle_move) so declare_action emits correctly-typed MOVE token.
 			# is_tile_in_move_range guard is redundant with _handle_player_move's
 			# internal check but harmless — leaves story-004/005/006 guarantees intact.
+			# Explicit move via keyboard/confirm-key cancels any armed attack preview.
+			_clear_attack_preview(&"move_confirm")
 			if is_tile_in_move_range(coord, _selected_unit_id):
 				_handle_player_move(_units[_selected_unit_id], coord)
 		"attack_target_select", "attack_confirm":
 			# Per ADR-0014 §Amendment 2026-05-10 (#2): dispatch to _handle_player_attack.
+			# Explicit-confirm keyboard path bypasses the 2-step preview — keyboard
+			# users opt into fast commit. Preview is still dismissed in case one
+			# was armed via prior mouse click.
+			_clear_attack_preview(&"attack_confirm")
 			if is_tile_in_attack_range(coord, _selected_unit_id):
 				_handle_player_attack(_selected_unit_id, unit_id)
 		"end_unit_turn":
@@ -989,11 +1043,26 @@ func _select_unit(unit_id: int) -> void:
 
 ## Deselects the current unit. Transitions state to OBSERVATION + emits
 ## unit_selected_changed(-1, prev_selected_unit_id) per ADR-0014 §8.
+## Also clears any armed attack preview — deselect always cancels a pending
+## 2-step attack (session-10 addition).
 func _deselect() -> void:
+	_clear_attack_preview(&"deselect")
 	var prev: int = _selected_unit_id
 	_selected_unit_id = -1
 	_state = BattleState.OBSERVATION
 	unit_selected_changed.emit(-1, prev)
+
+
+## Clears any armed attack preview. Idempotent — silent no-op if no preview
+## is armed. Emits attack_preview_dismissed for BattleHUD to fade UI-GB-04.
+## Reason is informational (informs the receiver why dismiss fired but no
+## production branching depends on it — same convention as
+## BattleHUD._dismiss_forecast(reason)).
+func _clear_attack_preview(reason: StringName) -> void:
+	if _pending_attack_target_id == -1:
+		return
+	_pending_attack_target_id = -1
+	attack_preview_dismissed.emit(reason)
 
 
 # ─── Action handler stubs (filled by stories 004-005) ───────────────────────
@@ -1369,6 +1438,134 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 	# Stage 8: emit damage_applied per ADR-0014 §8
 	damage_applied.emit(attacker.unit_id, defender.unit_id, final_damage)
 
+	return final_damage
+
+
+# ─── Attack preview (session-10 — 2-step attack flow) ─────────────────────────
+
+## Returns a damage / direction / counter preview for the attacker→defender pair
+## WITHOUT mutating any state. Used by the 2-step attack flow: BattleHUD renders
+## this Dictionary into UI-GB-04 Combat Forecast on the first tap of an enemy;
+## the second tap commits the real attack via _handle_player_attack.
+##
+## Determinism: uses a private throwaway RandomNumberGenerator so the production
+## _rng's sequence is preserved (replay determinism per AC-DC-26). In MVP
+## terrain evasion is always 0, so the preview RNG never affects damage output —
+## DamageCalc.resolve's evasion roll is a deterministic miss only when
+## terrain_evasion > 0, which no current scenario authors.
+##
+## Returned Dictionary shape:
+##   direction: StringName — &"FRONT" / &"FLANK" / &"REAR" relative to defender
+##   damage: int — final damage post angle_mult × aura_mult; 0 on MISS
+##   hit_pct: int — 100 - clampi(terrain_evasion, 0, 30); always 100 in MVP
+##   counter_damage: int — defender's reciprocal damage if eligible, else 0
+##   counter_eligible: bool — true if defender CAN counter-attack
+##   kind: int — ResolveResult.Kind (HIT=0, MISS=1)
+##   passives: Array[StringName] — attacker passives fed into AttackerContext
+##   angle_mult: float — controller-side post multiplier (1.00/1.25/1.50/1.75)
+##   aura_mult: float — controller-side post multiplier (1.00/1.15)
+##
+## Empty Dictionary returned if either unit_id is unknown (defensive — UI hides).
+func preview_attack(attacker_id: int, defender_id: int) -> Dictionary:
+	if not _units.has(attacker_id) or not _units.has(defender_id):
+		return {}
+	var attacker: BattleUnit = _units[attacker_id]
+	var defender: BattleUnit = _units[defender_id]
+	# Stage 1: compute multipliers — mirror of _resolve_attack lines 1306-1310.
+	var formation_mult: float = _compute_formation_mult(attacker)
+	var angle: String = _attack_angle(attacker, defender)
+	var angle_mult: float = _compute_angle_mult(attacker, defender)
+	var aura_mult: float = _compute_aura_mult(attacker)
+	var passives: Array[StringName] = []
+	if attacker.passive != &"":
+		passives.append(attacker.passive)
+	# Stage 2: DamageCalc contexts — same construction as _resolve_attack.
+	var attacker_ctx: AttackerContext = AttackerContext.make(
+		attacker.hero_id, attacker.unit_class, attacker.raw_atk,
+		false, false, passives)
+	var defender_ctx: DefenderContext = DefenderContext.make(
+		defender.hero_id, defender.raw_def, 0, 0)
+	# Throwaway RNG — see docstring for determinism rationale. Uses a freshly
+	# constructed RNG with default-randomized seed; preview never feeds back
+	# into _rng so replay determinism on the production attack is preserved.
+	var preview_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	var modifiers: ResolveModifiers = ResolveModifiers.make(
+		ResolveModifiers.AttackType.PHYSICAL, preview_rng,
+		_angle_to_direction_rel(angle), 1, false, "", [], 0.0,
+		formation_mult - 1.0, 0.0, Callable())
+	modifiers.angle_mult = angle_mult
+	modifiers.aura_mult = aura_mult
+	# Stage 4-5: resolve + apply controller-side multipliers (mirror of
+	# _resolve_attack lines 1352-1360 — same math, same post-rounding floor).
+	var result: ResolveResult = DamageCalc.resolve(attacker_ctx, defender_ctx, modifiers)
+	var base_damage: int = result.resolved_damage
+	var final_damage: int = roundi(float(base_damage) * angle_mult * aura_mult)
+	if result.kind == ResolveResult.Kind.HIT and final_damage < 1:
+		final_damage = 1
+	# Counter preview: defender retaliates only if in attack range of attacker
+	# AND has not already acted this turn. MVP no charge / no skill / standard
+	# is_counter=true halves the resolved damage per CR-2 + AC-DC-20.
+	var counter_eligible: bool = _preview_counter_eligible(attacker, defender)
+	var counter_damage: int = 0
+	if counter_eligible:
+		counter_damage = _preview_counter_damage(defender, attacker)
+	# MVP hit_pct: 100 - terrain_evasion. terrain_evasion is hardcoded to 0 in
+	# MVP context construction; surfaces as a real read-out when terrain
+	# bonuses ship. Negative defender.terrain_evasion is clamped per F-DC-2.
+	var hit_pct: int = 100 - clampi(0, 0, 30)
+	return {
+		"direction": _angle_to_direction_rel(angle),
+		"damage": final_damage,
+		"hit_pct": hit_pct,
+		"counter_damage": counter_damage,
+		"counter_eligible": counter_eligible,
+		"kind": int(result.kind),
+		"passives": passives,
+		"angle_mult": angle_mult,
+		"aura_mult": aura_mult,
+	}
+
+
+## Counter eligibility check for preview. Returns true if defender CAN
+## counter-attack this attacker — i.e. defender is in attack-range of
+## attacker's position AND defender has not already acted this turn.
+## Mirrors the implicit logic the real counter pipeline would use (story-007+
+## may formalize this into a dedicated counter eligibility resolver).
+func _preview_counter_eligible(attacker: BattleUnit, defender: BattleUnit) -> bool:
+	if _acted_this_turn.get(defender.unit_id, false):
+		return false
+	# Range check from defender → attacker (reciprocal of attacker → defender).
+	return is_tile_in_attack_range(attacker.position, defender.unit_id)
+
+
+## Counter damage preview. Identical to preview_attack body but with
+## attacker / defender roles swapped + is_counter=true. Halved-damage path
+## per CR-2 + AC-DC-20.
+func _preview_counter_damage(counter_attacker: BattleUnit, original_attacker: BattleUnit) -> int:
+	var formation_mult: float = _compute_formation_mult(counter_attacker)
+	var angle: String = _attack_angle(counter_attacker, original_attacker)
+	var angle_mult: float = _compute_angle_mult(counter_attacker, original_attacker)
+	var aura_mult: float = _compute_aura_mult(counter_attacker)
+	var passives: Array[StringName] = []
+	if counter_attacker.passive != &"":
+		passives.append(counter_attacker.passive)
+	var attacker_ctx: AttackerContext = AttackerContext.make(
+		counter_attacker.hero_id, counter_attacker.unit_class, counter_attacker.raw_atk,
+		false, false, passives)
+	var defender_ctx: DefenderContext = DefenderContext.make(
+		original_attacker.hero_id, original_attacker.raw_def, 0, 0)
+	var preview_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	var modifiers: ResolveModifiers = ResolveModifiers.make(
+		ResolveModifiers.AttackType.PHYSICAL, preview_rng,
+		_angle_to_direction_rel(angle), 1, true,  # is_counter=true
+		"", [], 0.0, formation_mult - 1.0, 0.0, Callable())
+	modifiers.angle_mult = angle_mult
+	modifiers.aura_mult = aura_mult
+	var result: ResolveResult = DamageCalc.resolve(attacker_ctx, defender_ctx, modifiers)
+	var base_damage: int = result.resolved_damage
+	var final_damage: int = roundi(float(base_damage) * angle_mult * aura_mult)
+	if result.kind == ResolveResult.Kind.HIT and final_damage < 1:
+		final_damage = 1
 	return final_damage
 
 

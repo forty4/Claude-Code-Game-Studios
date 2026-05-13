@@ -149,6 +149,15 @@ var _forecast_dismiss_start_us: int = 0
 ## Exposed for test fixture observability (used by integration tests asserting ≤ 80ms).
 var _forecast_dismiss_ms_last: float = 0.0
 
+## Session-10: last preview Dictionary passed to show_forecast(). Read by
+## _populate_forecast_section to fill subpanels with real DamageCalc-derived
+## values. Empty Dictionary = legacy placeholder path (existing test callers
+## that don't have a preview Dictionary handy still produce visible content).
+##   Shape per GridBattleController.preview_attack():
+##     direction, damage, hit_pct, counter_damage, counter_eligible, kind,
+##     passives, angle_mult, aura_mult
+var _last_preview: Dictionary = {}
+
 ## Last measured render latency in ms (method entry → visible = true).
 ## Set at end of show_forecast(). Used by AC-9 perf gate test.
 var _forecast_render_ms_last: float = 0.0
@@ -268,6 +277,13 @@ func _ready() -> void:
 	_grid_controller.unit_moved.connect(_on_unit_moved, Object.CONNECT_DEFERRED)
 	_grid_controller.damage_applied.connect(_on_damage_applied, Object.CONNECT_DEFERRED)
 	_grid_controller.battle_outcome_resolved.connect(_on_battle_outcome_resolved, Object.CONNECT_DEFERRED)
+	# Session-10 — 2 attack-preview signals (controller-LOCAL per ADR-0014 §8).
+	# Defensive has_signal check: stub controllers (tests) without these signals
+	# stay green. Production GridBattleController always exposes them.
+	if _grid_controller.has_signal(&"attack_preview_requested"):
+		_grid_controller.attack_preview_requested.connect(_on_attack_preview_requested, Object.CONNECT_DEFERRED)
+	if _grid_controller.has_signal(&"attack_preview_dismissed"):
+		_grid_controller.attack_preview_dismissed.connect(_on_attack_preview_dismissed, Object.CONNECT_DEFERRED)
 
 	# 7 GameBus subscriptions — HP/Status + Turn Order + InputRouter + Formation
 	GameBus.unit_died.connect(_on_unit_died, Object.CONNECT_DEFERRED)
@@ -474,6 +490,13 @@ func _exit_tree() -> void:
 			_grid_controller.damage_applied.disconnect(_on_damage_applied)
 		if _grid_controller.battle_outcome_resolved.is_connected(_on_battle_outcome_resolved):
 			_grid_controller.battle_outcome_resolved.disconnect(_on_battle_outcome_resolved)
+		# Session-10 — match the connect-time has_signal guard.
+		if _grid_controller.has_signal(&"attack_preview_requested") \
+				and _grid_controller.attack_preview_requested.is_connected(_on_attack_preview_requested):
+			_grid_controller.attack_preview_requested.disconnect(_on_attack_preview_requested)
+		if _grid_controller.has_signal(&"attack_preview_dismissed") \
+				and _grid_controller.attack_preview_dismissed.is_connected(_on_attack_preview_dismissed):
+			_grid_controller.attack_preview_dismissed.disconnect(_on_attack_preview_dismissed)
 
 	# 7 GameBus disconnects
 	if GameBus.unit_died.is_connected(_on_unit_died):
@@ -601,7 +624,12 @@ func set_victory_condition(condition_text: StringName) -> void:
 ##      contract (visibility + render budget + dismiss latency) over forecast
 ##      content fidelity. Passive precedence Rally > Formation > TR per
 ##      battle-hud.md §4.1 Section 6 capped at 3 visible lines.
-func show_forecast(attacker_id: int, defender_id: int) -> void:
+## Optional preview Dictionary parameter (session-10): when non-empty,
+## _populate_forecast_section pulls real damage / direction / counter values
+## from the dict rather than placeholders. GridBattleController.preview_attack()
+## produces the dict; pass {} for the legacy placeholder path (tests, ad-hoc
+## callers that don't have preview context yet).
+func show_forecast(attacker_id: int, defender_id: int, preview: Dictionary = {}) -> void:
 	if _forecast_root == null:
 		return
 	var start_us: int = Time.get_ticks_usec()
@@ -610,6 +638,9 @@ func show_forecast(attacker_id: int, defender_id: int) -> void:
 		_forecast_dismiss_tween.kill()
 		_forecast_dismiss_tween = null
 	_forecast_root.modulate.a = 1.0
+	# Cache the preview so _populate_forecast_section can read from it without
+	# adding another parameter to every helper. Cleared on dismiss.
+	_last_preview = preview
 	# Populate 6 subpanels via tr()-routed labels. Each subpanel gets a single
 	# Label child by convention (or HBoxContainer for damage chevrons +
 	# status_effects icons). We set tooltip_text for AccessKit per ADR-0015
@@ -627,55 +658,124 @@ func show_forecast(attacker_id: int, defender_id: int) -> void:
 
 
 ## _populate_forecast_section — populates a single named subpanel.
-## Uses defensive Label/RichTextLabel discovery: any child with a `text`
-## property is treated as the content sink. Unknown sections fall through
-## to a generic tr() placeholder. i18n keys per Implementation Note 4.
+## Uses defensive Label/RichTextLabel discovery: any descendant Label is
+## treated as the content sink. Unknown sections fall through to a generic
+## tr() placeholder. i18n keys per Implementation Note 4.
+##
+## Session-10 fix: previous logic checked only immediate children, which
+## never found the nested `DirectionLabel` / `HitLabel` / etc. under each
+## subpanel's HBoxContainer/VBoxContainer. Recursive descent picks the FIRST
+## Label found in depth-first order — the .tscn structure conventionally
+## places the primary text Label as the first Label descendant.
 func _populate_forecast_section(section: StringName, attacker_id: int, defender_id: int) -> void:
 	var subpanel: Control = _forecast_subpanels.get(section)
 	if subpanel == null:
 		return
-	var label: Label = subpanel.get_node_or_null("Label") as Label
-	if label == null:
-		# Fallback: first Label descendant (defensive against .tscn structure drift).
-		for child: Node in subpanel.get_children():
-			if child is Label:
-				label = child as Label
-				break
+	var label: Label = _find_first_label_descendant(subpanel)
 	if label == null:
 		return
-	# Section-specific content. Real DamageCalc/HPStatus integration deferred
-	# to story-007 contract — story-006 ships the architectural contract.
+	# Section-specific content. Session-10 (story-007 partial wire-up): when
+	# _last_preview has the relevant key, render the real preview value; else
+	# fall through to placeholder content (preserves story-006 contract for
+	# tests + ad-hoc callers without preview context).
 	match section:
 		&"direction":
-			label.text = tr(&"hud.forecast.direction.north")
-			subpanel.tooltip_text = tr(&"hud.forecast.direction.north")
+			# direction in preview is a StringName &"FRONT" / &"FLANK" / &"REAR".
+			# i18n keys are not yet authored in en.po; fall through to Korean
+			# defaults via _direction_label_fallback so the panel reads
+			# naturally rather than echoing raw i18n keys.
+			if _last_preview.has("direction"):
+				var dir: StringName = _last_preview["direction"] as StringName
+				var text: String = _direction_label_fallback(dir)
+				label.text = text
+				subpanel.tooltip_text = text
+			else:
+				label.text = tr(&"hud.forecast.direction.north")
+				subpanel.tooltip_text = tr(&"hud.forecast.direction.north")
 		&"hit_crit":
-			label.text = _safe_tr_format(&"hud.forecast.hit_label", 85)
-			subpanel.tooltip_text = _safe_tr_format(&"hud.forecast.hit_label", 85)
+			# hit_pct in preview is 0-100. Always 100 in MVP (terrain_evasion=0)
+			# but the panel reads the value rather than hardcoding so future
+			# terrain-bonus work auto-surfaces.
+			var hit: int = int(_last_preview.get("hit_pct", 85))
+			label.text = _safe_tr_format(&"hud.forecast.hit_label", hit)
+			subpanel.tooltip_text = _safe_tr_format(&"hud.forecast.hit_label", hit)
 		&"damage":
-			label.text = _safe_tr_format(&"hud.forecast.damage_label", [12, 18])
-			subpanel.tooltip_text = _safe_tr_format(&"hud.forecast.damage_label", [12, 18])
+			# damage in preview is the final post-multiplier integer. We show
+			# it as a single number rather than [min,max] because MVP has no
+			# RNG variance on damage (only on evasion miss, which the hit_pct
+			# section already conveys).
+			if _last_preview.has("damage"):
+				var dmg: int = int(_last_preview["damage"])
+				label.text = "%d" % dmg
+				subpanel.tooltip_text = _safe_tr_format(&"hud.forecast.damage_label", [dmg, dmg])
+			else:
+				label.text = _safe_tr_format(&"hud.forecast.damage_label", [12, 18])
+				subpanel.tooltip_text = _safe_tr_format(&"hud.forecast.damage_label", [12, 18])
 		&"counter":
-			# Counter-attack preview: em-dash placeholder if defender lacks counter.
-			# DamageCalc integration deferred per Implementation Note. Em-dash
-			# hoisted to const to keep Lint 5 (no_hardcoded_strings) clean —
-			# Unicode punctuation placeholder is locale-independent (story-008).
-			label.text = _COUNTER_PLACEHOLDER_DASH
-			subpanel.tooltip_text = _safe_tr_format(&"hud.forecast.counter_label", _COUNTER_PLACEHOLDER_DASH)
+			# Counter-attack preview: em-dash when defender can't counter; the
+			# integer counter damage otherwise. Eligibility from preview's
+			# counter_eligible flag (range + acted_this_turn check).
+			var counter_eligible: bool = bool(_last_preview.get("counter_eligible", false))
+			if counter_eligible:
+				var counter_dmg: int = int(_last_preview.get("counter_damage", 0))
+				label.text = "%d" % counter_dmg
+				subpanel.tooltip_text = _safe_tr_format(&"hud.forecast.counter_label", counter_dmg)
+			else:
+				label.text = _COUNTER_PLACEHOLDER_DASH
+				subpanel.tooltip_text = _safe_tr_format(&"hud.forecast.counter_label", _COUNTER_PLACEHOLDER_DASH)
 		&"status_effects":
 			label.text = tr(&"hud.forecast.status_label")
 			subpanel.tooltip_text = tr(&"hud.forecast.status_label")
 		&"passives":
 			# Section 6 passives list — Rally > Formation > TR precedence per
-			# Implementation Note 4. Cap at 3 visible lines. Story-006 ships
-			# placeholder rendering; real bonus query integration in story-007.
-			var passives: Array[StringName] = _collect_forecast_passives(attacker_id, defender_id)
+			# Implementation Note 4. Cap at 3 visible lines. Session-10 reads
+			# from _last_preview.passives when available; falls back to
+			# _collect_forecast_passives for legacy callers.
+			var preview_passives: Array[StringName] = []
+			if _last_preview.has("passives"):
+				var raw: Variant = _last_preview["passives"]
+				if raw is Array:
+					for p_var: Variant in (raw as Array):
+						if p_var is StringName:
+							preview_passives.append(p_var as StringName)
+			var passives: Array[StringName] = preview_passives if not preview_passives.is_empty() \
+				else _collect_forecast_passives(attacker_id, defender_id)
 			var lines: PackedStringArray = []
 			var visible_cap: int = mini(passives.size(), 3)
 			for i in range(visible_cap):
 				lines.append(tr(passives[i]))
 			label.text = "\n".join(lines) if lines.size() > 0 else ""
 			subpanel.tooltip_text = tr(&"hud.forecast.passives_label")
+
+
+## Maps a FRONT/FLANK/REAR direction StringName to a Korean display label.
+## Used by the forecast direction subpanel until i18n keys for these tokens
+## land in assets/locale/en.po (mirrors the _format_fallback hardcoded-Korean
+## convention for the other forecast labels).
+func _direction_label_fallback(direction: StringName) -> String:
+	match direction:
+		&"FRONT":
+			return "정면"
+		&"FLANK":
+			return "측면"
+		&"REAR":
+			return "후방"
+		_:
+			return "방향"
+
+
+## Recursive depth-first search for the first Label descendant under root.
+## Returns null if none found. Used by _populate_forecast_section to locate
+## the primary text Label inside arbitrarily-nested subpanel structures
+## (e.g. PanelContainer → HBoxContainer → Label).
+func _find_first_label_descendant(root: Node) -> Label:
+	for child: Node in root.get_children():
+		if child is Label:
+			return child as Label
+		var nested: Label = _find_first_label_descendant(child)
+		if nested != null:
+			return nested
+	return null
 
 
 ## _collect_forecast_passives — returns ordered i18n keys per precedence
@@ -726,6 +826,24 @@ func _on_forecast_dismiss_finished() -> void:
 		_forecast_root.modulate.a = 1.0
 	_forecast_dismiss_ms_last = float(Time.get_ticks_usec() - _forecast_dismiss_start_us) / 1000.0
 	_forecast_dismiss_tween = null
+	# Clear cached preview so a subsequent show_forecast with no preview arg
+	# falls back to placeholder content rather than stale numbers.
+	_last_preview = {}
+
+
+# ─── Session-10 attack-preview signal handlers ────────────────────────────────
+
+
+## Subscribed to GridBattleController.attack_preview_requested. Triggers
+## show_forecast with the preview Dictionary so subpanels render real values.
+func _on_attack_preview_requested(attacker_id: int, defender_id: int, preview: Dictionary) -> void:
+	show_forecast(attacker_id, defender_id, preview)
+
+
+## Subscribed to GridBattleController.attack_preview_dismissed. Reason is
+## informational; dismiss is idempotent (early-returns if forecast hidden).
+func _on_attack_preview_dismissed(reason: StringName) -> void:
+	_dismiss_forecast(reason)
 
 
 ## show_unit_info() — InputRouter Touch Tap Preview Protocol (CR-4a).
