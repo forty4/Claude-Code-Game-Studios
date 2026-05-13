@@ -709,7 +709,10 @@ func _dismiss_forecast(_reason: StringName) -> void:
 		_forecast_dismiss_tween.kill()
 		_forecast_dismiss_tween = null
 	_forecast_dismiss_start_us = Time.get_ticks_usec()
-	_forecast_dismiss_tween = create_tween()
+	# G-30b: BattleHUD lives under BattleScene/HUDLayer, and SceneManager flips
+	# BattleScene to PROCESS_MODE_DISABLED on battle_launch_requested. A Tween
+	# bound to a HUD node would inherit DISABLED and stall — bind to SceneTree.
+	_forecast_dismiss_tween = get_tree().create_tween()
 	_forecast_dismiss_tween.tween_property(_forecast_root, "modulate:a", 0.0, 0.08)
 	_forecast_dismiss_tween.finished.connect(_on_forecast_dismiss_finished, CONNECT_ONE_SHOT)
 

@@ -830,15 +830,32 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 		return
 	_trace("[SLIDE] unit=%d from=%s to=%s (polygon now at %s, target %s)" %
 		[unit_id, str(_from), str(to), str(unit_node.position), str(world_pos)])
-	# DIAGNOSTIC: Tween was firing in headless but callback/finished never fired
-	# in user's windowed env (verified across 5+ retries). Bypassing tween
-	# entirely — set polygon.position INSTANTLY. If the user now sees the
-	# polygon teleport to the new tile, the rendering pipeline is fine and
-	# Tween was the problem. If still no visual change, rendering is broken.
-	unit_node.position = world_pos
+	# G-30b ROOT CAUSE HYPOTHESIS (session 7): SceneManager._pause_overworld
+	# sets BattleScene.process_mode = PROCESS_MODE_DISABLED on
+	# battle_launch_requested, and `get_tree().create_tween()` called from a BattleScene
+	# method binds the Tween to `self` (BattleScene) — disabled-mode parents
+	# pause their tweens, so tween_property writes never fire in windowed mode.
+	# Fix: bind the slide tween to the SceneTree itself via
+	# `get_tree().create_tween()` — SceneTree is the root scheduler, immune to
+	# parent process_mode. Failsafe instant-set at duration+buffer survives
+	# either way (covers headless tests that don't run the tween scheduler
+	# loop AND any remaining windowed-env edge cases).
+	var start_pos: Vector2 = unit_node.position
+	var slide_tween: Tween = get_tree().create_tween()
+	slide_tween.tween_property(unit_node, "position", world_pos, MOVE_ANIM_DURATION) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	get_tree().create_timer(MOVE_ANIM_DURATION + 0.05).timeout.connect(func() -> void:
+		# Re-resolve the polygon at fire time — ChapterVisuals may have been
+		# freed mid-slide (battle end during animation).
+		var v: Node = _find_chapter_visuals()
+		if v == null:
+			return
+		var n: Node2D = _find_unit_polygon(v, unit_id)
+		if is_instance_valid(n):
+			n.position = world_pos)
 	SoundManager.play(SoundManager.SFX_MOVE)
-	_trace("[SLIDE-DONE] unit=%d polygon.position now %s (expected %s)" %
-		[unit_id, str(unit_node.position), str(world_pos)])
+	_trace("[SLIDE-DONE] unit=%d polygon.position now %s (start %s → target %s)" %
+		[unit_id, str(unit_node.position), str(start_pos), str(world_pos)])
 	# Rotation tween: catch directional polygons (CAVALRY/ARCHER/SCOUT) up to
 	# the post-move facing. Non-directional classes return 0 from
 	# rotation_for_facing, so the tween is a no-op for them.
@@ -848,7 +865,7 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 	if unit != null:
 		var target_rotation: float = (visuals as ChapterVisuals) \
 			.rotation_for_facing(unit.facing, unit.unit_class)
-		var rot_tween: Tween = create_tween().set_parallel(true)
+		var rot_tween: Tween = get_tree().create_tween().set_parallel(true)
 		rot_tween.tween_property(unit_node, "rotation", target_rotation, MOVE_ANIM_DURATION) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		# Counter-rotate the name label so it stays upright through the slide.
@@ -938,7 +955,7 @@ func _on_damage_applied(attacker_id: int, defender_id: int, damage: int) -> void
 		var to_defender: Vector2 = unit_node.position - origin
 		if to_defender.length_squared() > 0.0:
 			var lunge_target: Vector2 = origin + to_defender.normalized() * LUNGE_DISTANCE
-			var lunge_tween: Tween = create_tween()
+			var lunge_tween: Tween = get_tree().create_tween()
 			lunge_tween.tween_property(attacker_node, "position", lunge_target, LUNGE_HALF_DURATION) \
 				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 			lunge_tween.tween_property(attacker_node, "position", origin, LUNGE_HALF_DURATION) \

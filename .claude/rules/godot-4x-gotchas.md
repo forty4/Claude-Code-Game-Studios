@@ -1183,6 +1183,62 @@ The harness is slower than headless unit tests (seconds, not milliseconds) but s
 
 ---
 
+## G-31 — `Node.create_tween()` binds the Tween to the calling Node's process_mode (windowed-only stall when parent is paused)
+
+**Context**: a Node calls `create_tween()` from one of its methods (i.e. implicitly `self.create_tween()`) to animate something — slide a Polygon2D, fade a Label, shake a Camera2D. The animation works fine in headless tests and works fine windowed when the calling Node has default process_mode. The animation FAILS SILENTLY (tween_property writes never fire, `finished` never emits) when the calling Node — or any ancestor — has `process_mode = PROCESS_MODE_DISABLED`.
+
+**Broken**: `Node.create_tween()` returns a `Tween` that follows the calling Node's process_mode. When the Node (or ancestor) is `DISABLED`, the Tween's scheduler is paused along with it. There is no error, no `push_warning`, no `is_valid()` flip — the Tween just sits there, never advancing. The symptom is purely behavioural ("the slide didn't animate" / "the shake didn't fire") and is invisible in headless test runs because headless tests typically don't pause the calling Node.
+
+This was the active.md G-30b ghost — sessions 4-5 worked around it with instant `position =` assignment + `SceneTreeTimer.timeout` failsafes everywhere. The codebase accumulated workarounds because the root cause was not understood.
+
+```gdscript
+# BROKEN — implicit self.create_tween() from a Node that gets PROCESS_MODE_DISABLED
+# (e.g., BattleScene under SceneManager._pause_overworld during a battle).
+func _on_unit_moved(...) -> void:
+    var tween: Tween = create_tween()   # bound to self (BattleScene) → paused
+    tween.tween_property(unit_node, "position", world_pos, 0.6)
+    # tween_property never fires; unit_node.position stays at old_pos forever.
+```
+
+**Correct**: bind animation Tweens to `SceneTree` (which is never paused except by `SceneTree.paused = true`, which is gameplay-explicit) via `get_tree().create_tween()`. The Tween then advances regardless of the calling Node's process_mode.
+
+```gdscript
+# CORRECT — bind to SceneTree, immune to parent process_mode
+func _on_unit_moved(...) -> void:
+    var tween: Tween = get_tree().create_tween()
+    tween.tween_property(unit_node, "position", world_pos, 0.6) \
+        .set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+    # Optional belt-and-suspenders failsafe in case the tween still stalls
+    # for other reasons (kill-on-scene-reload etc.):
+    get_tree().create_timer(0.65).timeout.connect(func() -> void:
+        if is_instance_valid(unit_node):
+            unit_node.position = world_pos)
+```
+
+**Symptom checklist** — suspect G-31 when an animation works in headless but stalls / doesn't fire in windowed:
+1. Find the `create_tween()` call site — search upward in the script for a `func` and verify the Node type
+2. Trace whether SceneManager / any explicit `process_mode = ...` write disables that Node mid-gameplay
+3. If yes, replace `create_tween()` with `get_tree().create_tween()` — the Tween is then bound to the tree, not the Node
+4. Re-run the headless suite (should still pass — tree-bound tweens work identically there) AND windowed (the animation should now fire)
+
+**Affected call sites in this codebase** (session 7 fix patch):
+- `battle_scene.gd` slide / rotation / lunge tweens — re-enabled the animated slide that session-4 had replaced with instant teleport
+- `battle_camera.gd` shake tween
+- `battle_hud.gd` forecast-dismiss tween
+
+**Unaffected** (already bound to a Node that's NOT under PROCESS_MODE_DISABLED at play time):
+- `damage_popup.gd`, `attack_line.gd` (children of ChapterVisuals at `/root`, not under BattleScene)
+- `outcome_banner.gd` (mounted AFTER BattleScene flips to PROCESS_MODE_ALWAYS via `_on_battle_outcome_resolved`)
+- `turn_indicator.gd` (reparented under unit polygons at `/root`)
+
+**Distinct from G-30**: G-30 is the META-pattern "headless PASS doesn't gate windowed lifecycle." G-31 is a specific instance of G-30 — the Tween-stall failure mode is a windowed-only behavior that headless tests structurally cannot detect because they don't pause the parent Node.
+
+**Lint candidate**: a grep for `create_tween()` without a receiver (i.e. raw `create_tween(` not `get_tree().create_tween(`) inside any Node script that runs under a parent SceneManager treats as "the overworld" (currently: BattleScene + descendants). Sprint-N+1 candidate; meanwhile codified inline at fix sites with G-30b / G-31 comments.
+
+**Discovered**: session 7 Phase 8 (2026-05-13). Codified the same session as the fix — root cause was hypothesis-driven from reading `SceneManager._pause_overworld` (sets `process_mode = DISABLED` on `current_scene = BattleScene`) and tracing the Tween-on-self binding. ~30 minutes of investigation + 4 call-site fixes + headless suite re-run cleanly.
+
+---
+
 ## Verification Pattern Summary
 
 When testing changes that touch any of the above areas, always:

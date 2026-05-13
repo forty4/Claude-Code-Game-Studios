@@ -107,7 +107,11 @@ func get_zoom_value() -> float:
 func shake(intensity: float = 5.0, duration: float = 0.20) -> void:
 	if _shake_tween != null and _shake_tween.is_valid():
 		_shake_tween.kill()
-	_shake_tween = create_tween()
+	# G-30b: BattleCamera is a child of BattleScene, which SceneManager flips to
+	# PROCESS_MODE_DISABLED on battle_launch_requested. A Tween bound to this
+	# node would inherit DISABLED and stall — bind to SceneTree instead so the
+	# shake runs regardless of parent process_mode.
+	_shake_tween = get_tree().create_tween()
 	var step_count: int = 5
 	var step_duration: float = duration / float(step_count + 1)  # +1 for the return-to-zero step
 	for i: int in step_count:
