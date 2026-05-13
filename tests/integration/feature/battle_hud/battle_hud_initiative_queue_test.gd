@@ -161,10 +161,13 @@ func test_round_started_rebuilds_ui_gb_01_and_updates_round_label() -> void:
 	GameBus.round_started.emit(3)
 	await get_tree().process_frame
 
-	# UI-GB-07 round_label
+	# UI-GB-07 round_label — format is "Round N / CAP" where CAP comes from
+	# BalanceConstants.ROUND_CAP (currently 30). The cap visibility helps the
+	# player budget turns against the DRAW deadline.
 	var counter: Control = hud._ui_elements.get(&"UI-GB-07")
 	var round_label: Label = counter.get_node("RoundLabel") as Label
-	assert_str(round_label.text).is_equal("Round 3")
+	var cap: int = BalanceConstants.get_const("ROUND_CAP") as int
+	assert_str(round_label.text).is_equal("Round 3 / %d" % cap)
 
 	# UI-GB-01 slots[0..2] visible, slots[3..7] hidden
 	for i: int in range(3):

@@ -1414,7 +1414,11 @@ func _on_round_started(round_number: int) -> void:
 	if counter != null:
 		var round_label: Label = counter.get_node_or_null("RoundLabel") as Label
 		if round_label != null:
-			round_label.text = "Round %d" % round_number
+			# Display "Round N / CAP" so the player sees the DRAW deadline.
+			# ROUND_CAP is the active gating constant in TurnOrderRunner; reading
+			# from BalanceConstants keeps the label honest if the cap is tuned.
+			var cap: int = BalanceConstants.get_const("ROUND_CAP") as int
+			round_label.text = "Round %d / %d" % [round_number, cap]
 	_rebuild_initiative_queue()
 
 

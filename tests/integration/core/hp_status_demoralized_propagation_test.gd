@@ -50,7 +50,11 @@ func before_test() -> void:
 	_ur_script.set("_coefficients", {})
 	_controller = HPStatusController.new()
 	_map_grid_stub = MapGridStub.new()
-	_controller._map_grid = _map_grid_stub
+	# Use the public set_map_grid() API rather than poking the private field —
+	# the API is the one BattleScene now wires through and is the canonical
+	# injection point. Direct field write still works but drifts test
+	# discipline away from the production path (session-8 cleanup item).
+	_controller.set_map_grid(_map_grid_stub)
 	# G-6: parent stub to controller so orphan detector (fires BETWEEN test body and after_test)
 	# sees it as tree-attached. Freed automatically when controller is freed by GdUnit4 teardown.
 	_controller.add_child(_map_grid_stub)
