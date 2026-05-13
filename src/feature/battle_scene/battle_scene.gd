@@ -1335,17 +1335,27 @@ func _show_ending_screen() -> void:
 	again.grab_focus()
 
 
-## Post-battle keyboard fallback. _battle_resolved gates these so they never fire
-## mid-battle. Enter/R/Space → the focused button's action (proceed/retry);
-## Esc → quit. (The buttons themselves are the primary path — this poll exists
-## because keyboard events historically didn't register in the windowed env.)
-## Polling sidesteps InputRouter (autoload), which binds Esc to move_cancel and
-## consumes events before BattleScene's _unhandled_input would see them.
+## Mid-/post-battle keyboard polling. Polling sidesteps InputRouter (autoload),
+## which binds Esc to move_cancel and consumes events before BattleScene's
+## _unhandled_input would see them. ESC opens the pause menu in both phases;
+## Enter/R/Space drive the primary post-battle action when _battle_resolved.
 var _process_tick: int = 0
 ## BattleOutcome.Result of the just-finished battle (-1 until battle_outcome_resolved).
 var _pending_outcome: int = -1
+## Edge-detect latch for the ESC pause-toggle.
+var _esc_was_held: bool = false
 
 func _process(_delta: float) -> void:
+	# ESC opens the pause menu mid- AND post-battle. Edge-detected so a held key
+	# doesn't spawn-and-close the menu every frame.
+	var esc_held: bool = (
+		Input.is_physical_key_pressed(KEY_ESCAPE)
+		or Input.is_key_pressed(KEY_ESCAPE)
+	)
+	if esc_held and not _esc_was_held:
+		_open_pause_menu()
+	_esc_was_held = esc_held
+
 	if not _battle_resolved:
 		return
 	_process_tick += 1
@@ -1364,10 +1374,27 @@ func _process(_delta: float) -> void:
 		_battle_resolved = false  # gate further key handling until the next battle
 		set_process(false)
 		_invoke_primary_post_battle_action()
-	elif Input.is_physical_key_pressed(KEY_ESCAPE) or Input.is_key_pressed(KEY_ESCAPE):
-		_trace("[BATTLE-END] ESC pressed — quitting")
-		_battle_resolved = false
-		get_tree().quit()
+
+
+## Mounts a PauseMenu on the HUD layer (idempotent — does nothing if already
+## mounted) and pauses the tree. Used by the ESC poll above. The pause menu
+## owns its own resume / main-menu / quit handlers.
+func _open_pause_menu() -> void:
+	if _hud_layer == null:
+		return
+	if _hud_layer.get_node_or_null("PauseMenu") != null:
+		return  # already paused — let the menu handle its own close
+	var menu: PauseMenu = PauseMenu.new()
+	menu.name = "PauseMenu"
+	menu.resume_requested.connect(_on_pause_menu_resumed)
+	_hud_layer.add_child(menu)
+	menu.show_paused()
+
+
+func _on_pause_menu_resumed() -> void:
+	var menu: Node = _hud_layer.get_node_or_null("PauseMenu") if _hud_layer != null else null
+	if menu != null:
+		menu.queue_free()
 
 
 ## Runs the same action as the focused post-battle button: on WIN that's

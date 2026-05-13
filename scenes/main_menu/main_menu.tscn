@@ -1,0 +1,80 @@
+; Main Menu — first surface the player sees at game launch.
+; project.godot run/main_scene points here; the "새 시나리오" button changes
+; scenes to battle_scene.tscn after seeding ScenarioRunner from a save (or
+; resetting it for a fresh playthrough).
+
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/feature/main_menu/main_menu.gd" id="1_main_menu"]
+
+[node name="MainMenu" type="Control"]
+script = ExtResource("1_main_menu")
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 1
+
+[node name="Background" type="ColorRect" parent="."]
+color = Color(0.04, 0.06, 0.09, 1)
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Center" type="CenterContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Box" type="VBoxContainer" parent="Center"]
+alignment = 1
+theme_override_constants/separation = 22
+mouse_filter = 2
+
+[node name="Title" type="Label" parent="Center/Box"]
+text = "천명역전 · 장판파의 길"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.96, 0.92, 0.78, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.02, 0.03, 1)
+theme_override_constants/outline_size = 10
+theme_override_font_sizes/font_size = 56
+mouse_filter = 2
+
+[node name="Subtitle" type="Label" parent="Center/Box"]
+text = "삼국지연의의 비극을 전술로 뒤집는다"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.78, 0.78, 0.74, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.02, 0.03, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 22
+mouse_filter = 2
+
+[node name="Spacer1" type="Control" parent="Center/Box"]
+custom_minimum_size = Vector2(0, 24)
+mouse_filter = 2
+
+[node name="Buttons" type="VBoxContainer" parent="Center/Box"]
+alignment = 1
+theme_override_constants/separation = 12
+mouse_filter = 2
+
+[node name="NewButton" type="Button" parent="Center/Box/Buttons"]
+text = "새 시나리오"
+custom_minimum_size = Vector2(280, 56)
+theme_override_font_sizes/font_size = 24
+
+[node name="ContinueButton" type="Button" parent="Center/Box/Buttons"]
+text = "이어하기"
+custom_minimum_size = Vector2(280, 56)
+theme_override_font_sizes/font_size = 24
+
+[node name="QuitButton" type="Button" parent="Center/Box/Buttons"]
+text = "종료"
+custom_minimum_size = Vector2(280, 56)
+theme_override_font_sizes/font_size = 24
+
+[node name="ContinueCaption" type="Label" parent="Center/Box"]
+text = ""
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.66, 0.66, 0.70, 1)
+theme_override_constants/outline_size = 3
+theme_override_font_sizes/font_size = 16
+mouse_filter = 2

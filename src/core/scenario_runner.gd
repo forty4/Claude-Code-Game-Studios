@@ -168,6 +168,45 @@ func get_last_branch_choice() -> DestinyBranchChoice:
 	return _last_branch_choice
 
 
+## Restores the runner to the start of the chapter described by `ctx` (MVP-level
+## resume — re-plays the saved chapter from BEAT_1_ANCHOR rather than restoring
+## exact mid-chapter state). Returns false if ctx is null, has an empty
+## chapter_id, or refers to a chapter not present in the scenario JSON.
+##
+## Hardcoded scenario path for now (MVP has a single scenario, mvp_shu.json);
+## a future ctx.scenario_id field would let this generalize.
+##
+## Implementation note: load_scenario already lands at chapter 0 BEAT_1_ANCHOR;
+## for chapters 1+ we just bump `_chapter_index`, reset per-chapter state, and
+## re-emit `chapter_started` so subscribers (StoryEvent, DestinyState) cache
+## the right chapter. The state machine state stays at BEAT_1_ANCHOR — only
+## which chapter that "BEAT_1" refers to changes. No `_state =` write outside
+## the canonical mutators (lint discipline preserved).
+func restore_from_save_context(ctx: SaveContext) -> bool:
+	if ctx == null:
+		return false
+	if String(ctx.chapter_id).is_empty():
+		return false
+	if not load_scenario("res://assets/data/scenarios/mvp_shu.json"):
+		return false
+	var target_idx: int = -1
+	for i: int in _chapters.size():
+		if _chapters[i].chapter_id == String(ctx.chapter_id):
+			target_idx = i
+			break
+	if target_idx == -1:
+		push_warning("ScenarioRunner.restore: chapter_id '%s' not in scenario" % String(ctx.chapter_id))
+		return false
+	if target_idx == 0:
+		return true  # already at chapter 0 BEAT_1_ANCHOR after load_scenario
+	_chapter_index = target_idx
+	_reset_per_chapter_state()
+	var chapter: ChapterDefinition = get_current_chapter()
+	if chapter != null:
+		GameBus.chapter_started.emit(chapter.chapter_id, chapter.chapter_number)
+	return true
+
+
 # ─── Scenario load + validation (LOADING state entry) ─────────────────────────
 
 ## Loads a scenario JSON file and transitions LOADING -> CHAPTER_START on success.

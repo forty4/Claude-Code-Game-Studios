@@ -15,7 +15,11 @@ config/features=PackedStringArray("4.6")
 ; sprint-6 inline mock encoder DELETION (per S7-02 atomicity) but the
 ; main_scene flip cannot revert until a SceneManager-driven launch surface
 ; ships. Tracked as deviation in scenario_runner_3_chapter_mvp_2026-05-05.md.
-run/main_scene="res://scenes/battle/battle_scene.tscn"
+; Main scene: 메인 메뉴 (이어하기 / 새 시나리오 / 종료). The previous direct boot
+; into battle_scene.tscn is preserved as the test/smoke target — tests load it
+; explicitly, and `godot --headless ... battle_scene.tscn` still works for
+; debugging mid-battle issues without going through the menu.
+run/main_scene="res://scenes/main_menu/main_menu.tscn"
 
 [autoload]
 
