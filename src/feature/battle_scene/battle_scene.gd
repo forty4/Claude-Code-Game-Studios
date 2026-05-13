@@ -1340,7 +1340,7 @@ func _show_ending_screen() -> void:
 	title.add_theme_font_size_override("font_size", 48)
 	box.add_child(title)
 	var sub: Label = Label.new()
-	sub.text = "장판파에서 장판교까지 — 촉한은 살아남았다."
+	sub.text = "장판파에서 강하 외곽까지 — 촉한은 살아남았고, 적벽이 기다린다."
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	sub.add_theme_color_override("font_color", Color(0.86, 0.84, 0.78, 1.0))
