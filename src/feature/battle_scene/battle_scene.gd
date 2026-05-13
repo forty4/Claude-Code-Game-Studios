@@ -661,24 +661,38 @@ func _make_battle_unit(
 	unit.position = pos
 	unit.tag = tag
 	unit.archetype = archetype
-	# Stats from HeroData — stat_might drives raw_atk so commanders like 유비
-	# vs heavies like 장비 (might 92) feel different in combat. Tuning for
-	# MVP "kills resolve within 5 rounds":
-	#   Max HP per UnitRole formula = hp_seed * class_hp_mult * 2.0 + 50
-	#     → infantry hp_seed 95 → 297 max_hp (very tanky)
-	#   raw_atk = stat_might × 1.5 (장비 92 → 138) so 2-3 hits land a kill
-	#     after the DamageCalc multiplier chain trims to ~80-110 effective
-	#   raw_def = stat_command × 0.05 (small reduction so damage swings high)
-	# Falls back to 10/5 if HeroData lookup fails (defensive only).
+	# Stats from HeroData. RE-TUNED at session 8 after the "유비 dies in 1
+	# round" playtest: the original coefficients (might×1.5, command×0.05)
+	# pushed every attack through BASE_CEILING=83 because eff_atk ≫ eff_def,
+	# so raw_def was dead-code and 유비 fell to any 2 adjacent enemies.
+	#   New target: "kill in 4-5 hits" (was the documented "2-3 hits" but
+	#   with 4 enemies converging on a player the practical reality was 1
+	#   round to a commander wipe). Math (적 하후돈 → 유비, FRONT, plains):
+	#     eff_atk = 88 (was 132)        raw_atk  = might × 1.0
+	#     eff_def = 28 (was 4)          raw_def  = command × 0.20 + 10 if COMMANDER
+	#     base    = 88 − 28 = 60 (under ceiling — raw_def now matters)
+	#     final  ≈ 40–55 after multiplier chain
+	#     유비 226 HP / 50 ≈ 4–5 hits to drop, with command_aura buffing his
+	#     adjacent retaliation. Cleaner difficulty curve at all 3 chapters.
+	#   COMMANDER +10 raw_def bonus is the survivability hook that justifies
+	#   "the commander is the formation anchor" — losing 유비 is supposed to
+	#   be hard, not a 1-round race the AI always wins.
+	# Max HP per UnitRole formula (unchanged): hp_seed × class_hp_mult × 2.0 + 50.
+	# Fallback values (10 atk / 5 def) are only hit when HeroData is missing —
+	# defensive against unknown hero_ids; never used by the live scenario.
 	var hero_data: HeroData = HeroDatabase.get_hero(hero_id)
 	if hero_data != null:
-		unit.raw_atk = int(hero_data.stat_might * 1.5)
-		unit.raw_def = int(hero_data.stat_command * 0.05)
+		unit.raw_atk = int(hero_data.stat_might * 1.0)
+		unit.raw_def = int(hero_data.stat_command * 0.20)
 		# Class from the hero's default — without this every unit defaulted to 0
 		# (CAVALRY) and rendered as a triangle, hiding both the per-class shape
 		# and the per-class HP/multiplier behavior. Fallback to INFANTRY (1) when
 		# the hero is unknown — closest to "grunt" semantics.
 		unit.unit_class = hero_data.default_class
+		# COMMANDER survivability bonus — see paragraph above. Applied AFTER
+		# unit_class assignment so the conditional reads the resolved class.
+		if unit.unit_class == UnitRole.UnitClass.COMMANDER:
+			unit.raw_def += 10
 	else:
 		unit.raw_atk = 10
 		unit.raw_def = 5
