@@ -633,9 +633,15 @@ func _make_battle_unit(
 	if hero_data != null:
 		unit.raw_atk = int(hero_data.stat_might * 1.5)
 		unit.raw_def = int(hero_data.stat_command * 0.05)
+		# Class from the hero's default — without this every unit defaulted to 0
+		# (CAVALRY) and rendered as a triangle, hiding both the per-class shape
+		# and the per-class HP/multiplier behavior. Fallback to INFANTRY (1) when
+		# the hero is unknown — closest to "grunt" semantics.
+		unit.unit_class = hero_data.default_class
 	else:
 		unit.raw_atk = 10
 		unit.raw_def = 5
+		unit.unit_class = UnitRole.UnitClass.INFANTRY
 	return unit
 
 

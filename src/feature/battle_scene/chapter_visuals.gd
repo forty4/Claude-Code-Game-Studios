@@ -85,15 +85,46 @@ const COLOR_MOVE_PREVIEW: Color = Color(0.18, 0.55, 0.67, 0.30)
 const COLOR_ATTACK_PREVIEW: Color = Color(0.80, 0.28, 0.22, 0.40)
 
 
-## Faction colors per art-bible §4.2. Used by spawn_unit_polygons() to color
-## player vs enemy unit silhouettes. side==0 = player (촉/Shu blue);
-## side==1 = enemy (위/Wei charcoal). Reserved 주홍/금색 must NOT appear here.
+## Faction colors per art-bible §4.2. Used by spawn_unit_polygons() as the
+## polygon FILL so faction reads at a glance (the big colored shape). side==0 =
+## player (촉/Shu blue); side==1 = enemy (위/Wei charcoal). Reserved 주홍/금색
+## must NOT appear here.
 const COLOR_FACTION_PLAYER: Color = Color("2e5f7a")
 const COLOR_FACTION_ENEMY:  Color = Color("4a4a4a")
+
+## Per-hero accent color — drawn as a thick Line2D BORDER around the polygon so
+## individual generals are visually distinct within their faction (without
+## overriding the faction read carried by the fill). Keyed by hero_id; missing
+## entries fall back to a faction-tuned highlight via _get_hero_accent.
+##
+## Reserved palette values (art-bible §4.1) MUST NEVER appear here:
+##   - 주홍 #C0392B (destiny-branch reveal — rewritten history)
+##   - 금색 #D4A017 (destiny-branch reveal — selection / canonical seal)
+const HERO_ACCENT_BY_HERO_ID: Dictionary = {
+	# Shu (player) — distinct hues that stay legible against the blue fill.
+	&"shu_001_liu_bei":     Color("d9b27c"),  # warm tan — ruler of refugees
+	&"shu_002_guan_yu":     Color("5da86a"),  # leaf green — green-cloaked warrior
+	&"shu_003_zhang_fei":   Color("b388c9"),  # lavender — thunderous outlier
+	# Wei (enemy) — vivid borders that pop against the charcoal fill.
+	&"wei_001_cao_cao":     Color("b559a8"),  # violet-magenta — emperor-villain
+	&"wei_005_xiahou_dun":  Color("d86b3a"),  # orange-rust — fierce one-eyed (≠ #C0392B)
+	&"wei_006_zhang_liao":  Color("6bb7e0"),  # sky cyan — clever and swift
+	&"wei_007_yu_jin":      Color("bfb05f"),  # olive — disciplined holder
+	&"wei_008_xu_chu":      Color("e2a088"),  # peach — bodyguard brawn
+}
+
+## Faction-tuned fallback border tone (used when a hero_id has no explicit accent).
+const COLOR_HERO_FALLBACK_PLAYER: Color = Color("a8c4d4")  # pale Shu sky
+const COLOR_HERO_FALLBACK_ENEMY:  Color = Color("c8a89a")  # pale Wei dust
 
 ## Unit polygon half-extent — bumped from 20 (≈40×40) to 26 (≈52×52) so units
 ## occupy ~80% of the 64px tile and read clearly at default 1.0 camera zoom.
 const _UNIT_HALF: int = 26
+
+## Per-hero accent border stroke (width in world px). Wide enough to read as a
+## clear ring around the polygon at the default 1.0 camera zoom; narrow enough
+## not to obscure the class shape underneath.
+const _HERO_BORDER_WIDTH: float = 4.0
 
 
 func set_selected_coord(coord: Vector2i) -> void:
@@ -130,12 +161,23 @@ func set_attackable_tiles(tiles: PackedVector2Array) -> void:
 
 
 ## Spawns one Polygon2D per roster unit under PlayerUnits/EnemyUnits, replacing
-## any pre-authored or previously-spawned polygons. Shape is class-coded
-## (UnitRole.UnitClass enum); color is faction-coded (BattleUnit.side); rotation
-## is facing-coded for directional classes (CAVALRY/ARCHER apex points along the
-## facing axis). Names follow the `Unit{unit_id}_*` convention so the existing
-## battle_scene.gd _find_unit_polygon() helper (move/damage/death handlers) keeps
-## working unchanged.
+## any pre-authored or previously-spawned polygons.
+##
+## Three orthogonal visual channels:
+##   - Shape   = unit_class (UnitRole.UnitClass enum)            → see _shape_for_class
+##   - Fill    = faction (BattleUnit.side; player blue / enemy charcoal)
+##   - Border  = hero_id (HERO_ACCENT_BY_HERO_ID + Line2D child) → distinguishes
+##               individual generals within a faction
+##
+## Rotation is facing-coded for directional classes (CAVALRY/ARCHER/SCOUT apex
+## points along the facing axis); rotationally-symmetric classes (INFANTRY,
+## STRATEGIST, COMMANDER) get rotation=0.
+##
+## Names follow the `Unit{unit_id}_*` convention so the existing battle_scene.gd
+## _find_unit_polygon() helper (move/damage/death handlers) keeps working
+## unchanged. The border + name label live as children of that polygon, so the
+## modulate cascade carries them through damage-flash / death-fade / end-of-turn
+## dim / round-undim animations automatically.
 func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 	print("[SPAWN] spawn_unit_polygons called for %d units" % roster.size())
 	var player_parent: Node2D = _get_or_create_unit_parent("PlayerUnits")
@@ -151,30 +193,55 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 			unit.position.x * TILE_SIZE + TILE_SIZE / 2.0,
 			unit.position.y * TILE_SIZE + TILE_SIZE / 2.0,
 		)
+		# Fill = faction (the strong "friend / foe" read).
 		poly.color = COLOR_FACTION_PLAYER if unit.side == 0 else COLOR_FACTION_ENEMY
-		poly.polygon = _shape_for_class(unit.unit_class)
+		var shape: PackedVector2Array = _shape_for_class(unit.unit_class)
+		poly.polygon = shape
 		poly.rotation = rotation_for_facing(unit.facing, unit.unit_class)
 		if unit.side == 0:
 			player_parent.add_child(poly)
 		else:
 			enemy_parent.add_child(poly)
-		# Name label above the polygon so the player can identify who's who at
-		# a glance instead of staring at indistinguishable shape+color tokens.
-		# Parented to the polygon so it follows transforms (slide/death-fade).
+		# Per-hero accent BORDER as a closed Line2D over the polygon's edge.
+		# Same shape, vivid hero-specific color → individual generals are
+		# distinct within their faction without diluting the faction fill read.
+		# modulate cascade from the parent polygon takes the border along for
+		# damage-flash / death-fade / end-of-turn dim / round-undim animations.
+		var border: Line2D = Line2D.new()
+		border.name = "HeroBorder"
+		border.points = shape
+		border.closed = true
+		border.width = _HERO_BORDER_WIDTH
+		border.default_color = _get_hero_accent(unit.hero_id, unit.side)
+		border.joint_mode = Line2D.LINE_JOINT_BEVEL
+		border.antialiased = true
+		poly.add_child(border)
+		# Name label above the polygon — bigger, heavier outline than the prior
+		# pass so the hero is identifiable at a glance even before the player
+		# memorizes the shape+border palette.
 		var hero: HeroData = HeroDatabase.get_hero(unit.hero_id)
 		var label: Label = Label.new()
 		label.name = "NameLabel"
 		label.text = hero.name_ko if hero != null and hero.name_ko != "" else String(unit.hero_id)
 		label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
-		label.add_theme_color_override("font_outline_color", Color(0.05, 0.05, 0.05, 1.0))
-		label.add_theme_constant_override("outline_size", 6)
-		label.add_theme_font_size_override("font_size", 16)
+		label.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.05, 1.0))
+		label.add_theme_constant_override("outline_size", 8)
+		label.add_theme_font_size_override("font_size", 20)
 		# Counter the polygon's facing rotation so the label always reads upright.
 		label.rotation = -poly.rotation
-		label.position = Vector2(-28, -44)
-		label.size = Vector2(56, 18)
+		label.position = Vector2(-40, -52)
+		label.size = Vector2(80, 22)
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		poly.add_child(label)
+
+
+## Returns the per-hero accent border color for `hero_id`, falling back to a
+## faction-tuned highlight when no entry is authored. Public-ish (used by tests
+## that want to assert per-hero distinction without hardcoding the palette).
+func _get_hero_accent(hero_id: StringName, side: int) -> Color:
+	if HERO_ACCENT_BY_HERO_ID.has(hero_id):
+		return HERO_ACCENT_BY_HERO_ID[hero_id] as Color
+	return COLOR_HERO_FALLBACK_PLAYER if side == 0 else COLOR_HERO_FALLBACK_ENEMY
 
 
 func _get_or_create_unit_parent(parent_name: String) -> Node2D:
