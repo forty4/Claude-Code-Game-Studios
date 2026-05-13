@@ -159,6 +159,15 @@ func get_state() -> State:
 	return _state
 
 
+## Returns the DestinyBranchChoice resolved at the most recent BEAT_7_JUDGMENT,
+## or null if no judgment has run this chapter (i.e. before the first BEAT_7, or
+## after a BEAT_9 per-chapter reset). Read-only — consumers MUST NOT mutate the
+## returned Resource (CR-3 outcome invariant). Used by BattleScene to look up the
+## Beat 8 revelation row for the chosen branch when presenting post-battle story.
+func get_last_branch_choice() -> DestinyBranchChoice:
+	return _last_branch_choice
+
+
 # ─── Scenario load + validation (LOADING state entry) ─────────────────────────
 
 ## Loads a scenario JSON file and transitions LOADING -> CHAPTER_START on success.

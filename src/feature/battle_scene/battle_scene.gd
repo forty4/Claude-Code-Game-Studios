@@ -153,18 +153,48 @@ const PLAYER_HERO_BY_UNIT_ID: Dictionary = {
 
 # ─── Built-in virtual methods ─────────────────────────────────────────────────
 
-## _ready() — 6-step mount sequence per ADR-0016 §3.
-##
-## Each step: instantiate system → call setup() / initialize() → add_child().
-## The setup-before-add_child ordering is MANDATORY for all 5 system ADRs
-## (ADR-0010/0011/0013/0014/0015 R-N). The sprint-6 mock encounter is marked
-## with explicit deletion markers per ADR-0016 R-4.
+## _ready() — scenario bootstrap, then either present the chapter's pre-battle
+## story (windowed only) and start the battle when the player dismisses it, or
+## start the battle immediately (headless, or a retry-reload where the pre-battle
+## beats were already shown). The story-presentation branch is fire-and-forget;
+## battle setup runs in _start_battle() either way.
 ##
 ## Idempotent under all 3 launch sources per R-8:
 ##   (a) SceneManager-driven (ADR-0002 deferred packed-scene instantiation)
 ##   (b) project.godot main_scene config
 ##   (c) godot --main-scene CLI override
 func _ready() -> void:
+	if not _bootstrap_scenario_if_needed():
+		return
+	# Present the pre-battle story (Beat 1 anchor + Beat 3 brief) only in windowed
+	# runs, and only when the scenario is fresh at the chapter's first beat (a
+	# retry-reload lands at BEAT_4_PREP with the beats already seen → skip).
+	if _should_present_story() \
+			and ScenarioRunner.get_state() == ScenarioRunner.State.BEAT_1_ANCHOR:
+		_present_pre_battle_story_then_start()
+	else:
+		_start_battle()
+
+
+## Mounts a StoryBeatScreen with the chapter's pre-battle beats, waits for the
+## player to advance past them, then starts the battle. Fire-and-forget coroutine
+## from _ready() — battle systems are not created until this returns.
+func _present_pre_battle_story_then_start() -> void:
+	var chapter: ChapterDefinition = ScenarioRunner.get_current_chapter()
+	if chapter != null:
+		var beats: Array = _collect_pre_battle_beats(chapter)
+		if not beats.is_empty():
+			await _present_story_beats(beats)
+	_start_battle()
+
+
+## _start_battle() — 6-step mount sequence per ADR-0016 §3.
+##
+## Walks ScenarioRunner forward to BEAT_5_BATTLE (a no-op when already there),
+## then: instantiate system → call setup() / initialize() → add_child() for each
+## of the 6 battle-scoped children. The setup-before-add_child ordering is
+## MANDATORY for all 5 system ADRs (ADR-0010/0011/0013/0014/0015 R-N).
+func _start_battle() -> void:
 	# === DI: 5 backends per ADR-0016 IN-10 + G-22 reflective bypass for @abstract ===
 	# HeroDatabase + UnitRole are @abstract — direct .new() blocks at parse time
 	# on typed reference (per G-22). Reflective load(path).new() path bypasses
@@ -185,13 +215,13 @@ func _ready() -> void:
 	# unit_select click (POLISH-011 production-wiring residual #2).
 	# Wired here AFTER _battle_camera + _map_grid are created (see STEPs 1 + 2 below).
 
-	# === SCENARIO BOOTSTRAP ===
+	# === SCENARIO ADVANCE ===
 	# Drive ScenarioRunner to BEAT_5_BATTLE for whatever chapter it's currently
-	# on: the very first launch loads mvp_shu.json; a reload after a chapter
-	# transition (_proceed_scenario / _retry_chapter / _restart_scenario) finds
-	# ScenarioRunner already advanced to that chapter's pre-battle beats and just
-	# walks them to battle. SceneManager-driven mode (post-Main-Menu, post-MVP):
-	# ScenarioRunner is already in BEAT_5_BATTLE; this no-ops.
+	# on (the scenario was already loaded in _bootstrap_scenario_if_needed; this
+	# walks the pre-battle beats). A reload after a chapter transition
+	# (_proceed_scenario / _retry_chapter / _restart_scenario) finds ScenarioRunner
+	# already at that chapter's pre-battle beats and walks them. SceneManager-driven
+	# mode (post-Main-Menu, post-MVP): ScenarioRunner is already in BEAT_5_BATTLE; no-op.
 	_advance_scenario_to_battle()
 	var chapter: ChapterDefinition = ScenarioRunner.get_current_chapter()
 	if chapter == null:
@@ -370,8 +400,10 @@ func _ready() -> void:
 ## - Already in BEAT_5_BATTLE (SceneManager-driven mode / test fixture): no-op.
 ## - Any other (stale post-battle) state: leave it; get_current_chapter() handles null.
 ##
-## Story beats are skipped instantly here (no UI dwell yet — beat presentation is
-## post-MVP); the only player-visible pre-battle moment is the title card.
+## This only DRIVES the beat state machine — the pre-battle beat *presentation*
+## (Beat 1 anchor + Beat 3 brief) happens beforehand in
+## _present_pre_battle_story_then_start() (windowed only); a retry-reload or a
+## headless run walks the beats here without any UI dwell.
 func _advance_scenario_to_battle() -> void:
 	if ScenarioRunner.get_current_chapter_index() == -1:
 		if not ScenarioRunner.load_scenario("res://assets/data/scenarios/mvp_shu.json"):
@@ -391,6 +423,139 @@ func _advance_scenario_to_battle() -> void:
 				return
 			_:
 				return  # BEAT_5_BATTLE (already in battle) or a stale state (leave it)
+
+
+# ─── Story beat presentation (windowed; headless skips it) ───────────────────
+
+## Story beat narrative content, keyed by beat_*_text_key (mirrors the keys in
+## assets/data/scenarios/mvp_shu.json). Loaded once and cached; {} if the file
+## is missing or malformed (in which case no story screen is shown — the battle
+## still plays). See assets/data/story/story_content.json.
+var _story_content_cache: Dictionary = {}
+var _story_content_loaded: bool = false
+
+
+## Ensures a scenario is loaded so get_current_chapter() works. The very first
+## launch (and a "처음부터" restart) finds no scenario (index == -1) and loads
+## mvp_shu.json (→ CHAPTER_START → BEAT_1_ANCHOR). Returns false on load failure.
+func _bootstrap_scenario_if_needed() -> bool:
+	if ScenarioRunner.get_current_chapter_index() == -1:
+		if not ScenarioRunner.load_scenario("res://assets/data/scenarios/mvp_shu.json"):
+			push_error("BattleScene: failed to load mvp_shu.json scenario")
+			return false
+	return true
+
+
+## True only in windowed runs. Headless runs (CI, GdUnit4, the natural-turn-loop
+## smoke) must NOT mount the StoryBeatScreen — it waits forever for player input.
+func _should_present_story() -> bool:
+	return DisplayServer.get_name() != "headless"
+
+
+func _load_story_content() -> Dictionary:
+	if _story_content_loaded:
+		return _story_content_cache
+	_story_content_loaded = true
+	var path: String = "res://assets/data/story/story_content.json"
+	var raw: String = FileAccess.get_file_as_string(path)
+	if raw.is_empty():
+		push_warning("BattleScene: story content file missing or empty: %s" % path)
+		return _story_content_cache
+	var parsed: Variant = JSON.parse_string(raw)
+	if not (parsed is Dictionary):
+		push_warning("BattleScene: story content failed to parse as JSON object: %s" % path)
+		return _story_content_cache
+	_story_content_cache = parsed as Dictionary
+	return _story_content_cache
+
+
+## Resolves a beat text key to its { title, body, speaker?, line? } content
+## Dictionary, or {} if the key is empty / unknown / has no usable prose.
+func _beat_content(text_key: String) -> Dictionary:
+	if text_key.is_empty():
+		return {}
+	var entry: Variant = _load_story_content().get(text_key, null)
+	if not (entry is Dictionary):
+		return {}
+	var d: Dictionary = entry as Dictionary
+	var has_body: bool = not (d.get("body", "") as String).strip_edges().is_empty()
+	var has_line: bool = not (d.get("line", "") as String).strip_edges().is_empty()
+	if not (has_body or has_line):
+		return {}
+	return d
+
+
+## Pre-battle beats for `chapter`: Beat 1 anchor + Beat 3 brief (Beat 2 is a
+## silent_visual fragment with no text — skipped). Filters out keys with no content.
+func _collect_pre_battle_beats(chapter: ChapterDefinition) -> Array:
+	var beats: Array = []
+	var b1: Dictionary = _beat_content(chapter.beat_1_text_key)
+	if not b1.is_empty():
+		beats.append(b1)
+	var b3: Dictionary = _beat_content(chapter.beat_3_text_key)
+	if not b3.is_empty():
+		beats.append(b3)
+	return beats
+
+
+## Post-battle beats for the just-finished `chapter`: the Beat 8 revelation for
+## the resolved branch (or an outcome-based fallback if `branch_choice` is null /
+## invalid), then the Beat 9 chapter transition. Filters out keys with no content.
+func _collect_post_battle_beats(chapter: ChapterDefinition, branch_choice: DestinyBranchChoice) -> Array:
+	var beats: Array = []
+	var branch_key: String = ""
+	if branch_choice != null and not branch_choice.is_invalid:
+		branch_key = branch_choice.branch_key
+	if branch_key.is_empty():
+		branch_key = _guess_branch_key_for_outcome(chapter)
+	var b8: Dictionary = _beat_content(_beat_8_text_key_for_branch(chapter, branch_key))
+	if not b8.is_empty():
+		beats.append(b8)
+	var b9: Dictionary = _beat_content(chapter.beat_9_text_key)
+	if not b9.is_empty():
+		beats.append(b9)
+	return beats
+
+
+func _beat_8_text_key_for_branch(chapter: ChapterDefinition, branch_key: String) -> String:
+	for entry: Dictionary in chapter.beat_8_revelations:
+		if (entry.get("branch_key", "") as String) == branch_key:
+			return entry.get("text_key", "") as String
+	return ""
+
+
+## Best-effort branch_key when the resolved DestinyBranchChoice is unavailable:
+## WIN → the chapter's canonical branch; DRAW / LOSS → its LOSS_default branch.
+func _guess_branch_key_for_outcome(chapter: ChapterDefinition) -> String:
+	if _pending_outcome == BattleOutcome.Result.WIN:
+		return chapter.canonical_branch_key
+	return chapter.branch_table.get("LOSS_default", "") as String
+
+
+## Mounts a StoryBeatScreen on the HUD layer, presents `beats`, and awaits the
+## player advancing past the last one; frees the screen before returning. No-op
+## (returns immediately) if there is nothing to show or the HUD layer is absent.
+func _present_story_beats(beats: Array) -> void:
+	if beats.is_empty() or _hud_layer == null:
+		return
+	var screen: StoryBeatScreen = StoryBeatScreen.new()
+	screen.name = "StoryBeatScreen"
+	_hud_layer.add_child(screen)
+	screen.present(beats)
+	await screen.sequence_finished
+	if is_instance_valid(screen):
+		screen.queue_free()
+
+
+## Removes the post-battle banner / button / controls-hint nodes from the HUD
+## layer (used before showing the post-battle story so it isn't layered over them).
+func _clear_post_battle_ui() -> void:
+	if _hud_layer == null:
+		return
+	for nm: String in ["OutcomeBanner", "PostBattleButtons", "ControlsHint"]:
+		var n: Node = _hud_layer.get_node_or_null(nm)
+		if n != null:
+			n.queue_free()
 
 
 # ─── Chapter-driven helpers (sprint-7 S7-02 — replaces deleted mock encoder) ──
@@ -911,8 +1076,9 @@ func _add_post_battle_button(row: HBoxContainer, label: String, on_press: Callab
 
 ## Re-fight the current chapter. On LOSS/DRAW the scenario is in BEAT_6_RESULT;
 ## retry_outcome() bounces it back to BEAT_4_PREP (bumping echo_count), then the
-## scene reload re-runs _ready() → _advance_scenario_to_battle() → confirm.
+## scene reload re-runs _ready() → _start_battle() → confirm.
 func _retry_chapter() -> void:
+	_battle_resolved = false  # neutralize the post-battle key poll during the awaits
 	if await _wait_for_scenario_state(ScenarioRunner.State.BEAT_6_RESULT):
 		ScenarioRunner.retry_outcome()  # -> BEAT_4_PREP
 	else:
@@ -923,18 +1089,34 @@ func _retry_chapter() -> void:
 ## Re-start the whole scenario from chapter 1. load_scenario resets ScenarioRunner
 ## to CHAPTER_START → BEAT_1_ANCHOR; the scene reload then drives it to battle.
 func _restart_scenario() -> void:
+	_battle_resolved = false
 	ScenarioRunner.load_scenario("res://assets/data/scenarios/mvp_shu.json")
 	await _reload_via_scenario()
 
 
 ## Accept the outcome and move the scenario forward: BEAT_6 → 7 → 8 → 9 → either
 ## the next chapter (reload this scene — _ready picks it up via ScenarioRunner)
-## or SCENARIO_END (show the ending screen, no reload).
+## or SCENARIO_END (show the ending screen, no reload). In windowed runs, the
+## Beat 8 revelation + Beat 9 transition are presented via StoryBeatScreen before
+## the chapter is walked off (BEAT_8 → BEAT_9 advances the chapter index).
 func _proceed_scenario() -> void:
+	_battle_resolved = false  # neutralize the post-battle key poll during the awaits
 	if not await _wait_for_scenario_state(ScenarioRunner.State.BEAT_6_RESULT):
 		push_warning("BattleScene: proceed — ScenarioRunner never reached BEAT_6_RESULT")
 		return
 	ScenarioRunner.accept_outcome()  # -> BEAT_7_JUDGMENT -> BEAT_8_REVEAL (auto)
+	# Post-battle story (windowed only). Capture the just-finished chapter + its
+	# branch choice NOW — advance_beat() below pushes BEAT_8 -> BEAT_9, which
+	# advances the chapter index and clears _last_branch_choice.
+	if _should_present_story() \
+			and ScenarioRunner.get_state() == ScenarioRunner.State.BEAT_8_REVEAL:
+		var finished_chapter: ChapterDefinition = ScenarioRunner.get_current_chapter()
+		var branch_choice: DestinyBranchChoice = ScenarioRunner.get_last_branch_choice()
+		if finished_chapter != null:
+			var post_beats: Array = _collect_post_battle_beats(finished_chapter, branch_choice)
+			if not post_beats.is_empty():
+				_clear_post_battle_ui()
+				await _present_story_beats(post_beats)
 	if ScenarioRunner.get_state() == ScenarioRunner.State.BEAT_8_REVEAL:
 		ScenarioRunner.advance_beat()  # -> BEAT_9_TRANSITION -> next chapter BEAT_1_ANCHOR | SCENARIO_END
 	await get_tree().process_frame
