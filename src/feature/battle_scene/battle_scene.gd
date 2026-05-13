@@ -661,7 +661,6 @@ func _make_battle_unit(
 	unit.position = pos
 	unit.tag = tag
 	unit.archetype = archetype
-	unit.move_range = 3
 	# Stats from HeroData — stat_might drives raw_atk so commanders like 유비
 	# vs heavies like 장비 (might 92) feel different in combat. Tuning for
 	# MVP "kills resolve within 5 rounds":
@@ -694,6 +693,14 @@ func _make_battle_unit(
 	# enemy AI doesn't gain a "kill the king" priority on top of it).
 	unit.attack_range = _attack_range_for_class(unit.unit_class)
 	unit.passive = _passive_for_class(unit.unit_class)
+	# move_range derived from hero base + class delta clamped to balance range —
+	# replaces a 3-everyone hardcode. Heroes.json gives 우금 (archer) 3, 장료
+	# (strategist) 5 (-1 delta → 4), 관우 (cavalry) 4 (+1 delta → 5), most others 4.
+	# Player now feels real class differentiation in deployment + skirmish range.
+	if hero_data != null:
+		unit.move_range = UnitRole.get_effective_move_range(hero_data, unit.unit_class)
+	else:
+		unit.move_range = 3
 	return unit
 
 
@@ -1110,7 +1117,7 @@ func _mount_controls_hint() -> void:
 		return
 	var hint: Label = Label.new()
 	hint.name = "ControlsHint"
-	hint.text = "유닛 클릭 → 빈 칸 클릭 = 이동 · 적 클릭 = 공격 · 같은 유닛 재클릭 = 턴 종료"
+	hint.text = "유닛 클릭 → 빈 칸 클릭 = 이동 · 적 클릭 = 공격 · 같은 유닛 재클릭 = 턴 종료    [H] 도움말  [Esc] 일시정지"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_color_override("font_color", Color(0.95, 0.93, 0.86, 0.92))
 	hint.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.05, 1.0))
@@ -1361,6 +1368,8 @@ var _process_tick: int = 0
 var _pending_outcome: int = -1
 ## Edge-detect latch for the ESC pause-toggle.
 var _esc_was_held: bool = false
+## Edge-detect latch for the H help-toggle.
+var _h_was_held: bool = false
 
 func _process(_delta: float) -> void:
 	# ESC opens the pause menu mid- AND post-battle. Edge-detected so a held key
@@ -1372,6 +1381,16 @@ func _process(_delta: float) -> void:
 	if esc_held and not _esc_was_held:
 		_open_pause_menu()
 	_esc_was_held = esc_held
+
+	# H opens the help overlay. Distinct from pause — does NOT freeze the tree;
+	# the player can read while AI-turn animations keep playing in the background.
+	var h_held: bool = (
+		Input.is_physical_key_pressed(KEY_H)
+		or Input.is_key_pressed(KEY_H)
+	)
+	if h_held and not _h_was_held:
+		_toggle_help_overlay()
+	_h_was_held = h_held
 
 	if not _battle_resolved:
 		return
@@ -1412,6 +1431,33 @@ func _on_pause_menu_resumed() -> void:
 	var menu: Node = _hud_layer.get_node_or_null("PauseMenu") if _hud_layer != null else null
 	if menu != null:
 		menu.queue_free()
+
+
+## Toggles the HelpOverlay on the HUD layer. Mid- AND post-battle. Unlike
+## the pause menu this does NOT freeze the tree — the player can read the
+## reference card while the AI keeps acting. Same edge-detection pattern as
+## PauseMenu so a single H tap toggles cleanly without flicker.
+func _toggle_help_overlay() -> void:
+	if _hud_layer == null:
+		return
+	var existing: Node = _hud_layer.get_node_or_null("HelpOverlay")
+	if existing != null:
+		# Already shown — let the overlay's own close handler tear it down so
+		# its close_requested signal still fires (keeps the flow symmetric).
+		if existing.has_method("_on_close_pressed"):
+			existing._on_close_pressed()
+		return
+	var overlay: HelpOverlay = HelpOverlay.new()
+	overlay.name = "HelpOverlay"
+	overlay.close_requested.connect(_on_help_overlay_closed)
+	_hud_layer.add_child(overlay)
+	overlay.show_help()
+
+
+func _on_help_overlay_closed() -> void:
+	var overlay: Node = _hud_layer.get_node_or_null("HelpOverlay") if _hud_layer != null else null
+	if overlay != null:
+		overlay.queue_free()
 
 
 ## Runs the same action as the focused post-battle button: on WIN that's

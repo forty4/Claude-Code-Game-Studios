@@ -25,6 +25,7 @@ const _BACKDROP_COLOR: Color = Color(0.025, 0.035, 0.055, 0.88)
 
 
 var _resume_button: Button = null
+var _sfx_toggle_button: Button = null
 
 ## Edge-detect latch for the ESC close-poll. Starts true so the ESC press that
 ## opened this menu (still held when _ready fires) doesn't immediately close it
@@ -60,6 +61,8 @@ func _ready() -> void:
 
 	_resume_button = _make_button("이어 진행 (ESC)", _on_resume_pressed)
 	box.add_child(_resume_button)
+	_sfx_toggle_button = _make_button(_sfx_label(), _on_sfx_toggle_pressed)
+	box.add_child(_sfx_toggle_button)
 	box.add_child(_make_button("메인 메뉴로", _on_main_menu_pressed))
 	box.add_child(_make_button("종료", _on_quit_pressed))
 
@@ -109,6 +112,30 @@ func _on_main_menu_pressed() -> void:
 func _on_quit_pressed() -> void:
 	hide_paused()  # tidy in case quit is intercepted (e.g. an OS confirm dialog)
 	get_tree().quit()
+
+
+## Flips SoundManager.enabled in place. Persists across the current session
+## because SoundManager is an autoload (single instance); restart of the game
+## resets to the default `@export enabled = true`. Headless runs keep enabled
+## false regardless — toggling is a no-op there (the player pool is empty so
+## play() is short-circuited anyway).
+func _on_sfx_toggle_pressed() -> void:
+	var sm: Node = get_node_or_null("/root/SoundManager")
+	if sm == null:
+		return
+	sm.enabled = not (sm.enabled as bool)
+	if _sfx_toggle_button != null:
+		_sfx_toggle_button.text = _sfx_label()
+
+
+## Reads the current SoundManager.enabled at button-build / refresh time. Falls
+## back to ON when the autoload is missing (test harness, etc.).
+func _sfx_label() -> String:
+	var sm: Node = get_node_or_null("/root/SoundManager")
+	var on: bool = true
+	if sm != null:
+		on = sm.enabled as bool
+	return "음향 끄기" if on else "음향 켜기"
 
 
 # ─── Builders ─────────────────────────────────────────────────────────────────

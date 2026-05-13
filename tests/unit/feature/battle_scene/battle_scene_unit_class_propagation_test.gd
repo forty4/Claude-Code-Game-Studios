@@ -179,6 +179,43 @@ func test_non_archer_attack_range_is_one() -> void:
 		).is_equal(1)
 
 
+# ─── Class-derived move_range (was hardcoded 3 prior to session-8 fix) ───────
+
+
+func test_move_range_archer_yu_jin_is_three() -> void:
+	# 우금: hero.move_range=3, ARCHER class_move_delta=0 → effective 3.
+	var scene: BattleScene = _instantiate_battle_scene()
+	var unit: BattleUnit = scene._make_battle_unit(4, &"wei_007_yu_jin", false, Vector2i.ZERO, &"holder", &"holder")
+	assert_int(unit.move_range).override_failure_message(
+		"우금 (archer) should have effective move_range 3 (hero=3 + delta=0); got %d" % unit.move_range
+	).is_equal(3)
+
+
+func test_move_range_cavalry_guan_yu_is_five() -> void:
+	# 관우: hero.move_range=4, CAVALRY class_move_delta=+1 → effective 5.
+	var scene: BattleScene = _instantiate_battle_scene()
+	var unit: BattleUnit = scene._make_battle_unit(6, &"shu_002_guan_yu", true, Vector2i.ZERO, &"tank", &"aggressor")
+	assert_int(unit.move_range).override_failure_message(
+		"관우 (cavalry) should have effective move_range 5 (hero=4 + delta=+1); got %d" % unit.move_range
+	).is_equal(5)
+
+
+func test_move_range_strategist_zhang_liao_is_four() -> void:
+	# 장료: hero.move_range=5, STRATEGIST class_move_delta=-1 → effective 4.
+	var scene: BattleScene = _instantiate_battle_scene()
+	var unit: BattleUnit = scene._make_battle_unit(3, &"wei_006_zhang_liao", false, Vector2i.ZERO, &"skirmisher", &"skirmisher")
+	assert_int(unit.move_range).override_failure_message(
+		"장료 (strategist) should have effective move_range 4 (hero=5 + delta=-1); got %d" % unit.move_range
+	).is_equal(4)
+
+
+func test_move_range_unknown_hero_falls_back_to_three() -> void:
+	# Unknown hero_id → HeroDatabase.get_hero returns null → fallback 3.
+	var scene: BattleScene = _instantiate_battle_scene()
+	var unit: BattleUnit = scene._make_battle_unit(99, &"shu_999_phantom", true, Vector2i.ZERO, &"", &"aggressor")
+	assert_int(unit.move_range).is_equal(3)
+
+
 # ─── Existing class-distinction sanity ───────────────────────────────────────
 
 
