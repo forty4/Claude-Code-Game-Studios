@@ -121,6 +121,23 @@ const OUTCOME_DIM_DURATION: float = 0.4
 const END_OF_TURN_DIM_ALPHA: float = 0.55
 const END_OF_TURN_DIM_DURATION: float = 0.15
 
+## Per-chapter title-card flavor. Keyed by ChapterDefinition.chapter_id. Shown
+## briefly at battle start so the fight has narrative framing. Fallback (unknown
+## id) uses the chapter number alone. Placeholder copy — the eventual string
+## table (assets/locale/*.po, beat_*_text_key) supersedes this when authored.
+const CHAPTER_FLAVOR: Dictionary = {
+	"ch01_changbanpo": {
+		"title": "제1장 · 장판파 (長坂坡)",
+		"tagline": "유비, 피난민을 등지고 조조의 추격을 막아내라.",
+	},
+	"ch02_changban_bridge": {
+		"title": "제2장 · 장판교 (長坂橋)",
+		"tagline": "장비, 다리 하나로 적의 전군을 멈춰 세워라.",
+	},
+}
+## How long the title card stays on screen before auto-removing (seconds).
+const TITLE_CARD_DURATION: float = 3.5
+
 
 # ─── Built-in virtual methods ─────────────────────────────────────────────────
 
@@ -303,6 +320,15 @@ func _ready() -> void:
 	# Victory condition surfaces at battle init — without this UI-GB-08 stays
 	# visible=false and the top-right ribbon slot is empty.
 	_battle_hud.set_victory_condition(&"적 부대 전멸")
+	# Persistent controls hint at the bottom edge — a first-time player has no
+	# way to discover the click flow otherwise. Static label; no _process needed
+	# (which matters: _pause_overworld() disables _process on this scene, see
+	# _on_battle_outcome_resolved). Lives in HUDLayer (CanvasLayer) so it stays
+	# visible regardless of the Node2D-parent visibility cascade.
+	_mount_controls_hint()
+	# Brief title card so the battle has narrative framing. Auto-removes via a
+	# SceneTreeTimer (fires regardless of process_mode — unlike _process).
+	_mount_title_card(chapter)
 
 	# ChapterVisuals is mounted at /root by SceneManager AFTER BattleScene._ready
 	# returns (async load + deferred instantiate per ADR-0002). Spawn runtime
@@ -445,6 +471,12 @@ func _spawn_unit_polygons_async(roster: Array[BattleUnit]) -> void:
 	for attempt: int in 300:
 		var visuals: Node = _find_chapter_visuals()
 		if visuals != null and visuals.has_method("spawn_unit_polygons"):
+			# A prior battle (before reload_current_scene) may have left the
+			# /root ChapterVisuals dimmed via OUTCOME_DIM_COLOR — it survives
+			# the scene reload because SceneManager mounted it at /root, not
+			# under current_scene. Reset to full brightness on every battle start.
+			if visuals is CanvasItem:
+				(visuals as CanvasItem).modulate = Color.WHITE
 			visuals.spawn_unit_polygons(roster)
 			_mount_hp_bars(visuals, roster)
 			return
@@ -635,6 +667,79 @@ func _on_unit_died_visual(unit_id: int) -> void:
 			unit_node.visible = false)
 
 
+## Mounts a brief centered title card (chapter title + tagline) at battle start.
+## Auto-removes after TITLE_CARD_DURATION via SceneTreeTimer — chosen over a
+## _process countdown because _pause_overworld() disables _process on this scene
+## (see _on_battle_outcome_resolved) while SceneTreeTimer.timeout still fires.
+## No fade-out tween: Tween property writes are unreliable in the windowed env
+## (G-30b), so the card just snaps away when the timer fires.
+func _mount_title_card(chapter: ChapterDefinition) -> void:
+	if _hud_layer == null or chapter == null:
+		return
+	var flavor: Dictionary = CHAPTER_FLAVOR.get(chapter.chapter_id, {}) as Dictionary
+	var title_text: String = flavor.get("title", "제%d장" % chapter.chapter_number) as String
+	var tagline_text: String = flavor.get("tagline", "") as String
+
+	# CenterContainer (full-rect) centers its single child — clean, no offset math.
+	var card: CenterContainer = CenterContainer.new()
+	card.name = "TitleCard"
+	card.set_anchors_preset(Control.PRESET_FULL_RECT)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var box: VBoxContainer = VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 8)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(box)
+
+	var title: Label = Label.new()
+	title.text = title_text
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title.add_theme_color_override("font_color", Color(0.98, 0.96, 0.90, 1.0))
+	title.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.04, 1.0))
+	title.add_theme_constant_override("outline_size", 8)
+	title.add_theme_font_size_override("font_size", 40)
+	box.add_child(title)
+
+	if not tagline_text.is_empty():
+		var tagline: Label = Label.new()
+		tagline.text = tagline_text
+		tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		tagline.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tagline.add_theme_color_override("font_color", Color(0.86, 0.84, 0.78, 1.0))
+		tagline.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.04, 1.0))
+		tagline.add_theme_constant_override("outline_size", 6)
+		tagline.add_theme_font_size_override("font_size", 22)
+		box.add_child(tagline)
+
+	_hud_layer.add_child(card)
+	get_tree().create_timer(TITLE_CARD_DURATION).timeout.connect(func() -> void:
+		if is_instance_valid(card):
+			card.queue_free())
+
+
+## Mounts a small always-on controls hint at the bottom of the viewport.
+## A first-time player otherwise has no cue for the click flow (select → move/
+## attack tile → re-click to end turn). Bottom-anchored Label inside HUDLayer.
+func _mount_controls_hint() -> void:
+	if _hud_layer == null:
+		return
+	var hint: Label = Label.new()
+	hint.name = "ControlsHint"
+	hint.text = "유닛 클릭 → 빈 칸 클릭 = 이동 · 적 클릭 = 공격 · 같은 유닛 재클릭 = 턴 종료"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.add_theme_color_override("font_color", Color(0.95, 0.93, 0.86, 0.92))
+	hint.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.05, 1.0))
+	hint.add_theme_constant_override("outline_size", 5)
+	hint.add_theme_font_size_override("font_size", 18)
+	hint.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	hint.offset_top = -34.0
+	hint.offset_bottom = -8.0
+	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hud_layer.add_child(hint)
+
+
 ## Battle-outcome handler. Dims the grid (so the banner pops) and spawns the
 ## screen-centered OutcomeBanner on HUDLayer. The HUD's UI-GB-09 results
 ## panel still renders in parallel via its own subscription — this banner is
@@ -642,27 +747,75 @@ func _on_unit_died_visual(unit_id: int) -> void:
 func _on_battle_outcome_resolved(outcome: StringName, _fate_data: Dictionary) -> void:
 	print("[BATTLE-END] outcome=%s — showing banner + dimming grid (R=restart, ESC=quit)" % outcome)
 	_battle_resolved = true
+	# Root cause of "restart hotkey doesn't fire" (session 4): in standalone
+	# launch, SceneManager treats this BattleScene as the "overworld" and calls
+	# _pause_overworld() on it (process_mode = DISABLED + set_process_input(false)
+	# + set_process_unhandled_input(false)). That stops _process() — so the
+	# restart-key polling loop below never runs. This signal handler fires
+	# regardless of process_mode (direct signal callback), so we re-arm our own
+	# processing here, the moment the battle ends. PROCESS_MODE_ALWAYS also
+	# survives any future pause. Re-enable _input/_unhandled_input too for parity.
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	set_process(true)
+	set_process_input(true)
+	set_process_unhandled_input(true)
 	var visuals: Node = _find_chapter_visuals()
 	if visuals is CanvasItem:
 		# Instant-set the final dim color so the visual change is guaranteed
 		# even if Tween writes don't advance (observed in user windowed env).
 		(visuals as CanvasItem).modulate = OUTCOME_DIM_COLOR
 	if _hud_layer != null:
+		# Drop the controls hint — the screen now belongs to the outcome banner.
+		var hint: Node = _hud_layer.get_node_or_null("ControlsHint")
+		if hint != null:
+			hint.queue_free()
 		var banner: OutcomeBanner = OutcomeBanner.make(outcome)
 		banner.name = "OutcomeBanner"
 		_hud_layer.add_child(banner)
-		# Restart prompt — small Label under the main outcome glyph so the
-		# player knows they can re-enter without relaunching Godot.
-		var prompt: Label = Label.new()
-		prompt.text = "R / SPACE: 재시작   ESC: 종료"
-		prompt.add_theme_color_override("font_color", Color(0.98, 0.96, 0.90, 1.0))
-		prompt.add_theme_color_override("font_outline_color", Color(0.05, 0.05, 0.05, 1.0))
-		prompt.add_theme_constant_override("outline_size", 4)
-		prompt.add_theme_font_size_override("font_size", 22)
-		prompt.set_anchors_preset(Control.PRESET_CENTER)
-		prompt.position = Vector2(-90, 60)  # below the outcome glyph
-		prompt.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_hud_layer.add_child(prompt)
+		_mount_post_battle_buttons()
+
+
+## Post-battle action buttons (재시작 / 종료) below the outcome banner.
+## Belt-and-suspenders for the keyboard hotkeys (which historically failed to
+## register in the windowed env, see session 4 notes): a clickable Button goes
+## through the Viewport GUI path, not the _process key poll. We re-armed this
+## scene's process_mode at the top of _on_battle_outcome_resolved so these
+## Controls now receive input even if SceneManager had disabled the scene.
+func _mount_post_battle_buttons() -> void:
+	if _hud_layer == null:
+		return
+	var bar: CenterContainer = CenterContainer.new()
+	bar.name = "PostBattleButtons"
+	bar.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bar.offset_top = 140.0  # push the cluster below the outcome glyph
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE  # only the buttons capture clicks
+	var row: HBoxContainer = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 24)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_child(row)
+
+	var restart_btn: Button = Button.new()
+	restart_btn.text = "재시작 (R)"
+	restart_btn.custom_minimum_size = Vector2(180, 48)
+	restart_btn.add_theme_font_size_override("font_size", 22)
+	restart_btn.pressed.connect(func() -> void:
+		print("[BATTLE-END] restart button pressed — reloading scene")
+		_battle_resolved = false
+		get_tree().reload_current_scene())
+	row.add_child(restart_btn)
+
+	var quit_btn: Button = Button.new()
+	quit_btn.text = "종료 (ESC)"
+	quit_btn.custom_minimum_size = Vector2(180, 48)
+	quit_btn.add_theme_font_size_override("font_size", 22)
+	quit_btn.pressed.connect(func() -> void:
+		print("[BATTLE-END] quit button pressed — quitting")
+		get_tree().quit())
+	row.add_child(quit_btn)
+
+	_hud_layer.add_child(bar)
+	# Focus the restart button so keyboard/gamepad Enter also works.
+	restart_btn.grab_focus()
 
 
 ## After battle ends, listen for restart / quit keys. _battle_resolved gates
