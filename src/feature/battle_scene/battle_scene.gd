@@ -142,6 +142,14 @@ const CHAPTER_FLAVOR: Dictionary = {
 ## How long the title card stays on screen before auto-removing (seconds).
 const TITLE_CARD_DURATION: float = 3.5
 
+## Player unit_id → hero_id. Stable across chapters (see _build_battle_units_from_chapter).
+## Hero IDs MUST exist in assets/data/heroes/heroes.json. Placeholder until a
+## data-driven player_hero_ids ChapterDefinition field lands (post-MVP scope).
+const PLAYER_HERO_BY_UNIT_ID: Dictionary = {
+	0: &"shu_001_liu_bei",   # 유비 — ch1 commander / rear-guard
+	1: &"shu_003_zhang_fei", # 장비 — ch1 vanguard, ch2 bridge-holder
+}
+
 
 # ─── Built-in virtual methods ─────────────────────────────────────────────────
 
@@ -394,14 +402,14 @@ func _advance_scenario_to_battle() -> void:
 ## Hero IDs MUST exist in assets/data/heroes/heroes.json.
 func _build_battle_units_from_chapter(chapter: ChapterDefinition) -> Array[BattleUnit]:
 	var roster: Array[BattleUnit] = []
-	# Player units — bind chapter player_unit_ids to chapter-1 narrative-fitting heroes.
-	# S7-05: chapter-1 (장판파) defenders are 유비 + 장비 (Liu Bei rear-guarding refugees;
-	# Zhang Fei's bridge stand). Hero-binding remains hardcoded here pending a
-	# data-driven player_hero_ids ChapterDefinition field (post-MVP scope).
-	var player_default_heroes: Array[StringName] = [&"shu_001_liu_bei", &"shu_003_zhang_fei"]
+	# Player units — bind player unit_ids to narrative-fitting heroes. Keyed by
+	# unit_id (NOT loop index) so the binding is stable across chapters: ch1's
+	# defenders are unit 0 = 유비 + unit 1 = 장비; ch2's bridge-holder is unit 1 = 장비.
+	# Hardcoded here pending a data-driven player_hero_ids ChapterDefinition field
+	# (post-MVP scope). Unknown uid → 장비 (a sensible default front-liner).
 	for i in chapter.player_unit_ids.size():
 		var uid: int = int(chapter.player_unit_ids[i])
-		var hero: StringName = player_default_heroes[i] if i < player_default_heroes.size() else &"shu_003_zhang_fei"
+		var hero: StringName = PLAYER_HERO_BY_UNIT_ID.get(uid, &"shu_003_zhang_fei") as StringName
 		var pos: Vector2i = chapter.deployment_positions_default.get(uid, Vector2i(1 + i, 2)) as Vector2i
 		var tag: StringName = &"tank" if i == 0 else &"assassin"
 		# Player units default to &"aggressor" archetype (S13-12); chapter fixtures
@@ -646,10 +654,17 @@ func _on_damage_applied(attacker_id: int, defender_id: int, damage: int) -> void
 	unit_node.modulate = Color(2.0, 0.4, 0.4, 1.0)  # bright red flash
 	# Failsafe: ensure the defender goes back to its non-flash color even if
 	# the Tween writes don't advance. Use a timer rather than tween_callback
-	# (which also can drop in the same windowed scenarios).
+	# (which also can drop in the same windowed scenarios). Re-resolve the
+	# polygon at fire time instead of capturing it — the ChapterVisuals (and its
+	# polygons) gets freed by SceneManager the moment the battle ends, and a
+	# captured-then-freed node makes Godot spam "Lambda capture freed" warnings.
 	get_tree().create_timer(0.25).timeout.connect(func() -> void:
-		if is_instance_valid(unit_node):
-			unit_node.modulate = original_modulate)
+		var v: Node = _find_chapter_visuals()
+		if v == null:
+			return
+		var n: Node2D = _find_unit_polygon(v, defender_id)
+		if is_instance_valid(n):
+			n.modulate = original_modulate)
 	# Refresh the defender's HP bar to reflect the new HP. HPStatusController
 	# applied the damage synchronously before damage_applied was emitted (grid
 	# controller line ~1233-1236), so get_current_hp returns the post-hit value.
@@ -709,11 +724,16 @@ func _on_unit_died_visual(unit_id: int) -> void:
 		return
 	# Failsafe pattern (windowed Tween-writes can stall): set the final state
 	# via a SceneTreeTimer that fires unconditionally regardless of tween
-	# scheduler behaviour.
+	# scheduler behaviour. Re-resolve the polygon at fire time (don't capture it)
+	# — see _on_damage_applied for the "Lambda capture freed" rationale.
 	get_tree().create_timer(DEATH_FADE_DURATION + 0.05).timeout.connect(func() -> void:
-		if is_instance_valid(unit_node):
-			unit_node.modulate.a = 0.0
-			unit_node.visible = false)
+		var v: Node = _find_chapter_visuals()
+		if v == null:
+			return
+		var n: Node2D = _find_unit_polygon(v, unit_id)
+		if is_instance_valid(n):
+			n.modulate.a = 0.0
+			n.visible = false)
 
 
 ## Mounts a brief centered title card (chapter title + tagline) at battle start.
@@ -763,9 +783,15 @@ func _mount_title_card(chapter: ChapterDefinition) -> void:
 		box.add_child(tagline)
 
 	_hud_layer.add_child(card)
-	get_tree().create_timer(TITLE_CARD_DURATION).timeout.connect(func() -> void:
-		if is_instance_valid(card):
-			card.queue_free())
+	# Self-destruct via a child Timer (not a SceneTreeTimer): if the scene reloads
+	# before TITLE_CARD_DURATION elapses, the Timer is freed along with `card`, so
+	# there's no dangling callback referencing a freed node.
+	var life: Timer = Timer.new()
+	life.one_shot = true
+	life.autostart = true
+	life.wait_time = TITLE_CARD_DURATION
+	life.timeout.connect(card.queue_free)
+	card.add_child(life)
 
 
 ## Mounts a small always-on controls hint at the bottom of the viewport.
