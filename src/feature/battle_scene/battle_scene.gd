@@ -358,6 +358,9 @@ func _start_battle() -> void:
 	_grid_controller.unit_turn_ended_visual.connect(_on_unit_turn_ended_visual)
 	_grid_controller.round_started_visual.connect(_on_round_started_visual)
 	_grid_controller.battle_outcome_resolved.connect(_on_battle_outcome_resolved)
+	# Session-13: defend stance badge — toggle on when applied, off on round
+	# rollover (next round = fresh turn = stance consumed).
+	_grid_controller.unit_defend_stance_applied.connect(_on_unit_defend_stance_applied)
 
 	# === STEP 5.5: AISystem (ADR-0019) — battle-scoped Node 6th invocation ===
 	# Inserted via /architecture-review delta #14 2026-05-05 per ADR-0016 §3 R-3
@@ -1192,7 +1195,7 @@ func _mount_controls_hint() -> void:
 		return
 	var hint: Label = Label.new()
 	hint.name = "ControlsHint"
-	hint.text = "유닛 클릭 → 빈 칸 클릭 = 이동 · 적 클릭 = 공격 · 같은 유닛 재클릭 = 턴 종료    [H] 도움말  [Esc] 일시정지"
+	hint.text = "유닛 클릭 → 빈 칸 = 이동 · 적 클릭 1회 = 미리보기 · 2회 = 공격 · [D] 방어 · 재클릭 = 턴 종료    [H] 도움말  [Esc] 일시정지"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_color_override("font_color", Color(0.95, 0.93, 0.86, 0.92))
 	hint.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.05, 1.0))
@@ -1619,6 +1622,42 @@ func _on_round_started_visual(_round_num: int) -> void:
 			# Instant-set so units brighten back to full alpha at round start
 			# even if Tween writes don't advance.
 			poly.modulate = Color.WHITE
+			# Session-13: clear any defend stance badge — the new round means
+			# every unit's stance was consumed (or not used) and starts fresh.
+			var badge: Node = poly.get_node_or_null("DefendBadge")
+			if badge != null:
+				badge.queue_free()
+
+
+## Session-13 — defend stance applied. Adds a small "방" Label to the unit's
+## polygon so the player can see at a glance that the unit will take 50% less
+## damage on the next incoming attack. Removed at round_started_visual.
+func _on_unit_defend_stance_applied(unit_id: int) -> void:
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null:
+		return
+	var poly: Node2D = _find_unit_polygon(visuals, unit_id)
+	if poly == null:
+		return
+	# Idempotent — if the badge is already there (e.g., AI defends twice in a
+	# round somehow), don't stack duplicates.
+	if poly.get_node_or_null("DefendBadge") != null:
+		return
+	var badge: Label = Label.new()
+	badge.name = "DefendBadge"
+	badge.text = "방"
+	# High-contrast on the faction fill — gold border with white inner.
+	badge.add_theme_color_override("font_color", Color(1.0, 0.95, 0.78, 1.0))
+	badge.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.05, 1.0))
+	badge.add_theme_constant_override("outline_size", 6)
+	badge.add_theme_font_size_override("font_size", 18)
+	# Counter polygon facing rotation so the glyph stays upright.
+	badge.rotation = -poly.rotation
+	# Top-right corner of the polygon (positive X, negative Y in local coords).
+	badge.position = Vector2(18, -34)
+	badge.size = Vector2(20, 20)
+	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	poly.add_child(badge)
 
 
 func _list_polygon_names(visuals: Node) -> String:

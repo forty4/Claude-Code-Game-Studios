@@ -38,6 +38,9 @@
         {"type": "key", "keycode": 4194306},
         {"type": "screen_touch"}
     ],
+    "defend_stance": [
+        {"type": "key", "keycode": 68}
+    ],
     "camera_pan": [
         {"type": "screen_drag"},
         {"type": "mouse_button", "button_index": 3}

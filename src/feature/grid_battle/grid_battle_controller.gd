@@ -76,6 +76,7 @@ const _GRID_ACTIONS: Array[String] = [
 	"attack_cancel",
 	"undo_last_move",
 	"end_unit_turn",
+	"defend_stance",  # session-13: D key — selected unit takes defend stance
 	"grid_hover",
 ]
 
@@ -151,6 +152,12 @@ signal attack_preview_requested(attacker_id: int, defender_id: int, preview: Dic
 ## the unit, clicked elsewhere, ran out of attack range, or the round rolled
 ## over. BattleHUD dismisses UI-GB-04 in response. Reason is informational.
 signal attack_preview_dismissed(reason: StringName)
+
+## Emitted whenever a unit enters defend stance (via player D-key OR AI DEFEND
+## decision). Scene-tier subscribers (ChapterVisuals defend indicator) toggle
+## a visual marker on the unit's polygon. Cleared at round rollover via the
+## standard round_started_visual signal — no separate cleared signal needed.
+signal unit_defend_stance_applied(unit_id: int)
 
 
 # ─── DI dependencies (ADR-0014 §3) ──────────────────────────────────────────
@@ -469,9 +476,13 @@ func _on_ai_action_ready(unit_id: int, command: AIActionCommand) -> void:
 		AIActionCommand.ActionType.DEFEND:
 			# DEFEND is a basic action with token-spending semantics per ADR-0011
 			# story-004 amendment (sets defend_stance_active on UnitTurnState).
-			# No game-state mutation here — TurnOrderRunner owns the state flag.
+			# Session-13: also bridge into HPStatusController so the 50% damage
+			# reduction actually fires on incoming attacks. Without this bridge,
+			# DEFEND was a no-op (TurnOrderRunner flag set, but HPStatusController
+			# checks for the defend_stance status effect which wasn't applied).
 			_acted_this_turn[unit_id] = true
 			_turn_runner.declare_action(unit_id, TurnOrderRunner.ActionType.DEFEND, null)
+			_apply_defend_stance_status(unit_id)
 		AIActionCommand.ActionType.USE_SKILL:
 			# USE_SKILL execution deferred per ADR-0014 §0 MVP scope.
 			# Substitutes WAIT so the AI unit's turn completes cleanly.
@@ -712,6 +723,12 @@ func handle_grid_click(action: String, coord: Vector2i, unit_id: int) -> void:
 ##   4. Dispatch to handle_grid_click with the resolved coord + ctx.target_unit_id
 func _on_input_action_fired(action: String, ctx: InputContext) -> void:
 	if not _is_grid_action(action):
+		return
+	# Session-13: defend_stance is keyboard-driven and unit-scoped (acts on the
+	# currently-selected unit). It does NOT need a grid coord — bypass the
+	# coord-resolution path so D key works regardless of mouse position.
+	if action == "defend_stance":
+		_handle_defend_stance_input()
 		return
 	var coord: Vector2i = ctx.target_coord
 	if coord == Vector2i.ZERO and _camera != null:
@@ -1086,6 +1103,66 @@ func _handle_player_move(unit: BattleUnit, dest: Vector2i) -> void:
 	_moved_this_turn[unit.unit_id] = true
 	_turn_runner.declare_action(unit.unit_id, TurnOrderRunner.ActionType.MOVE,
 		_make_move_target(dest))
+
+
+## Bridges the TurnOrderRunner DEFEND declaration into HPStatusController's
+## status-effect layer. Without this call, declare_action(DEFEND) sets only
+## the per-turn UnitTurnState flag — HPStatusController.apply_damage checks
+## for the &"defend_stance" status effect (line 117) which would never appear,
+## so the 50% damage reduction never fired.
+##
+## Idempotent: apply_status enforces same-effect refresh per CR-5c — calling
+## twice in one turn just refreshes the duration. Source = self_id by
+## convention (defending is a self-applied stance).
+func _apply_defend_stance_status(unit_id: int) -> void:
+	if _hp_controller == null:
+		return
+	if not _hp_controller.has_method("apply_status"):
+		return
+	# duration_override = -1 means "use template default" (1 turn for
+	# defend_stance per assets/data/status_effects/defend_stance.tres).
+	_hp_controller.apply_status(unit_id, &"defend_stance", -1, unit_id)
+	# Visual signal — ChapterVisuals adds a "방" badge to the unit's polygon
+	# until round_started_visual fires (next round = fresh turn).
+	unit_defend_stance_applied.emit(unit_id)
+
+
+## D-key entry point. Routes the defend_stance input action to the selected
+## player unit. Silent no-op when no unit is selected, when the selected unit
+## isn't player-controlled, or when it isn't this unit's turn (the per-unit
+## guards in _handle_player_defend would catch the latter, but we'd rather
+## fail-quietly than push_warning on every misplaced D press).
+func _handle_defend_stance_input() -> void:
+	if _state != BattleState.UNIT_SELECTED:
+		return
+	if _selected_unit_id == -1 or not _units.has(_selected_unit_id):
+		return
+	var unit: BattleUnit = _units[_selected_unit_id]
+	if unit.side != 0:
+		return  # don't let players defend with enemy units
+	# Cancel any armed attack preview before committing to defend — the player
+	# changed their mind. Mirrors the move-cancels-preview pattern.
+	_clear_attack_preview(&"defend_chosen")
+	_handle_player_defend(_selected_unit_id)
+	# After the action declares, the turn ends naturally via _maybe_defer_turn_completion.
+	# Deselect to remove the unit overlay since it can no longer act this turn.
+	_deselect()
+
+
+## Player-path DEFEND declaration. Mirrors AI-path semantics: spend the
+## ACTION token via TurnOrderRunner + apply the defend_stance status so the
+## 50% incoming damage reduction actually fires. Re-entrancy guard mirrors
+## the move/attack handlers.
+func _handle_player_defend(unit_id: int) -> void:
+	if _active_turn_unit_id != -1 and unit_id != _active_turn_unit_id:
+		return  # not this unit's turn
+	if _acted_this_turn.get(unit_id, false):
+		return  # already used the ACTION token this turn
+	if not _units.has(unit_id):
+		return  # defensive
+	_acted_this_turn[unit_id] = true
+	_turn_runner.declare_action(unit_id, TurnOrderRunner.ActionType.DEFEND, null)
+	_apply_defend_stance_status(unit_id)
 
 
 ## Per ADR-0014 §Amendment 2026-05-10 (#2 — player-path mirror).
@@ -1502,6 +1579,17 @@ func preview_attack(attacker_id: int, defender_id: int) -> Dictionary:
 	var final_damage: int = roundi(float(base_damage) * angle_mult * aura_mult)
 	if result.kind == ResolveResult.Kind.HIT and final_damage < 1:
 		final_damage = 1
+	# Defender status effects — listed as StringName effect_id tokens so the
+	# UI can render localized labels via tr(). HPStatusController is null in
+	# some test rigs (defensive); empty array is the safe default.
+	var status_ids: Array[StringName] = _preview_collect_defender_status_ids(defender.unit_id)
+	# Session-13: mirror HPStatusController's defend_stance reduction (line 117-118)
+	# so the forecast number matches what the player will actually see post-attack.
+	# Production damage flow applies this inside apply_damage; preview must match.
+	if &"defend_stance" in status_ids and result.kind == ResolveResult.Kind.HIT:
+		var reduction: float = BalanceConstants.get_const("DEFEND_STANCE_REDUCTION") as float
+		final_damage = int(floor(float(final_damage) * (1.0 - reduction / 100.0)))
+		final_damage = maxi(BalanceConstants.get_const("MIN_DAMAGE") as int, final_damage)
 	# Counter preview: defender retaliates only if in attack range of attacker
 	# AND has not already acted this turn. MVP no charge / no skill / standard
 	# is_counter=true halves the resolved damage per CR-2 + AC-DC-20.
@@ -1513,10 +1601,6 @@ func preview_attack(attacker_id: int, defender_id: int) -> Dictionary:
 	# MVP context construction; surfaces as a real read-out when terrain
 	# bonuses ship. Negative defender.terrain_evasion is clamped per F-DC-2.
 	var hit_pct: int = 100 - clampi(0, 0, 30)
-	# Defender status effects — listed as StringName effect_id tokens so the
-	# UI can render localized labels via tr(). HPStatusController is null in
-	# some test rigs (defensive); empty array is the safe default.
-	var status_ids: Array[StringName] = _preview_collect_defender_status_ids(defender.unit_id)
 	return {
 		"direction": _angle_to_direction_rel(angle),
 		"damage": final_damage,

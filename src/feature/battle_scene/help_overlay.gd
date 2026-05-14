@@ -92,6 +92,7 @@ func _ready() -> void:
 	box.add_child(_make_section_heading("키보드"))
 	box.add_child(_make_row("H — 이 도움말 열기 / 닫기"))
 	box.add_child(_make_row("ESC — 일시 정지 메뉴"))
+	box.add_child(_make_row("D — 선택한 유닛 방어 (받는 피해 50% 감소; 한 턴 소모)"))
 	box.add_child(_make_row("Enter / R / Space — 전투 종료 후 다음 행동"))
 	box.add_child(_make_spacer(6))
 
@@ -110,6 +111,8 @@ func _ready() -> void:
 	box.add_child(_make_row("지휘관 유닛(유비/조조 등) 옆에 붙으면 피해가 +15% 증가합니다."))
 	box.add_child(_make_row("산자락(짙은 녹지)은 이동이 느리지만 방어 보너스가 있습니다."))
 	box.add_child(_make_row("궁병은 1칸 멀리서 공격할 수 있으나 반격을 받지 않습니다."))
+	box.add_child(_make_row("적이 둘러쌀 것 같으면 D로 방어 — 한 턴 버려도 받는 피해 절반이 됩니다."))
+	box.add_child(_make_row("적의 측면(FLANK) +20%, 후방(REAR) +50% 추가 피해. 공격 미리보기에서 확인하세요."))
 	box.add_child(_make_spacer(12))
 
 	# ── Close button ────────────────────────────────────────────────────────
