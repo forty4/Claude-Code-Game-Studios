@@ -226,6 +226,10 @@ func _score_candidate(
 			return _score_holder(candidate, snapshot, unit)
 		&"coordinator":
 			return _score_coordinator(candidate, snapshot, unit)
+		&"berserker":
+			return _score_berserker(candidate, snapshot, unit)
+		&"protector":
+			return _score_protector(candidate, snapshot, unit)
 		_:
 			# EC-AI-4: unknown archetype falls back to aggressor.
 			push_warning("AISystem: unknown archetype '%s' — falling back to aggressor" % archetype)
@@ -356,6 +360,127 @@ func _score_coordinator(candidate: Dictionary, snapshot: BattleStateSnapshot, un
 		var dist_to_center: int = _grid_distance(dest, snapshot.formation_center)
 		return -float(dist_to_center) * 1.5
 	return 0.0
+
+
+## F-AI-5: berserker — counterpoint to aggressor. Goes all-in on attack when
+## wounded; refuses to defend; tolerates closing distance further than aggressor
+## would. Player must focus-fire a berserker before they reach low-HP frenzy or
+## they'll trade hits at terrible exchange rates.
+##
+##   Below BERSERKER_LOW_HP_THRESHOLD: ATTACK gets a flat BONUS on top of base.
+##   Above threshold: behaves like a more reckless aggressor (bigger move budget).
+##   DEFEND/USE_SKILL: hard-rejected.
+func _score_berserker(candidate: Dictionary, snapshot: BattleStateSnapshot, unit: Dictionary) -> float:
+	var action: int = candidate.get("action_type", AIActionCommand.ActionType.WAIT) as int
+	if action == AIActionCommand.ActionType.WAIT:
+		return -100.0
+	if action == AIActionCommand.ActionType.DEFEND:
+		return -100.0  # berserkers never defend
+	if action == AIActionCommand.ActionType.USE_SKILL:
+		return -100.0
+	var hp_pct: float = float(unit.get("hp_current", 1) as int) / max(1.0, float(unit.get("hp_max", 1) as int))
+	var threshold: float = float(BalanceConstants.get_const("BERSERKER_LOW_HP_THRESHOLD"))
+	var low_hp_bonus: float = float(BalanceConstants.get_const("BERSERKER_LOW_HP_ATTACK_BONUS")) if hp_pct < threshold else 0.0
+	var distance_tolerance: float = float(BalanceConstants.get_const("BERSERKER_DISTANCE_TOLERANCE"))
+	if action == AIActionCommand.ActionType.MOVE:
+		# Berserker tolerates more distance than aggressor (multiplier *1, not *2)
+		# so they sprint toward kills even from far away.
+		var dest: Vector2i = candidate.get("move_to", Vector2i.ZERO) as Vector2i
+		var dist_to_nearest: int = _nearest_player_distance(dest, snapshot)
+		# Negative penalty per remaining distance, scaled gently by tolerance.
+		return -float(dist_to_nearest) * (4.0 / max(1.0, distance_tolerance))
+	if action == AIActionCommand.ActionType.ATTACK:
+		var t_id: int = candidate.get("target_id", -1) as int
+		var target: Dictionary = snapshot.get_unit(t_id)
+		if target.is_empty():
+			return -100.0
+		# Base attack score + low-HP bonus stack — when wounded, the berserker
+		# prioritizes ATTACK above any other consideration.
+		return 25.0 + low_hp_bonus
+	return 0.0
+
+
+## F-AI-6: protector — bodyguard for an ally COMMANDER (any ally with the
+## command_aura passive). Stays adjacent to its protectee; intercepts threats
+## that move toward the commander. Forces the player to break the formation
+## before they can reach the COMMANDER.
+##
+##   ATTACK player units within attack-range of the protected commander
+##     gets PROTECTOR_INTERCEPT_BONUS on top of base.
+##   MOVE toward "adjacent to protected commander" gets a strong positive;
+##     MOVE away gets a strong negative.
+##   DEFEND when adjacent to a wounded commander = decent.
+##   No COMMANDER ally to protect → falls back to aggressor scoring.
+func _score_protector(candidate: Dictionary, snapshot: BattleStateSnapshot, unit: Dictionary) -> float:
+	var protectee: Dictionary = _find_ally_commander(unit, snapshot)
+	if protectee.is_empty():
+		# Nothing to protect — degrade to aggressor behaviour rather than
+		# emit warnings. Designer can fix the chapter authoring later.
+		return _score_aggressor(candidate, snapshot, unit)
+	var protectee_pos: Vector2i = protectee.get("position", Vector2i.ZERO) as Vector2i
+	var unit_pos: Vector2i = unit.get("position", Vector2i.ZERO) as Vector2i
+	var protectee_hp_pct: float = float(protectee.get("hp_current", 1) as int) / max(1.0, float(protectee.get("hp_max", 1) as int))
+	var action: int = candidate.get("action_type", AIActionCommand.ActionType.WAIT) as int
+	var adj_bonus: float = float(BalanceConstants.get_const("PROTECTOR_COMMANDER_ADJACENT_BONUS"))
+	var intercept_bonus: float = float(BalanceConstants.get_const("PROTECTOR_INTERCEPT_BONUS"))
+	var overextend_penalty: float = float(BalanceConstants.get_const("PROTECTOR_OVEREXTEND_PENALTY"))
+	if action == AIActionCommand.ActionType.WAIT:
+		# Wait is OK if already adjacent to a healthy commander; bad otherwise.
+		return 5.0 if (_grid_distance(unit_pos, protectee_pos) <= 1 and protectee_hp_pct >= 0.50) else -30.0
+	if action == AIActionCommand.ActionType.DEFEND:
+		# Defensive stance is valuable when guarding a wounded commander.
+		return 25.0 if protectee_hp_pct < 0.50 else 5.0
+	if action == AIActionCommand.ActionType.USE_SKILL:
+		return -100.0
+	if action == AIActionCommand.ActionType.MOVE:
+		var dest: Vector2i = candidate.get("move_to", Vector2i.ZERO) as Vector2i
+		var dest_to_protectee: int = _grid_distance(dest, protectee_pos)
+		var current_to_protectee: int = _grid_distance(unit_pos, protectee_pos)
+		# If already adjacent to commander, MOVE only matters for repositioning —
+		# no big bonus. Holding station beats reshuffling. Moving away is bad.
+		if current_to_protectee <= 1:
+			if dest_to_protectee <= 1:
+				return 0.0  # equally adjacent (or staying); no preference
+			return -overextend_penalty  # would lose adjacency
+		# Currently NOT adjacent — closing the gap is the priority.
+		if dest_to_protectee <= 1:
+			return adj_bonus
+		# Reward for closing distance; penalty for opening it.
+		if dest_to_protectee < current_to_protectee:
+			return float(current_to_protectee - dest_to_protectee) * 5.0
+		if dest_to_protectee > current_to_protectee:
+			return -overextend_penalty
+		return 0.0
+	if action == AIActionCommand.ActionType.ATTACK:
+		var t_id: int = candidate.get("target_id", -1) as int
+		var target: Dictionary = snapshot.get_unit(t_id)
+		if target.is_empty():
+			return -100.0
+		var t_pos: Vector2i = target.get("position", Vector2i.ZERO) as Vector2i
+		var target_to_protectee: int = _grid_distance(t_pos, protectee_pos)
+		# Intercept bonus when attacking a player unit close to our commander.
+		# 2-tile threshold: anything within 2 tiles of commander is "threatening".
+		var threat_bonus: float = intercept_bonus if target_to_protectee <= 2 else 0.0
+		return 18.0 + threat_bonus
+	return 0.0
+
+
+## Returns the FIRST ally Dictionary that carries the command_aura passive.
+## Empty Dictionary if no qualifying ally exists. Iteration order follows
+## snapshot.units which is deterministic per ADR-0019 §Decision §Payload Form.
+func _find_ally_commander(unit: Dictionary, snapshot: BattleStateSnapshot) -> Dictionary:
+	var my_side: int = unit.get("side", 1) as int
+	var my_id: int = unit.get("unit_id", -1) as int
+	for u: Dictionary in snapshot.units:
+		if (u.get("side", 1) as int) != my_side:
+			continue
+		if (u.get("unit_id", -1) as int) == my_id:
+			continue  # don't protect self
+		if not (u.get("is_alive", true) as bool):
+			continue
+		if (u.get("passive_id", &"") as StringName) == &"command_aura":
+			return u
+	return {}
 
 
 # ─── Helpers (snapshot-only) ─────────────────────────────────────────────────

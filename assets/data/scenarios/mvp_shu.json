@@ -169,7 +169,7 @@
         {"unit_id": 2, "hero_id": "wei_005_xiahou_dun", "archetype": "aggressor"},
         {"unit_id": 3, "hero_id": "wei_006_zhang_liao", "archetype": "skirmisher"},
         {"unit_id": 5, "hero_id": "wei_008_xu_chu",     "archetype": "coordinator"},
-        {"unit_id": 7, "hero_id": "wei_001_cao_cao",    "archetype": "coordinator"}
+        {"unit_id": 7, "hero_id": "wei_001_cao_cao",    "archetype": "protector"}
       ],
       "chokepoints": [
         [4, 3],
