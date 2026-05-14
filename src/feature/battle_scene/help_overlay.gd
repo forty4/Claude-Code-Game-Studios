@@ -113,6 +113,7 @@ func _ready() -> void:
 	box.add_child(_make_row("궁병은 1칸 멀리서 공격할 수 있으나 반격을 받지 않습니다."))
 	box.add_child(_make_row("적이 둘러쌀 것 같으면 D로 방어 — 한 턴 버려도 받는 피해 절반이 됩니다."))
 	box.add_child(_make_row("적의 측면(FLANK) +20%, 후방(REAR) +50% 추가 피해. 공격 미리보기에서 확인하세요."))
+	box.add_child(_make_row("기병(관우 등)이 4칸 이상 이동 후 공격하면 돌격 +20% — 멀리서 달려들어 한 방 노리세요."))
 	box.add_child(_make_spacer(12))
 
 	# ── Close button ────────────────────────────────────────────────────────

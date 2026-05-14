@@ -1459,12 +1459,19 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 	var passives: Array[StringName] = []
 	if attacker.passive != &"":
 		passives.append(attacker.passive)
+	# Session-13: query TurnOrderRunner for charge eligibility. CAVALRY units
+	# that moved >= CHARGE_THRESHOLD (40 cost ≈ 4 flat tiles) get +20% bonus
+	# via DamageCalc._charge_factor (which gates on class + passive + flag).
+	# Defensive: turn_runner is null in some test rigs.
+	var charge_active: bool = false
+	if _turn_runner != null and _turn_runner.has_method("is_unit_charge_eligible"):
+		charge_active = _turn_runner.is_unit_charge_eligible(attacker.unit_id)
 	var attacker_ctx: AttackerContext = AttackerContext.make(
 		attacker.hero_id,
 		attacker.unit_class,
 		attacker.raw_atk,
-		false,  # charge_active — MVP no charge
-		false,  # defend_stance_active — MVP no defend
+		charge_active,
+		false,  # defend_stance_active (attacker side; MVP doesn't defend then attack)
 		passives,
 	)
 	var defender_ctx: DefenderContext = DefenderContext.make(
@@ -1556,10 +1563,15 @@ func preview_attack(attacker_id: int, defender_id: int) -> Dictionary:
 	var passives: Array[StringName] = []
 	if attacker.passive != &"":
 		passives.append(attacker.passive)
+	# Session-13: mirror _resolve_attack's charge eligibility query so the
+	# preview damage matches what the real attack will deal.
+	var charge_active: bool = false
+	if _turn_runner != null and _turn_runner.has_method("is_unit_charge_eligible"):
+		charge_active = _turn_runner.is_unit_charge_eligible(attacker.unit_id)
 	# Stage 2: DamageCalc contexts — same construction as _resolve_attack.
 	var attacker_ctx: AttackerContext = AttackerContext.make(
 		attacker.hero_id, attacker.unit_class, attacker.raw_atk,
-		false, false, passives)
+		charge_active, false, passives)
 	var defender_ctx: DefenderContext = DefenderContext.make(
 		defender.hero_id, defender.raw_def, 0, 0)
 	# Throwaway RNG — see docstring for determinism rationale. Uses a freshly

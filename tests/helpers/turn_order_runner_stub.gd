@@ -36,3 +36,26 @@ func initialize_battle(_unit_roster: Array[BattleUnit]) -> void:
 func declare_action(unit_id: int, action: int, _target: ActionTarget) -> ActionResult:
 	declared_actions.append({"unit_id": unit_id, "action": action})
 	return ActionResult.make_success()
+
+
+# ─── Session-13: charge eligibility test seam ─────────────────────────────────
+
+
+## Per-unit_id charge eligibility override. Tests set via
+## set_charge_eligible_for_test(unit_id, bool); the production caller
+## (GridBattleController._resolve_attack + preview_attack) reads via
+## is_unit_charge_eligible(unit_id). Default false (no charge eligible)
+## so existing tests' damage assertions remain stable.
+var _test_charge_eligible: Dictionary[int, bool] = {}
+
+
+## Test seam — populate the per-unit charge eligibility lookup.
+func set_charge_eligible_for_test(unit_id: int, eligible: bool) -> void:
+	_test_charge_eligible[unit_id] = eligible
+
+
+## Override of TurnOrderRunner.is_unit_charge_eligible. Production reads
+## accumulated_move_cost against CHARGE_THRESHOLD; the stub reads from the
+## test-seam dictionary so test fixtures can force the boolean directly.
+func is_unit_charge_eligible(unit_id: int) -> bool:
+	return _test_charge_eligible.get(unit_id, false)

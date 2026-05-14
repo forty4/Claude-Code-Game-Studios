@@ -793,12 +793,16 @@ func _attack_range_for_class(unit_class: int) -> int:
 
 ## Class → default passive mapping. COMMANDER carries `command_aura` so the
 ## adjacent-ally damage buff (GridBattleController._has_adjacent_command_aura)
-## actually fires. Other classes' passives (passive_charge / shield_wall / etc.
-## per unit_roles.json) are advisory tags consumed by other systems, not by the
-## damage pipeline — leave empty until those systems land.
+## actually fires. CAVALRY carries `passive_charge` (session-13) so the +20%
+## CHARGE_BONUS in DamageCalc._charge_factor fires when the cavalry unit
+## moved >= CHARGE_THRESHOLD (40 path-cost = 4 flat tiles) before attacking.
+## Other class passives (shield_wall etc. per unit_roles.json) are advisory
+## tags not consumed by the damage pipeline yet.
 func _passive_for_class(unit_class: int) -> StringName:
 	if unit_class == int(UnitRole.UnitClass.COMMANDER):
 		return &"command_aura"
+	if unit_class == int(UnitRole.UnitClass.CAVALRY):
+		return &"passive_charge"
 	return &""
 
 
