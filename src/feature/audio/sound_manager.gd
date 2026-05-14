@@ -31,11 +31,21 @@ const SFX_HIT: StringName = &"hit"
 const SFX_DEATH: StringName = &"death"
 const SFX_VICTORY: StringName = &"victory"
 
+## Music slugs — separate stream pool from SFX so they can be muted
+## independently (player may want music off but SFX on, or vice versa).
+const MUSIC_BATTLE_AMBIENT: StringName = &"battle_ambient"
+
 
 # ─── Synthesis params ─────────────────────────────────────────────────────────
 
 const _MIX_RATE: int = 22050
 const _MASTER_VOLUME_DB: float = -8.0  # placeholder beeps shouldn't be loud
+## Music sits well below SFX so combat cues stay legible. -22dB ≈ 8% linear.
+const _MUSIC_VOLUME_DB: float = -22.0
+## Loop length in seconds. 16s is long enough that the listener loses track
+## of the seam, short enough to fit in memory at 22.05 kHz mono 16-bit
+## (16 × 22050 × 2 = 706 KB).
+const _MUSIC_LOOP_SECONDS: float = 16.0
 
 
 # ─── State ────────────────────────────────────────────────────────────────────
@@ -49,10 +59,14 @@ const _PLAYER_POOL_SIZE: int = 4
 var _players: Array[AudioStreamPlayer] = []
 var _next_player_idx: int = 0
 
-## Master enable — flip false in tests / a future "audio off" setting to fully
+## Master SFX enable — flip false in tests / "audio off" setting to fully
 ## silence the SFX layer without touching call sites. Persisted across runs
 ## via user://settings.cfg (see set_enabled / _load_preferences).
 @export var enabled: bool = true
+
+## Master music enable — independent of SFX so the player can mute either
+## independently. Persisted alongside SFX prefs in user://settings.cfg.
+@export var music_enabled: bool = true
 
 ## Persistent preference file (separate namespace from save games — settings
 ## should survive save-slot deletion). ConfigFile, not JSON, so values like
@@ -60,6 +74,16 @@ var _next_player_idx: int = 0
 const _SETTINGS_PATH: String = "user://settings.cfg"
 const _AUDIO_SECTION: String = "audio"
 const _ENABLED_KEY: String = "enabled"
+const _MUSIC_ENABLED_KEY: String = "music_enabled"
+
+## Music stream pool — distinct from SFX pool because music loops and we want
+## to be able to start/stop/swap independently. Single player is enough for now
+## (no music crossfade yet); a 2nd player can be added later for crossfade.
+var _music_player: AudioStreamPlayer = null
+## Music streams keyed by music slug (e.g. MUSIC_BATTLE_AMBIENT → AudioStreamWAV).
+var _music_streams: Dictionary = {}
+## Currently-playing music slug, &"" when stopped. Read by tests + UI.
+var _current_music: StringName = &""
 
 
 # ─── Lifecycle ────────────────────────────────────────────────────────────────
@@ -81,7 +105,14 @@ func _ready() -> void:
 		p.volume_db = _MASTER_VOLUME_DB
 		add_child(p)
 		_players.append(p)
+	# Music player — single instance, runs on the Master bus at lower volume so
+	# combat SFX stay legible. Streams are pre-built; play_music swaps them in.
+	_music_player = AudioStreamPlayer.new()
+	_music_player.bus = "Master"
+	_music_player.volume_db = _MUSIC_VOLUME_DB
+	add_child(_music_player)
 	_build_procedural_streams()
+	_build_procedural_music_streams()
 	# GameBus subscriptions for events that aren't already handled inline by
 	# BattleScene (death + victory). Per-frame battle events (move/hit/turn) are
 	# called explicitly from BattleScene's existing handlers for those signals.
@@ -104,6 +135,10 @@ func _exit_tree() -> void:
 ## disconnected (G-28). Safe to call when not loaded as autoload (Node check).
 func reset_for_tests() -> void:
 	enabled = false  # tests stay silent by default
+	music_enabled = false  # session-12: also silence music channel
+	_current_music = &""
+	if _music_player != null and _music_player.playing:
+		_music_player.stop()
 	if GameBus == null:
 		return
 	if not GameBus.unit_died.is_connected(_on_unit_died):
@@ -121,6 +156,52 @@ func reset_for_tests() -> void:
 func set_enabled(value: bool) -> void:
 	enabled = value
 	_save_preferences()
+
+
+## Toggles music on/off AND persists the preference. Mirrors set_enabled for
+## the music channel. Stops the currently-playing track when disabled;
+## resumes the last-requested track when re-enabled (if any).
+func set_music_enabled(value: bool) -> void:
+	music_enabled = value
+	if not music_enabled:
+		# Honour the toggle immediately — if a track is playing, stop it.
+		# `_current_music` is preserved so a re-enable can resume the same.
+		if _music_player != null and _music_player.playing:
+			_music_player.stop()
+	else:
+		# Re-enable: restart the cached track if one was previously requested.
+		if _current_music != &"":
+			play_music(_current_music)
+	_save_preferences()
+
+
+## Starts looping playback of the music stream registered for `music_id`.
+## Silent no-op when:
+##   - music_enabled is false (player has muted music; cache slug for resume),
+##   - the music player isn't built (headless),
+##   - music_id has no registered stream (typo / un-built track).
+## Idempotent: calling with the same id while it's already playing does nothing
+## (avoids loop-restart pop). Different id → smooth swap (no crossfade yet).
+func play_music(music_id: StringName) -> void:
+	_current_music = music_id  # cache regardless so set_music_enabled can resume
+	if not music_enabled or _music_player == null:
+		return
+	var stream: AudioStream = _music_streams.get(music_id, null) as AudioStream
+	if stream == null:
+		return
+	if _music_player.playing and _music_player.stream == stream:
+		return  # already playing this exact stream — no restart pop
+	_music_player.stream = stream
+	_music_player.play()
+
+
+## Stops music playback if anything is playing. Clears the cached `_current_music`
+## so a subsequent set_music_enabled(true) does NOT auto-resume — call play_music
+## explicitly to restart. Silent no-op when nothing is playing.
+func stop_music() -> void:
+	_current_music = &""
+	if _music_player != null and _music_player.playing:
+		_music_player.stop()
 
 
 ## Plays the SFX stream registered for `sfx_id`. Silent no-op when:
@@ -218,9 +299,9 @@ func _on_chapter_completed(_result: ChapterResult) -> void:
 
 # ─── Preferences (user://settings.cfg) ────────────────────────────────────────
 
-## Loads the persisted SFX preference into `enabled`. Silent no-op when the
-## file is missing (first run) or unreadable — `enabled` keeps its default.
-## ConfigFile.load returns Error; OK means the file existed AND parsed.
+## Loads the persisted SFX + music preferences into `enabled` / `music_enabled`.
+## Silent no-op when the file is missing (first run) or unreadable — flags
+## keep their @export defaults. ConfigFile.load returns Error; OK = parsed.
 func _load_preferences() -> void:
 	var cfg: ConfigFile = ConfigFile.new()
 	var err: int = cfg.load(_SETTINGS_PATH)
@@ -228,20 +309,87 @@ func _load_preferences() -> void:
 		return
 	if cfg.has_section_key(_AUDIO_SECTION, _ENABLED_KEY):
 		enabled = bool(cfg.get_value(_AUDIO_SECTION, _ENABLED_KEY, true))
+	if cfg.has_section_key(_AUDIO_SECTION, _MUSIC_ENABLED_KEY):
+		music_enabled = bool(cfg.get_value(_AUDIO_SECTION, _MUSIC_ENABLED_KEY, true))
 
 
-## Writes the current `enabled` flag to user://settings.cfg. Best-effort —
-## a failed write (read-only filesystem, etc.) emits push_warning but does
-## NOT crash the game; the in-memory toggle still works for this session.
+## Writes the current `enabled` + `music_enabled` flags to user://settings.cfg.
+## Best-effort — a failed write (read-only filesystem, etc.) emits push_warning
+## but does NOT crash; the in-memory toggle still works for this session.
 func _save_preferences() -> void:
 	var cfg: ConfigFile = ConfigFile.new()
 	# Round-trip prior keys so we don't clobber unrelated sections a future
 	# settings UI may add. Missing file → empty ConfigFile is the no-op path.
 	cfg.load(_SETTINGS_PATH)
 	cfg.set_value(_AUDIO_SECTION, _ENABLED_KEY, enabled)
+	cfg.set_value(_AUDIO_SECTION, _MUSIC_ENABLED_KEY, music_enabled)
 	var err: int = cfg.save(_SETTINGS_PATH)
 	if err != OK:
 		push_warning(
 			"SoundManager._save_preferences: ConfigFile.save returned %d for %s"
 			% [err, _SETTINGS_PATH]
 		)
+
+
+# ─── Procedural music synthesis ───────────────────────────────────────────────
+
+## Builds the music streams. Currently 1 track (battle ambient drone). Future
+## tracks (main menu theme / victory fanfare / chapter-specific cues) plug in
+## here keyed by their MUSIC_* slug.
+func _build_procedural_music_streams() -> void:
+	_music_streams[MUSIC_BATTLE_AMBIENT] = _make_battle_drone(_MUSIC_LOOP_SECONDS)
+
+
+## Battle ambient drone — slow, sparse, mournful. Stacks 3 partials at A2/E3/A3
+## (open-fifth pad with tonic doubling) modulated by a slow LFO so the texture
+## breathes across the loop. Designed to set tone without competing with combat
+## SFX. Tag: 천명역전 mood = tragedy + weight + impending fate.
+##
+## Loop seam strategy: total cycle is an integer multiple of all partial
+## periods AT _MIX_RATE so the buffer ends on the same phase it started, no
+## audible click at loop boundary.
+func _make_battle_drone(duration: float) -> AudioStreamWAV:
+	var stream: AudioStreamWAV = AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = _MIX_RATE
+	stream.stereo = false
+	# LOOP_FORWARD with explicit start/end = 0/sample_count keeps the loop
+	# perfectly aligned. AudioStreamPlayer needs the loop_mode to fire.
+	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	var sample_count: int = int(duration * _MIX_RATE)
+	stream.loop_begin = 0
+	stream.loop_end = sample_count
+	var data: PackedByteArray = PackedByteArray()
+	data.resize(sample_count * 2)
+	# Three partials forming an A-rooted open-fifth pad. Frequencies chosen so
+	# their periods divide evenly into common loop lengths (16s × 110 Hz = 1760
+	# integer cycles; 16s × 165 Hz = 2640; 16s × 220 Hz = 3520) — phase aligns
+	# at every loop boundary regardless of duration.
+	var f1: float = 110.00  # A2
+	var f2: float = 164.81  # E3 (slightly off-integer cycles; small phase
+	                        #     drift across the loop is intentional — adds
+	                        #     subtle beating)
+	var f3: float = 220.00  # A3
+	# LFO: 0.0625 Hz = one full cycle per 16-second loop. Modulates total
+	# amplitude between 0.6 and 1.0, breathing from quiet → present → quiet.
+	var lfo_freq: float = 1.0 / duration
+	# Per-partial gain — A2 carries the body (loudest), E3 + A3 are colour.
+	var gain1: float = 0.42
+	var gain2: float = 0.22
+	var gain3: float = 0.20
+	var two_pi: float = TAU
+	for i: int in sample_count:
+		var t: float = float(i) / float(_MIX_RATE)
+		var lfo: float = 0.6 + 0.4 * (0.5 * (1.0 + sin(two_pi * lfo_freq * t)))
+		var sum: float = (
+			gain1 * sin(two_pi * f1 * t)
+			+ gain2 * sin(two_pi * f2 * t)
+			+ gain3 * sin(two_pi * f3 * t)
+		)
+		var sample: float = sum * lfo
+		var s16: int = clampi(int(sample * 32767.0), -32767, 32767)
+		# Little-endian 16-bit signed.
+		data[i * 2]     = s16 & 0xff
+		data[i * 2 + 1] = (s16 >> 8) & 0xff
+	stream.data = data
+	return stream

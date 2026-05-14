@@ -26,6 +26,7 @@ const _BACKDROP_COLOR: Color = Color(0.025, 0.035, 0.055, 0.88)
 
 var _resume_button: Button = null
 var _sfx_toggle_button: Button = null
+var _music_toggle_button: Button = null
 
 ## Edge-detect latch for the ESC close-poll. Starts true so the ESC press that
 ## opened this menu (still held when _ready fires) doesn't immediately close it
@@ -63,6 +64,8 @@ func _ready() -> void:
 	box.add_child(_resume_button)
 	_sfx_toggle_button = _make_button(_sfx_label(), _on_sfx_toggle_pressed)
 	box.add_child(_sfx_toggle_button)
+	_music_toggle_button = _make_button(_music_label(), _on_music_toggle_pressed)
+	box.add_child(_music_toggle_button)
 	box.add_child(_make_button("메인 메뉴로", _on_main_menu_pressed))
 	box.add_child(_make_button("종료", _on_quit_pressed))
 
@@ -140,6 +143,32 @@ func _sfx_label() -> String:
 	if sm != null:
 		on = sm.enabled as bool
 	return "음향 끄기" if on else "음향 켜기"
+
+
+## Mirrors _on_sfx_toggle_pressed for the music channel. Calls
+## SoundManager.set_music_enabled which persists to user://settings.cfg AND
+## starts/stops the music player immediately so the toggle has audible
+## feedback.
+func _on_music_toggle_pressed() -> void:
+	var sm: Node = get_node_or_null("/root/SoundManager")
+	if sm == null:
+		return
+	if sm.has_method("set_music_enabled"):
+		sm.set_music_enabled(not (sm.music_enabled as bool))
+	else:
+		# Stub fallback for test harnesses without the API.
+		sm.music_enabled = not (sm.music_enabled as bool)
+	if _music_toggle_button != null:
+		_music_toggle_button.text = _music_label()
+
+
+## Mirrors _sfx_label for the music channel.
+func _music_label() -> String:
+	var sm: Node = get_node_or_null("/root/SoundManager")
+	var on: bool = true
+	if sm != null and "music_enabled" in sm:
+		on = sm.music_enabled as bool
+	return "음악 끄기" if on else "음악 켜기"
 
 
 # ─── Builders ─────────────────────────────────────────────────────────────────

@@ -418,6 +418,19 @@ func _start_battle() -> void:
 	# WIN_changbanpo_default placing 유비 at [2,3]) actually render.
 	_spawn_unit_polygons_async(roster)
 
+	# Session-12: kick off the battle ambient music. Silent no-op when the
+	# player has muted music (set_music_enabled false → cached slug only).
+	# Stops via _exit_tree when the scene unmounts (chapter transition / main).
+	SoundManager.play_music(SoundManager.MUSIC_BATTLE_AMBIENT)
+
+
+## _exit_tree — stops battle music when the scene tears down. Without this
+## the music would continue across the brief gap before the next BattleScene
+## mounts (or the main menu shows). Safe no-op when nothing is playing.
+func _exit_tree() -> void:
+	if SoundManager.has_method("stop_music"):
+		SoundManager.stop_music()
+
 
 # ─── Scenario driving (standalone-launch only) ───────────────────────────────
 
