@@ -836,16 +836,44 @@ func _on_unit_selected_changed(unit_id: int, _was_selected: int) -> void:
 		visuals.set_selected_coord(Vector2i(-1, -1))
 		visuals.set_movable_tiles(PackedVector2Array())
 		visuals.set_attackable_tiles(PackedVector2Array())
+		_clear_verb_feedback_overlays(visuals)
 		return
 	var unit: BattleUnit = _grid_controller.get_battle_unit(unit_id)
 	if unit == null:
 		visuals.set_selected_coord(Vector2i(-1, -1))
 		visuals.set_movable_tiles(PackedVector2Array())
 		visuals.set_attackable_tiles(PackedVector2Array())
+		_clear_verb_feedback_overlays(visuals)
 		return
 	visuals.set_selected_coord(unit.position)
 	visuals.set_movable_tiles(_grid_controller.get_movable_tiles(unit_id))
 	visuals.set_attackable_tiles(_grid_controller.get_attackable_tiles(unit_id))
+	_apply_verb_feedback_overlays(visuals, unit_id, unit.position)
+
+
+## Session-15: pushes AMBUSH / CHARGE feedback overlays for the given unit.
+## Ambush set = subset of attackable tiles where SCOUT + round >= 2 + defender
+## unacted; charge coord = the unit's own tile when CAVALRY + passive_charge +
+## accumulated_move >= CHARGE_THRESHOLD. Either may be empty / sentinel; the
+## ChapterVisuals setters no-op gracefully on empty values.
+func _apply_verb_feedback_overlays(visuals: Node, unit_id: int, position: Vector2i) -> void:
+	if visuals.has_method("set_ambush_target_tiles"):
+		visuals.set_ambush_target_tiles(
+			_grid_controller.get_ambush_eligible_target_tiles(unit_id))
+	if visuals.has_method("set_charge_ready_coord"):
+		var charge_coord: Vector2i = position if _grid_controller.is_charge_ready(unit_id) \
+			else Vector2i(-1, -1)
+		visuals.set_charge_ready_coord(charge_coord)
+
+
+## Session-15: clears AMBUSH / CHARGE feedback overlays. Called on deselect
+## and on stale-selection branches so the indigo wash / cyan halo don't
+## linger after the unit they belonged to is no longer the selected unit.
+func _clear_verb_feedback_overlays(visuals: Node) -> void:
+	if visuals.has_method("set_ambush_target_tiles"):
+		visuals.set_ambush_target_tiles(PackedVector2Array())
+	if visuals.has_method("set_charge_ready_coord"):
+		visuals.set_charge_ready_coord(Vector2i(-1, -1))
 
 
 func _find_chapter_visuals() -> Node:
@@ -990,8 +1018,14 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 	visuals.set_movable_tiles(PackedVector2Array())
 	if _grid_controller.get_selected_unit_id() == unit_id:
 		visuals.set_attackable_tiles(_grid_controller.get_attackable_tiles(unit_id))
+		# Session-15: a CAVALRY that just crossed CHARGE_THRESHOLD on this slide
+		# now has the cyan halo eligible; a SCOUT whose new range overlaps an
+		# unacted enemy now has indigo targets. Recompute both from the new
+		# position so the verb-feedback cue appears the instant the slide ends.
+		_apply_verb_feedback_overlays(visuals, unit_id, to)
 	else:
 		visuals.set_attackable_tiles(PackedVector2Array())
+		_clear_verb_feedback_overlays(visuals)
 
 
 ## Damage feedback: brief red flash on the defender's polygon so the player

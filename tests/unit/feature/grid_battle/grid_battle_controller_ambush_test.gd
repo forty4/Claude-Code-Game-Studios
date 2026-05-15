@@ -276,3 +276,100 @@ func test_preview_passives_array_includes_passive_ambush_for_scout() -> void:
 		"passive_ambush must appear in preview.passives for SCOUT attacker; got %s"
 		% str(passives_arr)
 	).is_true()
+
+
+# ─── Session-15 verb-feedback: get_ambush_eligible_target_tiles ──────────────
+
+
+func test_get_ambush_eligible_target_tiles_returns_unacted_enemy_in_round_2() -> void:
+	# SCOUT with passive_ambush + round 2 + adjacent unacted enemy → tile appears.
+	var attacker: BattleUnit = _make_unit(1, int(UnitRole.UnitClass.SCOUT),
+		Vector2i(2, 2), 0, &"passive_ambush")
+	var defender: BattleUnit = _make_unit(2, int(UnitRole.UnitClass.INFANTRY),
+		Vector2i(3, 2), 1)
+	var bag: Dictionary = _setup([attacker, defender])
+	var controller: GridBattleController = bag["controller"]
+	var turn_runner: TurnOrderRunnerStub = bag["turn_runner"]
+	turn_runner.set_round_number_for_test(2)
+
+	var tiles: PackedVector2Array = controller.get_ambush_eligible_target_tiles(1)
+	assert_int(tiles.size()).override_failure_message(
+		"expected exactly 1 ambush-eligible tile (the unacted INFANTRY at (3,2)); got %s"
+		% str(tiles)
+	).is_equal(1)
+	assert_vector(tiles[0]).is_equal(Vector2(3, 2))
+
+
+func test_get_ambush_eligible_target_tiles_empty_in_round_1() -> void:
+	# Same fixture but round 1 — ambush gate locked, set must be empty even
+	# though the defender is in range and unacted.
+	var attacker: BattleUnit = _make_unit(1, int(UnitRole.UnitClass.SCOUT),
+		Vector2i(2, 2), 0, &"passive_ambush")
+	var defender: BattleUnit = _make_unit(2, int(UnitRole.UnitClass.INFANTRY),
+		Vector2i(3, 2), 1)
+	var bag: Dictionary = _setup([attacker, defender])
+	var controller: GridBattleController = bag["controller"]
+	var turn_runner: TurnOrderRunnerStub = bag["turn_runner"]
+	turn_runner.set_round_number_for_test(1)
+
+	var tiles: PackedVector2Array = controller.get_ambush_eligible_target_tiles(1)
+	assert_int(tiles.size()).override_failure_message(
+		"round 1 must produce zero ambush tiles regardless of range; got %s"
+		% str(tiles)
+	).is_equal(0)
+
+
+func test_get_ambush_eligible_target_tiles_skips_acted_defenders() -> void:
+	# Two adjacent enemies, both in range; one has acted, one has not. Only
+	# the unacted one should appear in the ambush set.
+	var attacker: BattleUnit = _make_unit(1, int(UnitRole.UnitClass.SCOUT),
+		Vector2i(2, 2), 0, &"passive_ambush")
+	var def_acted: BattleUnit = _make_unit(2, int(UnitRole.UnitClass.INFANTRY),
+		Vector2i(3, 2), 1)
+	var def_unacted: BattleUnit = _make_unit(3, int(UnitRole.UnitClass.INFANTRY),
+		Vector2i(2, 3), 1)
+	var bag: Dictionary = _setup([attacker, def_acted, def_unacted])
+	var controller: GridBattleController = bag["controller"]
+	var turn_runner: TurnOrderRunnerStub = bag["turn_runner"]
+	turn_runner.set_round_number_for_test(2)
+	controller._acted_this_turn[2] = true  # def_acted has spent its action
+
+	var tiles: PackedVector2Array = controller.get_ambush_eligible_target_tiles(1)
+	assert_int(tiles.size()).override_failure_message(
+		"only unacted defender should appear; got %s" % str(tiles)
+	).is_equal(1)
+	assert_vector(tiles[0]).is_equal(Vector2(2, 3))
+
+
+func test_get_ambush_eligible_target_tiles_empty_for_non_scout_class() -> void:
+	# An INFANTRY with passive_ambush (test-only seam) does NOT qualify due
+	# to the class mutex (SCOUT/ARCHER only); set must be empty.
+	var attacker: BattleUnit = _make_unit(1, int(UnitRole.UnitClass.INFANTRY),
+		Vector2i(2, 2), 0, &"passive_ambush")
+	var defender: BattleUnit = _make_unit(2, int(UnitRole.UnitClass.INFANTRY),
+		Vector2i(3, 2), 1)
+	var bag: Dictionary = _setup([attacker, defender])
+	var controller: GridBattleController = bag["controller"]
+	var turn_runner: TurnOrderRunnerStub = bag["turn_runner"]
+	turn_runner.set_round_number_for_test(2)
+
+	var tiles: PackedVector2Array = controller.get_ambush_eligible_target_tiles(1)
+	assert_int(tiles.size()).override_failure_message(
+		"INFANTRY must produce zero ambush tiles (class mutex); got %s" % str(tiles)
+	).is_equal(0)
+
+
+func test_get_ambush_eligible_target_tiles_empty_without_passive() -> void:
+	# SCOUT without passive_ambush (e.g., production code branch that strips
+	# the passive) does NOT qualify; set must be empty.
+	var attacker: BattleUnit = _make_unit(1, int(UnitRole.UnitClass.SCOUT),
+		Vector2i(2, 2), 0, &"")  # passive missing
+	var defender: BattleUnit = _make_unit(2, int(UnitRole.UnitClass.INFANTRY),
+		Vector2i(3, 2), 1)
+	var bag: Dictionary = _setup([attacker, defender])
+	var controller: GridBattleController = bag["controller"]
+	var turn_runner: TurnOrderRunnerStub = bag["turn_runner"]
+	turn_runner.set_round_number_for_test(2)
+
+	var tiles: PackedVector2Array = controller.get_ambush_eligible_target_tiles(1)
+	assert_int(tiles.size()).is_equal(0)

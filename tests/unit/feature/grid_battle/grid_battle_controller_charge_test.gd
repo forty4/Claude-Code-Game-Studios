@@ -154,3 +154,60 @@ func test_infantry_ignores_charge_eligibility_flag() -> void:
 		"INFANTRY damage must NOT shift with charge eligibility (class mutex); got %d vs %d"
 		% [dmg_yes, dmg_no]
 	).is_equal(dmg_no)
+
+
+# ─── Session-15 verb-feedback: is_charge_ready ───────────────────────────────
+
+
+func test_is_charge_ready_true_for_cavalry_passive_charge_threshold_met() -> void:
+	# All three gates pass: CAVALRY class + passive_charge + turn-runner reports
+	# eligible. Mirrors the gate DamageCalc uses for the +20% bonus.
+	var attacker: BattleUnit = _make_cavalry(1, Vector2i(2, 2), 0)
+	var defender: BattleUnit = _make_cavalry(2, Vector2i(3, 2), 1, &"")
+	var bag: Dictionary = _setup([attacker, defender])
+	var controller: GridBattleController = bag["controller"]
+	var turn_runner: TurnOrderRunnerStub = bag["turn_runner"]
+	turn_runner.set_charge_eligible_for_test(1, true)
+
+	assert_bool(controller.is_charge_ready(1)).is_true()
+
+
+func test_is_charge_ready_false_when_threshold_not_met() -> void:
+	# CAVALRY + passive_charge BUT accumulated_move hasn't reached threshold —
+	# turn runner reports false, helper returns false.
+	var attacker: BattleUnit = _make_cavalry(1, Vector2i(2, 2), 0)
+	var defender: BattleUnit = _make_cavalry(2, Vector2i(3, 2), 1, &"")
+	var bag: Dictionary = _setup([attacker, defender])
+	var controller: GridBattleController = bag["controller"]
+	var turn_runner: TurnOrderRunnerStub = bag["turn_runner"]
+	turn_runner.set_charge_eligible_for_test(1, false)
+
+	assert_bool(controller.is_charge_ready(1)).is_false()
+
+
+func test_is_charge_ready_false_for_non_cavalry_class() -> void:
+	# INFANTRY (or any non-CAVALRY) with passive_charge (test-only seam) still
+	# fails because the class gate is part of is_charge_ready, matching the
+	# class mutex DamageCalc applies to the charge bonus.
+	var attacker: BattleUnit = _make_cavalry(1, Vector2i(2, 2), 0)
+	attacker.unit_class = int(UnitRole.UnitClass.INFANTRY)
+	var defender: BattleUnit = _make_cavalry(2, Vector2i(3, 2), 1, &"")
+	var bag: Dictionary = _setup([attacker, defender])
+	var controller: GridBattleController = bag["controller"]
+	var turn_runner: TurnOrderRunnerStub = bag["turn_runner"]
+	turn_runner.set_charge_eligible_for_test(1, true)
+
+	assert_bool(controller.is_charge_ready(1)).is_false()
+
+
+func test_is_charge_ready_false_without_passive_charge() -> void:
+	# CAVALRY whose passive was never wired (e.g., production code branch
+	# that strips it) fails the passive gate even though the class is correct.
+	var attacker: BattleUnit = _make_cavalry(1, Vector2i(2, 2), 0, &"")
+	var defender: BattleUnit = _make_cavalry(2, Vector2i(3, 2), 1, &"")
+	var bag: Dictionary = _setup([attacker, defender])
+	var controller: GridBattleController = bag["controller"]
+	var turn_runner: TurnOrderRunnerStub = bag["turn_runner"]
+	turn_runner.set_charge_eligible_for_test(1, true)
+
+	assert_bool(controller.is_charge_ready(1)).is_false()

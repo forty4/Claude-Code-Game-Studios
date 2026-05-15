@@ -625,6 +625,60 @@ func get_attackable_tiles(unit_id: int) -> PackedVector2Array:
 	return result
 
 
+## Subset of get_attackable_tiles() where the AMBUSH conditions are met (session-15
+## verb-feedback): SCOUT/ARCHER + passive_ambush + round >= 2 + defender not acted.
+## Used by ChapterVisuals to overlay a distinct color on ambush-window targets so
+## the player can see "this is the strike that gets +15% and no counter" without
+## opening the forecast. Reuses _is_ambush_active so visuals cannot drift from
+## the actual damage gate.
+func get_ambush_eligible_target_tiles(unit_id: int) -> PackedVector2Array:
+	var result: PackedVector2Array = PackedVector2Array()
+	if not _units.has(unit_id):
+		return result
+	var attacker: BattleUnit = _units[unit_id]
+	if attacker.passive != &"passive_ambush":
+		return result
+	for tile: Vector2 in get_attackable_tiles(unit_id):
+		var coord: Vector2i = Vector2i(int(tile.x), int(tile.y))
+		var defender_id: int = _occupant_at(coord)
+		if defender_id == -1 or not _units.has(defender_id):
+			continue
+		var defender: BattleUnit = _units[defender_id]
+		if defender.side == attacker.side:
+			continue
+		if _is_ambush_active(attacker, defender):
+			result.append(tile)
+	return result
+
+
+## True when the unit's next attack will receive the CHARGE +20% bonus
+## (session-15 verb-feedback). Mirrors the gate DamageCalc uses: CAVALRY class,
+## passive_charge carried, accumulated_move_cost >= CHARGE_THRESHOLD (queried
+## via the turn runner). Used by ChapterVisuals to draw a halo on the selected
+## unit's tile so the player knows "attack now to cash in the rush".
+func is_charge_ready(unit_id: int) -> bool:
+	if not _units.has(unit_id):
+		return false
+	var unit: BattleUnit = _units[unit_id]
+	if unit.unit_class != int(UnitRole.UnitClass.CAVALRY):
+		return false
+	if unit.passive != &"passive_charge":
+		return false
+	if _turn_runner == null or not _turn_runner.has_method("is_unit_charge_eligible"):
+		return false
+	return _turn_runner.is_unit_charge_eligible(unit_id)
+
+
+## Returns the unit_id occupying the given coord, or -1 if vacant. Used by
+## get_ambush_eligible_target_tiles to map attackable tiles → defender BattleUnit
+## without re-scanning _units for every tile.
+func _occupant_at(coord: Vector2i) -> int:
+	for u: BattleUnit in _units.values():
+		if u.position == coord:
+			return u.unit_id
+	return -1
+
+
 ## Returns the currently selected unit_id, or -1 if no unit is selected.
 func get_selected_unit_id() -> int:
 	return _selected_unit_id

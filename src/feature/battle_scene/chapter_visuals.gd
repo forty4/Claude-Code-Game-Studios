@@ -69,6 +69,20 @@ var _attackable_tiles: PackedVector2Array = PackedVector2Array()
 ## set_active_turn_coord() from BattleScene._on_active_unit_changed.
 var _active_turn_coord: Vector2i = Vector2i(-1, -1)
 
+## Subset of _attackable_tiles where AMBUSH conditions hold (session-15) —
+## SCOUT attacker, round >= 2, defender not yet acted. Drawn with a distinct
+## indigo fill ON TOP of the standard attack-preview red so the player can
+## see at a glance "this is the +15% / no-counter target". Empty = no ambush
+## window active for the selected unit.
+var _ambush_target_tiles: PackedVector2Array = PackedVector2Array()
+
+## Selected unit's grid coord IF that unit currently meets the CHARGE bonus
+## conditions (session-15) — CAVALRY, passive_charge, accumulated_move_cost
+## past CHARGE_THRESHOLD. Drawn as a cyan halo ring around the tile so the
+## player can see "your next attack will get +20% from this rush" without
+## opening the forecast. Vector2i(-1, -1) sentinel = no charge ready.
+var _charge_ready_coord: Vector2i = Vector2i(-1, -1)
+
 
 ## Selection highlight color (saturated saffron — art-bible reserved color for
 ## "destiny moment" usage; here repurposed for tactical selection feedback).
@@ -83,6 +97,21 @@ const COLOR_MOVE_PREVIEW: Color = Color(0.18, 0.55, 0.67, 0.30)
 ## attack reach. Distinct hue from movement preview so both can be read at
 ## once. NOT 주홍 #c0392b (art-bible reserved); muted brick instead.
 const COLOR_ATTACK_PREVIEW: Color = Color(0.80, 0.28, 0.22, 0.40)
+
+## Ambush-window fill (session-15 verb-feedback): translucent indigo drawn ON
+## TOP of the attack preview so an ambush-eligible target tile reads as a
+## distinct chord (red base + indigo wash) rather than blending into the
+## standard target set. Hue distance from COLOR_ATTACK_PREVIEW is large enough
+## to survive desaturated displays / colorblind sims.
+const COLOR_AMBUSH_PREVIEW: Color = Color(0.42, 0.20, 0.78, 0.45)
+
+## Charge-ready halo (session-15 verb-feedback): bright cyan ring drawn around
+## the selected attacker's tile when CAVALRY has accumulated enough movement
+## for the +20% charge bonus on its next attack. Cyan does NOT compete with
+## the saffron selection outline (different hue) or the gold active-turn ring
+## (warm vs cool), so all three rings can coexist on one tile and remain
+## individually readable.
+const COLOR_CHARGE_HALO: Color = Color(0.30, 0.85, 0.95, 0.95)
 
 
 ## Faction colors per art-bible §4.2. Used by spawn_unit_polygons() as the
@@ -157,6 +186,29 @@ func set_movable_tiles(tiles: PackedVector2Array) -> void:
 ## GridBattleController.get_attackable_tiles).
 func set_attackable_tiles(tiles: PackedVector2Array) -> void:
 	_attackable_tiles = tiles
+	queue_redraw()
+
+
+## Updates the AMBUSH window overlay (session-15). Pass an empty array to
+## clear. Tiles must be a subset of _attackable_tiles — caller pulls them
+## from GridBattleController.get_ambush_eligible_target_tiles which mirrors
+## the same gate (SCOUT + passive_ambush + round >= 2 + defender unacted)
+## used by DamageCalc, so the visual cue cannot drift from the actual bonus.
+func set_ambush_target_tiles(tiles: PackedVector2Array) -> void:
+	_ambush_target_tiles = tiles
+	queue_redraw()
+
+
+## Sets the charge-ready halo coord (session-15). Pass Vector2i(-1, -1) to
+## clear. Coord is typically the selected attacker's tile when the controller
+## reports is_charge_ready(unit_id) == true. Independent from selection: a
+## non-CAVALRY selected unit clears this even though the selection outline
+## stays on, and a CAVALRY that just attacked clears this because the
+## accumulated move resets on action commit.
+func set_charge_ready_coord(coord: Vector2i) -> void:
+	if _charge_ready_coord == coord:
+		return
+	_charge_ready_coord = coord
 	queue_redraw()
 
 
@@ -352,6 +404,19 @@ func _draw() -> void:
 		)
 		draw_rect(atk_rect, COLOR_ATTACK_PREVIEW, true)
 
+	# Ambush-window overlay (session-15) — drawn on TOP of the attack preview
+	# so ambush-eligible targets read as a red+indigo chord that pops against
+	# plain red targets. Subset of _attackable_tiles per the controller helper.
+	for v: Vector2 in _ambush_target_tiles:
+		var ambush_rect: Rect2 = Rect2(
+			Vector2(int(v.x) * TILE_SIZE, int(v.y) * TILE_SIZE),
+			Vector2(TILE_SIZE, TILE_SIZE),
+		)
+		draw_rect(ambush_rect, COLOR_AMBUSH_PREVIEW, true)
+		# Thin indigo border so the ambush tile is also recognizable when only
+		# the corner is visible at the edge of the camera viewport.
+		draw_rect(ambush_rect, Color(0.55, 0.30, 0.95, 0.95), false, 2.0)
+
 	# Active turn highlight — drawn before selection so a selected active unit
 	# shows both rings (active=gold thick, selection=lighter thin on top).
 	if _active_turn_coord.x >= 0 and _active_turn_coord.y >= 0:
@@ -371,6 +436,18 @@ func _draw() -> void:
 			Vector2(TILE_SIZE, TILE_SIZE),
 		)
 		draw_rect(sel_rect, COLOR_SELECTION, false, 3.0)
+
+	# Charge-ready halo (session-15) — drawn LAST so it sits on top of every
+	# other overlay including selection. Inset slightly so the saffron selection
+	# outline remains visible underneath; cyan ring reads as a distinct second
+	# channel "your rush is loaded — attack now to cash it in".
+	if _charge_ready_coord.x >= 0 and _charge_ready_coord.y >= 0:
+		var ch_rect: Rect2 = Rect2(
+			Vector2(_charge_ready_coord.x * TILE_SIZE + 4,
+				_charge_ready_coord.y * TILE_SIZE + 4),
+			Vector2(TILE_SIZE - 8, TILE_SIZE - 8),
+		)
+		draw_rect(ch_rect, COLOR_CHARGE_HALO, false, 3.0)
 
 
 ## Maps terrain_type enum (per src/core/terrain_cost.gd) to art-bible color.
