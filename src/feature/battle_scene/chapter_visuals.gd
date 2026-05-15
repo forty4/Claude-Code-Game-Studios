@@ -306,8 +306,10 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 		# / scroll / crown / dagger). Counter-rotated against the polygon facing
 		# so the glyph stays upright. Reads as "what this piece does" at a glance
 		# without obscuring the shape silhouette — placed at origin (center).
+		# Also paints a per-hero overlay symbol (수염 / 안대 / 꽃 / 별 / 산 / 부채
+		# / 등) using the hero accent color so 관우와 장비를 한 눈에 구분.
 		var emblem: ClassEmblem = ClassEmblem.make(unit.unit_class, unit.side,
-			-poly.rotation)
+			-poly.rotation, unit.hero_id, _get_hero_accent(unit.hero_id, unit.side))
 		emblem.name = "ClassEmblem"
 		poly.add_child(emblem)
 		# Name label above the polygon — bigger, heavier outline than the prior
