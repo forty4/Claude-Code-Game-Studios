@@ -77,6 +77,7 @@ const _GRID_ACTIONS: Array[String] = [
 	"undo_last_move",
 	"end_unit_turn",
 	"defend_stance",  # session-13: D key — selected unit takes defend stance
+	"use_skill",      # session-15: S key — fire selected unit's innate skill (1×/battle)
 	"grid_hover",
 ]
 
@@ -158,6 +159,11 @@ signal attack_preview_dismissed(reason: StringName)
 ## a visual marker on the unit's polygon. Cleared at round rollover via the
 ## standard round_started_visual signal — no separate cleared signal needed.
 signal unit_defend_stance_applied(unit_id: int)
+
+## Session-15 commit 5: emitted when a player unit fires its innate skill via
+## use_skill(). View-layer (battle_scene + battle_hud) subscribes for SFX +
+## visual feedback + HUD button state refresh.
+signal unit_skill_used(unit_id: int, skill_id: StringName)
 
 
 # ─── DI dependencies (ADR-0014 §3) ──────────────────────────────────────────
@@ -907,6 +913,12 @@ func _on_input_action_fired(action: String, ctx: InputContext) -> void:
 	if action == "defend_stance":
 		_handle_defend_stance_input()
 		return
+	# Session-15: use_skill mirrors defend_stance — S key, unit-scoped, no
+	# coordinate required. Fires the selected player unit's innate skill once
+	# per battle. Routes through use_skill() which gates on skill_used + side.
+	if action == "use_skill":
+		_handle_use_skill_input()
+		return
 	var coord: Vector2i = ctx.target_coord
 	if coord == Vector2i.ZERO and _camera != null:
 		# Camera fallback per ADR-0014 §4 — re-resolve via viewport mouse position.
@@ -1336,6 +1348,163 @@ func _handle_defend_stance_input() -> void:
 	_deselect()
 
 
+# ─── Session-15 commit 5: hero active skills ─────────────────────────────────
+#
+# 1-per-battle "ultimate" buttons. heroes.json `innate_skill_ids[0]` → unit.skill_id;
+# player presses S → controller fires the matching skill_<name> handler.
+# Skills are battle-scoped (not turn-scoped): firing flips skill_used to true and
+# the unit's S key becomes a no-op for the rest of this battle. Three skills
+# wired this session — others map to no-op until designed:
+#   - skill_dragon_blade  (관우): next attack +50% damage (self-buff, ATK token NOT spent)
+#   - skill_thunder_roar  (장비): 25 damage to all adjacent enemies (no target select; spends ATK)
+#   - skill_inspire       (유비): adjacent player allies get a free action token
+#
+# Design notes:
+#  - dragon_blade does NOT spend the ATK token — the player still has to attack
+#    after activating it. Combo: select 관우 → S → click enemy → big damage.
+#  - thunder_roar consumes the ATK token (it IS the attack) — fast cleaner action.
+#  - inspire does NOT spend 유비's ATK token; 유비 can still attack/move after.
+#    Refunds adjacent allies' ACTION tokens; restored allies get another turn
+#    this round if their initiative is still ahead in the queue.
+
+## Per-unit "next attack gets dragon-blade bonus" flag. Set by skill_dragon_blade
+## handler; consumed by _resolve_attack (which clears + marks skill_used).
+var _dragon_blade_pending: Dictionary[int, bool] = {}
+
+
+## S-key entry point. Mirrors _handle_defend_stance_input — routes the use_skill
+## input action to the selected unit if a skill is wired AND not yet used.
+func _handle_use_skill_input() -> void:
+	if _state != BattleState.UNIT_SELECTED:
+		return
+	if _selected_unit_id == -1 or not _units.has(_selected_unit_id):
+		return
+	use_skill(_selected_unit_id)
+
+
+## Public skill-firing API. Returns true on success, false when the skill is
+## blocked (no skill_id / already used / wrong side / unknown skill_id).
+## Side-effect-only — visual feedback handled by callers via the new
+## `unit_skill_used` signal.
+func use_skill(unit_id: int) -> bool:
+	if _battle_over:
+		return false
+	if not _units.has(unit_id):
+		return false
+	var unit: BattleUnit = _units[unit_id]
+	if unit.side != 0:
+		return false  # player-only; enemy AI skill activation deferred
+	if unit.skill_id == &"":
+		return false  # no skill wired
+	if unit.skill_used:
+		return false  # one-shot exhausted
+	if _active_turn_unit_id != -1 and unit_id != _active_turn_unit_id:
+		return false  # not this unit's turn
+	# Dispatch to per-skill handler. Unknown skill_id falls through to a
+	# warning-and-no-op so unwired skills don't silently consume the one-shot.
+	var fired: bool = false
+	match unit.skill_id:
+		&"skill_dragon_blade":
+			fired = _skill_dragon_blade(unit)
+		&"skill_thunder_roar":
+			fired = _skill_thunder_roar(unit)
+		&"skill_inspire":
+			fired = _skill_inspire(unit)
+		_:
+			push_warning("GridBattleController.use_skill: unwired skill_id '%s' on unit %d — no-op"
+				% [String(unit.skill_id), unit_id])
+			return false
+	if fired:
+		unit.skill_used = true
+		unit_skill_used.emit(unit_id, unit.skill_id)
+	return fired
+
+
+## Returns true if the unit can fire its skill RIGHT NOW (visual gate for the
+## HUD skill button — battle_hud queries this to decide whether to enable / dim
+## the button). Mirrors use_skill's preconditions without firing the skill.
+func can_use_skill(unit_id: int) -> bool:
+	if _battle_over:
+		return false
+	if not _units.has(unit_id):
+		return false
+	var unit: BattleUnit = _units[unit_id]
+	if unit.side != 0:
+		return false
+	if unit.skill_id == &"":
+		return false
+	if unit.skill_used:
+		return false
+	if _active_turn_unit_id != -1 and unit_id != _active_turn_unit_id:
+		return false
+	return true
+
+
+## 관우 dragon_blade: marks the unit's next attack to receive +50% damage.
+## Does NOT consume the ATK token — the player still has to attack to cash
+## in the buff. Buff persists until consumed (resolve_attack clears it) or
+## battle ends; no turn-end auto-clear so the player can move first then attack.
+func _skill_dragon_blade(unit: BattleUnit) -> bool:
+	_dragon_blade_pending[unit.unit_id] = true
+	return true
+
+
+## 장비 thunder_roar: immediate 25-fixed-damage burst to every adjacent enemy.
+## Counts as the unit's terminal action (spends the ATK token via _acted_this_turn).
+## If no adjacent enemies, the skill still fires (one-shot consumed) — design
+## decision: prevents accidental probe-clicks from being undone, encourages the
+## player to position 장비 deliberately before activating.
+func _skill_thunder_roar(unit: BattleUnit) -> bool:
+	var thunder_damage: int = 25  # BalanceConstant candidate; inline for v1
+	var any_hit: bool = false
+	for victim: BattleUnit in _units.values():
+		if victim.side == unit.side:
+			continue
+		if not _hp_controller.is_alive(victim.unit_id):
+			continue
+		var dx: int = absi(victim.position.x - unit.position.x)
+		var dy: int = absi(victim.position.y - unit.position.y)
+		if dx + dy != 1:
+			continue  # Manhattan-1 only — 4 cardinal neighbors
+		_last_attacker_id = unit.unit_id
+		_hp_controller.apply_damage(victim.unit_id, thunder_damage,
+			ResolveModifiers.AttackType.PHYSICAL, [&"skill"] as Array[StringName])
+		_damage_dealt_by_unit[unit.unit_id] = \
+			_damage_dealt_by_unit.get(unit.unit_id, 0) + thunder_damage
+		damage_applied.emit(unit.unit_id, victim.unit_id, thunder_damage)
+		any_hit = true
+	# Spend the action token regardless of whether anyone was hit — skill firing
+	# is the terminal action for this unit's turn.
+	_acted_this_turn[unit.unit_id] = true
+	if _turn_runner != null and _turn_runner.has_method("declare_action"):
+		_turn_runner.declare_action(unit.unit_id,
+			TurnOrderRunner.ActionType.ATTACK if any_hit else TurnOrderRunner.ActionType.WAIT,
+			null)
+	return true
+
+
+## 유비 inspire: refunds the ACTION token for every adjacent player ally so
+## they can take ANOTHER action this round. Does NOT spend 유비's own ATK
+## token — 유비 can still attack/move after. Skill itself is the one-shot;
+## the refunded allies don't gain anything else (their stats unchanged).
+## Effect surfaces as: pressing S on 유비 with 장비 + 관우 adjacent → both of
+## them are eligible to act again even if they already moved + attacked.
+func _skill_inspire(unit: BattleUnit) -> bool:
+	for ally: BattleUnit in _units.values():
+		if ally.side != unit.side:
+			continue
+		if ally.unit_id == unit.unit_id:
+			continue  # don't refund the caster (avoid infinite-action loop)
+		if not _hp_controller.is_alive(ally.unit_id):
+			continue
+		var dx: int = absi(ally.position.x - unit.position.x)
+		var dy: int = absi(ally.position.y - unit.position.y)
+		if dx + dy != 1:
+			continue  # adjacent only
+		_acted_this_turn[ally.unit_id] = false
+	return true
+
+
 ## Player-path DEFEND declaration. Mirrors AI-path semantics: spend the
 ## ACTION token via TurnOrderRunner + apply the defend_stance status so the
 ## 50% incoming damage reduction actually fires. Re-entrancy guard mirrors
@@ -1706,6 +1875,14 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 	# Stage 5: apply controller-side post-multipliers (angle_mult × aura_mult).
 	# NOTE: formation_atk_bonus already consumed by DamageCalc in P_mult formula.
 	var final_damage: int = roundi(float(base_damage) * angle_mult * aura_mult)
+	# Session-15 commit 5: dragon_blade buff (관우 skill) applies +50% damage to
+	# the buffed unit's NEXT attack. Consumed on use — clears the pending flag
+	# AND marks skill_used so the unit can't re-trigger via a clear-and-refire
+	# loop. Stage 5 placement chosen so the +50% multiplies the post-direction /
+	# post-aura number (the same number the forecast shows).
+	if _dragon_blade_pending.get(attacker.unit_id, false) and result.kind == ResolveResult.Kind.HIT:
+		final_damage = roundi(float(final_damage) * 1.50)
+		_dragon_blade_pending[attacker.unit_id] = false
 	if result.kind == ResolveResult.Kind.HIT and final_damage < 1:
 		final_damage = 1  # ensure HIT delivers minimum 1 damage post-rounding
 

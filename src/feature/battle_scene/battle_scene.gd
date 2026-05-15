@@ -755,6 +755,12 @@ func _make_battle_unit(
 		unit.move_range = UnitRole.get_effective_move_range(hero_data, unit.unit_class)
 	else:
 		unit.move_range = 3
+	# Session-15 commit 5: active skill from heroes.json innate_skill_ids[0].
+	# Player-side only — enemy AI doesn't have a skill-trigger path yet, so
+	# wiring the skill_id on enemies would create silently dead-stored data.
+	# The controller's use_skill() refuses non-player units regardless.
+	if is_player and hero_data != null and not hero_data.innate_skill_ids.is_empty():
+		unit.skill_id = hero_data.innate_skill_ids[0]
 	return unit
 
 

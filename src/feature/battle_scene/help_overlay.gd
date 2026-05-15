@@ -93,6 +93,7 @@ func _ready() -> void:
 	box.add_child(_make_row("H — 이 도움말 열기 / 닫기"))
 	box.add_child(_make_row("ESC — 일시 정지 메뉴"))
 	box.add_child(_make_row("D — 선택한 유닛 방어 (받는 피해 50% 감소; 한 턴 소모)"))
+	box.add_child(_make_row("S — 선택한 유닛 스킬 발동 (전투당 1회)"))
 	box.add_child(_make_row("Enter / R / Space — 전투 종료 후 다음 행동"))
 	box.add_child(_make_spacer(6))
 
@@ -118,6 +119,11 @@ func _ready() -> void:
 	box.add_child(_make_row("척후(초선 등)는 2라운드부터 아직 행동하지 않은 적에게 기습 +15% — 반격도 받지 않습니다."))
 	box.add_child(_make_row("적 칸에 보라색이 겹쳐 보이면 기습 가능한 표적 — 그 적은 반격하지 못합니다."))
 	box.add_child(_make_row("궁병(황충 등)이 언덕(짙은 흙빛) 위에서 활을 쏘면 원사 +15% — 발 밑에 초록 링이 보이면 그 위치입니다."))
+	box.add_child(_make_spacer(6))
+	box.add_child(_make_section_heading("영웅 스킬 (S 키 — 전투당 1회)"))
+	box.add_child(_make_row("관우 청룡언월도 — 다음 한 번의 공격이 50% 더 강해집니다 (행동 소모 없음)"))
+	box.add_child(_make_row("장비 호로후 — 인접한 모든 적에게 즉시 25 피해 (그 턴 행동으로 소모)"))
+	box.add_child(_make_row("유비 격려 — 인접한 아군 영웅들의 행동권 회복 (한 턴 더 움직임)"))
 	box.add_child(_make_spacer(12))
 
 	# ── Close button ────────────────────────────────────────────────────────

@@ -41,6 +41,9 @@
     "defend_stance": [
         {"type": "key", "keycode": 68}
     ],
+    "use_skill": [
+        {"type": "key", "keycode": 83}
+    ],
     "camera_pan": [
         {"type": "screen_drag"},
         {"type": "mouse_button", "button_index": 3}

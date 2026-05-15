@@ -119,3 +119,15 @@ extends Resource
 ## from `chapter.enemy_roster[i].archetype` (player units default to
 ## `&"aggressor"`). Sprint-13 S13-12 addition.
 @export var archetype: StringName = &"aggressor"
+
+## Session-15 commit 5: active "ultimate"-style skill granted by hero data.
+## Source = heroes.json `innate_skill_ids[0]`. Empty StringName = no skill
+## (e.g. enemy mooks, units without an authored skill). One-shot per battle:
+## GridBattleController.use_skill flips skill_used and refuses re-use.
+## Known values (session 15): &"skill_dragon_blade" (관우), &"skill_thunder_roar"
+## (장비), &"skill_inspire" (유비). Other tags map to no-op at the controller.
+@export var skill_id: StringName = &""
+
+## True once the active skill has fired this battle. Reset only at battle init —
+## intentionally persists across rounds (skills are battle-scoped, not turn-scoped).
+@export var skill_used: bool = false

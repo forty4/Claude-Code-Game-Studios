@@ -311,6 +311,9 @@ const _AC7_BATTLE_HUD_REACHABLE: PackedStringArray = [
 	# users reach it via a future HUD button (deferred to next session;
 	# the entry here documents the contract so this lint stays green).
 	"defend_stance",
+	# Session-15: use_skill is keyboard-first (S key) for PC, same pattern
+	# as defend_stance. HUD skill button is the planned touch path.
+	"use_skill",
 ]
 
 

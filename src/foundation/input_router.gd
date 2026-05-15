@@ -223,8 +223,9 @@ const ACTIONS_BY_CATEGORY: Dictionary[StringName, Array] = {
 	&"grid": [
 		&"unit_select", &"move_target_select", &"move_confirm", &"move_cancel",
 		&"attack_target_select", &"attack_confirm", &"attack_cancel",
-		&"undo_last_move", &"end_unit_turn", &"defend_stance", &"grid_hover",
+		&"undo_last_move", &"end_unit_turn", &"defend_stance", &"use_skill", &"grid_hover",
 		# defend_stance = session-13 D key for player defend verb
+		# use_skill = session-15 S key for hero active skill (1×/battle)
 		# grid_hover = PC-only per CR-1c
 	],
 	&"camera": [
