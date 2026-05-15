@@ -1,0 +1,33 @@
+; Chapter 4 (적벽 prelude / Chibi Prelude) production-tier visual scene.
+; Authored per ADR-0021 §1 + §2 — mounted at /root by SceneManager.
+;
+; Tile rendering: chapter_visuals.gd `_draw()` overrides on the root Node2D.
+; Unit silhouettes: spawned at runtime by BattleScene._spawn_unit_polygons_async
+; → ChapterVisuals.spawn_unit_polygons(roster). PlayerUnits/EnemyUnits are kept
+; as empty container nodes; the spawn helper clears+repopulates them.
+;
+; TILE_SIZE = 64. Unit position formula: (col * 64 + 32, row * 64 + 32).
+;
+; Narrative: 강하 도착 후 손권/주유와의 동맹 직전. 조조의 정찰 선봉이 강을
+; 건너온다 — 적벽대전 전초전. River at col 8 splits the field; two bridges
+; (8,2 + 8,4) create tactical choice between defending the road or flanking
+; north. 황충 stations on the NE HILLS ridge (12,2)/(13,2); the mid HILLS
+; (5,4)/(6,4) on the Wei side are symmetric — 우금 archer can fire from
+; there too. Player roster grows to 6 (유비/관우/장비/황충 carryover + 손권/
+; 주유 Wu reinforcement); enemy stays at 4 (하후돈/장요/우금/허저).
+;
+; Faction colors per art-bible §4.2 applied at spawn time (촉 #2e5f7a /
+; 위 #4a4a4a / 오 sea-tone via HERO_ACCENT_BY_HERO_ID).
+
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/feature/battle_scene/chapter_visuals.gd" id="1_chapter"]
+[ext_resource type="Resource" path="res://assets/data/maps/mvp_chapter_04.tres" id="2_map"]
+
+[node name="ChapterVisuals" type="Node2D"]
+script = ExtResource("1_chapter")
+map_resource = ExtResource("2_map")
+
+[node name="PlayerUnits" type="Node2D" parent="."]
+
+[node name="EnemyUnits" type="Node2D" parent="."]
