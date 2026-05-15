@@ -1054,6 +1054,15 @@ func _make_battle_state_snapshot() -> BattleStateSnapshot:
 		var hp_curr: int = _hp_controller.get_current_hp(u.unit_id) if _hp_controller != null else 0
 		var hp_mx: int = _hp_controller.get_max_hp(u.unit_id) if _hp_controller != null else 1
 		var alive: bool = _hp_controller.is_alive(u.unit_id) if _hp_controller != null else true
+		# Session-18 — surface active status effect ids for AI status awareness
+		# (e.g., aggressor avoids dying-poisoned targets; coordinator focus-fires
+		# slowed ones). Pure read; doesn't mutate HP controller state.
+		var status_ids: Array[StringName] = []
+		if _hp_controller != null and _hp_controller.has_method("get_status_effects"):
+			var effects: Array = _hp_controller.get_status_effects(u.unit_id) as Array
+			for effect in effects:
+				if effect != null and effect is StatusEffect:
+					status_ids.append((effect as StatusEffect).effect_id)
 		snap.units.append({
 			"unit_id": u.unit_id,
 			# S13-12: read from BattleUnit.archetype field directly. Prior code
@@ -1076,6 +1085,7 @@ func _make_battle_state_snapshot() -> BattleStateSnapshot:
 			"passive_id": &"",
 			"tag": u.tag,
 			"is_alive": alive,
+			"status_ids": status_ids,
 		})
 	# Map dimensions + terrain grid.
 	if _map_grid != null:

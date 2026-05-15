@@ -261,7 +261,7 @@ func _score_aggressor(candidate: Dictionary, snapshot: BattleStateSnapshot, unit
 		var t_pos: Vector2i = target.get("position", Vector2i.ZERO) as Vector2i
 		var unit_pos: Vector2i = unit.get("position", Vector2i.ZERO) as Vector2i
 		var dist_penalty: float = float(_grid_distance(unit_pos, t_pos)) * 0.5
-		return 20.0 + bonus + weakness - dist_penalty
+		return 20.0 + bonus + weakness - dist_penalty + _target_status_score_modifier(target)
 	return 0.0
 
 
@@ -292,7 +292,7 @@ func _score_skirmisher(candidate: Dictionary, snapshot: BattleStateSnapshot, uni
 			return -100.0
 		var t_range: int = target.get("attack_range", 1) as int
 		var ranged_bonus: float = float(BalanceConstants.get_const("SKIRMISHER_RANGED_TARGET_BONUS")) if t_range >= 2 else 0.0
-		return 15.0 + ranged_bonus
+		return 15.0 + ranged_bonus + _target_status_score_modifier(target)
 	return 0.0
 
 
@@ -326,7 +326,7 @@ func _score_holder(candidate: Dictionary, snapshot: BattleStateSnapshot, unit: D
 		var target: Dictionary = snapshot.get_unit(t_id)
 		if target.is_empty():
 			return -100.0
-		return 18.0
+		return 18.0 + _target_status_score_modifier(target)
 	return 0.0
 
 
@@ -353,7 +353,7 @@ func _score_coordinator(candidate: Dictionary, snapshot: BattleStateSnapshot, un
 			return -100.0
 		var has_command_aura: bool = (target.get("passive_id", &"") as StringName) == &"command_aura"
 		var commander_bonus: float = float(BalanceConstants.get_const("COORDINATOR_COMMANDER_TARGET_BONUS")) if has_command_aura else 0.0
-		return 15.0 + commander_bonus
+		return 15.0 + commander_bonus + _target_status_score_modifier(target)
 	if action == AIActionCommand.ActionType.MOVE:
 		# Coordinator stays near allies (formation).
 		var dest: Vector2i = candidate.get("move_to", Vector2i.ZERO) as Vector2i
@@ -396,7 +396,7 @@ func _score_berserker(candidate: Dictionary, snapshot: BattleStateSnapshot, unit
 			return -100.0
 		# Base attack score + low-HP bonus stack — when wounded, the berserker
 		# prioritizes ATTACK above any other consideration.
-		return 25.0 + low_hp_bonus
+		return 25.0 + low_hp_bonus + _target_status_score_modifier(target)
 	return 0.0
 
 
@@ -461,7 +461,7 @@ func _score_protector(candidate: Dictionary, snapshot: BattleStateSnapshot, unit
 		# Intercept bonus when attacking a player unit close to our commander.
 		# 2-tile threshold: anything within 2 tiles of commander is "threatening".
 		var threat_bonus: float = intercept_bonus if target_to_protectee <= 2 else 0.0
-		return 18.0 + threat_bonus
+		return 18.0 + threat_bonus + _target_status_score_modifier(target)
 	return 0.0
 
 
@@ -528,6 +528,47 @@ func _count_adjacent_allies(unit: Dictionary, snapshot: BattleStateSnapshot) -> 
 		if _grid_distance(pos, t_pos) == 1:
 			count += 1
 	return count
+
+
+## Session-18 — status-aware ATTACK modifier. Returns additive score adjustment
+## the per-archetype ATTACK branch applies to candidate score. Status effects
+## change tactical value of a target:
+##
+##   - STUN: target's action is already gone → focus a more dangerous threat.
+##     Small negative so a stunned target is deprioritized but not ignored.
+##   - SLOW: target's counter ATK is weakened + their movement reduced → safer
+##     attack target. Small positive.
+##   - POISON near death (hp_pct ≤ AI_TARGET_POISON_DYING_THRESHOLD): target
+##     will die anyway on next poison tick → don't waste ATK token. Larger
+##     negative so this dominates the choice between dying-poisoned vs healthy.
+##   - POISON otherwise: target is "vulnerable" but not dying. Small positive.
+##
+## Modifiers SUM additively when multiple statuses are present. Pure function
+## over the target Dictionary; never reads outside-snapshot state.
+func _target_status_score_modifier(target: Dictionary) -> float:
+	var status_ids: Array = target.get("status_ids", []) as Array
+	if status_ids.is_empty():
+		return 0.0
+	var modifier: float = 0.0
+	var has_poison: bool = false
+	for sid in status_ids:
+		var sn: StringName = sid as StringName
+		if sn == &"stun":
+			modifier -= float(BalanceConstants.get_const("AI_TARGET_STUN_PENALTY"))
+		elif sn == &"slow":
+			modifier += float(BalanceConstants.get_const("AI_TARGET_SLOW_BONUS"))
+		elif sn == &"poison":
+			has_poison = true
+	if has_poison:
+		var hp_curr: int = target.get("hp_current", 1) as int
+		var hp_mx: int = target.get("hp_max", 1) as int
+		var hp_pct: float = float(hp_curr) / max(1.0, float(hp_mx))
+		var threshold: float = float(BalanceConstants.get_const("AI_TARGET_POISON_DYING_THRESHOLD"))
+		if hp_pct <= threshold:
+			modifier -= float(BalanceConstants.get_const("AI_TARGET_POISON_DYING_PENALTY"))
+		else:
+			modifier += float(BalanceConstants.get_const("AI_TARGET_POISON_HEALTHY_BONUS"))
+	return modifier
 
 
 # ─── Materialization ─────────────────────────────────────────────────────────

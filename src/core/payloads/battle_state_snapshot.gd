@@ -22,7 +22,10 @@ extends Resource
 ##   hp_max: int, atk: int, def: int, move_range: int, attack_range: int,
 ##   side: int (0=player, 1=enemy), is_player_controlled: bool,
 ##   passive_id: StringName (optional; e.g., &"command_aura"),
-##   tag: StringName (e.g., &"boss"), is_alive: bool.
+##   tag: StringName (e.g., &"boss"), is_alive: bool,
+##   status_ids: Array[StringName] (session-18; effect_ids of all active status
+##     effects on this unit — &"poison" / &"slow" / &"stun" / &"defend_stance"
+##     / &"demoralized" / &"inspired" / &"exhausted"). Empty array if none.
 @export var units: Array[Dictionary] = []
 
 ## Map dimensions (cols, rows).
