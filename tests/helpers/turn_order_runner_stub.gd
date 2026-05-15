@@ -59,3 +59,15 @@ func set_charge_eligible_for_test(unit_id: int, eligible: bool) -> void:
 ## test-seam dictionary so test fixtures can force the boolean directly.
 func is_unit_charge_eligible(unit_id: int) -> bool:
 	return _test_charge_eligible.get(unit_id, false)
+
+
+# ─── Session-14: round number test seam (AMBUSH_BONUS gating) ────────────────
+
+
+## Test seam — forces the inherited _round_number used by
+## get_current_round_number(). GridBattleController.{_resolve_attack,preview_attack}
+## query the round number to gate AMBUSH_BONUS (DamageCalc._ambush_factor
+## requires round_number >= 2). Default 0 matches production cold-start; tests
+## that want ambush eligibility call set_round_number_for_test(2) or higher.
+func set_round_number_for_test(round_number: int) -> void:
+	_round_number = round_number

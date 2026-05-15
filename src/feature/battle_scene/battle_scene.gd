@@ -796,13 +796,21 @@ func _attack_range_for_class(unit_class: int) -> int:
 ## actually fires. CAVALRY carries `passive_charge` (session-13) so the +20%
 ## CHARGE_BONUS in DamageCalc._charge_factor fires when the cavalry unit
 ## moved >= CHARGE_THRESHOLD (40 path-cost = 4 flat tiles) before attacking.
-## Other class passives (shield_wall etc. per unit_roles.json) are advisory
+## SCOUT carries `passive_ambush` (session-14) so the +15% AMBUSH_BONUS in
+## DamageCalc._ambush_factor fires when attacking a not-yet-acted target
+## from round 2 onwards (target also loses counter — see GridBattleController
+## _preview_counter_eligible). INFANTRY's `passive_shield_wall` is consumed
+## directly by HPStatusController via UnitRole.PASSIVE_TAG_BY_CLASS lookup,
+## not through this runtime field.
+## Other class passives (high_ground_shot, tactical_read, rally) are advisory
 ## tags not consumed by the damage pipeline yet.
 func _passive_for_class(unit_class: int) -> StringName:
 	if unit_class == int(UnitRole.UnitClass.COMMANDER):
 		return &"command_aura"
 	if unit_class == int(UnitRole.UnitClass.CAVALRY):
 		return &"passive_charge"
+	if unit_class == int(UnitRole.UnitClass.SCOUT):
+		return &"passive_ambush"
 	return &""
 
 

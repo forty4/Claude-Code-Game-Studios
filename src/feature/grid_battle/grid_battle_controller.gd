@@ -1480,18 +1480,24 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 		0,  # terrain_def — MVP no terrain bonus
 		0,  # terrain_evasion — MVP no evasion
 	)
+	# Session-14: real round_number from TurnOrderRunner unlocks AMBUSH_BONUS gate
+	# (DamageCalc._ambush_factor requires round_number >= 2). Defensive against
+	# null runner in early-init test rigs.
+	var round_number: int = _turn_runner.get_current_round_number() if _turn_runner != null else 1
+	if round_number < 1:
+		round_number = 1
 	var modifiers: ResolveModifiers = ResolveModifiers.make(
 		ResolveModifiers.AttackType.PHYSICAL,
 		_rng,
 		_angle_to_direction_rel(angle),
-		1,  # round_number — MVP placeholder; story-007 wires real round
-		false,  # is_counter — MVP no counter
+		round_number,
+		false,  # is_counter — MVP no counter (counter is forecast-only in production)
 		"",  # skill_id — MVP no skills
 		[],  # source_flags — populated by DamageCalc
 		0.0,  # rally_bonus — MVP no rally
 		formation_mult - 1.0,  # formation_atk_bonus (consumed by DamageCalc P_mult)
 		0.0,  # formation_def_bonus — MVP no def bonus
-		Callable(),  # acted_this_turn_callable — MVP no counter eligibility
+		Callable(self, "_unit_acted_this_turn"),  # AMBUSH_BONUS gate (session-14)
 	)
 	# Set NEW story-005 fields (not in make() factory yet — additive same-patch).
 	# These are CONTROLLER-side post-multipliers (NOT consumed by DamageCalc).
@@ -1578,10 +1584,15 @@ func preview_attack(attacker_id: int, defender_id: int) -> Dictionary:
 	# constructed RNG with default-randomized seed; preview never feeds back
 	# into _rng so replay determinism on the production attack is preserved.
 	var preview_rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	# Session-14: mirror _resolve_attack's round_number + acted_this_turn callable
+	# so the forecast reflects AMBUSH_BONUS when conditions are met.
+	var round_number: int = _turn_runner.get_current_round_number() if _turn_runner != null else 1
+	if round_number < 1:
+		round_number = 1
 	var modifiers: ResolveModifiers = ResolveModifiers.make(
 		ResolveModifiers.AttackType.PHYSICAL, preview_rng,
-		_angle_to_direction_rel(angle), 1, false, "", [], 0.0,
-		formation_mult - 1.0, 0.0, Callable())
+		_angle_to_direction_rel(angle), round_number, false, "", [], 0.0,
+		formation_mult - 1.0, 0.0, Callable(self, "_unit_acted_this_turn"))
 	modifiers.angle_mult = angle_mult
 	modifiers.aura_mult = aura_mult
 	# Stage 4-5: resolve + apply controller-side multipliers (mirror of
@@ -1647,14 +1658,56 @@ func _preview_collect_defender_status_ids(defender_id: int) -> Array[StringName]
 
 ## Counter eligibility check for preview. Returns true if defender CAN
 ## counter-attack this attacker — i.e. defender is in attack-range of
-## attacker's position AND defender has not already acted this turn.
+## attacker's position AND defender has not already acted this turn AND
+## the attacker is not firing AMBUSH (which suppresses the counter per
+## unit-role.md §passive_ambush + grid-battle.md CR-2a, session-14).
 ## Mirrors the implicit logic the real counter pipeline would use (story-007+
 ## may formalize this into a dedicated counter eligibility resolver).
 func _preview_counter_eligible(attacker: BattleUnit, defender: BattleUnit) -> bool:
 	if _acted_this_turn.get(defender.unit_id, false):
 		return false
+	# Session-14: ambush conditions (SCOUT/ARCHER + passive_ambush + round>=2 +
+	# defender not acted) suppress the counter. Same gating as
+	# DamageCalc._ambush_factor — when ambush damage bonus fires, the target
+	# also loses its counter-strike per the GDD's "cannot counter-attack" rule.
+	if _is_ambush_active(attacker, defender):
+		return false
 	# Range check from defender → attacker (reciprocal of attacker → defender).
 	return is_tile_in_attack_range(attacker.position, defender.unit_id)
+
+
+## Adapter exposed as a Callable to DamageCalc via ResolveModifiers.acted_this_turn_callable.
+## Returns true when the defender has already taken its terminal action this round
+## (ATTACK/DEFEND/WAIT — see _acted_this_turn write sites). Read by
+## DamageCalc._ambush_factor to gate AMBUSH_BONUS on a target who has not yet acted.
+## Argument is `DefenderContext.unit_id` which is a StringName holding the hero_id —
+## NOT the integer unit_id used by _acted_this_turn (see defender_context.gd:6).
+## Performs a hero_id → BattleUnit → unit_id reverse lookup in _units.
+func _unit_acted_this_turn(hero_id: StringName) -> bool:
+	for unit: BattleUnit in _units.values():
+		if unit.hero_id == hero_id:
+			return _acted_this_turn.get(unit.unit_id, false)
+	return false
+
+
+## True when the attacker's would-be attack against the defender meets all
+## AMBUSH conditions: class SCOUT or ARCHER, passive_ambush carried, round >= 2,
+## defender has not yet acted this round. Mirrors the gating inside
+## DamageCalc._ambush_factor so production code, preview, and counter-suppression
+## stay aligned. Session-14.
+func _is_ambush_active(attacker: BattleUnit, defender: BattleUnit) -> bool:
+	if attacker.passive != &"passive_ambush":
+		return false
+	var scout: int = int(UnitRole.UnitClass.SCOUT)
+	var archer: int = int(UnitRole.UnitClass.ARCHER)
+	if attacker.unit_class != scout and attacker.unit_class != archer:
+		return false
+	var round_number: int = _turn_runner.get_current_round_number() if _turn_runner != null else 1
+	if round_number < 2:
+		return false
+	if _acted_this_turn.get(defender.unit_id, false):
+		return false
+	return true
 
 
 ## Counter damage preview. Identical to preview_attack body but with
