@@ -361,6 +361,10 @@ func _start_battle() -> void:
 	# Session-13: defend stance badge — toggle on when applied, off on round
 	# rollover (next round = fresh turn = stance consumed).
 	_grid_controller.unit_defend_stance_applied.connect(_on_unit_defend_stance_applied)
+	# Session-16: hero skill SFX cue. One sound covers all 6 skills for v1;
+	# per-skill variants are a future iteration.
+	if _grid_controller.has_signal(&"unit_skill_used"):
+		_grid_controller.unit_skill_used.connect(_on_unit_skill_used)
 
 	# === STEP 5.5: AISystem (ADR-0019) — battle-scoped Node 6th invocation ===
 	# Inserted via /architecture-review delta #14 2026-05-05 per ADR-0016 §3 R-3
@@ -1722,6 +1726,15 @@ func _on_unit_defend_stance_applied(unit_id: int) -> void:
 	badge.size = Vector2(20, 20)
 	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	poly.add_child(badge)
+
+
+## Session-16: hero active skill fired. Plays the SFX_SKILL cue so the player
+## gets immediate audio feedback that the one-shot was consumed. View-only —
+## damage application is handled separately via _on_damage_applied for the
+## damage-dealing skills (thunder_roar / piercing_volley / strategist).
+func _on_unit_skill_used(_unit_id: int, _skill_id: StringName) -> void:
+	if SoundManager != null and SoundManager.has_method("play"):
+		SoundManager.play(SoundManager.SFX_SKILL)
 
 
 func _list_polygon_names(visuals: Node) -> String:

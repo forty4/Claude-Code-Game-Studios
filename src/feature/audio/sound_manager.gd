@@ -30,6 +30,10 @@ const SFX_MOVE: StringName = &"move"
 const SFX_HIT: StringName = &"hit"
 const SFX_DEATH: StringName = &"death"
 const SFX_VICTORY: StringName = &"victory"
+## Session-16: hero active skill activation — bright two-note sting that's
+## clearly distinct from SFX_HIT (low thud) and SFX_VICTORY (full chord). One
+## cue covers all 6 wired skills — per-skill variants are a future iteration.
+const SFX_SKILL: StringName = &"skill"
 
 ## Music slugs — separate stream pool from SFX so they can be muted
 ## independently (player may want music off but SFX on, or vice versa).
@@ -230,6 +234,12 @@ func _build_procedural_streams() -> void:
 	_streams[SFX_VICTORY] = _make_chord(
 		[523.25, 659.25, 783.99],  # C5 + E5 + G5
 		0.60, 3.0, 0.22,
+	)
+	# G5 → C6 ascending sting — short, bright, clearly "ability fired". Decay
+	# 7.0 keeps it punchy without dragging into the next click.
+	_streams[SFX_SKILL] = _make_chord(
+		[783.99, 1046.50],  # G5 + C6
+		0.22, 7.0, 0.26,
 	)
 
 

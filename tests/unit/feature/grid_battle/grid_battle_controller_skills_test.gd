@@ -9,6 +9,9 @@
 ##   - skill_dragon_blade: next attack +50% (관우)
 ##   - skill_thunder_roar: 25 fixed damage to adjacent enemies (장비)
 ##   - skill_inspire: refunds adjacent allies' ACTION token (유비)
+##   - skill_piercing_volley: 28 damage to up to 3 nearest in range (황충)
+##   - skill_charm: marks adjacent enemies as already-acted (초선)
+##   - skill_strategist: 15 damage to all enemies on the map (조조)
 ##   - unit_skill_used signal emission
 ##   - can_use_skill mirrors use_skill preconditions without firing
 extends GdUnitTestSuite
@@ -28,14 +31,14 @@ func before_test() -> void:
 
 
 func _make_unit(unit_id: int, pos: Vector2i, side: int, skill_id: StringName = &"",
-		unit_class: int = 1) -> BattleUnit:
+		unit_class: int = 1, attack_range: int = 1) -> BattleUnit:
 	var unit: BattleUnit = BattleUnit.new()
 	unit.unit_id = unit_id
 	unit.hero_id = StringName("test_hero_%d" % unit_id)
 	unit.unit_class = unit_class
 	unit.position = pos
 	unit.side = side
-	unit.attack_range = 1
+	unit.attack_range = attack_range
 	unit.move_range = 3
 	unit.raw_atk = 60
 	unit.raw_def = 18
@@ -227,6 +230,151 @@ func test_inspire_does_not_refund_self() -> void:
 	controller.use_skill(1)
 	assert_bool(controller._acted_this_turn.get(1, false)).is_true()
 	assert_bool(controller._acted_this_turn.get(2, true)).is_false()
+
+
+# ─── skill_piercing_volley (황충) ────────────────────────────────────────────
+
+
+func test_piercing_volley_damages_up_to_three_nearest_enemies() -> void:
+	# 황충 at (5,5), attack_range=2. Enemies at: (5,6) dist 1, (5,4) dist 1,
+	# (5,7) dist 2, (5,3) dist 2 — 4 candidates within range. Cap = 3 hits ×
+	# 28 dmg = 84. 5th enemy at (5,8) is dist 3 (out of range) — not hit.
+	var caster: BattleUnit = _make_unit(1, Vector2i(5, 5), 0, &"skill_piercing_volley",
+		int(UnitRole.UnitClass.ARCHER), 2)
+	var e_close_a: BattleUnit = _make_unit(2, Vector2i(5, 6), 1, &"",
+		int(UnitRole.UnitClass.INFANTRY))
+	var e_close_b: BattleUnit = _make_unit(3, Vector2i(5, 4), 1, &"",
+		int(UnitRole.UnitClass.INFANTRY))
+	var e_mid_a: BattleUnit = _make_unit(4, Vector2i(5, 7), 1, &"",
+		int(UnitRole.UnitClass.INFANTRY))
+	var e_mid_b: BattleUnit = _make_unit(5, Vector2i(5, 3), 1, &"",
+		int(UnitRole.UnitClass.INFANTRY))
+	var e_far: BattleUnit = _make_unit(6, Vector2i(5, 8), 1, &"",
+		int(UnitRole.UnitClass.INFANTRY))
+	var controller: GridBattleController = _setup(
+		[caster, e_close_a, e_close_b, e_mid_a, e_mid_b, e_far])
+	assert_bool(controller.use_skill(1)).is_true()
+	# 3 hits × 28 dmg = 84 total. Closer enemies sorted ahead of farther ones.
+	assert_int(controller._damage_dealt_by_unit.get(1, 0)).override_failure_message(
+		"piercing_volley should hit 3 nearest enemies; got %d" % controller._damage_dealt_by_unit.get(1, 0)
+	).is_equal(84)
+
+
+func test_piercing_volley_ignores_out_of_range_enemies() -> void:
+	# 황충 attack_range=2; only enemy is at distance 3 — no hit, no damage.
+	var caster: BattleUnit = _make_unit(1, Vector2i(2, 2), 0, &"skill_piercing_volley",
+		int(UnitRole.UnitClass.ARCHER), 2)
+	var e_far: BattleUnit = _make_unit(2, Vector2i(5, 2), 1)
+	var controller: GridBattleController = _setup([caster, e_far])
+	controller.use_skill(1)
+	assert_int(controller._damage_dealt_by_unit.get(1, 0)).is_equal(0)
+
+
+func test_piercing_volley_spends_action_token() -> void:
+	# Skill firing is the terminal action — spends ATK regardless of hit count.
+	var caster: BattleUnit = _make_unit(1, Vector2i(2, 2), 0, &"skill_piercing_volley",
+		int(UnitRole.UnitClass.ARCHER), 2)
+	var e: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	var controller: GridBattleController = _setup([caster, e])
+	controller.use_skill(1)
+	assert_bool(controller._acted_this_turn.get(1, false)).is_true()
+
+
+# ─── skill_charm (초선) ──────────────────────────────────────────────────────
+
+
+func test_charm_marks_adjacent_unacted_enemies_as_acted() -> void:
+	# 초선 at (2,2) with adjacent enemy (3,2) unacted. After charm, enemy is
+	# marked acted (wastes their turn this round).
+	var caster: BattleUnit = _make_unit(1, Vector2i(2, 2), 0, &"skill_charm",
+		int(UnitRole.UnitClass.SCOUT))
+	var enemy_adj: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	var enemy_far: BattleUnit = _make_unit(3, Vector2i(5, 5), 1)
+	var controller: GridBattleController = _setup([caster, enemy_adj, enemy_far])
+	assert_bool(controller.use_skill(1)).is_true()
+	assert_bool(controller._acted_this_turn.get(2, false)).override_failure_message(
+		"adjacent enemy should be marked acted after charm"
+	).is_true()
+	# Far enemy unaffected (not adjacent).
+	assert_bool(controller._acted_this_turn.get(3, false)).is_false()
+
+
+func test_charm_does_not_double_spend_already_acted_enemy() -> void:
+	# Adjacent enemy who already acted is left alone (charm cannot waste a
+	# turn that's already spent).
+	var caster: BattleUnit = _make_unit(1, Vector2i(2, 2), 0, &"skill_charm",
+		int(UnitRole.UnitClass.SCOUT))
+	var enemy: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	var controller: GridBattleController = _setup([caster, enemy])
+	controller._acted_this_turn[2] = true
+	controller.use_skill(1)
+	# Stays true — but the test guards against an accidental "reset to false".
+	assert_bool(controller._acted_this_turn.get(2, false)).is_true()
+
+
+func test_charm_does_not_spend_caster_action_token() -> void:
+	# Combo enabler: 초선 charms then attacks/moves. Caster ATK NOT spent.
+	var caster: BattleUnit = _make_unit(1, Vector2i(2, 2), 0, &"skill_charm",
+		int(UnitRole.UnitClass.SCOUT))
+	var enemy: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	var controller: GridBattleController = _setup([caster, enemy])
+	controller.use_skill(1)
+	assert_bool(controller._acted_this_turn.get(1, false)).override_failure_message(
+		"charm should NOT spend caster's action token"
+	).is_false()
+
+
+# ─── skill_strategist (조조) ─────────────────────────────────────────────────
+
+
+func test_strategist_damages_all_enemies_on_map() -> void:
+	# 조조 at (2,2). Enemies at (5,5), (8,8), (1,9) — all distant. Each takes
+	# 15 dmg regardless of position. 3 × 15 = 45 total credited to caster.
+	var caster: BattleUnit = _make_unit(1, Vector2i(2, 2), 0, &"skill_strategist",
+		int(UnitRole.UnitClass.COMMANDER))
+	var e1: BattleUnit = _make_unit(2, Vector2i(5, 5), 1)
+	var e2: BattleUnit = _make_unit(3, Vector2i(8, 8), 1)
+	var e3: BattleUnit = _make_unit(4, Vector2i(1, 9), 1)
+	var controller: GridBattleController = _setup([caster, e1, e2, e3])
+	assert_bool(controller.use_skill(1)).is_true()
+	assert_int(controller._damage_dealt_by_unit.get(1, 0)).override_failure_message(
+		"strategist should hit every alive enemy; got %d" % controller._damage_dealt_by_unit.get(1, 0)
+	).is_equal(45)
+
+
+func test_strategist_excludes_dead_enemies() -> void:
+	# Dead enemies are not hit — _hp_controller.is_alive(uid)=false gates them out.
+	var caster: BattleUnit = _make_unit(1, Vector2i(2, 2), 0, &"skill_strategist",
+		int(UnitRole.UnitClass.COMMANDER))
+	var alive: BattleUnit = _make_unit(2, Vector2i(5, 5), 1)
+	var dead: BattleUnit = _make_unit(3, Vector2i(8, 8), 1)
+	var controller: GridBattleController = _setup([caster, alive, dead])
+	# Mark dead enemy as dead via HP stub override.
+	(controller._hp_controller as HPStatusControllerStub).set_alive_for_test(3, false)
+	controller.use_skill(1)
+	# Only the alive enemy was hit → 15 dmg credited.
+	assert_int(controller._damage_dealt_by_unit.get(1, 0)).is_equal(15)
+
+
+func test_strategist_excludes_friendly_units() -> void:
+	# Allies on the same side never take damage even when caster has wide reach.
+	var caster: BattleUnit = _make_unit(1, Vector2i(2, 2), 0, &"skill_strategist",
+		int(UnitRole.UnitClass.COMMANDER))
+	var ally: BattleUnit = _make_unit(2, Vector2i(3, 3), 0)
+	var enemy: BattleUnit = _make_unit(3, Vector2i(7, 7), 1)
+	var controller: GridBattleController = _setup([caster, ally, enemy])
+	controller.use_skill(1)
+	# Only the enemy was hit → 15 dmg credited (not 30).
+	assert_int(controller._damage_dealt_by_unit.get(1, 0)).is_equal(15)
+
+
+func test_strategist_spends_action_token() -> void:
+	var caster: BattleUnit = _make_unit(1, Vector2i(2, 2), 0, &"skill_strategist",
+		int(UnitRole.UnitClass.COMMANDER))
+	var enemy: BattleUnit = _make_unit(2, Vector2i(5, 5), 1)
+	var controller: GridBattleController = _setup([caster, enemy])
+	controller.use_skill(1)
+	assert_bool(controller._acted_this_turn.get(1, false)).is_true()
 
 
 # ─── Signal emission ─────────────────────────────────────────────────────────

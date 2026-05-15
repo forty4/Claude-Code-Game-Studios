@@ -1823,10 +1823,29 @@ func _on_undo_button_pressed() -> void:
 
 ## _on_skill_slot_pressed — story-005. Skill slot clicked: synthesize skill_use_N event
 ## where N is the slot_index. Bound via .bind(slot_index) at _ready() time.
+## Session-16: slot 0 ALSO directly fires the hero's innate active skill via the
+## grid_controller (S-key parity for touch users). The synthetic event is kept
+## for input-router contract tests (AC-7); the direct call is what actually
+## triggers the skill effect, since the input router has no `skill_use_0`
+## handler in the controller dispatch table — that wiring is deferred to a
+## future multi-slot ADR. Slot 1 remains synthetic-only (no second active
+## skill wired in MVP; preserved for forward compatibility).
 func _on_skill_slot_pressed(slot_index: int) -> void:
 	var action: StringName = StringName("skill_use_%d" % slot_index)
 	if _input_router != null:
 		_input_router._handle_event(_make_synthetic_action_event(action))
+	# Hide the UI-GB-05 panel after firing so the player gets immediate
+	# feedback that the skill consumed the one-shot — preserves the "tap →
+	# action confirmed" rhythm that touch users expect.
+	var skill_panel: Control = _ui_elements.get(&"UI-GB-05")
+	if skill_panel != null:
+		skill_panel.visible = false
+	if slot_index == 0 and _grid_controller != null and _grid_controller.has_method("use_skill"):
+		var unit_id: int = _grid_controller.get_selected_unit_id()
+		if unit_id == -1 and _grid_controller.has_method("get_active_turn_unit_id"):
+			unit_id = _grid_controller.get_active_turn_unit_id()
+		if unit_id != -1:
+			_grid_controller.use_skill(unit_id)
 
 
 ## _on_two_tap_timeout — story-005. Timer.timeout handler — clears pending arm

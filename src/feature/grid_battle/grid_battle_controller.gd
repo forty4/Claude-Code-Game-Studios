@@ -1348,24 +1348,33 @@ func _handle_defend_stance_input() -> void:
 	_deselect()
 
 
-# ─── Session-15 commit 5: hero active skills ─────────────────────────────────
+# ─── Session-15 commit 5 + session-16: hero active skills ───────────────────
 #
 # 1-per-battle "ultimate" buttons. heroes.json `innate_skill_ids[0]` → unit.skill_id;
 # player presses S → controller fires the matching skill_<name> handler.
 # Skills are battle-scoped (not turn-scoped): firing flips skill_used to true and
-# the unit's S key becomes a no-op for the rest of this battle. Three skills
-# wired this session — others map to no-op until designed:
-#   - skill_dragon_blade  (관우): next attack +50% damage (self-buff, ATK token NOT spent)
-#   - skill_thunder_roar  (장비): 25 damage to all adjacent enemies (no target select; spends ATK)
-#   - skill_inspire       (유비): adjacent player allies get a free action token
+# the unit's S key becomes a no-op for the rest of this battle.
+#
+# Wired skill roster (6/6 player-roster slots covered):
+#   - skill_dragon_blade    (관우):  next attack +50% damage (self-buff, ATK token NOT spent)
+#   - skill_thunder_roar    (장비):  25 damage to all Manhattan-1 enemies (spends ATK)
+#   - skill_inspire         (유비):  adjacent player allies get a free action token
+#   - skill_piercing_volley (황충):  28 damage to up to 3 nearest enemies within
+#                                    Manhattan distance ≤ attack_range (spends ATK)
+#   - skill_charm           (초선):  marks Manhattan-1 enemies as already-acted
+#                                    (wastes their turn this round; does NOT spend caster ATK)
+#   - skill_strategist      (조조):  15 damage to ALL alive enemies on the map
+#                                    (battlefield-wide; spends ATK)
 #
 # Design notes:
 #  - dragon_blade does NOT spend the ATK token — the player still has to attack
 #    after activating it. Combo: select 관우 → S → click enemy → big damage.
-#  - thunder_roar consumes the ATK token (it IS the attack) — fast cleaner action.
-#  - inspire does NOT spend 유비's ATK token; 유비 can still attack/move after.
-#    Refunds adjacent allies' ACTION tokens; restored allies get another turn
-#    this round if their initiative is still ahead in the queue.
+#  - thunder_roar / piercing_volley / strategist all consume the ATK token (they
+#    ARE the attack). thunder_roar is melee-burst, piercing_volley is range-burst,
+#    strategist is battlefield-wide low-per-hit AoE.
+#  - inspire / charm do NOT spend the caster's ATK token; they are tempo skills,
+#    not damage skills. inspire grants the player extra actions; charm steals
+#    actions from adjacent enemies (mirror of inspire on the enemy side).
 
 ## Per-unit "next attack gets dragon-blade bonus" flag. Set by skill_dragon_blade
 ## handler; consumed by _resolve_attack (which clears + marks skill_used).
@@ -1410,6 +1419,12 @@ func use_skill(unit_id: int) -> bool:
 			fired = _skill_thunder_roar(unit)
 		&"skill_inspire":
 			fired = _skill_inspire(unit)
+		&"skill_piercing_volley":
+			fired = _skill_piercing_volley(unit)
+		&"skill_charm":
+			fired = _skill_charm(unit)
+		&"skill_strategist":
+			fired = _skill_strategist(unit)
 		_:
 			push_warning("GridBattleController.use_skill: unwired skill_id '%s' on unit %d — no-op"
 				% [String(unit.skill_id), unit_id])
@@ -1502,6 +1517,104 @@ func _skill_inspire(unit: BattleUnit) -> bool:
 		if dx + dy != 1:
 			continue  # adjacent only
 		_acted_this_turn[ally.unit_id] = false
+	return true
+
+
+## 황충 piercing_volley: ranged AoE — fires 28 fixed damage at up to 3 nearest
+## alive enemies whose Manhattan distance ≤ caster's attack_range (typically 2
+## for ARCHER). Spends the ATK token (the skill IS the attack). If no enemy is
+## in range the skill still fires (one-shot consumed) — design parity with
+## thunder_roar: punishes accidental probe-clicks, encourages deliberate
+## positioning. The 3-target cap prevents an over-stacked enemy group from
+## taking 5+ hits at once (would invalidate AoE pricing).
+func _skill_piercing_volley(unit: BattleUnit) -> bool:
+	var volley_damage: int = 28  # BalanceConstant candidate; inline for v1
+	var max_targets: int = 3
+	var reach: int = maxi(1, unit.attack_range)
+	var candidates: Array[Dictionary] = []
+	for victim: BattleUnit in _units.values():
+		if victim.side == unit.side:
+			continue
+		if not _hp_controller.is_alive(victim.unit_id):
+			continue
+		var dx: int = absi(victim.position.x - unit.position.x)
+		var dy: int = absi(victim.position.y - unit.position.y)
+		var dist: int = dx + dy
+		if dist == 0 or dist > reach:
+			continue
+		candidates.append({"unit_id": victim.unit_id, "dist": dist})
+	# Sort by Manhattan distance ascending; closer enemies hit first.
+	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return (a["dist"] as int) < (b["dist"] as int))
+	var hit_count: int = 0
+	for entry: Dictionary in candidates:
+		if hit_count >= max_targets:
+			break
+		var victim_id: int = entry["unit_id"] as int
+		_last_attacker_id = unit.unit_id
+		_hp_controller.apply_damage(victim_id, volley_damage,
+			ResolveModifiers.AttackType.PHYSICAL, [&"skill"] as Array[StringName])
+		_damage_dealt_by_unit[unit.unit_id] = \
+			_damage_dealt_by_unit.get(unit.unit_id, 0) + volley_damage
+		damage_applied.emit(unit.unit_id, victim_id, volley_damage)
+		hit_count += 1
+	_acted_this_turn[unit.unit_id] = true
+	if _turn_runner != null and _turn_runner.has_method("declare_action"):
+		_turn_runner.declare_action(unit.unit_id,
+			TurnOrderRunner.ActionType.ATTACK if hit_count > 0 else TurnOrderRunner.ActionType.WAIT,
+			null)
+	return true
+
+
+## 초선 charm: mirror of inspire on the enemy side. Marks every adjacent enemy
+## who has NOT acted yet this round as already-acted, wasting their turn. Does
+## NOT spend 초선's own ATK token — combo: charm two enemies, then attack a
+## third with AMBUSH. Already-acted enemies are unaffected (the charm cannot
+## "double-spend" a turn). Adjacent only (Manhattan-1) to keep the verb tied
+## to positioning, not target select UI.
+func _skill_charm(unit: BattleUnit) -> bool:
+	for victim: BattleUnit in _units.values():
+		if victim.side == unit.side:
+			continue
+		if not _hp_controller.is_alive(victim.unit_id):
+			continue
+		var dx: int = absi(victim.position.x - unit.position.x)
+		var dy: int = absi(victim.position.y - unit.position.y)
+		if dx + dy != 1:
+			continue  # adjacent only
+		if _acted_this_turn.get(victim.unit_id, false):
+			continue  # already acted; charm cannot waste a turn that's gone
+		_acted_this_turn[victim.unit_id] = true
+	return true
+
+
+## 조조 strategist: 15 fixed damage to EVERY alive enemy on the map regardless
+## of distance — the COMMANDER directs the full battle line to fire at once.
+## Lower per-hit than thunder_roar/piercing_volley but battlefield-scoped, so
+## total output scales with enemy count rather than positioning. Spends ATK.
+## Currently dormant in MVP (조조 is enemy-side in ch1/ch3; player-side use_skill
+## gate blocks enemy fire) — wired defensively so a future "join Wei" branch
+## or boss-converts-mid-battle event becomes plug-and-play.
+func _skill_strategist(unit: BattleUnit) -> bool:
+	var strategist_damage: int = 15  # BalanceConstant candidate; inline for v1
+	var any_hit: bool = false
+	for victim: BattleUnit in _units.values():
+		if victim.side == unit.side:
+			continue
+		if not _hp_controller.is_alive(victim.unit_id):
+			continue
+		_last_attacker_id = unit.unit_id
+		_hp_controller.apply_damage(victim.unit_id, strategist_damage,
+			ResolveModifiers.AttackType.PHYSICAL, [&"skill"] as Array[StringName])
+		_damage_dealt_by_unit[unit.unit_id] = \
+			_damage_dealt_by_unit.get(unit.unit_id, 0) + strategist_damage
+		damage_applied.emit(unit.unit_id, victim.unit_id, strategist_damage)
+		any_hit = true
+	_acted_this_turn[unit.unit_id] = true
+	if _turn_runner != null and _turn_runner.has_method("declare_action"):
+		_turn_runner.declare_action(unit.unit_id,
+			TurnOrderRunner.ActionType.ATTACK if any_hit else TurnOrderRunner.ActionType.WAIT,
+			null)
 	return true
 
 
