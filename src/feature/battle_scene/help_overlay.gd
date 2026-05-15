@@ -94,6 +94,8 @@ func _ready() -> void:
 	box.add_child(_make_row("ESC — 일시 정지 메뉴"))
 	box.add_child(_make_row("D — 선택한 유닛 방어 (받는 피해 50% 감소; 한 턴 소모)"))
 	box.add_child(_make_row("S — 선택한 유닛 스킬 발동 (전투당 1회)"))
+	box.add_child(_make_row("+ / − (또는 = / −) — 카메라 확대 / 축소"))
+	box.add_child(_make_row("C — 선택 유닛 화면 중앙으로"))
 	box.add_child(_make_row("Enter / R / Space — 전투 종료 후 다음 행동"))
 	box.add_child(_make_spacer(6))
 

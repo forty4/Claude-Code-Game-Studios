@@ -46,17 +46,17 @@ func test_screen_to_grid_returns_valid_coord_for_in_grid_click() -> void:
 
 
 func test_screen_to_grid_invariance_across_zoom_levels() -> void:
-	# Per ADR-0013 §Validation §1 item 4: same click position returns same grid coord
-	# at zoom 0.70, 1.00, 2.00. We test that the SAME screen position resolves to
-	# the SAME tile after zoom changes (cursor-stable zoom recipe preserves world pos).
+	# Per ADR-0013 §Validation §1 item 4: same click position returns same grid
+	# coord across zoom levels. Session-16: default bumped 1.0 → 1.40; this test
+	# exercises one zoom-in + one zoom-to-floor to cover the path.
 	var cam: BattleCamera = _make_camera_with_stub(Vector2i(8, 8))
 	var screen_pt: Vector2 = cam.get_viewport_rect().size * 0.5  # screen center
 	var coord_at_default: Vector2i = cam.screen_to_grid(screen_pt)
-	# Zoom in via internal helper
-	cam._apply_zoom_delta(0.50, screen_pt)  # zoom 1.0 + 0.5 = 1.5 (clamped to 1.5 within range)
+	# Zoom in: 1.40 + 0.50 = 1.90 (within [0.70, 2.50])
+	cam._apply_zoom_delta(0.50, screen_pt)
 	var coord_at_zoom_in: Vector2i = cam.screen_to_grid(screen_pt)
 	assert_that(coord_at_zoom_in).is_equal(coord_at_default)
-	# Zoom back + further out
-	cam._apply_zoom_delta(-0.80, screen_pt)  # 1.5 - 0.8 = 0.7 (clamped to 0.70 floor)
+	# Zoom out past floor: 1.90 - 1.50 = 0.40 attempted, clamped to 0.70 floor
+	cam._apply_zoom_delta(-1.50, screen_pt)
 	var coord_at_zoom_out: Vector2i = cam.screen_to_grid(screen_pt)
 	assert_that(coord_at_zoom_out).is_equal(coord_at_default)

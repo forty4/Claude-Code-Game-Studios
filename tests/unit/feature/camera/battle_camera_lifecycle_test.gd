@@ -82,6 +82,8 @@ func test_zoom_initialized_from_balance_constants() -> void:
 	cam.setup(stub)
 	add_child(cam)
 	auto_free(cam)
-	# CAMERA_ZOOM_DEFAULT = 1.0 per balance_entities.json
-	assert_float(cam.zoom.x).is_equal_approx(1.0, 0.001)
-	assert_float(cam.zoom.y).is_equal_approx(1.0, 0.001)
+	# CAMERA_ZOOM_DEFAULT = 1.40 per balance_entities.json (bumped from 1.0 in
+	# session-16 — closer default view so hero overlays + class glyphs read at
+	# typical viewing distance without manual zoom).
+	assert_float(cam.zoom.x).is_equal_approx(1.40, 0.001)
+	assert_float(cam.zoom.y).is_equal_approx(1.40, 0.001)
