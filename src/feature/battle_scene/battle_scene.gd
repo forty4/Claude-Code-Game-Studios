@@ -799,10 +799,12 @@ func _attack_range_for_class(unit_class: int) -> int:
 ## SCOUT carries `passive_ambush` (session-14) so the +15% AMBUSH_BONUS in
 ## DamageCalc._ambush_factor fires when attacking a not-yet-acted target
 ## from round 2 onwards (target also loses counter — see GridBattleController
-## _preview_counter_eligible). INFANTRY's `passive_shield_wall` is consumed
-## directly by HPStatusController via UnitRole.PASSIVE_TAG_BY_CLASS lookup,
-## not through this runtime field.
-## Other class passives (high_ground_shot, tactical_read, rally) are advisory
+## _preview_counter_eligible). ARCHER carries `passive_high_ground_shot`
+## (session-15) so the +15% HIGH_GROUND_BONUS in DamageCalc._high_ground_factor
+## fires whenever the archer attacks while standing on HILLS terrain.
+## INFANTRY's `passive_shield_wall` is consumed directly by HPStatusController
+## via UnitRole.PASSIVE_TAG_BY_CLASS lookup, not through this runtime field.
+## STRATEGIST `tactical_read` + COMMANDER `passive_rally` remain advisory
 ## tags not consumed by the damage pipeline yet.
 func _passive_for_class(unit_class: int) -> StringName:
 	if unit_class == int(UnitRole.UnitClass.COMMANDER):
@@ -811,6 +813,8 @@ func _passive_for_class(unit_class: int) -> StringName:
 		return &"passive_charge"
 	if unit_class == int(UnitRole.UnitClass.SCOUT):
 		return &"passive_ambush"
+	if unit_class == int(UnitRole.UnitClass.ARCHER):
+		return &"passive_high_ground_shot"
 	return &""
 
 
@@ -851,11 +855,13 @@ func _on_unit_selected_changed(unit_id: int, _was_selected: int) -> void:
 	_apply_verb_feedback_overlays(visuals, unit_id, unit.position)
 
 
-## Session-15: pushes AMBUSH / CHARGE feedback overlays for the given unit.
-## Ambush set = subset of attackable tiles where SCOUT + round >= 2 + defender
-## unacted; charge coord = the unit's own tile when CAVALRY + passive_charge +
-## accumulated_move >= CHARGE_THRESHOLD. Either may be empty / sentinel; the
-## ChapterVisuals setters no-op gracefully on empty values.
+## Session-15: pushes AMBUSH / CHARGE / HIGH GROUND feedback overlays for the
+## given unit. Ambush set = subset of attackable tiles where SCOUT + round >= 2
+## + defender unacted; charge coord = the unit's own tile when CAVALRY +
+## passive_charge + accumulated_move >= CHARGE_THRESHOLD; high-ground coord =
+## the unit's own tile when ARCHER + passive_high_ground_shot + standing on
+## HILLS terrain. Class mutex guarantees charge and high-ground never both
+## fire for the same unit, so they appear as one halo color per selection.
 func _apply_verb_feedback_overlays(visuals: Node, unit_id: int, position: Vector2i) -> void:
 	if visuals.has_method("set_ambush_target_tiles"):
 		visuals.set_ambush_target_tiles(
@@ -864,16 +870,22 @@ func _apply_verb_feedback_overlays(visuals: Node, unit_id: int, position: Vector
 		var charge_coord: Vector2i = position if _grid_controller.is_charge_ready(unit_id) \
 			else Vector2i(-1, -1)
 		visuals.set_charge_ready_coord(charge_coord)
+	if visuals.has_method("set_high_ground_ready_coord"):
+		var hg_coord: Vector2i = position if _grid_controller.is_high_ground_ready(unit_id) \
+			else Vector2i(-1, -1)
+		visuals.set_high_ground_ready_coord(hg_coord)
 
 
-## Session-15: clears AMBUSH / CHARGE feedback overlays. Called on deselect
-## and on stale-selection branches so the indigo wash / cyan halo don't
-## linger after the unit they belonged to is no longer the selected unit.
+## Session-15: clears AMBUSH / CHARGE / HIGH GROUND feedback overlays.
+## Called on deselect and stale-selection branches so the indigo wash, cyan
+## halo, and green halo don't linger past the selection they belonged to.
 func _clear_verb_feedback_overlays(visuals: Node) -> void:
 	if visuals.has_method("set_ambush_target_tiles"):
 		visuals.set_ambush_target_tiles(PackedVector2Array())
 	if visuals.has_method("set_charge_ready_coord"):
 		visuals.set_charge_ready_coord(Vector2i(-1, -1))
+	if visuals.has_method("set_high_ground_ready_coord"):
+		visuals.set_high_ground_ready_coord(Vector2i(-1, -1))
 
 
 func _find_chapter_visuals() -> Node:

@@ -20,6 +20,10 @@ extends MapGrid
 var _stub_dimensions: Vector2i = Vector2i(8, 8)
 var _occupants: Dictionary = {}  # coord (Vector2i) → unit_id (int)
 var _impassable: Dictionary = {}  # coord (Vector2i) → true if NOT passable
+## Session-15: per-coord terrain_type override. Tests set
+## set_terrain_type_for_test(coord, terrain_type) to populate; lookups in
+## get_tile() default to 0 (PLAINS) per the existing stub contract.
+var _terrain_types: Dictionary = {}  # coord (Vector2i) → terrain_type (int)
 ## Story-007 (S10-02): force get_tile to return null for AC-2 edge-case coverage
 ## (battle_hud.show_tile_info "tile data missing" branch).
 var _force_null_get_tile: bool = false
@@ -39,12 +43,20 @@ func get_tile(coord: Vector2i) -> MapTileData:
 	tile.coord = coord
 	tile.occupant_id = _occupants.get(coord, 0)  # 0 = unoccupied per MapTileData @export default
 	tile.is_passable_base = not _impassable.get(coord, false)
+	tile.terrain_type = _terrain_types.get(coord, 0)  # default PLAINS=0
 	# Production checks tile_state (not occupant_id) for occupancy because unit_id 0
 	# is a valid id (the commander) and would alias to "empty". Mirror that here so
 	# tests using set_occupant_for_test see the tile read as ALLY_OCCUPIED.
 	if _occupants.has(coord):
 		tile.tile_state = MapGrid.TILE_STATE_ALLY_OCCUPIED
 	return tile
+
+
+## Session-15: populates per-coord terrain_type. get_tile() reads from this
+## map and falls back to 0 (PLAINS) when a coord has no override. Used by
+## tests that need HILLS / FOREST / etc. lookups (ARCHER high-ground gating).
+func set_terrain_type_for_test(coord: Vector2i, terrain_type: int) -> void:
+	_terrain_types[coord] = terrain_type
 
 
 ## Story-007 (S10-02): force get_tile to return null. Exercises the

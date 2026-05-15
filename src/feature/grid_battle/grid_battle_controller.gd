@@ -669,6 +669,34 @@ func is_charge_ready(unit_id: int) -> bool:
 	return _turn_runner.is_unit_charge_eligible(unit_id)
 
 
+## True when the unit's next attack will receive the HIGH GROUND +15% bonus
+## (session-15). Mirrors the gate DamageCalc uses: ARCHER class,
+## passive_high_ground_shot carried, currently standing on HILLS terrain
+## (terrain_type == 2). Used by ChapterVisuals to draw a forest-green halo
+## on the attacker's tile so the player knows "you're elevated — shoot now".
+func is_high_ground_ready(unit_id: int) -> bool:
+	if not _units.has(unit_id):
+		return false
+	var unit: BattleUnit = _units[unit_id]
+	if unit.unit_class != int(UnitRole.UnitClass.ARCHER):
+		return false
+	if unit.passive != &"passive_high_ground_shot":
+		return false
+	return _is_unit_on_high_ground(unit)
+
+
+## Returns true when the unit is standing on HILLS terrain (terrain_type=2 per
+## TerrainCost.HILLS / MapGrid). Defensive: returns false if MapGrid is null
+## (test rigs that don't wire one) or the lookup misses. Session-15.
+func _is_unit_on_high_ground(unit: BattleUnit) -> bool:
+	if _map_grid == null:
+		return false
+	var tile: MapTileData = _map_grid.get_tile(unit.position)
+	if tile == null:
+		return false
+	return tile.terrain_type == TerrainCost.HILLS
+
+
 ## Returns the unit_id occupying the given coord, or -1 if vacant. Used by
 ## get_ambush_eligible_target_tiles to map attackable tiles → defender BattleUnit
 ## without re-scanning _units for every tile.
@@ -1520,6 +1548,10 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 	var charge_active: bool = false
 	if _turn_runner != null and _turn_runner.has_method("is_unit_charge_eligible"):
 		charge_active = _turn_runner.is_unit_charge_eligible(attacker.unit_id)
+	# Session-15: query MapGrid for terrain at attacker's tile. HILLS (terrain_type=2)
+	# unlocks the ARCHER HIGH_GROUND_BONUS via DamageCalc._high_ground_factor (which
+	# also gates on class + passive + not-counter).
+	var on_high_ground: bool = _is_unit_on_high_ground(attacker)
 	var attacker_ctx: AttackerContext = AttackerContext.make(
 		attacker.hero_id,
 		attacker.unit_class,
@@ -1527,6 +1559,7 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 		charge_active,
 		false,  # defend_stance_active (attacker side; MVP doesn't defend then attack)
 		passives,
+		on_high_ground,
 	)
 	var defender_ctx: DefenderContext = DefenderContext.make(
 		defender.hero_id,
@@ -1628,10 +1661,13 @@ func preview_attack(attacker_id: int, defender_id: int) -> Dictionary:
 	var charge_active: bool = false
 	if _turn_runner != null and _turn_runner.has_method("is_unit_charge_eligible"):
 		charge_active = _turn_runner.is_unit_charge_eligible(attacker.unit_id)
+	# Session-15: mirror _resolve_attack's high-ground query so the forecast
+	# damage reflects HIGH_GROUND_BONUS when ARCHER is on HILLS.
+	var on_high_ground: bool = _is_unit_on_high_ground(attacker)
 	# Stage 2: DamageCalc contexts — same construction as _resolve_attack.
 	var attacker_ctx: AttackerContext = AttackerContext.make(
 		attacker.hero_id, attacker.unit_class, attacker.raw_atk,
-		charge_active, false, passives)
+		charge_active, false, passives, on_high_ground)
 	var defender_ctx: DefenderContext = DefenderContext.make(
 		defender.hero_id, defender.raw_def, 0, 0)
 	# Throwaway RNG — see docstring for determinism rationale. Uses a freshly

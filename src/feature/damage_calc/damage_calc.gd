@@ -30,6 +30,9 @@ class_name DamageCalc extends RefCounted
 const PASSIVE_CHARGE: StringName = &"passive_charge"
 ## StringName sentinel for passive_ambush — same StringName equality defense as PASSIVE_CHARGE.
 const PASSIVE_AMBUSH: StringName = &"passive_ambush"
+## StringName sentinel for passive_high_ground_shot (session-15) — ARCHER attacking
+## while standing on HILLS terrain. Same StringName equality defense as the others.
+const PASSIVE_HIGH_GROUND_SHOT: StringName = &"passive_high_ground_shot"
 
 # ---------------------------------------------------------------------------
 # Direction + class translation tables for UnitRole.get_class_direction_mult
@@ -136,6 +139,7 @@ static func resolve(
 	# returned value coincidentally equal to 1.0.
 	var charge_fired: bool = _charge_factor(attacker, modifiers) != 1.0
 	var ambush_fired: bool = _ambush_factor(attacker, modifiers, defender) != 1.0
+	var high_ground_fired: bool = _high_ground_factor(attacker, modifiers) != 1.0
 	var p_mult: float = _passive_multiplier(attacker, modifiers, defender)
 
 	# --- Stage 3: raw damage floor + ceiling (F-DC-6, CR-9) ---
@@ -146,9 +150,9 @@ static func resolve(
 
 	# --- Build output arrays (ADR-0012 §12 — always new Arrays, never mutate caller) ---
 	var out_flags: Array[StringName] = _build_source_flags(modifiers, charge_fired,
-			ambush_fired, defender.terrain_def > 0)
+			ambush_fired, high_ground_fired, defender.terrain_def > 0)
 	var vfx: Array[StringName] = _build_vfx_tags(charge_fired, ambush_fired,
-			modifiers.is_counter, defender.terrain_def > 0)
+			high_ground_fired, modifiers.is_counter, defender.terrain_def > 0)
 
 	# AC-DC-N1: explicit enum conversion — never via direct enum cast which silently
 	# reinterprets ints if either enum diverges in ordering. See _to_result_attack_type().
@@ -273,7 +277,9 @@ static func _passive_multiplier(
 		defender: DefenderContext) -> float:
 	var charge: float = _charge_factor(attacker, modifiers)
 	var ambush: float = _ambush_factor(attacker, modifiers, defender)
-	var pre_cap: float = charge * ambush * (1.0 + modifiers.rally_bonus) * (1.0 + modifiers.formation_atk_bonus)
+	var high_ground: float = _high_ground_factor(attacker, modifiers)
+	var pre_cap: float = charge * ambush * high_ground \
+		* (1.0 + modifiers.rally_bonus) * (1.0 + modifiers.formation_atk_bonus)
 	var p_mult_combined_cap: float = BalanceConstants.get_const("P_MULT_COMBINED_CAP") as float
 	var post_cap: float = minf(p_mult_combined_cap, pre_cap)
 	return snappedf(post_cap, 0.01)
@@ -319,6 +325,22 @@ static func _ambush_factor(
 	return BalanceConstants.get_const("AMBUSH_BONUS") as float
 
 
+## Returns HIGH_GROUND_BONUS (1.15) iff: unit is ARCHER AND passive_high_ground_shot
+## present AND attacker.on_high_ground (caller set from MapGrid.terrain_type == HILLS)
+## AND attack is not a counter. Class mutex: only ARCHER fires this. Counter
+## suppression mirrors _charge_factor / _ambush_factor. Session-15.
+static func _high_ground_factor(attacker: AttackerContext, modifiers: ResolveModifiers) -> float:
+	if attacker.unit_class != AttackerContext.Class.ARCHER:
+		return 1.0
+	if not (PASSIVE_HIGH_GROUND_SHOT in attacker.passives):
+		return 1.0
+	if modifiers.is_counter:
+		return 1.0
+	if not attacker.on_high_ground:
+		return 1.0
+	return BalanceConstants.get_const("HIGH_GROUND_BONUS") as float
+
+
 # ---------------------------------------------------------------------------
 # Stage 3 — raw damage cap + floor (CR-9, F-DC-6, story-006)
 # ---------------------------------------------------------------------------
@@ -362,6 +384,7 @@ static func _build_source_flags(
 		modifiers: ResolveModifiers,
 		charge_fired: bool,
 		ambush_fired: bool,
+		high_ground_fired: bool,
 		has_terrain_penalty: bool) -> Array[StringName]:
 	var out_flags: Array[StringName] = []
 	out_flags.assign(modifiers.source_flags)
@@ -371,6 +394,8 @@ static func _build_source_flags(
 		out_flags.append(&"charge")
 	if ambush_fired:
 		out_flags.append(&"ambush")
+	if high_ground_fired:
+		out_flags.append(&"high_ground")
 	if has_terrain_penalty:
 		out_flags.append(&"terrain_penalty")
 	return out_flags
@@ -386,6 +411,7 @@ static func _build_source_flags(
 static func _build_vfx_tags(
 		charge_fired: bool,
 		ambush_fired: bool,
+		high_ground_fired: bool,
 		is_counter: bool,
 		has_terrain_penalty: bool) -> Array[StringName]:
 	var tags: Array[StringName] = []
@@ -393,6 +419,8 @@ static func _build_vfx_tags(
 		tags.append(&"charge")
 	if ambush_fired:
 		tags.append(&"ambush")
+	if high_ground_fired:
+		tags.append(&"high_ground")
 	if is_counter:
 		tags.append(&"counter")
 	if has_terrain_penalty:
@@ -439,7 +467,7 @@ static func _passive_multiplier_for_test(
 		modifiers: ResolveModifiers,
 		passives_arg: Variant) -> float:
 	# Replicate _passive_multiplier logic but use passives_arg instead of attacker.passives
-	# for the PASSIVE_CHARGE and PASSIVE_AMBUSH membership checks.
+	# for the PASSIVE_CHARGE / PASSIVE_AMBUSH / PASSIVE_HIGH_GROUND_SHOT membership checks.
 	var charge: float = 1.0
 	if (attacker.unit_class == AttackerContext.Class.CAVALRY
 			and attacker.charge_active
@@ -458,7 +486,15 @@ static func _passive_multiplier_for_test(
 		if not has_acted:
 			ambush = BalanceConstants.get_const("AMBUSH_BONUS") as float
 
-	var pre_cap: float = charge * ambush * (1.0 + modifiers.rally_bonus) * (1.0 + modifiers.formation_atk_bonus)
+	var high_ground: float = 1.0
+	if (attacker.unit_class == AttackerContext.Class.ARCHER
+			and PASSIVE_HIGH_GROUND_SHOT in passives_arg
+			and not modifiers.is_counter
+			and attacker.on_high_ground):
+		high_ground = BalanceConstants.get_const("HIGH_GROUND_BONUS") as float
+
+	var pre_cap: float = charge * ambush * high_ground \
+		* (1.0 + modifiers.rally_bonus) * (1.0 + modifiers.formation_atk_bonus)
 	var p_mult_combined_cap: float = BalanceConstants.get_const("P_MULT_COMBINED_CAP") as float
 	var post_cap: float = minf(p_mult_combined_cap, pre_cap)
 	return snappedf(post_cap, 0.01)

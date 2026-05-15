@@ -83,6 +83,13 @@ var _ambush_target_tiles: PackedVector2Array = PackedVector2Array()
 ## opening the forecast. Vector2i(-1, -1) sentinel = no charge ready.
 var _charge_ready_coord: Vector2i = Vector2i(-1, -1)
 
+## Selected unit's grid coord IF that unit currently meets the HIGH GROUND
+## SHOT bonus conditions (session-15 ARCHER) — ARCHER class, passive_high_ground_shot,
+## standing on HILLS terrain. Drawn as a forest-green halo ring around the tile
+## so the player can see "your bow attack will get +15% from elevation".
+## Vector2i(-1, -1) sentinel = no high-ground bonus ready.
+var _high_ground_ready_coord: Vector2i = Vector2i(-1, -1)
+
 
 ## Selection highlight color (saturated saffron — art-bible reserved color for
 ## "destiny moment" usage; here repurposed for tactical selection feedback).
@@ -113,6 +120,13 @@ const COLOR_AMBUSH_PREVIEW: Color = Color(0.42, 0.20, 0.78, 0.45)
 ## individually readable.
 const COLOR_CHARGE_HALO: Color = Color(0.30, 0.85, 0.95, 0.95)
 
+## High-ground halo (session-15 verb-feedback): bright forest green ring drawn
+## around the selected ARCHER's tile when they stand on HILLS terrain. Distinct
+## from cyan (CAVALRY charge), saffron (selection), and gold (active turn) —
+## green reads as "natural elevation / vegetation" and pairs intuitively with
+## HILLS terrain hue underneath.
+const COLOR_HIGH_GROUND_HALO: Color = Color(0.40, 0.92, 0.36, 0.95)
+
 
 ## Faction colors per art-bible §4.2. Used by spawn_unit_polygons() as the
 ## polygon FILL so faction reads at a glance (the big colored shape). side==0 =
@@ -134,6 +148,7 @@ const HERO_ACCENT_BY_HERO_ID: Dictionary = {
 	&"shu_001_liu_bei":     Color("d9b27c"),  # warm tan — ruler of refugees
 	&"shu_002_guan_yu":     Color("5da86a"),  # leaf green — green-cloaked warrior
 	&"shu_003_zhang_fei":   Color("b388c9"),  # lavender — thunderous outlier
+	&"shu_004_huang_zhong": Color("e7c46a"),  # warm gold-amber — veteran archer
 	# Wei (enemy) — vivid borders that pop against the charcoal fill.
 	&"wei_001_cao_cao":     Color("b559a8"),  # violet-magenta — emperor-villain
 	&"wei_005_xiahou_dun":  Color("d86b3a"),  # orange-rust — fierce one-eyed (≠ #C0392B)
@@ -209,6 +224,18 @@ func set_charge_ready_coord(coord: Vector2i) -> void:
 	if _charge_ready_coord == coord:
 		return
 	_charge_ready_coord = coord
+	queue_redraw()
+
+
+## Sets the high-ground-ready halo coord (session-15 ARCHER). Pass Vector2i(-1, -1)
+## to clear. Coord is typically the selected ARCHER's tile when the controller
+## reports is_high_ground_ready(unit_id) == true. Independent from the charge
+## halo (different class mutex) — only one of cyan-CHARGE or green-HIGH-GROUND
+## can be active for the same selected unit at a given time.
+func set_high_ground_ready_coord(coord: Vector2i) -> void:
+	if _high_ground_ready_coord == coord:
+		return
+	_high_ground_ready_coord = coord
 	queue_redraw()
 
 
@@ -448,6 +475,18 @@ func _draw() -> void:
 			Vector2(TILE_SIZE - 8, TILE_SIZE - 8),
 		)
 		draw_rect(ch_rect, COLOR_CHARGE_HALO, false, 3.0)
+
+	# High-ground-ready halo (session-15 ARCHER) — same inset as charge halo
+	# so the saffron selection outline remains visible underneath. Class mutex
+	# (CAVALRY vs ARCHER) guarantees this and the charge halo cannot co-exist
+	# on a single selected unit, so no z-ordering conflict between the two.
+	if _high_ground_ready_coord.x >= 0 and _high_ground_ready_coord.y >= 0:
+		var hg_rect: Rect2 = Rect2(
+			Vector2(_high_ground_ready_coord.x * TILE_SIZE + 4,
+				_high_ground_ready_coord.y * TILE_SIZE + 4),
+			Vector2(TILE_SIZE - 8, TILE_SIZE - 8),
+		)
+		draw_rect(hg_rect, COLOR_HIGH_GROUND_HALO, false, 3.0)
 
 
 ## Maps terrain_type enum (per src/core/terrain_cost.gd) to art-bible color.

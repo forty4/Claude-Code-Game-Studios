@@ -150,17 +150,28 @@ func test_commander_carries_command_aura_passive() -> void:
 	assert_str(String(xu_chu.passive)).is_equal("command_aura")
 
 
-func test_non_commander_classes_carry_no_default_passive() -> void:
-	# INFANTRY 장비, STRATEGIST 장료, ARCHER 우금 — none get an auto passive.
-	# The unit_roles.json passive_tag (passive_charge / passive_shield_wall /
-	# etc.) is an advisory tag for future systems, not the damage-pipeline
-	# `passive` value, so it stays empty until those systems land.
+func test_classes_without_runtime_passive_carry_empty_passive() -> void:
+	# INFANTRY 장비, STRATEGIST 장료 — neither class has a runtime-consumed
+	# passive in _passive_for_class. INFANTRY's shield_wall is consumed by
+	# HPStatusController via UnitRole.PASSIVE_TAG_BY_CLASS (not battlescene's
+	# runtime field); STRATEGIST has no shipped passive. ARCHER now carries
+	# passive_high_ground_shot (session-15) — covered separately by the
+	# session-15 ARCHER class wiring test below.
 	var scene: BattleScene = _instantiate_battle_scene()
-	for hid: StringName in [&"shu_003_zhang_fei", &"wei_006_zhang_liao", &"wei_007_yu_jin"]:
+	for hid: StringName in [&"shu_003_zhang_fei", &"wei_006_zhang_liao"]:
 		var unit: BattleUnit = scene._make_battle_unit(99, hid, false, Vector2i.ZERO, &"", &"aggressor")
 		assert_str(String(unit.passive)).override_failure_message(
 			"%s should NOT auto-get a passive (got '%s')" % [String(hid), String(unit.passive)]
 		).is_equal("")
+
+
+func test_archer_class_carries_passive_high_ground_shot() -> void:
+	# Session-15: ARCHER now gets passive_high_ground_shot wired via
+	# BattleScene._passive_for_class so DamageCalc._high_ground_factor can
+	# fire HIGH_GROUND_BONUS when standing on HILLS terrain.
+	var scene: BattleScene = _instantiate_battle_scene()
+	var yu_jin: BattleUnit = scene._make_battle_unit(99, &"wei_007_yu_jin", false, Vector2i.ZERO, &"", &"holder")
+	assert_str(String(yu_jin.passive)).is_equal("passive_high_ground_shot")
 
 
 func test_archer_attack_range_is_two() -> void:

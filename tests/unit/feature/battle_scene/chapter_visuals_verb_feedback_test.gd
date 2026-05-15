@@ -97,3 +97,45 @@ func test_charge_halo_independent_from_selection() -> void:
 	# Clearing selection does NOT clear the halo (caller owns the lifetime).
 	cv.set_selected_coord(Vector2i(-1, -1))
 	assert_int(cv._charge_ready_coord.x).is_equal(2)
+
+
+# ─── High-ground halo setter (session-15 ARCHER) ─────────────────────────────
+
+
+func test_set_high_ground_ready_coord_stores_value() -> void:
+	var cv: ChapterVisuals = _new_visuals()
+	cv.set_high_ground_ready_coord(Vector2i(8, 5))
+	assert_int(cv._high_ground_ready_coord.x).is_equal(8)
+	assert_int(cv._high_ground_ready_coord.y).is_equal(5)
+
+
+func test_set_high_ground_ready_coord_sentinel_clears_halo() -> void:
+	var cv: ChapterVisuals = _new_visuals()
+	cv.set_high_ground_ready_coord(Vector2i(8, 5))
+	cv.set_high_ground_ready_coord(Vector2i(-1, -1))
+	assert_int(cv._high_ground_ready_coord.x).is_equal(-1)
+
+
+func test_high_ground_halo_independent_from_charge_halo() -> void:
+	# Setting one channel must not affect the other (class mutex enforced at
+	# the caller; ChapterVisuals stores both fields independently).
+	var cv: ChapterVisuals = _new_visuals()
+	cv.set_charge_ready_coord(Vector2i(3, 3))
+	cv.set_high_ground_ready_coord(Vector2i(8, 5))
+	assert_int(cv._charge_ready_coord.x).is_equal(3)
+	assert_int(cv._high_ground_ready_coord.x).is_equal(8)
+	# Clearing one preserves the other.
+	cv.set_charge_ready_coord(Vector2i(-1, -1))
+	assert_int(cv._high_ground_ready_coord.x).is_equal(8)
+
+
+func test_huang_zhong_hero_accent_distinct_from_existing_shu_accents() -> void:
+	# Session-15: 황충 joins ch3 — accent color must NOT collide with any
+	# existing player-faction hero accent. Mirrors hero_accent_test discipline.
+	var cv: ChapterVisuals = _new_visuals()
+	var huang_zhong: Color = cv._get_hero_accent(&"shu_004_huang_zhong", 0)
+	for hid: StringName in [&"shu_001_liu_bei", &"shu_002_guan_yu", &"shu_003_zhang_fei"]:
+		var other: Color = cv._get_hero_accent(hid, 0)
+		assert_str(huang_zhong.to_html(false)).override_failure_message(
+			"shu_004_huang_zhong accent collides with %s" % String(hid)
+		).is_not_equal(other.to_html(false))

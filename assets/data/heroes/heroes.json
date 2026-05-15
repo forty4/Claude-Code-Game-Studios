@@ -50,6 +50,22 @@
       {"hero_b_id": "shu_002_guan_yu", "relation_type": "SWORN_BROTHER", "effect_tag": "bond_oath_peach_garden", "is_symmetric": true}
     ]
   },
+  "shu_004_huang_zhong": {
+    "hero_id": "shu_004_huang_zhong",
+    "name_ko": "황충", "name_zh": "黄忠", "name_courtesy": "汉升",
+    "faction": 0,
+    "portrait_id": "portrait_shu_huang_zhong", "battle_sprite_id": "sprite_shu_huang_zhong",
+    "stat_might": 85, "stat_intellect": 60, "stat_command": 75, "stat_agility": 72,
+    "base_hp_seed": 78, "base_initiative_seed": 70,
+    "move_range": 3,
+    "default_class": 2, "equipment_slot_override": [],
+    "growth_might": 1.3, "growth_intellect": 0.8, "growth_command": 1.0, "growth_agility": 1.1,
+    "innate_skill_ids": ["skill_piercing_volley"], "skill_unlock_levels": [1],
+    "join_chapter": 3, "join_condition_tag": "story_ch3_veteran_archer", "is_available_mvp": true,
+    "relationships": [
+      {"hero_b_id": "shu_001_liu_bei", "relation_type": "LIEGE", "effect_tag": "bond_late_career_loyalty", "is_symmetric": false}
+    ]
+  },
   "wei_001_cao_cao": {
     "hero_id": "wei_001_cao_cao",
     "name_ko": "조조", "name_zh": "曹操", "name_courtesy": "孟德",

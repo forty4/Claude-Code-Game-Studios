@@ -148,13 +148,14 @@
         }
       ],
       "beat_9_text_key": "ch03.beat9.transition_to_chibi",
-      "player_unit_ids": [0, 1, 6, 8],
+      "player_unit_ids": [0, 1, 6, 8, 9],
       "player_commander_id": 0,
       "player_hero_ids": {
         "0": "shu_001_liu_bei",
         "1": "shu_003_zhang_fei",
         "6": "shu_002_guan_yu",
-        "8": "qun_004_diao_chan"
+        "8": "qun_004_diao_chan",
+        "9": "shu_004_huang_zhong"
       },
       "enemy_unit_ids": [2, 3, 5, 7],
       "deployment_positions_default": {
@@ -162,6 +163,7 @@
         "1": [10, 4],
         "6": [11, 3],
         "8": [10, 3],
+        "9": [11, 5],
         "2": [3, 4],
         "3": [3, 3],
         "5": [2, 5],

@@ -95,6 +95,7 @@ coord = Vector2i(3, 1)
 script = ExtResource("2_tiledata")
 coord = Vector2i(4, 1)
 terrain_type = 2
+elevation = 1
 
 [sub_resource type="Resource" id="t_5_1"]
 script = ExtResource("2_tiledata")
@@ -355,10 +356,14 @@ coord = Vector2i(7, 5)
 [sub_resource type="Resource" id="t_8_5"]
 script = ExtResource("2_tiledata")
 coord = Vector2i(8, 5)
+terrain_type = 2
+elevation = 1
 
 [sub_resource type="Resource" id="t_9_5"]
 script = ExtResource("2_tiledata")
 coord = Vector2i(9, 5)
+terrain_type = 2
+elevation = 1
 
 [sub_resource type="Resource" id="t_10_5"]
 script = ExtResource("2_tiledata")
@@ -400,6 +405,7 @@ coord = Vector2i(3, 6)
 script = ExtResource("2_tiledata")
 coord = Vector2i(4, 6)
 terrain_type = 2
+elevation = 1
 
 [sub_resource type="Resource" id="t_5_6"]
 script = ExtResource("2_tiledata")
