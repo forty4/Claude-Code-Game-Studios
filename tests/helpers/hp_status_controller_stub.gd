@@ -37,8 +37,19 @@ func apply_damage(_unit_id: int, _resolved_damage: int, _attack_type: int, _sour
 	pass
 
 
-func is_alive(_unit_id: int) -> bool:
-	return true
+func is_alive(unit_id: int) -> bool:
+	# Session-15 commit 4: per-unit override for tests that need a dead unit
+	# (e.g., result-screen star-rating tests). Default still true if not set.
+	return _test_alive.get(unit_id, true)
+
+
+## Session-15 commit 4: test seam — populate per-unit alive override.
+## get_battle_stats() relies on is_alive() to compute surviving_player_count.
+func set_alive_for_test(unit_id: int, alive: bool) -> void:
+	_test_alive[unit_id] = alive
+
+
+var _test_alive: Dictionary[int, bool] = {}
 
 
 ## Story-003 test seam — populate per-unit current HP for show_unit_info().

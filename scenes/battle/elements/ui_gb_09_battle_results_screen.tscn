@@ -1,12 +1,16 @@
 [gd_scene format=3]
 
-;; UI-GB-09 Battle Results Screen — story-007 (S10-02).
+;; UI-GB-09 Battle Results Screen — story-007 (S10-02) + session-15 commit 4.
 ;; Full-screen overlay PanelContainer + VBoxContainer holding:
 ;;   1. OutcomeLabel — VICTORY / DEFEAT / DRAW (large, prominent text)
-;;   2. SurvivingUnitsLabel — surviving units count
-;;   3. TurnsElapsedLabel — turns elapsed count
-;;   4. ScenarioRewardsList (placeholder VBoxContainer; per-scenario rewards added by config)
-;;   5. ContinueButton — focus_mode FOCUS_ALL for keyboard nav (dual-focus protocol)
+;;   2. StarRatingLabel — ★★★ / ★★☆ / ★☆☆ / 0 (session-15 성취감 surface)
+;;   3. SurvivingUnitsLabel — surviving units count
+;;   4. TurnsElapsedLabel — turns elapsed count
+;;   5. KillsLabel — player-side total kills this battle (session-15)
+;;   6. TotalDamageLabel — player-side total damage dealt (session-15)
+;;   7. MVPLabel — player hero who dealt most damage (session-15)
+;;   8. ScenarioRewardsList (placeholder VBoxContainer; per-scenario rewards added by config)
+;;   9. ContinueButton — focus_mode FOCUS_ALL for keyboard nav (dual-focus protocol)
 ;;
 ;; Starts hidden (visible = false); shown by BattleHUD._on_battle_outcome_resolved.
 ;; Renders OUTCOME ONLY per Pillar 2 lock (ADR-0015 §8) — no fate_data fields surfaced.
@@ -29,6 +33,12 @@ text = ""
 mouse_filter = 2
 horizontal_alignment = 1
 
+[node name="StarRatingLabel" type="Label" parent="VBoxContainer"]
+tooltip_text = "Star rating"
+text = ""
+mouse_filter = 2
+horizontal_alignment = 1
+
 [node name="SurvivingUnitsLabel" type="Label" parent="VBoxContainer"]
 tooltip_text = "Surviving units count"
 text = ""
@@ -36,6 +46,21 @@ mouse_filter = 2
 
 [node name="TurnsElapsedLabel" type="Label" parent="VBoxContainer"]
 tooltip_text = "Turns elapsed"
+text = ""
+mouse_filter = 2
+
+[node name="KillsLabel" type="Label" parent="VBoxContainer"]
+tooltip_text = "Player kills"
+text = ""
+mouse_filter = 2
+
+[node name="TotalDamageLabel" type="Label" parent="VBoxContainer"]
+tooltip_text = "Total damage dealt by player"
+text = ""
+mouse_filter = 2
+
+[node name="MVPLabel" type="Label" parent="VBoxContainer"]
+tooltip_text = "Most valuable player hero"
 text = ""
 mouse_filter = 2
 

@@ -245,6 +245,15 @@ var _fate_formation_turns: int = 0
 var _fate_assassin_kills: int = 0
 var _fate_boss_killed: bool = false
 
+# ─── Player-facing battle stats (session-15 commit 4 — 성취감 surface) ────────
+# These are categorical aggregates rendered on the UI-GB-09 result panel after
+# battle_outcome_resolved fires. NOT fate counters — Pillar 2 audit clean.
+## Damage dealt by each unit, regardless of side. Accumulated in _resolve_attack.
+var _damage_dealt_by_unit: Dictionary[int, int] = {}
+## Kill credit — incremented when _on_unit_died fires AND _last_attacker_id is
+## the player on the other side. Player-side kills only; friendly fire excluded.
+var _kills_by_unit: Dictionary[int, int] = {}
+
 
 # ─── Terminal state (story-007 AC-7) ─────────────────────────────────────────
 
@@ -252,6 +261,11 @@ var _fate_boss_killed: bool = false
 ## handlers early-return when set, preventing duplicate outcome emission on
 ## edge cases (e.g., turn-limit firing simultaneously with last-enemy-death).
 var _battle_over: bool = false
+
+## Cached outcome StringName from the last _emit_battle_outcome call. Used by
+## get_battle_stats() / _compute_star_rating to compute the result panel star
+## tier without re-querying the alive-count predicates. &"" before first emit.
+var _last_outcome: StringName = &""
 
 
 # ─── Chokepoints (S7-05 chapter-1 substrate; sourced from ChapterDefinition) ─
@@ -728,6 +742,87 @@ func get_active_turn_unit_id() -> int:
 	return _active_turn_unit_id
 
 
+## Returns a player-side stats summary for the UI-GB-09 result panel
+## (session-15 commit 4). Categorical aggregates only — NO fate counter values
+## are exposed (Pillar 2 lock per ADR-0015 §8). Shape:
+##   {
+##     "total_player_damage": int,      # sum of all player-attacker damage_applied
+##     "mvp_unit_id": int,              # player unit with max damage (-1 if none)
+##     "mvp_hero_id": StringName,       # convenience for display (&"" if none)
+##     "mvp_damage": int,               # damage dealt by the MVP (0 if none)
+##     "player_kills": int,             # sum of player-side kills (no friendly-fire)
+##     "surviving_player_count": int,   # alive player units at time of call
+##     "total_player_count": int,       # initial player roster size
+##     "star_rating": int,              # 0 (loss/draw) / 1 / 2 / 3 — see _compute_star_rating
+##     "outcome_was_win": bool,         # true iff _battle_over AND last outcome was VICTORY
+##   }
+## Idempotent / side-effect-free. Safe to call before / after / during battle.
+func get_battle_stats() -> Dictionary:
+	var total_damage: int = 0
+	var mvp_id: int = -1
+	var mvp_damage: int = 0
+	var mvp_hero_id: StringName = &""
+	for uid: int in _damage_dealt_by_unit:
+		if not _units.has(uid):
+			continue
+		if _units[uid].side != 0:
+			continue  # player-side only for the result-panel MVP
+		var dmg: int = _damage_dealt_by_unit[uid]
+		total_damage += dmg
+		if dmg > mvp_damage:
+			mvp_damage = dmg
+			mvp_id = uid
+			mvp_hero_id = _units[uid].hero_id
+	var kills: int = 0
+	for uid: int in _kills_by_unit:
+		if _units.has(uid) and _units[uid].side == 0:
+			kills += _kills_by_unit[uid]
+	var surviving: int = 0
+	var total: int = 0
+	for unit: BattleUnit in _units.values():
+		if unit.side != 0:
+			continue
+		total += 1
+		if _hp_controller != null and _hp_controller.is_alive(unit.unit_id):
+			surviving += 1
+	var rating: int = _compute_star_rating(surviving, total)
+	return {
+		"total_player_damage": total_damage,
+		"mvp_unit_id": mvp_id,
+		"mvp_hero_id": mvp_hero_id,
+		"mvp_damage": mvp_damage,
+		"player_kills": kills,
+		"surviving_player_count": surviving,
+		"total_player_count": total,
+		"star_rating": rating,
+		"outcome_was_win": _battle_over and _last_outcome == &"VICTORY_ANNIHILATION",
+	}
+
+
+## Star rating curve for the result panel (session-15 commit 4):
+##   3★ : Victory + clean run (no losses) + fast (≤ 8 rounds)
+##   2★ : Victory + (no losses OR fast)
+##   1★ : Victory at any cost
+##   0★ : Defeat / draw / mid-battle
+## Generous on the 2★ threshold so most wins reward at least 2 stars —
+## chasing 3★ is the replay incentive, surviving is the baseline.
+func _compute_star_rating(surviving: int, total: int) -> int:
+	if not _battle_over:
+		return 0
+	if _last_outcome != &"VICTORY_ANNIHILATION":
+		return 0
+	var round_count: int = 0
+	if _turn_runner != null and _turn_runner.has_method("get_current_round_number"):
+		round_count = _turn_runner.get_current_round_number()
+	var all_alive: bool = (surviving == total and total > 0)
+	var fast: bool = round_count > 0 and round_count <= 8
+	if all_alive and fast:
+		return 3
+	if all_alive or fast:
+		return 2
+	return 1
+
+
 ## Returns an opaque snapshot of battle state for AI consumer (Battle AI ADR).
 ## Shape is intentionally unspecified at MVP; callers must not rely on field names.
 func get_battle_state_snapshot() -> Dictionary:
@@ -845,6 +940,16 @@ func _on_unit_died(unit_id: int) -> void:
 		if _units.has(unit_id) and _units[unit_id].side == 1:
 			_fate_assassin_kills += 1
 			hidden_fate_condition_progressed.emit(&"assassin_kills", _fate_assassin_kills)
+	# Session-15 commit 4: kill credit for the result-screen aggregate. Credit
+	# the LAST ATTACKER only when victim is on the opposite side (no friendly-fire
+	# credit). Side-agnostic — both player and enemy "kills" are tracked but only
+	# the player aggregate surfaces in the UI; symmetric tracking lets future
+	# enemy-MVP / lose-screen reuse the same dict.
+	if _last_attacker_id != -1 and _units.has(_last_attacker_id) and _units.has(unit_id):
+		var killer: BattleUnit = _units[_last_attacker_id]
+		var victim: BattleUnit = _units[unit_id]
+		if killer.side != victim.side:
+			_kills_by_unit[_last_attacker_id] = _kills_by_unit.get(_last_attacker_id, 0) + 1
 	# Story-007 AC-5: victory check on every unit death.
 	_check_battle_end()
 
@@ -1612,6 +1717,13 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 	# Stage 7: apply via HPStatusController (sole writer of HP per ADR-0010)
 	_hp_controller.apply_damage(defender.unit_id, final_damage, modifiers.attack_type, modifiers.source_flags)
 
+	# Session-15 commit 4: accumulate damage credit for the result-screen MVP
+	# label. Side-agnostic (both player and enemy damage tracked) — the UI
+	# query in get_battle_stats() filters by side.
+	if result.kind == ResolveResult.Kind.HIT and final_damage > 0:
+		_damage_dealt_by_unit[attacker.unit_id] = \
+			_damage_dealt_by_unit.get(attacker.unit_id, 0) + final_damage
+
 	# Stage 8: emit damage_applied per ADR-0014 §8
 	damage_applied.emit(attacker.unit_id, defender.unit_id, final_damage)
 
@@ -1851,6 +1963,7 @@ func _emit_battle_outcome(outcome: StringName) -> void:
 	if _battle_over:
 		return  # AC-7: idempotent — outcome already resolved
 	_battle_over = true
+	_last_outcome = outcome  # session-15: cached for get_battle_stats()
 	# Story-008 AC-7: tank_alive_hp_pct queried on-demand (NOT a stored counter).
 	# 0.0 if no tank unit in roster, dead, or HP/Status returns 0 max_hp.
 	var tank_pct: float = 0.0

@@ -1546,8 +1546,56 @@ func _on_battle_outcome_resolved(outcome: StringName, fate_data: Dictionary) -> 
 	var turns_label: Label = vbox.get_node_or_null(^"TurnsElapsedLabel") as Label
 	if turns_label != null:
 		turns_label.text = _safe_tr_format(&"hud.results.turns_elapsed", turns_elapsed)
+	# Session-15 commit 4: 성취감 surface — pull damage / MVP / kills / star
+	# rating from controller's categorical aggregates (NO fate fields). Each
+	# label is independently null-guarded so legacy scenes without the new
+	# nodes still render the original 3 labels.
+	if _grid_controller != null and _grid_controller.has_method("get_battle_stats"):
+		var stats: Dictionary = _grid_controller.get_battle_stats()
+		_render_result_stats_panel(vbox, stats)
 	panel.visible = true
 	_results_render_ms_last = float(Time.get_ticks_usec() - start_us) / 1000.0
+
+
+## Session-15 commit 4: populates the four new UI-GB-09 stat labels from the
+## controller's get_battle_stats() Dictionary. Each label is null-guarded so
+## older / partial scenes degrade gracefully (the original 3 labels remain).
+## stats shape — see GridBattleController.get_battle_stats().
+func _render_result_stats_panel(vbox: VBoxContainer, stats: Dictionary) -> void:
+	var star_label: Label = vbox.get_node_or_null(^"StarRatingLabel") as Label
+	if star_label != null:
+		var rating: int = stats.get("star_rating", 0) as int
+		star_label.text = _safe_tr_format(&"hud.results.star_rating", rating)
+	var kills_label: Label = vbox.get_node_or_null(^"KillsLabel") as Label
+	if kills_label != null:
+		var kills: int = stats.get("player_kills", 0) as int
+		kills_label.text = _safe_tr_format(&"hud.results.kills", kills)
+	var dmg_label: Label = vbox.get_node_or_null(^"TotalDamageLabel") as Label
+	if dmg_label != null:
+		var dmg: int = stats.get("total_player_damage", 0) as int
+		dmg_label.text = _safe_tr_format(&"hud.results.total_damage", dmg)
+	var mvp_label: Label = vbox.get_node_or_null(^"MVPLabel") as Label
+	if mvp_label != null:
+		var mvp_hero: StringName = stats.get("mvp_hero_id", &"") as StringName
+		var mvp_damage: int = stats.get("mvp_damage", 0) as int
+		if mvp_hero == &"" or mvp_damage <= 0:
+			mvp_label.text = _safe_tr_format(&"hud.results.mvp_none", "")
+		else:
+			var mvp_name: String = _hero_display_name(mvp_hero)
+			mvp_label.text = _safe_tr_format(&"hud.results.mvp", [mvp_name, mvp_damage])
+
+
+## Resolves a hero_id to a human-readable name for the MVP label.
+## Falls back to the StringName itself if HeroDatabase has no entry.
+## HeroDatabase is a static-style RefCounted class (NOT a Node autoload) per
+## src/foundation/hero_database.gd:9 — call directly, no singleton lookup.
+func _hero_display_name(hero_id: StringName) -> String:
+	if hero_id == &"":
+		return ""
+	var hero: HeroData = HeroDatabase.get_hero(hero_id)
+	if hero != null and hero.name_ko != "":
+		return hero.name_ko
+	return String(hero_id)
 
 
 ## _on_unit_died — GameBus subscriber (emitter: HPStatusController).
@@ -1831,6 +1879,24 @@ func _format_fallback(key: StringName, args: Variant) -> String:
 			return "%d–%d 피해" % args
 		&"hud.forecast.counter_label":
 			return "반격 %s" % args
+		&"hud.results.star_rating":
+			# 0..3 stars rendered via filled/empty unicode glyphs. The label
+			# centers via PanelContainer alignment so 3 chars stay aesthetic.
+			var stars: int = args as int
+			match stars:
+				3: return "★★★"
+				2: return "★★☆"
+				1: return "★☆☆"
+				_: return "☆☆☆"
+		&"hud.results.kills":
+			return "처치 %d명" % args
+		&"hud.results.total_damage":
+			return "총 피해 %d" % args
+		&"hud.results.mvp":
+			# args = [String hero_name, int damage]
+			return "MVP: %s (%d 피해)" % args
+		&"hud.results.mvp_none":
+			return "MVP: —"
 		_:
 			push_warning("BattleHUD._format_fallback: unknown key '%s' — returning translated key" % key)
 			return tr(key)
