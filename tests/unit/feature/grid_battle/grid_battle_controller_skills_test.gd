@@ -391,3 +391,77 @@ func test_use_skill_emits_unit_skill_used_signal() -> void:
 	assert_int(captures.size()).is_equal(1)
 	assert_int(captures[0]["unit_id"] as int).is_equal(1)
 	assert_str(String(captures[0]["skill_id"] as StringName)).is_equal("skill_dragon_blade")
+
+
+# ─── Session-16: status effect application (poison / slow) ───────────────────
+
+
+func test_piercing_volley_applies_poison_to_each_hit() -> void:
+	# 황충 hits 2 enemies in range → both get poison applied.
+	var caster: BattleUnit = _make_unit(1, Vector2i(5, 5), 0, &"skill_piercing_volley",
+		int(UnitRole.UnitClass.ARCHER), 2)
+	var e1: BattleUnit = _make_unit(2, Vector2i(5, 6), 1)  # dist 1
+	var e2: BattleUnit = _make_unit(3, Vector2i(5, 4), 1)  # dist 1
+	var controller: GridBattleController = _setup([caster, e1, e2])
+	controller.use_skill(1)
+
+	var calls: Array[Dictionary] = (controller._hp_controller as HPStatusControllerStub).applied_status_calls
+	assert_int(calls.size()).override_failure_message(
+		"piercing_volley should apply poison once per hit (2 hits expected)"
+	).is_equal(2)
+	for call: Dictionary in calls:
+		assert_str(String(call["effect_id"] as StringName)).is_equal("poison")
+		assert_int(call["source_unit_id"] as int).is_equal(1)
+
+
+func test_charm_applies_slow_to_each_adjacent_enemy() -> void:
+	# 초선 at (2,2) with 2 adjacent enemies — both get slow.
+	var caster: BattleUnit = _make_unit(1, Vector2i(2, 2), 0, &"skill_charm",
+		int(UnitRole.UnitClass.SCOUT))
+	var e1: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	var e2: BattleUnit = _make_unit(3, Vector2i(2, 3), 1)
+	var far: BattleUnit = _make_unit(4, Vector2i(5, 5), 1)  # not adjacent
+	var controller: GridBattleController = _setup([caster, e1, e2, far])
+	controller.use_skill(1)
+
+	var calls: Array[Dictionary] = (controller._hp_controller as HPStatusControllerStub).applied_status_calls
+	assert_int(calls.size()).override_failure_message(
+		"charm should apply slow to 2 adjacent enemies (not the far one)"
+	).is_equal(2)
+	for call: Dictionary in calls:
+		assert_str(String(call["effect_id"] as StringName)).is_equal("slow")
+
+
+func test_charm_applies_slow_even_when_target_already_acted() -> void:
+	# Slow persists across the turn-stealing gate — the lasting debuff still
+	# applies even if the turn was already spent (charm cannot waste it).
+	var caster: BattleUnit = _make_unit(1, Vector2i(2, 2), 0, &"skill_charm",
+		int(UnitRole.UnitClass.SCOUT))
+	var enemy: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	var controller: GridBattleController = _setup([caster, enemy])
+	controller._acted_this_turn[2] = true  # already acted
+	controller.use_skill(1)
+
+	var calls: Array[Dictionary] = (controller._hp_controller as HPStatusControllerStub).applied_status_calls
+	assert_int(calls.size()).override_failure_message(
+		"slow should still apply even when target already acted"
+	).is_equal(1)
+
+
+func test_unit_status_applied_signal_emits_on_apply() -> void:
+	# Verify the signal fires with (unit_id, effect_id) payload.
+	var caster: BattleUnit = _make_unit(1, Vector2i(2, 2), 0, &"skill_charm",
+		int(UnitRole.UnitClass.SCOUT))
+	var enemy: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	var controller: GridBattleController = _setup([caster, enemy])
+	var captures: Array = []
+	controller.unit_status_applied.connect(
+		func(uid: int, eid: StringName) -> void:
+			captures.append({"unit_id": uid, "effect_id": eid})
+	)
+
+	controller.use_skill(1)
+
+	assert_int(captures.size()).is_equal(1)
+	assert_int(captures[0]["unit_id"] as int).is_equal(2)
+	assert_str(String(captures[0]["effect_id"] as StringName)).is_equal("slow")

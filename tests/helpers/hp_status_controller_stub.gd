@@ -83,3 +83,22 @@ func get_max_hp(unit_id: int) -> int:
 func get_status_effects(unit_id: int) -> Array:
 	var effects: Array = _test_status_effects.get(unit_id, [])
 	return effects.duplicate()
+
+
+## Session-16 test seam — apply_status override that records calls for assertion
+## without loading the actual .tres template. Production path uses
+## `load("res://assets/data/status_effects/<id>.tres")`; the stub bypasses that
+## and records `(unit_id, effect_id, duration_override, source_unit_id)` tuples
+## in `applied_status_calls`. Always returns true (signals "applied").
+var applied_status_calls: Array[Dictionary] = []
+
+
+func apply_status(unit_id: int, effect_template_id: StringName,
+		duration_override: int, source_unit_id: int) -> bool:
+	applied_status_calls.append({
+		"unit_id": unit_id,
+		"effect_id": effect_template_id,
+		"duration_override": duration_override,
+		"source_unit_id": source_unit_id,
+	})
+	return true

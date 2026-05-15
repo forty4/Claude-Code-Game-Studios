@@ -126,9 +126,14 @@ func _ready() -> void:
 	box.add_child(_make_row("관우 청룡언월도 — 다음 한 번의 공격이 50% 더 강해집니다 (행동 소모 없음)"))
 	box.add_child(_make_row("장비 호로후 — 인접한 모든 적에게 즉시 25 피해 (그 턴 행동으로 소모)"))
 	box.add_child(_make_row("유비 격려 — 인접한 아군 영웅들의 행동권 회복 (한 턴 더 움직임)"))
-	box.add_child(_make_row("황충 연사 — 사거리 내 가까운 적 최대 3명에게 28 피해 (행동 소모)"))
-	box.add_child(_make_row("초선 매혹 — 인접한 적의 이번 라운드 행동권 박탈 (자기 행동 소모 없음)"))
+	box.add_child(_make_row("황충 연사 — 사거리 내 가까운 적 최대 3명에게 28 피해 + 독 3턴 (행동 소모)"))
+	box.add_child(_make_row("초선 매혹 — 인접한 적의 이번 라운드 행동권 박탈 + 둔화 2턴 (자기 행동 소모 없음)"))
 	box.add_child(_make_row("조조 책략 — 전장의 모든 적에게 15 피해 (행동 소모, 후일 합류 시 활성)"))
+	box.add_child(_make_spacer(6))
+	box.add_child(_make_section_heading("상태 효과 (유닛 위 작은 글자)"))
+	box.add_child(_make_row("방 — 방어 자세 (다음 받는 피해 50% 감소; 한 턴)"))
+	box.add_child(_make_row("독 (초록) — 매 턴 시작 HP 깎임 (3턴 지속, 황충 연사로 부여)"))
+	box.add_child(_make_row("슬 (보라) — 공격력 -20% + 이동 -1 (2턴 지속, 초선 매혹으로 부여)"))
 	box.add_child(_make_spacer(12))
 
 	# ── Close button ────────────────────────────────────────────────────────

@@ -377,6 +377,10 @@ func _start_battle() -> void:
 	# screen to feel it.
 	if _grid_controller.has_signal(&"unit_killed"):
 		_grid_controller.unit_killed.connect(_on_unit_killed_mid_battle)
+	# Session-16: status effect badges (독 / 슬). Mirrors the defend_stance 방
+	# badge channel so multiple status types can stack visually on one polygon.
+	if _grid_controller.has_signal(&"unit_status_applied"):
+		_grid_controller.unit_status_applied.connect(_on_unit_status_applied)
 
 	# === STEP 5.5: AISystem (ADR-0019) — battle-scoped Node 6th invocation ===
 	# Inserted via /architecture-review delta #14 2026-05-05 per ADR-0016 §3 R-3
@@ -1712,6 +1716,18 @@ func _on_round_started_visual(_round_num: int) -> void:
 			var badge: Node = poly.get_node_or_null("DefendBadge")
 			if badge != null:
 				badge.queue_free()
+			# Session-16: status badges (poison / slow) are TURN-BASED — they
+			# tick down via HPStatusController._apply_turn_start_tick. The
+			# visual badge is shown per-application; we leave it on the polygon
+			# until the unit's NEXT turn start (where tick removes the effect).
+			# For simplicity v1: clear all status badges at round start. The
+			# next turn's apply_turn_start_tick will re-fire signals if the
+			# effect persists (a TODO — for now badge accuracy is "applied
+			# this round" which is close enough).
+			for badge_name: String in ["PoisonBadge", "SlowBadge"]:
+				var status_badge: Node = poly.get_node_or_null(badge_name)
+				if status_badge != null:
+					status_badge.queue_free()
 
 
 ## Session-13 — defend stance applied. Adds a small "방" Label to the unit's
@@ -1740,6 +1756,52 @@ func _on_unit_defend_stance_applied(unit_id: int) -> void:
 	badge.rotation = -poly.rotation
 	# Top-right corner of the polygon (positive X, negative Y in local coords).
 	badge.position = Vector2(18, -34)
+	badge.size = Vector2(20, 20)
+	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	poly.add_child(badge)
+
+
+## Session-16: status effect (poison / slow) badge. Adds a colored "독" or "슬"
+## Label to the affected unit's polygon mirroring the 방 defend_stance badge.
+## Different badge_name + position per effect_id so multiple statuses stack
+## visually without overlapping. Cleared at round_started_visual (TURN-BASED
+## effects re-emit if they persist via apply_turn_start_tick).
+func _on_unit_status_applied(unit_id: int, effect_id: StringName) -> void:
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null:
+		return
+	var poly: Node2D = _find_unit_polygon(visuals, unit_id)
+	if poly == null:
+		return
+	var badge_name: String = ""
+	var glyph: String = ""
+	var glyph_color: Color = Color(1.0, 0.95, 0.78, 1.0)
+	var pos_offset: Vector2 = Vector2(0, 0)
+	match effect_id:
+		&"poison":
+			badge_name = "PoisonBadge"
+			glyph = "독"
+			glyph_color = Color(0.55, 0.95, 0.45, 1.0)  # poison green
+			pos_offset = Vector2(-32, -34)              # top-left
+		&"slow":
+			badge_name = "SlowBadge"
+			glyph = "슬"
+			glyph_color = Color(0.78, 0.62, 0.95, 1.0)  # slow purple
+			pos_offset = Vector2(-32, -18)              # below poison slot
+		_:
+			return  # unknown status — no badge for v1
+	# Idempotent — don't stack duplicates on re-apply.
+	if poly.get_node_or_null(badge_name) != null:
+		return
+	var badge: Label = Label.new()
+	badge.name = badge_name
+	badge.text = glyph
+	badge.add_theme_color_override("font_color", glyph_color)
+	badge.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.05, 1.0))
+	badge.add_theme_constant_override("outline_size", 6)
+	badge.add_theme_font_size_override("font_size", 18)
+	badge.rotation = -poly.rotation
+	badge.position = pos_offset
 	badge.size = Vector2(20, 20)
 	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	poly.add_child(badge)

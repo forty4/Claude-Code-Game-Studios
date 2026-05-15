@@ -126,6 +126,13 @@ signal critical_hit_landed(attacker_id: int, defender_id: int, damage: int, angl
 ## lookup at the view layer.
 signal unit_killed(killer_id: int, victim_id: int, victim_hero_id: StringName)
 
+## Session-16: emitted when a unit gains a status effect (poison / slow / etc.)
+## via a skill or attack. View-layer subscribers (battle_scene) spawn a small
+## glyph badge on the unit's polygon so the player sees the active debuff at a
+## glance. Separate from `unit_defend_stance_applied` so the buff/debuff layer
+## stays composable — defend_stance is its own visual channel (방 badge).
+signal unit_status_applied(unit_id: int, effect_id: StringName)
+
 ## Controller-scoped re-emit of GameBus.unit_died so scene-tier subscribers
 ## (BattleScene visual feedback) can react without subscribing to GameBus
 ## directly (battle_scene_smoke_test AC-7: no GameBus subs in BattleScene).
@@ -1591,6 +1598,10 @@ func _skill_piercing_volley(unit: BattleUnit) -> bool:
 		_damage_dealt_by_unit[unit.unit_id] = \
 			_damage_dealt_by_unit.get(unit.unit_id, 0) + volley_damage
 		damage_applied.emit(unit.unit_id, victim_id, volley_damage)
+		# Session-16: 황충's arrows are poison-tipped. Apply 3-turn poison DoT
+		# to every hit target. The arrows hit alive units (gated above) and
+		# apply_status enforces refresh semantics so re-hits stack correctly.
+		_apply_status_with_signal(victim_id, &"poison", unit.unit_id)
 		hit_count += 1
 	_acted_this_turn[unit.unit_id] = true
 	if _turn_runner != null and _turn_runner.has_method("declare_action"):
@@ -1606,6 +1617,8 @@ func _skill_piercing_volley(unit: BattleUnit) -> bool:
 ## third with AMBUSH. Already-acted enemies are unaffected (the charm cannot
 ## "double-spend" a turn). Adjacent only (Manhattan-1) to keep the verb tied
 ## to positioning, not target select UI.
+## Session-16: also applies SLOW (2-turn -20% atk + -1 move) so even acted
+## enemies that aren't turn-stolen still suffer the debuff for their next turn.
 func _skill_charm(unit: BattleUnit) -> bool:
 	for victim: BattleUnit in _units.values():
 		if victim.side == unit.side:
@@ -1616,10 +1629,26 @@ func _skill_charm(unit: BattleUnit) -> bool:
 		var dy: int = absi(victim.position.y - unit.position.y)
 		if dx + dy != 1:
 			continue  # adjacent only
+		# SLOW always applies (whether the turn was wasted or not) — it's the
+		# lasting effect that survives into next round.
+		_apply_status_with_signal(victim.unit_id, &"slow", unit.unit_id)
 		if _acted_this_turn.get(victim.unit_id, false):
 			continue  # already acted; charm cannot waste a turn that's gone
 		_acted_this_turn[victim.unit_id] = true
 	return true
+
+
+## Session-16 helper: apply_status with safety gate + signal emission.
+## Centralizes the apply_status + signal pattern used by skill handlers.
+## Skipped silently when _hp_controller doesn't support apply_status (legacy /
+## stub paths — e.g., HPStatusControllerStub in unit tests).
+func _apply_status_with_signal(unit_id: int, effect_id: StringName,
+		source_unit_id: int) -> void:
+	if _hp_controller == null or not _hp_controller.has_method("apply_status"):
+		return
+	var ok: bool = _hp_controller.apply_status(unit_id, effect_id, -1, source_unit_id)
+	if ok:
+		unit_status_applied.emit(unit_id, effect_id)
 
 
 ## 조조 strategist: 15 fixed damage to EVERY alive enemy on the map regardless
