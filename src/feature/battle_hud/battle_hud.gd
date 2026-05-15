@@ -1665,6 +1665,14 @@ func _on_unit_turn_started(unit_id: int) -> void:
 		if _btn_defend != null: _btn_defend.disabled = not _grid_controller.is_action_available(unit_id, &"defend")
 		if _btn_wait != null: _btn_wait.disabled = not _grid_controller.is_action_available(unit_id, &"wait")
 		if _btn_end_turn != null: _btn_end_turn.disabled = not _grid_controller.is_action_available(unit_id, &"end_turn")
+	# Session-20: skill button enable via existing can_use_skill (more
+	# specific than the generic is_action_available fallback above which
+	# is_method-gated and currently always permissive). Reflects skill
+	# wired / not already used / current turn / player side gates so the
+	# button correctly disables AFTER the one-shot is consumed.
+	if _btn_use_skill != null and _grid_controller != null \
+			and _grid_controller.has_method("can_use_skill"):
+		_btn_use_skill.disabled = not _grid_controller.can_use_skill(unit_id)
 
 
 ## _on_unit_turn_ended — GameBus subscriber (emitter: TurnOrderRunner).

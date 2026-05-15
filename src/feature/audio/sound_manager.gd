@@ -31,9 +31,19 @@ const SFX_HIT: StringName = &"hit"
 const SFX_DEATH: StringName = &"death"
 const SFX_VICTORY: StringName = &"victory"
 ## Session-16: hero active skill activation — bright two-note sting that's
-## clearly distinct from SFX_HIT (low thud) and SFX_VICTORY (full chord). One
-## cue covers all 6 wired skills — per-skill variants are a future iteration.
+## clearly distinct from SFX_HIT (low thud) and SFX_VICTORY (full chord).
+## Generic fallback for unwired skill_ids per _sfx_for_skill in battle_scene.
 const SFX_SKILL: StringName = &"skill"
+## Session-20: per-skill variants. Each maps to one of the 7 wired hero
+## skills so the audio sells the distinction at a glance (offensive = sharper
+## & lower; support = warmer & rising; utility = ethereal & pulsing).
+const SFX_SKILL_DRAGON_BLADE: StringName    = &"skill_dragon_blade"    # 관우
+const SFX_SKILL_THUNDER_ROAR: StringName    = &"skill_thunder_roar"    # 장비
+const SFX_SKILL_INSPIRE: StringName         = &"skill_inspire"         # 유비
+const SFX_SKILL_PIERCING_VOLLEY: StringName = &"skill_piercing_volley" # 황충
+const SFX_SKILL_CHARM: StringName           = &"skill_charm"           # 초선
+const SFX_SKILL_STRATEGIST: StringName      = &"skill_strategist"      # 조조
+const SFX_SKILL_NAVAL_STRATEGY: StringName  = &"skill_naval_strategy"  # 주유
 ## Session-16: critical hit (REAR-direction strike). Sharp descending two-note
 ## "thwack" — a punctuation distinct from SFX_HIT, paired with camera shake +
 ## "치명타!" popup in battle_scene.
@@ -262,6 +272,51 @@ func _build_procedural_streams() -> void:
 	_streams[SFX_KILL] = _make_chord(
 		[880.00, 1108.73],  # A5 + C#6 (major third up)
 		0.30, 6.0, 0.28,
+	)
+	# ── Session-20: per-skill SFX variants ─────────────────────────────────────
+	# 관우 dragon_blade: sharp ringing strike — C6 + E6 + G6 (major triad up).
+	# Decay 6.5 keeps the ring brief but resonant.
+	_streams[SFX_SKILL_DRAGON_BLADE] = _make_chord(
+		[1046.50, 1318.51, 1567.98],  # C6 + E6 + G6
+		0.26, 6.5, 0.26,
+	)
+	# 장비 thunder_roar: low G2 thud + high E5 crack — earthy + sharp pair so
+	# the burst reads as "thunderclap". Longer decay (4.0) lets the rumble
+	# linger one beat longer.
+	_streams[SFX_SKILL_THUNDER_ROAR] = _make_chord(
+		[98.00, 659.25],  # G2 (rumble) + E5 (crack)
+		0.32, 4.0, 0.32,
+	)
+	# 유비 inspire: warm major triad C5 + E5 + G5 ascending — supportive
+	# resolution chord, classic "rally" feel. Same triad as SFX_VICTORY but
+	# punchier decay (8.0 vs 3.0) so it doesn't muddle the chapter-end cue.
+	_streams[SFX_SKILL_INSPIRE] = _make_chord(
+		[523.25, 659.25, 783.99],  # C5 + E5 + G5
+		0.24, 8.0, 0.24,
+	)
+	# 황충 piercing_volley: rapid high pizzicato — B5 alone with very fast
+	# decay (12.0). Reads as "arrows flying" — staccato + sharp.
+	_streams[SFX_SKILL_PIERCING_VOLLEY] = _make_chord(
+		[987.77],  # B5
+		0.18, 12.0, 0.30,
+	)
+	# 초선 charm: ethereal high pair G6 + B6 — bell-like, "spell cast" feel.
+	# Slow decay (5.0) for a slight reverberant tail.
+	_streams[SFX_SKILL_CHARM] = _make_chord(
+		[1567.98, 1975.53],  # G6 + B6 (major third up, high register)
+		0.30, 5.0, 0.22,
+	)
+	# 조조 strategist: dark low C3 + G3 perfect fifth — battlefield-wide
+	# announcement, ominous. Decay 5.5 sits between thunder and inspire.
+	_streams[SFX_SKILL_STRATEGIST] = _make_chord(
+		[130.81, 196.00],  # C3 + G3 (perfect fifth, low register)
+		0.34, 5.5, 0.30,
+	)
+	# 주유 naval_strategy: D4 + A4 with extended decay (4.5) — pulsing,
+	# trance-like quality reads as "tactical disruption / stun pulse".
+	_streams[SFX_SKILL_NAVAL_STRATEGY] = _make_chord(
+		[293.66, 440.00],  # D4 + A4 (perfect fifth)
+		0.30, 4.5, 0.26,
 	)
 
 

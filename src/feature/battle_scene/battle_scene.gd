@@ -1929,13 +1929,85 @@ func _on_unit_status_applied(unit_id: int, effect_id: StringName) -> void:
 	poly.add_child(badge)
 
 
-## Session-16: hero active skill fired. Plays the SFX_SKILL cue so the player
-## gets immediate audio feedback that the one-shot was consumed. View-only —
-## damage application is handled separately via _on_damage_applied for the
-## damage-dealing skills (thunder_roar / piercing_volley / strategist).
-func _on_unit_skill_used(_unit_id: int, _skill_id: StringName) -> void:
+## Session-16/20: hero active skill fired. Dispatches three feedback channels:
+##   1. Per-skill SFX cue (SFX_SKILL_<NAME>) so each skill sounds distinct.
+##   2. SkillPopup at caster position showing the skill's Korean name in the
+##      caster's accent color — mirror of CriticalPopup / KillPopup pattern.
+##   3. Camera shake intensity scaled to skill type (offensive = strong,
+##      utility = none) so the screen kicks for thunder_roar / strategist
+##      but stays still for the buff/aura skills.
+## View-only — damage application is handled separately via _on_damage_applied
+## for the damage-dealing skills (thunder_roar / piercing_volley / strategist).
+func _on_unit_skill_used(unit_id: int, skill_id: StringName) -> void:
+	# (1) Per-skill SFX
 	if SoundManager != null and SoundManager.has_method("play"):
-		SoundManager.play(SoundManager.SFX_SKILL)
+		SoundManager.play(_sfx_for_skill(skill_id))
+	# (2) Caster position + accent → SkillPopup
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null:
+		return
+	var caster_node: Node2D = _find_unit_polygon(visuals, unit_id)
+	if caster_node == null:
+		return
+	var caster: BattleUnit = _grid_controller.get_battle_unit(unit_id)
+	if caster == null:
+		return
+	var display_name: String = _skill_display_name(skill_id)
+	var accent: Color = Color(1.00, 0.85, 0.32)  # default warm gold
+	if visuals.has_method("_get_hero_accent"):
+		accent = visuals._get_hero_accent(caster.hero_id, caster.side)
+	var popup: SkillPopup = SkillPopup.make(display_name, accent)
+	popup.position = caster_node.position + Vector2(0.0, -8.0)
+	visuals.add_child(popup)
+	# (3) Camera shake — offensive skills kick the screen; utility skills don't.
+	if _battle_camera != null and _battle_camera.has_method("shake"):
+		var shake_params: Vector2 = _shake_for_skill(skill_id)
+		if shake_params.x > 0.0:
+			_battle_camera.shake(shake_params.x, shake_params.y)
+
+
+## Session-20 — maps skill_id → SFX constant. Falls back to generic SFX_SKILL
+## for unwired skills (defensive; the 7/7 roster is covered but any future
+## skill_id additions without a matching SFX_* still play the default cue).
+func _sfx_for_skill(skill_id: StringName) -> StringName:
+	match skill_id:
+		&"skill_dragon_blade":    return SoundManager.SFX_SKILL_DRAGON_BLADE
+		&"skill_thunder_roar":    return SoundManager.SFX_SKILL_THUNDER_ROAR
+		&"skill_inspire":         return SoundManager.SFX_SKILL_INSPIRE
+		&"skill_piercing_volley": return SoundManager.SFX_SKILL_PIERCING_VOLLEY
+		&"skill_charm":           return SoundManager.SFX_SKILL_CHARM
+		&"skill_strategist":      return SoundManager.SFX_SKILL_STRATEGIST
+		&"skill_naval_strategy":  return SoundManager.SFX_SKILL_NAVAL_STRATEGY
+		_:                        return SoundManager.SFX_SKILL
+
+
+## Session-20 — Korean display name per skill_id for SkillPopup banner.
+## Mirrors help_overlay.gd skill list strings so they stay in sync.
+func _skill_display_name(skill_id: StringName) -> String:
+	match skill_id:
+		&"skill_dragon_blade":    return "청룡언월도!"
+		&"skill_thunder_roar":    return "호로후!"
+		&"skill_inspire":         return "격려!"
+		&"skill_piercing_volley": return "연사!"
+		&"skill_charm":           return "매혹!"
+		&"skill_strategist":      return "책략!"
+		&"skill_naval_strategy":  return "책략!"
+		_:                        return "스킬!"
+
+
+## Session-20 — camera shake (magnitude, duration) tuple per skill_id.
+## Offensive skills (thunder_roar / strategist) match critical-hit intensity
+## (8.0 / 0.25). dragon_blade + piercing_volley get a moderate kick (5.0 /
+## 0.18) — they hit hard but at one target, not the whole map. Utility
+## skills (inspire / charm / naval_strategy) return Vector2.ZERO so no
+## shake fires. Vector2.x ≤ 0 disables the shake call site.
+func _shake_for_skill(skill_id: StringName) -> Vector2:
+	match skill_id:
+		&"skill_thunder_roar":    return Vector2(8.0, 0.25)
+		&"skill_strategist":      return Vector2(8.0, 0.25)
+		&"skill_dragon_blade":    return Vector2(5.0, 0.18)
+		&"skill_piercing_volley": return Vector2(5.0, 0.18)
+		_:                        return Vector2.ZERO  # utility — no shake
 
 
 ## Session-16: mid-battle kill notification. Spawns "X 처치!" popup at the
