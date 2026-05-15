@@ -204,3 +204,58 @@ func test_only_units_on_fire_are_burned_in_multi_unit_battle() -> void:
 	assert_bool(burned_ids.has(4)).override_failure_message(
 		"safe_enemy (id 4) on PLAINS must NOT be in burned set"
 	).is_false()
+
+
+# ─── Session-23 — fire_damage_applied signal for view layer ──────────────────
+
+
+func test_fire_damage_applied_signal_emits_for_each_burned_unit() -> void:
+	# View-layer subscribers (battle_scene) need the signal to know which unit
+	# to flash + popup. One emit per apply_damage call. G-4 array capture
+	# pattern: lambda mutates the outer Array via reference.
+	var burning_player: BattleUnit = _make_unit(1, Vector2i(0, 0), 0)
+	var burning_enemy: BattleUnit = _make_unit(3, Vector2i(1, 0), 1)
+	var fire_coords: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0)]
+	var controller: GridBattleController = _setup(
+		[burning_player, burning_enemy], fire_coords)
+	var captures: Array = []
+	controller.fire_damage_applied.connect(func(defender_id: int, damage: int) -> void:
+		captures.append({"defender_id": defender_id, "damage": damage}))
+	controller._apply_fire_damage_on_round_start()
+	assert_int(captures.size()).override_failure_message(
+		"fire_damage_applied must emit once per burned unit; got %d emits for 2 burners"
+			% captures.size()
+	).is_equal(2)
+	var captured_ids: Array = [captures[0]["defender_id"] as int, captures[1]["defender_id"] as int]
+	assert_bool(1 in captured_ids).is_true()
+	assert_bool(3 in captured_ids).is_true()
+
+
+func test_fire_damage_applied_signal_carries_balance_constant_damage() -> void:
+	var player: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	var controller: GridBattleController = _setup([player], [Vector2i(2, 2)])
+	var captures: Array = []
+	controller.fire_damage_applied.connect(func(_defender_id: int, damage: int) -> void:
+		captures.append(damage))
+	controller._apply_fire_damage_on_round_start()
+	var expected_damage: int = BalanceConstants.get_const("FIRE_DAMAGE_PER_TURN") as int
+	assert_int(captures.size()).is_equal(1)
+	assert_int(captures[0] as int).override_failure_message(
+		"fire_damage_applied must carry FIRE_DAMAGE_PER_TURN (%d); got %d"
+			% [expected_damage, captures[0] as int]
+	).is_equal(expected_damage)
+
+
+func test_fire_damage_applied_signal_not_emitted_for_unit_not_on_fire() -> void:
+	# Regression: a unit on PLAINS must not trigger the signal. Guard against
+	# accidentally emitting fire_damage_applied for non-FIRE tile units.
+	var player: BattleUnit = _make_unit(1, Vector2i(5, 5), 0)
+	var controller: GridBattleController = _setup([player], [Vector2i(2, 2)])
+	var captures: Array = []
+	controller.fire_damage_applied.connect(func(_defender_id: int, _damage: int) -> void:
+		captures.append(true))
+	controller._apply_fire_damage_on_round_start()
+	assert_int(captures.size()).override_failure_message(
+		"unit on PLAINS must not trigger fire_damage_applied; got %d emits"
+			% captures.size()
+	).is_equal(0)

@@ -18,16 +18,23 @@ const LABEL_HALF_HEIGHT: float = 10.0
 const OUTLINE_SIZE: int = 4
 
 const COLOR_DAMAGE:  Color = Color(1.00, 0.30, 0.25)
+## Session-23 — orange tint for terrain damage (FIRE tick). Distinct from
+## attack-hit red so the player reads "this was the fire tile, not a swing."
+const COLOR_FIRE:    Color = Color(1.00, 0.55, 0.15)
 const COLOR_OUTLINE: Color = Color(0.05, 0.04, 0.04, 1.0)
 
 var _damage: int = 0
+var _tint: Color = COLOR_DAMAGE
 
 
 ## Constructs a popup with the given damage value. Add to a parent Node2D after
 ## setting its `position`; `_ready` then builds the label and starts the tween.
-static func make(damage: int) -> DamagePopup:
+## Optional `tint` overrides the default red damage color — pass `COLOR_FIRE`
+## (or any Color) for distinct visual channels (e.g., terrain vs attack).
+static func make(damage: int, tint: Color = COLOR_DAMAGE) -> DamagePopup:
 	var p: DamagePopup = DamagePopup.new()
 	p._damage = damage
+	p._tint = tint
 	return p
 
 
@@ -35,7 +42,7 @@ func _ready() -> void:
 	var label: Label = Label.new()
 	label.text = "-%d" % _damage
 	label.add_theme_font_size_override("font_size", FONT_SIZE)
-	label.add_theme_color_override("font_color", COLOR_DAMAGE)
+	label.add_theme_color_override("font_color", _tint)
 	label.add_theme_color_override("font_outline_color", COLOR_OUTLINE)
 	label.add_theme_constant_override("outline_size", OUTLINE_SIZE)
 	label.position = Vector2(-LABEL_HALF_WIDTH, -LABEL_HALF_HEIGHT)

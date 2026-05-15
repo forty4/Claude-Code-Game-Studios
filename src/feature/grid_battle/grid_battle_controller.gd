@@ -106,6 +106,13 @@ signal unit_moved(unit_id: int, from: Vector2i, to: Vector2i)
 ## Emitted after HPStatusController.apply_damage resolves and returns.
 signal damage_applied(attacker_id: int, defender_id: int, damage: int)
 
+## Session-23 — emitted after FIRE-tile round-start damage is applied to a unit.
+## Separate from `damage_applied` so the view layer can render the burn with a
+## distinct visual channel (orange popup, orange flash, no camera shake / SFX_HIT)
+## without coupling to the attack-hit handler. defender_id receives the tick;
+## damage is the resolved FIRE_DAMAGE_PER_TURN amount (post HP-clamp).
+signal fire_damage_applied(defender_id: int, damage: int)
+
 ## Session-16: emitted alongside damage_applied when the attack landed on the
 ## defender's REAR (×1.50 angle_mult on most classes). View-layer subscribers
 ## (battle_scene) use this to spawn a "치명타!" popup + camera shake + SFX cue
@@ -279,6 +286,8 @@ func _apply_fire_damage_on_round_start() -> void:
 		_hp_controller.apply_damage(unit.unit_id, fire_damage,
 			ResolveModifiers.AttackType.MAGICAL,
 			[&"fire", &"terrain"] as Array[StringName])
+		# Session-23 — surface burn for the view layer (orange popup + flash).
+		fire_damage_applied.emit(unit.unit_id, fire_damage)
 
 ## ID of the last attacker — used by fate-counter (assassin kill attribution).
 var _last_attacker_id: int = -1

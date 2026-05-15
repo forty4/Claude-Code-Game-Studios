@@ -353,6 +353,8 @@ func _start_battle() -> void:
 	_grid_controller.unit_selected_changed.connect(_on_unit_selected_changed)
 	_grid_controller.unit_moved.connect(_on_unit_moved)
 	_grid_controller.damage_applied.connect(_on_damage_applied)
+	# Session-23 — FIRE tile round-start damage gets its own visual channel.
+	_grid_controller.fire_damage_applied.connect(_on_fire_damage_applied)
 	_grid_controller.unit_visual_died.connect(_on_unit_died_visual)
 	_grid_controller.active_unit_changed.connect(_on_active_unit_changed)
 	_grid_controller.unit_turn_ended_visual.connect(_on_unit_turn_ended_visual)
@@ -1246,6 +1248,43 @@ func _on_damage_applied(attacker_id: int, defender_id: int, damage: int) -> void
 		var line: AttackLine = AttackLine.make_for_class(origin, unit_node.position,
 			attacker_class)
 		visuals.add_child(line)
+
+
+## Session-23 — FIRE tile round-start damage view feedback. Distinct from
+## attack hits: orange flash + orange popup, no camera shake, no SFX_HIT.
+## The round-start tick is environmental — we don't want it to feel like a
+## confirmed swing. Reused HP-bar refresh + 0.25s revert-via-timer pattern
+## from _on_damage_applied (G-31: timer-on-tree, not on the polygon).
+func _on_fire_damage_applied(defender_id: int, damage: int) -> void:
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null:
+		return
+	var unit_node: Node2D = _find_unit_polygon(visuals, defender_id)
+	if unit_node == null:
+		return
+	var original_modulate: Color = unit_node.modulate
+	# Orange-burn flash — distinct from the red attack flash so the player
+	# reads "this was the fire tile, not a hit".
+	unit_node.modulate = Color(2.0, 1.2, 0.4, 1.0)
+	get_tree().create_timer(0.25).timeout.connect(func() -> void:
+		var v: Node = _find_chapter_visuals()
+		if v == null:
+			return
+		var n: Node2D = _find_unit_polygon(v, defender_id)
+		if is_instance_valid(n):
+			n.modulate = original_modulate)
+	# Refresh the unit's HP bar — apply_damage ran synchronously before this
+	# signal fired so get_current_hp returns the post-tick value.
+	var bar: Node = unit_node.get_node_or_null("HpBar")
+	if bar is UnitHpBar and _hp_controller != null:
+		(bar as UnitHpBar).set_hp(
+			_hp_controller.get_current_hp(defender_id),
+			_hp_controller.get_max_hp(defender_id),
+		)
+	if damage > 0:
+		var popup: DamagePopup = DamagePopup.make(damage, DamagePopup.COLOR_FIRE)
+		popup.position = unit_node.position + Vector2(0.0, -36.0)
+		visuals.add_child(popup)
 
 
 ## Death feedback: fade the dead unit's polygon to transparent over
