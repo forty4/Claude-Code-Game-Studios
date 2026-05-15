@@ -617,6 +617,58 @@ func _make_attack_target(target_unit_id: int) -> ActionTarget:
 
 # ─── Public API: cross-system contract surface (ADR-0014 §10) ────────────────
 
+## Session-24 — query whether `action_name` is currently available for `unit_id`.
+## Used by battle_hud (UI-GB-02) to gray out spent-token action buttons during
+## the player's turn. Reads turn_runner state via `get_unit_turn_state`; pure
+## read — does not mutate controller or turn_runner state.
+##
+## action_name is one of: &"move", &"attack", &"use_skill", &"defend",
+## &"wait", &"end_turn". Returns false for unknown action names.
+##
+## Availability rules:
+##   - Battle must not be over.
+##   - Unit must exist in registry, be alive, player-controlled, AND be the
+##     current active turn unit. AI turns gate all buttons to disabled.
+##   - turn_state must not be DONE (e.g., WAIT already declared).
+##   - "move"   → !move_token_spent && !defend_stance_active (CR-4c lock)
+##   - "attack" / "use_skill" / "defend" → !action_token_spent
+##   - "wait" / "end_turn" → always true when the unit-level guards pass
+func is_action_available(unit_id: int, action_name: StringName) -> bool:
+	if _battle_over:
+		return false
+	if not _units.has(unit_id):
+		return false
+	var unit: BattleUnit = _units[unit_id]
+	if not unit.is_player_controlled:
+		return false
+	if _hp_controller != null and not _hp_controller.is_alive(unit_id):
+		return false
+	if unit_id != _active_turn_unit_id:
+		return false
+	if _turn_runner == null:
+		return false
+	var state: UnitTurnState = _turn_runner.get_unit_turn_state(unit_id)
+	if state == null:
+		return false
+	if state.turn_state == TurnOrderRunner.TurnState.DONE:
+		return false
+	match action_name:
+		&"move":
+			return not state.move_token_spent and not state.defend_stance_active
+		&"attack":
+			return not state.action_token_spent
+		&"use_skill":
+			return not state.action_token_spent
+		&"defend":
+			return not state.action_token_spent
+		&"wait":
+			return true
+		&"end_turn":
+			return true
+		_:
+			return false
+
+
 ## Checks whether a tile is in the given unit's movement range. Implements
 ## input-handling §9 Bidirectional Contract (R-5) + grid-battle.md §612 + §123.
 ##

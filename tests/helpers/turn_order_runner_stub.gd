@@ -71,3 +71,26 @@ func is_unit_charge_eligible(unit_id: int) -> bool:
 ## that want ambush eligibility call set_round_number_for_test(2) or higher.
 func set_round_number_for_test(round_number: int) -> void:
 	_round_number = round_number
+
+
+# ─── Session-24: unit turn state test seam (is_action_available coverage) ────
+
+
+## Test seam — sets a per-unit UnitTurnState that get_unit_turn_state() returns.
+## GridBattleController.is_action_available reads turn_runner.get_unit_turn_state
+## for token + DEFEND lock + turn_state queries. Tests pass an authored fixture
+## state via this seam to exercise availability rules without running the full
+## initialize_battle → declare_action pipeline.
+var _test_unit_states: Dictionary[int, UnitTurnState] = {}
+
+
+func set_unit_turn_state_for_test(unit_id: int, state: UnitTurnState) -> void:
+	_test_unit_states[unit_id] = state
+
+
+## Override of TurnOrderRunner.get_unit_turn_state. Production reads
+## _unit_states[unit_id].snapshot(); stub returns the fixture state set via
+## set_unit_turn_state_for_test, or null if not set (matches production
+## "unknown unit_id" return).
+func get_unit_turn_state(unit_id: int) -> UnitTurnState:
+	return _test_unit_states.get(unit_id, null)

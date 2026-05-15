@@ -276,6 +276,13 @@ func _ready() -> void:
 	_grid_controller.unit_selected_changed.connect(_on_unit_selected_changed, Object.CONNECT_DEFERRED)
 	_grid_controller.unit_moved.connect(_on_unit_moved, Object.CONNECT_DEFERRED)
 	_grid_controller.damage_applied.connect(_on_damage_applied, Object.CONNECT_DEFERRED)
+	# Session-24 — refresh UI-GB-02 action buttons on every action-commit event
+	# so spent-token buttons gray out mid-turn (was: only refreshed at turn_start).
+	# Defensive has_signal: stubs without these signals stay green.
+	if _grid_controller.has_signal(&"unit_defend_stance_applied"):
+		_grid_controller.unit_defend_stance_applied.connect(_on_unit_defend_stance_applied_refresh, Object.CONNECT_DEFERRED)
+	if _grid_controller.has_signal(&"unit_skill_used"):
+		_grid_controller.unit_skill_used.connect(_on_unit_skill_used_refresh, Object.CONNECT_DEFERRED)
 	_grid_controller.battle_outcome_resolved.connect(_on_battle_outcome_resolved, Object.CONNECT_DEFERRED)
 	# Session-10 — 2 attack-preview signals (controller-LOCAL per ADR-0014 §8).
 	# Defensive has_signal check: stub controllers (tests) without these signals
@@ -497,6 +504,13 @@ func _exit_tree() -> void:
 		if _grid_controller.has_signal(&"attack_preview_dismissed") \
 				and _grid_controller.attack_preview_dismissed.is_connected(_on_attack_preview_dismissed):
 			_grid_controller.attack_preview_dismissed.disconnect(_on_attack_preview_dismissed)
+		# Session-24 — match the connect-time has_signal guard for action-refresh.
+		if _grid_controller.has_signal(&"unit_defend_stance_applied") \
+				and _grid_controller.unit_defend_stance_applied.is_connected(_on_unit_defend_stance_applied_refresh):
+			_grid_controller.unit_defend_stance_applied.disconnect(_on_unit_defend_stance_applied_refresh)
+		if _grid_controller.has_signal(&"unit_skill_used") \
+				and _grid_controller.unit_skill_used.is_connected(_on_unit_skill_used_refresh):
+			_grid_controller.unit_skill_used.disconnect(_on_unit_skill_used_refresh)
 
 	# 7 GameBus disconnects
 	if GameBus.unit_died.is_connected(_on_unit_died):
@@ -1267,6 +1281,50 @@ func _is_active_turn_unit(unit_id: int) -> bool:
 	return first.unit_id == unit_id
 
 
+## Session-24 — refreshes the 6 UI-GB-02 action buttons' `disabled` state via
+## `_grid_controller.is_action_available(unit_id, action_name)`. Called from:
+##   - _on_unit_turn_started (initial state at turn start)
+##   - _on_unit_moved (gray out MOVE after move)
+##   - _on_damage_applied (gray out ATTACK/USE_SKILL/DEFEND after swing)
+##   - _on_unit_defend_stance_applied_refresh (gray out everything post-DEFEND)
+##   - _on_unit_skill_used_refresh (gray out everything post-SKILL)
+##
+## Falls back to permissive (disabled=false) for stub controllers without
+## is_action_available — production controller implements it from session 24.
+## Skill button gets a SECOND pass via `can_use_skill` for the more specific
+## skill-wired/already-used/active-turn/player-side gates (session 20 override).
+func _refresh_action_buttons(unit_id: int) -> void:
+	if _grid_controller == null:
+		return
+	if _grid_controller.has_method("is_action_available"):
+		if _btn_move != null: _btn_move.disabled = not _grid_controller.is_action_available(unit_id, &"move")
+		if _btn_attack != null: _btn_attack.disabled = not _grid_controller.is_action_available(unit_id, &"attack")
+		if _btn_use_skill != null: _btn_use_skill.disabled = not _grid_controller.is_action_available(unit_id, &"use_skill")
+		if _btn_defend != null: _btn_defend.disabled = not _grid_controller.is_action_available(unit_id, &"defend")
+		if _btn_wait != null: _btn_wait.disabled = not _grid_controller.is_action_available(unit_id, &"wait")
+		if _btn_end_turn != null: _btn_end_turn.disabled = not _grid_controller.is_action_available(unit_id, &"end_turn")
+	# Session-20 skill-button override — more specific than the generic
+	# is_action_available gate. Covers skill_wired + already_used + active-turn
+	# + player-side together via can_use_skill.
+	if _btn_use_skill != null and _grid_controller.has_method("can_use_skill"):
+		_btn_use_skill.disabled = not _grid_controller.can_use_skill(unit_id)
+
+
+## Session-24 — DEFEND token spent → re-evaluate all buttons (DEFEND was
+## the player's last available action this turn; ATTACK/USE_SKILL are also
+## blocked since DEFEND consumed the ACTION token).
+func _on_unit_defend_stance_applied_refresh(unit_id: int) -> void:
+	if _is_active_turn_unit(unit_id):
+		_refresh_action_buttons(unit_id)
+
+
+## Session-24 — skill consumed → re-evaluate all buttons (ACTION token spent;
+## skill itself is now permanently disabled per battle by can_use_skill).
+func _on_unit_skill_used_refresh(unit_id: int, _skill_id: StringName) -> void:
+	if _is_active_turn_unit(unit_id):
+		_refresh_action_buttons(unit_id)
+
+
 ## _refresh_action_button_labels() — story-005. Sets visible text on the 6 action
 ## menu buttons + skill slot buttons + undo button via tr() per ADR-0015
 ## forbidden_pattern battle_hud_hardcoded_localized_strings.
@@ -1472,6 +1530,8 @@ func _on_unit_moved(unit_id: int, from: Vector2i, to: Vector2i) -> void:
 			if _grid_controller != null and _grid_controller.has_method("is_undo_available"):
 				should_show = _grid_controller.is_undo_available(unit_id)
 			undo_indicator.visible = should_show
+		# Session-24 — refresh action buttons so MOVE grays out post-move.
+		_refresh_action_buttons(unit_id)
 
 
 ## _on_damage_applied — controller-LOCAL subscriber (GridBattleController).
@@ -1485,6 +1545,10 @@ func _on_damage_applied(attacker_id: int, defender_id: int, damage: int) -> void
 	# Story-006: force-dismiss UI-GB-04 forecast on damage apply per ADR-0015 §5.
 	# Idempotent — _dismiss_forecast() early-returns if forecast not visible.
 	_dismiss_forecast(&"damage_applied")
+	# Session-24 — if the attacker is the active player unit, refresh action
+	# buttons so ATTACK/USE_SKILL/DEFEND gray out post-swing.
+	if attacker_id >= 0 and _is_active_turn_unit(attacker_id):
+		_refresh_action_buttons(attacker_id)
 	if defender_id != _active_status_panel_unit_id:
 		return
 	var panel: Control = _ui_elements.get(&"UI-GB-03")
@@ -1656,23 +1720,10 @@ func _on_unit_turn_started(unit_id: int) -> void:
 			turn_label.text = "Turn: %s" % hero_name
 	# UI-GB-01 highlight
 	_set_initiative_queue_highlight(unit_id)
-	# Story-005: grey out spent-token actions on UI-GB-02 buttons.
-	# If grid_controller doesn't expose is_action_available, fallback permissive (disabled=false).
-	if _grid_controller != null and _grid_controller.has_method("is_action_available"):
-		if _btn_move != null: _btn_move.disabled = not _grid_controller.is_action_available(unit_id, &"move")
-		if _btn_attack != null: _btn_attack.disabled = not _grid_controller.is_action_available(unit_id, &"attack")
-		if _btn_use_skill != null: _btn_use_skill.disabled = not _grid_controller.is_action_available(unit_id, &"use_skill")
-		if _btn_defend != null: _btn_defend.disabled = not _grid_controller.is_action_available(unit_id, &"defend")
-		if _btn_wait != null: _btn_wait.disabled = not _grid_controller.is_action_available(unit_id, &"wait")
-		if _btn_end_turn != null: _btn_end_turn.disabled = not _grid_controller.is_action_available(unit_id, &"end_turn")
-	# Session-20: skill button enable via existing can_use_skill (more
-	# specific than the generic is_action_available fallback above which
-	# is_method-gated and currently always permissive). Reflects skill
-	# wired / not already used / current turn / player side gates so the
-	# button correctly disables AFTER the one-shot is consumed.
-	if _btn_use_skill != null and _grid_controller != null \
-			and _grid_controller.has_method("can_use_skill"):
-		_btn_use_skill.disabled = not _grid_controller.can_use_skill(unit_id)
+	# Session-24 — extracted to _refresh_action_buttons so post-action handlers
+	# (unit_moved / damage_applied / unit_defend_stance_applied / unit_skill_used)
+	# can re-evaluate the spent-token state and gray out mid-turn.
+	_refresh_action_buttons(unit_id)
 
 
 ## _on_unit_turn_ended — GameBus subscriber (emitter: TurnOrderRunner).
