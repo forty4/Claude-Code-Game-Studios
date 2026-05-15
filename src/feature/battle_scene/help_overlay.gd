@@ -121,6 +121,7 @@ func _ready() -> void:
 	box.add_child(_make_row("척후(초선 등)는 2라운드부터 아직 행동하지 않은 적에게 기습 +15% — 반격도 받지 않습니다."))
 	box.add_child(_make_row("적 칸에 보라색이 겹쳐 보이면 기습 가능한 표적 — 그 적은 반격하지 못합니다."))
 	box.add_child(_make_row("궁병(황충 등)이 언덕(짙은 흙빛) 위에서 활을 쏘면 원사 +15% — 발 밑에 초록 링이 보이면 그 위치입니다."))
+	box.add_child(_make_row("책사(주유 등)를 선택하면 모든 적의 머리 위에 방향 화살표(↑→↓←)가 나타나 측면/후방 공격을 사전에 계획할 수 있습니다."))
 	box.add_child(_make_spacer(6))
 	box.add_child(_make_section_heading("영웅 스킬 (S 키 — 전투당 1회)"))
 	box.add_child(_make_row("관우 청룡언월도 — 다음 한 번의 공격이 50% 더 강해집니다 (행동 소모 없음)"))

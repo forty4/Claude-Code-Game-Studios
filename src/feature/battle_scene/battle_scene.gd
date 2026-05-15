@@ -867,6 +867,7 @@ func _on_unit_selected_changed(unit_id: int, _was_selected: int) -> void:
 		visuals.set_movable_tiles(PackedVector2Array())
 		visuals.set_attackable_tiles(PackedVector2Array())
 		_clear_verb_feedback_overlays(visuals)
+		_clear_tactical_read_overlay(visuals)
 		return
 	var unit: BattleUnit = _grid_controller.get_battle_unit(unit_id)
 	if unit == null:
@@ -874,11 +875,13 @@ func _on_unit_selected_changed(unit_id: int, _was_selected: int) -> void:
 		visuals.set_movable_tiles(PackedVector2Array())
 		visuals.set_attackable_tiles(PackedVector2Array())
 		_clear_verb_feedback_overlays(visuals)
+		_clear_tactical_read_overlay(visuals)
 		return
 	visuals.set_selected_coord(unit.position)
 	visuals.set_movable_tiles(_grid_controller.get_movable_tiles(unit_id))
 	visuals.set_attackable_tiles(_grid_controller.get_attackable_tiles(unit_id))
 	_apply_verb_feedback_overlays(visuals, unit_id, unit.position)
+	_apply_tactical_read_overlay(visuals, unit)
 
 
 ## Session-15: pushes AMBUSH / CHARGE / HIGH GROUND feedback overlays for the
@@ -912,6 +915,110 @@ func _clear_verb_feedback_overlays(visuals: Node) -> void:
 		visuals.set_charge_ready_coord(Vector2i(-1, -1))
 	if visuals.has_method("set_high_ground_ready_coord"):
 		visuals.set_high_ground_ready_coord(Vector2i(-1, -1))
+
+
+## Session-19 — STRATEGIST `passive_tactical_read` activation (information
+## advantage facet). When a player-side STRATEGIST is selected, attach a
+## directional arrow glyph ("↑→↓←") on every alive enemy polygon so the
+## player can read facing direction without entering an attack preview.
+## Pairs with the existing direction-multiplier rendering in
+## ui_gb_04_combat_forecast — selecting 주유 lets the player plan flank/rear
+## angles BEFORE committing another unit's attack.
+##
+## Idempotent: clears any prior FacingArrow children first; safe to call
+## back-to-back as the player cycles selections.
+##
+## Non-STRATEGIST or enemy-side selections silently clear the overlay so
+## the arrows disappear when the player picks a different class.
+func _apply_tactical_read_overlay(visuals: Node, selected: BattleUnit) -> void:
+	_clear_tactical_read_overlay(visuals)
+	if selected == null:
+		return
+	if selected.side != 0:
+		return  # player STRATEGIST only — enemy classes don't get the affordance
+	if selected.unit_class != UnitRole.UnitClass.STRATEGIST:
+		return
+	# Iterate enemy polygons directly — extract unit_id from polygon name
+	# ("Unit{id}_*") rather than reaching into _grid_controller._units. Keeps
+	# the read path scoped to the visual tree we already own.
+	var enemies_parent: Node = visuals.get_node_or_null("EnemyUnits")
+	if enemies_parent == null:
+		return
+	for child: Node in enemies_parent.get_children():
+		if not (child is Node2D):
+			continue
+		var poly: Node2D = child as Node2D
+		if not poly.visible:
+			continue  # dead units snap-hide; skip
+		var uid: int = _extract_unit_id_from_polygon_name(poly.name)
+		if uid == -1:
+			continue
+		var enemy: BattleUnit = _grid_controller.get_battle_unit(uid)
+		if enemy == null:
+			continue
+		if not _hp_controller.is_alive(uid):
+			continue
+		# Idempotent — _clear_tactical_read_overlay already ran above; this
+		# double-checks against any race where the prior arrow lingered.
+		if poly.get_node_or_null("FacingArrow") != null:
+			continue
+		var arrow: Label = Label.new()
+		arrow.name = "FacingArrow"
+		arrow.text = _facing_arrow_glyph(enemy.facing)
+		# Tactical indigo — distinct from the ambush wash so it reads as
+		# "info marker" rather than "attack target highlight".
+		arrow.add_theme_color_override("font_color", Color(0.61, 0.48, 0.85, 1.0))
+		arrow.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.05, 1.0))
+		arrow.add_theme_constant_override("outline_size", 6)
+		arrow.add_theme_font_size_override("font_size", 22)
+		arrow.rotation = -poly.rotation  # always upright
+		arrow.position = Vector2(-10, -52)  # above polygon
+		arrow.size = Vector2(20, 20)
+		arrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		poly.add_child(arrow)
+
+
+## Removes any FacingArrow child Labels from every enemy polygon. Called on
+## deselect, on stale-selection branches, and as the first step of
+## _apply_tactical_read_overlay (idempotence guarantee).
+func _clear_tactical_read_overlay(visuals: Node) -> void:
+	for parent_name: String in ["PlayerUnits", "EnemyUnits"]:
+		var parent: Node = visuals.get_node_or_null(parent_name)
+		if parent == null:
+			continue
+		for child: Node in parent.get_children():
+			if not (child is Node2D):
+				continue
+			var arrow: Node = (child as Node2D).get_node_or_null("FacingArrow")
+			if arrow != null:
+				arrow.queue_free()
+
+
+## Maps BattleUnit.facing (0=N, 1=E, 2=S, 3=W) to a directional arrow glyph.
+## Defaults to "→" (east) for any out-of-range facing value.
+func _facing_arrow_glyph(facing: int) -> String:
+	match facing:
+		0: return "↑"
+		1: return "→"
+		2: return "↓"
+		3: return "←"
+		_: return "→"
+
+
+## Extracts the integer unit_id from a polygon name in the "Unit{id}_*" format
+## used by ChapterVisuals.spawn_unit_polygons (e.g. "Unit3_Triangle" → 3).
+## Returns -1 if the name doesn't match the expected pattern.
+func _extract_unit_id_from_polygon_name(node_name: StringName) -> int:
+	var name_str: String = String(node_name)
+	if not name_str.begins_with("Unit"):
+		return -1
+	var underscore_idx: int = name_str.find("_", 4)
+	if underscore_idx <= 4:
+		return -1
+	var id_str: String = name_str.substr(4, underscore_idx - 4)
+	if not id_str.is_valid_int():
+		return -1
+	return id_str.to_int()
 
 
 func _find_chapter_visuals() -> Node:
@@ -1728,6 +1835,15 @@ func _on_round_started_visual(_round_num: int) -> void:
 				var status_badge: Node = poly.get_node_or_null(badge_name)
 				if status_badge != null:
 					status_badge.queue_free()
+			# Session-19: tactical_read FacingArrow is selection-scoped, not
+			# round-scoped — selection change clears it. But if a round starts
+			# while a STRATEGIST is selected, the arrows should refresh based on
+			# fresh facing state. Easiest: clear them and let next selection
+			# re-attach via _on_unit_selected_changed (the next turn-start fires
+			# unit_turn_started which deselects, then re-selects active unit).
+			var facing_arrow: Node = poly.get_node_or_null("FacingArrow")
+			if facing_arrow != null:
+				facing_arrow.queue_free()
 
 
 ## Session-13 — defend stance applied. Adds a small "방" Label to the unit's

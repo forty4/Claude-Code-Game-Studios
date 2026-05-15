@@ -235,7 +235,10 @@ func test_two_tap_defend_first_arms_second_confirms() -> void:
 
 	assert_int(spy.captured_events.size()).is_equal(1)
 	var ev: InputEventAction = spy.captured_events[0] as InputEventAction
-	assert_str(String(ev.action)).is_equal("defend_confirm")
+	# Session-19: `defend_stance` is the registered action that fires the
+	# controller defend handler; prior `defend_confirm` was never bound and
+	# the touch path was dead.
+	assert_str(String(ev.action)).is_equal("defend_stance")
 	assert_str(String(hud._two_tap_target_action)).is_equal("")
 
 	hud.free()
@@ -270,8 +273,8 @@ func test_two_tap_attack_then_defend_cancels_attack_arms_defend() -> void:
 	assert_int(spy.captured_events.size()).is_equal(1)
 	var ev: InputEventAction = spy.captured_events[0] as InputEventAction
 	assert_str(String(ev.action)).override_failure_message(
-		"AC-4 edge: confirmed event must be defend_confirm, got '%s'" % String(ev.action)
-	).is_equal("defend_confirm")
+		"AC-4 edge: confirmed event must be defend_stance, got '%s'" % String(ev.action)
+	).is_equal("defend_stance")
 
 	hud.free()
 	_free_node_deps(bag)

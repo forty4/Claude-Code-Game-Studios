@@ -1787,11 +1787,14 @@ func _on_use_skill_button_pressed() -> void:
 
 ## _on_defend_button_pressed — story-005. DEFEND first/second tap per ADR-0015 §OQ-4.
 ## First tap arms the two-tap window; second tap within TWO_TAP_TIMEOUT_S confirms.
+## Session-19 — synth event is `defend_stance` (the registered action that the
+## D key fires); prior `defend_confirm` was never registered in InputMap so the
+## touch path was dead. Two-tap arm UX preserved (first tap arms, second fires).
 func _on_defend_button_pressed() -> void:
 	if _two_tap_target_action == &"defend":
 		# Second tap on the SAME armed action → confirm
 		if _input_router != null:
-			_input_router._handle_event(_make_synthetic_action_event(&"defend_confirm"))
+			_input_router._handle_event(_make_synthetic_action_event(&"defend_stance"))
 		_cancel_two_tap_arm()
 	else:
 		# First tap (or different prior arm) → arm DEFEND
