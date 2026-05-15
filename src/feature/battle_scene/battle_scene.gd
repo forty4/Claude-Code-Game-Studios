@@ -1115,8 +1115,13 @@ func _on_damage_applied(attacker_id: int, defender_id: int, damage: int) -> void
 				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		# Attack line from attacker to defender. Parented to ChapterVisuals so
 		# the line persists if the hit kills the defender or the attacker is
-		# repositioned mid-animation.
-		var line: AttackLine = AttackLine.make(origin, unit_node.position)
+		# repositioned mid-animation. Session-16: pass attacker_class so the
+		# line picks a per-class style (spear / bow-arc / scroll-zap / etc.).
+		var attacker_class: int = -1
+		if _grid_controller != null and _grid_controller.has_method("get_unit_class"):
+			attacker_class = _grid_controller.get_unit_class(attacker_id)
+		var line: AttackLine = AttackLine.make_for_class(origin, unit_node.position,
+			attacker_class)
 		visuals.add_child(line)
 
 

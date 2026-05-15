@@ -740,6 +740,15 @@ func get_battle_unit(unit_id: int) -> BattleUnit:
 	return _units.get(unit_id)
 
 
+## Session-16 — convenience accessor for view layer (AttackLine class-aware
+## render switch). Returns UnitRole.UnitClass int (0..5) or -1 if not found.
+func get_unit_class(unit_id: int) -> int:
+	if not _units.has(unit_id):
+		return -1
+	var unit: BattleUnit = _units[unit_id]
+	return unit.unit_class
+
+
 ## Returns the unit_id of the unit whose turn is currently ACTING. -1 if no
 ## unit is active (between turns, before battle start, after resolution).
 ## Used by view-layer code (battle_scene) to track the active-turn highlight

@@ -302,14 +302,29 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 		border.joint_mode = Line2D.LINE_JOINT_BEVEL
 		border.antialiased = true
 		poly.add_child(border)
+		# Session-16: small class-glyph inside the polygon (spear / shield / bow
+		# / scroll / crown / dagger). Counter-rotated against the polygon facing
+		# so the glyph stays upright. Reads as "what this piece does" at a glance
+		# without obscuring the shape silhouette — placed at origin (center).
+		var emblem: ClassEmblem = ClassEmblem.make(unit.unit_class, unit.side,
+			-poly.rotation)
+		emblem.name = "ClassEmblem"
+		poly.add_child(emblem)
 		# Name label above the polygon — bigger, heavier outline than the prior
 		# pass so the hero is identifiable at a glance even before the player
-		# memorizes the shape+border palette.
+		# memorizes the shape+border palette. Session-16: tint label color to the
+		# hero accent (HERO_ACCENT_BY_HERO_ID) so 관우/장비/유비/황충/초선 etc. read
+		# as distinct hand-named pieces at the same time the border color does.
+		# Outline stays near-black for contrast against terrain.
 		var hero: HeroData = HeroDatabase.get_hero(unit.hero_id)
+		var accent: Color = _get_hero_accent(unit.hero_id, unit.side)
+		# Brighten the accent slightly so it reads at small font sizes against
+		# any terrain backdrop without dropping to dim.
+		var label_color: Color = accent.lerp(Color(1.0, 1.0, 1.0, 1.0), 0.45)
 		var label: Label = Label.new()
 		label.name = "NameLabel"
 		label.text = hero.name_ko if hero != null and hero.name_ko != "" else String(unit.hero_id)
-		label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+		label.add_theme_color_override("font_color", label_color)
 		label.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.05, 1.0))
 		label.add_theme_constant_override("outline_size", 8)
 		label.add_theme_font_size_override("font_size", 20)
