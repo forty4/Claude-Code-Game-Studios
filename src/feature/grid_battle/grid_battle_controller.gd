@@ -246,6 +246,14 @@ var _acted_this_turn: Dictionary[int, bool] = {}
 ## this flag (blocks a second MOVE); ATTACK sets _acted_this_turn (terminal).
 var _moved_this_turn: Dictionary[int, bool] = {}
 
+## Session-17 — unit_id → "stunned, must WAIT on next turn" flag. Set by
+## skill_naval_strategy (주유 책략) on every adjacent enemy. Consumed by
+## _on_turn_runner_action_request which force-declares WAIT and erases the
+## entry. Survives round transitions (intentional — STUN locks the target's
+## NEXT turn regardless of when it lands within the current round). Cleared
+## en-masse via initialize_battle reset path only.
+var _pending_stun: Dictionary[int, bool] = {}
+
 ## ID of the last attacker — used by fate-counter (assassin kill attribution).
 var _last_attacker_id: int = -1
 
@@ -1396,7 +1404,7 @@ func _handle_defend_stance_input() -> void:
 # Skills are battle-scoped (not turn-scoped): firing flips skill_used to true and
 # the unit's S key becomes a no-op for the rest of this battle.
 #
-# Wired skill roster (6/6 player-roster slots covered):
+# Wired skill roster (7/7 player-roster slots covered):
 #   - skill_dragon_blade    (관우):  next attack +50% damage (self-buff, ATK token NOT spent)
 #   - skill_thunder_roar    (장비):  25 damage to all Manhattan-1 enemies (spends ATK)
 #   - skill_inspire         (유비):  adjacent player allies get a free action token
@@ -1406,6 +1414,11 @@ func _handle_defend_stance_input() -> void:
 #                                    (wastes their turn this round; does NOT spend caster ATK)
 #   - skill_strategist      (조조):  15 damage to ALL alive enemies on the map
 #                                    (battlefield-wide; spends ATK)
+#   - skill_naval_strategy  (주유):  STUN every Manhattan-1 enemy. Stolen turn:
+#                                    not-yet-acted victims marked acted (current
+#                                    round); already-acted victims get _pending_stun
+#                                    so their NEXT turn force-WAITs (cross-round
+#                                    lock). Does NOT spend caster ATK (tempo skill).
 #
 # Design notes:
 #  - dragon_blade does NOT spend the ATK token — the player still has to attack
@@ -1466,6 +1479,8 @@ func use_skill(unit_id: int) -> bool:
 			fired = _skill_charm(unit)
 		&"skill_strategist":
 			fired = _skill_strategist(unit)
+		&"skill_naval_strategy":
+			fired = _skill_naval_strategy(unit)
 		_:
 			push_warning("GridBattleController.use_skill: unwired skill_id '%s' on unit %d — no-op"
 				% [String(unit.skill_id), unit_id])
@@ -1678,6 +1693,34 @@ func _skill_strategist(unit: BattleUnit) -> bool:
 		_turn_runner.declare_action(unit.unit_id,
 			TurnOrderRunner.ActionType.ATTACK if any_hit else TurnOrderRunner.ActionType.WAIT,
 			null)
+	return true
+
+
+## 주유 naval_strategy (책략): STUN every Manhattan-1 enemy. Two-phase tempo
+## theft — not-yet-acted victims lose their current-round turn (immediate
+## _acted_this_turn flip); already-acted victims get _pending_stun so their
+## NEXT turn force-WAITs via _on_turn_runner_action_request. Visual STUN badge
+## ("기") shown on every affected victim regardless of phase. Does NOT spend
+## caster ATK token — STRATEGIST plays utility/tempo, then can still attack.
+## Mirror of charm's adjacency + no-caster-ATK pattern but with cross-round
+## lock instead of in-round SLOW debuff.
+func _skill_naval_strategy(unit: BattleUnit) -> bool:
+	for victim: BattleUnit in _units.values():
+		if victim.side == unit.side:
+			continue
+		if not _hp_controller.is_alive(victim.unit_id):
+			continue
+		var dx: int = absi(victim.position.x - unit.position.x)
+		var dy: int = absi(victim.position.y - unit.position.y)
+		if dx + dy != 1:
+			continue  # adjacent only
+		_apply_status_with_signal(victim.unit_id, &"stun", unit.unit_id)
+		if not _acted_this_turn.get(victim.unit_id, false):
+			# Steal the current-round turn directly
+			_acted_this_turn[victim.unit_id] = true
+		else:
+			# Already acted — lock their NEXT turn via _pending_stun gate
+			_pending_stun[victim.unit_id] = true
 	return true
 
 
@@ -2391,6 +2434,15 @@ func _on_turn_runner_action_request(unit_id: int, snapshot: TurnOrderSnapshot) -
 	var unit: BattleUnit = _units.get(unit_id, null)
 	if unit == null:
 		push_warning("S15-J: _on_turn_runner_action_request received unknown unit_id=%d" % unit_id)
+		return
+	# Session-17 STUN gate — if this unit was stunned in a prior turn, force WAIT
+	# immediately regardless of side (player or AI). Dict-based so it's robust
+	# to GameBus.unit_turn_started subscription order between HPStatusController
+	# tick and GridBattleController.
+	if _pending_stun.get(unit_id, false):
+		_pending_stun.erase(unit_id)
+		_acted_this_turn[unit_id] = true
+		_turn_runner.declare_action(unit_id, TurnOrderRunner.ActionType.WAIT, null)
 		return
 	match unit.side:
 		0:  # player — natural input path (S15-C); T5 stays paused until grid-click fires declare_action

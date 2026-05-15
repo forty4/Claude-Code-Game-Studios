@@ -1724,7 +1724,7 @@ func _on_round_started_visual(_round_num: int) -> void:
 			# next turn's apply_turn_start_tick will re-fire signals if the
 			# effect persists (a TODO — for now badge accuracy is "applied
 			# this round" which is close enough).
-			for badge_name: String in ["PoisonBadge", "SlowBadge"]:
+			for badge_name: String in ["PoisonBadge", "SlowBadge", "StunBadge"]:
 				var status_badge: Node = poly.get_node_or_null(badge_name)
 				if status_badge != null:
 					status_badge.queue_free()
@@ -1788,6 +1788,12 @@ func _on_unit_status_applied(unit_id: int, effect_id: StringName) -> void:
 			glyph = "슬"
 			glyph_color = Color(0.78, 0.62, 0.95, 1.0)  # slow purple
 			pos_offset = Vector2(-32, -18)              # below poison slot
+		&"stun":
+			# Session-17 — 주유 책략 (STUN). Red glyph, third slot below SLOW.
+			badge_name = "StunBadge"
+			glyph = "기"
+			glyph_color = Color(0.96, 0.40, 0.30, 1.0)  # stun red
+			pos_offset = Vector2(-32, -2)               # below slow slot
 		_:
 			return  # unknown status — no badge for v1
 	# Idempotent — don't stack duplicates on re-apply.

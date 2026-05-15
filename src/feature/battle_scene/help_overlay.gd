@@ -129,11 +129,13 @@ func _ready() -> void:
 	box.add_child(_make_row("황충 연사 — 사거리 내 가까운 적 최대 3명에게 28 피해 + 독 3턴 (행동 소모)"))
 	box.add_child(_make_row("초선 매혹 — 인접한 적의 이번 라운드 행동권 박탈 + 둔화 2턴 (자기 행동 소모 없음)"))
 	box.add_child(_make_row("조조 책략 — 전장의 모든 적에게 15 피해 (행동 소모, 후일 합류 시 활성)"))
+	box.add_child(_make_row("주유 책략 — 인접한 모든 적에게 기절 부여 (이번 턴 또는 다음 턴 행동 봉쇄; 자기 행동 소모 없음)"))
 	box.add_child(_make_spacer(6))
 	box.add_child(_make_section_heading("상태 효과 (유닛 위 작은 글자)"))
 	box.add_child(_make_row("방 — 방어 자세 (다음 받는 피해 50% 감소; 한 턴)"))
 	box.add_child(_make_row("독 (초록) — 매 턴 시작 HP 깎임 (3턴 지속, 황충 연사로 부여)"))
 	box.add_child(_make_row("슬 (보라) — 공격력 -20% + 이동 -1 (2턴 지속, 초선 매혹으로 부여)"))
+	box.add_child(_make_row("기 (빨강) — 기절 (현재 또는 다음 턴 행동 강제 WAIT; 주유 책략으로 부여)"))
 	box.add_child(_make_spacer(12))
 
 	# ── Close button ────────────────────────────────────────────────────────
