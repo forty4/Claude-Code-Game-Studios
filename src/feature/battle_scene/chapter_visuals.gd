@@ -155,6 +155,12 @@ const HERO_ACCENT_BY_HERO_ID: Dictionary = {
 	&"wei_006_zhang_liao":  Color("6bb7e0"),  # sky cyan — clever and swift
 	&"wei_007_yu_jin":      Color("bfb05f"),  # olive — disciplined holder
 	&"wei_008_xu_chu":      Color("e2a088"),  # peach — bodyguard brawn
+	# Wu — sea-tone borders (oceanfront kingdom).
+	&"wu_001_sun_quan":     Color("4ea7c2"),  # deep teal — young emperor
+	&"wu_003_zhou_yu":      Color("84d4c1"),  # mint — elegant strategist
+	# Qun — drift-faction; saturated outliers.
+	&"qun_001_lu_bu":       Color("e85a5a"),  # vermillion — peerless warrior
+	&"qun_004_diao_chan":   Color("ff8fc0"),  # pink — flower-of-the-court
 }
 
 ## Faction-tuned fallback border tone (used when a hero_id has no explicit accent).

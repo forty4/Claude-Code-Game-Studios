@@ -18,8 +18,25 @@
 class_name ClassEmblem
 extends Node2D
 
-const _SIZE: float = 14.0  # emblem outer half-extent in px; polygon ≈ 40×40
+const _SIZE: float = 14.0  # class emblem outer half-extent in px; polygon ≈ 52×52
 const _STROKE: float = 1.8
+
+## Session-16 amendment: hero overlay scale-up. Original overlays at ~0.2*_SIZE
+## (3-6px features) were invisible against the larger class emblem. Hero
+## symbols now render at HERO_OVERLAY_SIZE (close to the polygon half-extent
+## minus class emblem half-extent) so they read as a clear secondary identifier
+## next to the class glyph.
+const _HERO_OVERLAY_SIZE: float = 11.0
+## Class emblem shrink factor when a hero overlay is present. Demotes the
+## class glyph to a small corner badge so the hero overlay can take the
+## primary visual focus. 1.0 = full size (no hero overlay), 0.55 = shrunk.
+const _CLASS_SHRINK_WITH_OVERLAY: float = 0.55
+## Class emblem corner offset when shrunk — bottom-right of the polygon so the
+## hero overlay can occupy the upper area unobstructed.
+const _CLASS_CORNER_OFFSET: Vector2 = Vector2(10.0, 10.0)
+## Hero overlay center offset — slightly upper-left of polygon center so the
+## class emblem badge can sit lower-right without overlap.
+const _HERO_OVERLAY_CENTER: Vector2 = Vector2(-3.0, -4.0)
 
 ## Counter-rotation against the parent polygon's facing rotation so the glyph
 ## always reads upright. Set at make() time from the same rotation_for_facing
@@ -56,9 +73,10 @@ static func make(unit_class: int, side: int, counter_rotation: float,
 		emblem._color_main = Color(0.94, 0.90, 0.78, 0.95)
 		emblem._color_accent = Color(0.30, 0.22, 0.16, 0.95)
 	# Hero overlay tint — supplied accent or fall back to the side-default accent.
+	# Use the saturated accent directly (no lerp) so the hero mark pops against
+	# the class emblem badge underneath.
 	if hero_accent.a > 0.0:
-		# Boost saturation slightly so the overlay reads against any background.
-		emblem._color_overlay = hero_accent.lerp(Color(1.0, 1.0, 1.0, 1.0), 0.15)
+		emblem._color_overlay = hero_accent
 		emblem._color_overlay.a = 0.98
 	else:
 		emblem._color_overlay = emblem._color_accent
@@ -67,6 +85,13 @@ static func make(unit_class: int, side: int, counter_rotation: float,
 
 
 func _draw() -> void:
+	# When a hero overlay is authored, shrink + offset the class emblem so the
+	# hero mark can take the primary visual focus. Without an overlay, the
+	# class emblem renders at full size centered.
+	var has_overlay: bool = _hero_id != &"" and _has_hero_overlay(_hero_id)
+	if has_overlay:
+		draw_set_transform(_CLASS_CORNER_OFFSET, 0.0,
+			Vector2(_CLASS_SHRINK_WITH_OVERLAY, _CLASS_SHRINK_WITH_OVERLAY))
 	match _unit_class:
 		0: _draw_cavalry_spear()
 		1: _draw_infantry_shield()
@@ -75,10 +100,26 @@ func _draw() -> void:
 		4: _draw_commander_crown()
 		5: _draw_scout_dagger()
 		_: _draw_infantry_shield()
-	# Per-hero overlay symbol drawn on top of the class base. No-op for heroes
-	# without an authored entry — those just show the class emblem.
-	if _hero_id != &"":
+	if has_overlay:
+		# Reset transform before drawing the overlay at full scale.
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 		_draw_hero_overlay()
+
+
+## Hero IDs with an authored overlay. Kept in sync with `_draw_hero_overlay`'s
+## match arms below — if you add a new overlay case, append the hero_id here.
+const _OVERLAY_HERO_IDS: Array[StringName] = [
+	&"shu_001_liu_bei", &"shu_002_guan_yu", &"shu_003_zhang_fei",
+	&"shu_004_huang_zhong", &"wei_001_cao_cao", &"wei_005_xiahou_dun",
+	&"wei_006_zhang_liao", &"wei_007_yu_jin", &"wei_008_xu_chu",
+	&"wu_001_sun_quan", &"wu_003_zhou_yu", &"qun_001_lu_bu",
+	&"qun_004_diao_chan",
+]
+
+
+## Returns true if `hero_id` matches one of the authored overlay cases below.
+func _has_hero_overlay(hero_id: StringName) -> bool:
+	return hero_id in _OVERLAY_HERO_IDS
 
 
 ## CAVALRY — diagonal spear: shaft from bottom-left to top-right, arrow head at top.
@@ -206,143 +247,229 @@ func _draw_hero_overlay() -> void:
 			pass
 
 
-## Helper: returns a Vector2 in the upper-right quadrant where overlay marks
-## sit so they don't collide with the class base center.
+## Helper: hero overlay drawing anchor (slightly upper-left of polygon center
+## to give the lower-right class emblem badge breathing room).
 func _overlay_anchor() -> Vector2:
-	return Vector2(_SIZE * 0.55, -_SIZE * 0.7)
+	return _HERO_OVERLAY_CENTER
 
 
-## 유비 — 2 small crescents flanking the head pos (자비롭고 큰 귀).
+## Stroke width for hero overlays — chunkier than the class emblem so the hero
+## mark reads at first glance against the class glyph + faction fill.
+func _overlay_stroke() -> float:
+	return _STROKE + 0.6
+
+
+## Renders a thin contrasting backing stroke beneath the overlay's main color
+## so it stays legible regardless of the faction fill underneath. Side-aware:
+## player units (light faction) get dark backing, enemy units (dark faction)
+## get light backing.
+func _overlay_backing() -> Color:
+	# _color_main is already side-aware (dark for player, bone for enemy);
+	# reuse it with a touch of alpha to keep the backing subtle.
+	var c: Color = _color_main
+	c.a = 0.85
+	return c
+
+
+## 유비 — 큰 귀 (large crescent ears framing the head). Two filled circles
+## flanking the upper area, large enough to read past the class emblem badge.
 func _overlay_long_ears() -> void:
-	var s: float = _SIZE
-	# Two small filled circles at top, framing the class emblem's apex.
-	draw_circle(Vector2(-s * 0.65, -s * 0.55), s * 0.18, _color_overlay)
-	draw_circle(Vector2(s * 0.65, -s * 0.55), s * 0.18, _color_overlay)
+	var s: float = _HERO_OVERLAY_SIZE
+	var c: Vector2 = _overlay_anchor()
+	draw_circle(c + Vector2(-s, -s * 0.30), s * 0.55, _overlay_backing())
+	draw_circle(c + Vector2(s, -s * 0.30), s * 0.55, _overlay_backing())
+	draw_circle(c + Vector2(-s, -s * 0.30), s * 0.40, _color_overlay)
+	draw_circle(c + Vector2(s, -s * 0.30), s * 0.40, _color_overlay)
 
 
-## 관우 — 긴 수염 (long beard): 3 vertical strands below center.
+## 관우 — 긴 수염 (3 flowing strands below center). Drawn longer + bolder.
 func _overlay_long_beard() -> void:
-	var s: float = _SIZE
-	for x: float in [-s * 0.18, 0.0, s * 0.18]:
-		draw_line(Vector2(x, s * 0.25), Vector2(x + s * 0.03, s * 0.95),
-			_color_overlay, _STROKE * 0.7, true)
+	var s: float = _HERO_OVERLAY_SIZE
+	var c: Vector2 = _overlay_anchor()
+	for x_off: float in [-s * 0.55, 0.0, s * 0.55]:
+		var top: Vector2 = c + Vector2(x_off, s * 0.10)
+		var bot: Vector2 = c + Vector2(x_off + s * 0.10, s * 1.10)
+		draw_line(top, bot, _overlay_backing(), _overlay_stroke() + 1.2, true)
+		draw_line(top, bot, _color_overlay, _overlay_stroke(), true)
 
 
-## 장비 — 텁수룩 수염 (wide bushy beard): thick zigzag along bottom.
+## 장비 — 텁수룩 수염 (wide bushy zigzag beard, very prominent).
 func _overlay_thick_beard() -> void:
-	var s: float = _SIZE
+	var s: float = _HERO_OVERLAY_SIZE
+	var c: Vector2 = _overlay_anchor()
 	var pts: PackedVector2Array = PackedVector2Array([
-		Vector2(-s * 0.55, s * 0.55),
-		Vector2(-s * 0.25, s * 0.85),
-		Vector2(0.0, s * 0.55),
-		Vector2(s * 0.25, s * 0.85),
-		Vector2(s * 0.55, s * 0.55),
+		c + Vector2(-s * 1.05, s * 0.30),
+		c + Vector2(-s * 0.55, s * 1.00),
+		c + Vector2(0.0, s * 0.30),
+		c + Vector2(s * 0.55, s * 1.00),
+		c + Vector2(s * 1.05, s * 0.30),
 	])
-	draw_polyline(pts, _color_overlay, _STROKE * 1.1, true)
+	draw_polyline(pts, _overlay_backing(), _overlay_stroke() + 1.6, true)
+	draw_polyline(pts, _color_overlay, _overlay_stroke() + 0.4, true)
 
 
-## 황충 — 백발 (3 white dots above the class emblem head; reads as elderly).
+## 황충 — 백발 (3 white hair tufts above the head; elderly archer signifier).
 func _overlay_white_hair() -> void:
-	var s: float = _SIZE
-	var white: Color = Color(0.95, 0.95, 0.95, 0.98)
-	for x: float in [-s * 0.35, 0.0, s * 0.35]:
-		draw_circle(Vector2(x, -s * 0.95), s * 0.12, white)
+	var s: float = _HERO_OVERLAY_SIZE
+	var c: Vector2 = _overlay_anchor()
+	var white: Color = Color(0.96, 0.96, 0.96, 0.98)
+	var dark: Color = Color(0.10, 0.08, 0.06, 0.85)
+	for x_off: float in [-s * 0.70, 0.0, s * 0.70]:
+		var pos: Vector2 = c + Vector2(x_off, -s * 0.95)
+		draw_circle(pos, s * 0.42, dark)
+		draw_circle(pos, s * 0.32, white)
 
 
-## 조조 — 깃털 (small feather angle near the upper-right of the emblem).
+## 조조 — 깃털 (big quill feather with barbs). 4 barbs along a longer spine.
 func _overlay_feather() -> void:
-	var a: Vector2 = _overlay_anchor()
-	var tip: Vector2 = a + Vector2(_SIZE * 0.42, -_SIZE * 0.42)
-	draw_line(a, tip, _color_overlay, _STROKE, true)
-	# Little barbs along the spine
-	for t: float in [0.3, 0.55, 0.8]:
-		var p: Vector2 = a.lerp(tip, t)
-		var perp: Vector2 = (tip - a).rotated(PI * 0.5).normalized() * _SIZE * 0.18
-		draw_line(p, p + perp, _color_overlay, _STROKE * 0.6, true)
+	var s: float = _HERO_OVERLAY_SIZE
+	var base: Vector2 = _overlay_anchor() + Vector2(-s * 0.5, s * 0.6)
+	var tip: Vector2 = _overlay_anchor() + Vector2(s * 0.5, -s * 0.8)
+	# Backing spine
+	draw_line(base, tip, _overlay_backing(), _overlay_stroke() + 1.2, true)
+	draw_line(base, tip, _color_overlay, _overlay_stroke(), true)
+	# Barbs (perpendicular to the spine)
+	var spine: Vector2 = tip - base
+	var perp: Vector2 = spine.rotated(PI * 0.5).normalized()
+	for t: float in [0.30, 0.50, 0.70, 0.88]:
+		var p: Vector2 = base.lerp(tip, t)
+		var barb: Vector2 = perp * (s * 0.55 * (1.0 - t * 0.4))
+		draw_line(p, p + barb, _color_overlay, _overlay_stroke() - 0.4, true)
+		draw_line(p, p - barb, _color_overlay, _overlay_stroke() - 0.4, true)
 
 
-## 하후돈 — 안대 (eyepatch as an X mark over the upper-right area).
+## 하후돈 — 안대 (bold eyepatch over a circular eye; the X-strap is clearly visible).
 func _overlay_eyepatch() -> void:
-	var c: Vector2 = _overlay_anchor() + Vector2(-_SIZE * 0.15, _SIZE * 0.15)
-	var r: float = _SIZE * 0.28
-	# X mark: two crossed strokes
-	draw_line(c + Vector2(-r, -r), c + Vector2(r, r), _color_overlay, _STROKE, true)
-	draw_line(c + Vector2(-r, r), c + Vector2(r, -r), _color_overlay, _STROKE, true)
+	var s: float = _HERO_OVERLAY_SIZE
+	var c: Vector2 = _overlay_anchor()
+	# Eye circle (the un-patched eye, drawn as outline)
+	draw_arc(c + Vector2(-s * 0.50, 0.0), s * 0.40, 0.0, TAU, 16, _color_overlay, _overlay_stroke(), true)
+	# Patch (filled square rotated 45° = diamond, drawn as filled polygon)
+	var px: float = s * 0.45
+	var patch_center: Vector2 = c + Vector2(s * 0.45, 0.0)
+	var patch: PackedVector2Array = PackedVector2Array([
+		patch_center + Vector2(-px, 0.0),
+		patch_center + Vector2(0.0, -px),
+		patch_center + Vector2(px, 0.0),
+		patch_center + Vector2(0.0, px),
+	])
+	draw_colored_polygon(patch, _color_overlay)
+	# Strap line connecting the patch to the eye
+	draw_line(c + Vector2(-s * 0.10, 0.0), patch_center + Vector2(-px, 0.0),
+		_color_overlay, _overlay_stroke() - 0.2, true)
 
 
-## 장요 — 번개 (lightning zigzag in upper-right corner).
+## 장요 — 번개 (large lightning bolt zigzag, centered).
 func _overlay_lightning() -> void:
-	var a: Vector2 = _overlay_anchor()
+	var s: float = _HERO_OVERLAY_SIZE
+	var c: Vector2 = _overlay_anchor()
 	var pts: PackedVector2Array = PackedVector2Array([
-		a + Vector2(-_SIZE * 0.05, -_SIZE * 0.30),
-		a + Vector2(_SIZE * 0.20, -_SIZE * 0.05),
-		a + Vector2(_SIZE * 0.00, _SIZE * 0.05),
-		a + Vector2(_SIZE * 0.30, _SIZE * 0.35),
+		c + Vector2(-s * 0.30, -s * 0.95),
+		c + Vector2(s * 0.25, -s * 0.10),
+		c + Vector2(-s * 0.15, s * 0.05),
+		c + Vector2(s * 0.35, s * 0.95),
 	])
-	draw_polyline(pts, _color_overlay, _STROKE * 0.95, true)
+	draw_polyline(pts, _overlay_backing(), _overlay_stroke() + 1.4, true)
+	draw_polyline(pts, _color_overlay, _overlay_stroke() + 0.3, true)
 
 
-## 우금 — 사각 진영 (small square frame; discipline / formation).
+## 우금 — 사각 진영 (formation: a bold square frame with corner dots).
 func _overlay_square_formation() -> void:
-	var a: Vector2 = _overlay_anchor()
-	var r: float = _SIZE * 0.26
+	var s: float = _HERO_OVERLAY_SIZE
+	var c: Vector2 = _overlay_anchor()
+	var r: float = s * 0.85
 	var rect: PackedVector2Array = PackedVector2Array([
-		a + Vector2(-r, -r), a + Vector2(r, -r),
-		a + Vector2(r, r), a + Vector2(-r, r),
+		c + Vector2(-r, -r), c + Vector2(r, -r),
+		c + Vector2(r, r), c + Vector2(-r, r),
+		c + Vector2(-r, -r),
 	])
-	draw_polyline(rect, _color_overlay, _STROKE * 0.8, true)
-	# Closing edge for the polyline (not closed by default).
-	draw_line(rect[3], rect[0], _color_overlay, _STROKE * 0.8, true)
+	draw_polyline(rect, _overlay_backing(), _overlay_stroke() + 1.0, true)
+	draw_polyline(rect, _color_overlay, _overlay_stroke(), true)
+	# Four corner dots — soldiers in formation.
+	for corner: Vector2 in [Vector2(-r, -r), Vector2(r, -r), Vector2(r, r), Vector2(-r, r)]:
+		draw_circle(c + corner, s * 0.18, _color_overlay)
 
 
-## 허저 — 산봉우리 (mountain silhouette: 3 peaks).
+## 허저 — 산봉우리 (three mountain peaks silhouette).
 func _overlay_mountain() -> void:
-	var a: Vector2 = _overlay_anchor()
+	var s: float = _HERO_OVERLAY_SIZE
+	var c: Vector2 = _overlay_anchor()
 	var pts: PackedVector2Array = PackedVector2Array([
-		a + Vector2(-_SIZE * 0.40, _SIZE * 0.25),
-		a + Vector2(-_SIZE * 0.20, -_SIZE * 0.10),
-		a + Vector2(-_SIZE * 0.05, _SIZE * 0.05),
-		a + Vector2(_SIZE * 0.15, -_SIZE * 0.30),
-		a + Vector2(_SIZE * 0.30, _SIZE * 0.05),
-		a + Vector2(_SIZE * 0.45, _SIZE * 0.25),
+		c + Vector2(-s * 1.00, s * 0.70),
+		c + Vector2(-s * 0.50, -s * 0.20),
+		c + Vector2(-s * 0.05, s * 0.30),
+		c + Vector2(s * 0.40, -s * 0.85),
+		c + Vector2(s * 0.85, s * 0.30),
+		c + Vector2(s * 1.10, s * 0.70),
 	])
-	draw_polyline(pts, _color_overlay, _STROKE * 0.95, true)
+	draw_polyline(pts, _overlay_backing(), _overlay_stroke() + 1.4, true)
+	draw_polyline(pts, _color_overlay, _overlay_stroke() + 0.3, true)
 
 
-## 손권 — 푸른 보주 (small blue filled circle — said to have blue eyes in lore).
+## 손권 — 푸른 보주 (a large saturated blue orb; the famed blue-eyed emperor).
 func _overlay_blue_orb() -> void:
+	var s: float = _HERO_OVERLAY_SIZE
 	var c: Vector2 = _overlay_anchor()
-	var blue: Color = Color(0.36, 0.66, 0.95, 0.98)
-	draw_circle(c, _SIZE * 0.22, blue)
+	var blue: Color = Color(0.30, 0.62, 0.95, 0.98)
+	var blue_dark: Color = Color(0.10, 0.30, 0.62, 0.95)
+	draw_circle(c, s * 0.80, blue_dark)
+	draw_circle(c, s * 0.65, blue)
+	# Highlight glint upper-left
+	draw_circle(c + Vector2(-s * 0.25, -s * 0.30), s * 0.18, Color(0.95, 0.95, 1.0, 0.85))
 
 
-## 주유 — 부채 (small folding fan: a fan of 3 spokes from a base).
+## 주유 — 부채 (folding fan: 4 spokes + arc base).
 func _overlay_fan() -> void:
-	var base: Vector2 = _overlay_anchor() + Vector2(0.0, _SIZE * 0.15)
-	for theta: float in [-PI * 0.45, -PI * 0.25, -PI * 0.05]:
-		var v: Vector2 = Vector2(cos(theta), sin(theta)) * _SIZE * 0.42
-		draw_line(base, base + v, _color_overlay, _STROKE * 0.85, true)
+	var s: float = _HERO_OVERLAY_SIZE
+	var base: Vector2 = _overlay_anchor() + Vector2(0.0, s * 0.50)
+	var spokes: Array[float] = [-PI * 0.55, -PI * 0.36, -PI * 0.18, 0.0]
+	var spoke_len: float = s * 1.10
+	# Backing arc — the fan paper edge
+	var arc_pts: PackedVector2Array = PackedVector2Array()
+	for theta: float in spokes:
+		arc_pts.append(base + Vector2(cos(theta), sin(theta)) * spoke_len)
+	draw_polyline(arc_pts, _overlay_backing(), _overlay_stroke() + 1.0, true)
+	draw_polyline(arc_pts, _color_overlay, _overlay_stroke(), true)
+	# Spokes from base
+	for theta: float in spokes:
+		var p: Vector2 = base + Vector2(cos(theta), sin(theta)) * spoke_len
+		draw_line(base, p, _color_overlay, _overlay_stroke() - 0.2, true)
 
 
-## 여포 — 별 (4-pointed star, peerless warrior accent).
+## 여포 — 별 (4-pointed star with starburst — the peerless warrior).
 func _overlay_star() -> void:
+	var s: float = _HERO_OVERLAY_SIZE
 	var c: Vector2 = _overlay_anchor()
-	var r: float = _SIZE * 0.32
-	# Horizontal + vertical strokes form a 4-point star.
-	draw_line(c + Vector2(-r, 0.0), c + Vector2(r, 0.0), _color_overlay, _STROKE * 0.9, true)
-	draw_line(c + Vector2(0.0, -r), c + Vector2(0.0, r), _color_overlay, _STROKE * 0.9, true)
-	# Diagonal cross at half radius for a starburst feel
-	var d: float = r * 0.55
-	draw_line(c + Vector2(-d, -d), c + Vector2(d, d), _color_overlay, _STROKE * 0.55, true)
-	draw_line(c + Vector2(-d, d), c + Vector2(d, -d), _color_overlay, _STROKE * 0.55, true)
+	var r: float = s * 0.95
+	# 4 main points (kite-shape star)
+	var star: PackedVector2Array = PackedVector2Array([
+		c + Vector2(0.0, -r),
+		c + Vector2(r * 0.35, -r * 0.35),
+		c + Vector2(r, 0.0),
+		c + Vector2(r * 0.35, r * 0.35),
+		c + Vector2(0.0, r),
+		c + Vector2(-r * 0.35, r * 0.35),
+		c + Vector2(-r, 0.0),
+		c + Vector2(-r * 0.35, -r * 0.35),
+	])
+	draw_colored_polygon(star, _overlay_backing())
+	# Inner brighter star (smaller, same shape)
+	var inner: PackedVector2Array = PackedVector2Array()
+	for p: Vector2 in star:
+		inner.append(c + (p - c) * 0.75)
+	draw_colored_polygon(inner, _color_overlay)
 
 
-## 초선 — 꽃 (5-petal flower; 4 cardinal + center).
+## 초선 — 꽃 (a 5-petal flower with bright center).
 func _overlay_flower() -> void:
+	var s: float = _HERO_OVERLAY_SIZE
 	var c: Vector2 = _overlay_anchor()
-	var r: float = _SIZE * 0.22
-	# Center bud
-	draw_circle(c, _SIZE * 0.10, _color_overlay)
-	# 4 petals at cardinals
-	for v: Vector2 in [Vector2(0, -r), Vector2(r, 0), Vector2(0, r), Vector2(-r, 0)]:
-		draw_circle(c + v, _SIZE * 0.10, _color_overlay)
+	# 5 petals around the center
+	var petal_r: float = s * 0.45
+	for i: int in range(5):
+		var theta: float = -PI * 0.5 + TAU * float(i) / 5.0
+		var petal_center: Vector2 = c + Vector2(cos(theta), sin(theta)) * s * 0.55
+		draw_circle(petal_center, petal_r, _overlay_backing())
+		draw_circle(petal_center, petal_r * 0.78, _color_overlay)
+	# Bright center bud
+	draw_circle(c, s * 0.35, Color(0.98, 0.86, 0.45, 0.98))
