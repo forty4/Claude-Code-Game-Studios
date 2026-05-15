@@ -106,6 +106,16 @@ signal unit_moved(unit_id: int, from: Vector2i, to: Vector2i)
 ## Emitted after HPStatusController.apply_damage resolves and returns.
 signal damage_applied(attacker_id: int, defender_id: int, damage: int)
 
+## Session-16: emitted alongside damage_applied when the attack landed on the
+## defender's REAR (×1.50 angle_mult on most classes). View-layer subscribers
+## (battle_scene) use this to spawn a "치명타!" popup + camera shake + SFX cue
+## so the player gets immediate "you flanked correctly" feedback. Not emitted
+## on MISS, on 0-damage hits, or on FRONT/FLANK directions. `angle` is one of
+## &"FRONT" / &"FLANK" / &"REAR" per _angle_to_direction_rel; only &"REAR" is
+## sent today but the field is included for forward compat with a future
+## "strong flank" tier.
+signal critical_hit_landed(attacker_id: int, defender_id: int, damage: int, angle: StringName)
+
 ## Controller-scoped re-emit of GameBus.unit_died so scene-tier subscribers
 ## (BattleScene visual feedback) can react without subscribing to GameBus
 ## directly (battle_scene_smoke_test AC-7: no GameBus subs in BattleScene).
@@ -2025,6 +2035,13 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 
 	# Stage 8: emit damage_applied per ADR-0014 §8
 	damage_applied.emit(attacker.unit_id, defender.unit_id, final_damage)
+
+	# Session-16: critical-hit visual feedback gate. REAR hits already do +50%
+	# damage via angle_mult; this signal lets the view layer surface that as
+	# "치명타!" popup + camera shake + SFX so the player feels the flank payoff.
+	# Gated on HIT + non-zero damage so MISS / 0-damage edge cases don't pop.
+	if angle == "rear" and result.kind == ResolveResult.Kind.HIT and final_damage > 0:
+		critical_hit_landed.emit(attacker.unit_id, defender.unit_id, final_damage, &"REAR")
 
 	return final_damage
 

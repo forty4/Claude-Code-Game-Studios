@@ -34,6 +34,10 @@ const SFX_VICTORY: StringName = &"victory"
 ## clearly distinct from SFX_HIT (low thud) and SFX_VICTORY (full chord). One
 ## cue covers all 6 wired skills — per-skill variants are a future iteration.
 const SFX_SKILL: StringName = &"skill"
+## Session-16: critical hit (REAR-direction strike). Sharp descending two-note
+## "thwack" — a punctuation distinct from SFX_HIT, paired with camera shake +
+## "치명타!" popup in battle_scene.
+const SFX_CRITICAL: StringName = &"critical"
 
 ## Music slugs — separate stream pool from SFX so they can be muted
 ## independently (player may want music off but SFX on, or vice versa).
@@ -240,6 +244,13 @@ func _build_procedural_streams() -> void:
 	_streams[SFX_SKILL] = _make_chord(
 		[783.99, 1046.50],  # G5 + C6
 		0.22, 7.0, 0.26,
+	)
+	# E5 + G3 descending punch — bright top + deep crunch underneath. Decay 8.5
+	# is just shy of SFX_DEATH so the hit hangs a beat longer than a normal
+	# attack but doesn't drag into the next move.
+	_streams[SFX_CRITICAL] = _make_chord(
+		[659.25, 196.00],  # E5 (bright) + G3 (low thump)
+		0.28, 8.5, 0.34,
 	)
 
 

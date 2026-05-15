@@ -311,3 +311,71 @@ func test_handle_attack_re_entrancy_silent_after_act() -> void:
 
 	# No damage_applied emit (re-entrancy guard)
 	assert_int(captures.size()).is_equal(0)
+
+
+# ─── Session-16: critical_hit_landed signal (REAR-direction feedback) ──────
+
+
+func test_critical_hit_landed_fires_on_rear_strike() -> void:
+	# Attacker south of defender; defender faces N → rear exposed from S.
+	# REAR angle should fire critical_hit_landed exactly once.
+	var attacker: BattleUnit = _make_unit(1, Vector2i(2, 3), 0)
+	var defender: BattleUnit = _make_unit(2, Vector2i(2, 2), 1, 0)  # facing N
+	var bag: Dictionary = _setup([attacker, defender])
+	var controller: GridBattleController = bag["controller"]
+	var captures: Array = []
+	controller.critical_hit_landed.connect(
+		func(att_id: int, def_id: int, dmg: int, angle: StringName) -> void:
+			captures.append({"att_id": att_id, "def_id": def_id,
+				"dmg": dmg, "angle": angle})
+	)
+
+	controller._resolve_attack(attacker, defender)
+
+	assert_int(captures.size()).override_failure_message(
+		"REAR strike should fire critical_hit_landed exactly once"
+	).is_equal(1)
+	assert_int(captures[0].att_id as int).is_equal(1)
+	assert_int(captures[0].def_id as int).is_equal(2)
+	assert_int(captures[0].dmg as int).is_greater(0)
+	assert_str(String(captures[0].angle as StringName)).is_equal("REAR")
+
+
+func test_critical_hit_landed_does_not_fire_on_front_strike() -> void:
+	# Attacker NORTH of defender; defender also faces N → attacker is FRONT.
+	# critical_hit_landed must NOT fire (FRONT is the baseline angle).
+	var attacker: BattleUnit = _make_unit(1, Vector2i(2, 1), 0)
+	var defender: BattleUnit = _make_unit(2, Vector2i(2, 2), 1, 0)  # facing N
+	var bag: Dictionary = _setup([attacker, defender])
+	var controller: GridBattleController = bag["controller"]
+	var captures: Array = []
+	controller.critical_hit_landed.connect(
+		func(_a: int, _d: int, _g: int, _ang: StringName) -> void:
+			captures.append(true)
+	)
+
+	controller._resolve_attack(attacker, defender)
+
+	assert_int(captures.size()).override_failure_message(
+		"FRONT strike should NOT fire critical_hit_landed"
+	).is_equal(0)
+
+
+func test_critical_hit_landed_does_not_fire_on_flank_strike() -> void:
+	# Attacker EAST of defender; defender faces N → attacker is FLANK (side).
+	# critical_hit_landed must NOT fire (only REAR is critical in v1).
+	var attacker: BattleUnit = _make_unit(1, Vector2i(3, 2), 0)
+	var defender: BattleUnit = _make_unit(2, Vector2i(2, 2), 1, 0)  # facing N
+	var bag: Dictionary = _setup([attacker, defender])
+	var controller: GridBattleController = bag["controller"]
+	var captures: Array = []
+	controller.critical_hit_landed.connect(
+		func(_a: int, _d: int, _g: int, _ang: StringName) -> void:
+			captures.append(true)
+	)
+
+	controller._resolve_attack(attacker, defender)
+
+	assert_int(captures.size()).override_failure_message(
+		"FLANK strike should NOT fire critical_hit_landed in v1"
+	).is_equal(0)

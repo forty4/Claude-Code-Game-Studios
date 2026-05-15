@@ -365,6 +365,12 @@ func _start_battle() -> void:
 	# per-skill variants are a future iteration.
 	if _grid_controller.has_signal(&"unit_skill_used"):
 		_grid_controller.unit_skill_used.connect(_on_unit_skill_used)
+	# Session-16: critical-hit (REAR-direction) visual feedback. Spawns the
+	# "치명타!" popup + triggers camera shake + plays SFX_CRITICAL so the player
+	# feels the flank payoff immediately rather than just seeing a bigger
+	# damage number on the standard popup.
+	if _grid_controller.has_signal(&"critical_hit_landed"):
+		_grid_controller.critical_hit_landed.connect(_on_critical_hit_landed)
 
 	# === STEP 5.5: AISystem (ADR-0019) — battle-scoped Node 6th invocation ===
 	# Inserted via /architecture-review delta #14 2026-05-05 per ADR-0016 §3 R-3
@@ -1740,6 +1746,32 @@ func _on_unit_defend_stance_applied(unit_id: int) -> void:
 func _on_unit_skill_used(_unit_id: int, _skill_id: StringName) -> void:
 	if SoundManager != null and SoundManager.has_method("play"):
 		SoundManager.play(SoundManager.SFX_SKILL)
+
+
+## Session-16: critical-hit (REAR-direction) feedback. Spawns the "치명타!"
+## popup at the defender's position + triggers camera shake + plays SFX.
+## Receives the same defender_id the damage_applied handler does; uses the
+## defender's polygon position so the popup tracks late-game repositioning.
+func _on_critical_hit_landed(_attacker_id: int, defender_id: int, damage: int,
+		_angle: StringName) -> void:
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null:
+		return
+	var defender_node: Node2D = _find_unit_polygon(visuals, defender_id)
+	if defender_node == null:
+		return
+	# Stronger camera shake than a normal hit — REAR is the big payoff.
+	if _battle_camera != null and _battle_camera.has_method("shake"):
+		_battle_camera.shake(8.0, 0.25)
+	# SFX cue.
+	if SoundManager != null and SoundManager.has_method("play"):
+		SoundManager.play(SoundManager.SFX_CRITICAL)
+	# "치명타!" popup above the defender. Offset slightly above the standard
+	# DamagePopup (which also fires this frame via _on_damage_applied) so the
+	# two labels don't stack.
+	var popup: CriticalPopup = CriticalPopup.make(damage)
+	popup.position = defender_node.position
+	visuals.add_child(popup)
 
 
 func _list_polygon_names(visuals: Node) -> String:
