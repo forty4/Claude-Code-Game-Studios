@@ -40,6 +40,7 @@ const COLOR_RIVER:         Color = Color("4a6878")  # 청회 깊은 — water ta
 const COLOR_BRIDGE:        Color = Color("a0744a")  # 황토 갈색 — wooden bridge tone
 const COLOR_FORTRESS_WALL: Color = Color("1c1a17")  # 묵 — solid wall mass
 const COLOR_ROAD:          Color = Color("c8b898")  # 지백 어두움 — paved path
+const COLOR_FIRE:          Color = Color("c84418")  # 주적 — burning ship debris (session-21 ch5)
 ## Tile boundary stroke per art-bible §3-3 "기능 정보는 항상 직선; 타일 경계는
 ## 명료한 먹선" — load-bearing for tactical-info readability.
 const COLOR_TILE_BORDER:   Color = Color("1c1a17")  # 묵 — clear ink line
@@ -524,4 +525,5 @@ func _get_terrain_color(terrain_type: int) -> Color:
 		5: return COLOR_BRIDGE
 		6: return COLOR_FORTRESS_WALL
 		7: return COLOR_ROAD
+		8: return COLOR_FIRE  # session-21 ch5 적벽 본전 — burning ship debris
 		_: return COLOR_PLAINS

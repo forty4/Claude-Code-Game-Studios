@@ -33,8 +33,20 @@ func _ready() -> void:
 	pass
 
 
-func apply_damage(_unit_id: int, _resolved_damage: int, _attack_type: int, _source_flags: Array) -> void:
-	pass
+## Session-21 (ch5 FIRE terrain) — apply_damage call recorder so tests for the
+## fire-tile round-start damage path can assert which units were burned and
+## with what flags (FIRE + terrain). Each entry: {unit_id, resolved_damage,
+## attack_type, source_flags}. Defaults empty; tests inspect via index.
+var apply_damage_calls: Array[Dictionary] = []
+
+
+func apply_damage(unit_id: int, resolved_damage: int, attack_type: int, source_flags: Array) -> void:
+	apply_damage_calls.append({
+		"unit_id": unit_id,
+		"resolved_damage": resolved_damage,
+		"attack_type": attack_type,
+		"source_flags": source_flags,
+	})
 
 
 func is_alive(unit_id: int) -> bool:

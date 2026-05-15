@@ -122,6 +122,7 @@ func _ready() -> void:
 	box.add_child(_make_row("적 칸에 보라색이 겹쳐 보이면 기습 가능한 표적 — 그 적은 반격하지 못합니다."))
 	box.add_child(_make_row("궁병(황충 등)이 언덕(짙은 흙빛) 위에서 활을 쏘면 원사 +15% — 발 밑에 초록 링이 보이면 그 위치입니다."))
 	box.add_child(_make_row("책사(주유 등)를 선택하면 모든 적의 머리 위에 방향 화살표(↑→↓←)가 나타나 측면/후방 공격을 사전에 계획할 수 있습니다."))
+	box.add_child(_make_row("화염 지형(붉은 주황색, 적벽 본전)은 매 라운드 시작 시 그 위에 서 있는 유닛에게 즉시 피해 — 적을 화염으로 몰아넣고, 자신은 비껴 서세요."))
 	box.add_child(_make_spacer(6))
 	box.add_child(_make_section_heading("영웅 스킬 (S 키 — 전투당 1회)"))
 	box.add_child(_make_row("관우 청룡언월도 — 다음 한 번의 공격이 50% 더 강해집니다 (행동 소모 없음)"))

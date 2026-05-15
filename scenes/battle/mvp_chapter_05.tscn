@@ -1,0 +1,35 @@
+; Chapter 5 (적벽 본전 / Chibi Main — Battle of Red Cliffs proper) visual scene.
+; Authored per ADR-0021 §1 + §2 — mounted at /root by SceneManager.
+;
+; Tile rendering: chapter_visuals.gd `_draw()` overrides on the root Node2D.
+; Unit silhouettes: spawned at runtime by BattleScene._spawn_unit_polygons_async
+; → ChapterVisuals.spawn_unit_polygons(roster). PlayerUnits/EnemyUnits are kept
+; as empty container nodes; the spawn helper clears+repopulates them.
+;
+; TILE_SIZE = 64. Unit position formula: (col * 64 + 32, row * 64 + 32).
+;
+; Narrative: 적벽대전의 클라이맥스. 조조 본대 100만 대군이 강을 따라 정박,
+; 동남풍이 부는 적벽 강어귀에서 주유의 화공이 실행된다. 천 척의 배가 강 위
+; 에서 타고, 위군 정예 (조조 + 하후돈 + 장요 + 우금 + 허저)가 강변에 좌초.
+; 12×9 맵. River at cols 5-6 + 3 bridges (rows 2/4/6). Signature mechanic:
+; FIRE terrain (terrain_type=8) at (1,2), (0,4), (1,4), (1,6) deals
+; FIRE_DAMAGE_PER_TURN damage to any unit standing on it at round start.
+; HILLS @ (10,3) + (10,5) on the east shore give 황충 / 손권 the high-ground
+; firing position. Plays for chibi-tactical depth: pin Wei generals into FIRE
+; via STUN (주유 책략) or push them with positioning, then burn ticks finish.
+;
+; Faction colors per art-bible §4.2 applied at spawn time (촉 #2e5f7a /
+; 위 #4a4a4a / 오 sea-tone via HERO_ACCENT_BY_HERO_ID).
+
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/feature/battle_scene/chapter_visuals.gd" id="1_chapter"]
+[ext_resource type="Resource" path="res://assets/data/maps/mvp_chapter_05.tres" id="2_map"]
+
+[node name="ChapterVisuals" type="Node2D"]
+script = ExtResource("1_chapter")
+map_resource = ExtResource("2_map")
+
+[node name="PlayerUnits" type="Node2D" parent="."]
+
+[node name="EnemyUnits" type="Node2D" parent="."]

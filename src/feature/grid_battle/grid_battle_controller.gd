@@ -254,6 +254,32 @@ var _moved_this_turn: Dictionary[int, bool] = {}
 ## en-masse via initialize_battle reset path only.
 var _pending_stun: Dictionary[int, bool] = {}
 
+
+## Session-21 — ch5 적벽 본전 FIRE terrain (terrain_type=8) round-start damage.
+## Called from _on_round_started before round_started_visual fires. Every alive
+## unit whose position resolves to a FIRE tile takes FIRE_DAMAGE_PER_TURN as
+## MAGICAL damage. Side-agnostic: player and AI burn equally if they linger on
+## the wrong tile — pushes the player to MOVE through fire zones, not camp on
+## them. apply_damage path is reused so unit_died emits correctly for the
+## COMMANDER DEMORALIZED radius trigger; MAGICAL bypasses shield_wall flat
+## reduction so INFANTRY units aren't immune (5 - SHIELD_WALL_FLAT could clamp
+## to MIN_DAMAGE=1 without that gate).
+func _apply_fire_damage_on_round_start() -> void:
+	if _map_grid == null or _hp_controller == null:
+		return
+	var fire_damage: int = BalanceConstants.get_const("FIRE_DAMAGE_PER_TURN") as int
+	for unit: BattleUnit in _units.values():
+		if not _hp_controller.is_alive(unit.unit_id):
+			continue
+		var tile: MapTileData = _map_grid.get_tile(unit.position)
+		if tile == null:
+			continue
+		if tile.terrain_type != 8:  # FIRE
+			continue
+		_hp_controller.apply_damage(unit.unit_id, fire_damage,
+			ResolveModifiers.AttackType.MAGICAL,
+			[&"fire", &"terrain"] as Array[StringName])
+
 ## ID of the last attacker — used by fate-counter (assassin kill attribution).
 var _last_attacker_id: int = -1
 
@@ -1150,6 +1176,14 @@ func _on_round_started(round_num: int) -> void:
 	# Session-10: also clear any pending attack preview — counters reset between
 	# rounds and the relative direction/aura state may have shifted.
 	_clear_attack_preview(&"round_started")
+	# Session-21: ch5 적벽 본전 FIRE terrain damage. Any alive unit standing on a
+	# FIRE tile (terrain_type=8, burning ship debris) at round start takes
+	# FIRE_DAMAGE_PER_TURN as MAGICAL damage (bypasses shield_wall flat reduction;
+	# defend_stance still applies its 50% reduction — thematically "guarding
+	# against the flames"). True damage path would also work but apply_damage
+	# keeps the unified damage pipeline + emits unit_died correctly for the
+	# COMMANDER DEMORALIZED radius trigger.
+	_apply_fire_damage_on_round_start()
 	round_started_visual.emit(round_num)
 	# Story-008 AC-3: formation_turns counter. If any alive player unit had
 	# ≥1 adjacent ally during this round, increment + emit. Per ADR-0014 §7

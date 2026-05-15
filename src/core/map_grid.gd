@@ -56,6 +56,9 @@ const ERR_UNIT_COORD_OUT_OF_BOUNDS := "ERR_UNIT_COORD_OUT_OF_BOUNDS"
 ##
 ## TerrainType enum assumed order (to be formalised by ADR-0008 in story-005/006):
 ##   PLAINS=0, FOREST=1, HILLS=2, MOUNTAIN=3, RIVER=4, BRIDGE=5, FORTRESS_WALL=6, ROAD=7
+##   Session-21 (ch5 적벽 본전): FIRE=8 added — burning ship debris tile that
+##   damages units at round start via _apply_fire_damage_on_round_start in
+##   GridBattleController (uses BalanceConstant FIRE_DAMAGE_PER_TURN).
 ## Assumption documented for TD-032 batch. Index = terrain_type int value;
 ## inner array = allowed elevation values for that terrain.
 ## GDScript const limitation: PackedInt32Array() is not a literal expression, so
@@ -70,6 +73,7 @@ const ELEVATION_RANGES: Array = [
 	[0],      # 5 BRIDGE: elevation must be 0
 	[1, 2],   # 6 FORTRESS_WALL: elevation must be 1 or 2
 	[0],      # 7 ROAD: elevation must be 0
+	[0],      # 8 FIRE (session-21): elevation must be 0 — burning ship debris
 ]
 
 ## TileState enum assumed values (locked by story-004 / GDD §ST-1; formalised by ADR-0008):

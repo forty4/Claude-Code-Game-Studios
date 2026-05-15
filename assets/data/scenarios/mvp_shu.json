@@ -248,6 +248,76 @@
         [7, 4]
       ],
       "enemy_atk_mult": 0.65
+    },
+    {
+      "chapter_id": "ch05_chibi_main",
+      "chapter_number": 5,
+      "map_id": "mvp_chapter_05",
+      "author_draw_branch": false,
+      "echo_threshold": 2,
+      "branch_table": {
+        "WIN_default":  "WIN_chibi_main_burn",
+        "LOSS_default": "LOSS_chibi_main_wind_fails"
+      },
+      "canonical_branch_key": "WIN_chibi_main_burn",
+      "beat_1_text_key": "ch05.beat1.anchor",
+      "beat_2_fragment": {
+        "variant": "silent_visual",
+        "visual_cue_id": "scenario.chibi_burn_glyph",
+        "audio_cue_id": null
+      },
+      "beat_3_text_key": "ch05.beat3.brief",
+      "beat_8_revelations": [
+        {
+          "branch_key": "WIN_chibi_main_burn",
+          "text_key": "ch05.beat8.win_chibi_main_burn",
+          "cue_tag": "tag.beat8.canonical_win"
+        },
+        {
+          "branch_key": "LOSS_chibi_main_wind_fails",
+          "text_key": "ch05.beat8.loss_chibi_main_wind_fails",
+          "cue_tag": "tag.beat8.canonical_loss"
+        }
+      ],
+      "beat_9_text_key": "ch05.beat9.transition_to_post_chibi",
+      "player_unit_ids": [0, 1, 6, 9, 10, 11],
+      "player_commander_id": 0,
+      "player_hero_ids": {
+        "0": "shu_001_liu_bei",
+        "1": "shu_003_zhang_fei",
+        "6": "shu_002_guan_yu",
+        "9": "shu_004_huang_zhong",
+        "10": "wu_001_sun_quan",
+        "11": "wu_003_zhou_yu"
+      },
+      "enemy_unit_ids": [2, 3, 4, 5, 12],
+      "deployment_positions_default": {
+        "0": [10, 4],
+        "1": [9, 4],
+        "6": [9, 3],
+        "9": [10, 3],
+        "10": [10, 5],
+        "11": [9, 5],
+        "2": [3, 3],
+        "3": [3, 5],
+        "4": [3, 4],
+        "5": [2, 3],
+        "12": [2, 4]
+      },
+      "enemy_roster": [
+        {"unit_id": 2,  "hero_id": "wei_005_xiahou_dun", "archetype": "aggressor"},
+        {"unit_id": 3,  "hero_id": "wei_006_zhang_liao", "archetype": "skirmisher"},
+        {"unit_id": 4,  "hero_id": "wei_007_yu_jin",     "archetype": "holder"},
+        {"unit_id": 5,  "hero_id": "wei_008_xu_chu",     "archetype": "protector"},
+        {"unit_id": 12, "hero_id": "wei_001_cao_cao",    "archetype": "coordinator"}
+      ],
+      "chokepoints": [
+        [5, 2],
+        [5, 4],
+        [6, 4],
+        [5, 6]
+      ],
+      "enemy_atk_mult": 0.70
     }
   ]
 }

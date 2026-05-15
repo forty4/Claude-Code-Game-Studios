@@ -43,11 +43,12 @@ func test_scenario_advances_from_chapter_1_to_chapter_2_after_win() -> void:
 
 
 func test_scenario_completes_after_final_chapter_win() -> void:
-	# Drives all 3 chapters in mvp_shu.json (ch1 장판파 → ch2 장판교 → ch3 강하 외곽)
-	# to a canonical-WIN finish and asserts scenario_complete fires exactly once
-	# with all 3 chapter outcomes archived. Updated from a 2-chapter assertion
-	# when ch3 was added — the semantic ("scenario ends after the FINAL chapter")
-	# survives; the chapter count is now data-driven from the scenario JSON.
+	# Drives all chapters in mvp_shu.json (ch1 장판파 → ch2 장판교 → ch3 강하
+	# 외곽 → ch4 적벽 prelude → ch5 적벽 본전) to a canonical-WIN finish and
+	# asserts scenario_complete fires exactly once with every chapter outcome
+	# archived. Updated as new chapters land — the semantic ("scenario ends
+	# after the FINAL chapter") survives; the chapter count is data-driven
+	# from the scenario JSON. Session-21: ch5 added.
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
 	runner.load_scenario(SCENARIO_JSON)
@@ -64,6 +65,7 @@ func test_scenario_completes_after_final_chapter_win() -> void:
 	_drive_chapter_to_beat_9(runner, "ch02_changban_bridge")
 	_drive_chapter_to_beat_9(runner, "ch03_xiakou_outskirts")
 	_drive_chapter_to_beat_9(runner, "ch04_chibi_prelude")
+	_drive_chapter_to_beat_9(runner, "ch05_chibi_main")
 
 	# Disconnect only our test captures (avoid severing production subscribers).
 	if GameBus.chapter_completed.is_connected(ch_capture):
@@ -71,7 +73,7 @@ func test_scenario_completes_after_final_chapter_win() -> void:
 	if GameBus.scenario_complete.is_connected(sr_capture):
 		GameBus.scenario_complete.disconnect(sr_capture)
 
-	assert_int(captured_chapters.size()).is_equal(4)
+	assert_int(captured_chapters.size()).is_equal(5)
 	assert_str(captured_chapters[0].chapter_id).is_equal("ch01_changbanpo")
 	assert_str(captured_chapters[0].branch_path_id).is_equal("WIN_changbanpo_default")
 	assert_str(captured_chapters[1].chapter_id).is_equal("ch02_changban_bridge")
@@ -80,8 +82,10 @@ func test_scenario_completes_after_final_chapter_win() -> void:
 	assert_str(captured_chapters[2].branch_path_id).is_equal("WIN_xiakou_breakthrough")
 	assert_str(captured_chapters[3].chapter_id).is_equal("ch04_chibi_prelude")
 	assert_str(captured_chapters[3].branch_path_id).is_equal("WIN_chibi_prelude_alliance")
+	assert_str(captured_chapters[4].chapter_id).is_equal("ch05_chibi_main")
+	assert_str(captured_chapters[4].branch_path_id).is_equal("WIN_chibi_main_burn")
 	assert_int(captured_scenario.size()).is_equal(1)
-	assert_int(captured_scenario[0].chapter_outcomes.size()).is_equal(4)
+	assert_int(captured_scenario[0].chapter_outcomes.size()).is_equal(5)
 	var state_enum: Dictionary = ScenarioRunnerTestSeam.get_state_enum()
 	assert_int(runner.get_state()).is_equal(state_enum["SCENARIO_END"] as int)
 
