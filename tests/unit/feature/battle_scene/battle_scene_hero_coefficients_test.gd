@@ -41,9 +41,11 @@ func test_hero_def_coeff_is_registered_in_balance_constants() -> void:
 
 
 func test_hero_commander_def_bonus_is_registered_in_balance_constants() -> void:
+	# Bumped 10 → 18 in session 15 balance pass: ch1 was unwinnable for the
+	# 2v4 garrison; a beefier COMMANDER lets 유비 hold the line one more turn.
 	var v: Variant = BalanceConstants.get_const("HERO_COMMANDER_DEF_BONUS")
 	assert_int(typeof(v)).is_not_equal(TYPE_NIL)
-	assert_int(v as int).is_equal(10)
+	assert_int(v as int).is_equal(18)
 
 
 # ─── BattleScene._make_battle_unit reads the constants ───────────────────────
@@ -62,14 +64,15 @@ func test_raw_def_uses_command_times_def_coeff_for_non_commander() -> void:
 
 
 func test_raw_def_applies_commander_bonus_for_commanders() -> void:
-	# 유비 stat_command=90, HERO_DEF_COEFF=0.20, COMMANDER bonus +10 → 28.
+	# 유비 stat_command=90, HERO_DEF_COEFF=0.20, COMMANDER bonus +18 → 36.
+	# (COMMANDER bonus bumped 10 → 18 in session-15 balance pass.)
 	var scene: BattleScene = _instantiate_battle_scene()
 	var liu_bei: BattleUnit = scene._make_battle_unit(
 		0, &"shu_001_liu_bei", true, Vector2i.ZERO, &"tank", &"aggressor")
 	assert_int(liu_bei.raw_def).override_failure_message(
-		"유비 raw_def should be command(90)×0.20 + 10 (COMMANDER) = 28; got %d"
+		"유비 raw_def should be command(90)×0.20 + 18 (COMMANDER) = 36; got %d"
 		% liu_bei.raw_def
-	).is_equal(28)
+	).is_equal(36)
 
 
 func test_raw_atk_uses_might_times_atk_coeff() -> void:

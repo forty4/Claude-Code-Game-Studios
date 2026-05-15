@@ -232,7 +232,8 @@ func test_move_range_unknown_hero_falls_back_to_three() -> void:
 # Sanity that the coefficients in _make_battle_unit produce the new values:
 #   raw_atk = stat_might × 1.0         (was × 1.5; halved the BASE_CEILING saturation)
 #   raw_def = stat_command × 0.20      (was × 0.05; raw_def now matters under ceiling)
-#   +10 raw_def for COMMANDER          (commanders anchor formation; defeat condition tank)
+#   +18 raw_def for COMMANDER          (session-15: bumped from +10 to +18 so
+#                                       commanders can actually anchor 2v4 ch1)
 #
 # Heroes referenced live in assets/data/heroes/heroes.json (consumed by the
 # /root/HeroDatabase autoload at boot).
@@ -270,13 +271,13 @@ func test_player_units_do_not_get_enemy_atk_mult_penalty() -> void:
 
 
 func test_raw_def_uses_command_times_one_fifth_with_commander_bonus() -> void:
-	# 유비 stat_command=90, COMMANDER → raw_def = floori(90×0.20) + 10 = 18+10 = 28
-	# (was 4 at the 0.05 coefficient — sub-MIN; pushed every attack to BASE_CEILING).
+	# 유비 stat_command=90, COMMANDER → raw_def = floori(90×0.20) + 18 = 18+18 = 36
+	# (session-15: COMMANDER bonus bumped 10 → 18 so 유비 can survive ch1 2v4).
 	var scene: BattleScene = _instantiate_battle_scene()
 	var liu_bei: BattleUnit = scene._make_battle_unit(0, &"shu_001_liu_bei", true, Vector2i.ZERO, &"tank", &"aggressor")
 	assert_int(liu_bei.raw_def).override_failure_message(
-		"유비 raw_def should be command(90)×0.20 + COMMANDER bonus(+10) = 28; got %d" % liu_bei.raw_def
-	).is_equal(28)
+		"유비 raw_def should be command(90)×0.20 + COMMANDER bonus(+18) = 36; got %d" % liu_bei.raw_def
+	).is_equal(36)
 
 
 func test_raw_def_no_commander_bonus_for_infantry() -> void:
@@ -289,11 +290,12 @@ func test_raw_def_no_commander_bonus_for_infantry() -> void:
 
 
 func test_enemy_commander_also_gets_bonus_def() -> void:
-	# Cao Cao 조조 (COMMANDER, command=92) → raw_def = floori(92×0.20) + 10 = 18+10 = 28
-	# The bonus is class-based, not faction-based — symmetry preserved.
+	# Cao Cao 조조 (COMMANDER, command=92) → raw_def = floori(92×0.20) + 18 = 18+18 = 36
+	# The bonus is class-based, not faction-based — symmetry preserved. Bonus
+	# value bumped 10 → 18 in session-15 balance pass.
 	var scene: BattleScene = _instantiate_battle_scene()
 	var cao_cao: BattleUnit = scene._make_battle_unit(7, &"wei_001_cao_cao", false, Vector2i.ZERO, &"boss", &"coordinator")
-	assert_int(cao_cao.raw_def).is_equal(28)
+	assert_int(cao_cao.raw_def).is_equal(36)
 
 
 # ─── Existing class-distinction sanity ───────────────────────────────────────
