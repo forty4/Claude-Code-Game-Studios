@@ -261,7 +261,9 @@ func _score_aggressor(candidate: Dictionary, snapshot: BattleStateSnapshot, unit
 		var t_pos: Vector2i = target.get("position", Vector2i.ZERO) as Vector2i
 		var unit_pos: Vector2i = unit.get("position", Vector2i.ZERO) as Vector2i
 		var dist_penalty: float = float(_grid_distance(unit_pos, t_pos)) * 0.5
-		return 20.0 + bonus + weakness - dist_penalty + _target_status_score_modifier(target)
+		return 20.0 + bonus + weakness - dist_penalty \
+			+ _target_status_score_modifier(target) \
+			+ _caster_status_score_modifier(unit)
 	return 0.0
 
 
@@ -292,7 +294,9 @@ func _score_skirmisher(candidate: Dictionary, snapshot: BattleStateSnapshot, uni
 			return -100.0
 		var t_range: int = target.get("attack_range", 1) as int
 		var ranged_bonus: float = float(BalanceConstants.get_const("SKIRMISHER_RANGED_TARGET_BONUS")) if t_range >= 2 else 0.0
-		return 15.0 + ranged_bonus + _target_status_score_modifier(target)
+		return 15.0 + ranged_bonus \
+			+ _target_status_score_modifier(target) \
+			+ _caster_status_score_modifier(unit)
 	return 0.0
 
 
@@ -326,7 +330,9 @@ func _score_holder(candidate: Dictionary, snapshot: BattleStateSnapshot, unit: D
 		var target: Dictionary = snapshot.get_unit(t_id)
 		if target.is_empty():
 			return -100.0
-		return 18.0 + _target_status_score_modifier(target)
+		return 18.0 \
+			+ _target_status_score_modifier(target) \
+			+ _caster_status_score_modifier(unit)
 	return 0.0
 
 
@@ -353,7 +359,9 @@ func _score_coordinator(candidate: Dictionary, snapshot: BattleStateSnapshot, un
 			return -100.0
 		var has_command_aura: bool = (target.get("passive_id", &"") as StringName) == &"command_aura"
 		var commander_bonus: float = float(BalanceConstants.get_const("COORDINATOR_COMMANDER_TARGET_BONUS")) if has_command_aura else 0.0
-		return 15.0 + commander_bonus + _target_status_score_modifier(target)
+		return 15.0 + commander_bonus \
+			+ _target_status_score_modifier(target) \
+			+ _caster_status_score_modifier(unit)
 	if action == AIActionCommand.ActionType.MOVE:
 		# Coordinator stays near allies (formation).
 		var dest: Vector2i = candidate.get("move_to", Vector2i.ZERO) as Vector2i
@@ -396,7 +404,9 @@ func _score_berserker(candidate: Dictionary, snapshot: BattleStateSnapshot, unit
 			return -100.0
 		# Base attack score + low-HP bonus stack — when wounded, the berserker
 		# prioritizes ATTACK above any other consideration.
-		return 25.0 + low_hp_bonus + _target_status_score_modifier(target)
+		return 25.0 + low_hp_bonus \
+			+ _target_status_score_modifier(target) \
+			+ _caster_status_score_modifier(unit)
 	return 0.0
 
 
@@ -461,7 +471,9 @@ func _score_protector(candidate: Dictionary, snapshot: BattleStateSnapshot, unit
 		# Intercept bonus when attacking a player unit close to our commander.
 		# 2-tile threshold: anything within 2 tiles of commander is "threatening".
 		var threat_bonus: float = intercept_bonus if target_to_protectee <= 2 else 0.0
-		return 18.0 + threat_bonus + _target_status_score_modifier(target)
+		return 18.0 + threat_bonus \
+			+ _target_status_score_modifier(target) \
+			+ _caster_status_score_modifier(unit)
 	return 0.0
 
 
@@ -568,6 +580,47 @@ func _target_status_score_modifier(target: Dictionary) -> float:
 			modifier -= float(BalanceConstants.get_const("AI_TARGET_POISON_DYING_PENALTY"))
 		else:
 			modifier += float(BalanceConstants.get_const("AI_TARGET_POISON_HEALTHY_BONUS"))
+	return modifier
+
+
+## Session-22 — caster-side status awareness (mirror of session-18 target-side).
+## When the AI unit itself carries SLOW or POISON, ATTACK candidate scoring is
+## adjusted so the AI reasons about its own degraded state:
+##
+##   - SLOW on caster: unit's atk is reduced 20% → attack output weaker →
+##     small negative on ATTACK score. The AI prefers DEFEND/MOVE over a
+##     diluted swing.
+##   - POISON on caster + near death (hp_pct ≤ AI_CASTER_POISON_DYING_THRESHOLD):
+##     unit will die on the next poison tick anyway → commit to ATTACK while
+##     still alive ("go down swinging"). Mirrors the target-side DYING penalty
+##     but reversed for caster — large positive bonus on ATTACK.
+##   - POISON on caster + healthy: defensive — bleeding out slowly, avoid
+##     trading hits. Small negative on ATTACK.
+##
+## STUN intentionally omitted — stunned units don't get turns so the modifier
+## is structurally unreachable. Modifiers SUM additively when multiple statuses
+## are present. Pure function over the caster unit Dictionary.
+func _caster_status_score_modifier(unit: Dictionary) -> float:
+	var status_ids: Array = unit.get("status_ids", []) as Array
+	if status_ids.is_empty():
+		return 0.0
+	var modifier: float = 0.0
+	var has_poison: bool = false
+	for sid in status_ids:
+		var sn: StringName = sid as StringName
+		if sn == &"slow":
+			modifier -= float(BalanceConstants.get_const("AI_CASTER_SLOW_PENALTY"))
+		elif sn == &"poison":
+			has_poison = true
+	if has_poison:
+		var hp_curr: int = unit.get("hp_current", 1) as int
+		var hp_mx: int = unit.get("hp_max", 1) as int
+		var hp_pct: float = float(hp_curr) / max(1.0, float(hp_mx))
+		var threshold: float = float(BalanceConstants.get_const("AI_CASTER_POISON_DYING_THRESHOLD"))
+		if hp_pct <= threshold:
+			modifier += float(BalanceConstants.get_const("AI_CASTER_POISON_DYING_BONUS"))
+		else:
+			modifier -= float(BalanceConstants.get_const("AI_CASTER_POISON_HEALTHY_PENALTY"))
 	return modifier
 
 
