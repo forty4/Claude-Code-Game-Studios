@@ -161,6 +161,70 @@ func test_friendly_fire_does_not_count_as_kill_credit() -> void:
 	assert_int(stats["player_kills"] as int).is_equal(0)
 
 
+# ─── Session-16: unit_killed mid-battle signal ───────────────────────────────
+
+
+func test_unit_killed_fires_on_cross_side_kill() -> void:
+	# Cross-side death with valid killer → unit_killed emits with payload.
+	var p: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	var e: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	var controller: GridBattleController = _setup([p, e])
+	controller._last_attacker_id = 1
+	var captures: Array = []
+	controller.unit_killed.connect(
+		func(killer: int, victim: int, hero: StringName) -> void:
+			captures.append({"killer": killer, "victim": victim, "hero": hero})
+	)
+
+	controller._on_unit_died(2)
+
+	assert_int(captures.size()).override_failure_message(
+		"Cross-side kill should fire unit_killed exactly once"
+	).is_equal(1)
+	assert_int(captures[0].killer as int).is_equal(1)
+	assert_int(captures[0].victim as int).is_equal(2)
+	assert_str(String(captures[0].hero as StringName)).is_equal(String(e.hero_id))
+
+
+func test_unit_killed_does_not_fire_on_friendly_fire() -> void:
+	# Same-side death must NOT emit unit_killed (mirrors kill-credit rule).
+	var p1: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	var p2: BattleUnit = _make_unit(3, Vector2i(2, 3), 0)
+	var controller: GridBattleController = _setup([p1, p2])
+	controller._last_attacker_id = 1
+	var captures: Array = []
+	controller.unit_killed.connect(
+		func(_k: int, _v: int, _h: StringName) -> void: captures.append(true)
+	)
+
+	controller._on_unit_died(3)
+
+	assert_int(captures.size()).override_failure_message(
+		"Friendly-fire death must NOT emit unit_killed"
+	).is_equal(0)
+
+
+func test_unit_killed_does_not_fire_when_battle_over() -> void:
+	# Terminal-state guard mirrors _on_unit_died's _battle_over short-circuit.
+	# Once battle_over flips true, no further unit_killed emits — result
+	# screen takes over.
+	var p: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	var e: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	var controller: GridBattleController = _setup([p, e])
+	controller._last_attacker_id = 1
+	controller._battle_over = true
+	var captures: Array = []
+	controller.unit_killed.connect(
+		func(_k: int, _v: int, _h: StringName) -> void: captures.append(true)
+	)
+
+	controller._on_unit_died(2)
+
+	assert_int(captures.size()).override_failure_message(
+		"Battle-over deaths must NOT emit unit_killed"
+	).is_equal(0)
+
+
 # ─── Surviving / total counts ────────────────────────────────────────────────
 
 

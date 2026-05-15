@@ -371,6 +371,12 @@ func _start_battle() -> void:
 	# damage number on the standard popup.
 	if _grid_controller.has_signal(&"critical_hit_landed"):
 		_grid_controller.critical_hit_landed.connect(_on_critical_hit_landed)
+	# Session-16: mid-battle kill notification. Spawns "X 처치!" popup at victim
+	# position + plays SFX_KILL flourish — defers the "did I get the kill?"
+	# confirmation moment so the player doesn't have to wait until the result
+	# screen to feel it.
+	if _grid_controller.has_signal(&"unit_killed"):
+		_grid_controller.unit_killed.connect(_on_unit_killed_mid_battle)
 
 	# === STEP 5.5: AISystem (ADR-0019) — battle-scoped Node 6th invocation ===
 	# Inserted via /architecture-review delta #14 2026-05-05 per ADR-0016 §3 R-3
@@ -1746,6 +1752,37 @@ func _on_unit_defend_stance_applied(unit_id: int) -> void:
 func _on_unit_skill_used(_unit_id: int, _skill_id: StringName) -> void:
 	if SoundManager != null and SoundManager.has_method("play"):
 		SoundManager.play(SoundManager.SFX_SKILL)
+
+
+## Session-16: mid-battle kill notification. Spawns "X 처치!" popup at the
+## victim's polygon position (captured BEFORE the death-fade tween hides the
+## node) + plays SFX_KILL flourish. Killer/victim ids both arrive on the
+## signal; only the victim's display name + accent are needed.
+func _on_unit_killed_mid_battle(_killer_id: int, victim_id: int,
+		victim_hero_id: StringName) -> void:
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null:
+		return
+	var victim_node: Node2D = _find_unit_polygon(visuals, victim_id)
+	if victim_node == null:
+		return
+	# Resolve display name + accent color (uses chapter_visuals' authoritative
+	# accent dict so it stays in sync with the unit polygon's border color).
+	var display_name: String = String(victim_hero_id)
+	var hero: HeroData = HeroDatabase.get_hero(victim_hero_id)
+	if hero != null and hero.name_ko != "":
+		display_name = hero.name_ko
+	var accent: Color = Color(0.96, 0.86, 0.42, 1.0)  # default warm gold
+	if visuals.has_method("_get_hero_accent"):
+		# Visualss internal helper — public-ish per chapter_visuals docstring.
+		accent = visuals._get_hero_accent(victim_hero_id, 1)  # side=1 fallback
+	# SFX cue.
+	if SoundManager != null and SoundManager.has_method("play"):
+		SoundManager.play(SoundManager.SFX_KILL)
+	# Popup at victim position.
+	var popup: KillPopup = KillPopup.make(display_name, accent)
+	popup.position = victim_node.position + Vector2(0.0, -16.0)
+	visuals.add_child(popup)
 
 
 ## Session-16: critical-hit (REAR-direction) feedback. Spawns the "치명타!"

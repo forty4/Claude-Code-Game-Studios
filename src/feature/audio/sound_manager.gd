@@ -38,6 +38,11 @@ const SFX_SKILL: StringName = &"skill"
 ## "thwack" — a punctuation distinct from SFX_HIT, paired with camera shake +
 ## "치명타!" popup in battle_scene.
 const SFX_CRITICAL: StringName = &"critical"
+## Session-16: mid-battle kill notification. Bright rising flourish cue paired
+## with the "X 처치!" popup so the player feels the achievement of finishing
+## an enemy. Shorter than SFX_VICTORY (the chapter end chord) so it doesn't
+## clash with subsequent action.
+const SFX_KILL: StringName = &"kill"
 
 ## Music slugs — separate stream pool from SFX so they can be muted
 ## independently (player may want music off but SFX on, or vice versa).
@@ -251,6 +256,12 @@ func _build_procedural_streams() -> void:
 	_streams[SFX_CRITICAL] = _make_chord(
 		[659.25, 196.00],  # E5 (bright) + G3 (low thump)
 		0.28, 8.5, 0.34,
+	)
+	# A5 + C#6 ascending flourish — bright triumphant pair, shorter decay than
+	# SFX_VICTORY (which is the full chapter close). Reads as "small win".
+	_streams[SFX_KILL] = _make_chord(
+		[880.00, 1108.73],  # A5 + C#6 (major third up)
+		0.30, 6.0, 0.28,
 	)
 
 

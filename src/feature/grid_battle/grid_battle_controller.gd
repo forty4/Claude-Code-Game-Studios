@@ -116,6 +116,16 @@ signal damage_applied(attacker_id: int, defender_id: int, damage: int)
 ## "strong flank" tier.
 signal critical_hit_landed(attacker_id: int, defender_id: int, damage: int, angle: StringName)
 
+## Session-16: emitted when a unit is killed (cross-side, credited to a known
+## last attacker) and the battle is NOT yet over. View-layer subscribers
+## (battle_scene) spawn a "X 처치!" popup + play SFX_KILL so the player gets
+## immediate "you got the kill" feedback rather than only seeing the polygon
+## fade out. Friendly-fire deaths + battle-over-terminal deaths are filtered
+## out (the result screen handles those). victim_hero_id surfaces alongside
+## victim_id so the popup can show 한글 이름 without an extra HeroDatabase
+## lookup at the view layer.
+signal unit_killed(killer_id: int, victim_id: int, victim_hero_id: StringName)
+
 ## Controller-scoped re-emit of GameBus.unit_died so scene-tier subscribers
 ## (BattleScene visual feedback) can react without subscribing to GameBus
 ## directly (battle_scene_smoke_test AC-7: no GameBus subs in BattleScene).
@@ -981,6 +991,11 @@ func _on_unit_died(unit_id: int) -> void:
 		var victim: BattleUnit = _units[unit_id]
 		if killer.side != victim.side:
 			_kills_by_unit[_last_attacker_id] = _kills_by_unit.get(_last_attacker_id, 0) + 1
+			# Session-16: mid-battle kill notification. View layer spawns the
+			# "X 처치!" popup at the victim's polygon position. Emitted BEFORE
+			# _check_battle_end so the popup fires even on the final kill —
+			# the result screen takes over after the outcome resolves.
+			unit_killed.emit(_last_attacker_id, unit_id, victim.hero_id)
 	# Story-007 AC-5: victory check on every unit death.
 	_check_battle_end()
 
