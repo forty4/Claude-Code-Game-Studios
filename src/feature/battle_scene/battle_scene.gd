@@ -167,6 +167,18 @@ const CHAPTER_FLAVOR: Dictionary = {
 		"title": "제3장 · 강하 외곽 · 적벽의 서막",
 		"tagline": "관우 합류 — 강을 건너기까지 마지막 후위를 막아내라.",
 	},
+	# Session-39 — backfilled flavor for ch04 + ch05. Pre-S39 these fell
+	# through to the "제N장" default with no tagline, breaking the narrative
+	# read at chapter intro time. Each retrofitted chapter now has a single-
+	# line situation prose paired with its tactical objective line below.
+	"ch04_chibi_prelude": {
+		"title": "제4장 · 적벽의 서막 (赤壁前夜)",
+		"tagline": "동맹의 길 — 손권에게 닿기 전 마지막 추격을 끊어라.",
+	},
+	"ch05_chibi_main": {
+		"title": "제5장 · 적벽 본전 (赤壁) · 동남풍을 기다리며",
+		"tagline": "화공의 바람이 불기까지 — 전선을 사수하고 백만 대군을 견뎌라.",
+	},
 }
 ## How long the title card stays on screen before auto-removing (seconds).
 const TITLE_CARD_DURATION: float = 3.5
@@ -1376,6 +1388,22 @@ func _mount_title_card(chapter: ChapterDefinition, roster: Array[BattleUnit]) ->
 		tagline.add_theme_constant_override("outline_size", 6)
 		tagline.add_theme_font_size_override("font_size", 22)
 		box.add_child(tagline)
+
+	# Session-39 — tactical objective line (영걸전식 mission briefing). Composed
+	# from the resolver so it stays in sync with the in-battle UI-GB-08 label.
+	# Gold tier matches the OutcomeBanner victory color (#e8d68a) — reads as
+	# "must-do" without colliding with the art-bible reserved 주홍/금색.
+	var objective_text: String = String(_resolve_victory_condition_label(chapter))
+	if not objective_text.is_empty():
+		var objective_label: Label = Label.new()
+		objective_label.text = "▶  %s" % objective_text
+		objective_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		objective_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		objective_label.add_theme_color_override("font_color", Color("e8d68a"))
+		objective_label.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.04, 1.0))
+		objective_label.add_theme_constant_override("outline_size", 6)
+		objective_label.add_theme_font_size_override("font_size", 24)
+		box.add_child(objective_label)
 
 	if not roster_text.is_empty():
 		var roster_label: Label = Label.new()
