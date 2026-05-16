@@ -106,6 +106,63 @@ func test_hydrate_chapter_target_unit_ids_round_trip() -> void:
 # ─── ch05 retrofit verification (smoke) ─────────────────────────────────────
 
 
+## Session-33 — Production mvp_shu.json ch02 record carries the ESCORT retrofit.
+## Verifies the chapter JSON parses + ch02 victory_conditions hydrates correctly.
+func test_mvp_shu_ch02_carries_escort_target_0() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+	assert_bool(json_text.is_empty()).is_false()
+	var parsed: Variant = JSON.parse_string(json_text)
+	assert_object(parsed).is_not_null()
+	var data: Dictionary = parsed as Dictionary
+	var chapters: Array = data["chapters"] as Array
+	var ch02_record: Dictionary = {}
+	for c: Variant in chapters:
+		var d: Dictionary = c as Dictionary
+		if (d.get("chapter_id", "") as String) == "ch02_changban_bridge":
+			ch02_record = d
+			break
+	assert_bool(ch02_record.is_empty()).override_failure_message(
+		"mvp_shu.json must contain ch02_changban_bridge record"
+	).is_false()
+	# ESCORT victory_conditions
+	assert_bool(ch02_record.has("victory_conditions")).override_failure_message(
+		"S33: ch02_changban_bridge must carry victory_conditions block"
+	).is_true()
+	var vc_data: Dictionary = ch02_record["victory_conditions"] as Dictionary
+	assert_int(vc_data["primary_condition_type"] as int).override_failure_message(
+		"S33: ch02 must use ESCORT (primary_condition_type=2)"
+	).is_equal(int(VictoryConditions.ConditionType.ESCORT))
+	var t_ids: Array = vc_data["target_unit_ids"] as Array
+	assert_int(t_ids.size()).is_equal(1)
+	assert_int(t_ids[0] as int).override_failure_message(
+		"S33: ch02 ESCORT target must be 유비 (unit_id=0)"
+	).is_equal(0)
+	# Default deployment now includes 유비 AND 장비 (S33 unification).
+	var player_ids: Array = ch02_record["player_unit_ids"] as Array
+	assert_int(player_ids.size()).override_failure_message(
+		"S33: ch02 default player_unit_ids must include both 유비 + 장비"
+	).is_equal(2)
+	var has_player_0: bool = false
+	var has_player_1: bool = false
+	for pid: Variant in player_ids:
+		if (pid as int) == 0:
+			has_player_0 = true
+		elif (pid as int) == 1:
+			has_player_1 = true
+	assert_bool(has_player_0).override_failure_message(
+		"S33: ch02 default must include 유비 (unit_id=0) — ESCORT target"
+	).is_true()
+	assert_bool(has_player_1).override_failure_message(
+		"S33: ch02 default must include 장비 (unit_id=1)"
+	).is_true()
+	# branch_overrides for WIN_changbanpo_default removed (now redundant
+	# with the unified default deployment — both paths get 유비 + 장비).
+	var branch_overrides: Dictionary = ch02_record.get("branch_overrides", {}) as Dictionary
+	assert_bool(branch_overrides.has("WIN_changbanpo_default")).override_failure_message(
+		"S33: ch02 branch_overrides.WIN_changbanpo_default must be removed (redundant after default unification)"
+	).is_false()
+
+
 ## Production mvp_shu.json ch05 record carries the SURVIVE_N_ROUNDS=5 retrofit.
 ## Reads the JSON directly via FileAccess + hydrate the ch05 record to verify
 ## the wiring end-to-end (catches any JSON syntax breakage at lint time).
