@@ -149,14 +149,27 @@ const COLOR_MOVE_PREVIEW: Color = Color(0.18, 0.55, 0.67, 0.30)
 ## Per-class affinity (UnitRole cost_table) + per-tile survivability (defense +
 ## evasion bonus) collapsed into a ternary {-1, 0, +1} signal via
 ## GridBattleController.get_terrain_favor_for_unit(). Color hue alone carries
-## the signal so the base preview alpha (~0.30) stays unchanged and tiles still
-## read as "reachable" first, "favored/disfavored" second.
+## the tile-level signal so the base preview alpha (~0.30) stays unchanged and
+## tiles still read as "reachable" first, "favored/disfavored" second.
 ##   FAVORED    — leaf-green (helps this unit: fast OR survivable terrain)
 ##   DISFAVORED — brick-red  (hurts this unit: cost >= 2 mobility penalty)
 ## Saturation kept moderate so the COLOR_ATTACK_PREVIEW red still wins when
 ## both overlays land on the same tile (movement vs attack semantic priority).
 const COLOR_MOVE_PREVIEW_FAVORED:    Color = Color(0.28, 0.70, 0.38, 0.32)
 const COLOR_MOVE_PREVIEW_DISFAVORED: Color = Color(0.78, 0.32, 0.22, 0.34)
+
+## Session-55 — colorblind alternate channel for the favor signal per
+## design/ux/accessibility-requirements.md R-2 ("tile state must not rely on
+## color alone"). A small monochrome triangle in the tile's TOP-LEFT corner
+## redundantly encodes the favor sign:
+##   FAVORED    — ▲ apex-up      (matches "+", "up", "good")
+##   DISFAVORED — ▼ apex-down    (matches "-", "down", "bad")
+##   NEUTRAL    — no glyph (default state needs no special mark)
+## Position is top-left so it never collides with the centered S48 terrain
+## glyph nor the active-turn gold ring (drawn around the tile border).
+const _FAVOR_GLYPH_COLOR:   Color   = Color(1.0, 1.0, 1.0, 0.85)
+const _FAVOR_GLYPH_HALF:    float   = 5.5
+const _FAVOR_GLYPH_INSET:   Vector2 = Vector2(9.0, 9.0)
 
 ## Attack-range preview fill: translucent red on enemy-occupied tiles within
 ## attack reach. Distinct hue from movement preview so both can be read at
@@ -581,7 +594,9 @@ func _draw() -> void:
 	# Movement-range preview (drawn before selection outline so the outline
 	# stays visually on top of all overlays). Per-tile color picked from the
 	# favor array when length matches the tile array; otherwise neutral blue
-	# (forward-compat for callers that don't push favors yet).
+	# (forward-compat for callers that don't push favors yet). A redundant
+	# corner glyph (▲ / ▼) per-tile encodes the favor sign for colorblind
+	# alt-channel parity (design/ux/accessibility-requirements.md R-2).
 	var _favor_len: int = _movable_favors.size()
 	var _use_favors: bool = _favor_len == _movable_tiles.size()
 	for i: int in _movable_tiles.size():
@@ -591,13 +606,15 @@ func _draw() -> void:
 			Vector2(TILE_SIZE, TILE_SIZE),
 		)
 		var fill: Color = COLOR_MOVE_PREVIEW
+		var favor: int = 0
 		if _use_favors:
-			var f: int = _movable_favors[i]
-			if f > 0:
+			favor = _movable_favors[i]
+			if favor > 0:
 				fill = COLOR_MOVE_PREVIEW_FAVORED
-			elif f < 0:
+			elif favor < 0:
 				fill = COLOR_MOVE_PREVIEW_DISFAVORED
 		draw_rect(move_rect, fill, true)
+		_draw_favor_glyph(move_rect, favor)
 
 	# Attack-range preview (drawn over movement preview so enemy targets
 	# read as the dominant action when both overlay sets are visible).
@@ -827,6 +844,34 @@ func _draw_filled_triangle(center: Vector2, half_size: float, color: Color) -> v
 		center + Vector2(-half_size * 0.85, half_size * 0.75),
 	])
 	draw_colored_polygon(pts, color)
+
+
+## Session-55 — colorblind alternate channel for the movement-range favor
+## signal. Draws ▲ (apex-up) for FAVORED tiles, ▼ (apex-down) for DISFAVORED
+## tiles, nothing for NEUTRAL, in the tile's TOP-LEFT corner. Pure primitive
+## ops (draw_colored_polygon) — no font dependency. Matches the redundant-
+## channel pattern of damage-calc P_MULT cap ▲ glyph (design/gdd/damage-calc.md).
+func _draw_favor_glyph(rect: Rect2, favor: int) -> void:
+	if favor == 0:
+		return
+	var center: Vector2 = rect.position + _FAVOR_GLYPH_INSET
+	var s: float = _FAVOR_GLYPH_HALF
+	if favor > 0:
+		# ▲ apex-up — advantage / "good" channel
+		var up_pts: PackedVector2Array = PackedVector2Array([
+			center + Vector2(0.0, -s),
+			center + Vector2(s * 0.92, s * 0.75),
+			center + Vector2(-s * 0.92, s * 0.75),
+		])
+		draw_colored_polygon(up_pts, _FAVOR_GLYPH_COLOR)
+	else:
+		# ▼ apex-down — disadvantage / "bad" channel
+		var down_pts: PackedVector2Array = PackedVector2Array([
+			center + Vector2(0.0, s),
+			center + Vector2(s * 0.92, -s * 0.75),
+			center + Vector2(-s * 0.92, -s * 0.75),
+		])
+		draw_colored_polygon(down_pts, _FAVOR_GLYPH_COLOR)
 
 
 ## Maps terrain_type enum (per src/core/terrain_cost.gd) to art-bible color.
