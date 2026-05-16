@@ -54,6 +54,12 @@ func setup(map_grid: MapGrid) -> void:
 func _ready() -> void:
 	# DI guard — fail fast if BattleScene forgot setup() per ADR-0013 R-2 mitigation
 	assert(_map_grid != null, "BattleCamera.setup(map_grid) must be called before adding to scene tree")
+	# G-31 family — BattleScene is set to PROCESS_MODE_DISABLED by SceneManager.
+	# _pause_overworld so the "overworld" stops processing while the battle is
+	# live. The camera inherits parent process_mode by default, which means any
+	# call_deferred we queue won't fire (deferred calls respect process_mode).
+	# ALWAYS lets clamp-on-ready + future input/zoom callbacks run regardless.
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	make_current()
 	# Initialize zoom from BalanceConstants per forbidden_pattern hardcoded_zoom_literals
 	var default_zoom: float = float(BalanceConstants.get_const("CAMERA_ZOOM_DEFAULT"))
@@ -61,6 +67,15 @@ func _ready() -> void:
 	# Subscribe to GameBus.input_action_fired with CONNECT_DEFERRED per ADR-0001 §5
 	GameBus.input_action_fired.connect(_on_input_action_fired, Object.CONNECT_DEFERRED)
 	_apply_pan_clamp()
+	# Windowed boot race fix: viewport_rect.size can be (0,0) during the first
+	# _ready() pass before the window finishes laying out. _apply_pan_clamp's
+	# `map_world_size > viewport_size` branch then takes the clamped-to-zero
+	# path → position stays at (0,0), pushing the rendered map into the bottom-
+	# right corner of the screen. Re-clamp on viewport size_changed (window
+	# resize) AND defer one extra pass next frame as belt-and-suspenders for
+	# the case where size_changed has already fired by the time we got here.
+	get_viewport().size_changed.connect(_apply_pan_clamp)
+	_apply_pan_clamp.call_deferred()
 
 
 func _exit_tree() -> void:
@@ -70,6 +85,11 @@ func _exit_tree() -> void:
 	# retains a callable pointing at the freed Camera Node = leak + crash on next emit.
 	if GameBus.input_action_fired.is_connected(_on_input_action_fired):
 		GameBus.input_action_fired.disconnect(_on_input_action_fired)
+	# Defensive: viewport may have been freed already if the entire SceneTree
+	# is being torn down; guard with is_instance_valid.
+	var vp: Viewport = get_viewport()
+	if is_instance_valid(vp) and vp.size_changed.is_connected(_apply_pan_clamp):
+		vp.size_changed.disconnect(_apply_pan_clamp)
 
 
 # ─── Public API: cross-system contract surface (ADR-0013 §7) ────────────────
@@ -189,10 +209,26 @@ func _apply_zoom_delta(delta: float, cursor_screen_pos: Vector2) -> void:
 # ─── Pan clamp (keep map visible per R-4) ───────────────────────────────────
 
 func _apply_pan_clamp() -> void:
+	# Defensive against transient state — if map hasn't reported real dims
+	# yet, skip this pass. size_changed signal + the deferred re-clamp in
+	# _ready will fire again with valid values.
+	if _map_grid == null:
+		return
 	var map_dims: Vector2i = _map_grid.get_map_dimensions()
+	if map_dims.x <= 0 or map_dims.y <= 0:
+		return
 	var tile_size: float = float(BalanceConstants.get_const("TILE_WORLD_SIZE"))
 	var map_world_size: Vector2 = Vector2(map_dims.x, map_dims.y) * tile_size
-	var viewport_size: Vector2 = get_viewport_rect().size / zoom.x
+	# Use the project's reference viewport (deterministic) instead of
+	# get_viewport_rect().size. The latter returns (0,0) during windowed boot
+	# AND under SceneManager._pause_overworld (BattleScene gets process_mode=
+	# DISABLED, deferred calls don't fire, viewport queries become unreliable).
+	# Project settings are global + instant — works regardless of node state.
+	var ref_w: float = float(ProjectSettings.get_setting("display/window/size/viewport_width", 1920))
+	var ref_h: float = float(ProjectSettings.get_setting("display/window/size/viewport_height", 1080))
+	if zoom.x <= 0.0:
+		return
+	var viewport_size: Vector2 = Vector2(ref_w, ref_h) / zoom.x
 	var half_view: Vector2 = viewport_size * 0.5
 	# X axis
 	if map_world_size.x <= viewport_size.x:
