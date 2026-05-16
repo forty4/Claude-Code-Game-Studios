@@ -42,27 +42,30 @@ const COLOR_FORTRESS_WALL: Color = Color("1c1a17")  # 묵 — solid wall mass
 const COLOR_ROAD:          Color = Color("c8b898")  # 지백 어두움 — paved path
 const COLOR_FIRE:          Color = Color("c84418")  # 주적 — burning ship debris (session-21 ch5)
 
-## Session-47 — terrain glyph layer. Single-char Hanja per terrain type
-## ("森丘山河橋城道火") drawn semi-transparently in the center of each non-
-## PLAINS tile. Pre-S47 windowed users couldn't distinguish HILLS from
-## PLAINS from BRIDGE at a glance — the muted earth palette read uniformly.
-## Glyphs are color-tiered: dark ink for light-tone terrains (forest /
-## hills / bridge / road), cream ink for dark-tone terrains (mountain /
-## river / fortress wall). 한글 대신 Hanja for 삼국지 분위기 cohesion +
-## single-char compactness (fits 64px tile cleanly).
-const _TERRAIN_GLYPH_BY_TYPE: Dictionary[int, String] = {
-	1: "森",  # FOREST
-	2: "丘",  # HILLS
-	3: "山",  # MOUNTAIN
-	4: "河",  # RIVER
-	5: "橋",  # BRIDGE
-	6: "城",  # FORTRESS_WALL
-	7: "道",  # ROAD
-	8: "火",  # FIRE (session-21 ch5)
-}
+## Session-47 — terrain glyph layer (shape-based, S48 amendment). Pre-S47
+## windowed users couldn't distinguish HILLS from PLAINS from BRIDGE at a
+## glance — muted earth palette read uniformly. S47 first added Hanja glyphs
+## (森丘山河橋城道火) but user feedback was "한자를 모르겠어"; S48 replaces
+## with primitive shapes that read iconically without language dependency:
+##   FOREST       — 3 small triangles (trees clustered)
+##   HILLS        — 2 rolling arches (⌒⌒)
+##   MOUNTAIN     — 1 large peak triangle
+##   RIVER        — 2 horizontal wavy lines (water)
+##   BRIDGE       — 2 horizontal rails + 4 vertical planks
+##   FORTRESS WALL — crenellation pattern (⊓⊓⊓ battlement)
+##   ROAD         — 3 horizontal dashes
+##   FIRE         — flame outline (teardrop pointed up)
+##
+## Color-tiered (semi-transparent so they don't compete with hero polygons):
+## dark ink for light-tone tiles, cream ink for dark-tone tiles. Shapes drawn
+## via draw_line / draw_polyline / draw_colored_polygon primitives — no font
+## dependency, immediate visual recognition regardless of locale.
 const _TERRAIN_GLYPH_DARK:   Color = Color(0.08, 0.06, 0.04, 0.55)
-const _TERRAIN_GLYPH_BRIGHT: Color = Color(0.96, 0.92, 0.82, 0.55)
-const _TERRAIN_GLYPH_SIZE:   int   = 28
+const _TERRAIN_GLYPH_BRIGHT: Color = Color(0.96, 0.92, 0.82, 0.65)
+## Half-extent of the glyph drawing area, in tile-local px. ~14 → glyph
+## occupies ~28×28 in the 64×64 tile, leaving 18px margin on each side.
+const _TERRAIN_GLYPH_HALF:   float = 14.0
+const _TERRAIN_GLYPH_STROKE: float = 2.2
 ## Per-terrain glyph color tier — dark ink stays subtle on light tiles, cream
 ## ink reads against the near-black tiles (MOUNTAIN / FORTRESS_WALL / RIVER).
 const _TERRAIN_GLYPH_COLOR_BY_TYPE: Dictionary[int, Color] = {
@@ -617,31 +620,167 @@ func _draw() -> void:
 		draw_rect(hg_rect, COLOR_HIGH_GROUND_HALO, false, 3.0)
 
 
-## Session-47 — draws the per-terrain Hanja glyph (森丘山河橋城道火) centered
-## on `rect`. No-op for PLAINS (0) and unknown types — those tiles are the
-## default visual state and need no extra mark.
-##
-## Uses ThemeDB.fallback_font; Godot's bundled font carries CJK glyphs
-## (confirmed by the title card rendering "장판파 (長坂坡)" with the same
-## fallback). draw_string with HORIZONTAL_ALIGNMENT_CENTER + tile width
-## yields horizontal center; vertical center via offset y=size/2 +
-## ascent-correction tweak.
+## Session-47 / S48 — draws the per-terrain shape glyph centered on `rect`.
+## Pure primitive ops (draw_line / draw_polyline / draw_colored_polygon),
+## no font dependency, instant visual recognition regardless of locale.
+## No-op for PLAINS (0) and unknown terrain types.
 func _draw_terrain_glyph(rect: Rect2, terrain_type: int) -> void:
-	if not _TERRAIN_GLYPH_BY_TYPE.has(terrain_type):
+	if not _TERRAIN_GLYPH_COLOR_BY_TYPE.has(terrain_type):
 		return
-	var glyph: String = _TERRAIN_GLYPH_BY_TYPE[terrain_type]
-	var color: Color = _TERRAIN_GLYPH_COLOR_BY_TYPE.get(terrain_type,
-		_TERRAIN_GLYPH_DARK) as Color
-	var font: Font = ThemeDB.fallback_font
-	if font == null:
-		return  # defensive — never observed in production, but render-safe
-	# draw_string baseline is at y=position.y; offset down by ~75% of glyph
-	# size to approximate vertical center (fonts vary; this looks balanced
-	# for the bundled Noto fallback used in the project).
-	var pos: Vector2 = Vector2(rect.position.x,
-		rect.position.y + rect.size.y * 0.5 + _TERRAIN_GLYPH_SIZE * 0.35)
-	draw_string(font, pos, glyph, HORIZONTAL_ALIGNMENT_CENTER,
-		rect.size.x, _TERRAIN_GLYPH_SIZE, color)
+	var color: Color = _TERRAIN_GLYPH_COLOR_BY_TYPE[terrain_type] as Color
+	var c: Vector2 = rect.position + rect.size * 0.5
+	var s: float = _TERRAIN_GLYPH_HALF
+	match terrain_type:
+		1:  # FOREST — 3 small trees clustered
+			_glyph_forest(c, s, color)
+		2:  # HILLS — 2 rolling arches
+			_glyph_hills(c, s, color)
+		3:  # MOUNTAIN — single tall peak
+			_glyph_mountain(c, s, color)
+		4:  # RIVER — 2 horizontal wavy lines
+			_glyph_river(c, s, color)
+		5:  # BRIDGE — 2 rails + 4 cross-planks
+			_glyph_bridge(c, s, color)
+		6:  # FORTRESS WALL — crenellation ⊓⊓⊓
+			_glyph_fortress(c, s, color)
+		7:  # ROAD — dashed line
+			_glyph_road(c, s, color)
+		8:  # FIRE — flame teardrop
+			_glyph_fire(c, s, color)
+		_:
+			pass
+
+
+## FOREST — three small triangular tree silhouettes clustered.
+## Layout: one center-top tree + two flanking trees slightly below.
+func _glyph_forest(c: Vector2, s: float, color: Color) -> void:
+	_draw_filled_triangle(c + Vector2(0.0, -s * 0.20), s * 0.55, color)
+	_draw_filled_triangle(c + Vector2(-s * 0.75, s * 0.30), s * 0.45, color)
+	_draw_filled_triangle(c + Vector2(s * 0.75, s * 0.30), s * 0.45, color)
+
+
+## HILLS — two rolling arches side-by-side (⌒⌒). Drawn as a single polyline
+## of two half-circles for a continuous wave-of-hills read.
+func _glyph_hills(c: Vector2, s: float, color: Color) -> void:
+	var pts: PackedVector2Array = PackedVector2Array()
+	var seg: int = 10
+	# Left arch: x from -s to 0, y dips up (negative)
+	for i: int in range(seg + 1):
+		var t: float = float(i) / float(seg)
+		var theta: float = PI * (1.0 - t)  # PI → 0
+		pts.append(c + Vector2(
+			-s * 0.55 + cos(theta) * s * 0.55,
+			-sin(theta) * s * 0.45))
+	# Right arch: continues from x=0 to x=s
+	for i: int in range(seg + 1):
+		var t: float = float(i) / float(seg)
+		var theta: float = PI * (1.0 - t)
+		pts.append(c + Vector2(
+			s * 0.55 + cos(theta) * s * 0.55,
+			-sin(theta) * s * 0.45))
+	draw_polyline(pts, color, _TERRAIN_GLYPH_STROKE, true)
+
+
+## MOUNTAIN — single sharp peak triangle (taller than wide for "산" reading).
+func _glyph_mountain(c: Vector2, s: float, color: Color) -> void:
+	var pts: PackedVector2Array = PackedVector2Array([
+		c + Vector2(0.0, -s * 0.85),
+		c + Vector2(s * 0.80, s * 0.55),
+		c + Vector2(-s * 0.80, s * 0.55),
+	])
+	draw_colored_polygon(pts, color)
+
+
+## RIVER — two horizontal wavy lines stacked vertically (water flow).
+func _glyph_river(c: Vector2, s: float, color: Color) -> void:
+	for y_off: float in [-s * 0.40, s * 0.40]:
+		var pts: PackedVector2Array = PackedVector2Array()
+		var seg: int = 16
+		for i: int in range(seg + 1):
+			var t: float = float(i) / float(seg)
+			var x: float = lerp(-s * 1.05, s * 1.05, t)
+			var y: float = y_off + sin(t * PI * 3.0) * s * 0.18
+			pts.append(c + Vector2(x, y))
+		draw_polyline(pts, color, _TERRAIN_GLYPH_STROKE, true)
+
+
+## BRIDGE — two horizontal rails + four short vertical planks crossing.
+func _glyph_bridge(c: Vector2, s: float, color: Color) -> void:
+	# Two horizontal rails
+	for y_off: float in [-s * 0.45, s * 0.45]:
+		draw_line(
+			c + Vector2(-s * 1.05, y_off),
+			c + Vector2(s * 1.05, y_off),
+			color, _TERRAIN_GLYPH_STROKE)
+	# Four cross-planks
+	for x_off: float in [-s * 0.80, -s * 0.27, s * 0.27, s * 0.80]:
+		draw_line(
+			c + Vector2(x_off, -s * 0.45),
+			c + Vector2(x_off, s * 0.45),
+			color, _TERRAIN_GLYPH_STROKE * 0.85)
+
+
+## FORTRESS WALL — crenellation profile ⊓⊓⊓ as a single polyline
+## (base → up → over → down → ...) describing 3 merlons on a base wall.
+func _glyph_fortress(c: Vector2, s: float, color: Color) -> void:
+	var base_y: float = s * 0.55
+	var top_y:  float = -s * 0.55
+	var mid_y:  float = -s * 0.10
+	# 3 merlons, evenly spaced. Each merlon top ~0.30s wide.
+	var pts: PackedVector2Array = PackedVector2Array([
+		c + Vector2(-s * 1.05, base_y),  # base-left
+		c + Vector2(-s * 1.05, mid_y),   # up to merlon base
+		c + Vector2(-s * 0.75, mid_y),
+		c + Vector2(-s * 0.75, top_y),   # merlon-1 top-left
+		c + Vector2(-s * 0.30, top_y),   # merlon-1 top-right
+		c + Vector2(-s * 0.30, mid_y),
+		c + Vector2(s * 0.30, mid_y),
+		c + Vector2(s * 0.30, top_y),    # merlon-2 top-left
+		c + Vector2(s * 0.75, top_y),    # merlon-2 top-right (wait — gives 2 merlons)
+		c + Vector2(s * 0.75, mid_y),
+		c + Vector2(s * 1.05, mid_y),
+		c + Vector2(s * 1.05, base_y),   # base-right
+	])
+	draw_polyline(pts, color, _TERRAIN_GLYPH_STROKE, true)
+
+
+## ROAD — three short horizontal dashes (centered, evenly spaced).
+func _glyph_road(c: Vector2, s: float, color: Color) -> void:
+	var dash_len: float = s * 0.45
+	var gap: float = s * 0.25
+	var total_w: float = 3.0 * dash_len + 2.0 * gap
+	var start_x: float = -total_w * 0.5
+	for i: int in range(3):
+		var x0: float = start_x + i * (dash_len + gap)
+		draw_line(
+			c + Vector2(x0, 0.0),
+			c + Vector2(x0 + dash_len, 0.0),
+			color, _TERRAIN_GLYPH_STROKE + 0.6)
+
+
+## FIRE — flame teardrop silhouette (pointed up, rounded base).
+func _glyph_fire(c: Vector2, s: float, color: Color) -> void:
+	var pts: PackedVector2Array = PackedVector2Array([
+		c + Vector2(0.0, -s * 0.85),         # tip
+		c + Vector2(s * 0.45, -s * 0.20),    # right curve point
+		c + Vector2(s * 0.60, s * 0.30),     # right flank
+		c + Vector2(s * 0.30, s * 0.60),     # base right
+		c + Vector2(-s * 0.30, s * 0.60),    # base left
+		c + Vector2(-s * 0.60, s * 0.30),    # left flank
+		c + Vector2(-s * 0.45, -s * 0.20),   # left curve point
+	])
+	draw_colored_polygon(pts, color)
+
+
+## Helper — filled equilateral-ish triangle, apex pointing up, centered on
+## `center` with `half_size` controlling the silhouette size.
+func _draw_filled_triangle(center: Vector2, half_size: float, color: Color) -> void:
+	var pts: PackedVector2Array = PackedVector2Array([
+		center + Vector2(0.0, -half_size),
+		center + Vector2(half_size * 0.85, half_size * 0.75),
+		center + Vector2(-half_size * 0.85, half_size * 0.75),
+	])
+	draw_colored_polygon(pts, color)
 
 
 ## Maps terrain_type enum (per src/core/terrain_cost.gd) to art-bible color.
