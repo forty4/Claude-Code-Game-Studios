@@ -452,6 +452,14 @@ func _start_battle() -> void:
 	# _on_battle_outcome_resolved). Lives in HUDLayer (CanvasLayer) so it stays
 	# visible regardless of the Node2D-parent visibility cascade.
 	_mount_controls_hint()
+	# Session-53 — mount the ALWAYS-mode cancel/undo polling helper. Without
+	# this, ESC + right-click polling never fires mid-battle (BattleScene's
+	# own _process is gated by process_mode, which SceneManager flips to
+	# DISABLED in the "battle treated as overworld" pattern documented at
+	# line 1601). The helper runs PROCESS_MODE_ALWAYS so polling survives
+	# any parent pause/disable. Mount BEFORE title_card so its _process is
+	# active throughout the title-card window too.
+	_mount_cancel_poller()
 	# Brief title card so the battle has narrative framing. Auto-removes via a
 	# SceneTreeTimer (fires regardless of process_mode — unlike _process).
 	_mount_title_card(chapter, roster)
@@ -1877,6 +1885,14 @@ var _h_was_held: bool = false
 ## polling-based bypass when InputRouter's event-driven cancel isn't
 ## reaching the controller (user-reported S51 windowed regression).
 var _rclick_was_held: bool = false
+## Session-53 — separate edge-detect latches owned by the ALWAYS-mode
+## polling helper (line 1700-ish). BattleScene's own _process runs in
+## PROCESS_MODE_INHERIT (gets DISABLED when SceneManager treats this scene
+## as the overworld), so its ESC/RMB polling above doesn't fire mid-battle.
+## The helper polls on these latches instead and they're independent so
+## both poll paths can coexist without consuming each other's edge events.
+var _esc_was_held_always: bool = false
+var _rclick_was_held_always: bool = false
 
 func _process(_delta: float) -> void:
 	# ESC opens the pause menu mid- AND post-battle. Edge-detected so a held key
@@ -2392,3 +2408,56 @@ func _make_uniform_grass_tiles(w: int, h: int) -> Array[MapTileData]:
 			tile.occupant_faction = 0
 			tiles.append(tile)
 	return tiles
+
+
+## Session-53 — mounts the ALWAYS-mode polling helper (_CancelPoller below).
+## Idempotent — does nothing if already mounted (e.g., scene reload re-entry).
+func _mount_cancel_poller() -> void:
+	if get_node_or_null("CancelPoller") != null:
+		return  # already mounted
+	var poller := _CancelPoller.new()
+	poller.name = "CancelPoller"
+	poller.process_mode = Node.PROCESS_MODE_ALWAYS
+	poller._owner_scene = self
+	add_child(poller)
+
+
+## Session-53 — invoked every frame by _CancelPoller (PROCESS_MODE_ALWAYS).
+## Polls ESC + right-click independently of BattleScene's own _process,
+## which gets suspended by SceneManager's overworld-pause pattern. Same
+## priority dispatch as _handle_cancel_or_pause: undo move → cancel
+## selection → pause menu. Uses separate edge-detect latches so this poll
+## path doesn't fight the original _process poll above (both can coexist
+## — whichever fires first wins, but typically only the ALWAYS one runs
+## mid-battle since _process is paused).
+func _poll_cancel_inputs_always() -> void:
+	var esc_held: bool = (
+		Input.is_physical_key_pressed(KEY_ESCAPE)
+		or Input.is_key_pressed(KEY_ESCAPE)
+	)
+	if esc_held and not _esc_was_held_always:
+		_handle_cancel_or_pause()
+	_esc_was_held_always = esc_held
+	var rclick_held: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+	if rclick_held and not _rclick_was_held_always:
+		_handle_cancel_or_pause()
+	_rclick_was_held_always = rclick_held
+
+
+## Session-53 — inline helper class. Runs PROCESS_MODE_ALWAYS so its
+## _process callback fires even when BattleScene is paused/disabled by
+## SceneManager (the standalone-mode pattern at battle_scene.gd:1601).
+## Sole responsibility: delegate to BattleScene._poll_cancel_inputs_always
+## every frame. Owner reference is set at mount time; defensive
+## is_instance_valid guards against the parent being freed mid-poll.
+class _CancelPoller extends Node:
+	var _owner_scene: Node = null
+
+	func _process(_delta: float) -> void:
+		if _owner_scene == null:
+			return
+		if not is_instance_valid(_owner_scene):
+			return
+		if not _owner_scene.has_method("_poll_cancel_inputs_always"):
+			return
+		_owner_scene._poll_cancel_inputs_always()
