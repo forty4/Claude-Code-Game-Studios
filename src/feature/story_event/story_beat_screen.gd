@@ -39,6 +39,22 @@ const BACKDROP_COLOR: Color = Color(0.035, 0.045, 0.065, 0.94)
 ## Max width of the text column so prose stays readable on wide (1920+) screens.
 const TEXT_COLUMN_WIDTH: float = 720.0
 
+## Session-41 — cinematic letterbox bars. Pure black slides in from top + bottom
+## at mount time, framing the prose in a 영화 letterbox frame. Reads as "scene
+## is about to begin, listen" before any text is parsed. Bars slide back out at
+## sequence_finished (not implemented — the screen just hides, faster anyway).
+const LETTERBOX_HEIGHT: float = 80.0
+const LETTERBOX_COLOR: Color = Color(0.0, 0.0, 0.0, 1.0)
+const LETTERBOX_TWEEN_DURATION: float = 0.45
+
+## Title + body fade-in on screen mount. Fires once on _ready (the chapter
+## entrance moment); subsequent beat transitions swap text without re-fading.
+const TEXT_FADEIN_DURATION: float = 0.55
+## Body fade-in is delayed slightly after title so the title lands first, then
+## the prose arrives — gives the player a moment to register the scene anchor
+## before reading the body.
+const BODY_FADEIN_DELAY: float = 0.22
+
 ## Cosmetic theme colors (kept off the art-bible reserved #D4A017).
 const TITLE_COLOR: Color = Color(0.96, 0.90, 0.74, 1.0)
 const BODY_COLOR: Color = Color(0.88, 0.87, 0.83, 1.0)
@@ -69,6 +85,8 @@ var _speaker_label: Label = null
 var _line_label: Label = null
 var _page_label: Label = null
 var _advance_button: Button = null
+var _letterbox_top: ColorRect = null
+var _letterbox_bottom: ColorRect = null
 
 
 # ─── Lifecycle ────────────────────────────────────────────────────────────────
@@ -127,6 +145,59 @@ func _ready() -> void:
 	_advance_button.focus_mode = Control.FOCUS_NONE
 	_advance_button.pressed.connect(advance)
 	footer.add_child(_advance_button)
+
+	# Session-41 — cinematic letterbox bars + entrance fade.
+	# Built AFTER the content so they sit on top (z-order = child order). Mouse
+	# filter IGNORE so they don't block backdrop click-to-advance.
+	_letterbox_top = ColorRect.new()
+	_letterbox_top.name = "LetterboxTop"
+	_letterbox_top.color = LETTERBOX_COLOR
+	_letterbox_top.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_letterbox_top.offset_bottom = 0.0  # starts collapsed
+	_letterbox_top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_letterbox_top)
+	_letterbox_bottom = ColorRect.new()
+	_letterbox_bottom.name = "LetterboxBottom"
+	_letterbox_bottom.color = LETTERBOX_COLOR
+	_letterbox_bottom.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_letterbox_bottom.offset_top = 0.0  # starts collapsed
+	_letterbox_bottom.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_letterbox_bottom)
+
+	# Title + body start invisible — tween in. Speaker / line / page / button
+	# stay at full opacity (they're secondary; their visibility is gated by
+	# _render_current_beat per-beat content).
+	_title_label.modulate.a = 0.0
+	_body_label.modulate.a = 0.0
+	# Tween bound to SceneTree per G-31 — the StoryBeatScreen runs under HUDLayer
+	# inside BattleScene, which goes PROCESS_MODE_DISABLED while SceneManager
+	# treats the battle as the overworld. The screen itself is PROCESS_MODE_ALWAYS
+	# (line 77) so self.create_tween() would actually fire here, but binding to
+	# the tree is the consistent project pattern post-G-31.
+	var tween: Tween = get_tree().create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(_letterbox_top, "offset_bottom", LETTERBOX_HEIGHT,
+		LETTERBOX_TWEEN_DURATION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_letterbox_bottom, "offset_top", -LETTERBOX_HEIGHT,
+		LETTERBOX_TWEEN_DURATION).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_title_label, "modulate:a", 1.0, TEXT_FADEIN_DURATION) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(_body_label, "modulate:a", 1.0, TEXT_FADEIN_DURATION) \
+		.set_delay(BODY_FADEIN_DELAY).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	# Failsafe per G-31 pattern — if the tween drops mid-flight (windowed Godot
+	# 4.6 occasional behaviour), the SceneTreeTimer hard-sets the final state
+	# so the screen never ends up stuck with invisible text / collapsed bars.
+	get_tree().create_timer(LETTERBOX_TWEEN_DURATION + 0.10).timeout.connect(
+		func() -> void:
+			if is_instance_valid(self):
+				if is_instance_valid(_letterbox_top):
+					_letterbox_top.offset_bottom = LETTERBOX_HEIGHT
+				if is_instance_valid(_letterbox_bottom):
+					_letterbox_bottom.offset_top = -LETTERBOX_HEIGHT
+				if is_instance_valid(_title_label):
+					_title_label.modulate.a = 1.0
+				if is_instance_valid(_body_label):
+					_body_label.modulate.a = 1.0)
 
 	# If present() was already called (uncommon — callers add_child then present),
 	# render now. Otherwise wait for present().
