@@ -1874,6 +1874,10 @@ var _pending_outcome: int = -1
 var _esc_was_held: bool = false
 ## Edge-detect latch for the H help-toggle.
 var _h_was_held: bool = false
+## Session-52 — edge-detect latch for right-click cancel. Mirrors ESC's
+## polling-based bypass when InputRouter's event-driven cancel isn't
+## reaching the controller (user-reported S51 windowed regression).
+var _rclick_was_held: bool = false
 
 func _process(_delta: float) -> void:
 	# ESC opens the pause menu mid- AND post-battle. Edge-detected so a held key
@@ -1896,12 +1900,39 @@ func _process(_delta: float) -> void:
 		var selected_unit_id: int = -1
 		if _grid_controller != null and _grid_controller.has_method("get_selected_unit_id"):
 			selected_unit_id = _grid_controller.get_selected_unit_id()
-		if selected_unit_id == -1:
+		if selected_unit_id != -1:
+			# Session-52 — directly trigger cancel via the controller. S51
+			# tried "let InputRouter handle ESC by skipping pause_menu open"
+			# but user reported cancel still didn't fire — the ESC event
+			# isn't reaching InputRouter (likely a BattleHUD Control consumes
+			# it, or some other interception we can't reproduce in headless
+			# tests). Polling path is independent of input event propagation
+			# and authoritative for the cancel intent.
+			if _grid_controller.has_method("cancel_selection"):
+				_grid_controller.cancel_selection()
+			# Also reset InputRouter state so its FSM stays in sync with the
+			# controller (otherwise next click would be parsed in S1 context).
+			if _input_router != null and "_state" in _input_router:
+				_input_router._state = 0  # InputState.OBSERVATION = 0
+		else:
 			# True OBSERVATION (no selection) — ESC opens pause menu.
 			_open_pause_menu()
-		# else: a unit is selected → InputRouter's _unhandled_input path
-		# routes ESC to move_cancel / attack_cancel for us. Don't fight it.
 	_esc_was_held = esc_held
+
+	# Session-52 — right-click polling for selection cancel. Mirrors the ESC
+	# polling path: bypasses InputRouter (whose event-driven cancel isn't
+	# reaching the controller in windowed runs per user report).
+	var rclick_held: bool = Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+	if rclick_held and not _rclick_was_held:
+		var rsel_unit_id: int = -1
+		if _grid_controller != null and _grid_controller.has_method("get_selected_unit_id"):
+			rsel_unit_id = _grid_controller.get_selected_unit_id()
+		if rsel_unit_id != -1:
+			if _grid_controller.has_method("cancel_selection"):
+				_grid_controller.cancel_selection()
+			if _input_router != null and "_state" in _input_router:
+				_input_router._state = 0  # InputState.OBSERVATION
+	_rclick_was_held = rclick_held
 
 	# H opens the help overlay. Distinct from pause — does NOT freeze the tree;
 	# the player can read while AI-turn animations keep playing in the background.

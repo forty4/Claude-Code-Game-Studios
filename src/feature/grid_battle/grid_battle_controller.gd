@@ -1473,6 +1473,18 @@ func _deselect() -> void:
 	unit_selected_changed.emit(-1, prev)
 
 
+## Session-52 — public wrapper around _deselect for callers outside the
+## controller that need to cancel a player's unit selection (e.g.,
+## BattleScene polling-based ESC handler when the natural InputRouter →
+## GameBus.input_action_fired chain isn't reaching the controller). Pre-S52
+## the only path to deselect was via emit-and-subscribe on input_action_
+## fired("move_cancel"), which the user reported as non-functional in
+## windowed runs (event interception we can't reproduce headlessly).
+## This wrapper provides a direct deterministic call path.
+func cancel_selection() -> void:
+	_deselect()
+
+
 ## Clears any armed attack preview. Idempotent — silent no-op if no preview
 ## is armed. Emits attack_preview_dismissed for BattleHUD to fade UI-GB-04.
 ## Reason is informational (informs the receiver why dismiss fired but no
