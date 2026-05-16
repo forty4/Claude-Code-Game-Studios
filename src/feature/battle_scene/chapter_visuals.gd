@@ -41,6 +41,40 @@ const COLOR_BRIDGE:        Color = Color("a0744a")  # 황토 갈색 — wooden b
 const COLOR_FORTRESS_WALL: Color = Color("1c1a17")  # 묵 — solid wall mass
 const COLOR_ROAD:          Color = Color("c8b898")  # 지백 어두움 — paved path
 const COLOR_FIRE:          Color = Color("c84418")  # 주적 — burning ship debris (session-21 ch5)
+
+## Session-47 — terrain glyph layer. Single-char Hanja per terrain type
+## ("森丘山河橋城道火") drawn semi-transparently in the center of each non-
+## PLAINS tile. Pre-S47 windowed users couldn't distinguish HILLS from
+## PLAINS from BRIDGE at a glance — the muted earth palette read uniformly.
+## Glyphs are color-tiered: dark ink for light-tone terrains (forest /
+## hills / bridge / road), cream ink for dark-tone terrains (mountain /
+## river / fortress wall). 한글 대신 Hanja for 삼국지 분위기 cohesion +
+## single-char compactness (fits 64px tile cleanly).
+const _TERRAIN_GLYPH_BY_TYPE: Dictionary[int, String] = {
+	1: "森",  # FOREST
+	2: "丘",  # HILLS
+	3: "山",  # MOUNTAIN
+	4: "河",  # RIVER
+	5: "橋",  # BRIDGE
+	6: "城",  # FORTRESS_WALL
+	7: "道",  # ROAD
+	8: "火",  # FIRE (session-21 ch5)
+}
+const _TERRAIN_GLYPH_DARK:   Color = Color(0.08, 0.06, 0.04, 0.55)
+const _TERRAIN_GLYPH_BRIGHT: Color = Color(0.96, 0.92, 0.82, 0.55)
+const _TERRAIN_GLYPH_SIZE:   int   = 28
+## Per-terrain glyph color tier — dark ink stays subtle on light tiles, cream
+## ink reads against the near-black tiles (MOUNTAIN / FORTRESS_WALL / RIVER).
+const _TERRAIN_GLYPH_COLOR_BY_TYPE: Dictionary[int, Color] = {
+	1: _TERRAIN_GLYPH_DARK,    # FOREST (green-tone)
+	2: _TERRAIN_GLYPH_DARK,    # HILLS (brown-tone)
+	3: _TERRAIN_GLYPH_BRIGHT,  # MOUNTAIN (dark-tone)
+	4: _TERRAIN_GLYPH_BRIGHT,  # RIVER (blue-gray)
+	5: _TERRAIN_GLYPH_DARK,    # BRIDGE (light brown)
+	6: _TERRAIN_GLYPH_BRIGHT,  # FORTRESS_WALL (dark)
+	7: _TERRAIN_GLYPH_DARK,    # ROAD (beige)
+	8: _TERRAIN_GLYPH_DARK,    # FIRE (red)
+}
 ## Tile boundary stroke per art-bible §3-3 "기능 정보는 항상 직선; 타일 경계는
 ## 명료한 먹선" — load-bearing for tactical-info readability.
 const COLOR_TILE_BORDER:   Color = Color("1c1a17")  # 묵 — clear ink line
@@ -501,6 +535,10 @@ func _draw() -> void:
 			)
 			var fill: Color = _get_terrain_color(tile.terrain_type)
 			draw_rect(rect, fill, true)
+			# Session-47 — terrain glyph (Hanja) drawn over the fill so each
+			# non-PLAINS terrain reads distinctively at a glance. PLAINS gets
+			# no glyph (the default state needs no special mark).
+			_draw_terrain_glyph(rect, tile.terrain_type)
 			draw_rect(rect, COLOR_TILE_BORDER, false, 1.0)
 
 	# Movement-range preview (drawn before selection outline so the outline
@@ -577,6 +615,33 @@ func _draw() -> void:
 			Vector2(TILE_SIZE - 8, TILE_SIZE - 8),
 		)
 		draw_rect(hg_rect, COLOR_HIGH_GROUND_HALO, false, 3.0)
+
+
+## Session-47 — draws the per-terrain Hanja glyph (森丘山河橋城道火) centered
+## on `rect`. No-op for PLAINS (0) and unknown types — those tiles are the
+## default visual state and need no extra mark.
+##
+## Uses ThemeDB.fallback_font; Godot's bundled font carries CJK glyphs
+## (confirmed by the title card rendering "장판파 (長坂坡)" with the same
+## fallback). draw_string with HORIZONTAL_ALIGNMENT_CENTER + tile width
+## yields horizontal center; vertical center via offset y=size/2 +
+## ascent-correction tweak.
+func _draw_terrain_glyph(rect: Rect2, terrain_type: int) -> void:
+	if not _TERRAIN_GLYPH_BY_TYPE.has(terrain_type):
+		return
+	var glyph: String = _TERRAIN_GLYPH_BY_TYPE[terrain_type]
+	var color: Color = _TERRAIN_GLYPH_COLOR_BY_TYPE.get(terrain_type,
+		_TERRAIN_GLYPH_DARK) as Color
+	var font: Font = ThemeDB.fallback_font
+	if font == null:
+		return  # defensive — never observed in production, but render-safe
+	# draw_string baseline is at y=position.y; offset down by ~75% of glyph
+	# size to approximate vertical center (fonts vary; this looks balanced
+	# for the bundled Noto fallback used in the project).
+	var pos: Vector2 = Vector2(rect.position.x,
+		rect.position.y + rect.size.y * 0.5 + _TERRAIN_GLYPH_SIZE * 0.35)
+	draw_string(font, pos, glyph, HORIZONTAL_ALIGNMENT_CENTER,
+		rect.size.x, _TERRAIN_GLYPH_SIZE, color)
 
 
 ## Maps terrain_type enum (per src/core/terrain_cost.gd) to art-bible color.
