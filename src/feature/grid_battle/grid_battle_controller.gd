@@ -955,7 +955,7 @@ func get_battle_stats() -> Dictionary:
 		"surviving_player_count": surviving,
 		"total_player_count": total,
 		"star_rating": rating,
-		"outcome_was_win": _battle_over and (_last_outcome == &"VICTORY_ANNIHILATION" or _last_outcome == &"VICTORY_SURVIVE" or _last_outcome == &"VICTORY_ESCORT"),
+		"outcome_was_win": _battle_over and (_last_outcome == &"VICTORY_ANNIHILATION" or _last_outcome == &"VICTORY_SURVIVE" or _last_outcome == &"VICTORY_ESCORT" or _last_outcome == &"VICTORY_REACH_TILE"),
 	}
 
 
@@ -969,7 +969,7 @@ func get_battle_stats() -> Dictionary:
 func _compute_star_rating(surviving: int, total: int) -> int:
 	if not _battle_over:
 		return 0
-	if _last_outcome != &"VICTORY_ANNIHILATION" and _last_outcome != &"VICTORY_SURVIVE" and _last_outcome != &"VICTORY_ESCORT":
+	if _last_outcome != &"VICTORY_ANNIHILATION" and _last_outcome != &"VICTORY_SURVIVE" and _last_outcome != &"VICTORY_ESCORT" and _last_outcome != &"VICTORY_REACH_TILE":
 		return 0
 	var round_count: int = 0
 	if _turn_runner != null and _turn_runner.has_method("get_current_round_number"):
@@ -2001,6 +2001,12 @@ func _do_move(unit: BattleUnit, dest: Vector2i) -> void:
 	_map_grid.set_occupant(dest, unit.unit_id, faction)
 	# 4. Emit unit_moved signal AFTER position update per AC-5
 	unit_moved.emit(unit.unit_id, old_pos, dest)
+	# Session-31 — REACH_TILE WIN check fires here (post-position-update).
+	# Cheap no-op for the non-REACH_TILE branches; cheap dict lookup for
+	# the REACH_TILE branch. Idempotent (re-checks on every move — once
+	# _battle_over is true the helper short-circuits via _check_battle_end's
+	# guard pattern).
+	_check_reach_tile_victory()
 
 
 ## Computes cardinal facing (0=N, 1=E, 2=S, 3=W) from movement vector per
@@ -2618,6 +2624,35 @@ func _check_battle_end() -> bool:
 				_emit_battle_outcome(&"DEFEAT_ANNIHILATION")
 				return true
 			return false
+		VictoryConditions.ConditionType.REACH_TILE:
+			# Session-31 — REACH_TILE semantics (LOSS-only branch; WIN fires
+			# from _check_reach_tile_victory on unit_moved):
+			#   1. target_unit_ids[0] dead → DEFEAT_REACH_FAILED (slipping
+			#      past requires the slipper to be alive).
+			#   2. Else: player wipe → DEFEAT_ANNIHILATION.
+			#   3. Enemy wipe does NOT shortcut to WIN — REACH-only, mirror
+			#      of SURVIVE no-shortcut. Player must move the target to
+			#      target_tile to actually win.
+			# Empty target_unit_ids degenerate: degrade to ANNIHILATION.
+			if _victory_conditions.target_unit_ids.is_empty():
+				push_warning(
+					"GridBattleController: REACH_TILE victory_conditions has empty target_unit_ids — falling back to ANNIHILATION"
+				)
+				if enemy_alive == 0:
+					_emit_battle_outcome(&"VICTORY_ANNIHILATION")
+					return true
+				if player_alive == 0:
+					_emit_battle_outcome(&"DEFEAT_ANNIHILATION")
+					return true
+				return false
+			var reach_target_id: int = _victory_conditions.target_unit_ids[0]
+			if _units.has(reach_target_id) and not _hp_controller.is_alive(reach_target_id):
+				_emit_battle_outcome(&"DEFEAT_REACH_FAILED")
+				return true
+			if player_alive == 0:
+				_emit_battle_outcome(&"DEFEAT_ANNIHILATION")
+				return true
+			return false
 		_:
 			# ANNIHILATION (default) — CR-7 + EC-GB-02 precedence.
 			if enemy_alive == 0:
@@ -2627,6 +2662,37 @@ func _check_battle_end() -> bool:
 				_emit_battle_outcome(&"DEFEAT_ANNIHILATION")
 				return true
 			return false
+
+
+## Session-31 — REACH_TILE WIN check. Fired from _do_move's unit_moved.emit
+## site (after position update). No-op when:
+##   - _battle_over already set (terminal-state guard, mirrors _check_battle_end)
+##   - _victory_conditions is null OR type != REACH_TILE
+##   - target_unit_ids is empty (degenerate authoring — dispatcher LOSS branch
+##     emits the diagnostic warning; this WIN path silently skips)
+## Reads target_unit_ids[0] and target_tile from _victory_conditions; if the
+## target unit's position now equals target_tile, emits VICTORY_REACH_TILE.
+##
+## Why split between _check_battle_end (LOSS) and this helper (WIN):
+## REACH WIN is a position-changed event (only meaningful on unit_moved);
+## REACH LOSS is a unit-died event (handled in the same _check_battle_end
+## flow as the other condition types). Keeping the two checks at their
+## natural signal sources avoids re-scanning state on every signal.
+func _check_reach_tile_victory() -> void:
+	if _battle_over:
+		return
+	if _victory_conditions == null:
+		return
+	if _victory_conditions.primary_condition_type != VictoryConditions.ConditionType.REACH_TILE:
+		return
+	if _victory_conditions.target_unit_ids.is_empty():
+		return  # degenerate — LOSS dispatcher branch handles the warning
+	var target_id: int = _victory_conditions.target_unit_ids[0]
+	if not _units.has(target_id):
+		return  # unknown id — silently skip
+	var unit: BattleUnit = _units[target_id]
+	if unit.position == _victory_conditions.target_tile:
+		_emit_battle_outcome(&"VICTORY_REACH_TILE")
 
 
 ## Per ADR-0014 §Amendment 2026-05-10 (#3 — production-wiring residual closure).

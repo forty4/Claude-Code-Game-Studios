@@ -27,12 +27,15 @@ var _published: bool = false
 ## GridBattleController._emit_battle_outcome's emitted values.
 ## Session-28 — VICTORY_SURVIVE added for SURVIVE_N_ROUNDS condition type.
 ## Session-30 — VICTORY_ESCORT + DEFEAT_ESCORT_LOST added for ESCORT type.
+## Session-31 — VICTORY_REACH_TILE + DEFEAT_REACH_FAILED added for REACH_TILE.
 const _OUTCOME_TO_RESULT: Dictionary = {
 	&"VICTORY_ANNIHILATION": BattleOutcome.Result.WIN,
 	&"VICTORY_SURVIVE": BattleOutcome.Result.WIN,
 	&"VICTORY_ESCORT": BattleOutcome.Result.WIN,
+	&"VICTORY_REACH_TILE": BattleOutcome.Result.WIN,
 	&"DEFEAT_ANNIHILATION": BattleOutcome.Result.LOSS,
 	&"DEFEAT_ESCORT_LOST": BattleOutcome.Result.LOSS,
+	&"DEFEAT_REACH_FAILED": BattleOutcome.Result.LOSS,
 	&"TURN_LIMIT_REACHED": BattleOutcome.Result.DRAW,
 }
 

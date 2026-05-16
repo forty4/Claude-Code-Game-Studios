@@ -36,10 +36,20 @@ extends Resource
 ##                     `target_unit_ids` is REQUIRED for ESCORT — empty
 ##                     list degrades to ANNIHILATION behaviour with a
 ##                     diagnostic push_warning.
+##   REACH_TILE      — Player wins when `target_unit_ids[0]` reaches the
+##                     coordinate `target_tile`. Enemy wipeout does NOT
+##                     shortcut to victory (REACH-only — mirrors SURVIVE
+##                     no-shortcut semantics). Loses when the target unit
+##                     dies (DEFEAT_REACH_FAILED) OR when all player units
+##                     die (DEFEAT_ANNIHILATION). Empty target_unit_ids
+##                     degrades to ANNIHILATION with diagnostic warning.
+##                     "Escape / scout-through" scenarios — beating the
+##                     enemy isn't the win path, slipping past is.
 enum ConditionType {
 	ANNIHILATION = 0,
 	SURVIVE_N_ROUNDS = 1,
 	ESCORT = 2,
+	REACH_TILE = 3,
 }
 
 
@@ -57,8 +67,19 @@ enum ConditionType {
 
 ## ESCORT param (session-30) — unit_ids of the protectees. Player wins only
 ## if ALL of these are alive at the moment of enemy wipeout; player loses
-## immediately when any one of them dies. Reserved for REACH_TILE future
-## type as well (the tile-arrival check will key on a unit in this list).
-## Empty list is degenerate for ESCORT (falls through to ANNIHILATION with
-## a diagnostic warning).
+## immediately when any one of them dies.
+## REACH_TILE param (session-31) — `target_unit_ids[0]` is the unit that
+## must reach `target_tile`. Additional ids beyond [0] are unused for
+## REACH_TILE (multi-unit reach not in MVP scope).
+## Empty list is degenerate for ESCORT/REACH_TILE (falls through to
+## ANNIHILATION with a diagnostic warning).
 @export var target_unit_ids: PackedInt64Array = PackedInt64Array()
+
+## REACH_TILE param (session-31) — destination coordinate that the target
+## unit must occupy. Compared against unit.position by `_check_reach_tile_
+## victory()` on every unit_moved emit. Vector2i.ZERO (0,0) is a valid
+## map coord, but ALSO the default-construct value — chapters using
+## REACH_TILE must set this explicitly. The dispatcher does NOT validate
+## "is this tile passable" — chapter authors are responsible for picking
+## a reachable destination.
+@export var target_tile: Vector2i = Vector2i.ZERO

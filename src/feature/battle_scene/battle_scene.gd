@@ -1501,8 +1501,10 @@ func _outcome_result(outcome: StringName) -> int:
 		&"VICTORY_ANNIHILATION": return BattleOutcome.Result.WIN
 		&"VICTORY_SURVIVE": return BattleOutcome.Result.WIN  # Session-28
 		&"VICTORY_ESCORT": return BattleOutcome.Result.WIN  # Session-30
+		&"VICTORY_REACH_TILE": return BattleOutcome.Result.WIN  # Session-31
 		&"DEFEAT_ANNIHILATION": return BattleOutcome.Result.LOSS
 		&"DEFEAT_ESCORT_LOST": return BattleOutcome.Result.LOSS  # Session-30
+		&"DEFEAT_REACH_FAILED": return BattleOutcome.Result.LOSS  # Session-31
 		&"TURN_LIMIT_REACHED": return BattleOutcome.Result.DRAW
 		_: return BattleOutcome.Result.DRAW
 
@@ -1512,6 +1514,7 @@ func _outcome_result(outcome: StringName) -> int:
 ## Falls through to the pre-S29 "적 부대 전멸" (defeat all enemies) phrasing
 ## for ANNIHILATION default + null vc — keeping chapters 1-4 unchanged.
 ## Session-30 — ESCORT branch added: "호위 + 적 전멸".
+## Session-31 — REACH_TILE branch added: "특정 위치 도달".
 func _resolve_victory_condition_label(chapter: ChapterDefinition) -> StringName:
 	if chapter == null or chapter.victory_conditions == null:
 		return &"적 부대 전멸"
@@ -1521,6 +1524,8 @@ func _resolve_victory_condition_label(chapter: ChapterDefinition) -> StringName:
 			return StringName("%d라운드 버티기" % vc.survive_rounds)
 		VictoryConditions.ConditionType.ESCORT:
 			return &"호위 + 적 부대 전멸"
+		VictoryConditions.ConditionType.REACH_TILE:
+			return &"특정 위치 도달"
 		_:
 			return &"적 부대 전멸"
 

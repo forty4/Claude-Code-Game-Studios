@@ -37,11 +37,12 @@ var _outcome: StringName = &""
 
 
 ## Outcome StringNames match the values emitted by GridBattleController._emit_battle_outcome:
-## VICTORY_ANNIHILATION / VICTORY_SURVIVE / VICTORY_ESCORT /
-## DEFEAT_ANNIHILATION / DEFEAT_ESCORT_LOST / TURN_LIMIT_REACHED.
-## Other values fall through to the generic "결과" default.
+## VICTORY_ANNIHILATION / VICTORY_SURVIVE / VICTORY_ESCORT / VICTORY_REACH_TILE /
+## DEFEAT_ANNIHILATION / DEFEAT_ESCORT_LOST / DEFEAT_REACH_FAILED /
+## TURN_LIMIT_REACHED. Other values fall through to the generic "결과" default.
 ## Session-28: VICTORY_SURVIVE added for SURVIVE_N_ROUNDS condition type.
 ## Session-30: VICTORY_ESCORT + DEFEAT_ESCORT_LOST added for ESCORT type.
+## Session-31: VICTORY_REACH_TILE + DEFEAT_REACH_FAILED added for REACH_TILE.
 static func make(outcome: StringName) -> OutcomeBanner:
 	var b: OutcomeBanner = OutcomeBanner.new()
 	b._outcome = outcome
@@ -106,8 +107,10 @@ func _text_for_outcome(outcome: StringName) -> String:
 		&"VICTORY_ANNIHILATION": return TEXT_VICTORY
 		&"VICTORY_SURVIVE":      return TEXT_VICTORY  # Session-28
 		&"VICTORY_ESCORT":       return TEXT_VICTORY  # Session-30
+		&"VICTORY_REACH_TILE":   return TEXT_VICTORY  # Session-31
 		&"DEFEAT_ANNIHILATION":  return TEXT_DEFEAT
 		&"DEFEAT_ESCORT_LOST":   return TEXT_DEFEAT   # Session-30
+		&"DEFEAT_REACH_FAILED":  return TEXT_DEFEAT   # Session-31
 		&"TURN_LIMIT_REACHED":   return TEXT_DRAW
 		_:                       return TEXT_DEFAULT
 
@@ -117,7 +120,9 @@ func _color_for_outcome(outcome: StringName) -> Color:
 		&"VICTORY_ANNIHILATION": return COLOR_VICTORY
 		&"VICTORY_SURVIVE":      return COLOR_VICTORY  # Session-28
 		&"VICTORY_ESCORT":       return COLOR_VICTORY  # Session-30
+		&"VICTORY_REACH_TILE":   return COLOR_VICTORY  # Session-31
 		&"DEFEAT_ANNIHILATION":  return COLOR_DEFEAT
 		&"DEFEAT_ESCORT_LOST":   return COLOR_DEFEAT   # Session-30
+		&"DEFEAT_REACH_FAILED":  return COLOR_DEFEAT   # Session-31
 		&"TURN_LIMIT_REACHED":   return COLOR_DRAW
 		_:                       return COLOR_DEFAULT

@@ -383,18 +383,27 @@ func _hydrate_chapter(record: Dictionary) -> ChapterDefinition:
 	# Session-29 — victory_conditions hydration (S28 architecture).
 	# Optional; absent JSON field leaves c.victory_conditions = null, which the
 	# controller dispatcher interprets as ANNIHILATION default per S28 design.
+	# Session-30 expanded for ESCORT type (target_unit_ids load-bearing).
+	# Session-31 expanded for REACH_TILE type (target_tile coord field).
 	if record.has("victory_conditions") and record["victory_conditions"] is Dictionary:
 		var vc_data: Dictionary = record["victory_conditions"] as Dictionary
 		var vc: VictoryConditions = VictoryConditions.new()
 		vc.primary_condition_type = (vc_data.get("primary_condition_type", 0) as int)
 		vc.survive_rounds = (vc_data.get("survive_rounds", 0) as int)
-		# target_unit_ids — reserved for ESCORT / REACH_TILE future types. JSON
-		# field accepts Array[int]; PackedInt64Array casts cleanly via append.
+		# target_unit_ids — JSON Array[int] → PackedInt64Array. Used by ESCORT
+		# (all ids = protectees) + REACH_TILE ([0] = unit that must reach tile).
 		if vc_data.has("target_unit_ids") and vc_data["target_unit_ids"] is Array:
 			var t_arr: PackedInt64Array = PackedInt64Array()
 			for x: Variant in (vc_data["target_unit_ids"] as Array):
 				t_arr.append(int(x))
 			vc.target_unit_ids = t_arr
+		# target_tile — JSON Array[int,int] → Vector2i. REACH_TILE destination.
+		# Absent → Vector2i.ZERO default (also valid for ANNIHILATION/ESCORT —
+		# the dispatcher only consults this field when type == REACH_TILE).
+		if vc_data.has("target_tile") and vc_data["target_tile"] is Array:
+			var tile_arr: Array = vc_data["target_tile"] as Array
+			if tile_arr.size() >= 2:
+				vc.target_tile = Vector2i(int(tile_arr[0]), int(tile_arr[1]))
 		c.victory_conditions = vc
 	return c
 
