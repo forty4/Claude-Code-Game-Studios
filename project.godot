@@ -72,6 +72,18 @@ window/size/viewport_width=1920
 window/size/viewport_height=1080
 window/size/resizable=true
 
+; Session-45 — stretch fix. Pre-S45 stretch/mode defaulted to "disabled" (1:1
+; viewport-to-pixel), so any window smaller than 1920×1080 showed only the
+; viewport's top-left slice. main_menu happened to fit because its content
+; anchored center-top; story_beat_screen's centered 720px text column was
+; pushed off-screen to the right, looking like layout corruption.
+;
+; canvas_items mode: viewport scales smoothly to window size while keeping
+; UI text crisp (vector scaling, not nearest-neighbour). aspect="keep" pads
+; with letterbox/pillarbox bars to preserve 16:9 — no UI stretch distortion.
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"
+
 [input_devices.pointing]
 
 ; Story-008 verification #3 (ADR-0005 §Verification Required §3 + CR-2e + R-3):
