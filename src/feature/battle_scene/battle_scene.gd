@@ -623,6 +623,45 @@ func _guess_branch_key_for_outcome(chapter: ChapterDefinition) -> String:
 	return chapter.branch_table.get("LOSS_default", "") as String
 
 
+## Session-42 — Looks up the OTHER branch's beat-8 title (the one the player
+## did NOT take) by walking chapter.beat_8_revelations and picking the entry
+## whose branch_key differs from `player_branch_key`. Returns "" when no other
+## revelation exists (1-revelation chapters skip the comparison screen).
+func _find_other_branch_b8_title(chapter: ChapterDefinition,
+		player_branch_key: String) -> String:
+	for entry: Dictionary in chapter.beat_8_revelations:
+		var bk: String = entry.get("branch_key", "") as String
+		if bk == player_branch_key or bk.is_empty():
+			continue
+		var content: Dictionary = _beat_content(entry.get("text_key", "") as String)
+		return (content.get("title", "") as String).strip_edges()
+	return ""
+
+
+## Session-42 — Mounts a ConsequenceScreen between Beat 8 and Beat 9 showing
+## "역사의 두 갈래" comparison: the OTHER branch's title (the path not taken,
+## muted left) vs the player's branch title (vivid right). No-op when the
+## chapter has no second branch revelation OR no HUD layer.
+func _present_consequence_screen(chapter: ChapterDefinition,
+		player_branch_key: String) -> void:
+	if _hud_layer == null or chapter == null:
+		return
+	var other_title: String = _find_other_branch_b8_title(chapter, player_branch_key)
+	if other_title.is_empty():
+		return  # 1-revelation chapter — nothing to compare against
+	var your_b8: Dictionary = _beat_content(
+		_beat_8_text_key_for_branch(chapter, player_branch_key))
+	var your_title: String = (your_b8.get("title", "") as String).strip_edges()
+	if your_title.is_empty():
+		return  # No prose for the player's branch — skip rather than render half-empty
+	var screen: ConsequenceScreen = ConsequenceScreen.make(other_title, your_title)
+	screen.name = "ConsequenceScreen"
+	_hud_layer.add_child(screen)
+	await screen.sequence_finished
+	if is_instance_valid(screen):
+		screen.queue_free()
+
+
 ## Mounts a StoryBeatScreen on the HUD layer, presents `beats`, and awaits the
 ## player advancing past the last one; frees the screen before returning. No-op
 ## (returns immediately) if there is nothing to show or the HUD layer is absent.
@@ -1643,10 +1682,29 @@ func _proceed_scenario() -> void:
 		var finished_chapter: ChapterDefinition = ScenarioRunner.get_current_chapter()
 		var branch_choice: DestinyBranchChoice = ScenarioRunner.get_last_branch_choice()
 		if finished_chapter != null:
-			var post_beats: Array = _collect_post_battle_beats(finished_chapter, branch_choice)
-			if not post_beats.is_empty():
-				_clear_post_battle_ui()
-				await _present_story_beats(post_beats)
+			# Session-42 — post-battle sequence split into 3 acts so the
+			# ConsequenceScreen ("역사의 두 갈래") slots between Beat 8 (this
+			# chapter's resolved ending) and Beat 9 (transition to next chapter).
+			# Pre-S42 the whole [b8, b9] array fed a single StoryBeatScreen mount.
+			var branch_key: String = ""
+			if branch_choice != null and not branch_choice.is_invalid:
+				branch_key = branch_choice.branch_key
+			if branch_key.is_empty():
+				branch_key = _guess_branch_key_for_outcome(finished_chapter)
+			var b8: Dictionary = _beat_content(
+				_beat_8_text_key_for_branch(finished_chapter, branch_key))
+			var b9: Dictionary = _beat_content(finished_chapter.beat_9_text_key)
+			_clear_post_battle_ui()
+			# Act 1 — Beat 8 (your branch's resolved prose).
+			if not b8.is_empty():
+				await _present_story_beats([b8])
+			# Act 2 (S42) — ConsequenceScreen comparison. Mounted only when an
+			# OTHER branch exists in beat_8_revelations; chapters with only one
+			# authored revelation skip silently.
+			await _present_consequence_screen(finished_chapter, branch_key)
+			# Act 3 — Beat 9 (transition to next chapter).
+			if not b9.is_empty():
+				await _present_story_beats([b9])
 	if ScenarioRunner.get_state() == ScenarioRunner.State.BEAT_8_REVEAL:
 		ScenarioRunner.advance_beat()  # -> BEAT_9_TRANSITION -> next chapter BEAT_1_ANCHOR | SCENARIO_END
 	await get_tree().process_frame
