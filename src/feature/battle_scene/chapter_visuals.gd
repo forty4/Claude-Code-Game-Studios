@@ -328,8 +328,11 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 		var hero: HeroData = HeroDatabase.get_hero(unit.hero_id)
 		var accent: Color = _get_hero_accent(unit.hero_id, unit.side)
 		# Brighten the accent slightly so it reads at small font sizes against
-		# any terrain backdrop without dropping to dim.
-		var label_color: Color = accent.lerp(Color(1.0, 1.0, 1.0, 1.0), 0.45)
+		# any terrain backdrop without dropping to dim. Session-40: lerp factor
+		# tightened 0.45 → 0.30 so the hero accent reads more saturated — pre-
+		# S40 the names trended toward neutral cream and the per-hero color
+		# distinction in the labels was muddled. Outline still carries contrast.
+		var label_color: Color = accent.lerp(Color(1.0, 1.0, 1.0, 1.0), 0.30)
 		var label: Label = Label.new()
 		label.name = "NameLabel"
 		label.text = hero.name_ko if hero != null and hero.name_ko != "" else String(unit.hero_id)

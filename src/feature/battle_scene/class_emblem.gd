@@ -26,14 +26,23 @@ const _STROKE: float = 1.8
 ## symbols now render at HERO_OVERLAY_SIZE (close to the polygon half-extent
 ## minus class emblem half-extent) so they read as a clear secondary identifier
 ## next to the class glyph.
-const _HERO_OVERLAY_SIZE: float = 11.0
+## Session-40 amendment: hero overlay re-weighted from secondary to PRIMARY
+## visual identifier. Class emblem demoted further to a small corner badge so
+## "장수별 특징" reads at first glance on the battlefield — 관우의 긴 수염 /
+## 장비의 텁수룩 수염 / 하후돈의 안대 / 여포의 별 같은 hero seal이 unit의
+## 메인 시각 신호가 되고, class glyph은 보조 정보로 후퇴. The class info is
+## still readable via the polygon silhouette (shape_for_class) underneath.
+const _HERO_OVERLAY_SIZE: float = 14.0
 ## Class emblem shrink factor when a hero overlay is present. Demotes the
 ## class glyph to a small corner badge so the hero overlay can take the
-## primary visual focus. 1.0 = full size (no hero overlay), 0.55 = shrunk.
-const _CLASS_SHRINK_WITH_OVERLAY: float = 0.55
+## primary visual focus. 1.0 = full size (no hero overlay), pre-S40 0.55 was
+## too close to the overlay's apparent size — class still competed visually.
+## Post-S40: 0.42 → class is ~6px half-extent corner badge.
+const _CLASS_SHRINK_WITH_OVERLAY: float = 0.42
 ## Class emblem corner offset when shrunk — bottom-right of the polygon so the
-## hero overlay can occupy the upper area unobstructed.
-const _CLASS_CORNER_OFFSET: Vector2 = Vector2(10.0, 10.0)
+## hero overlay can occupy the upper area unobstructed. Post-S40: pushed
+## further into the corner (10→12.5) to clear space for the larger overlay.
+const _CLASS_CORNER_OFFSET: Vector2 = Vector2(12.5, 12.5)
 ## Hero overlay center offset — slightly upper-left of polygon center so the
 ## class emblem badge can sit lower-right without overlap.
 const _HERO_OVERLAY_CENTER: Vector2 = Vector2(-3.0, -4.0)
