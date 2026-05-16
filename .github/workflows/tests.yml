@@ -44,6 +44,9 @@ jobs:
       - name: Lint per-frame emit ban (ADR-0001 §Implementation Guidelines §7)
         run: bash tools/ci/lint_per_frame_emit.sh
 
+      - name: Lint outcome StringName coverage (S37 — prevents S36 regression class)
+        run: bash tools/ci/lint_outcome_stringname_coverage.sh
+
       - name: Lint save paths (ADR-0003 §Atomicity + TR-save-load-006, V-10)
         run: bash tools/ci/lint_save_paths.sh
 
