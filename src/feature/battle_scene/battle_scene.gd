@@ -991,7 +991,12 @@ func _on_unit_selected_changed(unit_id: int, _was_selected: int) -> void:
 		_clear_tactical_read_overlay(visuals)
 		return
 	visuals.set_selected_coord(unit.position)
-	visuals.set_movable_tiles(_grid_controller.get_movable_tiles(unit_id))
+	var movable: PackedVector2Array = _grid_controller.get_movable_tiles(unit_id)
+	visuals.set_movable_tiles(movable)
+	# Session-55 — push per-tile favor tint alongside movable preview.
+	# Forward-compat: skip if older ChapterVisuals doesn't expose the setter.
+	if visuals.has_method("set_movable_favors"):
+		visuals.set_movable_favors(_grid_controller.get_movable_favors(unit_id, movable))
 	visuals.set_attackable_tiles(_grid_controller.get_attackable_tiles(unit_id))
 	_apply_verb_feedback_overlays(visuals, unit_id, unit.position)
 	_apply_tactical_read_overlay(visuals, unit)

@@ -901,6 +901,73 @@ func get_unit_class(unit_id: int) -> int:
 	return unit.unit_class
 
 
+## TerrainEffect terrain_type → UnitRole.terrain_cost_table index mapping.
+## Mirrors TerrainEffect._UNIT_ROLE_TERRAIN_IDX (private). RIVER (4) and
+## FORTRESS_WALL (6) intentionally absent — impassable, never on movable list.
+## Sync target if TerrainEffect mapping changes.
+const _TERRAIN_TYPE_TO_ROLE_IDX: Dictionary = {
+	0: 1,  # PLAINS
+	1: 3,  # FOREST
+	2: 2,  # HILLS
+	3: 4,  # MOUNTAIN
+	5: 5,  # BRIDGE
+	7: 0,  # ROAD
+}
+
+
+## Returns a ternary favor signal for one (unit, tile) pair: -1 disadvantage /
+## 0 neutral / +1 advantage. Used by ChapterVisuals to tint movement-range
+## preview tiles so the player sees "which terrain helps this unit" at the
+## moment they're deciding where to move (영걸전식 결정-모먼트 hint).
+##
+## Inputs:
+##   cost = UnitRole.get_class_cost_table(unit_class)[ur_idx]  (float)
+##   surv = defense_bonus + evasion_bonus  (TerrainModifiers)
+## Rule (movement penalty dominates):
+##   cost >= 2.0                          → -1 (significant mobility loss)
+##   cost < 1.0 OR (cost <= 1.0 AND surv >= 15) → +1 (fast OR survivable)
+##   else                                 → 0
+##
+## Returns 0 defensively on null grid, missing unit, OOB tile, or impassable
+## terrain (RIVER/FORTRESS_WALL) — those tiles never appear on the movable
+## preview list anyway, so the value is only consulted for legal moves.
+func get_terrain_favor_for_unit(unit_id: int, coord: Vector2i) -> int:
+	if not _units.has(unit_id) or _map_grid == null:
+		return 0
+	var tile: MapTileData = _map_grid.get_tile(coord)
+	if tile == null:
+		return 0
+	if not _TERRAIN_TYPE_TO_ROLE_IDX.has(tile.terrain_type):
+		return 0  # impassable; not expected on movable preview list
+	var ur_idx: int = _TERRAIN_TYPE_TO_ROLE_IDX[tile.terrain_type] as int
+	var unit: BattleUnit = _units[unit_id]
+	var cost_row: PackedFloat32Array = UnitRole.get_class_cost_table(
+		unit.unit_class as UnitRole.UnitClass
+	)
+	var cost: float = cost_row[ur_idx]
+	var mods: TerrainModifiers = TerrainEffect.get_terrain_modifiers(_map_grid, coord)
+	var surv: int = mods.defense_bonus + mods.evasion_bonus
+	if cost >= 2.0:
+		return -1
+	if cost < 1.0 or (cost <= 1.0 and surv >= 15):
+		return 1
+	return 0
+
+
+## Convenience batch query: returns a parallel PackedInt32Array of favor values
+## for every tile in [param tiles]. Index-aligned with [param tiles] so callers
+## can iterate both arrays in lockstep when rendering the movable preview.
+## Used by BattleScene._on_unit_selected_changed to push the favor map to
+## ChapterVisuals alongside set_movable_tiles().
+func get_movable_favors(unit_id: int, tiles: PackedVector2Array) -> PackedInt32Array:
+	var result: PackedInt32Array = PackedInt32Array()
+	result.resize(tiles.size())
+	for i: int in tiles.size():
+		var t: Vector2 = tiles[i]
+		result[i] = get_terrain_favor_for_unit(unit_id, Vector2i(int(t.x), int(t.y)))
+	return result
+
+
 ## Returns the unit_id of the unit whose turn is currently ACTING. -1 if no
 ## unit is active (between turns, before battle start, after resolution).
 ## Used by view-layer code (battle_scene) to track the active-turn highlight

@@ -98,6 +98,13 @@ var _selected_coord: Vector2i = Vector2i(-1, -1)
 ## grid coords (matching GridBattleController.get_movable_tiles return shape).
 var _movable_tiles: PackedVector2Array = PackedVector2Array()
 
+## Parallel favor array (index-aligned with _movable_tiles): -1 / 0 / +1 per
+## (selected unit class, tile terrain). Populated via set_movable_favors() at
+## selection time. Empty OR length-mismatched = fall back to neutral tint for
+## all movable tiles (forward-compat with callers that haven't wired favors).
+## Source: GridBattleController.get_movable_favors().
+var _movable_favors: PackedInt32Array = PackedInt32Array()
+
 ## Tiles the selected unit can attack (enemy-occupied, within attack_range).
 ## Updated via set_attackable_tiles() at selection time; empty = no preview.
 var _attackable_tiles: PackedVector2Array = PackedVector2Array()
@@ -137,6 +144,19 @@ const COLOR_SELECTION: Color = Color("d4a017")
 ## tiles read as "your strategic space" without competing with the saffron
 ## selection outline. Alpha = 0.30 keeps terrain readable underneath.
 const COLOR_MOVE_PREVIEW: Color = Color(0.18, 0.55, 0.67, 0.30)
+
+## Session-55 — terrain favor tint variants on the movement-range preview.
+## Per-class affinity (UnitRole cost_table) + per-tile survivability (defense +
+## evasion bonus) collapsed into a ternary {-1, 0, +1} signal via
+## GridBattleController.get_terrain_favor_for_unit(). Color hue alone carries
+## the signal so the base preview alpha (~0.30) stays unchanged and tiles still
+## read as "reachable" first, "favored/disfavored" second.
+##   FAVORED    — leaf-green (helps this unit: fast OR survivable terrain)
+##   DISFAVORED — brick-red  (hurts this unit: cost >= 2 mobility penalty)
+## Saturation kept moderate so the COLOR_ATTACK_PREVIEW red still wins when
+## both overlays land on the same tile (movement vs attack semantic priority).
+const COLOR_MOVE_PREVIEW_FAVORED:    Color = Color(0.28, 0.70, 0.38, 0.32)
+const COLOR_MOVE_PREVIEW_DISFAVORED: Color = Color(0.78, 0.32, 0.22, 0.34)
 
 ## Attack-range preview fill: translucent red on enemy-occupied tiles within
 ## attack reach. Distinct hue from movement preview so both can be read at
@@ -257,8 +277,22 @@ func set_active_turn_coord(coord: Vector2i) -> void:
 ## Updates the movement-range preview overlay. Pass an empty array to clear.
 ## Called from BattleScene._on_unit_selected_changed after computing the
 ## movable set via GridBattleController.get_movable_tiles().
+##
+## Note: setting tiles clears any stale favor array (length would mismatch).
+## Callers wanting the favor tint must call set_movable_favors() AFTER this.
 func set_movable_tiles(tiles: PackedVector2Array) -> void:
 	_movable_tiles = tiles
+	_movable_favors = PackedInt32Array()
+	queue_redraw()
+
+
+## Updates the per-tile favor signal for the current movable preview overlay.
+## Array MUST be index-aligned with the array previously passed to
+## set_movable_tiles() — length mismatch falls back to neutral tint for all
+## tiles (defensive — never crashes). Value semantics: -1 disadvantage,
+## 0 neutral (default blue), +1 advantage. Pass empty to disable favor tint.
+func set_movable_favors(favors: PackedInt32Array) -> void:
+	_movable_favors = favors
 	queue_redraw()
 
 
@@ -545,13 +579,25 @@ func _draw() -> void:
 			draw_rect(rect, COLOR_TILE_BORDER, false, 1.0)
 
 	# Movement-range preview (drawn before selection outline so the outline
-	# stays visually on top of all overlays).
-	for v: Vector2 in _movable_tiles:
+	# stays visually on top of all overlays). Per-tile color picked from the
+	# favor array when length matches the tile array; otherwise neutral blue
+	# (forward-compat for callers that don't push favors yet).
+	var _favor_len: int = _movable_favors.size()
+	var _use_favors: bool = _favor_len == _movable_tiles.size()
+	for i: int in _movable_tiles.size():
+		var v: Vector2 = _movable_tiles[i]
 		var move_rect: Rect2 = Rect2(
 			Vector2(int(v.x) * TILE_SIZE, int(v.y) * TILE_SIZE),
 			Vector2(TILE_SIZE, TILE_SIZE),
 		)
-		draw_rect(move_rect, COLOR_MOVE_PREVIEW, true)
+		var fill: Color = COLOR_MOVE_PREVIEW
+		if _use_favors:
+			var f: int = _movable_favors[i]
+			if f > 0:
+				fill = COLOR_MOVE_PREVIEW_FAVORED
+			elif f < 0:
+				fill = COLOR_MOVE_PREVIEW_DISFAVORED
+		draw_rect(move_rect, fill, true)
 
 	# Attack-range preview (drawn over movement preview so enemy targets
 	# read as the dominant action when both overlay sets are visible).
