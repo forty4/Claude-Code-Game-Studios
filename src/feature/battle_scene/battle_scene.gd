@@ -1514,7 +1514,9 @@ func _outcome_result(outcome: StringName) -> int:
 ## Falls through to the pre-S29 "적 부대 전멸" (defeat all enemies) phrasing
 ## for ANNIHILATION default + null vc — keeping chapters 1-4 unchanged.
 ## Session-30 — ESCORT branch added: "호위 + 적 전멸".
-## Session-31 — REACH_TILE branch added: "특정 위치 도달".
+## Session-31 — REACH_TILE branch added: pre-S37 was hardcoded
+## "특정 위치 도달"; post-S37 interpolates the target_tile coordinate so the
+## player sees WHERE to go in-battle (e.g., "지정 타일 (13, 4) 도달").
 func _resolve_victory_condition_label(chapter: ChapterDefinition) -> StringName:
 	if chapter == null or chapter.victory_conditions == null:
 		return &"적 부대 전멸"
@@ -1525,7 +1527,7 @@ func _resolve_victory_condition_label(chapter: ChapterDefinition) -> StringName:
 		VictoryConditions.ConditionType.ESCORT:
 			return &"호위 + 적 부대 전멸"
 		VictoryConditions.ConditionType.REACH_TILE:
-			return &"특정 위치 도달"
+			return StringName("지정 타일 (%d, %d) 도달" % [vc.target_tile.x, vc.target_tile.y])
 		_:
 			return &"적 부대 전멸"
 
