@@ -1571,7 +1571,10 @@ func _mount_controls_hint() -> void:
 	# "[Esc] 일시정지" — misleading, so user gave up trying ESC to cancel
 	# misclicks. Right-click (mouse button 2) also cancels per same binding
 	# file; now surfaced too. 일시정지 is on a separate key (P, 4194346).
-	hint.text = "유닛 클릭 → 빈 칸 = 이동 · 적 클릭 1회 = 미리보기 · 2회 = 공격 · [D] 방어 · 재클릭 = 턴 종료    [Esc / 우클릭] 선택 취소  [H] 도움말  [P] 일시정지"
+	# Session-51 — hint clarified post-fix. ESC routes contextually now:
+	# selection present → cancel selection; nothing selected → pause menu.
+	# Right-click also cancels (per default_bindings.json mouse_button 2).
+	hint.text = "유닛 클릭 → 빈 칸 = 이동 · 적 클릭 1회 = 미리보기 · 2회 = 공격 · [D] 방어 · 재클릭 = 턴 종료    [Esc / 우클릭] 선택 취소  [Esc] 일시정지(미선택)  [H] 도움말"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_color_override("font_color", Color(0.95, 0.93, 0.86, 0.92))
 	hint.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.05, 1.0))
@@ -1875,12 +1878,29 @@ var _h_was_held: bool = false
 func _process(_delta: float) -> void:
 	# ESC opens the pause menu mid- AND post-battle. Edge-detected so a held key
 	# doesn't spawn-and-close the menu every frame.
+	#
+	# Session-51 — ESC routing fixed. Pre-S51 this handler ALWAYS opened the
+	# pause menu on ESC, intercepting the key before InputRouter could route
+	# it to move_cancel / attack_cancel (per default_bindings.json:
+	# 4194305 → cancel). User report: "선택 취소는 안 되" — ESC was meant
+	# per the controls hint to cancel a selection, but pause menu opened
+	# instead. Post-S51: when a unit is selected, defer ESC entirely to
+	# InputRouter (the polling poll just skips, no consumption — InputRouter
+	# receives the event via the normal _unhandled_input path). When nothing
+	# is selected (true OBSERVATION state), ESC keeps its pause-menu role.
 	var esc_held: bool = (
 		Input.is_physical_key_pressed(KEY_ESCAPE)
 		or Input.is_key_pressed(KEY_ESCAPE)
 	)
 	if esc_held and not _esc_was_held:
-		_open_pause_menu()
+		var selected_unit_id: int = -1
+		if _grid_controller != null and _grid_controller.has_method("get_selected_unit_id"):
+			selected_unit_id = _grid_controller.get_selected_unit_id()
+		if selected_unit_id == -1:
+			# True OBSERVATION (no selection) — ESC opens pause menu.
+			_open_pause_menu()
+		# else: a unit is selected → InputRouter's _unhandled_input path
+		# routes ESC to move_cancel / attack_cancel for us. Don't fight it.
 	_esc_was_held = esc_held
 
 	# H opens the help overlay. Distinct from pause — does NOT freeze the tree;
