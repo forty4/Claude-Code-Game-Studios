@@ -1464,15 +1464,28 @@ func _mount_title_card(chapter: ChapterDefinition, roster: Array[BattleUnit]) ->
 		roster_label.add_theme_font_size_override("font_size", 18)
 		box.add_child(roster_label)
 
+	# Session-46 — process_mode ALWAYS on both card + Timer. BattleScene flips
+	# PROCESS_MODE_DISABLED when SceneManager pauses the "overworld" (the battle
+	# itself is treated as that), which would freeze the title card's Timer
+	# along with it → card never disappears (user-reported S45 windowed bug:
+	# title card persisting from Round 1 through Round 2). ALWAYS makes the
+	# Timer fire regardless of ancestor pause state. Same pattern as
+	# StoryBeatScreen.process_mode (line 95 of story_beat_screen.gd).
+	card.process_mode = Node.PROCESS_MODE_ALWAYS
 	_hud_layer.add_child(card)
 	# Self-destruct via a child Timer (not a SceneTreeTimer): if the scene reloads
 	# before TITLE_CARD_DURATION elapses, the Timer is freed along with `card`, so
 	# there's no dangling callback referencing a freed node.
 	var life: Timer = Timer.new()
+	life.process_mode = Node.PROCESS_MODE_ALWAYS  # belt-and-suspenders per S46
 	life.one_shot = true
 	life.autostart = true
 	life.wait_time = TITLE_CARD_DURATION
-	life.timeout.connect(card.queue_free)
+	# Guarded callback per G-11 — if `card` somehow got freed via another path
+	# (scene reload mid-countdown), the direct `card.queue_free` would error.
+	life.timeout.connect(func() -> void:
+		if is_instance_valid(card):
+			card.queue_free())
 	card.add_child(life)
 
 

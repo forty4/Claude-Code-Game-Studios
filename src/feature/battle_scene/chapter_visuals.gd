@@ -176,10 +176,15 @@ const _UNIT_HALF: int = 26
 ## the active-turn unit nor the selected unit. Pre-S43 every unit's NameLabel
 ## rendered at modulate.a=1.0 simultaneously — 8 units on grid = 8 names
 ## shouting in parallel, contributing to "화면이 조잡" perception. Post-S43
-## only active + selected units show their name at full alpha; others recede
-## to a readable-but-quiet 0.45 alpha. Names are still legible (high outline
-## contrast carries the silhouette) but no longer compete for the eye.
-const _UNIT_LABEL_DIM_ALPHA: float = 0.45
+## only active + selected units show their name at full alpha; others recede.
+## Session-46 — dim alpha tightened 0.45 → 0.0 after windowed verification
+## (S45 user feedback "각 장수의 이름이 겹쳐져서 잘 안 보임"). 0.45 alpha was
+## still readable enough that adjacent unit names overlapped visually; full
+## hide on non-active makes the active unit's name the only label on screen.
+## Hero identity is still recoverable via the polygon emblem (S40 hero
+## overlay carries 큰 귀 / 수염 / 안대 / etc.) — the name was redundant when
+## the player isn't actively considering that unit.
+const _UNIT_LABEL_DIM_ALPHA: float = 0.0
 const _UNIT_LABEL_FULL_ALPHA: float = 1.0
 
 ## Per-hero accent border stroke (width in world px). Wide enough to read as a
