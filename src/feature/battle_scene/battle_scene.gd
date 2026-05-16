@@ -1953,34 +1953,42 @@ func _process(_delta: float) -> void:
 		_invoke_primary_post_battle_action()
 
 
-## Session-52 — cancel priority dispatcher shared by ESC + right-click polling.
-## Priority order (영걸전식 undo-friendly):
-##   1) If a unit has MOVEd this turn (no ATTACK yet) → undo the move,
-##      restore position, leave the unit selected so the player can retry.
+## Session-52 / S54 — cancel priority dispatcher shared by ESC + right-click
+## polling. Priority order (영걸전식 undo-friendly):
+##   1) If the ACTIVE TURN unit has MOVEd this turn (no ATTACK yet) → undo
+##      the move, restore position, re-select. Checked against active turn
+##      unit_id (NOT selection state) per S54 — user-reported regression
+##      where ESC opened pause-menu post-move because selection had been
+##      cleared somewhere between the move commit and the ESC press.
+##      Only the active turn unit can have a cached move anyway (others
+##      can't act on someone else's turn), so this matches "find the unit
+##      that just moved" semantics without depending on selection sync.
 ##   2) Else if a unit is selected → cancel the selection (clear movable
 ##      preview, return to OBSERVATION).
 ##   3) Else → open the pause menu (the original ESC behaviour pre-S52).
-## InputRouter._state is synced to OBSERVATION after the cancel paths so its
-## FSM stays consistent with the controller — without this, the next click
-## would be parsed in S1 context and silently dropped.
+## InputRouter._state is synced to OBSERVATION after the cancel-selection
+## path so its FSM stays consistent with the controller.
 func _handle_cancel_or_pause() -> void:
-	var selected_unit_id: int = -1
-	if _grid_controller != null and _grid_controller.has_method("get_selected_unit_id"):
-		selected_unit_id = _grid_controller.get_selected_unit_id()
-	if selected_unit_id != -1 and _grid_controller.has_method("cancel_last_move"):
-		# Try move-undo first. Returns false silently when no move to undo
-		# this turn (cache miss / ATTACK already declared / etc.).
-		if _grid_controller.cancel_last_move(selected_unit_id):
-			# Move undone — unit remains selected at restored position.
-			# No InputRouter state change needed: S1 (UNIT_SELECTED) is
-			# still the correct FSM state.
+	if _grid_controller == null:
+		_open_pause_menu()
+		return
+	# Step 1 — try move-undo via the active turn unit (selection-independent).
+	var active_unit_id: int = -1
+	if _grid_controller.has_method("get_active_turn_unit_id"):
+		active_unit_id = _grid_controller.get_active_turn_unit_id()
+	if active_unit_id != -1 and _grid_controller.has_method("cancel_last_move"):
+		if _grid_controller.cancel_last_move(active_unit_id):
 			return
+	# Step 2 — cancel selection if any.
+	var selected_unit_id: int = -1
+	if _grid_controller.has_method("get_selected_unit_id"):
+		selected_unit_id = _grid_controller.get_selected_unit_id()
 	if selected_unit_id != -1 and _grid_controller.has_method("cancel_selection"):
 		_grid_controller.cancel_selection()
 		if _input_router != null and "_state" in _input_router:
 			_input_router._state = 0  # InputState.OBSERVATION
 		return
-	# Nothing selected, nothing to undo — open pause menu.
+	# Step 3 — nothing to undo, nothing selected → pause menu.
 	_open_pause_menu()
 
 
