@@ -380,6 +380,22 @@ func _hydrate_chapter(record: Dictionary) -> ChapterDefinition:
 	# BalanceConstants global. Float cast handles JSON int (1) or float (0.85).
 	if record.has("enemy_atk_mult"):
 		c.enemy_atk_mult = float(record.get("enemy_atk_mult", -1.0))
+	# Session-29 — victory_conditions hydration (S28 architecture).
+	# Optional; absent JSON field leaves c.victory_conditions = null, which the
+	# controller dispatcher interprets as ANNIHILATION default per S28 design.
+	if record.has("victory_conditions") and record["victory_conditions"] is Dictionary:
+		var vc_data: Dictionary = record["victory_conditions"] as Dictionary
+		var vc: VictoryConditions = VictoryConditions.new()
+		vc.primary_condition_type = (vc_data.get("primary_condition_type", 0) as int)
+		vc.survive_rounds = (vc_data.get("survive_rounds", 0) as int)
+		# target_unit_ids — reserved for ESCORT / REACH_TILE future types. JSON
+		# field accepts Array[int]; PackedInt64Array casts cleanly via append.
+		if vc_data.has("target_unit_ids") and vc_data["target_unit_ids"] is Array:
+			var t_arr: PackedInt64Array = PackedInt64Array()
+			for x: Variant in (vc_data["target_unit_ids"] as Array):
+				t_arr.append(int(x))
+			vc.target_unit_ids = t_arr
+		c.victory_conditions = vc
 	return c
 
 

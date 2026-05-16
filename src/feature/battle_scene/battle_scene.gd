@@ -430,7 +430,10 @@ func _start_battle() -> void:
 	_hud_layer.add_child(_battle_hud)
 	# Victory condition surfaces at battle init — without this UI-GB-08 stays
 	# visible=false and the top-right ribbon slot is empty.
-	_battle_hud.set_victory_condition(&"적 부대 전멸")
+	# Session-29 — chapter-aware label. SURVIVE_N_ROUNDS shows the round target
+	# ("N라운드 버티기"); everything else (ANNIHILATION default, null vc) keeps
+	# the pre-S29 enemy-defeat phrasing.
+	_battle_hud.set_victory_condition(_resolve_victory_condition_label(chapter))
 	# Persistent controls hint at the bottom edge — a first-time player has no
 	# way to discover the click flow otherwise. Static label; no _process needed
 	# (which matters: _pause_overworld() disables _process on this scene, see
@@ -1500,6 +1503,21 @@ func _outcome_result(outcome: StringName) -> int:
 		&"DEFEAT_ANNIHILATION": return BattleOutcome.Result.LOSS
 		&"TURN_LIMIT_REACHED": return BattleOutcome.Result.DRAW
 		_: return BattleOutcome.Result.DRAW
+
+
+## Session-29 — chapter-aware victory condition label for UI-GB-08. Reads
+## chapter.victory_conditions and returns the appropriate Korean label.
+## Falls through to the pre-S29 "적 부대 전멸" (defeat all enemies) phrasing
+## for ANNIHILATION default + null vc — keeping chapters 1-4 unchanged.
+func _resolve_victory_condition_label(chapter: ChapterDefinition) -> StringName:
+	if chapter == null or chapter.victory_conditions == null:
+		return &"적 부대 전멸"
+	var vc: VictoryConditions = chapter.victory_conditions
+	match vc.primary_condition_type:
+		VictoryConditions.ConditionType.SURVIVE_N_ROUNDS:
+			return StringName("%d라운드 버티기" % vc.survive_rounds)
+		_:
+			return &"적 부대 전멸"
 
 
 ## Outcome-aware post-battle button cluster below the OutcomeBanner.

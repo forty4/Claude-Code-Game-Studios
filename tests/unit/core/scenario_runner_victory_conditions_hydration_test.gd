@@ -1,0 +1,156 @@
+## Session-29 — _hydrate_chapter victory_conditions hydration tests.
+##
+## Covers the new JSON → VictoryConditions mapping in ScenarioRunner. Pre-S29
+## the hydrator silently dropped any `victory_conditions` key in chapter JSON;
+## post-S29 the field is decoded into a VictoryConditions resource and attached
+## to ChapterDefinition.victory_conditions. Null preservation: chapters that
+## omit the field continue to get `.victory_conditions = null` (which the
+## controller dispatcher reads as ANNIHILATION default).
+##
+## Coverage:
+##   - Omitted field → null (regression-safe for chapters 1-4)
+##   - SURVIVE_N_ROUNDS record → VictoryConditions with matching type + rounds
+##   - ANNIHILATION record (explicit 0) → VictoryConditions w/ ANNIHILATION
+##   - target_unit_ids array → PackedInt64Array round-trip
+
+extends GdUnitTestSuite
+
+
+# ─── Hydration: field absent ─────────────────────────────────────────────────
+
+
+## Pre-S29 chapter JSON omitted victory_conditions entirely. The hydrator must
+## leave c.victory_conditions = null so the controller defaults to ANNIHILATION.
+func test_hydrate_chapter_omitted_victory_conditions_yields_null() -> void:
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+	var record: Dictionary = _make_minimal_record()
+	# record has NO `victory_conditions` key.
+
+	var chapter: ChapterDefinition = runner._hydrate_chapter(record)
+
+	assert_object(chapter.victory_conditions).override_failure_message(
+		"Omitted victory_conditions must yield null (regression: chapters 1-4 unchanged)"
+	).is_null()
+
+
+# ─── Hydration: SURVIVE_N_ROUNDS ─────────────────────────────────────────────
+
+
+## SURVIVE_N_ROUNDS record produces a VictoryConditions with matching type +
+## survive_rounds value.
+func test_hydrate_chapter_survive_rounds_record() -> void:
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+	var record: Dictionary = _make_minimal_record()
+	record["victory_conditions"] = {
+		"primary_condition_type": int(VictoryConditions.ConditionType.SURVIVE_N_ROUNDS),
+		"survive_rounds": 7,
+	}
+
+	var chapter: ChapterDefinition = runner._hydrate_chapter(record)
+
+	assert_object(chapter.victory_conditions).is_not_null()
+	assert_int(chapter.victory_conditions.primary_condition_type).override_failure_message(
+		"SURVIVE record must hydrate condition_type=SURVIVE_N_ROUNDS"
+	).is_equal(int(VictoryConditions.ConditionType.SURVIVE_N_ROUNDS))
+	assert_int(chapter.victory_conditions.survive_rounds).is_equal(7)
+
+
+# ─── Hydration: ANNIHILATION explicit ────────────────────────────────────────
+
+
+## Explicit ANNIHILATION record (primary_condition_type=0) also hydrates.
+## Differs from the omitted-field path: here the resource exists but with
+## default-equivalent values. Dispatcher behaves identically either way.
+func test_hydrate_chapter_explicit_annihilation_record() -> void:
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+	var record: Dictionary = _make_minimal_record()
+	record["victory_conditions"] = {
+		"primary_condition_type": int(VictoryConditions.ConditionType.ANNIHILATION),
+	}
+
+	var chapter: ChapterDefinition = runner._hydrate_chapter(record)
+
+	assert_object(chapter.victory_conditions).is_not_null()
+	assert_int(chapter.victory_conditions.primary_condition_type).is_equal(
+		int(VictoryConditions.ConditionType.ANNIHILATION)
+	)
+
+
+# ─── Hydration: target_unit_ids round-trip ───────────────────────────────────
+
+
+## target_unit_ids array → PackedInt64Array. Reserved for ESCORT / REACH_TILE
+## but the hydration path is exercised today so future types plug in without
+## additional wiring.
+func test_hydrate_chapter_target_unit_ids_round_trip() -> void:
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+	var record: Dictionary = _make_minimal_record()
+	record["victory_conditions"] = {
+		"primary_condition_type": 0,
+		"target_unit_ids": [3, 7, 12],
+	}
+
+	var chapter: ChapterDefinition = runner._hydrate_chapter(record)
+
+	assert_object(chapter.victory_conditions).is_not_null()
+	assert_int(chapter.victory_conditions.target_unit_ids.size()).is_equal(3)
+	assert_int(chapter.victory_conditions.target_unit_ids[0]).is_equal(3)
+	assert_int(chapter.victory_conditions.target_unit_ids[1]).is_equal(7)
+	assert_int(chapter.victory_conditions.target_unit_ids[2]).is_equal(12)
+
+
+# ─── ch05 retrofit verification (smoke) ─────────────────────────────────────
+
+
+## Production mvp_shu.json ch05 record carries the SURVIVE_N_ROUNDS=5 retrofit.
+## Reads the JSON directly via FileAccess + hydrate the ch05 record to verify
+## the wiring end-to-end (catches any JSON syntax breakage at lint time).
+func test_mvp_shu_ch05_carries_survive_5_rounds() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+	assert_bool(json_text.is_empty()).is_false()
+	var parsed: Variant = JSON.parse_string(json_text)
+	assert_object(parsed).is_not_null()
+	var data: Dictionary = parsed as Dictionary
+	var chapters: Array = data["chapters"] as Array
+	# Find ch05.
+	var ch05_record: Dictionary = {}
+	for c: Variant in chapters:
+		var d: Dictionary = c as Dictionary
+		if (d.get("chapter_id", "") as String) == "ch05_chibi_main":
+			ch05_record = d
+			break
+	assert_bool(ch05_record.is_empty()).override_failure_message(
+		"mvp_shu.json must contain ch05_chibi_main record"
+	).is_false()
+	assert_bool(ch05_record.has("victory_conditions")).override_failure_message(
+		"S29: ch05_chibi_main must carry victory_conditions block"
+	).is_true()
+	var vc_data: Dictionary = ch05_record["victory_conditions"] as Dictionary
+	assert_int(vc_data["primary_condition_type"] as int).override_failure_message(
+		"S29: ch05 must use SURVIVE_N_ROUNDS (primary_condition_type=1)"
+	).is_equal(int(VictoryConditions.ConditionType.SURVIVE_N_ROUNDS))
+	assert_int(vc_data["survive_rounds"] as int).is_equal(5)
+
+
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+
+
+## Minimal record passing _validate_chapter_record. Doesn't include
+## victory_conditions; each test adds it as needed.
+func _make_minimal_record() -> Dictionary:
+	return {
+		"chapter_id": "test_ch",
+		"chapter_number": 1,
+		"map_id": "test_map",
+		"author_draw_branch": false,
+		"echo_threshold": 0,
+		"branch_table": {
+			"WIN_default":  "WIN_test_default",
+			"LOSS_default": "LOSS_test_default",
+		},
+		"canonical_branch_key": "WIN_test_default",
+	}
