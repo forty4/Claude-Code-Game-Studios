@@ -73,3 +73,45 @@ func test_make_chord_produces_correctly_shaped_stream() -> void:
 	var stream: AudioStreamWAV = sm._make_chord([523.25, 659.25, 783.99], 0.20, 4.0, 0.20)
 	assert_object(stream).is_not_null()
 	assert_int(stream.data.size()).is_equal(int(0.20 * 22050) * 2)
+
+
+# ─── Session-26: FIRE noise burst ────────────────────────────────────────────
+
+
+func test_make_noise_burst_produces_correctly_shaped_stream() -> void:
+	var sm: Node = SoundManagerScript.new()
+	auto_free(sm)
+	var stream: AudioStreamWAV = sm._make_noise_burst(0.18, 6.0, 0.18)
+	assert_object(stream).is_not_null()
+	assert_int(stream.format).is_equal(AudioStreamWAV.FORMAT_16_BITS)
+	assert_int(stream.mix_rate).is_equal(22050)
+	assert_bool(stream.stereo).is_false()
+	assert_int(stream.loop_mode).is_equal(AudioStreamWAV.LOOP_DISABLED)
+	# 0.18s at 22050 Hz × 2 bytes per 16-bit sample = 7938 bytes.
+	assert_int(stream.data.size()).is_equal(int(0.18 * 22050) * 2)
+
+
+## Determinism check — the LCG-seeded noise burst MUST produce byte-identical
+## PCM data across calls so tests don't drift on platform/RNG-state changes.
+func test_make_noise_burst_is_deterministic() -> void:
+	var sm: Node = SoundManagerScript.new()
+	auto_free(sm)
+	var a: AudioStreamWAV = sm._make_noise_burst(0.10, 6.0, 0.18)
+	var b: AudioStreamWAV = sm._make_noise_burst(0.10, 6.0, 0.18)
+	assert_bool(a.data == b.data).override_failure_message(
+		"_make_noise_burst PCM must be byte-identical across calls — LCG seed leaked"
+	).is_true()
+
+
+## Session-26: SFX_FIRE_TICK must register as part of _build_procedural_streams.
+func test_sfx_fire_tick_registered() -> void:
+	var sm: Node = SoundManagerScript.new()
+	auto_free(sm)
+	sm._build_procedural_streams()
+	assert_bool(sm._streams.has(SoundManagerScript.SFX_FIRE_TICK)).override_failure_message(
+		"SFX_FIRE_TICK must be registered after _build_procedural_streams"
+	).is_true()
+	var stream: AudioStreamWAV = sm._streams[SoundManagerScript.SFX_FIRE_TICK] as AudioStreamWAV
+	assert_object(stream).is_not_null()
+	assert_int(stream.format).is_equal(AudioStreamWAV.FORMAT_16_BITS)
+	assert_int(stream.data.size()).is_greater(0)

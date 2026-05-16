@@ -53,6 +53,13 @@ const SFX_CRITICAL: StringName = &"critical"
 ## an enemy. Shorter than SFX_VICTORY (the chapter end chord) so it doesn't
 ## clash with subsequent action.
 const SFX_KILL: StringName = &"kill"
+## Session-26: FIRE-tile round-start damage cue. Brief noise-burst "tssss" hiss
+## — distinct from SFX_HIT (which is a tonal thud) so the player reads
+## "environmental tick, not a swing." Quiet amplitude so it slips under the
+## round-start fanfare/turn-roll/AI-deferred handler cue stack without
+## competing for attention (session-23 originally deferred this for that
+## reason; session-26 ships at low amp to honour the budget).
+const SFX_FIRE_TICK: StringName = &"fire_tick"
 
 ## Music slugs — separate stream pool from SFX so they can be muted
 ## independently (player may want music off but SFX on, or vice versa).
@@ -318,6 +325,11 @@ func _build_procedural_streams() -> void:
 		[293.66, 440.00],  # D4 + A4 (perfect fifth)
 		0.30, 4.5, 0.26,
 	)
+	# Session-26: FIRE tile tick. Noise burst (not a sinusoid) with brief
+	# duration + moderate decay + low amp — reads as a quiet "tssss" hiss.
+	# Amp 0.18 sits comfortably below SFX_HIT (0.32) so the round-start cue
+	# stack stays legible.
+	_streams[SFX_FIRE_TICK] = _make_noise_burst(0.18, 6.0, 0.18)
 
 
 ## Synthesizes a single-frequency 16-bit mono tone with exponential decay
@@ -368,6 +380,43 @@ func _make_chord(freqs: Array, duration: float, decay_rate: float, amp: float) -
 			sum += sin(two_pi * f * t)
 		var sample: float = sum * envelope * per_voice_amp
 		var s16: int = clampi(int(sample * 32767.0), -32767, 32767)
+		data[i * 2]     = s16 & 0xff
+		data[i * 2 + 1] = (s16 >> 8) & 0xff
+	stream.data = data
+	return stream
+
+
+## Session-26 — synthesizes a 16-bit mono noise-burst with exponential decay.
+## Used for the FIRE tile tick (single hiss; no tonal centre). Deterministic
+## LCG seeded with a fixed constant so the PCM buffer is byte-identical across
+## runs and platforms — keeps tests stable (no Godot RNG state to thread).
+##
+## LCG params follow the glibc rand() linear congruential generator:
+##   X(n+1) = (a * X(n) + c) mod 2^31, with a=1103515245, c=12345.
+## The low byte alone is too patterned to read as noise (banding artifacts);
+## we use bits 16..30 → centre around 0 → scale to [-1, 1] for a clean burst.
+func _make_noise_burst(duration: float, decay_rate: float, amp: float) -> AudioStreamWAV:
+	var stream: AudioStreamWAV = AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = _MIX_RATE
+	stream.stereo = false
+	stream.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	var sample_count: int = int(duration * _MIX_RATE)
+	var data: PackedByteArray = PackedByteArray()
+	data.resize(sample_count * 2)
+	var lcg_state: int = 0x12345678  # deterministic seed; same buffer every build
+	for i: int in sample_count:
+		# LCG step. 0x7FFFFFFF mask = 31-bit modulus (avoid sign issues).
+		lcg_state = (lcg_state * 1103515245 + 12345) & 0x7FFFFFFF
+		# Pull middle 15 bits — gives 32768 distinct values, well-distributed.
+		var raw: int = (lcg_state >> 16) & 0x7FFF
+		# Map [0, 32767] → [-1.0, 1.0] centred at 0.
+		var noise: float = (float(raw) / 16383.5) - 1.0
+		var t: float = float(i) / float(_MIX_RATE)
+		var envelope: float = exp(-t * decay_rate)
+		var sample: float = noise * envelope * amp
+		var s16: int = clampi(int(sample * 32767.0), -32767, 32767)
+		# Little-endian 16-bit signed.
 		data[i * 2]     = s16 & 0xff
 		data[i * 2 + 1] = (s16 >> 8) & 0xff
 	stream.data = data

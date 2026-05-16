@@ -1255,6 +1255,8 @@ func _on_damage_applied(attacker_id: int, defender_id: int, damage: int) -> void
 ## The round-start tick is environmental — we don't want it to feel like a
 ## confirmed swing. Reused HP-bar refresh + 0.25s revert-via-timer pattern
 ## from _on_damage_applied (G-31: timer-on-tree, not on the polygon).
+## Session-26 — added SFX_FIRE_TICK (quiet noise-burst hiss) so the tick has
+## an audio channel without crossing into SFX_HIT territory.
 func _on_fire_damage_applied(defender_id: int, damage: int) -> void:
 	var visuals: Node = _find_chapter_visuals()
 	if visuals == null:
@@ -1262,6 +1264,7 @@ func _on_fire_damage_applied(defender_id: int, damage: int) -> void:
 	var unit_node: Node2D = _find_unit_polygon(visuals, defender_id)
 	if unit_node == null:
 		return
+	SoundManager.play(SoundManager.SFX_FIRE_TICK)
 	var original_modulate: Color = unit_node.modulate
 	# Orange-burn flash — distinct from the red attack flash so the player
 	# reads "this was the fire tile, not a hit".
