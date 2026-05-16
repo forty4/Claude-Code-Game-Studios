@@ -126,6 +126,48 @@ func test_header_text_is_역사의_두_갈래() -> void:
 	).is_true()
 
 
+# ─── S44 retry-nudge footnote ────────────────────────────────────────────────
+
+
+## When `footnote` arg supplied, a Label named "Footnote" mounts between the
+## comparison HBox and the advance button. Renders at FOOTNOTE_FONT_SIZE
+## with FOOTNOTE_COLOR — dim parchment, recessive against the bold title tier.
+func test_footnote_arg_mounts_footnote_label_with_text() -> void:
+	var note: String = "이 챕터를 다시 시도하면, 또 다른 결말을 경험할 수 있습니다."
+	_screen = ConsequenceScreen.make("후위가 무너지다",
+		"장판의 먼지가 가라앉다", note)
+	get_tree().root.add_child(_screen)
+	await get_tree().process_frame
+	var footnote_label: Node = _screen.find_child("Footnote", true, false)
+	assert_object(footnote_label).override_failure_message(
+		"S44: Footnote Label must mount when footnote arg is non-empty"
+	).is_not_null()
+	assert_str((footnote_label as Label).text).is_equal(note)
+
+
+## Default-empty footnote → no Footnote child mounts. Regression-safe for
+## any caller that uses the 2-arg make() form (callers pre-S44).
+func test_no_footnote_arg_skips_footnote_mount() -> void:
+	_screen = ConsequenceScreen.make("후위가 무너지다",
+		"장판의 먼지가 가라앉다")
+	get_tree().root.add_child(_screen)
+	await get_tree().process_frame
+	var footnote_label: Node = _screen.find_child("Footnote", true, false)
+	assert_object(footnote_label).override_failure_message(
+		"S44: no footnote arg → Footnote Label must NOT mount (legacy compat)"
+	).is_null()
+
+
+## Whitespace-only footnote treated as empty → no mount. Defensive against
+## a caller passing " " or "\n" by accident.
+func test_whitespace_footnote_treated_as_empty() -> void:
+	_screen = ConsequenceScreen.make("a", "b", "   \n  \t")
+	get_tree().root.add_child(_screen)
+	await get_tree().process_frame
+	var footnote_label: Node = _screen.find_child("Footnote", true, false)
+	assert_object(footnote_label).is_null()
+
+
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
 

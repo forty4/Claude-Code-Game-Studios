@@ -37,18 +37,29 @@ const TITLE_MUTED_COLOR:  Color = Color(0.62, 0.56, 0.48, 0.88)
 const TITLE_VIVID_COLOR:  Color = Color("e8d68a")
 const SEPARATOR_COLOR:    Color = Color(0.50, 0.50, 0.55, 0.40)
 const OUTLINE_COLOR:      Color = Color(0.02, 0.02, 0.03, 1.0)
+## Session-44 — footnote color: dim parchment. Reads as ancillary "도움말"
+## that doesn't compete with the bold title tier above. Stay legible against
+## the dark backdrop via the heavy outline.
+const FOOTNOTE_COLOR:     Color = Color(0.68, 0.66, 0.60, 0.78)
 
 const HEADER_TEXT:        String = "역사의 두 갈래"
 const SUBHEAD_OTHER:      String = "또 다른 갈래"
 const SUBHEAD_YOUR:       String = "당신이 이른 갈래"
 const COLUMN_WIDTH:       float  = 380.0
 const SEPARATOR_HEIGHT:   float  = 90.0
+const FOOTNOTE_FONT_SIZE: int    = 16
+const FOOTNOTE_OUTLINE:   int    = 3
 
 
 # ─── State (set via make() before _ready) ────────────────────────────────────
 
 var _other_title: String = ""
 var _your_title: String = ""
+## Session-44 — optional retry-nudge footnote rendered between the comparison
+## row and the advance button. Reads as "이 챕터를 다시 시도하면, 또 다른
+## 결말을 경험할 수 있습니다." or similar — surfacing 영걸전 vision의
+## "계속 시도하면서 성취감" path. Empty string → no footnote mount.
+var _footnote: String = ""
 var _finished: bool = false
 ## Edge-detect latch for Enter/Space — mirrors StoryBeatScreen pattern so a
 ## held key advances once, not once per frame. Starts true so we don't
@@ -64,10 +75,14 @@ var _backdrop: ColorRect = null
 ## Static factory — set content before _ready() builds the widget tree.
 ## `other_title` = beat-8 title of the branch the player did NOT take.
 ## `your_title`  = beat-8 title of the branch the player DID take.
-static func make(other_title: String, your_title: String) -> ConsequenceScreen:
+## `footnote`    = optional retry-nudge text rendered between the comparison
+##                 and the advance button. Empty → no footnote mounted.
+static func make(other_title: String, your_title: String,
+		footnote: String = "") -> ConsequenceScreen:
 	var s: ConsequenceScreen = ConsequenceScreen.new()
 	s._other_title = other_title
 	s._your_title = your_title
+	s._footnote = footnote
 	return s
 
 
@@ -123,6 +138,15 @@ func _ready() -> void:
 	# RIGHT — your path (vivid gold)
 	hbox.add_child(_make_column(SUBHEAD_YOUR, SUBHEAD_VIVID, _your_title,
 		TITLE_VIVID_COLOR, "YourColumn"))
+
+	# Session-44 — optional retry-nudge footnote between the comparison and
+	# the advance button. Reads as "재시도하면 또 다른 결말" hint, surfacing
+	# 영걸전 vision's "계속 시도하면서 성취감" path. Skipped on empty.
+	if not _footnote.strip_edges().is_empty():
+		var footnote_label: Label = _make_label(_footnote, FOOTNOTE_FONT_SIZE,
+			FOOTNOTE_COLOR, FOOTNOTE_OUTLINE, HORIZONTAL_ALIGNMENT_CENTER)
+		footnote_label.name = "Footnote"
+		vbox.add_child(footnote_label)
 
 	# Footer button
 	var btn: Button = Button.new()

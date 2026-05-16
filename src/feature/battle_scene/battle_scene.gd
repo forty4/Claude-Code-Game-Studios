@@ -654,7 +654,14 @@ func _present_consequence_screen(chapter: ChapterDefinition,
 	var your_title: String = (your_b8.get("title", "") as String).strip_edges()
 	if your_title.is_empty():
 		return  # No prose for the player's branch — skip rather than render half-empty
-	var screen: ConsequenceScreen = ConsequenceScreen.make(other_title, your_title)
+	# Session-44 — retry-nudge footnote: the post-battle button cluster always
+	# offers a path back (재시도 / 처음부터). The footnote names that path
+	# explicitly while the comparison is in front of the player, so the
+	# "wait, I could take the other branch too" thought lands while the two
+	# titles are still visible. Single uniform line — no canonical/non-
+	# canonical branching here (S42 rationale on data/prose mismatch holds).
+	var footnote: String = "이 챕터를 다시 시도하면, 또 다른 결말을 경험할 수 있습니다."
+	var screen: ConsequenceScreen = ConsequenceScreen.make(other_title, your_title, footnote)
 	screen.name = "ConsequenceScreen"
 	_hud_layer.add_child(screen)
 	await screen.sequence_finished
