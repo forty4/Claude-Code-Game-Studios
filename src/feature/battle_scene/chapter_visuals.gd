@@ -172,6 +172,16 @@ const COLOR_HERO_FALLBACK_ENEMY:  Color = Color("c8a89a")  # pale Wei dust
 ## occupy ~80% of the 64px tile and read clearly at default 1.0 camera zoom.
 const _UNIT_HALF: int = 26
 
+## Session-43 — HUD declutter: hero name label modulate when the unit is NOT
+## the active-turn unit nor the selected unit. Pre-S43 every unit's NameLabel
+## rendered at modulate.a=1.0 simultaneously — 8 units on grid = 8 names
+## shouting in parallel, contributing to "화면이 조잡" perception. Post-S43
+## only active + selected units show their name at full alpha; others recede
+## to a readable-but-quiet 0.45 alpha. Names are still legible (high outline
+## contrast carries the silhouette) but no longer compete for the eye.
+const _UNIT_LABEL_DIM_ALPHA: float = 0.45
+const _UNIT_LABEL_FULL_ALPHA: float = 1.0
+
 ## Per-hero accent border stroke (width in world px). Wide enough to read as a
 ## clear ring around the polygon at the default 1.0 camera zoom; narrow enough
 ## not to obscure the class shape underneath.
@@ -183,6 +193,10 @@ func set_selected_coord(coord: Vector2i) -> void:
 		return
 	_selected_coord = coord
 	queue_redraw()
+	# Session-43 — selected unit's name pops to full alpha; previous selection
+	# recedes (back to dim if not active-turn). Decouples selection emphasis
+	# from the saffron tile outline so the unit identity itself reads stronger.
+	_refresh_unit_label_alphas()
 
 
 ## Active turn coord — drawn as a thick gold border on the tile so the player
@@ -193,6 +207,9 @@ func set_active_turn_coord(coord: Vector2i) -> void:
 		return
 	_active_turn_coord = coord
 	queue_redraw()
+	# Session-43 — name label fade reacts to active-turn changes (active unit's
+	# name pops to full alpha; the previous active unit recedes to dim).
+	_refresh_unit_label_alphas()
 
 
 ## Updates the movement-range preview overlay. Pass an empty array to clear.
@@ -346,6 +363,47 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 		label.size = Vector2(80, 22)
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		poly.add_child(label)
+	# Session-43 — fresh roster spawned with default modulate.a=1.0 on every
+	# NameLabel. Refresh so non-active, non-selected names start at dim alpha.
+	# Active turn coord may not be set yet (round 1 first init unit fires
+	# set_active_turn_coord shortly after spawn) — in that window all names
+	# render dim, which reads as "nothing's acting yet, scene is settling."
+	_refresh_unit_label_alphas()
+
+
+## Session-43 — sets NameLabel.modulate.a per unit polygon based on whether
+## the polygon sits on _active_turn_coord or _selected_coord. Walks both
+## PlayerUnits + EnemyUnits parents; ignores non-Polygon2D children. Polygon
+## position is `unit.position * TILE_SIZE + TILE_SIZE/2`, so floor(pos/TILE_SIZE)
+## recovers the unit's tile coord even mid-tween (tween interpolates between
+## two adjacent tiles; floor returns one of the two, neither of which is the
+## active/selected tile unless the unit is moving INTO or AWAY from it).
+##
+## Called from: set_active_turn_coord, set_selected_coord, spawn_unit_polygons.
+## Not called from set_movable_tiles / set_attackable_tiles etc. — those
+## overlays don't change which unit is active/selected.
+func _refresh_unit_label_alphas() -> void:
+	for parent_name: String in ["PlayerUnits", "EnemyUnits"]:
+		var parent: Node2D = get_node_or_null(parent_name) as Node2D
+		if parent == null:
+			continue
+		for child: Node in parent.get_children():
+			if not (child is Polygon2D):
+				continue
+			var poly: Polygon2D = child as Polygon2D
+			var name_label: Label = poly.get_node_or_null("NameLabel") as Label
+			if name_label == null:
+				continue
+			var tile: Vector2i = Vector2i(
+				int(floor(poly.position.x / float(TILE_SIZE))),
+				int(floor(poly.position.y / float(TILE_SIZE))),
+			)
+			var is_active: bool = (_active_turn_coord == tile)
+			var is_selected: bool = (_selected_coord == tile)
+			name_label.modulate.a = (
+				_UNIT_LABEL_FULL_ALPHA if (is_active or is_selected)
+				else _UNIT_LABEL_DIM_ALPHA
+			)
 
 
 ## Returns the per-hero accent border color for `hero_id`, falling back to a
