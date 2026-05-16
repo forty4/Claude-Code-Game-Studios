@@ -329,9 +329,18 @@ func test_battle_outcome_resolved_emits_for_each_outcome_value() -> void:
 	var vbox: VBoxContainer = panel.get_node_or_null(^"VBoxContainer") as VBoxContainer
 	var outcome_label: Label = vbox.get_node_or_null(^"OutcomeLabel") as Label
 
+	# Session-36: extended past the ANNIHILATION-only set to also cover SURVIVE
+	# / ESCORT / REACH_TILE outcomes added by S28 / S30 / S31. Pre-S36 a
+	# VICTORY_ESCORT win silently routed to "draw" — coarse mapping fix routes
+	# all 4 VICTORY_* → victory and all 3 DEFEAT_* → defeat.
 	var cases: Array[Dictionary] = [
 		{"outcome": &"VICTORY_ANNIHILATION", "expected_key": &"hud.outcome.victory"},
+		{"outcome": &"VICTORY_SURVIVE",      "expected_key": &"hud.outcome.victory"},
+		{"outcome": &"VICTORY_ESCORT",       "expected_key": &"hud.outcome.victory"},
+		{"outcome": &"VICTORY_REACH_TILE",   "expected_key": &"hud.outcome.victory"},
 		{"outcome": &"DEFEAT_ANNIHILATION",  "expected_key": &"hud.outcome.defeat"},
+		{"outcome": &"DEFEAT_ESCORT_LOST",   "expected_key": &"hud.outcome.defeat"},
+		{"outcome": &"DEFEAT_REACH_FAILED",  "expected_key": &"hud.outcome.defeat"},
 		{"outcome": &"TURN_LIMIT_REACHED",   "expected_key": &"hud.outcome.draw"},
 	]
 	for case: Dictionary in cases:
