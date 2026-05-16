@@ -184,7 +184,12 @@
         [4, 4],
         [13, 4]
       ],
-      "enemy_atk_mult": 0.75
+      "enemy_atk_mult": 0.75,
+      "victory_conditions": {
+        "primary_condition_type": 3,
+        "target_unit_ids": [0],
+        "target_tile": [13, 4]
+      }
     },
     {
       "chapter_id": "ch04_chibi_prelude",

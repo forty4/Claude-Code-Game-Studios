@@ -163,6 +163,56 @@ func test_mvp_shu_ch02_carries_escort_target_0() -> void:
 	).is_false()
 
 
+## Session-34 — Production mvp_shu.json ch03 record carries the REACH_TILE retrofit.
+## Verifies ch03_xiakou_outskirts vc block declares REACH_TILE targeting 유비 (unit 0)
+## with target_tile = (13, 4) — the bridge across to 강하 (Xiakou). Different from
+## ch02 ESCORT in that REACH_TILE is an ACTIVE win condition (move to tile)
+## rather than passive (protect + clear enemies). Mirrors SURVIVE no-shortcut
+## semantics: enemy wipeout does NOT shortcut to VICTORY_REACH_TILE.
+func test_mvp_shu_ch03_carries_reach_tile_target_13_4() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+	assert_bool(json_text.is_empty()).is_false()
+	var parsed: Variant = JSON.parse_string(json_text)
+	assert_object(parsed).is_not_null()
+	var data: Dictionary = parsed as Dictionary
+	var chapters: Array = data["chapters"] as Array
+	var ch03_record: Dictionary = {}
+	for c: Variant in chapters:
+		var d: Dictionary = c as Dictionary
+		if (d.get("chapter_id", "") as String) == "ch03_xiakou_outskirts":
+			ch03_record = d
+			break
+	assert_bool(ch03_record.is_empty()).override_failure_message(
+		"mvp_shu.json must contain ch03_xiakou_outskirts record"
+	).is_false()
+	# REACH_TILE victory_conditions
+	assert_bool(ch03_record.has("victory_conditions")).override_failure_message(
+		"S34: ch03_xiakou_outskirts must carry victory_conditions block"
+	).is_true()
+	var vc_data: Dictionary = ch03_record["victory_conditions"] as Dictionary
+	assert_int(vc_data["primary_condition_type"] as int).override_failure_message(
+		"S34: ch03 must use REACH_TILE (primary_condition_type=3)"
+	).is_equal(int(VictoryConditions.ConditionType.REACH_TILE))
+	var t_ids: Array = vc_data["target_unit_ids"] as Array
+	assert_int(t_ids.size()).is_equal(1)
+	assert_int(t_ids[0] as int).override_failure_message(
+		"S34: ch03 REACH_TILE target must be 유비 (unit_id=0)"
+	).is_equal(0)
+	# target_tile [13, 4] is the bridge crossing to 강하 (per mvp_chapter_03.tres
+	# comment: "River on right (col 13) is the escape edge; one bridge tile at
+	# [13,4] is the only way across.")
+	var tile_arr: Array = vc_data["target_tile"] as Array
+	assert_int(tile_arr.size()).override_failure_message(
+		"S34: ch03 target_tile must be a 2-element array"
+	).is_equal(2)
+	assert_int(tile_arr[0] as int).override_failure_message(
+		"S34: ch03 target_tile.x must be 13 (bridge column)"
+	).is_equal(13)
+	assert_int(tile_arr[1] as int).override_failure_message(
+		"S34: ch03 target_tile.y must be 4 (bridge row)"
+	).is_equal(4)
+
+
 ## Production mvp_shu.json ch05 record carries the SURVIVE_N_ROUNDS=5 retrofit.
 ## Reads the JSON directly via FileAccess + hydrate the ch05 record to verify
 ## the wiring end-to-end (catches any JSON syntax breakage at lint time).
