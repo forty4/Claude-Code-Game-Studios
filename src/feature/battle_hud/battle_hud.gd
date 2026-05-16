@@ -84,6 +84,14 @@ var _ui_gb_01_active_slot_index: int = -1
 ## agrees with the grid at a glance.
 const _UI_GB_01_ACTED_DIM_ALPHA: float = 0.5
 
+## Session-25 — UI-GB-05 SkillSlot0Button visual states. Red tint signals "tap
+## me, ready to fire"; grey signals "spent, won't fire again this battle"; white
+## is the default fallback (panel won't normally be visible in that state since
+## the gating _btn_use_skill is disabled, but we set it explicitly so a stale
+## modulate from a prior turn doesn't leak in).
+const _COLOR_SKILL_READY: Color = Color(1.0, 0.55, 0.55)
+const _COLOR_SKILL_USED: Color = Color(0.55, 0.55, 0.55)
+
 
 ## Preloaded UI element scenes (story-003 + story-004 + story-005 + future stories add more).
 const _UI_GB_03_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_03_unit_info_panel.tscn")
@@ -1310,6 +1318,42 @@ func _refresh_action_buttons(unit_id: int) -> void:
 		_btn_use_skill.disabled = not _grid_controller.can_use_skill(unit_id)
 
 
+## Session-25 — refreshes the UI-GB-05 SkillSlot0Button visual state to reflect
+## whether the unit's innate active skill is READY (red tint) or USED (grey).
+## Called from _on_use_skill_button_pressed (right before showing the panel so
+## the player sees the correct state on first reveal), _on_unit_skill_used_refresh
+## (defensive — panel auto-hides on fire but a re-open would otherwise still show
+## stale red), and _on_unit_turn_started (each new turn resets to the correct
+## state for the freshly-active unit). Falls back to default white modulate when
+## the unit has no skill wired, the controller is missing get_battle_unit, or
+## the unit_id resolves to null.
+##
+## State precedence: USED > READY > default (white).
+##   - skill_used = true                       → grey   (permanent for the battle)
+##   - can_use_skill(unit_id) = true           → red    (tap me now)
+##   - everything else (no skill / AI / etc.)  → white  (defensive reset)
+func _refresh_skill_slot_visual(unit_id: int) -> void:
+	if _btn_skill_slot_0 == null:
+		return
+	if _grid_controller == null:
+		_btn_skill_slot_0.modulate = Color.WHITE
+		return
+	if not _grid_controller.has_method("get_battle_unit"):
+		_btn_skill_slot_0.modulate = Color.WHITE
+		return
+	var unit: BattleUnit = _grid_controller.get_battle_unit(unit_id)
+	if unit == null or unit.skill_id == &"":
+		_btn_skill_slot_0.modulate = Color.WHITE
+		return
+	if unit.skill_used:
+		_btn_skill_slot_0.modulate = _COLOR_SKILL_USED
+		return
+	if _grid_controller.has_method("can_use_skill") and _grid_controller.can_use_skill(unit_id):
+		_btn_skill_slot_0.modulate = _COLOR_SKILL_READY
+		return
+	_btn_skill_slot_0.modulate = Color.WHITE
+
+
 ## Session-24 — DEFEND token spent → re-evaluate all buttons (DEFEND was
 ## the player's last available action this turn; ATTACK/USE_SKILL are also
 ## blocked since DEFEND consumed the ACTION token).
@@ -1320,9 +1364,12 @@ func _on_unit_defend_stance_applied_refresh(unit_id: int) -> void:
 
 ## Session-24 — skill consumed → re-evaluate all buttons (ACTION token spent;
 ## skill itself is now permanently disabled per battle by can_use_skill).
+## Session-25 — also refresh slot 0 visual (panel auto-hides on fire, but a
+## subsequent re-open would otherwise show stale red — defensive).
 func _on_unit_skill_used_refresh(unit_id: int, _skill_id: StringName) -> void:
 	if _is_active_turn_unit(unit_id):
 		_refresh_action_buttons(unit_id)
+		_refresh_skill_slot_visual(unit_id)
 
 
 ## _refresh_action_button_labels() — story-005. Sets visible text on the 6 action
@@ -1724,6 +1771,9 @@ func _on_unit_turn_started(unit_id: int) -> void:
 	# (unit_moved / damage_applied / unit_defend_stance_applied / unit_skill_used)
 	# can re-evaluate the spent-token state and gray out mid-turn.
 	_refresh_action_buttons(unit_id)
+	# Session-25 — refresh slot 0 visual at turn-start so the modulate reflects
+	# the freshly-active unit (vs whatever previous unit left it at).
+	_refresh_skill_slot_visual(unit_id)
 
 
 ## _on_unit_turn_ended — GameBus subscriber (emitter: TurnOrderRunner).
@@ -1837,10 +1887,14 @@ func _on_attack_button_pressed() -> void:
 
 ## _on_use_skill_button_pressed — story-005. USE_SKILL: reveals UI-GB-05 skill list.
 ## Cancels any pending two-tap arm.
+## Session-25 — refresh slot 0 visual right before showing so the player sees
+## the correct ready/used tint on first reveal (no stale modulate from prior turn).
 func _on_use_skill_button_pressed() -> void:
 	_cancel_two_tap_arm()
 	var skill_panel: Control = _ui_elements.get(&"UI-GB-05")
 	if skill_panel != null:
+		if _grid_controller != null and _grid_controller.has_method("get_active_turn_unit_id"):
+			_refresh_skill_slot_visual(_grid_controller.get_active_turn_unit_id())
 		skill_panel.visible = true
 
 

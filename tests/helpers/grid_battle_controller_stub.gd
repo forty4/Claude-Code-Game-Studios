@@ -22,6 +22,14 @@ extends GridBattleController
 # This stub overrides with a test-injectable Dictionary populated via set_test_unit().
 var _test_units: Dictionary[int, BattleUnit] = {}
 
+# Session-25 test injection: drive can_use_skill + get_active_turn_unit_id from
+# stub-owned state instead of the production _units / _active_turn_unit_id fields.
+# Default _test_active_turn_unit_id = -1 means "no active turn" → can_use_skill
+# returns true only when the unit has a wired skill AND skill_used==false (the
+# "any unit can fire pre-battle" permissive default per production semantics).
+var _test_active_turn_unit_id: int = -1
+var _test_battle_over: bool = false
+
 
 func _ready() -> void:
 	# No-op: skips production DI asserts + 5 CONNECT_DEFERRED GameBus subscriptions.
@@ -43,3 +51,41 @@ func set_test_unit(unit_id: int, unit: BattleUnit) -> void:
 ## Reads from _test_units instead of production _units field.
 func get_battle_unit(unit_id: int) -> BattleUnit:
 	return _test_units.get(unit_id)
+
+
+## Session-25 test seam — drives the active turn unit for can_use_skill gating.
+## Passing -1 returns to permissive "no active turn" default.
+func set_test_active_turn_unit_id(unit_id: int) -> void:
+	_test_active_turn_unit_id = unit_id
+
+
+## Session-25 test seam — drives the _battle_over gate for can_use_skill.
+func set_test_battle_over(over: bool) -> void:
+	_test_battle_over = over
+
+
+## Session-25 override — mirrors production can_use_skill semantics but reads
+## from stub-owned _test_units / _test_active_turn_unit_id / _test_battle_over
+## instead of the production _units / _active_turn_unit_id / _battle_over fields
+## (those are never populated in the stub because _ready() is a no-op).
+func can_use_skill(unit_id: int) -> bool:
+	if _test_battle_over:
+		return false
+	if not _test_units.has(unit_id):
+		return false
+	var unit: BattleUnit = _test_units[unit_id]
+	if unit.side != 0:
+		return false
+	if unit.skill_id == &"":
+		return false
+	if unit.skill_used:
+		return false
+	if _test_active_turn_unit_id != -1 and unit_id != _test_active_turn_unit_id:
+		return false
+	return true
+
+
+## Session-25 override — mirrors production get_active_turn_unit_id but reads
+## from stub-owned _test_active_turn_unit_id.
+func get_active_turn_unit_id() -> int:
+	return _test_active_turn_unit_id
