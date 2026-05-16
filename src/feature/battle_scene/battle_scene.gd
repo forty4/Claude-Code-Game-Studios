@@ -2015,9 +2015,15 @@ func _on_unit_status_applied(unit_id: int, effect_id: StringName) -> void:
 ## View-only — damage application is handled separately via _on_damage_applied
 ## for the damage-dealing skills (thunder_roar / piercing_volley / strategist).
 func _on_unit_skill_used(unit_id: int, skill_id: StringName) -> void:
+	# Lift caster lookup ahead of SFX so we can side-bias volume (session-32).
+	var caster: BattleUnit = _grid_controller.get_battle_unit(unit_id) if _grid_controller != null else null
 	# (1) Per-skill SFX
+	# Session-32 — AI-side skill activations play -4dB quieter than player-
+	# side so the audio communicates "their skill, not mine". Cue still
+	# audible — not a hidden event — just dropped slightly in the mix.
 	if SoundManager != null and SoundManager.has_method("play"):
-		SoundManager.play(_sfx_for_skill(skill_id))
+		var sfx_volume_offset: float = -4.0 if (caster != null and caster.side != 0) else 0.0
+		SoundManager.play(_sfx_for_skill(skill_id), sfx_volume_offset)
 	# (2) Caster position + accent → SkillPopup
 	var visuals: Node = _find_chapter_visuals()
 	if visuals == null:
@@ -2025,7 +2031,6 @@ func _on_unit_skill_used(unit_id: int, skill_id: StringName) -> void:
 	var caster_node: Node2D = _find_unit_polygon(visuals, unit_id)
 	if caster_node == null:
 		return
-	var caster: BattleUnit = _grid_controller.get_battle_unit(unit_id)
 	if caster == null:
 		return
 	var display_name: String = _skill_display_name(skill_id)

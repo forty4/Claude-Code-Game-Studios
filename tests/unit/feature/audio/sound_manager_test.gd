@@ -115,3 +115,47 @@ func test_sfx_fire_tick_registered() -> void:
 	assert_object(stream).is_not_null()
 	assert_int(stream.format).is_equal(AudioStreamWAV.FORMAT_16_BITS)
 	assert_int(stream.data.size()).is_greater(0)
+
+
+# ─── Session-32: volume_offset_db ────────────────────────────────────────────
+
+
+## play(sfx_id, -4.0) shifts the player pool's volume_db by -4 below master.
+## Drive a real instance with audio enabled + a single-slot pool so we can
+## inspect player.volume_db after the play() call.
+func test_play_with_volume_offset_db_shifts_player_volume() -> void:
+	var sm: Node = SoundManagerScript.new()
+	auto_free(sm)
+	# Force-build a 1-player pool + the stream registry (bypass headless
+	# short-circuit which would leave _players empty).
+	sm.enabled = true
+	var p: AudioStreamPlayer = AudioStreamPlayer.new()
+	p.bus = "Master"
+	sm._players = [p] as Array[AudioStreamPlayer]
+	auto_free(p)
+	add_child(p)  # AudioStreamPlayer needs to be in the tree to play()
+	sm._build_procedural_streams()
+	# Master baseline = -8.0 dB per _MASTER_VOLUME_DB.
+	sm.play(SoundManagerScript.SFX_HIT, -4.0)
+	assert_float(p.volume_db).override_failure_message(
+		"volume_offset_db=-4.0 must produce player.volume_db = -8 + -4 = -12; got %.2f"
+				% p.volume_db
+	).is_equal_approx(-12.0, 0.01)
+
+
+## play(sfx_id) without offset preserves the master baseline (backward-compat).
+func test_play_default_offset_uses_master_volume_db() -> void:
+	var sm: Node = SoundManagerScript.new()
+	auto_free(sm)
+	sm.enabled = true
+	var p: AudioStreamPlayer = AudioStreamPlayer.new()
+	p.bus = "Master"
+	sm._players = [p] as Array[AudioStreamPlayer]
+	auto_free(p)
+	add_child(p)
+	sm._build_procedural_streams()
+	sm.play(SoundManagerScript.SFX_HIT)  # default offset = 0.0
+	assert_float(p.volume_db).override_failure_message(
+		"default offset (0.0) must produce player.volume_db = -8.0 (master baseline); got %.2f"
+				% p.volume_db
+	).is_equal_approx(-8.0, 0.01)

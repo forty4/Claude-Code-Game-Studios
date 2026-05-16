@@ -238,7 +238,13 @@ func stop_music() -> void:
 ##   - enabled is false (tests, "audio off" setting),
 ##   - the pool isn't built (headless, _ready short-circuited),
 ##   - sfx_id has no registered stream (typo / un-built event).
-func play(sfx_id: StringName) -> void:
+##
+## Session-32 — optional `volume_offset_db` shifts the player pool's
+## volume_db for THIS one fire only, then restores the master baseline.
+## Used by per-skill SFX side audit: AI-side skill activations pass
+## -4.0 so the cue is audibly quieter than player-side ("their skill,
+## not mine" cue). Default 0.0 preserves the pre-S32 behaviour.
+func play(sfx_id: StringName, volume_offset_db: float = 0.0) -> void:
 	if not enabled or _players.is_empty():
 		return
 	var stream: AudioStream = _streams.get(sfx_id, null) as AudioStream
@@ -247,6 +253,7 @@ func play(sfx_id: StringName) -> void:
 	var player: AudioStreamPlayer = _players[_next_player_idx]
 	_next_player_idx = (_next_player_idx + 1) % _players.size()
 	player.stream = stream
+	player.volume_db = _MASTER_VOLUME_DB + volume_offset_db
 	player.play()
 
 
