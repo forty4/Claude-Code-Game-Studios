@@ -270,6 +270,18 @@ func load_map(res: MapResource) -> bool:
 			0 if inherently_impassable
 			else (1 if t.is_passable_base else 0)
 		)
+		# Session-49b — also mutate the tile_data.is_passable_base field in-
+		# place so downstream callers that read `MapTileData.is_passable_base`
+		# directly (e.g., grid_battle_controller.is_tile_in_move_range:720)
+		# observe the same override. Without this, the cache and the source-
+		# of-truth field diverged: cache said impassable, tile_data still said
+		# passable, and the controller's move-range check used the latter →
+		# user could still walk units onto river tiles even post-S49. The
+		# field is mutated on the in-memory copy only — .tres files on disk
+		# are untouched. destroy_tile still works because it explicitly
+		# OVERWRITES is_passable_base = true for rubble (session-13).
+		if inherently_impassable and t.is_passable_base:
+			t.is_passable_base = false
 		_occupant_id_cache[i]      = t.occupant_id
 		_occupant_faction_cache[i] = t.occupant_faction
 		_tile_state_cache[i]       = t.tile_state

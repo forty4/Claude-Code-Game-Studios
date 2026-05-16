@@ -1049,27 +1049,33 @@ func test_map_grid_validate_valid_then_invalid_load_resets_to_inert() -> void:
 
 func test_map_grid_river_tile_is_impassable_even_when_is_passable_base_true() -> void:
 	# Build a 15x15 map. Factory cycles terrain_type via i % 5; tile 4 is
-	# terrain_type 4 (RIVER) with default is_passable_base = true (factory
-	# doesn't gate by terrain type, only by tile_state combinations).
+	# terrain_type 4 (RIVER). Factory default is_passable_base = true would
+	# leak rivers as passable pre-S49.
 	var grid := MapGrid.new()
 	var res: MapResource = _make_map(15, 15)
 	var ok: bool = grid.load_map(res)
 	assert_bool(ok).is_true()
 
-	# Find the first RIVER tile in the cache and assert it's impassable
-	# despite the source tile having is_passable_base = true.
+	# Find the first RIVER tile in the cache and assert it's impassable in
+	# BOTH the cache AND the tile_data field. Per S49b: load_map mutates
+	# the in-memory tile_data.is_passable_base so downstream callers that
+	# read the field directly (e.g., grid_battle_controller.is_tile_in_
+	# move_range:720) also see the override.
 	var found_river: bool = false
 	for i: int in 25:
 		if grid._terrain_type_cache[i] == TerrainCost.RIVER:
 			found_river = true
 			var src_tile: MapTileData = grid._map.tiles[i]
-			assert_bool(src_tile.is_passable_base).override_failure_message(
-				"Test fixture: factory RIVER tile must default is_passable_base=true to exercise the S49 override"
-			).is_true()
 			assert_int(grid._passable_base_cache[i]).override_failure_message(
-				"S49: RIVER (terrain_type=4) tile must be FORCED impassable in cache "
-				+ "regardless of authored is_passable_base"
+				"S49: RIVER cache entry must be FORCED impassable (got %d)"
+					% grid._passable_base_cache[i]
 			).is_equal(0)
+			assert_bool(src_tile.is_passable_base).override_failure_message(
+				"S49b: RIVER tile_data.is_passable_base must be mutated to false "
+				+ "in-place so is_tile_in_move_range (which reads the field) sees "
+				+ "the override. Pre-S49b: cache said impassable but field still "
+				+ "said passable → controller let units walk onto rivers."
+			).is_false()
 			break
 	assert_bool(found_river).override_failure_message(
 		"Test setup: no RIVER tile found in first 25 cycled tiles — factory drift?"
