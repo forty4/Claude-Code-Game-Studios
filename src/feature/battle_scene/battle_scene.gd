@@ -466,7 +466,14 @@ func _start_battle() -> void:
 	# Session-12: kick off the battle ambient music. Silent no-op when the
 	# player has muted music (set_music_enabled false → cached slug only).
 	# Stops via _exit_tree when the scene unmounts (chapter transition / main).
-	SoundManager.play_music(SoundManager.MUSIC_BATTLE_AMBIENT)
+	#
+	# Session-50: DISABLED at the call site. The procedural ambient stream
+	# (sine + low-pass synth, no real composition) reads as system-noise
+	# "웅~" hum during play; user feedback was to silence it until real
+	# music assets ship under assets/audio/. SFX (HIT / DEATH / SKILL etc.)
+	# continue firing — only the ambient music auto-start is gated. Restore
+	# by uncommenting once a real battle BGM track lands.
+	# SoundManager.play_music(SoundManager.MUSIC_BATTLE_AMBIENT)
 
 
 ## _exit_tree — stops battle music when the scene tears down. Without this
@@ -915,7 +922,37 @@ func _passive_for_class(unit_class: int) -> StringName:
 ## Builds a 15×15 all-grass MapResource for the chapter. Sprint-7 S7-05 will
 ## load chapter-1 (장판파) authored .tres at assets/data/maps/{map_id}.tres;
 ## current stub fixture provides uniform grass per IN-9 + ADR-0016 IN-9.
-func _build_map_resource_for_chapter(_chapter: ChapterDefinition) -> MapResource:
+## Session-50 — load the chapter's authored MapResource asset
+## (assets/data/maps/{map_id}.tres) so the gameplay-logic MapGrid carries the
+## same RIVER / BRIDGE / HILLS / MOUNTAIN terrain as the visually-mounted
+## ChapterVisuals. Pre-S50 this function ignored `chapter` (note the
+## underscore prefix on the param) and synthesized a 15×15 uniform grass
+## fallback every call — visible map showed rivers, but the logic map said
+## "every tile is passable plains". Result: S49 RIVER override had no effect
+## because the gameplay MapGrid contained no RIVER tiles. User report: "유비가
+## 여전히 강으로 간다." Fix: try to load the chapter's .tres; fall through to
+## uniform grass only when the asset is missing or malformed (defensive —
+## prevents crashes for chapters without authored maps).
+##
+## Comment from the pre-S50 stub: "sprint-7+ chapter map loading will replace
+## this with assets/data/maps/{map_id}.tres asset loading." This commit IS
+## that replacement (~9 sprints later than planned).
+func _build_map_resource_for_chapter(chapter: ChapterDefinition) -> MapResource:
+	if chapter != null and chapter.map_id != &"":
+		var asset_path: String = "res://assets/data/maps/%s.tres" % String(chapter.map_id)
+		if ResourceLoader.exists(asset_path):
+			var loaded: Resource = ResourceLoader.load(asset_path)
+			if loaded is MapResource:
+				return loaded as MapResource
+			push_warning(
+				"BattleScene: asset at %s loaded but is not a MapResource" % asset_path
+			)
+		else:
+			push_warning(
+				"BattleScene: chapter '%s' map asset not found at %s — falling back to uniform grass"
+					% [String(chapter.chapter_id), asset_path]
+			)
+	# Fallback for chapters without an authored map (or asset load failure).
 	var map: MapResource = MapResource.new()
 	map.map_cols = 15
 	map.map_rows = 15
