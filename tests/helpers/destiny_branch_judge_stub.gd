@@ -46,5 +46,6 @@ func _apply_f_sp_1(
 		_outcome: BattleOutcome.Result,
 		_echo_count: int,
 		_first_attempt_resolved: bool,
+		_fate_data: Dictionary,
 ) -> Dictionary:
 	return _stub_output.duplicate(true)

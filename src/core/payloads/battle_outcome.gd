@@ -18,3 +18,12 @@ enum Result { WIN, DRAW, LOSS }
 @export var surviving_units: PackedInt64Array = PackedInt64Array()
 @export var defeated_units: PackedInt64Array = PackedInt64Array()
 @export var is_abandon: bool = false  # LOSS-only; true if player chose Abandon
+
+## Per-battle telemetry snapshot. Shape (per grid_battle_controller _emit_battle_outcome):
+##   tank_unit_id (int), tank_alive_hp_pct (float),
+##   assassin_unit_id (int), assassin_kills (int),
+##   boss_unit_id (int), boss_killed (bool),
+##   rear_attacks (int), formation_turns (int)
+## Consumed by DestinyBranchJudge for hidden-condition predicate evaluation.
+## Empty Dict means no telemetry (e.g., LOSS via abandon, or test fixtures).
+@export var fate_data: Dictionary = {}

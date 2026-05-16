@@ -376,6 +376,10 @@ func _hydrate_chapter(record: Dictionary) -> ChapterDefinition:
 	# branch_overrides (deep-copied; per-prior-branch deployment overrides applied
 	# in _build_battle_payload when a previous chapter's branch_path_id matches).
 	c.branch_overrides = (record.get("branch_overrides", {}) as Dictionary).duplicate(true)
+	# Hidden destiny condition (Pillar 2 surface) — both fields are optional;
+	# the judge only fires Row 2a when hidden_branch_key is non-empty.
+	c.hidden_branch_key = record.get("hidden_branch_key", "") as String
+	c.hidden_condition = (record.get("hidden_condition", {}) as Dictionary).duplicate(true)
 	# enemy_atk_mult — sentinel -1.0 when absent so BattleScene falls back to
 	# BalanceConstants global. Float cast handles JSON int (1) or float (0.85).
 	if record.has("enemy_atk_mult"):
@@ -542,6 +546,7 @@ func _enter_beat_7_judgment() -> void:
 		_last_battle_outcome.result,
 		_echo_count,
 		_first_attempt_resolved,
+		_last_battle_outcome.fate_data,
 	)
 	_last_branch_choice = choice
 	# Step 3: CP-2 emission post-seal (per AC-SP-21).
@@ -761,6 +766,22 @@ func _build_battle_payload(chapter: ChapterDefinition) -> BattlePayload:
 	payload.victory_conditions = chapter.victory_conditions
 	payload.battle_start_effects = chapter.battle_start_effects.duplicate()
 	return payload
+
+
+## Public accessor: returns the branch_overrides entry that applies to the
+## CURRENT chapter, given the prior chapter's branch_path_id. Empty {} if no
+## prior chapter, no override authored, or the prior branch key doesn't match.
+##
+## Consumed by BattleScene._build_battle_units_from_chapter so the per-prior-
+## branch deployment differences (e.g., ch02 player_unit_ids/hero_ids/positions
+## after a specific ch01 outcome) actually surface on the visible battle grid.
+## Without this hook, BattleScene reads chapter.player_unit_ids directly and
+## ignores the override, leaving the chain authored-but-invisible.
+func get_active_branch_override() -> Dictionary:
+	var chapter: ChapterDefinition = get_current_chapter()
+	if chapter == null:
+		return {}
+	return _resolve_branch_override(chapter)
 
 
 ## Returns the branch_overrides Dictionary entry whose key matches the most

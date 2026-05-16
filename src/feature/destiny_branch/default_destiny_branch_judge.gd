@@ -4,15 +4,22 @@
 ## guards live in the base class `resolve()`. F-DB-2 reserved_color_treatment
 ## derivation also lives in `resolve()` (post-result derivation).
 ##
-## F-DB-1 algorithm (4-row decision per ADR-0017 §F-SP-1):
+## F-DB-1 algorithm (5-row decision):
 ##   Row 1: outcome == DRAW AND NOT chapter.author_draw_branch
 ##          → DRAW fallback to WIN row; is_draw_fallback=true
+##   Row 2a: outcome == WIN AND chapter.hidden_branch_key non-empty AND
+##           HiddenConditionEvaluator(chapter.hidden_condition, fate_data) == true
+##          → hidden-WIN row (looked up by hidden_branch_key in branch_table)
 ##   Row 2: outcome == WIN
-##          → WIN_default row; cue tag for win_after_persistence (presentation hint only)
+##          → WIN_default row
 ##   Row 3: outcome == DRAW (with author_draw_branch=true)
 ##          → DRAW row; echo-gate predicate F-SP-2 routes to default vs echo branch
 ##   Row 4: outcome == LOSS
 ##          → LOSS_default row
+##
+## Hidden-condition row (Row 2a) is the Pillar 2 surface — "운명은 바꿀 수 있다".
+## Per chapter, at most ONE hidden condition; multiple hidden branches per chapter
+## are out of scope until a chapter authors them.
 ##
 ## ADR: ADR-0017 §F-SP-1 (algorithm spec) + ADR-0018 §Decision (executor class).
 ## TR: TR-destiny-branch-001..015.
@@ -20,12 +27,13 @@ class_name DefaultDestinyBranchJudge
 extends DestinyBranchJudge
 
 
-## F-DB-1 algorithm — branch_table lookup via 4-row decision logic.
+## F-DB-1 algorithm — branch_table lookup via 5-row decision logic.
 func _apply_f_sp_1(
 		chapter: ChapterDefinition,
 		outcome: BattleOutcome.Result,
 		echo_count: int,
 		first_attempt_resolved: bool,
+		fate_data: Dictionary,
 ) -> Dictionary:
 	var branch_table: Dictionary = chapter.branch_table
 	# Row 1: DRAW outcome + chapter has no DRAW branch authored → fallback to WIN.
@@ -39,6 +47,19 @@ func _apply_f_sp_1(
 			"is_draw_fallback": true,
 			"is_canonical_history": (fallback_key == chapter.canonical_branch_key),
 		}
+	# Row 2a: WIN outcome + chapter authored a hidden condition + predicate passes.
+	# Must precede Row 2 so the hidden branch takes priority over WIN_default.
+	if outcome == BattleOutcome.Result.WIN and not chapter.hidden_branch_key.is_empty():
+		if HiddenConditionEvaluator.evaluate(chapter.hidden_condition, fate_data):
+			var hidden_key: String = branch_table.get(chapter.hidden_branch_key, "") as String
+			if not hidden_key.is_empty():
+				return {
+					"branch_key": hidden_key,
+					"is_draw_fallback": false,
+					"is_canonical_history": (hidden_key == chapter.canonical_branch_key),
+				}
+			# hidden_branch_key declared but no matching branch_table entry —
+			# fall through to Row 2 (WIN_default) instead of failing the battle.
 	# Row 2: WIN outcome → WIN_default row.
 	if outcome == BattleOutcome.Result.WIN:
 		var win_key: String = branch_table.get("WIN_default", "") as String

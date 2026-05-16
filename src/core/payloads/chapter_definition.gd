@@ -143,3 +143,32 @@ extends Resource
 ## branch_path_id; if a matching key is present, those fields override the
 ## chapter's defaults for this battle. Empty = no overrides (always use defaults).
 @export var branch_overrides: Dictionary = {}
+
+
+# ─── Hidden destiny condition (Pillar 2 — 운명은 바꿀 수 있다) ──────────────────
+
+## Optional hidden-condition branch key. When non-empty AND the corresponding
+## hidden_condition predicate evaluates true on the battle's fate_data AND the
+## outcome is WIN, DestinyBranchJudge routes to this branch_key INSTEAD of
+## WIN_default. Empty = no hidden condition authored (standard 4-row resolution).
+##
+## Authoring convention: chapter that exposes a hidden-condition path MUST also
+## register the resolved branch_path_id in branch_table (lookup name distinct
+## from `WIN_default`, typically `WIN_hidden`), e.g.:
+##   branch_table = {
+##     "WIN_default":  "WIN_changbanpo_default",
+##     "WIN_hidden":   "WIN_changbanpo_lord_unharmed",
+##     "LOSS_default": "LOSS_changbanpo_retreat",
+##   }
+##   hidden_branch_key = "WIN_hidden"
+@export var hidden_branch_key: String = ""
+
+## Predicate Dictionary describing the hidden-condition check. Shape:
+##   { "type": "fate_threshold", "field": <fate_data_key>, "op": ">=|>|==|<=|<",
+##     "value": <number> }
+## Evaluated by HiddenConditionEvaluator against BattleOutcome.fate_data.
+## Empty = no predicate authored (hidden_branch_key MUST also be empty).
+##
+## Example — "Zhang Fei kills 2+":
+##   { "type": "fate_threshold", "field": "assassin_kills", "op": ">=", "value": 2 }
+@export var hidden_condition: Dictionary = {}

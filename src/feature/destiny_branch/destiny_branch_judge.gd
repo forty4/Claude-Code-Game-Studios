@@ -61,6 +61,9 @@ const INVALID_CR13_ECHO_THRESHOLD_ON_CH1: StringName = &"invariant_violation:cr1
 ## [param first_attempt_resolved] Already-sealed value from ScenarioRunner per
 ##                                F-SP-3 v2.2 + Pillar 2 lock (judge MUST NOT read
 ##                                from ScenarioRunner state — receives via 4th arg).
+## [param fate_data] Battle telemetry snapshot from BattleOutcome.fate_data.
+##                   Consumed by HiddenConditionEvaluator when chapter declares
+##                   hidden_branch_key. Empty Dict = no hidden-condition check.
 ## [return] Populated DestinyBranchChoice with all 9 fields set; is_invalid=true
 ##          + invalid_reason populated on any guard failure.
 func resolve(
@@ -68,6 +71,7 @@ func resolve(
 		outcome: BattleOutcome.Result,
 		echo_count: int,
 		first_attempt_resolved: bool,
+		fate_data: Dictionary = {},
 ) -> DestinyBranchChoice:
 	# Step 1: Pre-call invariant guards (F-DB-3 vocabulary entries 1-6).
 	var pre_call_violation: StringName = _check_pre_call_invariants(chapter, outcome)
@@ -77,7 +81,7 @@ func resolve(
 		return DestinyBranchChoice.invalid(pre_call_violation)
 	# Step 2: Delegate to F-DB-1 algorithm.
 	var sp1_result: Dictionary = _apply_f_sp_1(
-		chapter, outcome, echo_count, first_attempt_resolved
+		chapter, outcome, echo_count, first_attempt_resolved, fate_data
 	)
 	# Step 3: Post-call invariant guards on Dictionary shape (F-DB-3 vocabulary entries 7-12).
 	var post_call_violation: StringName = _check_post_call_invariants(sp1_result, outcome)
@@ -172,6 +176,7 @@ func _check_post_call_invariants(
 ## [param outcome] Battle outcome tri-state.
 ## [param echo_count] Echo count for this chapter.
 ## [param first_attempt_resolved] Sealed boolean from ScenarioRunner BEAT_7 entry.
+## [param fate_data] Battle fate-counter snapshot; consulted by hidden-condition row.
 ## [return] Dictionary satisfying F-DB-3 minimal contract.
 @abstract
 func _apply_f_sp_1(
@@ -179,4 +184,5 @@ func _apply_f_sp_1(
 		outcome: BattleOutcome.Result,
 		echo_count: int,
 		first_attempt_resolved: bool,
+		fate_data: Dictionary,
 ) -> Dictionary

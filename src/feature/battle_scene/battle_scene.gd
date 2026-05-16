@@ -719,16 +719,46 @@ func _clear_post_battle_ui() -> void:
 ## Hero IDs MUST exist in assets/data/heroes/heroes.json.
 func _build_battle_units_from_chapter(chapter: ChapterDefinition) -> Array[BattleUnit]:
 	var roster: Array[BattleUnit] = []
+	# Per-prior-branch override view (player_unit_ids / player_hero_ids /
+	# deployment_positions_default). Empty Dict when no override applies.
+	# Pillar 2 surface: hidden-branch + LOSS-branch deployment differences
+	# must be visible on the actual grid, not just shaped in BattlePayload.
+	var override: Dictionary = {}
+	if ScenarioRunner.has_method("get_active_branch_override"):
+		override = ScenarioRunner.get_active_branch_override()
+	var player_uids: PackedInt64Array = chapter.player_unit_ids
+	if override.has("player_unit_ids"):
+		player_uids = PackedInt64Array()
+		for uid_var in (override["player_unit_ids"] as Array):
+			player_uids.append(int(uid_var))
+	var override_hero_ids: Dictionary = {}
+	if override.has("player_hero_ids"):
+		var raw_heroes: Dictionary = override["player_hero_ids"] as Dictionary
+		for k in raw_heroes.keys():
+			# JSON keys come in as String; normalize to int per chapter convention.
+			override_hero_ids[int(k as String)] = raw_heroes[k] as String
+	var override_dep: Dictionary = {}
+	if override.has("deployment_positions_default"):
+		var raw_dep: Dictionary = override["deployment_positions_default"] as Dictionary
+		for k in raw_dep.keys():
+			var v: Variant = raw_dep[k]
+			if v is Array and (v as Array).size() >= 2:
+				var arr: Array = v as Array
+				override_dep[int(k as String)] = Vector2i(int(arr[0]), int(arr[1]))
 	# Player units — bind player unit_ids to narrative-fitting heroes via a 3-tier
 	# fallback chain: (1) chapter.player_hero_ids (data-driven, scales to any uid
 	# in any chapter — preferred); (2) PLAYER_HERO_BY_UNIT_ID const (covers uids
 	# 0/1 = 유비/장비 from the legacy hardcoded mapping); (3) 장비 (a sensible
 	# default front-liner for unknown uids — keeps the battle bootable even when
 	# new chapters forget to author the mapping).
-	for i in chapter.player_unit_ids.size():
-		var uid: int = int(chapter.player_unit_ids[i])
-		var hero: StringName = _resolve_player_hero_id(chapter, uid)
-		var pos: Vector2i = chapter.deployment_positions_default.get(uid, Vector2i(1 + i, 2)) as Vector2i
+	for i in player_uids.size():
+		var uid: int = int(player_uids[i])
+		var hero: StringName = _resolve_player_hero_id_with_override(chapter, uid, override_hero_ids)
+		var pos: Vector2i
+		if override_dep.has(uid):
+			pos = override_dep[uid] as Vector2i
+		else:
+			pos = chapter.deployment_positions_default.get(uid, Vector2i(1 + i, 2)) as Vector2i
 		var tag: StringName = &"tank" if i == 0 else &"assassin"
 		# Player units default to &"aggressor" archetype (S13-12); chapter fixtures
 		# do not currently author player_unit archetypes — extend ChapterDefinition
@@ -754,6 +784,20 @@ func _build_battle_units_from_chapter(chapter: ChapterDefinition) -> Array[Battl
 ## documented in _build_battle_units_from_chapter. Public-shaped (no underscore-
 ## prefixed args) so tests can drive it directly without poking the full builder.
 func _resolve_player_hero_id(chapter: ChapterDefinition, uid: int) -> StringName:
+	return _resolve_player_hero_id_with_override(chapter, uid, {})
+
+
+## Override-aware variant: when override_hero_ids has the uid, it wins over
+## chapter.player_hero_ids. Used by _build_battle_units_from_chapter to surface
+## per-prior-branch hero swap-ins (e.g., ch02 WIN_changbanpo_lord_unharmed adds
+## 관우 at uid=6 via branch_overrides without mutating the chapter).
+func _resolve_player_hero_id_with_override(
+		chapter: ChapterDefinition, uid: int, override_hero_ids: Dictionary,
+) -> StringName:
+	if override_hero_ids.has(uid):
+		var ovr: String = override_hero_ids[uid] as String
+		if not ovr.is_empty():
+			return StringName(ovr)
 	if chapter != null and chapter.player_hero_ids.has(uid):
 		var hid: String = chapter.player_hero_ids[uid] as String
 		if not hid.is_empty():

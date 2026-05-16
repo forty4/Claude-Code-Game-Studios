@@ -10,9 +10,17 @@
       "echo_threshold": 0,
       "branch_table": {
         "WIN_default":  "WIN_changbanpo_default",
+        "WIN_hidden":   "WIN_changbanpo_lord_unharmed",
         "LOSS_default": "LOSS_changbanpo_retreat"
       },
       "canonical_branch_key": "WIN_changbanpo_default",
+      "hidden_branch_key": "WIN_hidden",
+      "hidden_condition": {
+        "type": "fate_threshold",
+        "field": "assassin_kills",
+        "op": ">=",
+        "value": 2
+      },
       "beat_1_text_key": "ch01.beat1.anchor",
       "beat_2_fragment": {
         "variant": "silent_visual",
@@ -25,6 +33,11 @@
           "branch_key": "WIN_changbanpo_default",
           "text_key": "ch01.beat8.win_changbanpo_default",
           "cue_tag": "tag.beat8.canonical_win"
+        },
+        {
+          "branch_key": "WIN_changbanpo_lord_unharmed",
+          "text_key": "ch01.beat8.win_changbanpo_lord_unharmed",
+          "cue_tag": "tag.beat8.hidden_reveal"
         },
         {
           "branch_key": "LOSS_changbanpo_retreat",
@@ -56,7 +69,11 @@
         [3, 3],
         [3, 4]
       ],
-      "enemy_atk_mult": 0.55
+      "enemy_atk_mult": 0.55,
+      "victory_conditions": {
+        "primary_condition_type": 1,
+        "survive_rounds": 5
+      }
     },
     {
       "chapter_id": "ch02_changban_bridge",
@@ -112,6 +129,19 @@
           "player_hero_ids": {"1": "shu_003_zhang_fei"},
           "deployment_positions_default": {
             "1": [3, 3]
+          }
+        },
+        "WIN_changbanpo_lord_unharmed": {
+          "player_unit_ids": [0, 1, 6],
+          "player_hero_ids": {
+            "0": "shu_001_liu_bei",
+            "1": "shu_003_zhang_fei",
+            "6": "shu_002_guan_yu"
+          },
+          "deployment_positions_default": {
+            "0": [2, 3],
+            "1": [3, 3],
+            "6": [1, 3]
           }
         }
       },

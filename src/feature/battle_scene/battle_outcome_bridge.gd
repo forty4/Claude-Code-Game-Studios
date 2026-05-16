@@ -46,13 +46,17 @@ func setup(chapter_id: String) -> void:
 
 ## Handler for GridBattleController's LOCAL battle_outcome_resolved signal.
 ## Connected by BattleScene (the controller does not know this node exists).
-func on_local_outcome(outcome: StringName, _fate_data: Dictionary) -> void:
+func on_local_outcome(outcome: StringName, fate_data: Dictionary) -> void:
 	if _published:
 		return
 	_published = true
 	var bo: BattleOutcome = BattleOutcome.new()
 	bo.result = _OUTCOME_TO_RESULT.get(outcome, BattleOutcome.Result.DRAW) as BattleOutcome.Result
 	bo.chapter_id = _chapter_id
+	# Pipe fate-counter snapshot through so DestinyBranchJudge can evaluate
+	# hidden-condition predicates at BEAT_7. Deep-copy to decouple from the
+	# controller's live counters (defense against late mutation after emit).
+	bo.fate_data = fate_data.duplicate(true)
 	# CONNECT_DEFERRED on the subscriber side (ScenarioRunner, SceneManager) per
 	# ADR-0001 §5 — this emit is fine to call synchronously from the controller's
 	# signal chain; the subscribers' handlers run next idle frame.
