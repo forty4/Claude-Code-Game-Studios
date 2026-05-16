@@ -257,10 +257,21 @@ func test_map_grid_cache_values_match_tile_data_field_by_field() -> void:
 			"_elevation_cache[%d] should match tiles[%d].elevation" % [i, i]
 		).is_equal(t.elevation)
 
-		var expected_passable: int = 1 if t.is_passable_base else 0
+		# Session-49 — _passable_base_cache mirrors t.is_passable_base EXCEPT
+		# for inherently-impassable terrains (RIVER 4 + FORTRESS_WALL 6 per
+		# BASE_TERRAIN_COST cost=0 marker). Those types are forced to 0
+		# regardless of is_passable_base default (which is true on MapTileData
+		# and was leaking RIVER tiles as passable pre-S49).
+		var inherently_impassable: bool = (
+			(TerrainCost.BASE_TERRAIN_COST.get(t.terrain_type, 10) as int) == 0
+		)
+		var expected_passable: int = (
+			0 if inherently_impassable
+			else (1 if t.is_passable_base else 0)
+		)
 		assert_int(grid._passable_base_cache[i]).override_failure_message(
-			"_passable_base_cache[%d] should be %d (is_passable_base=%s)" \
-			% [i, expected_passable, str(t.is_passable_base)]
+			"_passable_base_cache[%d] should be %d (terrain=%d, is_passable_base=%s)" \
+			% [i, expected_passable, t.terrain_type, str(t.is_passable_base)]
 		).is_equal(expected_passable)
 
 		assert_int(grid._occupant_id_cache[i]).override_failure_message(
@@ -1022,5 +1033,65 @@ func test_map_grid_validate_valid_then_invalid_load_resets_to_inert() -> void:
 	assert_int(errors.size()).override_failure_message(
 		"get_last_load_errors() must contain errors from the failed second call"
 	).is_greater_equal(1)
+
+	grid.free()
+
+
+# ─── Session-49: RIVER + FORTRESS_WALL impassability override ────────────────
+#
+# Map .tres authoring may omit explicit `is_passable_base = false` on RIVER
+# (4) + FORTRESS_WALL (6) tiles — MapTileData's `is_passable_base` defaults
+# to true. Without the S49 override in _build_packed_caches, these tiles
+# silently end up passable, letting units walk onto rivers (user-reported
+# windowed bug at S48). The override uses BASE_TERRAIN_COST cost=0 as the
+# inherently-impassable signal per terrain_cost.gd:38.
+
+
+func test_map_grid_river_tile_is_impassable_even_when_is_passable_base_true() -> void:
+	# Build a 15x15 map. Factory cycles terrain_type via i % 5; tile 4 is
+	# terrain_type 4 (RIVER) with default is_passable_base = true (factory
+	# doesn't gate by terrain type, only by tile_state combinations).
+	var grid := MapGrid.new()
+	var res: MapResource = _make_map(15, 15)
+	var ok: bool = grid.load_map(res)
+	assert_bool(ok).is_true()
+
+	# Find the first RIVER tile in the cache and assert it's impassable
+	# despite the source tile having is_passable_base = true.
+	var found_river: bool = false
+	for i: int in 25:
+		if grid._terrain_type_cache[i] == TerrainCost.RIVER:
+			found_river = true
+			var src_tile: MapTileData = grid._map.tiles[i]
+			assert_bool(src_tile.is_passable_base).override_failure_message(
+				"Test fixture: factory RIVER tile must default is_passable_base=true to exercise the S49 override"
+			).is_true()
+			assert_int(grid._passable_base_cache[i]).override_failure_message(
+				"S49: RIVER (terrain_type=4) tile must be FORCED impassable in cache "
+				+ "regardless of authored is_passable_base"
+			).is_equal(0)
+			break
+	assert_bool(found_river).override_failure_message(
+		"Test setup: no RIVER tile found in first 25 cycled tiles — factory drift?"
+	).is_true()
+
+	grid.free()
+
+
+func test_map_grid_plains_tile_remains_passable_unaffected_by_override() -> void:
+	# Regression guard — the S49 override must ONLY affect cost=0 terrains.
+	# PLAINS (cost=10) keeps its is_passable_base semantics.
+	var grid := MapGrid.new()
+	var res: MapResource = _make_map(15, 15)
+	var ok: bool = grid.load_map(res)
+	assert_bool(ok).is_true()
+
+	# Tile 0 is terrain_type 0 (PLAINS).
+	assert_int(grid._terrain_type_cache[0]).is_equal(TerrainCost.PLAINS)
+	var src_tile: MapTileData = grid._map.tiles[0]
+	var expected: int = 1 if src_tile.is_passable_base else 0
+	assert_int(grid._passable_base_cache[0]).override_failure_message(
+		"PLAINS passability must still mirror is_passable_base post-S49"
+	).is_equal(expected)
 
 	grid.free()

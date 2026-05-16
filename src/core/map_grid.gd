@@ -254,7 +254,22 @@ func load_map(res: MapResource) -> bool:
 		var t: MapTileData = _map.tiles[i]
 		_terrain_type_cache[i]     = t.terrain_type
 		_elevation_cache[i]        = t.elevation
-		_passable_base_cache[i]    = 1 if t.is_passable_base else 0
+		# Session-49 — override is_passable_base for terrain types whose
+		# BASE_TERRAIN_COST is 0 (RIVER + FORTRESS_WALL per terrain_cost.gd
+		# §38: "filtered upstream by _passable_base_cache[idx] == 0"). Map
+		# .tres files default MapTileData.is_passable_base to true and the
+		# author may omit explicit false on river/wall tiles — without this
+		# override the cache silently treated rivers as passable, letting
+		# units walk onto them (user-reported S48 windowed bug). update_tile
+		# (destroy_tile path) is INTENTIONALLY not patched: destroyed walls
+		# become rubble (passable) per session-13 wall_destroy mechanic.
+		var inherently_impassable: bool = (
+			(TerrainCost.BASE_TERRAIN_COST.get(t.terrain_type, 10) as int) == 0
+		)
+		_passable_base_cache[i] = (
+			0 if inherently_impassable
+			else (1 if t.is_passable_base else 0)
+		)
 		_occupant_id_cache[i]      = t.occupant_id
 		_occupant_faction_cache[i] = t.occupant_faction
 		_tile_state_cache[i]       = t.tile_state

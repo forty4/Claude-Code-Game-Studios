@@ -1528,7 +1528,13 @@ func _mount_controls_hint() -> void:
 		return
 	var hint: Label = Label.new()
 	hint.name = "ControlsHint"
-	hint.text = "유닛 클릭 → 빈 칸 = 이동 · 적 클릭 1회 = 미리보기 · 2회 = 공격 · [D] 방어 · 재클릭 = 턴 종료    [H] 도움말  [Esc] 일시정지"
+	# Session-49 — hint text corrected to reflect ACTUAL ESC binding (per
+	# assets/data/input/default_bindings.json): ESC maps to move_cancel +
+	# attack_cancel + close_menu, NOT to open_game_menu. Pre-S49 text said
+	# "[Esc] 일시정지" — misleading, so user gave up trying ESC to cancel
+	# misclicks. Right-click (mouse button 2) also cancels per same binding
+	# file; now surfaced too. 일시정지 is on a separate key (P, 4194346).
+	hint.text = "유닛 클릭 → 빈 칸 = 이동 · 적 클릭 1회 = 미리보기 · 2회 = 공격 · [D] 방어 · 재클릭 = 턴 종료    [Esc / 우클릭] 선택 취소  [H] 도움말  [P] 일시정지"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.add_theme_color_override("font_color", Color(0.95, 0.93, 0.86, 0.92))
 	hint.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.05, 1.0))
