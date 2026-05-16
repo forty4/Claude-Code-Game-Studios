@@ -341,6 +341,11 @@ func _start_battle() -> void:
 	)
 	# S7-05: plumb chapter-authored chokepoints to AISystem holder-archetype scoring.
 	_grid_controller.set_chokepoints(chapter.chokepoints)
+	# Session-28: plumb chapter-authored victory_conditions for the
+	# _check_battle_end + _on_round_started SURVIVE dispatchers. Null is
+	# valid (chapter omitted the resource) and falls through to the
+	# default ANNIHILATION path.
+	_grid_controller.set_victory_conditions(chapter.victory_conditions)
 	# S15-J: wire NATURAL-LOOP mode per ADR-0011 §Amendment 2026-05-09 + ADR-0014 §Amendment 2026-05-10 (#1+#2+#3).
 	# Without this call, T5 _execute_action_budget falls through TEST-SEAM no-op pass; production
 	# battle loop runs to ROUND_CAP_DRAW in ~2-3 seconds without natural input/AI dispatch.
@@ -1491,6 +1496,7 @@ func _on_battle_outcome_resolved(outcome: StringName, _fate_data: Dictionary) ->
 func _outcome_result(outcome: StringName) -> int:
 	match outcome:
 		&"VICTORY_ANNIHILATION": return BattleOutcome.Result.WIN
+		&"VICTORY_SURVIVE": return BattleOutcome.Result.WIN  # Session-28
 		&"DEFEAT_ANNIHILATION": return BattleOutcome.Result.LOSS
 		&"TURN_LIMIT_REACHED": return BattleOutcome.Result.DRAW
 		_: return BattleOutcome.Result.DRAW

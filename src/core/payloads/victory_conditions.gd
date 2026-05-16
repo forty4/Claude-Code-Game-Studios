@@ -1,11 +1,50 @@
 ## VictoryConditions — nested payload inside BattlePayload.victory_conditions.
 ## Emitter: ScenarioRunner (via BattlePayload on battle_prepare_requested / battle_launch_requested).
-## Consumed by: Battle HUD, BattleController (win evaluation logic).
+## Consumed by: Battle HUD (UI-GB-08 victory condition display) +
+## GridBattleController (_check_battle_end + _on_round_started SURVIVE check).
 ##
-## Shape PROVISIONAL — locked by Grid Battle ADR; currently placeholder for BattlePayload.
-## Fields will expand once the Grid Battle ADR finalises victory condition types.
+## Session-28 — closed the placeholder. Pre-S28 the resource carried just
+## `primary_condition_type` + `target_unit_ids` but neither field was ever
+## read; the controller hardcoded ANNIHILATION-only checks. Post-S28 the
+## resource defines a proper ConditionType taxonomy + per-type params, and
+## the controller's `_check_battle_end` dispatches on condition_type.
+##
+## Default-construction (ConditionType.ANNIHILATION + zero fields) preserves
+## the pre-S28 behaviour for chapters that don't set victory_conditions at
+## all — null vc passed to the controller falls through to the default
+## ANNIHILATION dispatcher path.
 class_name VictoryConditions
 extends Resource
 
-@export var primary_condition_type: int = 0
+
+## Victory-condition taxonomy. Default = ANNIHILATION (legacy MVP behaviour).
+##   ANNIHILATION    — Player wins when all enemy units are dead; loses when
+##                     all player units are dead. The pre-S28 baseline.
+##   SURVIVE_N_ROUNDS — Player wins when round_num exceeds `survive_rounds`
+##                     (i.e., on the start of round survive_rounds+1, having
+##                     survived survive_rounds full rounds). Player still
+##                     loses on full wipeout before the threshold. Enemy
+##                     wipeout does NOT shortcut to victory — the player
+##                     must hold position long enough.
+enum ConditionType {
+	ANNIHILATION = 0,
+	SURVIVE_N_ROUNDS = 1,
+}
+
+
+## Active condition type. Reads as one of the ConditionType enum values.
+## Backed by int rather than ConditionType so existing chapter .tres files
+## that set `primary_condition_type = 0` continue to parse correctly without
+## migration. Use VictoryConditions.ConditionType for new authoring.
+@export var primary_condition_type: int = ConditionType.ANNIHILATION
+
+## SURVIVE_N_ROUNDS param — player wins after surviving this many full rounds.
+## `survive_rounds = 3` means: round 1 plays, round 2 plays, round 3 plays;
+## at the start of round 4 the controller emits VICTORY_SURVIVE. 0 = unused
+## (irrelevant for non-SURVIVE_N_ROUNDS types).
+@export var survive_rounds: int = 0
+
+## Reserved for ESCORT / REACH_TILE future condition types. Kept from the
+## pre-S28 placeholder shape so chapter .tres files that referenced this
+## field don't break on resource reload.
 @export var target_unit_ids: PackedInt64Array = PackedInt64Array()

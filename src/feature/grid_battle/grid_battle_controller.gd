@@ -352,6 +352,13 @@ var _last_outcome: StringName = &""
 var _chokepoints: Array[Vector2i] = []
 
 
+## Session-28 — per-chapter victory condition. Set via set_victory_conditions()
+## by BattleScene at chapter-load. Null = use the default ANNIHILATION-only
+## dispatcher path (preserves pre-S28 behaviour for chapters that don't set
+## victory_conditions in their ChapterDefinition .tres).
+var _victory_conditions: VictoryConditions = null
+
+
 # ─── DI seam (BattleScene calls before add_child per ADR-0014 §3) ───────────
 
 ## Injects all 8 DI dependencies. MUST be called before add_child().
@@ -948,7 +955,7 @@ func get_battle_stats() -> Dictionary:
 		"surviving_player_count": surviving,
 		"total_player_count": total,
 		"star_rating": rating,
-		"outcome_was_win": _battle_over and _last_outcome == &"VICTORY_ANNIHILATION",
+		"outcome_was_win": _battle_over and (_last_outcome == &"VICTORY_ANNIHILATION" or _last_outcome == &"VICTORY_SURVIVE"),
 	}
 
 
@@ -962,7 +969,7 @@ func get_battle_stats() -> Dictionary:
 func _compute_star_rating(surviving: int, total: int) -> int:
 	if not _battle_over:
 		return 0
-	if _last_outcome != &"VICTORY_ANNIHILATION":
+	if _last_outcome != &"VICTORY_ANNIHILATION" and _last_outcome != &"VICTORY_SURVIVE":
 		return 0
 	var round_count: int = 0
 	if _turn_runner != null and _turn_runner.has_method("get_current_round_number"):
@@ -1235,6 +1242,15 @@ func set_chokepoints(chokepoints: Array[Vector2i]) -> void:
 	_chokepoints = chokepoints.duplicate()
 
 
+## Session-28 — sets per-chapter victory_conditions. Called by BattleScene
+## after ScenarioRunner hydrates the active ChapterDefinition. Null is
+## valid (chapter omitted the resource entirely) and falls through to the
+## default ANNIHILATION-only dispatcher path. Pure setter — does not
+## emit signals or trigger snapshot rebuilds.
+func set_victory_conditions(vc: VictoryConditions) -> void:
+	_victory_conditions = vc
+
+
 ## Subscribed to GameBus.unit_turn_ended via CONNECT_DEFERRED in _ready().
 ## Pure view-layer re-emit so BattleScene can dim the polygon of any unit that
 ## actually spent a token this turn. _battle_over gate suppresses post-resolve
@@ -1252,6 +1268,16 @@ func _on_unit_turn_ended(unit_id: int, acted: bool) -> void:
 func _on_round_started(round_num: int) -> void:
 	if _battle_over:
 		return  # AC-7 terminal-state guard
+	# Session-28 — SURVIVE_N_ROUNDS check. round_num > survive_rounds means
+	# the player has endured `survive_rounds` full rounds — emit VICTORY now,
+	# BEFORE this new round runs its turn order (so the player's units don't
+	# take any actions in the post-win round). Gated to the SURVIVE type to
+	# avoid touching the ANNIHILATION default path.
+	if _victory_conditions != null \
+			and _victory_conditions.primary_condition_type == VictoryConditions.ConditionType.SURVIVE_N_ROUNDS \
+			and round_num > _victory_conditions.survive_rounds:
+		_emit_battle_outcome(&"VICTORY_SURVIVE")
+		return
 	# Clear per-round per-unit action flags so units can act in the new round.
 	# Without this, _handle_grid_click_observation silently rejects re-selection
 	# of any unit that acted in the prior round (user-reported "after 2 moves
@@ -2519,13 +2545,23 @@ func _emit_battle_outcome(outcome: StringName) -> void:
 	battle_outcome_resolved.emit(outcome, fate_data)
 
 
-## Checks alive-unit counts on each side. If either side has 0 alive units,
-## emits the corresponding annihilation outcome and returns true. Returns false
-## if both sides still have at least one alive unit. Per ADR-0014 §7 +
-## story-007 AC-5 + AC-6 + grid-battle.md CR-7 evaluation order.
+## Checks alive-unit counts on each side. Dispatches on _victory_conditions
+## (session-28). If either side has 0 alive units AND the active condition
+## treats annihilation as a victory/defeat trigger, emits the corresponding
+## outcome and returns true. Returns false if no terminal condition fires.
+## Per ADR-0014 §7 + story-007 AC-5 + AC-6 + grid-battle.md CR-7 evaluation order.
 ##
-## CR-7 evaluation order: VICTORY_ANNIHILATION checked BEFORE DEFEAT_ANNIHILATION
-## per grid-battle.md EC-GB-02 mutual-kill precedence (player-side wins ties).
+## Dispatcher branches:
+##   - null vc OR ConditionType.ANNIHILATION (default): pre-S28 behaviour —
+##     VICTORY_ANNIHILATION precedes DEFEAT_ANNIHILATION per CR-7 / EC-GB-02
+##     mutual-kill precedence (player-side wins ties).
+##   - ConditionType.SURVIVE_N_ROUNDS: enemy wipeout is NOT a shortcut to
+##     victory (player must endure to the round threshold; emit nothing on
+##     enemy-zero), but player wipeout still emits DEFEAT_ANNIHILATION.
+##     The VICTORY_SURVIVE side is emitted from _on_round_started (round
+##     threshold can only advance on a fresh round_started tick, not on a
+##     unit_died deferred chain).
+##
 ## Called from _on_unit_died (CONNECT_DEFERRED — no reentrance per ADR-0014 R-8).
 func _check_battle_end() -> bool:
 	var player_alive: int = 0
@@ -2537,14 +2573,27 @@ func _check_battle_end() -> bool:
 			player_alive += 1
 		else:
 			enemy_alive += 1
-	# CR-7 + EC-GB-02: VICTORY_ANNIHILATION precedence over DEFEAT.
-	if enemy_alive == 0:
-		_emit_battle_outcome(&"VICTORY_ANNIHILATION")
-		return true
-	if player_alive == 0:
-		_emit_battle_outcome(&"DEFEAT_ANNIHILATION")
-		return true
-	return false
+	var condition_type: int = VictoryConditions.ConditionType.ANNIHILATION
+	if _victory_conditions != null:
+		condition_type = _victory_conditions.primary_condition_type
+	match condition_type:
+		VictoryConditions.ConditionType.SURVIVE_N_ROUNDS:
+			# Enemy wipeout does NOT shortcut to VICTORY for survive — the
+			# player must hold position through the full round count. Only
+			# the wipeout-DEFEAT path fires from here.
+			if player_alive == 0:
+				_emit_battle_outcome(&"DEFEAT_ANNIHILATION")
+				return true
+			return false
+		_:
+			# ANNIHILATION (default) — CR-7 + EC-GB-02 precedence.
+			if enemy_alive == 0:
+				_emit_battle_outcome(&"VICTORY_ANNIHILATION")
+				return true
+			if player_alive == 0:
+				_emit_battle_outcome(&"DEFEAT_ANNIHILATION")
+				return true
+			return false
 
 
 ## Per ADR-0014 §Amendment 2026-05-10 (#3 — production-wiring residual closure).

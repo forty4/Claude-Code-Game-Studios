@@ -25,8 +25,10 @@ var _published: bool = false
 
 ## Outcome StringName → BattleOutcome.Result. Keys match
 ## GridBattleController._emit_battle_outcome's emitted values.
+## Session-28 — VICTORY_SURVIVE added for SURVIVE_N_ROUNDS condition type.
 const _OUTCOME_TO_RESULT: Dictionary = {
 	&"VICTORY_ANNIHILATION": BattleOutcome.Result.WIN,
+	&"VICTORY_SURVIVE": BattleOutcome.Result.WIN,
 	&"DEFEAT_ANNIHILATION": BattleOutcome.Result.LOSS,
 	&"TURN_LIMIT_REACHED": BattleOutcome.Result.DRAW,
 }
