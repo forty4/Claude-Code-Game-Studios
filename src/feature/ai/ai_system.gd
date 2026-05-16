@@ -142,11 +142,19 @@ func _enumerate_candidates(unit: Dictionary, snapshot: BattleStateSnapshot) -> A
 	out.append({"action_type": AIActionCommand.ActionType.WAIT, "move_to": pos, "target_id": -1})
 	# DEFEND candidate.
 	out.append({"action_type": AIActionCommand.ActionType.DEFEND, "move_to": pos, "target_id": -1})
-	# USE_SKILL(rally) candidate (only relevant for coordinator; scoring decides).
-	out.append({
-		"action_type": AIActionCommand.ActionType.USE_SKILL,
-		"move_to": pos, "target_id": -1, "skill": &"rally",
-	})
+	# Session-27 — USE_SKILL candidate keyed to the unit's actual innate skill.
+	# Was hardcoded `&"rally"` (a placeholder with no wired handler — the AI
+	# would pick it, controller would warn-and-substitute-WAIT). Now reads
+	# from the snapshot's `skill_id` + `skill_used` fields and emits only
+	# when there's something to fire. Per-archetype _score_*_USE_SKILL
+	# branches decide whether the situation merits firing it.
+	var skill_id: StringName = unit.get("skill_id", &"") as StringName
+	var skill_used: bool = unit.get("skill_used", false) as bool
+	if skill_id != &"" and not skill_used:
+		out.append({
+			"action_type": AIActionCommand.ActionType.USE_SKILL,
+			"move_to": pos, "target_id": -1, "skill": skill_id,
+		})
 	# ATTACK candidates: each player unit within attack_range from current pos.
 	for u: Dictionary in snapshot.units:
 		if (u.get("side", 1) as int) != 0:
@@ -208,6 +216,27 @@ func _tie_break_prefers(a: Dictionary, b: Dictionary) -> bool:
 	return a_pos.x < b_pos.x
 
 
+# ─── Session-27: archetype-flavoured USE_SKILL scoring ───────────────────────
+#
+# Each archetype scores its USE_SKILL candidate against game state — not the
+# specific skill_id of the unit. Rationale: the AI shouldn't need to "know"
+# what dragon_blade / thunder_roar / charm do; it just needs to know "I have
+# a one-shot trump card, fire it when the moment is right." The archetype
+# defines what "right" means:
+#
+#   aggressor / berserker — Adjacent player(s) present? Fire (burst kill).
+#   skirmisher            — Player adjacent (threatened)? Fire (disrupt).
+#   holder                — At chokepoint with player in attack range? Fire.
+#   coordinator           — ≥2 adjacent allies (formation context)? Fire rally.
+#   protector             — Protectee wounded? Fire (defensive support).
+#
+# All branches add `_caster_status_score_modifier(unit)` — a poison-dying
+# caster wants to spend its skill before next tick kills it.
+#
+# Constants are inline numerics — tuneable, no BalanceConstants entries yet
+# (those land if/when a chapter calls for per-skill specialization).
+
+
 # ─── Per-archetype scoring (match-dispatch on archetype StringName) ──────────
 
 
@@ -244,7 +273,13 @@ func _score_aggressor(candidate: Dictionary, snapshot: BattleStateSnapshot, unit
 	if action == AIActionCommand.ActionType.DEFEND:
 		return -50.0
 	if action == AIActionCommand.ActionType.USE_SKILL:
-		return -100.0
+		# Session-27 — fire when adjacent player(s) present (burst kill);
+		# 25.0 beats ATTACK base (20.0) so a skilled aggressor prefers the
+		# one-shot when adjacency lets it land.
+		var adj_enemies: int = _count_adjacent_enemies(unit, snapshot)
+		if adj_enemies >= 1:
+			return 25.0 + _caster_status_score_modifier(unit)
+		return -50.0 + _caster_status_score_modifier(unit)
 	if action == AIActionCommand.ActionType.MOVE:
 		# MOVE-only is low-priority for aggressor; favor closing distance to nearest player.
 		var dest: Vector2i = candidate.get("move_to", Vector2i.ZERO) as Vector2i
@@ -275,7 +310,15 @@ func _score_skirmisher(candidate: Dictionary, snapshot: BattleStateSnapshot, uni
 	if action == AIActionCommand.ActionType.DEFEND:
 		return -30.0
 	if action == AIActionCommand.ActionType.USE_SKILL:
-		return -100.0
+		# Session-27 — fire when threatened (player adjacent → kite has
+		# failed → defensive disruption is the play). 32.0 beats the
+		# kite-MOVE reward (SKIRMISHER_SAFE_DISTANCE_BONUS=25.0 + 5.0
+		# constant = 30.0) so threatened skirmishers spend their one-shot
+		# rather than try to escape.
+		var adj_enemies: int = _count_adjacent_enemies(unit, snapshot)
+		if adj_enemies >= 1:
+			return 32.0 + _caster_status_score_modifier(unit)
+		return -50.0 + _caster_status_score_modifier(unit)
 	var melee_penalty: float = float(BalanceConstants.get_const("SKIRMISHER_MELEE_PENALTY"))
 	var safe_bonus: float = float(BalanceConstants.get_const("SKIRMISHER_SAFE_DISTANCE_BONUS"))
 	if action == AIActionCommand.ActionType.MOVE:
@@ -311,7 +354,13 @@ func _score_holder(candidate: Dictionary, snapshot: BattleStateSnapshot, unit: D
 	if action == AIActionCommand.ActionType.DEFEND:
 		return 20.0 if any_in_range else -10.0
 	if action == AIActionCommand.ActionType.USE_SKILL:
-		return -100.0
+		# Session-27 — fire when defending the chokepoint AND a player is
+		# in attack range (the moment the line is being tested). 22.0 beats
+		# ATTACK base (18.0) so a chokepoint holder spends the skill
+		# defensively rather than trading ATKs against shielded foes.
+		if at_chokepoint and any_in_range:
+			return 22.0 + _caster_status_score_modifier(unit)
+		return -50.0 + _caster_status_score_modifier(unit)
 	var chokepoint_bonus: float = float(BalanceConstants.get_const("HOLDER_CHOKEPOINT_BONUS"))
 	var overextend: float = float(BalanceConstants.get_const("HOLDER_OVEREXTEND_PENALTY"))
 	if action == AIActionCommand.ActionType.MOVE:
@@ -345,13 +394,18 @@ func _score_coordinator(candidate: Dictionary, snapshot: BattleStateSnapshot, un
 	if action == AIActionCommand.ActionType.DEFEND:
 		return 30.0 if hp_pct < 0.4 else 0.0
 	if action == AIActionCommand.ActionType.USE_SKILL:
-		var skill: StringName = candidate.get("skill", &"") as StringName
-		if skill == &"rally":
-			# Rally requires ≥2 adjacent allies.
-			var adj_allies: int = _count_adjacent_allies(unit, snapshot)
-			if adj_allies >= 2:
-				return float(BalanceConstants.get_const("COORDINATOR_RALLY_BONUS"))
-		return -100.0
+		# Session-27 — generalize rally to formation-context skills. The
+		# pre-S27 logic checked `skill == &"rally"`, but rally was a
+		# placeholder slug with no wired handler. After S27 the candidate
+		# carries the unit's actual skill_id; the rally-bonus heuristic
+		# (≥2 adjacent allies = "I'm in a formation that benefits from
+		# my one-shot") survives unchanged. Non-formation contexts fall
+		# back to default skill use.
+		var adj_allies: int = _count_adjacent_allies(unit, snapshot)
+		if adj_allies >= 2:
+			return float(BalanceConstants.get_const("COORDINATOR_RALLY_BONUS")) \
+				+ _caster_status_score_modifier(unit)
+		return 8.0 + _caster_status_score_modifier(unit)
 	if action == AIActionCommand.ActionType.ATTACK:
 		var t_id: int = candidate.get("target_id", -1) as int
 		var target: Dictionary = snapshot.get_unit(t_id)
@@ -385,7 +439,14 @@ func _score_berserker(candidate: Dictionary, snapshot: BattleStateSnapshot, unit
 	if action == AIActionCommand.ActionType.DEFEND:
 		return -100.0  # berserkers never defend
 	if action == AIActionCommand.ActionType.USE_SKILL:
-		return -100.0
+		# Session-27 — berserker fires the skill aggressively, especially
+		# when low HP (the "death-throes burst"). 30.0 beats ATTACK base
+		# (25.0) even before the low-HP stack, so a healthy berserker still
+		# prefers skill > attack when adjacent enemies are present.
+		var adj_enemies: int = _count_adjacent_enemies(unit, snapshot)
+		if adj_enemies >= 1:
+			return 30.0 + _caster_status_score_modifier(unit)
+		return -50.0 + _caster_status_score_modifier(unit)
 	var hp_pct: float = float(unit.get("hp_current", 1) as int) / max(1.0, float(unit.get("hp_max", 1) as int))
 	var threshold: float = float(BalanceConstants.get_const("BERSERKER_LOW_HP_THRESHOLD"))
 	var low_hp_bonus: float = float(BalanceConstants.get_const("BERSERKER_LOW_HP_ATTACK_BONUS")) if hp_pct < threshold else 0.0
@@ -441,7 +502,14 @@ func _score_protector(candidate: Dictionary, snapshot: BattleStateSnapshot, unit
 		# Defensive stance is valuable when guarding a wounded commander.
 		return 25.0 if protectee_hp_pct < 0.50 else 5.0
 	if action == AIActionCommand.ActionType.USE_SKILL:
-		return -100.0
+		# Session-27 — protector fires the skill defensively when the
+		# protectee is wounded (HP < 50%). 55.0 beats ATTACK+intercept
+		# (18.0 + PROTECTOR_INTERCEPT_BONUS=30.0 = 48.0) so the protector
+		# spends its one-shot on commander defense even when there's a
+		# tempting intercept-bonus ATK on a threatening player.
+		if protectee_hp_pct < 0.50:
+			return 55.0 + _caster_status_score_modifier(unit)
+		return -50.0 + _caster_status_score_modifier(unit)
 	if action == AIActionCommand.ActionType.MOVE:
 		var dest: Vector2i = candidate.get("move_to", Vector2i.ZERO) as Vector2i
 		var dest_to_protectee: int = _grid_distance(dest, protectee_pos)
@@ -534,6 +602,24 @@ func _count_adjacent_allies(unit: Dictionary, snapshot: BattleStateSnapshot) -> 
 			continue
 		if (u.get("side", 1) as int) != 1:
 			continue  # Allies are same side as `unit` (enemy side=1).
+		if not (u.get("is_alive", true) as bool):
+			continue
+		var t_pos: Vector2i = u.get("position", Vector2i.ZERO) as Vector2i
+		if _grid_distance(pos, t_pos) == 1:
+			count += 1
+	return count
+
+
+## Session-27 — adjacent-player count (player units are AI's enemies). Used by
+## aggressor/berserker/skirmisher USE_SKILL scoring: burst-skill candidates
+## (thunder_roar, charm, naval_strategy) are valuable when ≥1 player is adjacent;
+## piercing_volley is valuable when ≥1 player is within attack_range.
+func _count_adjacent_enemies(unit: Dictionary, snapshot: BattleStateSnapshot) -> int:
+	var pos: Vector2i = unit.get("position", Vector2i.ZERO) as Vector2i
+	var count: int = 0
+	for u: Dictionary in snapshot.units:
+		if (u.get("side", 1) as int) != 0:
+			continue  # Player units are side=0; enemies (this caller's side) skip.
 		if not (u.get("is_alive", true) as bool):
 			continue
 		var t_pos: Vector2i = u.get("position", Vector2i.ZERO) as Vector2i

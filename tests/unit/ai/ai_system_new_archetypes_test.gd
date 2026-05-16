@@ -4,7 +4,9 @@
 ##
 ## Berserker:
 ##   - Below low-HP threshold: ATTACK score gets a flat bonus
-##   - Always rejects DEFEND/USE_SKILL (returns -100)
+##   - Always rejects DEFEND (returns -100)
+##   - S27: USE_SKILL fires when adjacent enemies present (death-throes burst);
+##     -50 otherwise. Was -100 pre-S27 when AI USE_SKILL was deferred.
 ##   - WAIT also rejected (-100) — berserker never sits still
 ##   - MOVE: penalty per remaining distance (scaled by tolerance constant)
 ##

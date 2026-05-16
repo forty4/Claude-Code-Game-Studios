@@ -57,9 +57,14 @@ func test_coordinator_targets_commander_over_higher_dmg_target() -> void:
 
 
 func test_coordinator_uses_rally_with_two_adjacent_allies() -> void:
-	# Coordinator with 2 adjacent allies + rally available → USE_SKILL(rally).
+	# Session-27 — Coordinator with 2 adjacent allies + a wired skill →
+	# USE_SKILL with the unit's actual skill_id. The pre-S27 test asserted
+	# the hardcoded `&"rally"` placeholder; post-S27 the candidate carries
+	# the actual skill_id (here `skill_inspire`, the rally-like skill that
+	# refunds adjacent ally tokens).
 	var enemies: Array[Dictionary] = [
-		BattleStateSnapshotFactory.unit(2, &"coordinator", Vector2i(5, 5), 100, 100),
+		BattleStateSnapshotFactory.unit(2, &"coordinator", Vector2i(5, 5), 100, 100,
+				{"skill_id": &"skill_inspire", "skill_used": false}),
 		# Adjacent allies (same side=1).
 		BattleStateSnapshotFactory.unit(3, &"aggressor", Vector2i(5, 6), 100, 100),
 		BattleStateSnapshotFactory.unit(4, &"holder", Vector2i(6, 5), 100, 100),
@@ -70,7 +75,9 @@ func test_coordinator_uses_rally_with_two_adjacent_allies() -> void:
 	auto_free(ai)
 	var cmd: AIActionCommand = ai.decide(2, snap)
 	assert_int(cmd.action_type).is_equal(AIActionCommand.ActionType.USE_SKILL)
-	assert_str(String(cmd.skill_id)).is_equal("rally")
+	assert_str(String(cmd.skill_id)).override_failure_message(
+		"S27: USE_SKILL command must carry the unit's actual skill_id (was hardcoded rally placeholder)"
+	).is_equal("skill_inspire")
 
 
 # ─── EC-AI-1: zero candidates → WAIT ─────────────────────────────────────────

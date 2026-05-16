@@ -78,11 +78,17 @@ func test_use_skill_returns_false_when_no_skill_wired() -> void:
 	assert_bool(controller.use_skill(1)).is_false()
 
 
-func test_use_skill_returns_false_for_enemy_side() -> void:
-	# Enemy unit with a wired skill — still refused (player-only API).
+func test_use_skill_fires_for_enemy_side() -> void:
+	# Session-27 — player-side gate lifted. Enemy units with a wired skill
+	# DO fire (handlers are side-symmetric via `victim.side == unit.side`
+	# skip-same-side / `!=` skip-different-side patterns). Closes ADR-0014
+	# §0 MVP scope deferral.
 	var e: BattleUnit = _make_unit(1, Vector2i(2, 2), 1, &"skill_dragon_blade")
 	var controller: GridBattleController = _setup([e])
-	assert_bool(controller.use_skill(1)).is_false()
+	assert_bool(controller.use_skill(1)).override_failure_message(
+		"Session-27: enemy unit with wired skill MUST fire (side gate lifted)"
+	).is_true()
+	assert_bool(e.skill_used).is_true()
 
 
 func test_use_skill_returns_false_when_already_used() -> void:

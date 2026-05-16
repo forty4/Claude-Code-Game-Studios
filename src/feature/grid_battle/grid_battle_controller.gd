@@ -574,15 +574,31 @@ func _on_ai_action_ready(unit_id: int, command: AIActionCommand) -> void:
 			_turn_runner.declare_action(unit_id, TurnOrderRunner.ActionType.DEFEND, null)
 			_apply_defend_stance_status(unit_id)
 		AIActionCommand.ActionType.USE_SKILL:
-			# USE_SKILL execution deferred per ADR-0014 §0 MVP scope.
-			# Substitutes WAIT so the AI unit's turn completes cleanly.
-			push_warning(
-				("GridBattleController: AIActionCommand.USE_SKILL deferred per ADR-0014 "
-				+ "§0 MVP scope — substituting WAIT for unit_id %d")
-				% unit_id
-			)
-			_acted_this_turn[unit_id] = true
-			_turn_runner.declare_action(unit_id, TurnOrderRunner.ActionType.WAIT, null)
+			# Session-27 — wire AI USE_SKILL through use_skill(). Closes the
+			# ADR-0014 §0 MVP-scope deferral. Most skill handlers internally
+			# call declare_action (thunder_roar / piercing_volley / strategist
+			# / dragon_blade-after-attack); the utility skills (inspire /
+			# charm / naval_strategy) intentionally don't spend the ATK token
+			# so the player can chain skill+attack. For AI we only allow one
+			# command per turn — declare WAIT if use_skill returned false
+			# (unwired skill / already used / etc.) OR if the skill fired
+			# but didn't internally declare an action (utility skills).
+			var fired: bool = use_skill(unit_id)
+			if not _acted_this_turn.get(unit_id, false):
+				_acted_this_turn[unit_id] = true
+				_turn_runner.declare_action(unit_id, TurnOrderRunner.ActionType.WAIT, null)
+			if not fired:
+				# Diagnostic — distinguishes the "I picked USE_SKILL but
+				# couldn't fire it" path from the "I picked it and it fired"
+				# path. Common cause: skill_id was empty (no innate skill on
+				# this unit) or already used this battle.
+				push_warning(
+					("GridBattleController: AI USE_SKILL no-fire for unit_id %d "
+					+ "(skill_id='%s' skill_used=%s) — declared WAIT instead")
+					% [unit_id,
+					   String(_units[unit_id].skill_id) if _units.has(unit_id) else "",
+					   _units[unit_id].skill_used if _units.has(unit_id) else false]
+				)
 		_:
 			push_warning(
 				"GridBattleController._on_ai_action_ready: unknown action_type=%d for unit_id=%d"
@@ -1173,6 +1189,14 @@ func _make_battle_state_snapshot() -> BattleStateSnapshot:
 			"tag": u.tag,
 			"is_alive": alive,
 			"status_ids": status_ids,
+			# Session-27 — surface skill_id + skill_used so AI can score
+			# USE_SKILL candidates against the unit's actual innate skill
+			# (was hardcoded rally before; the rally placeholder had no
+			# wired handler, so no USE_SKILL ever actually fired). Gating
+			# the candidate by !skill_used keeps the AI from re-picking
+			# an exhausted skill mid-battle.
+			"skill_id": u.skill_id,
+			"skill_used": u.skill_used,
 		})
 	# Map dimensions + terrain grid.
 	if _map_grid != null:
@@ -1560,8 +1584,11 @@ func use_skill(unit_id: int) -> bool:
 	if not _units.has(unit_id):
 		return false
 	var unit: BattleUnit = _units[unit_id]
-	if unit.side != 0:
-		return false  # player-only; enemy AI skill activation deferred
+	# Session-27 — player-side gate lifted. All wired skill handlers iterate
+	# `victim.side == unit.side` (skip same-side) / `victim.side != unit.side`
+	# (skip different-side), so the firing semantics are side-symmetric out
+	# of the box. ADR-0014 §0 MVP scope originally deferred AI USE_SKILL;
+	# session-27 closes that deferral.
 	if unit.skill_id == &"":
 		return false  # no skill wired
 	if unit.skill_used:

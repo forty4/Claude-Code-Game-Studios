@@ -537,27 +537,60 @@ func test_handler_defend_declares_defend() -> void:
 	).is_equal(TurnOrderRunner.ActionType.DEFEND as int)
 
 
-# ── AC-9: USE_SKILL handler substitutes WAIT ──────────────────────────────────
+# ── AC-9: USE_SKILL handler routes through use_skill() + WAIT fallback ────────
 
-## AC-9 (S15-B): USE_SKILL command substitutes WAIT per ADR-0014 §0 MVP scope.
-## Given: ai_stub emits USE_SKILL command for _UID_AI.
-## When: await process_frame.
-## Then: _turn_double.calls[0].action == WAIT (not USE_SKILL — not a TurnOrderRunner type).
-func test_handler_use_skill_substitutes_wait() -> void:
+## AC-9 (S15-B → S27 amendment): USE_SKILL command routes through
+## `use_skill(unit_id)`. Pre-S27 the handler substituted WAIT blindly per
+## ADR-0014 §0 MVP-scope deferral; S27 wires the actual firing path. When
+## use_skill returns false (e.g., unit has no wired skill_id like the
+## _UID_AI fixture here, which defaults to skill_id=""), the handler falls
+## back to declaring WAIT so the turn still completes cleanly. The
+## post-S27 assertion is identical to pre-S27 BECAUSE the fixture has no
+## skill — same WAIT-call shape, different code path. A separate session-27
+## test (test_handler_use_skill_fires_when_skill_wired) covers the
+## actually-fires path.
+func test_handler_use_skill_falls_back_to_wait_when_no_skill_wired() -> void:
 	var cmd: AIActionCommand = AIActionCommand.use_skill(_UID_AI, &"rally")
 	_ai_stub.emit_ready(_UID_AI, cmd)
 	await get_tree().process_frame
 
 	assert_int(_turn_double.calls.size()).override_failure_message(
-		("AC-9/USE_SKILL: exactly 1 declare_action call expected (substituted WAIT); got %d")
+		("AC-9/USE_SKILL: exactly 1 declare_action call expected (WAIT fallback); got %d")
 		% _turn_double.calls.size()
 	).is_equal(1)
 
 	var call_action: int = _turn_double.calls[0].get("action", -1) as int
 	assert_int(call_action).override_failure_message(
-		("AC-9/USE_SKILL: action must be WAIT (%d) per MVP substitution; got %d")
+		("AC-9/USE_SKILL: action must be WAIT (%d) when skill is unwired; got %d")
 		% [TurnOrderRunner.ActionType.WAIT as int, call_action]
 	).is_equal(TurnOrderRunner.ActionType.WAIT as int)
+
+
+## AC-9 amendment (session-27): USE_SKILL with a wired skill on an ENEMY unit
+## actually fires (was player-only pre-S27). Pick `skill_dragon_blade` (buff-
+## type that doesn't require adjacent enemies — fires unconditionally and just
+## marks skill_used). Asserts skill_used flips true post-dispatch.
+func test_handler_use_skill_fires_when_skill_wired() -> void:
+	# Inject skill_id onto the existing AI unit (fixture defaults to &"").
+	var ai_unit: BattleUnit = _controller.get_battle_unit(_UID_AI)
+	ai_unit.skill_id = &"skill_dragon_blade"
+	# dragon_blade only marks a pending buff; it never calls declare_action
+	# internally, so the dispatch handler's fallback WAIT-declare path fires.
+
+	var cmd: AIActionCommand = AIActionCommand.use_skill(_UID_AI, &"skill_dragon_blade")
+	_ai_stub.emit_ready(_UID_AI, cmd)
+	await get_tree().process_frame
+
+	assert_bool(ai_unit.skill_used).override_failure_message(
+		"S27: enemy USE_SKILL must flip skill_used=true after dispatch"
+	).is_true()
+
+	# Turn still completes via fallback WAIT declare (dragon_blade is utility —
+	# doesn't internally declare_action).
+	assert_int(_turn_double.calls.size()).override_failure_message(
+		"S27: exactly 1 declare_action call expected after fire (fallback WAIT); got %d"
+				% _turn_double.calls.size()
+	).is_equal(1)
 
 
 # ── AC-10: Unknown unit_id is a no-op ────────────────────────────────────────
