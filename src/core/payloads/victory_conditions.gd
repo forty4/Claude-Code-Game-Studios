@@ -26,9 +26,20 @@ extends Resource
 ##                     loses on full wipeout before the threshold. Enemy
 ##                     wipeout does NOT shortcut to victory — the player
 ##                     must hold position long enough.
+##   ESCORT          — Player wins when all enemies are dead AND every
+##                     unit in `target_unit_ids` is still alive. Loses
+##                     immediately when any target dies (DEFEAT_ESCORT_LOST)
+##                     OR when all player units die (DEFEAT_ANNIHILATION).
+##                     The target-death check PRECEDES the win check, so
+##                     a mutual-kill round (enemy wipeout + target dies on
+##                     the same unit_died tick) resolves to DEFEAT.
+##                     `target_unit_ids` is REQUIRED for ESCORT — empty
+##                     list degrades to ANNIHILATION behaviour with a
+##                     diagnostic push_warning.
 enum ConditionType {
 	ANNIHILATION = 0,
 	SURVIVE_N_ROUNDS = 1,
+	ESCORT = 2,
 }
 
 
@@ -44,7 +55,10 @@ enum ConditionType {
 ## (irrelevant for non-SURVIVE_N_ROUNDS types).
 @export var survive_rounds: int = 0
 
-## Reserved for ESCORT / REACH_TILE future condition types. Kept from the
-## pre-S28 placeholder shape so chapter .tres files that referenced this
-## field don't break on resource reload.
+## ESCORT param (session-30) — unit_ids of the protectees. Player wins only
+## if ALL of these are alive at the moment of enemy wipeout; player loses
+## immediately when any one of them dies. Reserved for REACH_TILE future
+## type as well (the tile-arrival check will key on a unit in this list).
+## Empty list is degenerate for ESCORT (falls through to ANNIHILATION with
+## a diagnostic warning).
 @export var target_unit_ids: PackedInt64Array = PackedInt64Array()

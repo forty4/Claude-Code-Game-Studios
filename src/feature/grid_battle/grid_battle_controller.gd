@@ -955,7 +955,7 @@ func get_battle_stats() -> Dictionary:
 		"surviving_player_count": surviving,
 		"total_player_count": total,
 		"star_rating": rating,
-		"outcome_was_win": _battle_over and (_last_outcome == &"VICTORY_ANNIHILATION" or _last_outcome == &"VICTORY_SURVIVE"),
+		"outcome_was_win": _battle_over and (_last_outcome == &"VICTORY_ANNIHILATION" or _last_outcome == &"VICTORY_SURVIVE" or _last_outcome == &"VICTORY_ESCORT"),
 	}
 
 
@@ -969,7 +969,7 @@ func get_battle_stats() -> Dictionary:
 func _compute_star_rating(surviving: int, total: int) -> int:
 	if not _battle_over:
 		return 0
-	if _last_outcome != &"VICTORY_ANNIHILATION" and _last_outcome != &"VICTORY_SURVIVE":
+	if _last_outcome != &"VICTORY_ANNIHILATION" and _last_outcome != &"VICTORY_SURVIVE" and _last_outcome != &"VICTORY_ESCORT":
 		return 0
 	var round_count: int = 0
 	if _turn_runner != null and _turn_runner.has_method("get_current_round_number"):
@@ -2581,6 +2581,39 @@ func _check_battle_end() -> bool:
 			# Enemy wipeout does NOT shortcut to VICTORY for survive — the
 			# player must hold position through the full round count. Only
 			# the wipeout-DEFEAT path fires from here.
+			if player_alive == 0:
+				_emit_battle_outcome(&"DEFEAT_ANNIHILATION")
+				return true
+			return false
+		VictoryConditions.ConditionType.ESCORT:
+			# Session-30 — ESCORT semantics:
+			#   1. Any target_unit_id dead → immediate DEFEAT_ESCORT_LOST
+			#      (precedes WIN check, so mutual-kill rounds resolve loss).
+			#   2. Else: enemy wipe + all targets alive → VICTORY_ESCORT.
+			#   3. Else: player wipe → DEFEAT_ANNIHILATION.
+			# Empty target_unit_ids is degenerate: fall through to
+			# ANNIHILATION with a diagnostic warning so the chapter author
+			# notices the missing field.
+			if _victory_conditions.target_unit_ids.is_empty():
+				push_warning(
+					"GridBattleController: ESCORT victory_conditions has empty target_unit_ids — falling back to ANNIHILATION"
+				)
+				if enemy_alive == 0:
+					_emit_battle_outcome(&"VICTORY_ANNIHILATION")
+					return true
+				if player_alive == 0:
+					_emit_battle_outcome(&"DEFEAT_ANNIHILATION")
+					return true
+				return false
+			for target_id_var: int in _victory_conditions.target_unit_ids:
+				if not _units.has(target_id_var):
+					continue  # unknown id — skip silently (degenerate chapter authoring)
+				if not _hp_controller.is_alive(target_id_var):
+					_emit_battle_outcome(&"DEFEAT_ESCORT_LOST")
+					return true
+			if enemy_alive == 0:
+				_emit_battle_outcome(&"VICTORY_ESCORT")
+				return true
 			if player_alive == 0:
 				_emit_battle_outcome(&"DEFEAT_ANNIHILATION")
 				return true
