@@ -253,6 +253,13 @@ var _acted_this_turn: Dictionary[int, bool] = {}
 ## this flag (blocks a second MOVE); ATTACK sets _acted_this_turn (terminal).
 var _moved_this_turn: Dictionary[int, bool] = {}
 
+## Session-52 — per-unit cache of the data needed to roll back the most
+## recent MOVE this turn (cancel_last_move). Cleared automatically when the
+## turn ends — keys are erased alongside _moved_this_turn.clear() sites at
+## round_started / unit_turn_started. Each entry:
+##   {"prev_pos": Vector2i, "prev_facing": int, "movement_cost": int}
+var _move_undo_cache: Dictionary[int, Dictionary] = {}
+
 ## Session-17 — unit_id → "stunned, must WAIT on next turn" flag. Set by
 ## skill_naval_strategy (주유 책략) on every adjacent enemy. Consumed by
 ## _on_turn_runner_action_request which force-declares WAIT and erases the
@@ -1024,6 +1031,7 @@ func _handle_player_end_turn() -> void:
 func end_player_turn() -> void:
 	_acted_this_turn.clear()
 	_moved_this_turn.clear()
+	_move_undo_cache.clear()  # S52 — undo only valid within the current turn
 	if _selected_unit_id != -1:
 		_deselect()
 
@@ -1284,6 +1292,7 @@ func _on_round_started(round_num: int) -> void:
 	# the unit can't be selected again" symptom).
 	_acted_this_turn.clear()
 	_moved_this_turn.clear()
+	_move_undo_cache.clear()  # S52 — undo only valid within the current turn
 	# Session-10: also clear any pending attack preview — counters reset between
 	# rounds and the relative direction/aura state may have shifted.
 	_clear_attack_preview(&"round_started")
@@ -1485,6 +1494,62 @@ func cancel_selection() -> void:
 	_deselect()
 
 
+## Session-52 — rolls back the most-recent MOVE for `unit_id` this turn
+## (영걸전식 move undo). Returns true on success. The unit's position +
+## facing are restored to pre-move values, the MOVE token is retracted on
+## the turn runner so the player can re-issue MOVE, and unit_moved fires
+## so the visual tween animates the polygon back. The unit ends up
+## re-selected, ready for the next attempt.
+##
+## Returns false (no-op) when:
+##   - unit_id not in roster
+##   - no cached pre-move state for this unit this turn (cache cleared on
+##     turn_started / round_started)
+##   - the unit has already declared an ATTACK / DEFEND / WAIT this turn
+##     (token spent — undo would be unsafe)
+##
+## Caller: BattleScene._process polling on ESC + right-click, mirroring
+## the cancel-selection UX but reversing the previous commit instead.
+func cancel_last_move(unit_id: int) -> bool:
+	if not _units.has(unit_id):
+		return false
+	if not _move_undo_cache.has(unit_id):
+		return false  # nothing to undo this turn
+	if _acted_this_turn.get(unit_id, false):
+		return false  # ATTACK / DEFEND / WAIT already committed
+	var unit: BattleUnit = _units[unit_id]
+	var entry: Dictionary = _move_undo_cache[unit_id]
+	var prev_pos: Vector2i = entry["prev_pos"] as Vector2i
+	var prev_facing: int = entry["prev_facing"] as int
+	var movement_cost: int = entry["movement_cost"] as int
+	var current_pos: Vector2i = unit.position
+	# Roll back the MapGrid occupancy: clear dest, restore source.
+	_map_grid.clear_occupant(current_pos)
+	unit.position = prev_pos
+	unit.facing = prev_facing
+	var faction: int = MapGrid.FACTION_ALLY if unit.side == 0 else MapGrid.FACTION_ENEMY
+	_map_grid.set_occupant(prev_pos, unit.unit_id, faction)
+	# Retract the MOVE token on the turn runner so the player can re-MOVE.
+	# Silent best-effort — if the runner lacks retract_move (older stubs in
+	# unit tests), we still complete the visual undo. The token stays spent
+	# in that case but the position is restored.
+	if _turn_runner != null and _turn_runner.has_method("retract_move"):
+		_turn_runner.retract_move(unit_id, movement_cost)
+	# Clear flags + cache.
+	_moved_this_turn[unit_id] = false
+	_move_undo_cache.erase(unit_id)
+	# Emit unit_moved so the visual layer tweens the polygon back. From/To
+	# reversed from the original move: current → prev.
+	unit_moved.emit(unit_id, current_pos, prev_pos)
+	# Re-select so the player can immediately try a different destination.
+	# was_selected = unit_id (non-zero) → BattleScene's _on_unit_selected_
+	# changed re-renders movable_tiles preview at the restored position.
+	_selected_unit_id = unit_id
+	_state = BattleState.UNIT_SELECTED
+	unit_selected_changed.emit(unit_id, unit_id)
+	return true
+
+
 ## Clears any armed attack preview. Idempotent — silent no-op if no preview
 ## is armed. Emits attack_preview_dismissed for BattleHUD to fade UI-GB-04.
 ## Reason is informational (informs the receiver why dismiss fired but no
@@ -1514,10 +1579,22 @@ func _handle_player_move(unit: BattleUnit, dest: Vector2i) -> void:
 		return  # MOVE token already spent — one move per turn
 	if not is_tile_in_move_range(dest, unit.unit_id):
 		return  # invalid target — silent
+	# Session-52 — cache pre-move state for cancel_last_move (ESC / right-
+	# click undo UX). Captured BEFORE _do_move mutates unit.position /
+	# unit.facing. movement_cost is computed below alongside the declare
+	# call so the cache + the turn runner's accumulated_move_cost stay in
+	# sync (cancel_last_move passes the cached cost back to retract_move).
+	var prev_pos: Vector2i = unit.position
+	var prev_facing: int = unit.facing
 	_do_move(unit, dest)
 	_moved_this_turn[unit.unit_id] = true
-	_turn_runner.declare_action(unit.unit_id, TurnOrderRunner.ActionType.MOVE,
-		_make_move_target(dest))
+	var move_target: ActionTarget = _make_move_target(dest)
+	_move_undo_cache[unit.unit_id] = {
+		"prev_pos": prev_pos,
+		"prev_facing": prev_facing,
+		"movement_cost": move_target.movement_cost,
+	}
+	_turn_runner.declare_action(unit.unit_id, TurnOrderRunner.ActionType.MOVE, move_target)
 
 
 ## Bridges the TurnOrderRunner DEFEND declaration into HPStatusController's

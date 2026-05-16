@@ -323,6 +323,27 @@ func _complete_turn_t6_to_t7(unit_id: int) -> void:
 ##         # token was spent
 ##     else:
 ##         # result.error_code as TurnOrderRunner.ActionError
+## Session-52 — retract a previously-declared MOVE so it can be re-issued
+## (used by GridBattleController.cancel_last_move for the ESC/right-click
+## move undo UX). Returns true on successful retract, false when the unit
+## is unknown, the MOVE wasn't actually declared, OR an ACTION token has
+## been spent since (move-then-attack: too late to undo just the move).
+## `movement_cost` is the value originally accumulated by the matching
+## declare_action(MOVE) call — caller is responsible for passing the same
+## delta so accumulated_move_cost rolls back exactly.
+func retract_move(unit_id: int, movement_cost: int) -> bool:
+	if not _unit_states.has(unit_id):
+		return false
+	var state: UnitTurnState = _unit_states[unit_id]
+	if not state.move_token_spent:
+		return false  # nothing to retract
+	if state.action_token_spent:
+		return false  # ATTACK / DEFEND committed — undo no longer safe
+	state.move_token_spent = false
+	state.accumulated_move_cost = maxi(0, state.accumulated_move_cost - movement_cost)
+	return true
+
+
 func declare_action(unit_id: int, action: int, target: ActionTarget) -> ActionResult:
 	# Validation 1: UNIT_NOT_FOUND — guard before any state read.
 	if not _unit_states.has(unit_id):
