@@ -4,9 +4,19 @@
 ## NameLabel rendered at modulate.a=1.0 simultaneously, contributing to the
 ## "화면이 조잡" perception (8 units = 8 names shouting in parallel).
 ## Post-S43 only the active-turn unit + selected unit show their name at
-## full alpha; others recede to _UNIT_LABEL_DIM_ALPHA (S46: tightened 0.45→0.0 after
-## windowed feedback — adjacent names still overlapped at 0.45 alpha; 0.0 hides
-## non-active names entirely. Hero identity remains via S40 polygon emblem).
+## full alpha; others recede to _UNIT_LABEL_DIM_ALPHA.
+##
+## Alpha-value history:
+##   S43 — 0.45 (faint always-visible)
+##   S46 — 0.0  (fully hidden — adjacent-column overlap at 0.45)
+##   S60 — 0.85 (visible-but-recessed — position-at-a-glance for tactical planning,
+##         label width tightened to TILE_SIZE so adjacent-column overlap is no
+##         longer a concern)
+##
+## Tests assert the dim/full RELATIONSHIP, not specific float values — reads
+## DIM_ALPHA / FULL_ALPHA from the production script and asserts the right
+## constant is in use at each scenario. Future alpha tuning need not touch
+## these tests (the const lookup absorbs the change).
 ##
 ## Coverage:
 ##   - Post-spawn: all NameLabels start at dim alpha (no active/selected yet)
@@ -23,6 +33,13 @@ const _CHAPTER_VISUALS_SCRIPT: String = "res://src/feature/battle_scene/chapter_
 const _TILE_SIZE: int = 64
 
 
+# ─── Production constants (read at test start to avoid float drift) ──────────
+
+
+var _DIM: float = 0.0
+var _FULL: float = 1.0
+
+
 var _visuals: Node = null
 var _player_parent: Node2D = null
 var _enemy_parent: Node2D = null
@@ -30,6 +47,8 @@ var _enemy_parent: Node2D = null
 
 func before_test() -> void:
 	var script: GDScript = load(_CHAPTER_VISUALS_SCRIPT) as GDScript
+	_DIM = script.get("_UNIT_LABEL_DIM_ALPHA") as float
+	_FULL = script.get("_UNIT_LABEL_FULL_ALPHA") as float
 	_visuals = script.new()
 	get_tree().root.add_child(_visuals)
 	await get_tree().process_frame
@@ -97,9 +116,9 @@ func test_refresh_with_no_active_or_selected_makes_all_labels_dim() -> void:
 	_spawn_fake_unit(_enemy_parent, 6, 3)
 	# _active_turn_coord + _selected_coord both default Vector2i(-1, -1).
 	_visuals._refresh_unit_label_alphas()
-	assert_float(_name_label_alpha(_player_parent, 2, 3)).is_equal_approx(0.0, 0.001)
-	assert_float(_name_label_alpha(_player_parent, 4, 5)).is_equal_approx(0.0, 0.001)
-	assert_float(_name_label_alpha(_enemy_parent, 6, 3)).is_equal_approx(0.0, 0.001)
+	assert_float(_name_label_alpha(_player_parent, 2, 3)).is_equal_approx(_DIM, 0.001)
+	assert_float(_name_label_alpha(_player_parent, 4, 5)).is_equal_approx(_DIM, 0.001)
+	assert_float(_name_label_alpha(_enemy_parent, 6, 3)).is_equal_approx(_DIM, 0.001)
 
 
 # ─── Active-turn pop ─────────────────────────────────────────────────────────
@@ -110,11 +129,11 @@ func test_set_active_turn_coord_pops_matching_unit_label_to_full_alpha() -> void
 	_spawn_fake_unit(_player_parent, 4, 5)
 	_visuals.set_active_turn_coord(Vector2i(2, 3))
 	assert_float(_name_label_alpha(_player_parent, 2, 3)).override_failure_message(
-		"S43: active turn unit's name must be at full alpha (1.0)"
-	).is_equal_approx(1.0, 0.001)
+		"S43/S60: active turn unit's name must be at FULL alpha"
+	).is_equal_approx(_FULL, 0.001)
 	assert_float(_name_label_alpha(_player_parent, 4, 5)).override_failure_message(
-		"S43: non-active, non-selected unit's name must be at dim alpha (0.45)"
-	).is_equal_approx(0.0, 0.001)
+		"S43/S60: non-active, non-selected unit's name must be at DIM alpha"
+	).is_equal_approx(_DIM, 0.001)
 
 
 # ─── Selection pop ───────────────────────────────────────────────────────────
@@ -124,8 +143,8 @@ func test_set_selected_coord_pops_matching_unit_label_to_full_alpha() -> void:
 	_spawn_fake_unit(_player_parent, 2, 3)
 	_spawn_fake_unit(_enemy_parent, 6, 3)
 	_visuals.set_selected_coord(Vector2i(6, 3))
-	assert_float(_name_label_alpha(_enemy_parent, 6, 3)).is_equal_approx(1.0, 0.001)
-	assert_float(_name_label_alpha(_player_parent, 2, 3)).is_equal_approx(0.0, 0.001)
+	assert_float(_name_label_alpha(_enemy_parent, 6, 3)).is_equal_approx(_FULL, 0.001)
+	assert_float(_name_label_alpha(_player_parent, 2, 3)).is_equal_approx(_DIM, 0.001)
 
 
 # ─── Active + selected on different tiles ────────────────────────────────────
@@ -136,8 +155,8 @@ func test_active_and_selected_on_different_tiles_both_at_full_alpha() -> void:
 	_spawn_fake_unit(_enemy_parent, 6, 3)
 	_visuals.set_active_turn_coord(Vector2i(2, 3))
 	_visuals.set_selected_coord(Vector2i(6, 3))
-	assert_float(_name_label_alpha(_player_parent, 2, 3)).is_equal_approx(1.0, 0.001)
-	assert_float(_name_label_alpha(_enemy_parent, 6, 3)).is_equal_approx(1.0, 0.001)
+	assert_float(_name_label_alpha(_player_parent, 2, 3)).is_equal_approx(_FULL, 0.001)
+	assert_float(_name_label_alpha(_enemy_parent, 6, 3)).is_equal_approx(_FULL, 0.001)
 
 
 # ─── Clearing active reverts label to dim ────────────────────────────────────
@@ -146,10 +165,10 @@ func test_active_and_selected_on_different_tiles_both_at_full_alpha() -> void:
 func test_clearing_active_turn_coord_returns_label_to_dim() -> void:
 	_spawn_fake_unit(_player_parent, 2, 3)
 	_visuals.set_active_turn_coord(Vector2i(2, 3))
-	assert_float(_name_label_alpha(_player_parent, 2, 3)).is_equal_approx(1.0, 0.001)
+	assert_float(_name_label_alpha(_player_parent, 2, 3)).is_equal_approx(_FULL, 0.001)
 	# Sentinel "no active turn" — both coords reset to Vector2i(-1, -1).
 	_visuals.set_active_turn_coord(Vector2i(-1, -1))
-	assert_float(_name_label_alpha(_player_parent, 2, 3)).is_equal_approx(0.0, 0.001)
+	assert_float(_name_label_alpha(_player_parent, 2, 3)).is_equal_approx(_DIM, 0.001)
 
 
 # ─── Constants exposure ──────────────────────────────────────────────────────
@@ -159,10 +178,15 @@ func test_s43_alpha_constants_are_in_expected_range() -> void:
 	var script: GDScript = load(_CHAPTER_VISUALS_SCRIPT) as GDScript
 	var dim: float = script.get("_UNIT_LABEL_DIM_ALPHA") as float
 	var full: float = script.get("_UNIT_LABEL_FULL_ALPHA") as float
-	# S46: dim alpha tightened to 0.0 (fully hidden) after windowed feedback
-	# that 0.45 still produced visible overlap on adjacent units.
+	# S60: dim alpha is in [0.0, 1.0). FULL > DIM strictly so the active
+	# unit always reads as primary. Exact dim value floats with UX tuning
+	# (S43=0.45, S46=0.0, S60=0.85); this test only enforces the bounds
+	# + strict ordering invariant, not a specific value.
 	assert_float(dim).override_failure_message(
-		"S46: dim alpha must be in [0.0, 0.6] — values >0.6 risk overlap noise"
+		"dim alpha must be in [0.0, 1.0); got %f" % dim
 	).is_greater_equal(0.0)
-	assert_float(dim).is_less_equal(0.6)
+	assert_float(dim).is_less(1.0)
 	assert_float(full).is_equal_approx(1.0, 0.001)
+	assert_float(full).override_failure_message(
+		"FULL alpha must be strictly greater than DIM (active > inactive invariant)"
+	).is_greater(dim)

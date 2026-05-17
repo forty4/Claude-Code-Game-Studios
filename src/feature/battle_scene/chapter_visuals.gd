@@ -263,7 +263,13 @@ const _UNIT_HALF: int = 26
 ## Hero identity is still recoverable via the polygon emblem (S40 hero
 ## overlay carries 큰 귀 / 수염 / 안대 / etc.) — the name was redundant when
 ## the player isn't actively considering that unit.
-const _UNIT_LABEL_DIM_ALPHA: float = 0.0
+## S60 — names always visible. Pre-S60 DIM_ALPHA=0.0 (fully invisible) was
+## designed to declutter and rely on hero emblem identification, but user
+## feedback shows position-at-a-glance is essential for tactical planning
+## ("어떤 장수가 어디에 있는지를 한눈에 봐야 작전을 짤 수 있다"). Active turn
+## + selected stay at 1.0 for emphasis; everyone else at 0.85 — visible
+## but slightly recessed so the active unit still reads as primary.
+const _UNIT_LABEL_DIM_ALPHA: float = 0.85
 const _UNIT_LABEL_FULL_ALPHA: float = 1.0
 
 ## Per-hero accent border stroke (width in world px). Wide enough to read as a
@@ -463,12 +469,20 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 		label.text = hero.name_ko if hero != null and hero.name_ko != "" else String(unit.hero_id)
 		label.add_theme_color_override("font_color", label_color)
 		label.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.05, 1.0))
-		label.add_theme_constant_override("outline_size", 8)
-		label.add_theme_font_size_override("font_size", 20)
+		# S60 — name labels are always visible (per_UNIT_LABEL_DIM_ALPHA=0.85).
+		# Pre-S60 size 80×22 + font_size 20 overflowed TILE_SIZE=64 → adjacent
+		# columns had 16px horizontal label overlap, garbled at standard zoom
+		# when DIM_ALPHA was bumped from 0. Resized to 60×18 + font_size 13 so
+		# every label fits within its tile column. 2-3 char Korean names
+		# (유비/관우/장비/황충/초선/하후돈 etc.) all fit cleanly.
+		label.add_theme_constant_override("outline_size", 4)
+		label.add_theme_font_size_override("font_size", 13)
 		# Counter the polygon's facing rotation so the label always reads upright.
 		label.rotation = -poly.rotation
-		label.position = Vector2(-40, -52)
-		label.size = Vector2(80, 22)
+		# Centered horizontally over the polygon, just above the class emblem.
+		# size.x=60 < TILE_SIZE=64 → no horizontal overlap with adjacent columns.
+		label.position = Vector2(-30, -44)
+		label.size = Vector2(60, 18)
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		poly.add_child(label)
 	# Session-43 — fresh roster spawned with default modulate.a=1.0 on every
