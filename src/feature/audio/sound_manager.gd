@@ -83,8 +83,11 @@ const MUSIC_CH05_CHIBI_MAIN: StringName       = &"music_ch05"
 
 const _MIX_RATE: int = 22050
 const _MASTER_VOLUME_DB: float = -8.0  # placeholder beeps shouldn't be loud
-## Music sits well below SFX so combat cues stay legible. -22dB ≈ 8% linear.
-const _MUSIC_VOLUME_DB: float = -22.0
+## Music sits well below SFX so combat cues stay legible. S60 — bumped from
+## -22dB ("거의 웅 소리 정도밖에 안 들려" user feedback) to -14dB; combined with
+## the new melodic chapter themes (vs. pre-S60 ambient drone) the music now
+## reads as actual composition without overwhelming combat SFX.
+const _MUSIC_VOLUME_DB: float = -14.0
 ## Loop length in seconds. 16s is long enough that the listener loses track
 ## of the seam, short enough to fit in memory at 22.05 kHz mono 16-bit
 ## (16 × 22050 × 2 = 706 KB).
@@ -495,38 +498,58 @@ func _save_preferences() -> void:
 ## chapter entry. See `_make_drone` for the synthesis model.
 func _build_procedural_music_streams() -> void:
 	_music_streams[MUSIC_BATTLE_AMBIENT] = _make_battle_drone(_MUSIC_LOOP_SECONDS)
-	# ch01 장판파 — D minor, urgent retreat. D2 (73.42 Hz) root + F3 minor third
-	# + A3 perfect fifth → minor triad. LFO 2 cycles/16s (faster breathing) sells
-	# the urgency. Gains slightly heavier on the minor third for tragic colour.
-	_music_streams[MUSIC_CH01_CHANGBANPO] = _make_drone(
-		_MUSIC_LOOP_SECONDS, 73.42, 174.61, 220.00, 0.40, 0.26, 0.18, 2.0
+	# S60 chapter themes — bass drone + melodic phrase + rhythmic kick.
+	# Each call: (bpm, beats_per_loop, bass_root_hz, melody_freqs[16], kick_freq).
+	# Melody arrays are 16 eighth-notes; bass plays the root continuously.
+	# Loop duration = beats × (60/bpm). At 16 beats × 80 BPM = 12s; × 100 = 9.6s.
+
+	# ch01 장판파 — D minor descending melody. Root D2. Melody phrase moves
+	# D4-F4-A4-G4-F4-D4-C♯4-D4 (descent with leading tone return), repeating —
+	# 비탄/절박 mood. 100 BPM (urgent).
+	_music_streams[MUSIC_CH01_CHANGBANPO] = _make_chapter_theme(
+		100, 16, 73.42,
+		[293.66, 349.23, 440.00, 392.00, 349.23, 293.66, 277.18, 293.66,
+		 293.66, 349.23, 440.00, 523.25, 440.00, 349.23, 293.66, 293.66],
+		73.42 * 0.5  # kick at D1 sub
 	)
-	# ch02 장판교 — A power chord, stoic stand. A1 (55 Hz) — ONE OCTAVE BELOW the
-	# generic ambient. E2 fifth + A2 octave. Open-fifth without minor third =
-	# defiant, not despairing. Slow LFO (1 cycle) = stoic resolve. Heavy gain on
-	# A1 for "다리에 발 디딘 무게".
-	_music_streams[MUSIC_CH02_CHANGBAN_BRIDGE] = _make_drone(
-		_MUSIC_LOOP_SECONDS, 55.00, 82.41, 110.00, 0.48, 0.22, 0.20, 1.0
+
+	# ch02 장판교 — A power chord, marching stand. Root A1 (low). Melody alternates
+	# A3-A3-E4-A3 / A3-A3-D4-C♯4 (simple defiant motif, sustained doom). 80 BPM
+	# (steady march, not running).
+	_music_streams[MUSIC_CH02_CHANGBAN_BRIDGE] = _make_chapter_theme(
+		80, 16, 55.00,
+		[220.00, 220.00, 329.63, 220.00, 220.00, 220.00, 293.66, 277.18,
+		 220.00, 220.00, 329.63, 329.63, 293.66, 277.18, 220.00, 220.00],
+		55.00 * 0.5
 	)
-	# ch03 하구 외곽 — C major, traveling. C2 (65.41 Hz) + G2 fifth + C3 octave.
-	# Major-feel via clean octave doubling (no third = ambiguous mode but reads
-	# brighter than D minor / A power). LFO 1.5 cycles = walking pace.
-	_music_streams[MUSIC_CH03_XIAKOU] = _make_drone(
-		_MUSIC_LOOP_SECONDS, 65.41, 98.00, 130.81, 0.40, 0.24, 0.22, 1.5
+
+	# ch03 하구 외곽 — C pentatonic wandering. Root C2. Melody C-E-G-E-A-G-E-C
+	# (pentatonic, traveling mood). 90 BPM (walking pace).
+	_music_streams[MUSIC_CH03_XIAKOU] = _make_chapter_theme(
+		90, 16, 65.41,
+		[261.63, 329.63, 392.00, 329.63, 440.00, 392.00, 329.63, 261.63,
+		 293.66, 329.63, 392.00, 440.00, 523.25, 440.00, 392.00, 329.63],
+		65.41 * 0.5
 	)
-	# ch04 적벽 prelude — E major, alliance warmth. E2 (82.41 Hz) + B2 fifth +
-	# G#3 major third → bright major triad. The major third is THE colour cue:
-	# this is the only chapter with explicit major-third interval — emotional
-	# anchor for "동맹이 모인다". Slow LFO matches deliberate diplomacy.
-	_music_streams[MUSIC_CH04_CHIBI_PRELUDE] = _make_drone(
-		_MUSIC_LOOP_SECONDS, 82.41, 123.47, 207.65, 0.38, 0.24, 0.24, 1.0
+
+	# ch04 적벽 prelude — E major rising, alliance warmth. Root E2. Melody
+	# E-G♯-B-G♯-A-E-F♯-G♯ — rising motif with the cardinal major-third tone
+	# (G♯4 = 415.30 Hz) as the warmth anchor. 70 BPM (deliberate).
+	_music_streams[MUSIC_CH04_CHIBI_PRELUDE] = _make_chapter_theme(
+		70, 16, 82.41,
+		[329.63, 415.30, 493.88, 415.30, 440.00, 329.63, 369.99, 415.30,
+		 329.63, 415.30, 493.88, 587.33, 493.88, 440.00, 415.30, 329.63],
+		82.41 * 0.5
 	)
-	# ch05 적벽 본전 — F minor, climax + fire. F2 (87.31 Hz) + C3 fifth + Ab3
-	# minor third. Higher root than ch01's D2 = more tension; minor third returns
-	# but at higher density. Fast LFO (2.5 cycles) = flickering fire, urgency.
-	# Gains balanced denser across partials → thicker texture.
-	_music_streams[MUSIC_CH05_CHIBI_MAIN] = _make_drone(
-		_MUSIC_LOOP_SECONDS, 87.31, 130.81, 207.65, 0.36, 0.28, 0.24, 2.5
+
+	# ch05 적벽 본전 — F minor climax, fire intensity. Root F2. Melody
+	# F-A♭-C-A♭-B♭-C-D♭-C — climbing with minor third + flat 6th + flat 5th
+	# tritone tension. 110 BPM (intense). Highest tempo of the 5.
+	_music_streams[MUSIC_CH05_CHIBI_MAIN] = _make_chapter_theme(
+		110, 16, 87.31,
+		[349.23, 415.30, 523.25, 415.30, 466.16, 523.25, 554.37, 523.25,
+		 349.23, 415.30, 523.25, 622.25, 523.25, 466.16, 415.30, 349.23],
+		87.31 * 0.5
 	)
 
 
@@ -543,6 +566,104 @@ func music_id_for_chapter(chapter_id: StringName) -> StringName:
 		&"ch04_chibi_prelude":   return MUSIC_CH04_CHIBI_PRELUDE
 		&"ch05_chibi_main":      return MUSIC_CH05_CHIBI_MAIN
 		_:                       return MUSIC_BATTLE_AMBIENT
+
+
+## S60 — chapter theme synthesizer. Renders bass drone + 16-note melodic
+## phrase + per-beat kick into a single seamless loop. Replaces the original
+## ambient drone (which user feedback flagged as "거의 웅 소리 정도" — too
+## drone-like to read as music).
+##
+## Composition model:
+##   - BASS: sustained low sine at `bass_root_hz`, modulated by slow LFO
+##     (1 cycle per loop) so the foundation breathes.
+##   - MELODY: 16 eighth-notes from `melody_freqs`. Each note has attack-decay
+##     envelope (sharp attack, ~80% decay over the note duration) so each note
+##     reads as distinct articulation, not a wall of pitch.
+##   - KICK: short noise burst + low sub-sine at the start of every beat.
+##     Provides rhythmic anchor without competing with combat SFX (very brief,
+##     ~30ms decay).
+##
+## Loop seam: loop duration = beats × (60/bpm). Bass freq × loop_duration may
+## not be integer cycles (small phase drift at seam, intentional — same model
+## as the pre-S60 drone's E3 partial).
+##
+## Parameters:
+##   bpm           — tempo in beats per minute (60-120 typical)
+##   beats         — total beats in the loop (16 for the 5 chapter themes)
+##   bass_root_hz  — bass drone frequency (e.g., 73.42 for D2)
+##   melody_freqs  — Array of `beats` floats, one frequency per beat (Hz). 0
+##                   means rest (no melody note that beat).
+##   kick_hz       — fundamental of the kick sub-thump (Hz, ~30-60 typical)
+func _make_chapter_theme(
+	bpm: int,
+	beats: int,
+	bass_root_hz: float,
+	melody_freqs: Array,
+	kick_hz: float,
+) -> AudioStreamWAV:
+	var stream: AudioStreamWAV = AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = _MIX_RATE
+	stream.stereo = false
+	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	var seconds_per_beat: float = 60.0 / float(bpm)
+	var duration: float = float(beats) * seconds_per_beat
+	var sample_count: int = int(duration * _MIX_RATE)
+	stream.loop_begin = 0
+	stream.loop_end = sample_count
+	var data: PackedByteArray = PackedByteArray()
+	data.resize(sample_count * 2)
+	var two_pi: float = TAU
+	# Per-component gains (sum well below 1.0 to leave headroom for envelopes).
+	var bass_gain: float = 0.32
+	var melody_gain: float = 0.42
+	var kick_gain: float = 0.55
+	# Bass LFO — slow breathing, 1 cycle per loop.
+	var bass_lfo_freq: float = 1.0 / duration
+	# Kick envelope time-constant (decay rate; larger = faster decay).
+	var kick_decay: float = 60.0
+	# Melody envelope time-constant — sharp attack (first ~5% of beat) +
+	# exponential decay over the rest. tau ~3 over the beat = drops to ~5%
+	# by beat end so successive notes don't pile.
+	var melody_decay: float = 3.0 / seconds_per_beat
+	# Attack ramp duration (seconds) — sharp but not click.
+	var melody_attack: float = 0.008
+	for i: int in sample_count:
+		var t: float = float(i) / float(_MIX_RATE)
+		# Which beat are we in? (0..beats-1)
+		var beat_idx: int = int(t / seconds_per_beat) % beats
+		var beat_t: float = fmod(t, seconds_per_beat)  # 0..seconds_per_beat
+		# Bass — sustained sine with slow LFO breathing (0.7 to 1.0 amplitude).
+		var bass_lfo: float = 0.7 + 0.3 * (0.5 * (1.0 + sin(two_pi * bass_lfo_freq * t)))
+		var bass_sample: float = bass_gain * bass_lfo * sin(two_pi * bass_root_hz * t)
+		# Melody — current beat's note, attack-decay envelope.
+		var melody_freq: float = float(melody_freqs[beat_idx])
+		var melody_sample: float = 0.0
+		if melody_freq > 0.0:
+			var env: float = 0.0
+			if beat_t < melody_attack:
+				env = beat_t / melody_attack  # linear attack ramp 0→1
+			else:
+				env = exp(-(beat_t - melody_attack) * melody_decay)
+			# Slight harmonic richness: fundamental + half-amplitude second harmonic.
+			var fund: float = sin(two_pi * melody_freq * t)
+			var harm2: float = 0.30 * sin(two_pi * melody_freq * 2.0 * t)
+			melody_sample = melody_gain * env * (fund + harm2)
+		# Kick — first ~25ms of each beat. Mix low sine + noise pulse.
+		var kick_sample: float = 0.0
+		if beat_t < 0.05:
+			var kick_env: float = exp(-beat_t * kick_decay)
+			var kick_sine: float = sin(two_pi * kick_hz * t)
+			var kick_noise: float = randf_range(-1.0, 1.0) * 0.35
+			kick_sample = kick_gain * kick_env * (kick_sine + kick_noise)
+		var sample: float = bass_sample + melody_sample + kick_sample
+		# Soft clip in case envelopes overlap at peaks.
+		sample = clampf(sample, -0.98, 0.98)
+		var s16: int = clampi(int(sample * 32767.0), -32767, 32767)
+		data[i * 2]     = s16 & 0xff
+		data[i * 2 + 1] = (s16 >> 8) & 0xff
+	stream.data = data
+	return stream
 
 
 ## Generic 3-partial drone synthesizer (S60). Used by chapter-specific themes
