@@ -1,0 +1,372 @@
+{
+  "scenario_id": "mvp_wei",
+  "scenario_title_key": "scenario.mvp_wei.title",
+  "chapters": [
+    {
+      "chapter_id": "ch01_bowang_slope",
+      "chapter_number": 1,
+      "map_id": "mvp_wei_chapter_01",
+      "author_draw_branch": false,
+      "echo_threshold": 0,
+      "branch_table": {
+        "WIN_default":  "WIN_bowang_vanguard_breaks",
+        "LOSS_default": "LOSS_bowang_ambush_burns"
+      },
+      "canonical_branch_key": "LOSS_bowang_ambush_burns",
+      "beat_1_text_key": "wei.ch01.beat1.anchor",
+      "beat_2_fragment": {
+        "variant": "silent_visual",
+        "visual_cue_id": "scenario.bowang_slope_glyph",
+        "audio_cue_id": null
+      },
+      "beat_3_text_key": "wei.ch01.beat3.brief",
+      "beat_8_revelations": [
+        {
+          "branch_key": "WIN_bowang_vanguard_breaks",
+          "text_key": "wei.ch01.beat8.win_bowang_vanguard_breaks",
+          "cue_tag": "tag.beat8.canonical_loss_reversed"
+        },
+        {
+          "branch_key": "LOSS_bowang_ambush_burns",
+          "text_key": "wei.ch01.beat8.loss_bowang_ambush_burns",
+          "cue_tag": "tag.beat8.canonical_loss"
+        }
+      ],
+      "beat_9_text_key": "wei.ch01.beat9.transition_to_xinye",
+      "player_unit_ids": [0, 1, 2],
+      "player_commander_id": 0,
+      "player_hero_ids": {
+        "0": "wei_001_cao_cao",
+        "1": "wei_005_xiahou_dun",
+        "2": "wei_006_zhang_liao"
+      },
+      "enemy_unit_ids": [5, 6, 7, 8],
+      "deployment_positions_default": {
+        "0": [12, 4],
+        "1": [11, 4],
+        "2": [12, 5],
+        "5": [3, 3],
+        "6": [3, 4],
+        "7": [3, 5],
+        "8": [2, 4]
+      },
+      "enemy_roster": [
+        {"unit_id": 5, "hero_id": "shu_002_guan_yu",   "archetype": "aggressor"},
+        {"unit_id": 6, "hero_id": "shu_001_liu_bei",   "archetype": "coordinator"},
+        {"unit_id": 7, "hero_id": "shu_003_zhang_fei", "archetype": "aggressor"},
+        {"unit_id": 8, "hero_id": "shu_004_huang_zhong", "archetype": "skirmisher"}
+      ],
+      "chokepoints": [
+        [5, 3],
+        [6, 4],
+        [5, 5]
+      ],
+      "enemy_atk_mult": 0.60,
+      "victory_conditions": {
+        "primary_condition_type": 0
+      }
+    },
+    {
+      "chapter_id": "ch02_xinye_fire",
+      "chapter_number": 2,
+      "map_id": "mvp_wei_chapter_02",
+      "author_draw_branch": false,
+      "echo_threshold": 1,
+      "branch_table": {
+        "WIN_default":  "WIN_xinye_pushed_through",
+        "LOSS_default": "LOSS_xinye_consumed"
+      },
+      "canonical_branch_key": "WIN_xinye_pushed_through",
+      "beat_1_text_key": "wei.ch02.beat1.anchor",
+      "beat_2_fragment": {
+        "variant": "silent_visual",
+        "visual_cue_id": "scenario.xinye_fire_glyph",
+        "audio_cue_id": null
+      },
+      "beat_3_text_key": "wei.ch02.beat3.brief",
+      "beat_8_revelations": [
+        {
+          "branch_key": "WIN_xinye_pushed_through",
+          "text_key": "wei.ch02.beat8.win_xinye_pushed_through",
+          "cue_tag": "tag.beat8.canonical_win"
+        },
+        {
+          "branch_key": "LOSS_xinye_consumed",
+          "text_key": "wei.ch02.beat8.loss_xinye_consumed",
+          "cue_tag": "tag.beat8.canonical_loss"
+        }
+      ],
+      "beat_9_text_key": "wei.ch02.beat9.transition_to_changban",
+      "player_unit_ids": [0, 1, 2, 3],
+      "player_commander_id": 0,
+      "player_hero_ids": {
+        "0": "wei_001_cao_cao",
+        "1": "wei_005_xiahou_dun",
+        "2": "wei_006_zhang_liao",
+        "3": "wei_007_yu_jin"
+      },
+      "enemy_unit_ids": [5, 6, 7],
+      "deployment_positions_default": {
+        "0": [5, 8],
+        "1": [4, 8],
+        "2": [6, 8],
+        "3": [5, 9],
+        "5": [5, 1],
+        "6": [4, 1],
+        "7": [6, 1]
+      },
+      "enemy_roster": [
+        {"unit_id": 5, "hero_id": "shu_001_liu_bei",     "archetype": "coordinator"},
+        {"unit_id": 6, "hero_id": "shu_003_zhang_fei",   "archetype": "skirmisher"},
+        {"unit_id": 7, "hero_id": "shu_004_huang_zhong", "archetype": "holder"}
+      ],
+      "chokepoints": [
+        [5, 2],
+        [5, 7]
+      ],
+      "enemy_atk_mult": 0.55,
+      "victory_conditions": {
+        "primary_condition_type": 1,
+        "survive_rounds": 5
+      }
+    },
+    {
+      "chapter_id": "ch03_changban_pursuit",
+      "chapter_number": 3,
+      "map_id": "mvp_wei_chapter_03",
+      "author_draw_branch": false,
+      "echo_threshold": 1,
+      "branch_table": {
+        "WIN_default":  "WIN_changban_pursuit_default",
+        "WIN_hidden":   "WIN_changban_pursuit_unshakeable",
+        "LOSS_default": "LOSS_changban_lord_unhorsed"
+      },
+      "canonical_branch_key": "WIN_changban_pursuit_default",
+      "hidden_branch_key": "WIN_hidden",
+      "hidden_condition": {
+        "type": "fate_threshold",
+        "field": "assassin_kills",
+        "op": ">=",
+        "value": 3
+      },
+      "beat_1_text_key": "wei.ch03.beat1.anchor",
+      "beat_2_fragment": {
+        "variant": "silent_visual",
+        "visual_cue_id": "scenario.changban_bridge_glyph",
+        "audio_cue_id": null
+      },
+      "beat_3_text_key": "wei.ch03.beat3.brief",
+      "beat_8_revelations": [
+        {
+          "branch_key": "WIN_changban_pursuit_default",
+          "text_key": "wei.ch03.beat8.win_changban_pursuit_default",
+          "cue_tag": "tag.beat8.canonical_win"
+        },
+        {
+          "branch_key": "WIN_changban_pursuit_unshakeable",
+          "text_key": "wei.ch03.beat8.win_changban_pursuit_unshakeable",
+          "cue_tag": "tag.beat8.hidden_reveal"
+        },
+        {
+          "branch_key": "LOSS_changban_lord_unhorsed",
+          "text_key": "wei.ch03.beat8.loss_changban_lord_unhorsed",
+          "cue_tag": "tag.beat8.canonical_loss"
+        }
+      ],
+      "beat_9_text_key": "wei.ch03.beat9.transition_to_jiangling",
+      "player_unit_ids": [0, 1, 2, 3, 4],
+      "player_commander_id": 0,
+      "player_hero_ids": {
+        "0": "wei_001_cao_cao",
+        "1": "wei_005_xiahou_dun",
+        "2": "wei_006_zhang_liao",
+        "3": "wei_007_yu_jin",
+        "4": "wei_008_xu_chu"
+      },
+      "enemy_unit_ids": [5, 6, 7, 8],
+      "deployment_positions_default": {
+        "0": [1, 4],
+        "1": [2, 4],
+        "2": [2, 3],
+        "3": [1, 5],
+        "4": [2, 5],
+        "5": [13, 4],
+        "6": [13, 3],
+        "7": [13, 5],
+        "8": [14, 4]
+      },
+      "enemy_roster": [
+        {"unit_id": 5, "hero_id": "shu_003_zhang_fei",   "archetype": "holder"},
+        {"unit_id": 6, "hero_id": "shu_002_guan_yu",     "archetype": "aggressor"},
+        {"unit_id": 7, "hero_id": "shu_004_huang_zhong", "archetype": "skirmisher"},
+        {"unit_id": 8, "hero_id": "shu_001_liu_bei",     "archetype": "coordinator"}
+      ],
+      "chokepoints": [
+        [12, 3],
+        [12, 4],
+        [12, 5]
+      ],
+      "enemy_atk_mult": 0.70,
+      "victory_conditions": {
+        "primary_condition_type": 3,
+        "target_unit_ids": [0],
+        "target_tile": [14, 4]
+      }
+    },
+    {
+      "chapter_id": "ch04_jiangling_conquest",
+      "chapter_number": 4,
+      "map_id": "mvp_wei_chapter_04",
+      "author_draw_branch": false,
+      "echo_threshold": 2,
+      "branch_table": {
+        "WIN_default":  "WIN_jiangling_wu_repelled",
+        "LOSS_default": "LOSS_jiangling_gate_breached"
+      },
+      "canonical_branch_key": "WIN_jiangling_wu_repelled",
+      "beat_1_text_key": "wei.ch04.beat1.anchor",
+      "beat_2_fragment": {
+        "variant": "silent_visual",
+        "visual_cue_id": "scenario.jiangling_gate_glyph",
+        "audio_cue_id": null
+      },
+      "beat_3_text_key": "wei.ch04.beat3.brief",
+      "beat_8_revelations": [
+        {
+          "branch_key": "WIN_jiangling_wu_repelled",
+          "text_key": "wei.ch04.beat8.win_jiangling_wu_repelled",
+          "cue_tag": "tag.beat8.canonical_win"
+        },
+        {
+          "branch_key": "LOSS_jiangling_gate_breached",
+          "text_key": "wei.ch04.beat8.loss_jiangling_gate_breached",
+          "cue_tag": "tag.beat8.canonical_loss"
+        }
+      ],
+      "beat_9_text_key": "wei.ch04.beat9.transition_to_chibi",
+      "player_unit_ids": [0, 1, 2, 3, 4],
+      "player_commander_id": 0,
+      "player_hero_ids": {
+        "0": "wei_001_cao_cao",
+        "1": "wei_005_xiahou_dun",
+        "2": "wei_006_zhang_liao",
+        "3": "wei_007_yu_jin",
+        "4": "wei_008_xu_chu"
+      },
+      "enemy_unit_ids": [5, 6],
+      "deployment_positions_default": {
+        "0": [9, 4],
+        "1": [8, 4],
+        "2": [9, 3],
+        "3": [9, 5],
+        "4": [8, 5],
+        "5": [2, 4],
+        "6": [3, 4]
+      },
+      "enemy_roster": [
+        {"unit_id": 5, "hero_id": "wu_001_sun_quan", "archetype": "coordinator"},
+        {"unit_id": 6, "hero_id": "wu_003_zhou_yu",  "archetype": "skirmisher"}
+      ],
+      "chokepoints": [
+        [6, 3],
+        [6, 4],
+        [6, 5]
+      ],
+      "enemy_atk_mult": 0.65,
+      "victory_conditions": {
+        "primary_condition_type": 0
+      }
+    },
+    {
+      "chapter_id": "ch05_chibi_burn",
+      "chapter_number": 5,
+      "map_id": "mvp_wei_chapter_05",
+      "author_draw_branch": false,
+      "echo_threshold": 2,
+      "branch_table": {
+        "WIN_default":  "WIN_chibi_wind_too_late",
+        "LOSS_default": "LOSS_chibi_burn_canonical"
+      },
+      "canonical_branch_key": "LOSS_chibi_burn_canonical",
+      "beat_1_text_key": "wei.ch05.beat1.anchor",
+      "beat_2_fragment": {
+        "variant": "silent_visual",
+        "visual_cue_id": "scenario.chibi_wei_burn_glyph",
+        "audio_cue_id": null
+      },
+      "beat_3_text_key": "wei.ch05.beat3.brief",
+      "beat_8_revelations": [
+        {
+          "branch_key": "WIN_chibi_wind_too_late",
+          "text_key": "wei.ch05.beat8.win_chibi_wind_too_late",
+          "cue_tag": "tag.beat8.hidden_reveal"
+        },
+        {
+          "branch_key": "LOSS_chibi_burn_canonical",
+          "text_key": "wei.ch05.beat8.loss_chibi_burn_canonical",
+          "cue_tag": "tag.beat8.canonical_loss"
+        }
+      ],
+      "beat_9_text_key": "wei.ch05.beat9.transition_to_huarong",
+      "player_unit_ids": [0, 1, 2, 3, 4],
+      "player_commander_id": 0,
+      "player_hero_ids": {
+        "0": "wei_001_cao_cao",
+        "1": "wei_005_xiahou_dun",
+        "2": "wei_006_zhang_liao",
+        "3": "wei_007_yu_jin",
+        "4": "wei_008_xu_chu"
+      },
+      "enemy_unit_ids": [5, 6, 7, 8, 9],
+      "deployment_positions_default": {
+        "0": [5, 2],
+        "1": [4, 2],
+        "2": [6, 2],
+        "3": [5, 1],
+        "4": [4, 1],
+        "5": [5, 7],
+        "6": [4, 7],
+        "7": [6, 7],
+        "8": [4, 6],
+        "9": [6, 6]
+      },
+      "enemy_roster": [
+        {"unit_id": 5, "hero_id": "shu_001_liu_bei",   "archetype": "coordinator"},
+        {"unit_id": 6, "hero_id": "shu_002_guan_yu",   "archetype": "aggressor"},
+        {"unit_id": 7, "hero_id": "shu_003_zhang_fei", "archetype": "skirmisher"},
+        {"unit_id": 8, "hero_id": "wu_001_sun_quan",   "archetype": "holder"},
+        {"unit_id": 9, "hero_id": "wu_003_zhou_yu",    "archetype": "coordinator"}
+      ],
+      "chokepoints": [
+        [3, 4],
+        [6, 4],
+        [9, 4]
+      ],
+      "branch_overrides": {
+        "WIN_changban_pursuit_unshakeable": {
+          "enemy_unit_ids": [5, 6, 7],
+          "deployment_positions_default": {
+            "0": [5, 2],
+            "1": [4, 2],
+            "2": [6, 2],
+            "3": [5, 1],
+            "4": [4, 1],
+            "5": [5, 7],
+            "6": [4, 7],
+            "7": [6, 7]
+          },
+          "enemy_roster": [
+            {"unit_id": 5, "hero_id": "shu_001_liu_bei",   "archetype": "coordinator"},
+            {"unit_id": 6, "hero_id": "shu_002_guan_yu",   "archetype": "aggressor"},
+            {"unit_id": 7, "hero_id": "shu_003_zhang_fei", "archetype": "skirmisher"}
+          ]
+        }
+      },
+      "enemy_atk_mult": 0.85,
+      "victory_conditions": {
+        "primary_condition_type": 1,
+        "survive_rounds": 5
+      }
+    }
+  ]
+}

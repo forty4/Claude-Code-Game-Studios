@@ -520,8 +520,9 @@ func _exit_tree() -> void:
 ## headless run walks the beats here without any UI dwell.
 func _advance_scenario_to_battle() -> void:
 	if ScenarioRunner.get_current_chapter_index() == -1:
-		if not ScenarioRunner.load_scenario("res://assets/data/scenarios/mvp_shu.json"):
-			push_error("BattleScene: failed to load mvp_shu.json scenario")
+		var scenario_path: String = ScenarioRunner.get_active_scenario_path()
+		if not ScenarioRunner.load_scenario(scenario_path):
+			push_error("BattleScene: failed to load scenario at %s" % scenario_path)
 			return
 	# Bounded walk — 8 iterations is far more than the longest pre-battle path
 	# (CHAPTER_START is auto-advanced inside ScenarioRunner; we only ever see
@@ -554,8 +555,9 @@ var _story_content_loaded: bool = false
 ## mvp_shu.json (→ CHAPTER_START → BEAT_1_ANCHOR). Returns false on load failure.
 func _bootstrap_scenario_if_needed() -> bool:
 	if ScenarioRunner.get_current_chapter_index() == -1:
-		if not ScenarioRunner.load_scenario("res://assets/data/scenarios/mvp_shu.json"):
-			push_error("BattleScene: failed to load mvp_shu.json scenario")
+		var scenario_path: String = ScenarioRunner.get_active_scenario_path()
+		if not ScenarioRunner.load_scenario(scenario_path):
+			push_error("BattleScene: failed to load scenario at %s" % scenario_path)
 			return false
 	return true
 
@@ -1802,7 +1804,7 @@ func _retry_chapter() -> void:
 ## to CHAPTER_START → BEAT_1_ANCHOR; the scene reload then drives it to battle.
 func _restart_scenario() -> void:
 	_battle_resolved = false
-	ScenarioRunner.load_scenario("res://assets/data/scenarios/mvp_shu.json")
+	ScenarioRunner.load_scenario(ScenarioRunner.get_active_scenario_path())
 	await _reload_via_scenario()
 
 

@@ -1,10 +1,10 @@
 ## story_content_test.gd
 ##
 ## Verifies assets/data/story/story_content.json: it parses to a JSON object,
-## and every beat text key referenced by chapters in
-## assets/data/scenarios/mvp_shu.json (beat_1, beat_3, every beat_8 revelation,
-## beat_9) has a content entry with a non-empty title and body. Beat 2 is a
-## silent_visual fragment — no text key — so it is not checked.
+## and every beat text key referenced by chapters in EVERY production scenario
+## (mvp_shu.json + mvp_wei.json + future lines) has a content entry with a
+## non-empty title and body. Beat 2 is a silent_visual fragment — no text key —
+## so it is not checked.
 ##
 ## This is the "the narrative the scenario points at actually exists" gate: if a
 ## chapter declares beat_*_text_key = "foo" but story_content.json has no "foo",
@@ -12,7 +12,10 @@
 extends GdUnitTestSuite
 
 
-const SCENARIO_PATH: String = "res://assets/data/scenarios/mvp_shu.json"
+const SCENARIO_PATHS: Array[String] = [
+	"res://assets/data/scenarios/mvp_shu.json",
+	"res://assets/data/scenarios/mvp_wei.json",
+]
 const STORY_CONTENT_PATH: String = "res://assets/data/story/story_content.json"
 
 
@@ -26,9 +29,9 @@ func _load_json_object(path: String) -> Dictionary:
 	return parsed as Dictionary
 
 
-## Collects every beat text key declared across all chapters in the scenario.
-func _required_text_keys() -> Array[String]:
-	var scenario: Dictionary = _load_json_object(SCENARIO_PATH)
+## Collects every beat text key declared across all chapters in `scenario_path`.
+func _required_text_keys_for(scenario_path: String) -> Array[String]:
+	var scenario: Dictionary = _load_json_object(scenario_path)
 	var keys: Array[String] = []
 	for ch_var: Variant in (scenario.get("chapters", []) as Array):
 		var ch: Dictionary = ch_var as Dictionary
@@ -58,18 +61,20 @@ func test_story_content_json_parses_non_empty() -> void:
 
 func test_every_scenario_beat_key_has_content() -> void:
 	var content: Dictionary = _load_json_object(STORY_CONTENT_PATH)
-	var required: Array[String] = _required_text_keys()
-	assert_bool(required.is_empty()).override_failure_message(
-		"mvp_shu.json declared no beat text keys — scenario data regression?"
-	).is_false()
-	for key: String in required:
-		assert_bool(content.has(key)).override_failure_message(
-			"story_content.json is missing an entry for beat text key '%s'" % key
-		).is_true()
-		var entry: Dictionary = content.get(key, {}) as Dictionary
-		assert_str((entry.get("title", "") as String).strip_edges()).override_failure_message(
-			"story content '%s' has an empty title" % key
-		).is_not_empty()
-		assert_str((entry.get("body", "") as String).strip_edges()).override_failure_message(
-			"story content '%s' has an empty body" % key
-		).is_not_empty()
+	for scenario_path: String in SCENARIO_PATHS:
+		var required: Array[String] = _required_text_keys_for(scenario_path)
+		assert_bool(required.is_empty()).override_failure_message(
+			"%s declared no beat text keys — scenario data regression?" % scenario_path
+		).is_false()
+		for key: String in required:
+			assert_bool(content.has(key)).override_failure_message(
+				"story_content.json is missing entry for beat text key '%s' (declared in %s)"
+					% [key, scenario_path]
+			).is_true()
+			var entry: Dictionary = content.get(key, {}) as Dictionary
+			assert_str((entry.get("title", "") as String).strip_edges()).override_failure_message(
+				"story content '%s' has an empty title" % key
+			).is_not_empty()
+			assert_str((entry.get("body", "") as String).strip_edges()).override_failure_message(
+				"story content '%s' has an empty body" % key
+			).is_not_empty()

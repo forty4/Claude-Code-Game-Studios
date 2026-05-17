@@ -560,12 +560,24 @@ func _build_procedural_music_streams() -> void:
 ## unrecognized input. Public — BattleScene calls this at battle init.
 func music_id_for_chapter(chapter_id: StringName) -> StringName:
 	match chapter_id:
-		&"ch01_changbanpo":      return MUSIC_CH01_CHANGBANPO
-		&"ch02_changban_bridge": return MUSIC_CH02_CHANGBAN_BRIDGE
-		&"ch03_xiakou_outskirts": return MUSIC_CH03_XIAKOU
-		&"ch04_chibi_prelude":   return MUSIC_CH04_CHIBI_PRELUDE
-		&"ch05_chibi_main":      return MUSIC_CH05_CHIBI_MAIN
-		_:                       return MUSIC_BATTLE_AMBIENT
+		# mvp_shu (촉) line.
+		&"ch01_changbanpo":         return MUSIC_CH01_CHANGBANPO
+		&"ch02_changban_bridge":    return MUSIC_CH02_CHANGBAN_BRIDGE
+		&"ch03_xiakou_outskirts":   return MUSIC_CH03_XIAKOU
+		&"ch04_chibi_prelude":      return MUSIC_CH04_CHIBI_PRELUDE
+		&"ch05_chibi_main":         return MUSIC_CH05_CHIBI_MAIN
+		# mvp_wei (위) line — reuses the existing 5 themes by thematic match:
+		#   bowang_slope (ambush, urgent)  → CH01 D-minor descending
+		#   xinye_fire (city ablaze)        → CH05 F-minor fire climax
+		#   changban_pursuit (the bridge)   → CH02 bridge A-power-chord
+		#   jiangling_conquest (Wu landing) → CH04 alliance warmth
+		#   chibi_burn (Wei survives fire)  → CH05 F-minor fire climax
+		&"ch01_bowang_slope":       return MUSIC_CH01_CHANGBANPO
+		&"ch02_xinye_fire":         return MUSIC_CH05_CHIBI_MAIN
+		&"ch03_changban_pursuit":   return MUSIC_CH02_CHANGBAN_BRIDGE
+		&"ch04_jiangling_conquest": return MUSIC_CH04_CHIBI_PRELUDE
+		&"ch05_chibi_burn":         return MUSIC_CH05_CHIBI_MAIN
+		_:                          return MUSIC_BATTLE_AMBIENT
 
 
 ## S60 — chapter theme synthesizer. Renders bass drone + 16-note melodic

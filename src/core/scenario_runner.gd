@@ -76,6 +76,12 @@ var _total_echo: int = 0
 # Test fixtures call load_scenario(json_path) directly.
 var _test_mode: bool = false
 
+# Currently-selected scenario file (set by MainMenu before scene change, or by a
+# future scenario-selector UI). Defaults to mvp_shu — the canonical MVP campaign.
+# BattleScene's bootstrap + restart paths read this rather than hardcoding the path.
+const DEFAULT_SCENARIO_PATH: String = "res://assets/data/scenarios/mvp_shu.json"
+var _active_scenario_path: String = DEFAULT_SCENARIO_PATH
+
 
 # ─── Lifecycle ────────────────────────────────────────────────────────────────
 
@@ -116,6 +122,7 @@ func reset_for_tests() -> void:
 	_canonical_delta = 0
 	_total_echo = 0
 	_test_mode = false
+	_active_scenario_path = DEFAULT_SCENARIO_PATH
 
 
 # ─── Public API (per ADR-0017 §Key Interfaces) ────────────────────────────────
@@ -159,6 +166,25 @@ func get_state() -> State:
 	return _state
 
 
+## Returns the path to the scenario file BattleScene will bootstrap on the next
+## fresh start. Defaults to mvp_shu.json. Set via `set_active_scenario_path()`
+## by MainMenu (or a future scenario-selector screen) before changing to
+## battle_scene.tscn. Reset to DEFAULT_SCENARIO_PATH by `reset_for_tests()`.
+func get_active_scenario_path() -> String:
+	return _active_scenario_path
+
+
+## Selects the scenario file BattleScene will bootstrap on next fresh start.
+## No-op if `path` is empty. The selection persists until `reset_for_tests()`
+## is called or until another caller overrides it. Callers MUST pass a
+## `res://`-prefixed path; ScenarioRunner does not validate the prefix here —
+## `load_scenario()` reports a `json_file_missing` fault on bad paths.
+func set_active_scenario_path(path: String) -> void:
+	if path.is_empty():
+		return
+	_active_scenario_path = path
+
+
 ## Returns the DestinyBranchChoice resolved at the most recent BEAT_7_JUDGMENT,
 ## or null if no judgment has run this chapter (i.e. before the first BEAT_7, or
 ## after a BEAT_9 per-chapter reset). Read-only — consumers MUST NOT mutate the
@@ -173,8 +199,9 @@ func get_last_branch_choice() -> DestinyBranchChoice:
 ## exact mid-chapter state). Returns false if ctx is null, has an empty
 ## chapter_id, or refers to a chapter not present in the scenario JSON.
 ##
-## Hardcoded scenario path for now (MVP has a single scenario, mvp_shu.json);
-## a future ctx.scenario_id field would let this generalize.
+## Scenario file resolved via `get_active_scenario_path()` — MainMenu sets it
+## before invoking restore; SaveContext doesn't yet carry the scenario_id field
+## (future enhancement: store + restore the path from ctx itself).
 ##
 ## Implementation note: load_scenario already lands at chapter 0 BEAT_1_ANCHOR;
 ## for chapters 1+ we just bump `_chapter_index`, reset per-chapter state, and
@@ -187,7 +214,7 @@ func restore_from_save_context(ctx: SaveContext) -> bool:
 		return false
 	if String(ctx.chapter_id).is_empty():
 		return false
-	if not load_scenario("res://assets/data/scenarios/mvp_shu.json"):
+	if not load_scenario(get_active_scenario_path()):
 		return false
 	var target_idx: int = -1
 	for i: int in _chapters.size():
@@ -200,6 +227,51 @@ func restore_from_save_context(ctx: SaveContext) -> bool:
 	if target_idx == 0:
 		return true  # already at chapter 0 BEAT_1_ANCHOR after load_scenario
 	_chapter_index = target_idx
+	_reset_per_chapter_state()
+	var chapter: ChapterDefinition = get_current_chapter()
+	if chapter != null:
+		GameBus.chapter_started.emit(chapter.chapter_id, chapter.chapter_number)
+	return true
+
+
+## DEV-ONLY chapter jump (S62). Loads `scenario_path` and lands at the chapter
+## at `chapter_index` (0-based) in BEAT_1_ANCHOR state. Returns false (without
+## state mutation) if:
+##   - The caller is running outside a debug build (export / release).
+##   - `scenario_path` is empty or fails to load (load_scenario reports the
+##     scenario_fault details).
+##   - `chapter_index` is out of [0, chapter_count) range.
+##
+## DOES NOT consult per-chapter branch_overrides — every chapter loads with its
+## default roster / deployment, regardless of what hidden-destiny chain the
+## scenario authoring expects. Pre-chapter narrative beats (Beat 8/9 reveals
+## from any prior chapter) are also skipped. Use the natural playthrough path
+## (`MainMenu.새 시나리오`) to verify hidden destiny + branch_override behaviour.
+##
+## Test-seam: this method bypasses the SCENARIO_LOAD entry assertion that
+## production paths (BattleScene._bootstrap_scenario_if_needed +
+## restore_from_save_context) honour. Build gating via `OS.has_feature("debug")`
+## is the only safeguard; production callers MUST NOT depend on it.
+func dev_jump_to_chapter(scenario_path: String, chapter_index: int) -> bool:
+	if not OS.has_feature("debug"):
+		push_warning(
+			"ScenarioRunner.dev_jump_to_chapter refused — feature gated to debug builds only"
+		)
+		return false
+	if scenario_path.is_empty():
+		push_warning("ScenarioRunner.dev_jump_to_chapter: empty scenario_path")
+		return false
+	if not load_scenario(scenario_path):
+		return false
+	if chapter_index < 0 or chapter_index >= _chapters.size():
+		push_warning(
+			"ScenarioRunner.dev_jump_to_chapter: index %d out of range [0, %d)"
+				% [chapter_index, _chapters.size()]
+		)
+		return false
+	if chapter_index == 0:
+		return true  # load_scenario already landed at chapter 0 BEAT_1_ANCHOR
+	_chapter_index = chapter_index
 	_reset_per_chapter_state()
 	var chapter: ChapterDefinition = get_current_chapter()
 	if chapter != null:

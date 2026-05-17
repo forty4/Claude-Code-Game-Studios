@@ -190,6 +190,28 @@ func test_music_id_for_chapter_resolves_distinct_slugs_per_mvp_chapter() -> void
 	).is_equal(5)
 
 
+## Wei scenario chapters resolve to authored themes (reuse the 5 mvp_shu slugs
+## by thematic match — none should fall through to MUSIC_BATTLE_AMBIENT). This
+## is the parallel guard for the Wei line; the music_id_for_chapter switch must
+## carry a case for every chapter_id in mvp_wei.json.
+func test_music_id_for_chapter_resolves_authored_theme_per_mvp_wei_chapter() -> void:
+	var sm: Node = get_node_or_null("/root/SoundManager")
+	assert(sm != null, "SoundManager autoload must be registered")
+	for chapter_id: StringName in [
+		&"ch01_bowang_slope",
+		&"ch02_xinye_fire",
+		&"ch03_changban_pursuit",
+		&"ch04_jiangling_conquest",
+		&"ch05_chibi_burn",
+	]:
+		var music_id: StringName = sm.music_id_for_chapter(chapter_id)
+		assert_str(String(music_id)).override_failure_message(
+			("Wei chapter '%s' must resolve to an authored theme — not the ambient fallback. "
+				+ "Add a case to music_id_for_chapter() in sound_manager.gd.")
+				% chapter_id
+		).is_not_equal(String(SoundManagerScript.MUSIC_BATTLE_AMBIENT))
+
+
 func test_music_id_for_chapter_falls_back_to_ambient_for_unknown_chapter() -> void:
 	var sm: Node = get_node_or_null("/root/SoundManager")
 	# Unknown chapter_id (test fixture / future un-themed chapter) falls back

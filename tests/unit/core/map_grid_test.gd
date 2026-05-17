@@ -1125,6 +1125,11 @@ func test_all_production_chapter_maps_pass_validation() -> void:
 		"res://assets/data/maps/mvp_chapter_03.tres",
 		"res://assets/data/maps/mvp_chapter_04.tres",
 		"res://assets/data/maps/mvp_chapter_05.tres",
+		"res://assets/data/maps/mvp_wei_chapter_01.tres",
+		"res://assets/data/maps/mvp_wei_chapter_02.tres",
+		"res://assets/data/maps/mvp_wei_chapter_03.tres",
+		"res://assets/data/maps/mvp_wei_chapter_04.tres",
+		"res://assets/data/maps/mvp_wei_chapter_05.tres",
 	]
 	for path: String in chapter_paths:
 		assert_bool(ResourceLoader.exists(path)).override_failure_message(

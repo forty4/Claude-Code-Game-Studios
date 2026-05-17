@@ -303,6 +303,110 @@ func test_mvp_shu_ch03_authors_hidden_destiny_with_ch04_override() -> void:
 	).is_true()
 
 
+# ─── mvp_wei.json — Wei scenario authoring sanity ─────────────────────────────
+
+
+## Wei scenario (조조의 남정) — 5 chapters with ch03 hidden destiny + ch05
+## branch_overrides chain. Mirrors the Shu hidden-destiny authoring patterns
+## but with Wei perspective + canonical-loss-at-Chibi historical framing.
+func test_mvp_wei_scenario_authors_5_chapters_with_hidden_destiny_chain() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_wei.json")
+	assert_bool(json_text.is_empty()).override_failure_message(
+		"mvp_wei.json must exist at assets/data/scenarios/mvp_wei.json"
+	).is_false()
+	var parsed: Variant = JSON.parse_string(json_text)
+	assert_object(parsed).override_failure_message(
+		"mvp_wei.json must parse as a JSON object"
+	).is_not_null()
+	var data: Dictionary = parsed as Dictionary
+	assert_str(data.get("scenario_id", "") as String).is_equal("mvp_wei")
+
+	var chapters: Array = data["chapters"] as Array
+	assert_int(chapters.size()).override_failure_message(
+		"mvp_wei must declare exactly 5 chapters"
+	).is_equal(5)
+
+	var by_id: Dictionary = {}
+	for c: Variant in chapters:
+		var d: Dictionary = c as Dictionary
+		by_id[d.get("chapter_id", "") as String] = d
+
+	for expected_id: String in [
+		"ch01_bowang_slope",
+		"ch02_xinye_fire",
+		"ch03_changban_pursuit",
+		"ch04_jiangling_conquest",
+		"ch05_chibi_burn",
+	]:
+		assert_bool(by_id.has(expected_id)).override_failure_message(
+			"mvp_wei missing chapter_id '%s'" % expected_id
+		).is_true()
+
+	# ch03 hidden destiny — assassin_kills >= 3 → WIN_changban_pursuit_unshakeable.
+	var ch03: Dictionary = by_id["ch03_changban_pursuit"] as Dictionary
+	assert_str(ch03.get("hidden_branch_key", "") as String).override_failure_message(
+		"Wei ch03 must declare hidden_branch_key = 'WIN_hidden'"
+	).is_equal("WIN_hidden")
+	var hc: Dictionary = ch03.get("hidden_condition", {}) as Dictionary
+	assert_str(hc.get("type", "") as String).is_equal("fate_threshold")
+	assert_str(hc.get("field", "") as String).is_equal("assassin_kills")
+	assert_str(hc.get("op", "") as String).is_equal(">=")
+	assert_int(hc.get("value", -1) as int).is_equal(3)
+	var ch03_bt: Dictionary = ch03.get("branch_table", {}) as Dictionary
+	assert_str(ch03_bt.get("WIN_hidden", "") as String).is_equal("WIN_changban_pursuit_unshakeable")
+
+	# ch05 branch_overrides routes WIN_changban_pursuit_unshakeable to a reduced
+	# (3-enemy) alliance roster — without Wu reinforcements the survive-5-rounds
+	# fight is winnable, which yields WIN_chibi_wind_too_late at Beat 7.
+	var ch05: Dictionary = by_id["ch05_chibi_burn"] as Dictionary
+	assert_str(ch05.get("canonical_branch_key", "") as String).override_failure_message(
+		"Wei ch05 canonical branch must be LOSS_chibi_burn_canonical (historical defeat)"
+	).is_equal("LOSS_chibi_burn_canonical")
+	var ovr: Dictionary = ch05.get("branch_overrides", {}) as Dictionary
+	assert_bool(ovr.has("WIN_changban_pursuit_unshakeable")).override_failure_message(
+		"Wei ch05 must author branch_overrides for WIN_changban_pursuit_unshakeable"
+	).is_true()
+	var entry: Dictionary = ovr["WIN_changban_pursuit_unshakeable"] as Dictionary
+	var ovr_enemy_ids: Array = entry.get("enemy_unit_ids", []) as Array
+	assert_int(ovr_enemy_ids.size()).override_failure_message(
+		"Wei ch05 hidden override must reduce enemy count from 5 to 3 (Wu vanguard absent)"
+	).is_equal(3)
+
+	# Map ids match the new .tres files generated for the Wei line.
+	for expected_id: String in [
+		"ch01_bowang_slope",
+		"ch02_xinye_fire",
+		"ch03_changban_pursuit",
+		"ch04_jiangling_conquest",
+		"ch05_chibi_burn",
+	]:
+		var ch: Dictionary = by_id[expected_id] as Dictionary
+		var map_id: String = ch.get("map_id", "") as String
+		assert_str(map_id).override_failure_message(
+			"Wei %s map_id must follow mvp_wei_chapter_NN convention (got '%s')"
+				% [expected_id, map_id]
+		).starts_with("mvp_wei_chapter_")
+		var map_path: String = "res://assets/data/maps/%s.tres" % map_id
+		assert_bool(ResourceLoader.exists(map_path)).override_failure_message(
+			"Wei %s declares map_id '%s' but %s does not exist on disk"
+				% [expected_id, map_id, map_path]
+		).is_true()
+
+
+## Wei scenario fully loads through ScenarioRunner.load_scenario without faults —
+## end-to-end hydration smoke (catches validator regressions for the new chapter
+## layout if any chapter record fails _validate_chapter_record).
+func test_mvp_wei_scenario_loads_via_runner_without_fault() -> void:
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+
+	var ok: bool = runner.load_scenario("res://assets/data/scenarios/mvp_wei.json")
+
+	assert_bool(ok).override_failure_message(
+		"ScenarioRunner.load_scenario MUST succeed on mvp_wei.json — check scenario_fault stderr"
+	).is_true()
+
+
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 

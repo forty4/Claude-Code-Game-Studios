@@ -66,6 +66,12 @@ text = "이어하기"
 custom_minimum_size = Vector2(280, 56)
 theme_override_font_sizes/font_size = 24
 
+[node name="DevJumpButton" type="Button" parent="Center/Box/Buttons"]
+text = "DEV: 챕터 점프"
+custom_minimum_size = Vector2(280, 48)
+theme_override_font_sizes/font_size = 20
+visible = false
+
 [node name="QuitButton" type="Button" parent="Center/Box/Buttons"]
 text = "종료"
 custom_minimum_size = Vector2(280, 56)

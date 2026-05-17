@@ -1,11 +1,17 @@
 ## MainMenu — entry-point screen shown at game launch.
 ##
-## Three options:
+## Four options:
 ##   - 새 시나리오 (New scenario): reset ScenarioRunner, change_scene to
 ##     battle_scene which will fresh-load mvp_shu.json via its bootstrap path.
 ##   - 이어하기 (Continue): load the latest SaveContext from slot 1 and call
 ##     ScenarioRunner.restore_from_save_context() before changing scenes.
 ##     Disabled when no save exists in the slot.
+##   - DEV: 챕터 점프 (S62): debug-build only. Opens a popup listing every
+##     chapter across all production scenarios; clicking jumps straight to
+##     that chapter via ScenarioRunner.dev_jump_to_chapter(). Default roster
+##     only — branch_overrides / hidden destiny chains require a full
+##     playthrough to exercise. Button is `visible = false` until _ready()
+##     enables it under `OS.has_feature("debug")`.
 ##   - 종료 (Quit): get_tree().quit().
 ##
 ## Save slot is hardcoded to 1 for MVP (matches the implicit slot used by
@@ -18,12 +24,26 @@ extends Control
 
 @onready var _new_button: Button = $Center/Box/Buttons/NewButton
 @onready var _continue_button: Button = $Center/Box/Buttons/ContinueButton
+@onready var _dev_jump_button: Button = $Center/Box/Buttons/DevJumpButton
 @onready var _quit_button: Button = $Center/Box/Buttons/QuitButton
 @onready var _continue_caption: Label = $Center/Box/ContinueCaption
 
 
 const _DEFAULT_SLOT: int = 1
 const _BATTLE_SCENE_PATH: String = "res://scenes/battle/battle_scene.tscn"
+
+## Production scenarios surfaced in the DEV chapter-jump menu. Pairs of
+## (display_name, res_path). Keep in sync with /assets/data/scenarios/.
+const _DEV_JUMP_SCENARIOS: Array[Array] = [
+	["촉 (蜀)", "res://assets/data/scenarios/mvp_shu.json"],
+	["위 (魏)", "res://assets/data/scenarios/mvp_wei.json"],
+]
+
+# Maps PopupMenu item_id (int) → {scenario_path: String, chapter_index: int}.
+# Populated lazily on first menu_about_to_show so we don't reparse scenario JSON
+# on _ready() for every launch (the dev menu is debug-only).
+var _dev_jump_entries: Dictionary = {}
+var _dev_jump_popup: PopupMenu = null
 
 
 func _ready() -> void:
@@ -36,6 +56,13 @@ func _ready() -> void:
 		_continue_button.pressed.connect(_on_continue_pressed)
 	if _quit_button != null:
 		_quit_button.pressed.connect(_on_quit_pressed)
+	if _dev_jump_button != null:
+		# Debug-build gate. `OS.has_feature("debug")` is false in
+		# exported release builds — the dev jump surface stays hidden there.
+		var debug_build: bool = OS.has_feature("debug")
+		_dev_jump_button.visible = debug_build
+		if debug_build:
+			_dev_jump_button.pressed.connect(_on_dev_jump_pressed)
 	_refresh_continue_state()
 
 
@@ -77,6 +104,100 @@ func _on_continue_pressed() -> void:
 
 func _on_quit_pressed() -> void:
 	get_tree().quit()
+
+
+# ─── DEV: 챕터 점프 (debug build only) ─────────────────────────────────────────
+
+## Opens the dev chapter-jump popup. First press builds the popup lazily by
+## parsing each scenario's chapter list — kept inside _on_dev_jump_pressed
+## rather than _ready() so non-debug builds (where the button is hidden)
+## never pay the JSON-parse cost.
+func _on_dev_jump_pressed() -> void:
+	if _dev_jump_popup == null:
+		_dev_jump_popup = PopupMenu.new()
+		_dev_jump_popup.name = "DevJumpPopup"
+		_dev_jump_popup.id_pressed.connect(_on_dev_jump_item_selected)
+		add_child(_dev_jump_popup)
+	_rebuild_dev_jump_popup()
+	# Position the popup beneath the button. mouse-position fallback if the
+	# button is somehow not in the tree.
+	var anchor_pos: Vector2 = get_viewport().get_mouse_position()
+	if _dev_jump_button != null and _dev_jump_button.is_inside_tree():
+		var rect: Rect2 = _dev_jump_button.get_global_rect()
+		anchor_pos = rect.position + Vector2(rect.size.x + 8, 0)
+	var window_pos: Vector2i = Vector2i(anchor_pos) + Vector2i(get_window().position)
+	_dev_jump_popup.popup(Rect2i(window_pos, Vector2i.ZERO))
+
+
+## Re-populates the popup. Each item id is the index into _dev_jump_entries.
+## Re-built every press so adding a new scenario .json picks up automatically.
+func _rebuild_dev_jump_popup() -> void:
+	_dev_jump_popup.clear()
+	_dev_jump_entries.clear()
+	var item_id: int = 0
+	for entry: Array in _DEV_JUMP_SCENARIOS:
+		var label: String = entry[0] as String
+		var path: String = entry[1] as String
+		var chapters: Array[String] = _read_chapter_ids(path)
+		if chapters.is_empty():
+			_dev_jump_popup.add_item("%s — (load failed: %s)" % [label, path])
+			_dev_jump_popup.set_item_disabled(_dev_jump_popup.item_count - 1, true)
+			continue
+		# Section header (disabled, label-only).
+		_dev_jump_popup.add_item("─── %s ───" % label)
+		_dev_jump_popup.set_item_disabled(_dev_jump_popup.item_count - 1, true)
+		# One row per chapter.
+		for i: int in chapters.size():
+			var ch_id: String = chapters[i]
+			_dev_jump_popup.add_item("  ch%02d  %s" % [i + 1, ch_id], item_id)
+			_dev_jump_entries[item_id] = {"scenario_path": path, "chapter_index": i}
+			item_id += 1
+
+
+## Returns the ordered chapter_id list for the scenario at `path`. Empty array
+## on parse failure (the popup row shows the error inline).
+func _read_chapter_ids(path: String) -> Array[String]:
+	var raw: String = FileAccess.get_file_as_string(path)
+	if raw.is_empty():
+		return []
+	var parsed: Variant = JSON.parse_string(raw)
+	if not (parsed is Dictionary):
+		return []
+	var data: Dictionary = parsed as Dictionary
+	var chapters: Array = data.get("chapters", []) as Array
+	var out: Array[String] = []
+	for ch_var: Variant in chapters:
+		if not (ch_var is Dictionary):
+			continue
+		var ch: Dictionary = ch_var as Dictionary
+		out.append(ch.get("chapter_id", "") as String)
+	return out
+
+
+## Performs the dev jump for the popup item the user picked. Drives
+## ScenarioRunner.dev_jump_to_chapter() then transitions to BattleScene exactly
+## like the natural "새 시나리오" path — BattleScene._ready picks up the loaded
+## scenario + current chapter without re-loading.
+func _on_dev_jump_item_selected(id: int) -> void:
+	if not _dev_jump_entries.has(id):
+		push_warning("MainMenu dev-jump: unknown item id %d" % id)
+		return
+	var entry: Dictionary = _dev_jump_entries[id] as Dictionary
+	var path: String = entry["scenario_path"] as String
+	var idx: int = entry["chapter_index"] as int
+	var runner: Node = get_node_or_null("/root/ScenarioRunner")
+	if runner == null:
+		push_warning("MainMenu dev-jump: ScenarioRunner autoload missing")
+		return
+	# Reset cleans out any previous scenario state; set the active path so a
+	# subsequent _restart_scenario inside BattleScene reloads THIS scenario,
+	# not the default mvp_shu.
+	runner.reset_for_tests()
+	runner.set_active_scenario_path(path)
+	if not runner.dev_jump_to_chapter(path, idx):
+		push_warning("MainMenu dev-jump: dev_jump_to_chapter(%s, %d) refused" % [path, idx])
+		return
+	get_tree().change_scene_to_file(_BATTLE_SCENE_PATH)
 
 
 # ─── Continue-button state ────────────────────────────────────────────────────
