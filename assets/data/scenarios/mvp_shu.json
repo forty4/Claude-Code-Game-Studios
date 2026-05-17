@@ -159,9 +159,17 @@
       "echo_threshold": 1,
       "branch_table": {
         "WIN_default":  "WIN_xiakou_breakthrough",
+        "WIN_hidden":   "WIN_xiakou_united_advance",
         "LOSS_default": "LOSS_xiakou_pursuit_continues"
       },
       "canonical_branch_key": "WIN_xiakou_breakthrough",
+      "hidden_branch_key": "WIN_hidden",
+      "hidden_condition": {
+        "type": "fate_threshold",
+        "field": "formation_turns",
+        "op": ">=",
+        "value": 3
+      },
       "beat_1_text_key": "ch03.beat1.anchor",
       "beat_2_fragment": {
         "variant": "silent_visual",
@@ -174,6 +182,11 @@
           "branch_key": "WIN_xiakou_breakthrough",
           "text_key": "ch03.beat8.win_xiakou_breakthrough",
           "cue_tag": "tag.beat8.canonical_win"
+        },
+        {
+          "branch_key": "WIN_xiakou_united_advance",
+          "text_key": "ch03.beat8.win_xiakou_united_advance",
+          "cue_tag": "tag.beat8.hidden_reveal"
         },
         {
           "branch_key": "LOSS_xiakou_pursuit_continues",
@@ -286,6 +299,29 @@
         [8, 4],
         [7, 4]
       ],
+      "branch_overrides": {
+        "WIN_xiakou_united_advance": {
+          "player_unit_ids": [0, 1, 6, 8, 9, 10, 11],
+          "player_hero_ids": {
+            "0": "shu_001_liu_bei",
+            "1": "shu_003_zhang_fei",
+            "6": "shu_002_guan_yu",
+            "8": "qun_004_diao_chan",
+            "9": "shu_004_huang_zhong",
+            "10": "wu_001_sun_quan",
+            "11": "wu_003_zhou_yu"
+          },
+          "deployment_positions_default": {
+            "0": [12, 4],
+            "1": [11, 5],
+            "6": [11, 3],
+            "8": [12, 6],
+            "9": [13, 3],
+            "10": [13, 4],
+            "11": [13, 5]
+          }
+        }
+      },
       "enemy_atk_mult": 0.65
     },
     {

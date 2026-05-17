@@ -243,6 +243,66 @@ func test_mvp_shu_ch05_carries_survive_5_rounds() -> void:
 	assert_int(vc_data["survive_rounds"] as int).is_equal(5)
 
 
+## S59 — ch03 hidden destiny authoring sanity. ch03 declares
+## hidden_branch_key + hidden_condition (formation_turns >= 3). ch04
+## branch_overrides carries the corresponding WIN_xiakou_united_advance
+## key with 초선 (unit 8 / qun_004_diao_chan) added to the alliance roster.
+## Pillar 2 second realization — mirrors ch01 → ch02 chain authored at S57.
+func test_mvp_shu_ch03_authors_hidden_destiny_with_ch04_override() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+	assert_bool(json_text.is_empty()).is_false()
+	var parsed: Variant = JSON.parse_string(json_text)
+	assert_object(parsed).is_not_null()
+	var data: Dictionary = parsed as Dictionary
+	var chapters: Array = data["chapters"] as Array
+	var ch03_record: Dictionary = {}
+	var ch04_record: Dictionary = {}
+	for c: Variant in chapters:
+		var d: Dictionary = c as Dictionary
+		var cid: String = d.get("chapter_id", "") as String
+		if cid == "ch03_xiakou_outskirts":
+			ch03_record = d
+		elif cid == "ch04_chibi_prelude":
+			ch04_record = d
+	assert_bool(ch03_record.is_empty()).is_false()
+	assert_bool(ch04_record.is_empty()).is_false()
+	# ch03 hidden_branch_key + hidden_condition authored.
+	assert_str(ch03_record.get("hidden_branch_key", "") as String).override_failure_message(
+		"S59: ch03 must declare hidden_branch_key = 'WIN_hidden'"
+	).is_equal("WIN_hidden")
+	var hc: Dictionary = ch03_record.get("hidden_condition", {}) as Dictionary
+	assert_str(hc.get("type", "") as String).is_equal("fate_threshold")
+	assert_str(hc.get("field", "") as String).override_failure_message(
+		"S59: ch03 hidden condition must key on formation_turns"
+	).is_equal("formation_turns")
+	assert_str(hc.get("op", "") as String).is_equal(">=")
+	assert_int(hc.get("value", -1) as int).is_equal(3)
+	# ch03 branch_table maps WIN_hidden to the new branch key.
+	var bt: Dictionary = ch03_record.get("branch_table", {}) as Dictionary
+	assert_str(bt.get("WIN_hidden", "") as String).is_equal("WIN_xiakou_united_advance")
+	# ch04 branch_overrides routes WIN_xiakou_united_advance to 초선-augmented roster.
+	var ovr: Dictionary = ch04_record.get("branch_overrides", {}) as Dictionary
+	assert_bool(ovr.has("WIN_xiakou_united_advance")).override_failure_message(
+		"S59: ch04 must author branch_overrides for WIN_xiakou_united_advance"
+	).is_true()
+	var entry: Dictionary = ovr["WIN_xiakou_united_advance"] as Dictionary
+	var ovr_uids: Array = entry.get("player_unit_ids", []) as Array
+	var has_8: bool = false
+	for uid: Variant in ovr_uids:
+		if (uid as int) == 8:
+			has_8 = true
+			break
+	assert_bool(has_8).override_failure_message(
+		"S59: ch04 WIN_xiakou_united_advance override must include unit 8 (초선)"
+	).is_true()
+	var ovr_heroes: Dictionary = entry.get("player_hero_ids", {}) as Dictionary
+	assert_str(ovr_heroes.get("8", "") as String).is_equal("qun_004_diao_chan")
+	var ovr_dep: Dictionary = entry.get("deployment_positions_default", {}) as Dictionary
+	assert_bool(ovr_dep.has("8")).override_failure_message(
+		"S59: ch04 override must place unit 8 (초선) on the deployment grid"
+	).is_true()
+
+
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 
