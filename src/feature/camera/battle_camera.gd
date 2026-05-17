@@ -76,6 +76,38 @@ func _ready() -> void:
 	# the case where size_changed has already fired by the time we got here.
 	get_viewport().size_changed.connect(_apply_pan_clamp)
 	_apply_pan_clamp.call_deferred()
+	# Belt-and-suspenders for windowed regression (S59 — user report 2026-05-17):
+	# previous fix using ProjectSettings + PROCESS_MODE_ALWAYS WORKED in tests
+	# but ch02 still rendered at screen bottom-right windowed. Force re-clamp
+	# every frame for the first 10 frames + on visibility_changed so any state
+	# that resets position during BattleScene's SceneManager._pause_overworld
+	# transition (visible=false propagation, DISABLED process_mode inheritance,
+	# canvas-layer transform reset) is immediately corrected. Cheap (≤10 cycles
+	# of a few arithmetic ops); robust against unknown reset source.
+	_force_clamp_frames_remaining = 10
+	visibility_changed.connect(_apply_pan_clamp)
+
+
+# Counts down each _process tick; while > 0, force _apply_pan_clamp every frame.
+# Defense against unknown windowed-mode state transitions that silently reset
+# `position` during the first few frames after BattleScene mount.
+var _force_clamp_frames_remaining: int = 0
+
+
+func _process(_delta: float) -> void:
+	if _force_clamp_frames_remaining > 0:
+		_force_clamp_frames_remaining -= 1
+		var pre: Vector2 = position
+		_apply_pan_clamp()
+		# DIAGNOSTIC — fire once per frame in the force-clamp window so we can
+		# tell from stderr whether position was being reset between frames
+		# (windowed boot bug 2026-05-17). Remove after one or two windowed
+		# attestations confirm the force-clamp closes the issue.
+		if _force_clamp_frames_remaining >= 8 or pre != position:
+			push_warning("[CAM-DIAG f%d] pos pre=%s → post=%s offset=%s zoom=%s is_current=%s visible=%s" % [
+				9 - _force_clamp_frames_remaining, pre, position, offset, zoom,
+				is_current(), is_visible_in_tree(),
+			])
 
 
 func _exit_tree() -> void:
