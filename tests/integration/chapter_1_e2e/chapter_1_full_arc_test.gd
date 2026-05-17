@@ -19,7 +19,7 @@ extends GdUnitTestSuite
 
 
 const SCENARIO_JSON: String = "res://assets/data/scenarios/mvp_shu.json"
-const CHAPTER_1_ID: String = "ch01_changbanpo"
+const CHAPTER_1_ID: String = "ch06_changbanpo"
 const CHAPTER_1_CANONICAL_BRANCH: String = "WIN_changbanpo_default"
 const CHAPTER_1_LOSS_BRANCH: String = "LOSS_changbanpo_retreat"
 
@@ -192,7 +192,7 @@ func test_chapter_1_win_resolves_canonical_win_variant() -> void:
 	).is_greater(0)
 	assert_str(String(beat_8_emit["variant"])).is_equal("canonical_win")
 	# text_key should match chapter authoring.
-	assert_str(String(beat_8_emit["text"])).is_equal("ch01.beat8.win_changbanpo_default")
+	assert_str(String(beat_8_emit["text"])).is_equal("ch06.beat8.win_changbanpo_default")
 
 
 # ─── AC: chapter-1 LOSS → defeat variant ─────────────────────────────────────
@@ -215,7 +215,7 @@ func test_chapter_1_loss_resolves_defeat_variant() -> void:
 			break
 	assert_int(beat_8_emit.size()).is_greater(0)
 	assert_str(String(beat_8_emit["variant"])).is_equal("defeat")
-	assert_str(String(beat_8_emit["text"])).is_equal("ch01.beat8.loss_changbanpo_retreat")
+	assert_str(String(beat_8_emit["text"])).is_equal("ch06.beat8.loss_changbanpo_retreat")
 
 
 # ─── AC: revelation_committed register tag (canonical → solemn) ──────────────
@@ -311,7 +311,7 @@ func test_chapter_1_invalid_destiny_branch_choice_routes_to_invalid_path_ui() ->
 func test_chapter_1_completion_triggers_destiny_state_handler() -> void:
 	# Verifies that DestinyState's _on_chapter_completed handler fires during
 	# a clean chapter-1 traversal (smoke-level: no crash, no warnings,
-	# subsequent get_echo_count returns 0 default for ch01).
+	# subsequent get_echo_count returns 0 default for ch06).
 	var runner: Node = get_node_or_null("/root/ScenarioRunner")
 	assert_object(runner).is_not_null()
 	_wire_captures()

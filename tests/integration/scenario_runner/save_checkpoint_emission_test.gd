@@ -50,7 +50,7 @@ func after_test() -> void:
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 ## Builds a minimal ChapterDefinition for use in emission tests.
-## Use chapter_id="ch01_changbanpo", chapter_number=1 for AC-SL-1/SL-2 string
+## Use chapter_id="ch06_changbanpo", chapter_number=1 for AC-SL-1/SL-2 string
 ## assertions; use distinct ids for multi-chapter tests.
 func _make_test_chapter(chapter_id: String, chapter_number: int, canonical: String) -> ChapterDefinition:
 	var c: ChapterDefinition = ChapterDefinition.new()
@@ -118,10 +118,10 @@ func _run_full_chapter(runner: Node, chapter: ChapterDefinition, outcome_result:
 
 
 ## AC-SL-1: CP-1 emits exactly once at BEAT_1_ANCHOR entry with
-## ctx.chapter_id == "ch01_changbanpo", ctx.last_cp == 1, ctx.chapter_number == 1.
+## ctx.chapter_id == "ch06_changbanpo", ctx.last_cp == 1, ctx.chapter_number == 1.
 func test_cp_1_emits_at_beat_1_anchor_with_correct_payload() -> void:
 	var ch: ChapterDefinition = _make_test_chapter(
-		"ch01_changbanpo", 1, "WIN_changbanpo_default"
+		"ch06_changbanpo", 1, "WIN_changbanpo_default"
 	)
 	_runner._set_chapters_for_test([ch] as Array[ChapterDefinition], "test_ch1")
 
@@ -134,7 +134,7 @@ func test_cp_1_emits_at_beat_1_anchor_with_correct_payload() -> void:
 	var ctx: SaveContext = _captured[0]
 	assert_str(String(ctx.chapter_id)).override_failure_message(
 		"CP-1 chapter_id must match fixture"
-	).is_equal("ch01_changbanpo")
+	).is_equal("ch06_changbanpo")
 	assert_int(ctx.chapter_number).override_failure_message(
 		"CP-1 chapter_number must be 1"
 	).is_equal(1)
@@ -149,7 +149,7 @@ func test_cp_1_emits_at_beat_1_anchor_with_correct_payload() -> void:
 ## AC-SL-2 (WIN): CP-2 emits at BEAT_7 with outcome WIN and correct branch_key.
 func test_cp_2_emits_at_beat_7_with_win_outcome_and_branch_key() -> void:
 	var ch: ChapterDefinition = _make_test_chapter(
-		"ch01_changbanpo", 1, "WIN_changbanpo_default"
+		"ch06_changbanpo", 1, "WIN_changbanpo_default"
 	)
 	_runner._set_chapters_for_test([ch] as Array[ChapterDefinition], "test_ch1")
 
@@ -176,7 +176,7 @@ func test_cp_2_emits_at_beat_7_with_win_outcome_and_branch_key() -> void:
 ## AC-SL-2 (LOSS): CP-2 emits at BEAT_7 with outcome LOSS.
 func test_cp_2_emits_with_loss_outcome() -> void:
 	var ch: ChapterDefinition = _make_test_chapter(
-		"ch01_changbanpo", 1, "WIN_changbanpo_default"
+		"ch06_changbanpo", 1, "WIN_changbanpo_default"
 	)
 	_runner._set_chapters_for_test([ch] as Array[ChapterDefinition], "test_ch1")
 
@@ -197,13 +197,13 @@ func test_cp_2_emits_with_loss_outcome() -> void:
 	# Per F-DB-1 Row 4: LOSS resolves to branch_table["LOSS_default"] verbatim.
 	assert_str(String(ctx.branch_key)).override_failure_message(
 		"CP-2 branch_key for LOSS must resolve to LOSS_default branch per F-DB-1 Row 4"
-	).is_equal("LOSS_ch01_changbanpo_default")
+	).is_equal("LOSS_ch06_changbanpo_default")
 
 
 ## AC-SL-2 (DRAW): CP-2 emits at BEAT_7 with outcome DRAW.
 func test_cp_2_emits_with_draw_outcome() -> void:
 	var ch: ChapterDefinition = _make_test_chapter(
-		"ch01_changbanpo", 1, "WIN_changbanpo_default"
+		"ch06_changbanpo", 1, "WIN_changbanpo_default"
 	)
 	_runner._set_chapters_for_test([ch] as Array[ChapterDefinition], "test_ch1")
 
@@ -236,7 +236,7 @@ func test_cp_2_emits_with_draw_outcome() -> void:
 ## chapter_number must be 1 (the completing chapter), NOT 2 (the next).
 func test_cp_3_emits_at_beat_9_with_completing_chapter_number() -> void:
 	var ch: ChapterDefinition = _make_test_chapter(
-		"ch01_changbanpo", 1, "WIN_changbanpo_default"
+		"ch06_changbanpo", 1, "WIN_changbanpo_default"
 	)
 	_runner._set_chapters_for_test([ch] as Array[ChapterDefinition], "test_ch1")
 
@@ -270,7 +270,7 @@ func test_cp_3_emits_at_beat_9_with_completing_chapter_number() -> void:
 ## a single chapter traversal, and that no extra emissions occur.
 func test_full_chapter_emits_three_checkpoints_in_order() -> void:
 	var ch: ChapterDefinition = _make_test_chapter(
-		"ch01_changbanpo", 1, "WIN_changbanpo_default"
+		"ch06_changbanpo", 1, "WIN_changbanpo_default"
 	)
 	_runner._set_chapters_for_test([ch] as Array[ChapterDefinition], "test_ch1")
 
@@ -298,7 +298,7 @@ func test_full_chapter_emits_three_checkpoints_in_order() -> void:
 ## not on any subsequent beat transitions. Total == 3 proves no duplicate CP-1.
 func test_cp_1_emits_exactly_once_not_on_subsequent_beats() -> void:
 	var ch: ChapterDefinition = _make_test_chapter(
-		"ch01_changbanpo", 1, "WIN_changbanpo_default"
+		"ch06_changbanpo", 1, "WIN_changbanpo_default"
 	)
 	_runner._set_chapters_for_test([ch] as Array[ChapterDefinition], "test_ch1")
 
@@ -336,10 +336,10 @@ func test_two_chapter_cycle_writes_four_distinct_save_files() -> void:
 	).is_not_null()
 
 	var ch1: ChapterDefinition = _make_test_chapter(
-		"ch01_changbanpo", 1, "WIN_changbanpo_default"
+		"ch06_changbanpo", 1, "WIN_changbanpo_default"
 	)
 	var ch2: ChapterDefinition = _make_test_chapter(
-		"ch02_jiangling", 2, "WIN_ch02_jiangling_default"
+		"ch07_jiangling", 2, "WIN_ch02_jiangling_default"
 	)
 	_runner._set_chapters_for_test(
 		[ch1, ch2] as Array[ChapterDefinition], "test_two_ch"

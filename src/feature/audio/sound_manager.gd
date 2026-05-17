@@ -560,12 +560,13 @@ func _build_procedural_music_streams() -> void:
 ## unrecognized input. Public — BattleScene calls this at battle init.
 func music_id_for_chapter(chapter_id: StringName) -> StringName:
 	match chapter_id:
-		# mvp_shu (촉) line.
-		&"ch01_changbanpo":         return MUSIC_CH01_CHANGBANPO
-		&"ch02_changban_bridge":    return MUSIC_CH02_CHANGBAN_BRIDGE
-		&"ch03_xiakou_outskirts":   return MUSIC_CH03_XIAKOU
-		&"ch04_chibi_prelude":      return MUSIC_CH04_CHIBI_PRELUDE
-		&"ch05_chibi_main":         return MUSIC_CH05_CHIBI_MAIN
+		# mvp_shu (촉) line — chapter IDs shifted to ch06~ch10 to make room
+		# for the 영걸전식 prequel (ch01~ch05: 황건적~신야, authored in Phase A).
+		&"ch06_changbanpo":         return MUSIC_CH01_CHANGBANPO
+		&"ch07_changban_bridge":    return MUSIC_CH02_CHANGBAN_BRIDGE
+		&"ch08_xiakou_outskirts":   return MUSIC_CH03_XIAKOU
+		&"ch09_chibi_prelude":      return MUSIC_CH04_CHIBI_PRELUDE
+		&"ch10_chibi_main":         return MUSIC_CH05_CHIBI_MAIN
 		# mvp_wei (위) line — reuses the existing 5 themes by thematic match:
 		#   bowang_slope (ambush, urgent)  → CH01 D-minor descending
 		#   xinye_fire (city ablaze)        → CH05 F-minor fire climax

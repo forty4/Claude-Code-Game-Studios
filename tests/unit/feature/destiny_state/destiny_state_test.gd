@@ -133,13 +133,13 @@ func test_destiny_branch_chosen_non_canonical_adds_divergence_flag() -> void:
 		captured.append({"key": k, "value": v})
 	)
 	var choice: DestinyBranchChoice = DestinyBranchChoice.new()
-	choice.chapter_id = "ch01_changbanpo"
+	choice.chapter_id = "ch06_changbanpo"
 	choice.branch_key = "WIN_changbanpo_alternative"
 	choice.is_canonical_history = false
 	choice.is_invalid = false
 	GameBus.destiny_branch_chosen.emit(choice)
 	await get_tree().process_frame
-	assert_bool(ds.get_flags_to_set().has("divergence_recorded__ch01_changbanpo__WIN_changbanpo_alternative")).is_true()
+	assert_bool(ds.get_flags_to_set().has("divergence_recorded__ch06_changbanpo__WIN_changbanpo_alternative")).is_true()
 	assert_int(captured.size()).is_equal(1)
 
 
@@ -149,14 +149,14 @@ func test_destiny_branch_chosen_non_canonical_adds_divergence_flag() -> void:
 func test_destiny_branch_chosen_draw_fallback_adds_sentinel() -> void:
 	var ds: Node = get_node_or_null("/root/DestinyState")
 	var choice: DestinyBranchChoice = DestinyBranchChoice.new()
-	choice.chapter_id = "ch01_changbanpo"
+	choice.chapter_id = "ch06_changbanpo"
 	choice.branch_key = "DRAW_fallback"
 	choice.is_canonical_history = true  # only fallback should fire
 	choice.is_draw_fallback = true
 	choice.is_invalid = false
 	GameBus.destiny_branch_chosen.emit(choice)
 	await get_tree().process_frame
-	assert_bool(ds.get_flags_to_set().has("draw_fallback__ch01_changbanpo")).is_true()
+	assert_bool(ds.get_flags_to_set().has("draw_fallback__ch06_changbanpo")).is_true()
 
 
 # ─── AC-DS-11: dedup-on-insert (CR-DS-14) ────────────────────────────────────
@@ -169,7 +169,7 @@ func test_destiny_branch_chosen_idempotent_dedup() -> void:
 		emit_count[0] = int(emit_count[0]) + 1
 	)
 	var choice: DestinyBranchChoice = DestinyBranchChoice.new()
-	choice.chapter_id = "ch02_dummy"
+	choice.chapter_id = "ch07_dummy"
 	choice.branch_key = "WIN_alt"
 	choice.is_canonical_history = false
 	choice.is_invalid = false
@@ -194,7 +194,7 @@ func test_save_checkpoint_requested_populates_context() -> void:
 	GameBus.scenario_beat_retried.emit(mark)
 	await get_tree().process_frame
 	var choice: DestinyBranchChoice = DestinyBranchChoice.new()
-	choice.chapter_id = "ch01_test"
+	choice.chapter_id = "ch06_test"
 	choice.branch_key = "WIN_alt"
 	choice.is_canonical_history = false
 	choice.is_invalid = false
@@ -202,12 +202,12 @@ func test_save_checkpoint_requested_populates_context() -> void:
 	await get_tree().process_frame
 
 	var ctx: SaveContext = SaveContext.new()
-	ctx.chapter_id = &"ch01_test"
+	ctx.chapter_id = &"ch06_test"
 	ctx.chapter_number = 1
 	ctx.last_cp = 2
 	GameBus.save_checkpoint_requested.emit(ctx)
 	await get_tree().process_frame
-	# echo_count for ch01_test depends on whether ScenarioRunner is in the load
+	# echo_count for ch06_test depends on whether ScenarioRunner is in the load
 	# state; at minimum, archive + flags must populate.
 	assert_int(ctx.echo_marks_archive.size()).is_equal(1)
 	assert_int(ctx.flags_to_set.size()).is_equal(1)
@@ -276,7 +276,7 @@ func test_chapter_completed_archives_prior_chapter_count() -> void:
 	# but emission of chapter_completed must NOT crash + must preserve subsequent
 	# get_echo_count behavior. Smoke-level test for handler liveness.
 	var result: ChapterResult = ChapterResult.new()
-	result.chapter_id = "ch01_dummy"
+	result.chapter_id = "ch06_dummy"
 	result.outcome = BattleOutcome.Result.WIN
 	GameBus.chapter_completed.emit(result)
 	await get_tree().process_frame

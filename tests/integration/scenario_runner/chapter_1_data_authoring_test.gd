@@ -24,7 +24,7 @@ func test_chapter_1_loads_via_scenario_runner_without_fault() -> void:
 	).is_true()
 	var chapter: ChapterDefinition = runner.get_current_chapter()
 	assert_object(chapter).is_not_null()
-	assert_str(chapter.chapter_id).is_equal("ch01_changbanpo")
+	assert_str(chapter.chapter_id).is_equal("ch06_changbanpo")
 
 
 # ─── AC-S7-05-2: 4 enemy archetypes assigned ──────────────────────────────────

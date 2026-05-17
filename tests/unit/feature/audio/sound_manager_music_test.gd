@@ -164,11 +164,11 @@ func test_music_id_for_chapter_resolves_distinct_slugs_per_mvp_chapter() -> void
 	# Production chapter_ids per assets/data/scenarios/mvp_shu.json.
 	var expected_distinct_slugs: Array[StringName] = []
 	for chapter_id: StringName in [
-		&"ch01_changbanpo",
-		&"ch02_changban_bridge",
-		&"ch03_xiakou_outskirts",
-		&"ch04_chibi_prelude",
-		&"ch05_chibi_main",
+		&"ch06_changbanpo",
+		&"ch07_changban_bridge",
+		&"ch08_xiakou_outskirts",
+		&"ch09_chibi_prelude",
+		&"ch10_chibi_main",
 	]:
 		var music_id: StringName = sm.music_id_for_chapter(chapter_id)
 		assert_str(String(music_id)).override_failure_message(
@@ -244,5 +244,5 @@ func test_all_5_chapter_music_streams_built_by_procedural_builder() -> void:
 	var s1: AudioStream = fresh._music_streams[SoundManagerScript.MUSIC_CH01_CHANGBANPO] as AudioStream
 	var s2: AudioStream = fresh._music_streams[SoundManagerScript.MUSIC_CH02_CHANGBAN_BRIDGE] as AudioStream
 	assert_bool(s1 != s2).override_failure_message(
-		"S60: ch01 and ch02 streams must be different AudioStreamWAV instances"
+		"S60: ch06 and ch07 streams must be different AudioStreamWAV instances"
 	).is_true()

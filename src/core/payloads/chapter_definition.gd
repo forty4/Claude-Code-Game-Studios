@@ -13,7 +13,7 @@ extends Resource
 
 # ─── Core identity ───────────────────────────────────────────────────────────
 
-## Stable chapter identifier, e.g. "ch01_changbanpo". Must match
+## Stable chapter identifier, e.g. "ch06_changbanpo". Must match
 ## regex ^[a-z][a-z0-9_]*$ per EC-SP-8 validation pipeline.
 @export var chapter_id: String = ""
 

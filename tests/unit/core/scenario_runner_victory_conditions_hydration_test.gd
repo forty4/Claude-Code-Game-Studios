@@ -103,11 +103,11 @@ func test_hydrate_chapter_target_unit_ids_round_trip() -> void:
 	assert_int(chapter.victory_conditions.target_unit_ids[2]).is_equal(12)
 
 
-# ─── ch05 retrofit verification (smoke) ─────────────────────────────────────
+# ─── ch10 retrofit verification (smoke) ─────────────────────────────────────
 
 
-## Session-33 — Production mvp_shu.json ch02 record carries the ESCORT retrofit.
-## Verifies the chapter JSON parses + ch02 victory_conditions hydrates correctly.
+## Session-33 — Production mvp_shu.json ch07 record carries the ESCORT retrofit.
+## Verifies the chapter JSON parses + ch07 victory_conditions hydrates correctly.
 func test_mvp_shu_ch02_carries_escort_target_0() -> void:
 	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
 	assert_bool(json_text.is_empty()).is_false()
@@ -115,32 +115,32 @@ func test_mvp_shu_ch02_carries_escort_target_0() -> void:
 	assert_object(parsed).is_not_null()
 	var data: Dictionary = parsed as Dictionary
 	var chapters: Array = data["chapters"] as Array
-	var ch02_record: Dictionary = {}
+	var ch07_record: Dictionary = {}
 	for c: Variant in chapters:
 		var d: Dictionary = c as Dictionary
-		if (d.get("chapter_id", "") as String) == "ch02_changban_bridge":
-			ch02_record = d
+		if (d.get("chapter_id", "") as String) == "ch07_changban_bridge":
+			ch07_record = d
 			break
-	assert_bool(ch02_record.is_empty()).override_failure_message(
-		"mvp_shu.json must contain ch02_changban_bridge record"
+	assert_bool(ch07_record.is_empty()).override_failure_message(
+		"mvp_shu.json must contain ch07_changban_bridge record"
 	).is_false()
 	# ESCORT victory_conditions
-	assert_bool(ch02_record.has("victory_conditions")).override_failure_message(
-		"S33: ch02_changban_bridge must carry victory_conditions block"
+	assert_bool(ch07_record.has("victory_conditions")).override_failure_message(
+		"S33: ch07_changban_bridge must carry victory_conditions block"
 	).is_true()
-	var vc_data: Dictionary = ch02_record["victory_conditions"] as Dictionary
+	var vc_data: Dictionary = ch07_record["victory_conditions"] as Dictionary
 	assert_int(vc_data["primary_condition_type"] as int).override_failure_message(
-		"S33: ch02 must use ESCORT (primary_condition_type=2)"
+		"S33: ch07 must use ESCORT (primary_condition_type=2)"
 	).is_equal(int(VictoryConditions.ConditionType.ESCORT))
 	var t_ids: Array = vc_data["target_unit_ids"] as Array
 	assert_int(t_ids.size()).is_equal(1)
 	assert_int(t_ids[0] as int).override_failure_message(
-		"S33: ch02 ESCORT target must be 유비 (unit_id=0)"
+		"S33: ch07 ESCORT target must be 유비 (unit_id=0)"
 	).is_equal(0)
 	# Default deployment now includes 유비 AND 장비 (S33 unification).
-	var player_ids: Array = ch02_record["player_unit_ids"] as Array
+	var player_ids: Array = ch07_record["player_unit_ids"] as Array
 	assert_int(player_ids.size()).override_failure_message(
-		"S33: ch02 default player_unit_ids must include both 유비 + 장비"
+		"S33: ch07 default player_unit_ids must include both 유비 + 장비"
 	).is_equal(2)
 	var has_player_0: bool = false
 	var has_player_1: bool = false
@@ -150,23 +150,23 @@ func test_mvp_shu_ch02_carries_escort_target_0() -> void:
 		elif (pid as int) == 1:
 			has_player_1 = true
 	assert_bool(has_player_0).override_failure_message(
-		"S33: ch02 default must include 유비 (unit_id=0) — ESCORT target"
+		"S33: ch07 default must include 유비 (unit_id=0) — ESCORT target"
 	).is_true()
 	assert_bool(has_player_1).override_failure_message(
-		"S33: ch02 default must include 장비 (unit_id=1)"
+		"S33: ch07 default must include 장비 (unit_id=1)"
 	).is_true()
 	# branch_overrides for WIN_changbanpo_default removed (now redundant
 	# with the unified default deployment — both paths get 유비 + 장비).
-	var branch_overrides: Dictionary = ch02_record.get("branch_overrides", {}) as Dictionary
+	var branch_overrides: Dictionary = ch07_record.get("branch_overrides", {}) as Dictionary
 	assert_bool(branch_overrides.has("WIN_changbanpo_default")).override_failure_message(
-		"S33: ch02 branch_overrides.WIN_changbanpo_default must be removed (redundant after default unification)"
+		"S33: ch07 branch_overrides.WIN_changbanpo_default must be removed (redundant after default unification)"
 	).is_false()
 
 
-## Session-34 — Production mvp_shu.json ch03 record carries the REACH_TILE retrofit.
-## Verifies ch03_xiakou_outskirts vc block declares REACH_TILE targeting 유비 (unit 0)
+## Session-34 — Production mvp_shu.json ch08 record carries the REACH_TILE retrofit.
+## Verifies ch08_xiakou_outskirts vc block declares REACH_TILE targeting 유비 (unit 0)
 ## with target_tile = (13, 4) — the bridge across to 강하 (Xiakou). Different from
-## ch02 ESCORT in that REACH_TILE is an ACTIVE win condition (move to tile)
+## ch07 ESCORT in that REACH_TILE is an ACTIVE win condition (move to tile)
 ## rather than passive (protect + clear enemies). Mirrors SURVIVE no-shortcut
 ## semantics: enemy wipeout does NOT shortcut to VICTORY_REACH_TILE.
 func test_mvp_shu_ch03_carries_reach_tile_target_13_4() -> void:
@@ -176,45 +176,45 @@ func test_mvp_shu_ch03_carries_reach_tile_target_13_4() -> void:
 	assert_object(parsed).is_not_null()
 	var data: Dictionary = parsed as Dictionary
 	var chapters: Array = data["chapters"] as Array
-	var ch03_record: Dictionary = {}
+	var ch08_record: Dictionary = {}
 	for c: Variant in chapters:
 		var d: Dictionary = c as Dictionary
-		if (d.get("chapter_id", "") as String) == "ch03_xiakou_outskirts":
-			ch03_record = d
+		if (d.get("chapter_id", "") as String) == "ch08_xiakou_outskirts":
+			ch08_record = d
 			break
-	assert_bool(ch03_record.is_empty()).override_failure_message(
-		"mvp_shu.json must contain ch03_xiakou_outskirts record"
+	assert_bool(ch08_record.is_empty()).override_failure_message(
+		"mvp_shu.json must contain ch08_xiakou_outskirts record"
 	).is_false()
 	# REACH_TILE victory_conditions
-	assert_bool(ch03_record.has("victory_conditions")).override_failure_message(
-		"S34: ch03_xiakou_outskirts must carry victory_conditions block"
+	assert_bool(ch08_record.has("victory_conditions")).override_failure_message(
+		"S34: ch08_xiakou_outskirts must carry victory_conditions block"
 	).is_true()
-	var vc_data: Dictionary = ch03_record["victory_conditions"] as Dictionary
+	var vc_data: Dictionary = ch08_record["victory_conditions"] as Dictionary
 	assert_int(vc_data["primary_condition_type"] as int).override_failure_message(
-		"S34: ch03 must use REACH_TILE (primary_condition_type=3)"
+		"S34: ch08 must use REACH_TILE (primary_condition_type=3)"
 	).is_equal(int(VictoryConditions.ConditionType.REACH_TILE))
 	var t_ids: Array = vc_data["target_unit_ids"] as Array
 	assert_int(t_ids.size()).is_equal(1)
 	assert_int(t_ids[0] as int).override_failure_message(
-		"S34: ch03 REACH_TILE target must be 유비 (unit_id=0)"
+		"S34: ch08 REACH_TILE target must be 유비 (unit_id=0)"
 	).is_equal(0)
-	# target_tile [13, 4] is the bridge crossing to 강하 (per mvp_chapter_03.tres
+	# target_tile [13, 4] is the bridge crossing to 강하 (per mvp_chapter_08.tres
 	# comment: "River on right (col 13) is the escape edge; one bridge tile at
 	# [13,4] is the only way across.")
 	var tile_arr: Array = vc_data["target_tile"] as Array
 	assert_int(tile_arr.size()).override_failure_message(
-		"S34: ch03 target_tile must be a 2-element array"
+		"S34: ch08 target_tile must be a 2-element array"
 	).is_equal(2)
 	assert_int(tile_arr[0] as int).override_failure_message(
-		"S34: ch03 target_tile.x must be 13 (bridge column)"
+		"S34: ch08 target_tile.x must be 13 (bridge column)"
 	).is_equal(13)
 	assert_int(tile_arr[1] as int).override_failure_message(
-		"S34: ch03 target_tile.y must be 4 (bridge row)"
+		"S34: ch08 target_tile.y must be 4 (bridge row)"
 	).is_equal(4)
 
 
-## Production mvp_shu.json ch05 record carries the SURVIVE_N_ROUNDS=5 retrofit.
-## Reads the JSON directly via FileAccess + hydrate the ch05 record to verify
+## Production mvp_shu.json ch10 record carries the SURVIVE_N_ROUNDS=5 retrofit.
+## Reads the JSON directly via FileAccess + hydrate the ch10 record to verify
 ## the wiring end-to-end (catches any JSON syntax breakage at lint time).
 func test_mvp_shu_ch05_carries_survive_5_rounds() -> void:
 	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
@@ -223,31 +223,31 @@ func test_mvp_shu_ch05_carries_survive_5_rounds() -> void:
 	assert_object(parsed).is_not_null()
 	var data: Dictionary = parsed as Dictionary
 	var chapters: Array = data["chapters"] as Array
-	# Find ch05.
-	var ch05_record: Dictionary = {}
+	# Find ch10.
+	var ch10_record: Dictionary = {}
 	for c: Variant in chapters:
 		var d: Dictionary = c as Dictionary
-		if (d.get("chapter_id", "") as String) == "ch05_chibi_main":
-			ch05_record = d
+		if (d.get("chapter_id", "") as String) == "ch10_chibi_main":
+			ch10_record = d
 			break
-	assert_bool(ch05_record.is_empty()).override_failure_message(
-		"mvp_shu.json must contain ch05_chibi_main record"
+	assert_bool(ch10_record.is_empty()).override_failure_message(
+		"mvp_shu.json must contain ch10_chibi_main record"
 	).is_false()
-	assert_bool(ch05_record.has("victory_conditions")).override_failure_message(
-		"S29: ch05_chibi_main must carry victory_conditions block"
+	assert_bool(ch10_record.has("victory_conditions")).override_failure_message(
+		"S29: ch10_chibi_main must carry victory_conditions block"
 	).is_true()
-	var vc_data: Dictionary = ch05_record["victory_conditions"] as Dictionary
+	var vc_data: Dictionary = ch10_record["victory_conditions"] as Dictionary
 	assert_int(vc_data["primary_condition_type"] as int).override_failure_message(
-		"S29: ch05 must use SURVIVE_N_ROUNDS (primary_condition_type=1)"
+		"S29: ch10 must use SURVIVE_N_ROUNDS (primary_condition_type=1)"
 	).is_equal(int(VictoryConditions.ConditionType.SURVIVE_N_ROUNDS))
 	assert_int(vc_data["survive_rounds"] as int).is_equal(5)
 
 
-## S59 — ch03 hidden destiny authoring sanity. ch03 declares
-## hidden_branch_key + hidden_condition (formation_turns >= 3). ch04
+## S59 — ch08 hidden destiny authoring sanity. ch08 declares
+## hidden_branch_key + hidden_condition (formation_turns >= 3). ch09
 ## branch_overrides carries the corresponding WIN_xiakou_united_advance
 ## key with 초선 (unit 8 / qun_004_diao_chan) added to the alliance roster.
-## Pillar 2 second realization — mirrors ch01 → ch02 chain authored at S57.
+## Pillar 2 second realization — mirrors ch06 → ch07 chain authored at S57.
 func test_mvp_shu_ch03_authors_hidden_destiny_with_ch04_override() -> void:
 	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
 	assert_bool(json_text.is_empty()).is_false()
@@ -255,35 +255,35 @@ func test_mvp_shu_ch03_authors_hidden_destiny_with_ch04_override() -> void:
 	assert_object(parsed).is_not_null()
 	var data: Dictionary = parsed as Dictionary
 	var chapters: Array = data["chapters"] as Array
-	var ch03_record: Dictionary = {}
-	var ch04_record: Dictionary = {}
+	var ch08_record: Dictionary = {}
+	var ch09_record: Dictionary = {}
 	for c: Variant in chapters:
 		var d: Dictionary = c as Dictionary
 		var cid: String = d.get("chapter_id", "") as String
-		if cid == "ch03_xiakou_outskirts":
-			ch03_record = d
-		elif cid == "ch04_chibi_prelude":
-			ch04_record = d
-	assert_bool(ch03_record.is_empty()).is_false()
-	assert_bool(ch04_record.is_empty()).is_false()
-	# ch03 hidden_branch_key + hidden_condition authored.
-	assert_str(ch03_record.get("hidden_branch_key", "") as String).override_failure_message(
-		"S59: ch03 must declare hidden_branch_key = 'WIN_hidden'"
+		if cid == "ch08_xiakou_outskirts":
+			ch08_record = d
+		elif cid == "ch09_chibi_prelude":
+			ch09_record = d
+	assert_bool(ch08_record.is_empty()).is_false()
+	assert_bool(ch09_record.is_empty()).is_false()
+	# ch08 hidden_branch_key + hidden_condition authored.
+	assert_str(ch08_record.get("hidden_branch_key", "") as String).override_failure_message(
+		"S59: ch08 must declare hidden_branch_key = 'WIN_hidden'"
 	).is_equal("WIN_hidden")
-	var hc: Dictionary = ch03_record.get("hidden_condition", {}) as Dictionary
+	var hc: Dictionary = ch08_record.get("hidden_condition", {}) as Dictionary
 	assert_str(hc.get("type", "") as String).is_equal("fate_threshold")
 	assert_str(hc.get("field", "") as String).override_failure_message(
-		"S59: ch03 hidden condition must key on formation_turns"
+		"S59: ch08 hidden condition must key on formation_turns"
 	).is_equal("formation_turns")
 	assert_str(hc.get("op", "") as String).is_equal(">=")
 	assert_int(hc.get("value", -1) as int).is_equal(3)
-	# ch03 branch_table maps WIN_hidden to the new branch key.
-	var bt: Dictionary = ch03_record.get("branch_table", {}) as Dictionary
+	# ch08 branch_table maps WIN_hidden to the new branch key.
+	var bt: Dictionary = ch08_record.get("branch_table", {}) as Dictionary
 	assert_str(bt.get("WIN_hidden", "") as String).is_equal("WIN_xiakou_united_advance")
-	# ch04 branch_overrides routes WIN_xiakou_united_advance to 초선-augmented roster.
-	var ovr: Dictionary = ch04_record.get("branch_overrides", {}) as Dictionary
+	# ch09 branch_overrides routes WIN_xiakou_united_advance to 초선-augmented roster.
+	var ovr: Dictionary = ch09_record.get("branch_overrides", {}) as Dictionary
 	assert_bool(ovr.has("WIN_xiakou_united_advance")).override_failure_message(
-		"S59: ch04 must author branch_overrides for WIN_xiakou_united_advance"
+		"S59: ch09 must author branch_overrides for WIN_xiakou_united_advance"
 	).is_true()
 	var entry: Dictionary = ovr["WIN_xiakou_united_advance"] as Dictionary
 	var ovr_uids: Array = entry.get("player_unit_ids", []) as Array
@@ -293,20 +293,20 @@ func test_mvp_shu_ch03_authors_hidden_destiny_with_ch04_override() -> void:
 			has_8 = true
 			break
 	assert_bool(has_8).override_failure_message(
-		"S59: ch04 WIN_xiakou_united_advance override must include unit 8 (초선)"
+		"S59: ch09 WIN_xiakou_united_advance override must include unit 8 (초선)"
 	).is_true()
 	var ovr_heroes: Dictionary = entry.get("player_hero_ids", {}) as Dictionary
 	assert_str(ovr_heroes.get("8", "") as String).is_equal("qun_004_diao_chan")
 	var ovr_dep: Dictionary = entry.get("deployment_positions_default", {}) as Dictionary
 	assert_bool(ovr_dep.has("8")).override_failure_message(
-		"S59: ch04 override must place unit 8 (초선) on the deployment grid"
+		"S59: ch09 override must place unit 8 (초선) on the deployment grid"
 	).is_true()
 
 
 # ─── mvp_wei.json — Wei scenario authoring sanity ─────────────────────────────
 
 
-## Wei scenario (조조의 남정) — 5 chapters with ch03 hidden destiny + ch05
+## Wei scenario (조조의 남정) — 5 chapters with ch08 hidden destiny + ch10
 ## branch_overrides chain. Mirrors the Shu hidden-destiny authoring patterns
 ## but with Wei perspective + canonical-loss-at-Chibi historical framing.
 func test_mvp_wei_scenario_authors_5_chapters_with_hidden_destiny_chain() -> void:
@@ -342,34 +342,34 @@ func test_mvp_wei_scenario_authors_5_chapters_with_hidden_destiny_chain() -> voi
 			"mvp_wei missing chapter_id '%s'" % expected_id
 		).is_true()
 
-	# ch03 hidden destiny — assassin_kills >= 3 → WIN_changban_pursuit_unshakeable.
-	var ch03: Dictionary = by_id["ch03_changban_pursuit"] as Dictionary
-	assert_str(ch03.get("hidden_branch_key", "") as String).override_failure_message(
-		"Wei ch03 must declare hidden_branch_key = 'WIN_hidden'"
+	# ch08 hidden destiny — assassin_kills >= 3 → WIN_changban_pursuit_unshakeable.
+	var ch08: Dictionary = by_id["ch03_changban_pursuit"] as Dictionary
+	assert_str(ch08.get("hidden_branch_key", "") as String).override_failure_message(
+		"Wei ch08 must declare hidden_branch_key = 'WIN_hidden'"
 	).is_equal("WIN_hidden")
-	var hc: Dictionary = ch03.get("hidden_condition", {}) as Dictionary
+	var hc: Dictionary = ch08.get("hidden_condition", {}) as Dictionary
 	assert_str(hc.get("type", "") as String).is_equal("fate_threshold")
 	assert_str(hc.get("field", "") as String).is_equal("assassin_kills")
 	assert_str(hc.get("op", "") as String).is_equal(">=")
 	assert_int(hc.get("value", -1) as int).is_equal(3)
-	var ch03_bt: Dictionary = ch03.get("branch_table", {}) as Dictionary
-	assert_str(ch03_bt.get("WIN_hidden", "") as String).is_equal("WIN_changban_pursuit_unshakeable")
+	var ch08_bt: Dictionary = ch08.get("branch_table", {}) as Dictionary
+	assert_str(ch08_bt.get("WIN_hidden", "") as String).is_equal("WIN_changban_pursuit_unshakeable")
 
-	# ch05 branch_overrides routes WIN_changban_pursuit_unshakeable to a reduced
+	# ch10 branch_overrides routes WIN_changban_pursuit_unshakeable to a reduced
 	# (3-enemy) alliance roster — without Wu reinforcements the survive-5-rounds
 	# fight is winnable, which yields WIN_chibi_wind_too_late at Beat 7.
-	var ch05: Dictionary = by_id["ch05_chibi_burn"] as Dictionary
-	assert_str(ch05.get("canonical_branch_key", "") as String).override_failure_message(
-		"Wei ch05 canonical branch must be LOSS_chibi_burn_canonical (historical defeat)"
+	var ch10: Dictionary = by_id["ch05_chibi_burn"] as Dictionary
+	assert_str(ch10.get("canonical_branch_key", "") as String).override_failure_message(
+		"Wei ch10 canonical branch must be LOSS_chibi_burn_canonical (historical defeat)"
 	).is_equal("LOSS_chibi_burn_canonical")
-	var ovr: Dictionary = ch05.get("branch_overrides", {}) as Dictionary
+	var ovr: Dictionary = ch10.get("branch_overrides", {}) as Dictionary
 	assert_bool(ovr.has("WIN_changban_pursuit_unshakeable")).override_failure_message(
-		"Wei ch05 must author branch_overrides for WIN_changban_pursuit_unshakeable"
+		"Wei ch10 must author branch_overrides for WIN_changban_pursuit_unshakeable"
 	).is_true()
 	var entry: Dictionary = ovr["WIN_changban_pursuit_unshakeable"] as Dictionary
 	var ovr_enemy_ids: Array = entry.get("enemy_unit_ids", []) as Array
 	assert_int(ovr_enemy_ids.size()).override_failure_message(
-		"Wei ch05 hidden override must reduce enemy count from 5 to 3 (Wu vanguard absent)"
+		"Wei ch10 hidden override must reduce enemy count from 5 to 3 (Wu vanguard absent)"
 	).is_equal(3)
 
 	# Map ids match the new .tres files generated for the Wei line.

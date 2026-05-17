@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://src/core/map_resource.gd" id="1_mapres"]
 [ext_resource type="Script" path="res://src/core/map_tile_data.gd" id="2_tiledata"]
 
-; mvp_chapter_02 — 장판교 (Changban Bridge)
+; mvp_chapter_07 — 장판교 (Changban Bridge)
 ; 10 cols × 7 rows. Vertical river at col 3 with a 1-tile bridge at [3,3].
 ; Forest north/south backdrops (rows 0 and 6, cols 2-7). Road east-west across
 ; row 3 connecting both banks via the bridge. 장비 holds the chokepoint at [3,3].
@@ -320,7 +320,7 @@ coord = Vector2i(9, 6)
 [resource]
 script = ExtResource("1_mapres")
 terrain_version = 1
-map_id = &"mvp_chapter_02"
+map_id = &"mvp_chapter_07"
 map_rows = 7
 map_cols = 10
 tiles = Array[ExtResource("2_tiledata")]([SubResource("t_0_0"), SubResource("t_1_0"), SubResource("t_2_0"), SubResource("t_3_0"), SubResource("t_4_0"), SubResource("t_5_0"), SubResource("t_6_0"), SubResource("t_7_0"), SubResource("t_8_0"), SubResource("t_9_0"), SubResource("t_0_1"), SubResource("t_1_1"), SubResource("t_2_1"), SubResource("t_3_1"), SubResource("t_4_1"), SubResource("t_5_1"), SubResource("t_6_1"), SubResource("t_7_1"), SubResource("t_8_1"), SubResource("t_9_1"), SubResource("t_0_2"), SubResource("t_1_2"), SubResource("t_2_2"), SubResource("t_3_2"), SubResource("t_4_2"), SubResource("t_5_2"), SubResource("t_6_2"), SubResource("t_7_2"), SubResource("t_8_2"), SubResource("t_9_2"), SubResource("t_0_3"), SubResource("t_1_3"), SubResource("t_2_3"), SubResource("t_3_3"), SubResource("t_4_3"), SubResource("t_5_3"), SubResource("t_6_3"), SubResource("t_7_3"), SubResource("t_8_3"), SubResource("t_9_3"), SubResource("t_0_4"), SubResource("t_1_4"), SubResource("t_2_4"), SubResource("t_3_4"), SubResource("t_4_4"), SubResource("t_5_4"), SubResource("t_6_4"), SubResource("t_7_4"), SubResource("t_8_4"), SubResource("t_9_4"), SubResource("t_0_5"), SubResource("t_1_5"), SubResource("t_2_5"), SubResource("t_3_5"), SubResource("t_4_5"), SubResource("t_5_5"), SubResource("t_6_5"), SubResource("t_7_5"), SubResource("t_8_5"), SubResource("t_9_5"), SubResource("t_0_6"), SubResource("t_1_6"), SubResource("t_2_6"), SubResource("t_3_6"), SubResource("t_4_6"), SubResource("t_5_6"), SubResource("t_6_6"), SubResource("t_7_6"), SubResource("t_8_6"), SubResource("t_9_6")])

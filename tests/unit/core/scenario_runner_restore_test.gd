@@ -42,30 +42,30 @@ func test_unknown_chapter_id_returns_false() -> void:
 func test_chapter_1_ctx_lands_at_chapter_0_beat_1_anchor() -> void:
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
-	var ctx: SaveContext = _ctx_for("ch01_changbanpo", 1)
+	var ctx: SaveContext = _ctx_for("ch06_changbanpo", 1)
 	assert_bool(runner.restore_from_save_context(ctx)).is_true()
 	assert_int(runner.get_current_chapter_index()).is_equal(0)
 	var state_enum: Dictionary = ScenarioRunnerTestSeam.get_state_enum()
 	assert_int(runner.get_state()).is_equal(state_enum["BEAT_1_ANCHOR"] as int)
-	assert_str(runner.get_current_chapter().chapter_id).is_equal("ch01_changbanpo")
+	assert_str(runner.get_current_chapter().chapter_id).is_equal("ch06_changbanpo")
 
 
 func test_chapter_2_ctx_jumps_to_chapter_1_index() -> void:
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
-	var ctx: SaveContext = _ctx_for("ch02_changban_bridge", 2)
+	var ctx: SaveContext = _ctx_for("ch07_changban_bridge", 2)
 	assert_bool(runner.restore_from_save_context(ctx)).is_true()
 	assert_int(runner.get_current_chapter_index()).is_equal(1)
 	var state_enum: Dictionary = ScenarioRunnerTestSeam.get_state_enum()
 	assert_int(runner.get_state()).is_equal(state_enum["BEAT_1_ANCHOR"] as int)
-	assert_str(runner.get_current_chapter().chapter_id).is_equal("ch02_changban_bridge")
+	assert_str(runner.get_current_chapter().chapter_id).is_equal("ch07_changban_bridge")
 
 
 func test_chapter_3_ctx_jumps_to_chapter_2_index() -> void:
-	# ch3 = ch03_xiakou_outskirts at index 2 (added with the ch3 content patch).
+	# ch3 = ch08_xiakou_outskirts at index 2 (added with the ch3 content patch).
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
-	var ctx: SaveContext = _ctx_for("ch03_xiakou_outskirts", 3)
+	var ctx: SaveContext = _ctx_for("ch08_xiakou_outskirts", 3)
 	assert_bool(runner.restore_from_save_context(ctx)).is_true()
 	assert_int(runner.get_current_chapter_index()).is_equal(2)
-	assert_str(runner.get_current_chapter().chapter_id).is_equal("ch03_xiakou_outskirts")
+	assert_str(runner.get_current_chapter().chapter_id).is_equal("ch08_xiakou_outskirts")

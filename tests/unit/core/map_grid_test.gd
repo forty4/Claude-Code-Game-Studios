@@ -513,7 +513,7 @@ func test_map_grid_validate_valid_map_passes_and_loads() -> void:
 # ─── Story-003 AC-2: Dimension bounds rejection ────────────────────────────────
 
 ## Story-003 AC-2: map_cols=5 (below minimum 6 per S59 — was 15 pre-S59
-## but lowered to accept ch02-ch05 authored dimensions) — fails with
+## but lowered to accept ch07-ch10 authored dimensions) — fails with
 ## ERR_MAP_DIMENSIONS_INVALID, _map not assigned, all caches empty.
 func test_map_grid_validate_invalid_cols_too_small_fails() -> void:
 	# Arrange — 5 cols (minimum is 6); tile array is otherwise correct size
@@ -1111,7 +1111,7 @@ func test_map_grid_plains_tile_remains_passable_unaffected_by_override() -> void
 ## Reads every chapter MapResource on disk via ResourceLoader and asserts
 ## load_map() succeeds. Catches the class of bug where MAP_*_MIN bounds drift
 ## ahead of authored chapter dimensions (pre-S59 MIN=15 silently rejected
-## ch02 10×7, ch03 14×8, ch04 16×9, ch05 12×9 — only headless tests using a
+## ch07 10×7, ch08 14×8, ch09 16×9, ch10 12×9 — only headless tests using a
 ## synthesized 15×15 fallback passed; windowed boot rendered the grid at
 ## bottom-right with zero clicks landing because MapGrid stayed inert).
 ##
@@ -1120,11 +1120,11 @@ func test_map_grid_plains_tile_remains_passable_unaffected_by_override() -> void
 ## added with smaller dimensions, this test fires first.
 func test_all_production_chapter_maps_pass_validation() -> void:
 	var chapter_paths: Array[String] = [
-		"res://assets/data/maps/mvp_chapter_01.tres",
-		"res://assets/data/maps/mvp_chapter_02.tres",
-		"res://assets/data/maps/mvp_chapter_03.tres",
-		"res://assets/data/maps/mvp_chapter_04.tres",
-		"res://assets/data/maps/mvp_chapter_05.tres",
+		"res://assets/data/maps/mvp_chapter_06.tres",
+		"res://assets/data/maps/mvp_chapter_07.tres",
+		"res://assets/data/maps/mvp_chapter_08.tres",
+		"res://assets/data/maps/mvp_chapter_09.tres",
+		"res://assets/data/maps/mvp_chapter_10.tres",
 		"res://assets/data/maps/mvp_wei_chapter_01.tres",
 		"res://assets/data/maps/mvp_wei_chapter_02.tres",
 		"res://assets/data/maps/mvp_wei_chapter_03.tres",

@@ -44,14 +44,14 @@ const MOCK_HERO_IDS: Array[StringName] = [
 	HERO_XIAHOU_DUN, HERO_ZHANG_LIAO, HERO_YU_JIN, HERO_XU_CHU,
 ]
 
-# Chapter-1 player unit_ids (from mvp_chapter_01.tres player_unit_ids field).
+# Chapter-1 player unit_ids (from mvp_chapter_06.tres player_unit_ids field).
 # Side=0 (is_player=true). BattleScene assigns unit_id from chapter.player_unit_ids.
 # Hardcoded to 1 and 2 per _build_battle_units_from_chapter() ordering.
 const PLAYER_UID_1: int = 1
 const PLAYER_UID_2: int = 2
 
 # Chapter-1 enemy unit_id — first enemy entry from enemy_roster.
-# unit_id 3 is the first enemy in mvp_chapter_01.tres enemy_roster list.
+# unit_id 3 is the first enemy in mvp_chapter_06.tres enemy_roster list.
 # Verified safe: BattleScene._build_battle_units_from_chapter uses enemy_roster[i].unit_id.
 const ENEMY_UID_FIRST: int = 3
 

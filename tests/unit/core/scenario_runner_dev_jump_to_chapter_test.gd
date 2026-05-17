@@ -1,7 +1,7 @@
 ## ScenarioRunner.dev_jump_to_chapter — S62 dev-only chapter teleport API.
 ##
 ## Covers:
-##   - Valid jump to ch01..ch05 of mvp_shu + mvp_wei
+##   - Valid jump to ch06..ch10 of mvp_shu + mvp_wei
 ##   - Out-of-range index refused (state unchanged)
 ##   - Empty path refused
 ##   - Bad path refused (load_scenario fault path)
@@ -24,13 +24,13 @@ const WEI_PATH: String = "res://assets/data/scenarios/mvp_wei.json"
 
 
 func test_dev_jump_lands_at_each_mvp_shu_chapter() -> void:
-	# 5 chapters in mvp_shu: ch01_changbanpo .. ch05_chibi_main.
+	# 5 chapters in mvp_shu: ch06_changbanpo .. ch10_chibi_main.
 	var expected_ids: Array[String] = [
-		"ch01_changbanpo",
-		"ch02_changban_bridge",
-		"ch03_xiakou_outskirts",
-		"ch04_chibi_prelude",
-		"ch05_chibi_main",
+		"ch06_changbanpo",
+		"ch07_changban_bridge",
+		"ch08_xiakou_outskirts",
+		"ch09_chibi_prelude",
+		"ch10_chibi_main",
 	]
 	for idx: int in expected_ids.size():
 		var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
@@ -156,8 +156,8 @@ func test_dev_jump_to_index_0_emits_chapter_started_once() -> void:
 		"dev_jump to index 0 emitted chapter_started %d times — expected exactly 1"
 			% emits.size()
 	).is_equal(1)
-	assert_str(emits[0]["id"] as String).is_equal("ch01_changbanpo")
-	assert_int(emits[0]["num"] as int).is_equal(1)
+	assert_str(emits[0]["id"] as String).is_equal("ch06_changbanpo")
+	assert_int(emits[0]["num"] as int).is_equal(6)
 
 
 ## Index 3 jump emits chapter_started TWICE: once at load_scenario for ch0,
@@ -182,5 +182,5 @@ func test_dev_jump_to_index_3_emits_chapter_started_for_target_chapter() -> void
 			% emits.size()
 	).is_greater_equal(1)
 	assert_str(emits[emits.size() - 1] as String).override_failure_message(
-		"Final chapter_started emit must be the target chapter (ch04 of mvp_wei)"
+		"Final chapter_started emit must be the target chapter (ch09 of mvp_wei)"
 	).is_equal("ch04_jiangling_conquest")

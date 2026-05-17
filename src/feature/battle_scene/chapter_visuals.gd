@@ -17,7 +17,7 @@
 ##     reveal exclusive signal channels.
 ##
 ## Usage:
-##   var cv: ChapterVisuals = preload("res://scenes/battle/mvp_chapter_01.tscn") \
+##   var cv: ChapterVisuals = preload("res://scenes/battle/mvp_chapter_06.tscn") \
 ##       .instantiate()
 ##   cv.map_resource = my_map_resource  # set BEFORE add_child for clean _draw()
 ##   parent.add_child(cv)

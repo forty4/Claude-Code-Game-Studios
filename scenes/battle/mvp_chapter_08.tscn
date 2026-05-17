@@ -1,4 +1,4 @@
-; Chapter 3 (강하 외곽 마지막 차단 / Xiakou Outskirts) production-tier visual scene.
+; Chapter 8 (강하 외곽 마지막 차단 / Xiakou Outskirts) production-tier visual scene.
 ; Authored per ADR-0021 §1 + §2 — mounted at /root by SceneManager.
 ;
 ; Tile rendering: chapter_visuals.gd `_draw()` overrides on the root Node2D.
@@ -17,7 +17,7 @@
 [gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://src/feature/battle_scene/chapter_visuals.gd" id="1_chapter"]
-[ext_resource type="Resource" path="res://assets/data/maps/mvp_chapter_03.tres" id="2_map"]
+[ext_resource type="Resource" path="res://assets/data/maps/mvp_chapter_08.tres" id="2_map"]
 
 [node name="ChapterVisuals" type="Node2D"]
 script = ExtResource("1_chapter")

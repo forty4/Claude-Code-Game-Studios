@@ -35,7 +35,7 @@ func test_chapter_1_full_traversal_fires_9_beats_in_order() -> void:
 	# Inject WIN outcome
 	var outcome: BattleOutcome = BattleOutcome.new()
 	outcome.result = BattleOutcome.Result.WIN
-	outcome.chapter_id = "ch01_changbanpo"
+	outcome.chapter_id = "ch06_changbanpo"
 	runner._on_battle_outcome_resolved(outcome)
 	state_history.append(runner.get_state())  # BEAT_6_RESULT
 	runner.accept_outcome()  # BEAT_6 -> BEAT_7 -> BEAT_8 (synchronous)
@@ -62,7 +62,7 @@ func test_chapter_index_advances_through_chapter_1() -> void:
 	runner.confirm_deployment()
 	var outcome: BattleOutcome = BattleOutcome.new()
 	outcome.result = BattleOutcome.Result.WIN
-	outcome.chapter_id = "ch01_changbanpo"
+	outcome.chapter_id = "ch06_changbanpo"
 	runner._on_battle_outcome_resolved(outcome)
 	runner.accept_outcome()
 	runner.advance_beat()
@@ -86,7 +86,7 @@ func test_scenario_complete_not_emitted_when_more_chapters_remain() -> void:
 	runner.confirm_deployment()
 	var outcome: BattleOutcome = BattleOutcome.new()
 	outcome.result = BattleOutcome.Result.WIN
-	outcome.chapter_id = "ch01_changbanpo"
+	outcome.chapter_id = "ch06_changbanpo"
 	runner._on_battle_outcome_resolved(outcome)
 	runner.accept_outcome()
 	runner.advance_beat()
@@ -112,7 +112,7 @@ func test_chapter_completed_emitted_per_chapter() -> void:
 	runner.confirm_deployment()
 	var outcome: BattleOutcome = BattleOutcome.new()
 	outcome.result = BattleOutcome.Result.WIN
-	outcome.chapter_id = "ch01_changbanpo"
+	outcome.chapter_id = "ch06_changbanpo"
 	runner._on_battle_outcome_resolved(outcome)
 	runner.accept_outcome()
 	runner.advance_beat()
@@ -120,7 +120,7 @@ func test_chapter_completed_emitted_per_chapter() -> void:
 		GameBus.chapter_completed.disconnect(conn["callable"] as Callable)
 	assert_int(captured.size()).is_equal(1)
 	var cr: ChapterResult = captured[0]
-	assert_str(cr.chapter_id).is_equal("ch01_changbanpo")
+	assert_str(cr.chapter_id).is_equal("ch06_changbanpo")
 	# branch_path_id (extended field) populated; branch_triggered (legacy alias) too.
 	assert_str(cr.branch_path_id).is_equal("WIN_changbanpo_default")
 	assert_str(cr.branch_triggered).is_equal("WIN_changbanpo_default")

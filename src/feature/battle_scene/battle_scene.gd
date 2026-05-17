@@ -155,28 +155,26 @@ const HUD_TOP_RIBBON_PAD_PX: float = 80.0
 ## id) uses the chapter number alone. Placeholder copy — the eventual string
 ## table (assets/locale/*.po, beat_*_text_key) supersedes this when authored.
 const CHAPTER_FLAVOR: Dictionary = {
-	"ch01_changbanpo": {
-		"title": "제1장 · 장판파 (長坂坡)",
+	# 영걸전식 25챕터 캠페인 기준 정식 챕터 번호 (Phase 0 시프트 후).
+	# ch01~ch05 는 Phase A 황건적~신야 prequel 자리 — 별도 entry 추가 예정.
+	"ch06_changbanpo": {
+		"title": "제6장 · 장판파 (長坂坡)",
 		"tagline": "유비, 피난민을 등지고 조조의 추격을 막아내라.",
 	},
-	"ch02_changban_bridge": {
-		"title": "제2장 · 장판교 (長坂橋)",
+	"ch07_changban_bridge": {
+		"title": "제7장 · 장판교 (長坂橋)",
 		"tagline": "장비, 다리 하나로 적의 전군을 멈춰 세워라.",
 	},
-	"ch03_xiakou_outskirts": {
-		"title": "제3장 · 강하 외곽 · 적벽의 서막",
+	"ch08_xiakou_outskirts": {
+		"title": "제8장 · 강하 외곽 · 적벽의 서막",
 		"tagline": "관우 합류 — 강을 건너기까지 마지막 후위를 막아내라.",
 	},
-	# Session-39 — backfilled flavor for ch04 + ch05. Pre-S39 these fell
-	# through to the "제N장" default with no tagline, breaking the narrative
-	# read at chapter intro time. Each retrofitted chapter now has a single-
-	# line situation prose paired with its tactical objective line below.
-	"ch04_chibi_prelude": {
-		"title": "제4장 · 적벽의 서막 (赤壁前夜)",
+	"ch09_chibi_prelude": {
+		"title": "제9장 · 적벽의 서막 (赤壁前夜)",
 		"tagline": "동맹의 길 — 손권에게 닿기 전 마지막 추격을 끊어라.",
 	},
-	"ch05_chibi_main": {
-		"title": "제5장 · 적벽 본전 (赤壁) · 동남풍을 기다리며",
+	"ch10_chibi_main": {
+		"title": "제10장 · 적벽 본전 (赤壁) · 동남풍을 기다리며",
 		"tagline": "화공의 바람이 불기까지 — 전선을 사수하고 백만 대군을 견뎌라.",
 	},
 }

@@ -30,14 +30,14 @@ func test_scenario_advances_from_chapter_1_to_chapter_2_after_win() -> void:
 		"mvp_shu.json must load with 2 chapters cleanly"
 	).is_true()
 	assert_int(runner.get_current_chapter_index()).is_equal(0)
-	assert_str(runner.get_current_chapter().chapter_id).is_equal("ch01_changbanpo")
+	assert_str(runner.get_current_chapter().chapter_id).is_equal("ch06_changbanpo")
 
-	_drive_chapter_to_beat_9(runner, "ch01_changbanpo")
+	_drive_chapter_to_beat_9(runner, "ch06_changbanpo")
 
 	# After chapter 1 BEAT_9 with WIN, runner advances to chapter 2 (CHAPTER_START
 	# synchronously chains into BEAT_1_ANCHOR per _enter_chapter_start).
 	assert_int(runner.get_current_chapter_index()).is_equal(1)
-	assert_str(runner.get_current_chapter().chapter_id).is_equal("ch02_changban_bridge")
+	assert_str(runner.get_current_chapter().chapter_id).is_equal("ch07_changban_bridge")
 	var state_enum: Dictionary = ScenarioRunnerTestSeam.get_state_enum()
 	assert_int(runner.get_state()).is_equal(state_enum["BEAT_1_ANCHOR"] as int)
 
@@ -61,11 +61,11 @@ func test_scenario_completes_after_final_chapter_win() -> void:
 		captured_scenario.append(r)
 	GameBus.scenario_complete.connect(sr_capture)
 
-	_drive_chapter_to_beat_9(runner, "ch01_changbanpo")
-	_drive_chapter_to_beat_9(runner, "ch02_changban_bridge")
-	_drive_chapter_to_beat_9(runner, "ch03_xiakou_outskirts")
-	_drive_chapter_to_beat_9(runner, "ch04_chibi_prelude")
-	_drive_chapter_to_beat_9(runner, "ch05_chibi_main")
+	_drive_chapter_to_beat_9(runner, "ch06_changbanpo")
+	_drive_chapter_to_beat_9(runner, "ch07_changban_bridge")
+	_drive_chapter_to_beat_9(runner, "ch08_xiakou_outskirts")
+	_drive_chapter_to_beat_9(runner, "ch09_chibi_prelude")
+	_drive_chapter_to_beat_9(runner, "ch10_chibi_main")
 
 	# Disconnect only our test captures (avoid severing production subscribers).
 	if GameBus.chapter_completed.is_connected(ch_capture):
@@ -74,15 +74,15 @@ func test_scenario_completes_after_final_chapter_win() -> void:
 		GameBus.scenario_complete.disconnect(sr_capture)
 
 	assert_int(captured_chapters.size()).is_equal(5)
-	assert_str(captured_chapters[0].chapter_id).is_equal("ch01_changbanpo")
+	assert_str(captured_chapters[0].chapter_id).is_equal("ch06_changbanpo")
 	assert_str(captured_chapters[0].branch_path_id).is_equal("WIN_changbanpo_default")
-	assert_str(captured_chapters[1].chapter_id).is_equal("ch02_changban_bridge")
+	assert_str(captured_chapters[1].chapter_id).is_equal("ch07_changban_bridge")
 	assert_str(captured_chapters[1].branch_path_id).is_equal("WIN_changban_bridge_default")
-	assert_str(captured_chapters[2].chapter_id).is_equal("ch03_xiakou_outskirts")
+	assert_str(captured_chapters[2].chapter_id).is_equal("ch08_xiakou_outskirts")
 	assert_str(captured_chapters[2].branch_path_id).is_equal("WIN_xiakou_breakthrough")
-	assert_str(captured_chapters[3].chapter_id).is_equal("ch04_chibi_prelude")
+	assert_str(captured_chapters[3].chapter_id).is_equal("ch09_chibi_prelude")
 	assert_str(captured_chapters[3].branch_path_id).is_equal("WIN_chibi_prelude_alliance")
-	assert_str(captured_chapters[4].chapter_id).is_equal("ch05_chibi_main")
+	assert_str(captured_chapters[4].chapter_id).is_equal("ch10_chibi_main")
 	assert_str(captured_chapters[4].branch_path_id).is_equal("WIN_chibi_main_burn")
 	assert_int(captured_scenario.size()).is_equal(1)
 	assert_int(captured_scenario[0].chapter_outcomes.size()).is_equal(5)
@@ -96,7 +96,7 @@ func test_chapter_1_win_unlocks_chapter_2_heroic_deployment() -> void:
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
 	runner.load_scenario(SCENARIO_JSON)
-	_drive_chapter_to_beat_9(runner, "ch01_changbanpo", BattleOutcome.Result.WIN)
+	_drive_chapter_to_beat_9(runner, "ch06_changbanpo", BattleOutcome.Result.WIN)
 	# Now at chapter 2 BEAT_1_ANCHOR. Inspect the BattlePayload that BEAT_4 would emit.
 	var payload: BattlePayload = runner.get_active_battle_config()
 	# Heroic branch: 유비 (0) + 장비 (1) + 위 enemies (2, 3) = 4 units total.
@@ -117,7 +117,7 @@ func test_chapter_1_loss_keeps_chapter_2_tragic_deployment() -> void:
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
 	runner.load_scenario(SCENARIO_JSON)
-	_drive_chapter_to_beat_9(runner, "ch01_changbanpo", BattleOutcome.Result.LOSS)
+	_drive_chapter_to_beat_9(runner, "ch06_changbanpo", BattleOutcome.Result.LOSS)
 	var payload: BattlePayload = runner.get_active_battle_config()
 	# Tragic branch (default): 장비 (1) alone + 위 enemies (2, 3) = 3 units total.
 	assert_int(payload.unit_roster.size()).override_failure_message(

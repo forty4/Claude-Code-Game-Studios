@@ -1,7 +1,7 @@
 ## battle_scene_chapter_flavor_test.gd
 ##
 ## Covers BattleScene.CHAPTER_FLAVOR completeness + the title-card objective
-## line composition. Pre-S39 only ch01-ch03 had flavor entries; ch04 + ch05
+## line composition. Pre-S39 only ch06-ch08 had flavor entries; ch09 + ch10
 ## fell through to the "제N장" default with no tagline, breaking the chapter
 ## intro's narrative read. S39 backfilled the missing entries + added an
 ## objective line composed from _resolve_victory_condition_label.
@@ -10,18 +10,18 @@
 ##   - CHAPTER_FLAVOR has entries for all 5 production chapters
 ##   - Each entry has non-empty title + tagline
 ##   - The S39 objective line composition: "▶  " + resolved condition label
-##   - REACH_TILE chapter (ch03) yields the coord-interpolated objective per S37
+##   - REACH_TILE chapter (ch08) yields the coord-interpolated objective per S37
 extends GdUnitTestSuite
 
 
 const _BATTLE_SCENE_SCRIPT: String = "res://src/feature/battle_scene/battle_scene.gd"
 
 const _EXPECTED_CHAPTER_IDS: Array[String] = [
-	"ch01_changbanpo",
-	"ch02_changban_bridge",
-	"ch03_xiakou_outskirts",
-	"ch04_chibi_prelude",
-	"ch05_chibi_main",
+	"ch06_changbanpo",
+	"ch07_changban_bridge",
+	"ch08_xiakou_outskirts",
+	"ch09_chibi_prelude",
+	"ch10_chibi_main",
 ]
 
 
@@ -94,7 +94,7 @@ func test_objective_line_for_reach_tile_chapter_includes_target_coords() -> void
 	).is_equal("▶  지정 타일 (13, 4) 도달")
 
 
-## S39 — ESCORT chapter (ch02) yields the fixed phrasing per S30.
+## S39 — ESCORT chapter (ch07) yields the fixed phrasing per S30.
 func test_objective_line_for_escort_chapter_yields_escort_phrasing() -> void:
 	var chapter: ChapterDefinition = ChapterDefinition.new()
 	chapter.victory_conditions = VictoryConditions.new()
@@ -108,7 +108,7 @@ func test_objective_line_for_escort_chapter_yields_escort_phrasing() -> void:
 	assert_str(expected_objective).is_equal("▶  호위 + 적 부대 전멸")
 
 
-## S39 — SURVIVE chapter (ch05) interpolates the round target per S29.
+## S39 — SURVIVE chapter (ch10) interpolates the round target per S29.
 func test_objective_line_for_survive_chapter_includes_round_count() -> void:
 	var chapter: ChapterDefinition = ChapterDefinition.new()
 	chapter.victory_conditions = VictoryConditions.new()
@@ -122,7 +122,7 @@ func test_objective_line_for_survive_chapter_includes_round_count() -> void:
 	assert_str(expected_objective).is_equal("▶  5라운드 버티기")
 
 
-## S39 — ANNIHILATION default (ch01, ch04) yields the legacy phrasing —
+## S39 — ANNIHILATION default (ch06, ch09) yields the legacy phrasing —
 ## the briefing line still appears (no fall-through to empty).
 func test_objective_line_for_annihilation_default_yields_legacy_phrasing() -> void:
 	# Null chapter path — same as ANNIHILATION explicit
