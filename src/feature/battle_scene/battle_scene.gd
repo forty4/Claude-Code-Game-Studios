@@ -480,17 +480,16 @@ func _start_battle() -> void:
 	# WIN_changbanpo_default placing 유비 at [2,3]) actually render.
 	_spawn_unit_polygons_async(roster)
 
-	# Session-12: kick off the battle ambient music. Silent no-op when the
-	# player has muted music (set_music_enabled false → cached slug only).
-	# Stops via _exit_tree when the scene unmounts (chapter transition / main).
-	#
-	# Session-50: DISABLED at the call site. The procedural ambient stream
-	# (sine + low-pass synth, no real composition) reads as system-noise
-	# "웅~" hum during play; user feedback was to silence it until real
-	# music assets ship under assets/audio/. SFX (HIT / DEATH / SKILL etc.)
-	# continue firing — only the ambient music auto-start is gated. Restore
-	# by uncommenting once a real battle BGM track lands.
-	# SoundManager.play_music(SoundManager.MUSIC_BATTLE_AMBIENT)
+	# S60 — chapter-specific BGM. Pre-S60 the generic MUSIC_BATTLE_AMBIENT was
+	# disabled (S50 "system-noise 웅~ hum" feedback). S60 replaces with 5
+	# chapter-tuned drones (D minor urgency / A power stoic / C major travel /
+	# E major alliance warmth / F minor climax) so each chapter has its own
+	# audible "place" — distinct enough that ch01→ch02 transition reads as a
+	# scene change even before the title card fades. Silent no-op when music
+	# muted; stops in _exit_tree on chapter teardown.
+	if SoundManager.has_method("music_id_for_chapter") and SoundManager.has_method("play_music"):
+		var music_id: StringName = SoundManager.music_id_for_chapter(chapter.chapter_id)
+		SoundManager.play_music(music_id)
 
 
 ## _exit_tree — stops battle music when the scene tears down. Without this

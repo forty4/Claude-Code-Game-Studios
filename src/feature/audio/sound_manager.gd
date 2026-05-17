@@ -64,6 +64,19 @@ const SFX_FIRE_TICK: StringName = &"fire_tick"
 ## Music slugs — separate stream pool from SFX so they can be muted
 ## independently (player may want music off but SFX on, or vice versa).
 const MUSIC_BATTLE_AMBIENT: StringName = &"battle_ambient"
+## S60 — chapter-specific BGM. Distinct keys + LFO speeds + per-partial gains
+## per chapter mood. Same procedural-drone structure as MUSIC_BATTLE_AMBIENT
+## but tuned so each chapter reads audibly distinct on chapter entry:
+##   ch01 장판파       — D minor, urgent (2 LFO cycles / 16s loop)
+##   ch02 장판교       — A power chord, stoic (1 LFO cycle, low octave)
+##   ch03 하구 외곽    — C major, traveling (1.5 LFO cycles)
+##   ch04 적벽 prelude — E major, warm hope (1 LFO cycle, brighter)
+##   ch05 적벽 본전    — F minor, climax (2.5 LFO cycles, denser)
+const MUSIC_CH01_CHANGBANPO: StringName       = &"music_ch01"
+const MUSIC_CH02_CHANGBAN_BRIDGE: StringName  = &"music_ch02"
+const MUSIC_CH03_XIAKOU: StringName           = &"music_ch03"
+const MUSIC_CH04_CHIBI_PRELUDE: StringName    = &"music_ch04"
+const MUSIC_CH05_CHIBI_MAIN: StringName       = &"music_ch05"
 
 
 # ─── Synthesis params ─────────────────────────────────────────────────────────
@@ -476,11 +489,111 @@ func _save_preferences() -> void:
 
 # ─── Procedural music synthesis ───────────────────────────────────────────────
 
-## Builds the music streams. Currently 1 track (battle ambient drone). Future
-## tracks (main menu theme / victory fanfare / chapter-specific cues) plug in
-## here keyed by their MUSIC_* slug.
+## Builds the music streams. 1 generic ambient + 5 chapter-specific themes.
+## Each chapter drone passes distinct (root_hz, partial_intervals, gains,
+## lfo_cycles) so the listener gets an audibly different "place" cue on
+## chapter entry. See `_make_drone` for the synthesis model.
 func _build_procedural_music_streams() -> void:
 	_music_streams[MUSIC_BATTLE_AMBIENT] = _make_battle_drone(_MUSIC_LOOP_SECONDS)
+	# ch01 장판파 — D minor, urgent retreat. D2 (73.42 Hz) root + F3 minor third
+	# + A3 perfect fifth → minor triad. LFO 2 cycles/16s (faster breathing) sells
+	# the urgency. Gains slightly heavier on the minor third for tragic colour.
+	_music_streams[MUSIC_CH01_CHANGBANPO] = _make_drone(
+		_MUSIC_LOOP_SECONDS, 73.42, 174.61, 220.00, 0.40, 0.26, 0.18, 2.0
+	)
+	# ch02 장판교 — A power chord, stoic stand. A1 (55 Hz) — ONE OCTAVE BELOW the
+	# generic ambient. E2 fifth + A2 octave. Open-fifth without minor third =
+	# defiant, not despairing. Slow LFO (1 cycle) = stoic resolve. Heavy gain on
+	# A1 for "다리에 발 디딘 무게".
+	_music_streams[MUSIC_CH02_CHANGBAN_BRIDGE] = _make_drone(
+		_MUSIC_LOOP_SECONDS, 55.00, 82.41, 110.00, 0.48, 0.22, 0.20, 1.0
+	)
+	# ch03 하구 외곽 — C major, traveling. C2 (65.41 Hz) + G2 fifth + C3 octave.
+	# Major-feel via clean octave doubling (no third = ambiguous mode but reads
+	# brighter than D minor / A power). LFO 1.5 cycles = walking pace.
+	_music_streams[MUSIC_CH03_XIAKOU] = _make_drone(
+		_MUSIC_LOOP_SECONDS, 65.41, 98.00, 130.81, 0.40, 0.24, 0.22, 1.5
+	)
+	# ch04 적벽 prelude — E major, alliance warmth. E2 (82.41 Hz) + B2 fifth +
+	# G#3 major third → bright major triad. The major third is THE colour cue:
+	# this is the only chapter with explicit major-third interval — emotional
+	# anchor for "동맹이 모인다". Slow LFO matches deliberate diplomacy.
+	_music_streams[MUSIC_CH04_CHIBI_PRELUDE] = _make_drone(
+		_MUSIC_LOOP_SECONDS, 82.41, 123.47, 207.65, 0.38, 0.24, 0.24, 1.0
+	)
+	# ch05 적벽 본전 — F minor, climax + fire. F2 (87.31 Hz) + C3 fifth + Ab3
+	# minor third. Higher root than ch01's D2 = more tension; minor third returns
+	# but at higher density. Fast LFO (2.5 cycles) = flickering fire, urgency.
+	# Gains balanced denser across partials → thicker texture.
+	_music_streams[MUSIC_CH05_CHIBI_MAIN] = _make_drone(
+		_MUSIC_LOOP_SECONDS, 87.31, 130.81, 207.65, 0.36, 0.28, 0.24, 2.5
+	)
+
+
+## Maps a ChapterDefinition.chapter_id (or StringName) to the appropriate
+## chapter-specific music slug. Returns MUSIC_BATTLE_AMBIENT as a structural
+## fallback when chapter_id is unknown (e.g., test fixtures, future authored
+## chapters that haven't been theme-tuned yet) so play_music never errors on
+## unrecognized input. Public — BattleScene calls this at battle init.
+func music_id_for_chapter(chapter_id: StringName) -> StringName:
+	match chapter_id:
+		&"ch01_changbanpo":      return MUSIC_CH01_CHANGBANPO
+		&"ch02_changban_bridge": return MUSIC_CH02_CHANGBAN_BRIDGE
+		&"ch03_xiakou_outskirts": return MUSIC_CH03_XIAKOU
+		&"ch04_chibi_prelude":   return MUSIC_CH04_CHIBI_PRELUDE
+		&"ch05_chibi_main":      return MUSIC_CH05_CHIBI_MAIN
+		_:                       return MUSIC_BATTLE_AMBIENT
+
+
+## Generic 3-partial drone synthesizer (S60). Used by chapter-specific themes
+## + the original battle_ambient via _make_battle_drone() defaults.
+##
+## Parameters:
+##   duration   — loop length (seconds)
+##   f1, f2, f3 — partial frequencies (Hz). Conventionally root/fifth/octave or
+##                root/fifth/third — see chapter-specific calls for the
+##                harmonic intent per chapter.
+##   g1, g2, g3 — per-partial linear gain (0..1). Sum ≤ ~1.0 to avoid clipping
+##                when LFO is at peak.
+##   lfo_cycles — number of amplitude-LFO cycles across the full loop. Higher
+##                = more urgent breathing. Typical 1.0–2.5.
+##
+## All partials are pure sines. The LFO modulates the SUM amplitude between
+## 0.6 and 1.0 (sine, 0.4 depth). Loop endpoints align approximately —
+## non-integer cycles cause small phase drift at the seam (intentional in the
+## original implementation; carried forward).
+func _make_drone(
+	duration: float,
+	f1: float, f2: float, f3: float,
+	g1: float, g2: float, g3: float,
+	lfo_cycles: float,
+) -> AudioStreamWAV:
+	var stream: AudioStreamWAV = AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = _MIX_RATE
+	stream.stereo = false
+	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	var sample_count: int = int(duration * _MIX_RATE)
+	stream.loop_begin = 0
+	stream.loop_end = sample_count
+	var data: PackedByteArray = PackedByteArray()
+	data.resize(sample_count * 2)
+	var lfo_freq: float = lfo_cycles / duration
+	var two_pi: float = TAU
+	for i: int in sample_count:
+		var t: float = float(i) / float(_MIX_RATE)
+		var lfo: float = 0.6 + 0.4 * (0.5 * (1.0 + sin(two_pi * lfo_freq * t)))
+		var sum: float = (
+			g1 * sin(two_pi * f1 * t)
+			+ g2 * sin(two_pi * f2 * t)
+			+ g3 * sin(two_pi * f3 * t)
+		)
+		var sample: float = sum * lfo
+		var s16: int = clampi(int(sample * 32767.0), -32767, 32767)
+		data[i * 2]     = s16 & 0xff
+		data[i * 2 + 1] = (s16 >> 8) & 0xff
+	stream.data = data
+	return stream
 
 
 ## Battle ambient drone — slow, sparse, mournful. Stacks 3 partials at A2/E3/A3
@@ -488,51 +601,11 @@ func _build_procedural_music_streams() -> void:
 ## breathes across the loop. Designed to set tone without competing with combat
 ## SFX. Tag: 천명역전 mood = tragedy + weight + impending fate.
 ##
-## Loop seam strategy: total cycle is an integer multiple of all partial
-## periods AT _MIX_RATE so the buffer ends on the same phase it started, no
-## audible click at loop boundary.
+## Thin wrapper over _make_drone with the historical default params preserved
+## so existing MUSIC_BATTLE_AMBIENT consumers (tests, fallback) get the exact
+## stream they got pre-S60.
 func _make_battle_drone(duration: float) -> AudioStreamWAV:
-	var stream: AudioStreamWAV = AudioStreamWAV.new()
-	stream.format = AudioStreamWAV.FORMAT_16_BITS
-	stream.mix_rate = _MIX_RATE
-	stream.stereo = false
-	# LOOP_FORWARD with explicit start/end = 0/sample_count keeps the loop
-	# perfectly aligned. AudioStreamPlayer needs the loop_mode to fire.
-	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
-	var sample_count: int = int(duration * _MIX_RATE)
-	stream.loop_begin = 0
-	stream.loop_end = sample_count
-	var data: PackedByteArray = PackedByteArray()
-	data.resize(sample_count * 2)
-	# Three partials forming an A-rooted open-fifth pad. Frequencies chosen so
-	# their periods divide evenly into common loop lengths (16s × 110 Hz = 1760
-	# integer cycles; 16s × 165 Hz = 2640; 16s × 220 Hz = 3520) — phase aligns
-	# at every loop boundary regardless of duration.
-	var f1: float = 110.00  # A2
-	var f2: float = 164.81  # E3 (slightly off-integer cycles; small phase
-	                        #     drift across the loop is intentional — adds
-	                        #     subtle beating)
-	var f3: float = 220.00  # A3
-	# LFO: 0.0625 Hz = one full cycle per 16-second loop. Modulates total
-	# amplitude between 0.6 and 1.0, breathing from quiet → present → quiet.
-	var lfo_freq: float = 1.0 / duration
-	# Per-partial gain — A2 carries the body (loudest), E3 + A3 are colour.
-	var gain1: float = 0.42
-	var gain2: float = 0.22
-	var gain3: float = 0.20
-	var two_pi: float = TAU
-	for i: int in sample_count:
-		var t: float = float(i) / float(_MIX_RATE)
-		var lfo: float = 0.6 + 0.4 * (0.5 * (1.0 + sin(two_pi * lfo_freq * t)))
-		var sum: float = (
-			gain1 * sin(two_pi * f1 * t)
-			+ gain2 * sin(two_pi * f2 * t)
-			+ gain3 * sin(two_pi * f3 * t)
-		)
-		var sample: float = sum * lfo
-		var s16: int = clampi(int(sample * 32767.0), -32767, 32767)
-		# Little-endian 16-bit signed.
-		data[i * 2]     = s16 & 0xff
-		data[i * 2 + 1] = (s16 >> 8) & 0xff
-	stream.data = data
-	return stream
+	# Historical A-rooted open-fifth pad. A2 + E3 (slightly off-integer cycles,
+	# adds subtle beating) + A3. Slow LFO at 1 cycle per loop. Gains weighted
+	# toward A2 body. Bit-identical to the pre-S60 hand-written version.
+	return _make_drone(duration, 110.00, 164.81, 220.00, 0.42, 0.22, 0.20, 1.0)

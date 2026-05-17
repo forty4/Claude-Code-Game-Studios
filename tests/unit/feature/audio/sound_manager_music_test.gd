@@ -145,3 +145,82 @@ func test_play_music_method_exists_on_autoload() -> void:
 	assert_bool(sm.has_method("play_music")).is_true()
 	assert_bool(sm.has_method("stop_music")).is_true()
 	assert_bool(sm.has_method("set_music_enabled")).is_true()
+
+
+# ─── S60 chapter-specific BGM ────────────────────────────────────────────────
+
+
+## Maps every authored chapter_id (per mvp_shu.json) to its chapter-specific
+## music slug. Catches the case where a new chapter is added but the music
+## switch in music_id_for_chapter() doesn't get the new case → would silently
+## fall through to MUSIC_BATTLE_AMBIENT (audible regression: chapter has no
+## distinct theme).
+func test_music_id_for_chapter_resolves_distinct_slugs_per_mvp_chapter() -> void:
+	var sm: Node = get_node_or_null("/root/SoundManager")
+	assert(sm != null, "SoundManager autoload must be registered")
+	assert_bool(sm.has_method("music_id_for_chapter")).override_failure_message(
+		"S60: SoundManager.music_id_for_chapter() must exist"
+	).is_true()
+	# Production chapter_ids per assets/data/scenarios/mvp_shu.json.
+	var expected_distinct_slugs: Array[StringName] = []
+	for chapter_id: StringName in [
+		&"ch01_changbanpo",
+		&"ch02_changban_bridge",
+		&"ch03_xiakou_outskirts",
+		&"ch04_chibi_prelude",
+		&"ch05_chibi_main",
+	]:
+		var music_id: StringName = sm.music_id_for_chapter(chapter_id)
+		assert_str(String(music_id)).override_failure_message(
+			"S60: chapter '%s' resolved to empty music_id" % chapter_id
+		).is_not_empty()
+		assert_str(String(music_id)).override_failure_message(
+			"S60: chapter '%s' must NOT fall back to generic ambient — should have its own theme" % chapter_id
+		).is_not_equal(String(SoundManagerScript.MUSIC_BATTLE_AMBIENT))
+		expected_distinct_slugs.append(music_id)
+	# All 5 chapter slugs must be distinct (no two chapters share a theme).
+	var unique_count: int = 0
+	var seen: Dictionary = {}
+	for slug: StringName in expected_distinct_slugs:
+		if not seen.has(slug):
+			seen[slug] = true
+			unique_count += 1
+	assert_int(unique_count).override_failure_message(
+		"S60: each chapter must have its OWN distinct music slug; got duplicates in %s" % str(expected_distinct_slugs)
+	).is_equal(5)
+
+
+func test_music_id_for_chapter_falls_back_to_ambient_for_unknown_chapter() -> void:
+	var sm: Node = get_node_or_null("/root/SoundManager")
+	# Unknown chapter_id (test fixture / future un-themed chapter) falls back
+	# to MUSIC_BATTLE_AMBIENT structurally so play_music() never gets an empty
+	# slug. Not an error — designed graceful degradation.
+	var music_id: StringName = sm.music_id_for_chapter(&"unknown_chapter_xyz")
+	assert_str(String(music_id)).is_equal(String(SoundManagerScript.MUSIC_BATTLE_AMBIENT))
+
+
+func test_all_5_chapter_music_streams_built_by_procedural_builder() -> void:
+	# Headless _ready early-returns before _build_procedural_music_streams (no
+	# audio device → skip synth cost in CI). Build a fresh instance and invoke
+	# the synth directly to verify the 5 chapter streams populate.
+	var fresh: Node = SoundManagerScript.new()
+	auto_free(fresh)
+	fresh._build_procedural_music_streams()
+	for slug: StringName in [
+		SoundManagerScript.MUSIC_CH01_CHANGBANPO,
+		SoundManagerScript.MUSIC_CH02_CHANGBAN_BRIDGE,
+		SoundManagerScript.MUSIC_CH03_XIAKOU,
+		SoundManagerScript.MUSIC_CH04_CHIBI_PRELUDE,
+		SoundManagerScript.MUSIC_CH05_CHIBI_MAIN,
+	]:
+		assert_bool(fresh._music_streams.has(slug)).override_failure_message(
+			"S60: chapter music stream '%s' not built — check _build_procedural_music_streams" % slug
+		).is_true()
+	# Streams must be DISTINCT AudioStreamWAV instances per chapter (catches
+	# the regression where music_id_for_chapter routes correctly but every
+	# chapter shares the same synthesized stream).
+	var s1: AudioStream = fresh._music_streams[SoundManagerScript.MUSIC_CH01_CHANGBANPO] as AudioStream
+	var s2: AudioStream = fresh._music_streams[SoundManagerScript.MUSIC_CH02_CHANGBAN_BRIDGE] as AudioStream
+	assert_bool(s1 != s2).override_failure_message(
+		"S60: ch01 and ch02 streams must be different AudioStreamWAV instances"
+	).is_true()
