@@ -667,3 +667,61 @@ func test_round_lifecycle_emit_order_two_units() -> void:
 	# state-transition coverage now lives in story-006's victory-detection tests
 	# and the dedicated `_end_round` unit tests; this test focuses solely on the
 	# round-1 in-order signal sequence.
+
+
+# ─── S59 — _victory_check_suppressed flag (REACH_TILE freeze regression) ─────
+
+
+## S59 regression: when set_victory_check_suppressed(true), _evaluate_victory
+## returns null even with enemy_alive==0. Production gate so REACH_TILE /
+## SURVIVE / ESCORT chapters don't freeze on enemy wipeout — GridBattleController
+## owns chapter-aware victory dispatch.
+##
+## User-visible symptom this guards against: ch03 (REACH_TILE), clear all 4
+## enemies → game freezes at "Turn: <current player unit>" with no battle-end
+## screen because TurnOrderRunner's naive PLAYER_WIN flipped _round_state to
+## BATTLE_ENDED → _advance_to_next_queued_unit became a no-op.
+func test_evaluate_victory_returns_null_when_suppressed_even_with_enemy_wipe() -> void:
+	# Arrange — 2 player + 1 enemy, then mark the enemy DEAD so enemy_alive==0.
+	var uid_p1: int = 10
+	var uid_p2: int = 11
+	var uid_e1: int = 20
+	var roster: Array[BattleUnit] = []
+	roster.append(_make_unit(uid_p1, _HERO_LIU_BEI, _CLASS_COMMANDER, true))
+	roster.append(_make_unit(uid_p2, _HERO_ZHANG_FEI, _CLASS_INFANTRY, true))
+	roster.append(_make_unit(uid_e1, _HERO_XIAHOU_DUN, _CLASS_INFANTRY, false))
+	_runner.initialize_battle(roster)
+	_runner.set_victory_check_suppressed(true)
+	# Simulate enemy death — flip turn_state to DEAD (matches _on_unit_died path).
+	_runner._unit_states[uid_e1].turn_state = TurnOrderRunner.TurnState.DEAD
+
+	# Act
+	var result: Variant = _runner._evaluate_victory()
+
+	# Assert — suppression overrides the enemy-wipe→PLAYER_WIN inference.
+	assert_object(result).override_failure_message(
+		"S59: _evaluate_victory must return null when suppressed; got %s" % str(result)
+	).is_null()
+
+
+## S59 sanity: default behavior preserved when NOT suppressed (TEST-SEAM mode).
+## Without the flag, _evaluate_victory returns PLAYER_WIN on enemy wipe — this
+## is the legacy contract used by F-001 / F-002 unit tests that don't have
+## GridBattleController.
+func test_evaluate_victory_returns_player_win_on_enemy_wipe_when_not_suppressed() -> void:
+	var uid_p1: int = 10
+	var uid_e1: int = 20
+	var roster: Array[BattleUnit] = []
+	roster.append(_make_unit(uid_p1, _HERO_LIU_BEI, _CLASS_COMMANDER, true))
+	roster.append(_make_unit(uid_e1, _HERO_XIAHOU_DUN, _CLASS_INFANTRY, false))
+	_runner.initialize_battle(roster)
+	# Suppress flag NOT set — defaults to false.
+	_runner._unit_states[uid_e1].turn_state = TurnOrderRunner.TurnState.DEAD
+
+	var result: Variant = _runner._evaluate_victory()
+
+	# Variant int return — assert_object rejects ints in GdUnit4; use type-check instead.
+	assert_bool(result is int).override_failure_message(
+		"S59 sanity: when not suppressed, _evaluate_victory must return an int VictoryResult; got typeof=%d" % typeof(result)
+	).is_true()
+	assert_int(result as int).is_equal(TurnOrderRunner.VictoryResult.PLAYER_WIN as int)

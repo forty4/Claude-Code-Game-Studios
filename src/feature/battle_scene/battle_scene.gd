@@ -335,6 +335,15 @@ func _start_battle() -> void:
 	# === STEP 4: TurnOrderRunner (ADR-0011) — depends on roster ===
 	_turn_runner = TurnOrderRunner.new()
 	_turn_runner.name = "TurnOrderRunner"
+	# S59 production gate: GridBattleController._check_battle_end +
+	# _on_round_started own the chapter-aware victory dispatch (REACH_TILE /
+	# SURVIVE / ESCORT no-shortcut semantics). Without this, the runner fires
+	# PLAYER_WIN naively when enemy_alive==0, flipping _round_state to
+	# BATTLE_ENDED → all subsequent _advance_to_next_queued_unit calls become
+	# no-ops → the player can no longer end a turn. User-visible symptom on
+	# ch03: clear all 4 enemies, then game freezes at "Turn: 관우" with no
+	# battle-end screen (REACH_TILE intent — must move 유비 to [13,4]).
+	_turn_runner.set_victory_check_suppressed(true)
 	_turn_runner.initialize_battle(roster)
 	add_child(_turn_runner)
 

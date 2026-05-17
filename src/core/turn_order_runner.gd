@@ -240,6 +240,25 @@ func set_action_controller(controller: Callable) -> void:
 	_action_controller = controller
 
 
+## When true, _evaluate_victory() returns null unconditionally. Used in production
+## where GridBattleController owns ALL chapter-aware victory dispatch (SURVIVE /
+## ESCORT / REACH_TILE / ANNIHILATION + 8-way DEFEAT taxonomy). The runner's naive
+## enemy_alive==0 → PLAYER_WIN check is harmful in REACH_TILE/SURVIVE chapters:
+## firing _emit_victory flips _round_state to BATTLE_ENDED → all subsequent
+## _advance_to_next_queued_unit calls become no-ops → the player can no longer
+## end a turn → game freezes with no battle-end screen because GridBattleController
+## (correctly) hasn't fired battle_outcome_resolved either. Default false preserves
+## the TEST-SEAM behavior the F-001 / F-002 unit tests assume.
+var _victory_check_suppressed: bool = false
+
+
+## Production toggle: when true, the runner stops doing chapter-naive victory
+## inference at T7 / RE2. GridBattleController._check_battle_end becomes the
+## SOLE victory-emit path. Called by BattleScene at battle init.
+func set_victory_check_suppressed(suppressed: bool) -> void:
+	_victory_check_suppressed = suppressed
+
+
 ## [TEST SEAM] Direct invocation of T1–T7 sequence for the specified unit_id.
 ## Production: called via internal queue advancement after previous unit's turn ends.
 ## Tests: called directly to bypass GameBus signal infrastructure + per-unit timing.
@@ -672,6 +691,14 @@ func _mark_acted(unit_id: int) -> void:
 ## Called at T7 (decisive unit conditions) and is referenced from _end_round (RE2 cap).
 ## Implements TR-turn-order-007 / TR-turn-order-020.
 func _evaluate_victory() -> Variant:
+	# S59 — production gate: GridBattleController._check_battle_end owns the
+	# chapter-aware victory dispatch (REACH_TILE / SURVIVE / ESCORT no-shortcut
+	# semantics). Skipping here prevents the runner-internal _round_state flip
+	# to BATTLE_ENDED from freezing the turn loop when enemy_alive==0 but the
+	# chapter intent is "advance to target tile" or "hold for N rounds". See
+	# _victory_check_suppressed doc above for the full failure mode.
+	if _victory_check_suppressed:
+		return null
 	var player_alive: int = 0
 	var enemy_alive: int = 0
 	for state: UnitTurnState in _unit_states.values():
@@ -715,6 +742,11 @@ func _end_round() -> void:
 		return
 	_round_state = RoundState.ROUND_ENDING
 	# RE2: round-cap DRAW — reads ROUND_CAP via BalanceConstants per ADR-0006 (no hardcoded 30).
+	# Stays unconditional: in production GridBattleController fires
+	# TURN_LIMIT_REACHED at MAX_TURNS_PER_BATTLE < ROUND_CAP so this code path
+	# is reached only when both checks fail — the DRAW is a structural failsafe
+	# against indefinite loops (would manifest as the test-time infinite recursion
+	# observed when suppressed runners had no fallback).
 	if _round_number >= (BalanceConstants.get_const("ROUND_CAP") as int):
 		_emit_victory(VictoryResult.DRAW)
 		return   # RE3 suppressed — battle ended
