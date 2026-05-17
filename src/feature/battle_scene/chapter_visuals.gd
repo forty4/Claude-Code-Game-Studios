@@ -121,6 +121,15 @@ var _active_turn_coord: Vector2i = Vector2i(-1, -1)
 ## window active for the selected unit.
 var _ambush_target_tiles: PackedVector2Array = PackedVector2Array()
 
+## REACH_TILE objective target coord (S59 windowed UX fix). The chapter's
+## win condition target tile that the protagonist (target_unit_ids[0])
+## must move onto. Drawn as a persistent gold ring + diagonal flag glyph
+## so the player can see WHERE to go without scanning the HUD label.
+## Vector2i(-1, -1) sentinel = no REACH_TILE target (chapter uses a
+## different victory condition). Set via set_reach_tile_target() once at
+## battle init from BattleScene reading chapter.victory_conditions.
+var _reach_tile_target: Vector2i = Vector2i(-1, -1)
+
 ## Selected unit's grid coord IF that unit currently meets the CHARGE bonus
 ## conditions (session-15) — CAVALRY, passive_charge, accumulated_move_cost
 ## past CHARGE_THRESHOLD. Drawn as a cyan halo ring around the tile so the
@@ -324,6 +333,16 @@ func set_attackable_tiles(tiles: PackedVector2Array) -> void:
 ## used by DamageCalc, so the visual cue cannot drift from the actual bonus.
 func set_ambush_target_tiles(tiles: PackedVector2Array) -> void:
 	_ambush_target_tiles = tiles
+	queue_redraw()
+
+
+## Sets the REACH_TILE objective target tile (S59 windowed UX fix). Called
+## by BattleScene once at battle init when chapter.victory_conditions is
+## REACH_TILE; pass Vector2i(-1, -1) to clear (chapters with other win
+## conditions). The overlay is persistent for the duration of the battle —
+## chapter target_tile is static, not selection-dependent.
+func set_reach_tile_target(coord: Vector2i) -> void:
+	_reach_tile_target = coord
 	queue_redraw()
 
 
@@ -637,6 +656,34 @@ func _draw() -> void:
 		# Thin indigo border so the ambush tile is also recognizable when only
 		# the corner is visible at the edge of the camera viewport.
 		draw_rect(ambush_rect, Color(0.55, 0.30, 0.95, 0.95), false, 2.0)
+
+	# REACH_TILE objective marker (S59 windowed UX) — drawn before selection
+	# rings so an actively-selected unit standing on the target shows both
+	# overlays cleanly. Persistent gold-amber ring with a diagonal slash
+	# flag inside, distinct from active-turn gold (saturated vs amber tone)
+	# so it doesn't read as "active turn unit" when the player scans the map.
+	# Player intuition: "the goal flag is over there."
+	if _reach_tile_target.x >= 0 and _reach_tile_target.y >= 0:
+		var rt_origin: Vector2 = Vector2(_reach_tile_target.x * TILE_SIZE, _reach_tile_target.y * TILE_SIZE)
+		var rt_rect: Rect2 = Rect2(rt_origin, Vector2(TILE_SIZE, TILE_SIZE))
+		# Soft amber fill so the tile reads as "marked" from a distance.
+		draw_rect(rt_rect, Color(0.95, 0.72, 0.18, 0.28), true)
+		# Thick amber border ring — outer + inner for a "halo" read distinct
+		# from the active-turn gold ring.
+		draw_rect(rt_rect, Color(0.98, 0.78, 0.22, 1.0), false, 4.0)
+		# Flag pole + pennant in the tile center (vector-drawn, no font).
+		var cx: float = rt_origin.x + TILE_SIZE * 0.5
+		var cy: float = rt_origin.y + TILE_SIZE * 0.5
+		var pole_top: Vector2 = Vector2(cx - 10, cy - 16)
+		var pole_bot: Vector2 = Vector2(cx - 10, cy + 16)
+		draw_line(pole_top, pole_bot, Color(0.10, 0.08, 0.06, 1.0), 2.5)
+		# Triangular pennant pointing right from the top of the pole.
+		var pennant: PackedVector2Array = PackedVector2Array([
+			Vector2(cx - 10, cy - 16),
+			Vector2(cx + 12, cy - 10),
+			Vector2(cx - 10, cy - 4),
+		])
+		draw_colored_polygon(pennant, Color(0.98, 0.78, 0.22, 1.0))
 
 	# Active turn highlight — drawn before selection so a selected active unit
 	# shows both rings (active=gold thick, selection=lighter thin on top).

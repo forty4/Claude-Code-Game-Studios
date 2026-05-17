@@ -1211,6 +1211,19 @@ func _spawn_unit_polygons_async(roster: Array[BattleUnit]) -> void:
 				(visuals as CanvasItem).modulate = Color.WHITE
 			visuals.spawn_unit_polygons(roster)
 			_mount_hp_bars(visuals, roster)
+			# S59 windowed UX — when chapter is REACH_TILE, mark the target
+			# tile with a persistent gold-flag overlay so the player can see
+			# WHERE to go. User stuck on ch03 after enemy wipeout because
+			# REACH_TILE doesn't shortcut on annihilation + target tile had
+			# no in-grid indicator (HUD label alone was insufficient).
+			var chapter: ChapterDefinition = ScenarioRunner.get_current_chapter()
+			if chapter != null and chapter.victory_conditions != null \
+					and chapter.victory_conditions.primary_condition_type \
+						== VictoryConditions.ConditionType.REACH_TILE \
+					and visuals.has_method("set_reach_tile_target"):
+				visuals.set_reach_tile_target(chapter.victory_conditions.target_tile)
+			elif visuals.has_method("set_reach_tile_target"):
+				visuals.set_reach_tile_target(Vector2i(-1, -1))
 			return
 		await get_tree().process_frame
 	var root_names: Array = []
