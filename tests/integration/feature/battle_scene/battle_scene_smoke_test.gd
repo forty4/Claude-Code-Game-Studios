@@ -29,6 +29,7 @@ const BATTLE_SCENE_SOURCE: String = "res://src/feature/battle_scene/battle_scene
 # S7-05 expansion (2026-05-05): added shu_001_liu_bei (player 0) + 3 new Wei
 # enemies (wei_006/007/008) per chapter-1 4-archetype enemy_roster.
 const HERO_LIU_BEI: StringName = &"shu_001_liu_bei"
+const HERO_GUAN_YU: StringName = &"shu_002_guan_yu"
 const HERO_ZHANG_FEI: StringName = &"shu_003_zhang_fei"
 const HERO_ZHOU_YU: StringName = &"wu_003_zhou_yu"
 const HERO_CAO_CAO: StringName = &"wei_001_cao_cao"
@@ -37,8 +38,9 @@ const HERO_ZHANG_LIAO: StringName = &"wei_006_zhang_liao"
 const HERO_YU_JIN: StringName = &"wei_007_yu_jin"
 const HERO_XU_CHU: StringName = &"wei_008_xu_chu"
 
+# Phase A — first chapter is ch01_taoyuan_yellow_turban, which includes 관우 (uid=6).
 const MOCK_HERO_IDS: Array[StringName] = [
-	HERO_LIU_BEI, HERO_ZHANG_FEI, HERO_ZHOU_YU, HERO_CAO_CAO,
+	HERO_LIU_BEI, HERO_GUAN_YU, HERO_ZHANG_FEI, HERO_ZHOU_YU, HERO_CAO_CAO,
 	HERO_XIAHOU_DUN, HERO_ZHANG_LIAO, HERO_YU_JIN, HERO_XU_CHU,
 ]
 

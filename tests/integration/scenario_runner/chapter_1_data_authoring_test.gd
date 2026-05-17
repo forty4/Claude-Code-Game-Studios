@@ -1,8 +1,10 @@
 ## chapter_1_data_authoring_test.gd
 ##
-## S7-05 chapter-1 (장판파) ChapterDefinition data-authoring integration test.
+## S7-05 chapter-1 ChapterDefinition data-authoring integration test.
+## Phase A — first chapter is now 도원결의·황건적 토벌 (ch01_taoyuan_yellow_turban);
+## previous "장판파" target moved to ch06 (post Phase 0 index shift).
 ##
-## Validates the chapter-1 mvp_shu.json fixture surfaces all 4 archetypes
+## Validates the first-chapter mvp_shu.json fixture surfaces all 4 archetypes
 ## with valid hero IDs, declares chokepoints in the schema, and remains
 ## structurally loadable by ScenarioRunner. This is the integration target
 ## that exercises ScenarioRunner + DestinyBranchJudge + AISystem coordination.
@@ -24,7 +26,7 @@ func test_chapter_1_loads_via_scenario_runner_without_fault() -> void:
 	).is_true()
 	var chapter: ChapterDefinition = runner.get_current_chapter()
 	assert_object(chapter).is_not_null()
-	assert_str(chapter.chapter_id).is_equal("ch06_changbanpo")
+	assert_str(chapter.chapter_id).is_equal("ch01_taoyuan_yellow_turban")
 
 
 # ─── AC-S7-05-2: 4 enemy archetypes assigned ──────────────────────────────────
@@ -67,15 +69,15 @@ func test_chapter_1_enemy_hero_ids_all_exist_in_hero_database() -> void:
 
 
 func test_chapter_1_chokepoints_loaded_as_3_grid_coords() -> void:
+	# Phase A first chapter (ch01_taoyuan_yellow_turban) has 2 chokepoints
+	# at [7,4] [8,4] — narrow valley before 황건적 진영.
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
 	runner.load_scenario(SCENARIO_JSON)
 	var chapter: ChapterDefinition = runner.get_current_chapter()
-	assert_int(chapter.chokepoints.size()).is_equal(3)
-	# Bridge column 3, rows 2/3/4 (장판교 narrative anchor).
-	assert_bool(Vector2i(3, 2) in chapter.chokepoints).is_true()
-	assert_bool(Vector2i(3, 3) in chapter.chokepoints).is_true()
-	assert_bool(Vector2i(3, 4) in chapter.chokepoints).is_true()
+	assert_int(chapter.chokepoints.size()).is_equal(2)
+	assert_bool(Vector2i(7, 4) in chapter.chokepoints).is_true()
+	assert_bool(Vector2i(8, 4) in chapter.chokepoints).is_true()
 
 
 # ─── AC-S7-05-5: deployment positions cover all 6 unit_ids ───────────────────

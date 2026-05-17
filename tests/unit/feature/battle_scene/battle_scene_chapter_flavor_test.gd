@@ -17,6 +17,13 @@ extends GdUnitTestSuite
 const _BATTLE_SCENE_SCRIPT: String = "res://src/feature/battle_scene/battle_scene.gd"
 
 const _EXPECTED_CHAPTER_IDS: Array[String] = [
+	# Phase A prequel (황건적~신야).
+	"ch01_taoyuan_yellow_turban",
+	"ch02_hulao_gate",
+	"ch03_xuzhou_rescue",
+	"ch04_bowang_slope",
+	"ch05_xinye_fire",
+	# Main campaign (장판~적벽).
 	"ch06_changbanpo",
 	"ch07_changban_bridge",
 	"ch08_xiakou_outskirts",
@@ -46,7 +53,7 @@ func after_test() -> void:
 ## through "제N장" default exists for safety but should not be reached for
 ## any retrofitted production chapter — every retrofitted chapter needs
 ## narrative framing at intro time.
-func test_chapter_flavor_covers_all_five_production_chapters() -> void:
+func test_chapter_flavor_covers_all_production_chapters() -> void:
 	var script: GDScript = load(_BATTLE_SCENE_SCRIPT) as GDScript
 	var flavor: Dictionary = script.get("CHAPTER_FLAVOR") as Dictionary
 	assert_object(flavor).is_not_null()

@@ -1120,6 +1120,13 @@ func test_map_grid_plains_tile_remains_passable_unaffected_by_override() -> void
 ## added with smaller dimensions, this test fires first.
 func test_all_production_chapter_maps_pass_validation() -> void:
 	var chapter_paths: Array[String] = [
+		# Phase A prequel (황건적~신야).
+		"res://assets/data/maps/mvp_chapter_01.tres",
+		"res://assets/data/maps/mvp_chapter_02.tres",
+		"res://assets/data/maps/mvp_chapter_03.tres",
+		"res://assets/data/maps/mvp_chapter_04.tres",
+		"res://assets/data/maps/mvp_chapter_05.tres",
+		# Main campaign (장판~적벽).
 		"res://assets/data/maps/mvp_chapter_06.tres",
 		"res://assets/data/maps/mvp_chapter_07.tres",
 		"res://assets/data/maps/mvp_chapter_08.tres",

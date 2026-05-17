@@ -560,8 +560,19 @@ func _build_procedural_music_streams() -> void:
 ## unrecognized input. Public — BattleScene calls this at battle init.
 func music_id_for_chapter(chapter_id: StringName) -> StringName:
 	match chapter_id:
-		# mvp_shu (촉) line — chapter IDs shifted to ch06~ch10 to make room
-		# for the 영걸전식 prequel (ch01~ch05: 황건적~신야, authored in Phase A).
+		# mvp_shu (촉) line — 영걸전식 25챕터 캠페인.
+		# Phase A prequel (ch01~ch05: 황건적~신야) reuses the 5 procedural themes by thematic match:
+		#   taoyuan_yellow_turban (의병 출진)   → CH03 C-major wandering (the journey begins)
+		#   hulao_gate (여포 격파전)            → CH02 A-power bridge resolve (단신의 대결)
+		#   xuzhou_rescue (서주 구원)           → CH04 E-major alliance warmth (의로운 응답)
+		#   bowang_slope (공명의 첫 화공)        → CH05 F-minor fire climax (첫 매복화공)
+		#   xinye_fire (신야 화공·피난)         → CH05 F-minor fire climax (화염 도시)
+		&"ch01_taoyuan_yellow_turban": return MUSIC_CH03_XIAKOU
+		&"ch02_hulao_gate":            return MUSIC_CH02_CHANGBAN_BRIDGE
+		&"ch03_xuzhou_rescue":         return MUSIC_CH04_CHIBI_PRELUDE
+		&"ch04_bowang_slope":          return MUSIC_CH05_CHIBI_MAIN
+		&"ch05_xinye_fire":            return MUSIC_CH05_CHIBI_MAIN
+		# Main campaign (ch06~ch10) — original 5 themes per chapter.
 		&"ch06_changbanpo":         return MUSIC_CH01_CHANGBANPO
 		&"ch07_changban_bridge":    return MUSIC_CH02_CHANGBAN_BRIDGE
 		&"ch08_xiakou_outskirts":   return MUSIC_CH03_XIAKOU

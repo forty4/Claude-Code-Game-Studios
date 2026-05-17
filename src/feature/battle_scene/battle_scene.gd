@@ -155,8 +155,29 @@ const HUD_TOP_RIBBON_PAD_PX: float = 80.0
 ## id) uses the chapter number alone. Placeholder copy — the eventual string
 ## table (assets/locale/*.po, beat_*_text_key) supersedes this when authored.
 const CHAPTER_FLAVOR: Dictionary = {
-	# 영걸전식 25챕터 캠페인 기준 정식 챕터 번호 (Phase 0 시프트 후).
-	# ch01~ch05 는 Phase A 황건적~신야 prequel 자리 — 별도 entry 추가 예정.
+	# 영걸전식 25챕터 캠페인 기준 정식 챕터 번호.
+	# Phase A prequel (ch01~ch05) — 황건적~신야.
+	"ch01_taoyuan_yellow_turban": {
+		"title": "제1장 · 도원결의 (桃園結義)",
+		"tagline": "탁군 누상촌 — 의로 결의한 세 형제, 첫 무기로 황건적의 진을 깨뜨려라.",
+	},
+	"ch02_hulao_gate": {
+		"title": "제2장 · 호뢰관 (虎牢關)",
+		"tagline": "삼영전여포 — 세 사람의 무기로 천하무쌍의 방천화극을 막아라.",
+	},
+	"ch03_xuzhou_rescue": {
+		"title": "제3장 · 서주 (徐州) · 도겸 구원",
+		"tagline": "조운 합류 — 학살당하는 백성과 늙은 군주를 지켜내라.",
+	},
+	"ch04_bowang_slope": {
+		"title": "제4장 · 박망파 (博望坡) · 공명의 첫 출진",
+		"tagline": "와룡의 첫 화공 — 좁은 협곡에서 하후돈의 정예를 함정에 가두어라.",
+	},
+	"ch05_xinye_fire": {
+		"title": "제5장 · 신야 화공 (新野)",
+		"tagline": "백성을 한진으로 보내고 — 불타는 도시 안에서 5라운드를 버텨내라.",
+	},
+	# Main campaign (ch06~ch10) — 장판~적벽.
 	"ch06_changbanpo": {
 		"title": "제6장 · 장판파 (長坂坡)",
 		"tagline": "유비, 피난민을 등지고 조조의 추격을 막아내라.",

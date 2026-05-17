@@ -123,7 +123,8 @@ func test_heroes_json_parses_cleanly_top_level_dict() -> void:
 # Headroom of 1 (12 actual + 1) prevents accidental over-growth.
 
 
-## AC-2: MVP roster record count must be within [8, 13] inclusive.
+## AC-2: MVP roster record count must be within [8, 16] inclusive.
+## Phase A bumped upper bound 13 → 16 to accommodate 조운/제갈량 (and headroom for 위연/방통/마초/강유 in later phases).
 func test_record_count_within_mvp_bounds_8_to_10() -> void:
 	var heroes: Dictionary = _parse_heroes_json()
 
@@ -136,8 +137,8 @@ func test_record_count_within_mvp_bounds_8_to_10() -> void:
 		"AC-2: record count %d must be >= 8" % count
 	).is_true()
 
-	assert_bool(count <= 13).override_failure_message(
-		"AC-2: record count %d must be <= 13 (S7-05 chapter-1 expansion bumped from 10)" % count
+	assert_bool(count <= 16).override_failure_message(
+		"AC-2: record count %d must be <= 16 (Phase A bumped from 13 — added 조운/제갈량)" % count
 	).is_true()
 
 

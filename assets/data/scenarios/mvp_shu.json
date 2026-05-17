@@ -3,14 +3,681 @@
   "scenario_title_key": "scenario.mvp_shu.title",
   "chapters": [
     {
+      "chapter_id": "ch01_taoyuan_yellow_turban",
+      "chapter_number": 1,
+      "map_id": "mvp_chapter_01",
+      "author_draw_branch": false,
+      "echo_threshold": 0,
+      "branch_table": {
+        "WIN_default": "WIN_taoyuan_oath_held",
+        "LOSS_default": "LOSS_taoyuan_oath_broken"
+      },
+      "canonical_branch_key": "WIN_taoyuan_oath_held",
+      "beat_1_text_key": "ch01.beat1.anchor",
+      "beat_2_fragment": {
+        "variant": "silent_visual",
+        "visual_cue_id": "scenario.peach_garden_glyph",
+        "audio_cue_id": null
+      },
+      "beat_3_text_key": "ch01.beat3.brief",
+      "beat_8_revelations": [
+        {
+          "branch_key": "WIN_taoyuan_oath_held",
+          "text_key": "ch01.beat8.win_taoyuan_oath_held",
+          "cue_tag": "tag.beat8.canonical_win"
+        },
+        {
+          "branch_key": "LOSS_taoyuan_oath_broken",
+          "text_key": "ch01.beat8.loss_taoyuan_oath_broken",
+          "cue_tag": "tag.beat8.canonical_loss"
+        }
+      ],
+      "beat_9_text_key": "ch01.beat9.transition_to_hulao",
+      "player_unit_ids": [
+        0,
+        1,
+        6
+      ],
+      "player_commander_id": 0,
+      "player_hero_ids": {
+        "0": "shu_001_liu_bei",
+        "1": "shu_003_zhang_fei",
+        "6": "shu_002_guan_yu"
+      },
+      "enemy_unit_ids": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "deployment_positions_default": {
+        "0": [
+          1,
+          4
+        ],
+        "1": [
+          2,
+          4
+        ],
+        "6": [
+          1,
+          3
+        ],
+        "2": [
+          9,
+          3
+        ],
+        "3": [
+          9,
+          5
+        ],
+        "4": [
+          10,
+          4
+        ],
+        "5": [
+          8,
+          4
+        ]
+      },
+      "enemy_roster": [
+        {
+          "unit_id": 2,
+          "hero_id": "wei_005_xiahou_dun",
+          "archetype": "aggressor"
+        },
+        {
+          "unit_id": 3,
+          "hero_id": "wei_007_yu_jin",
+          "archetype": "holder"
+        },
+        {
+          "unit_id": 4,
+          "hero_id": "wei_006_zhang_liao",
+          "archetype": "skirmisher"
+        },
+        {
+          "unit_id": 5,
+          "hero_id": "wei_008_xu_chu",
+          "archetype": "coordinator"
+        }
+      ],
+      "chokepoints": [
+        [
+          7,
+          4
+        ],
+        [
+          8,
+          4
+        ]
+      ],
+      "enemy_atk_mult": 0.45,
+      "victory_conditions": {
+        "primary_condition_type": 0
+      }
+    },
+    {
+      "chapter_id": "ch02_hulao_gate",
+      "chapter_number": 2,
+      "map_id": "mvp_chapter_02",
+      "author_draw_branch": false,
+      "echo_threshold": 1,
+      "branch_table": {
+        "WIN_default": "WIN_hulao_lubu_held_off",
+        "WIN_hidden": "WIN_hulao_lubu_struck_down",
+        "LOSS_default": "LOSS_hulao_alliance_breaks"
+      },
+      "canonical_branch_key": "WIN_hulao_lubu_held_off",
+      "hidden_branch_key": "WIN_hidden",
+      "hidden_condition": {
+        "type": "fate_threshold",
+        "field": "dmg_to_lubu",
+        "op": ">=",
+        "value": 30
+      },
+      "beat_1_text_key": "ch02.beat1.anchor",
+      "beat_2_fragment": {
+        "variant": "silent_visual",
+        "visual_cue_id": "scenario.hulao_glyph",
+        "audio_cue_id": null
+      },
+      "beat_3_text_key": "ch02.beat3.brief",
+      "beat_8_revelations": [
+        {
+          "branch_key": "WIN_hulao_lubu_held_off",
+          "text_key": "ch02.beat8.win_hulao_lubu_held_off",
+          "cue_tag": "tag.beat8.canonical_win"
+        },
+        {
+          "branch_key": "WIN_hulao_lubu_struck_down",
+          "text_key": "ch02.beat8.win_hulao_lubu_struck_down",
+          "cue_tag": "tag.beat8.hidden_reveal"
+        },
+        {
+          "branch_key": "LOSS_hulao_alliance_breaks",
+          "text_key": "ch02.beat8.loss_hulao_alliance_breaks",
+          "cue_tag": "tag.beat8.canonical_loss"
+        }
+      ],
+      "beat_9_text_key": "ch02.beat9.transition_to_xuzhou",
+      "player_unit_ids": [
+        0,
+        1,
+        6
+      ],
+      "player_commander_id": 0,
+      "player_hero_ids": {
+        "0": "shu_001_liu_bei",
+        "1": "shu_003_zhang_fei",
+        "6": "shu_002_guan_yu"
+      },
+      "enemy_unit_ids": [
+        2,
+        3,
+        14
+      ],
+      "deployment_positions_default": {
+        "0": [
+          1,
+          4
+        ],
+        "1": [
+          2,
+          4
+        ],
+        "6": [
+          1,
+          3
+        ],
+        "14": [
+          12,
+          4
+        ],
+        "2": [
+          10,
+          3
+        ],
+        "3": [
+          10,
+          5
+        ]
+      },
+      "enemy_roster": [
+        {
+          "unit_id": 14,
+          "hero_id": "qun_001_lu_bu",
+          "archetype": "boss"
+        },
+        {
+          "unit_id": 2,
+          "hero_id": "wei_005_xiahou_dun",
+          "archetype": "aggressor"
+        },
+        {
+          "unit_id": 3,
+          "hero_id": "wei_006_zhang_liao",
+          "archetype": "skirmisher"
+        }
+      ],
+      "chokepoints": [
+        [
+          7,
+          4
+        ],
+        [
+          11,
+          4
+        ]
+      ],
+      "enemy_atk_mult": 0.5,
+      "victory_conditions": {
+        "primary_condition_type": 1,
+        "survive_rounds": 5
+      }
+    },
+    {
+      "chapter_id": "ch03_xuzhou_rescue",
+      "chapter_number": 3,
+      "map_id": "mvp_chapter_03",
+      "author_draw_branch": false,
+      "echo_threshold": 1,
+      "branch_table": {
+        "WIN_default": "WIN_xuzhou_relieved",
+        "WIN_hidden": "WIN_xuzhou_taoqian_safeguarded",
+        "LOSS_default": "LOSS_xuzhou_falls"
+      },
+      "canonical_branch_key": "WIN_xuzhou_relieved",
+      "hidden_branch_key": "WIN_hidden",
+      "hidden_condition": {
+        "type": "fate_threshold",
+        "field": "escort_alive_turns",
+        "op": ">=",
+        "value": 4
+      },
+      "beat_1_text_key": "ch03.beat1.anchor",
+      "beat_2_fragment": {
+        "variant": "silent_visual",
+        "visual_cue_id": "scenario.xuzhou_glyph",
+        "audio_cue_id": null
+      },
+      "beat_3_text_key": "ch03.beat3.brief",
+      "beat_8_revelations": [
+        {
+          "branch_key": "WIN_xuzhou_relieved",
+          "text_key": "ch03.beat8.win_xuzhou_relieved",
+          "cue_tag": "tag.beat8.canonical_win"
+        },
+        {
+          "branch_key": "WIN_xuzhou_taoqian_safeguarded",
+          "text_key": "ch03.beat8.win_xuzhou_taoqian_safeguarded",
+          "cue_tag": "tag.beat8.hidden_reveal"
+        },
+        {
+          "branch_key": "LOSS_xuzhou_falls",
+          "text_key": "ch03.beat8.loss_xuzhou_falls",
+          "cue_tag": "tag.beat8.canonical_loss"
+        }
+      ],
+      "beat_9_text_key": "ch03.beat9.transition_to_bowang",
+      "player_unit_ids": [
+        0,
+        1,
+        6,
+        7
+      ],
+      "player_commander_id": 0,
+      "player_hero_ids": {
+        "0": "shu_001_liu_bei",
+        "1": "shu_003_zhang_fei",
+        "6": "shu_002_guan_yu",
+        "7": "shu_005_zhao_yun"
+      },
+      "enemy_unit_ids": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "deployment_positions_default": {
+        "0": [
+          6,
+          5
+        ],
+        "1": [
+          7,
+          5
+        ],
+        "6": [
+          6,
+          4
+        ],
+        "7": [
+          7,
+          4
+        ],
+        "2": [
+          1,
+          5
+        ],
+        "3": [
+          1,
+          4
+        ],
+        "4": [
+          2,
+          5
+        ],
+        "5": [
+          11,
+          5
+        ]
+      },
+      "enemy_roster": [
+        {
+          "unit_id": 2,
+          "hero_id": "wei_005_xiahou_dun",
+          "archetype": "aggressor"
+        },
+        {
+          "unit_id": 3,
+          "hero_id": "wei_006_zhang_liao",
+          "archetype": "skirmisher"
+        },
+        {
+          "unit_id": 4,
+          "hero_id": "wei_007_yu_jin",
+          "archetype": "holder"
+        },
+        {
+          "unit_id": 5,
+          "hero_id": "wei_001_cao_cao",
+          "archetype": "coordinator"
+        }
+      ],
+      "chokepoints": [
+        [
+          5,
+          0
+        ],
+        [
+          0,
+          6
+        ],
+        [
+          0,
+          7
+        ]
+      ],
+      "enemy_atk_mult": 0.6,
+      "victory_conditions": {
+        "primary_condition_type": 0
+      }
+    },
+    {
+      "chapter_id": "ch04_bowang_slope",
+      "chapter_number": 4,
+      "map_id": "mvp_chapter_04",
+      "author_draw_branch": false,
+      "echo_threshold": 2,
+      "branch_table": {
+        "WIN_default": "WIN_bowang_xiahoudun_routed",
+        "WIN_hidden": "WIN_bowang_kongming_proven",
+        "LOSS_default": "LOSS_bowang_ambush_fails"
+      },
+      "canonical_branch_key": "WIN_bowang_xiahoudun_routed",
+      "hidden_branch_key": "WIN_hidden",
+      "hidden_condition": {
+        "type": "fate_threshold",
+        "field": "win_within_turns",
+        "op": "<=",
+        "value": 6
+      },
+      "beat_1_text_key": "ch04.beat1.anchor",
+      "beat_2_fragment": {
+        "variant": "silent_visual",
+        "visual_cue_id": "scenario.bowang_glyph",
+        "audio_cue_id": null
+      },
+      "beat_3_text_key": "ch04.beat3.brief",
+      "beat_8_revelations": [
+        {
+          "branch_key": "WIN_bowang_xiahoudun_routed",
+          "text_key": "ch04.beat8.win_bowang_xiahoudun_routed",
+          "cue_tag": "tag.beat8.canonical_win"
+        },
+        {
+          "branch_key": "WIN_bowang_kongming_proven",
+          "text_key": "ch04.beat8.win_bowang_kongming_proven",
+          "cue_tag": "tag.beat8.hidden_reveal"
+        },
+        {
+          "branch_key": "LOSS_bowang_ambush_fails",
+          "text_key": "ch04.beat8.loss_bowang_ambush_fails",
+          "cue_tag": "tag.beat8.canonical_loss"
+        }
+      ],
+      "beat_9_text_key": "ch04.beat9.transition_to_xinye",
+      "player_unit_ids": [
+        0,
+        1,
+        6,
+        7,
+        13
+      ],
+      "player_commander_id": 0,
+      "player_hero_ids": {
+        "0": "shu_001_liu_bei",
+        "1": "shu_003_zhang_fei",
+        "6": "shu_002_guan_yu",
+        "7": "shu_005_zhao_yun",
+        "13": "shu_006_zhuge_liang"
+      },
+      "enemy_unit_ids": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "deployment_positions_default": {
+        "0": [
+          11,
+          4
+        ],
+        "1": [
+          10,
+          4
+        ],
+        "6": [
+          11,
+          3
+        ],
+        "7": [
+          11,
+          5
+        ],
+        "13": [
+          12,
+          4
+        ],
+        "2": [
+          2,
+          4
+        ],
+        "3": [
+          2,
+          3
+        ],
+        "4": [
+          3,
+          4
+        ],
+        "5": [
+          2,
+          5
+        ]
+      },
+      "enemy_roster": [
+        {
+          "unit_id": 2,
+          "hero_id": "wei_005_xiahou_dun",
+          "archetype": "aggressor"
+        },
+        {
+          "unit_id": 3,
+          "hero_id": "wei_006_zhang_liao",
+          "archetype": "skirmisher"
+        },
+        {
+          "unit_id": 4,
+          "hero_id": "wei_007_yu_jin",
+          "archetype": "holder"
+        },
+        {
+          "unit_id": 5,
+          "hero_id": "wei_008_xu_chu",
+          "archetype": "coordinator"
+        }
+      ],
+      "chokepoints": [
+        [
+          5,
+          4
+        ],
+        [
+          7,
+          4
+        ],
+        [
+          9,
+          4
+        ]
+      ],
+      "enemy_atk_mult": 0.65,
+      "victory_conditions": {
+        "primary_condition_type": 0
+      }
+    },
+    {
+      "chapter_id": "ch05_xinye_fire",
+      "chapter_number": 5,
+      "map_id": "mvp_chapter_05",
+      "author_draw_branch": false,
+      "echo_threshold": 2,
+      "branch_table": {
+        "WIN_default": "WIN_xinye_burning_retreat",
+        "WIN_hidden": "WIN_xinye_civilians_saved",
+        "LOSS_default": "LOSS_xinye_consumed_with_city"
+      },
+      "canonical_branch_key": "WIN_xinye_burning_retreat",
+      "hidden_branch_key": "WIN_hidden",
+      "hidden_condition": {
+        "type": "fate_threshold",
+        "field": "civilians_escorted",
+        "op": ">=",
+        "value": 3
+      },
+      "beat_1_text_key": "ch05.beat1.anchor",
+      "beat_2_fragment": {
+        "variant": "silent_visual",
+        "visual_cue_id": "scenario.xinye_glyph",
+        "audio_cue_id": null
+      },
+      "beat_3_text_key": "ch05.beat3.brief",
+      "beat_8_revelations": [
+        {
+          "branch_key": "WIN_xinye_burning_retreat",
+          "text_key": "ch05.beat8.win_xinye_burning_retreat",
+          "cue_tag": "tag.beat8.canonical_win"
+        },
+        {
+          "branch_key": "WIN_xinye_civilians_saved",
+          "text_key": "ch05.beat8.win_xinye_civilians_saved",
+          "cue_tag": "tag.beat8.hidden_reveal"
+        },
+        {
+          "branch_key": "LOSS_xinye_consumed_with_city",
+          "text_key": "ch05.beat8.loss_xinye_consumed_with_city",
+          "cue_tag": "tag.beat8.canonical_loss"
+        }
+      ],
+      "beat_9_text_key": "ch05.beat9.transition_to_changbanpo",
+      "player_unit_ids": [
+        0,
+        1,
+        6,
+        7,
+        13
+      ],
+      "player_commander_id": 0,
+      "player_hero_ids": {
+        "0": "shu_001_liu_bei",
+        "1": "shu_003_zhang_fei",
+        "6": "shu_002_guan_yu",
+        "7": "shu_005_zhao_yun",
+        "13": "shu_006_zhuge_liang"
+      },
+      "enemy_unit_ids": [
+        2,
+        3,
+        4,
+        5,
+        12
+      ],
+      "deployment_positions_default": {
+        "0": [
+          1,
+          4
+        ],
+        "1": [
+          2,
+          4
+        ],
+        "6": [
+          1,
+          3
+        ],
+        "7": [
+          2,
+          3
+        ],
+        "13": [
+          1,
+          5
+        ],
+        "2": [
+          10,
+          4
+        ],
+        "3": [
+          9,
+          3
+        ],
+        "4": [
+          9,
+          5
+        ],
+        "5": [
+          10,
+          3
+        ],
+        "12": [
+          10,
+          5
+        ]
+      },
+      "enemy_roster": [
+        {
+          "unit_id": 2,
+          "hero_id": "wei_005_xiahou_dun",
+          "archetype": "aggressor"
+        },
+        {
+          "unit_id": 3,
+          "hero_id": "wei_006_zhang_liao",
+          "archetype": "skirmisher"
+        },
+        {
+          "unit_id": 4,
+          "hero_id": "wei_007_yu_jin",
+          "archetype": "holder"
+        },
+        {
+          "unit_id": 5,
+          "hero_id": "wei_008_xu_chu",
+          "archetype": "coordinator"
+        },
+        {
+          "unit_id": 12,
+          "hero_id": "wei_001_cao_cao",
+          "archetype": "coordinator"
+        }
+      ],
+      "chokepoints": [
+        [
+          5,
+          4
+        ],
+        [
+          6,
+          4
+        ]
+      ],
+      "enemy_atk_mult": 0.55,
+      "victory_conditions": {
+        "primary_condition_type": 1,
+        "survive_rounds": 5
+      }
+    },
+    {
       "chapter_id": "ch06_changbanpo",
       "chapter_number": 6,
       "map_id": "mvp_chapter_06",
       "author_draw_branch": false,
       "echo_threshold": 1,
       "branch_table": {
-        "WIN_default":  "WIN_changbanpo_default",
-        "WIN_hidden":   "WIN_changbanpo_lord_unharmed",
+        "WIN_default": "WIN_changbanpo_default",
+        "WIN_hidden": "WIN_changbanpo_lord_unharmed",
         "LOSS_default": "LOSS_changbanpo_retreat"
       },
       "canonical_branch_key": "WIN_changbanpo_default",
@@ -46,28 +713,82 @@
         }
       ],
       "beat_9_text_key": "ch06.beat9.transition_to_xiakou",
-      "player_unit_ids": [0, 1],
+      "player_unit_ids": [
+        0,
+        1
+      ],
       "player_commander_id": 0,
-      "player_hero_ids": {"0": "shu_001_liu_bei", "1": "shu_003_zhang_fei"},
-      "enemy_unit_ids": [2, 3, 4, 5],
+      "player_hero_ids": {
+        "0": "shu_001_liu_bei",
+        "1": "shu_003_zhang_fei"
+      },
+      "enemy_unit_ids": [
+        2,
+        3,
+        4,
+        5
+      ],
       "deployment_positions_default": {
-        "0": [1, 3],
-        "1": [2, 3],
-        "2": [4, 3],
-        "3": [5, 2],
-        "4": [5, 4],
-        "5": [6, 3]
+        "0": [
+          1,
+          3
+        ],
+        "1": [
+          2,
+          3
+        ],
+        "2": [
+          4,
+          3
+        ],
+        "3": [
+          5,
+          2
+        ],
+        "4": [
+          5,
+          4
+        ],
+        "5": [
+          6,
+          3
+        ]
       },
       "enemy_roster": [
-        {"unit_id": 2, "hero_id": "wei_005_xiahou_dun", "archetype": "aggressor"},
-        {"unit_id": 3, "hero_id": "wei_006_zhang_liao", "archetype": "skirmisher"},
-        {"unit_id": 4, "hero_id": "wei_007_yu_jin",     "archetype": "holder"},
-        {"unit_id": 5, "hero_id": "wei_008_xu_chu",     "archetype": "coordinator"}
+        {
+          "unit_id": 2,
+          "hero_id": "wei_005_xiahou_dun",
+          "archetype": "aggressor"
+        },
+        {
+          "unit_id": 3,
+          "hero_id": "wei_006_zhang_liao",
+          "archetype": "skirmisher"
+        },
+        {
+          "unit_id": 4,
+          "hero_id": "wei_007_yu_jin",
+          "archetype": "holder"
+        },
+        {
+          "unit_id": 5,
+          "hero_id": "wei_008_xu_chu",
+          "archetype": "coordinator"
+        }
       ],
       "chokepoints": [
-        [3, 2],
-        [3, 3],
-        [3, 4]
+        [
+          3,
+          2
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          3,
+          4
+        ]
       ],
       "enemy_atk_mult": 0.55,
       "victory_conditions": {
@@ -82,7 +803,7 @@
       "author_draw_branch": false,
       "echo_threshold": 1,
       "branch_table": {
-        "WIN_default":  "WIN_changban_bridge_default",
+        "WIN_default": "WIN_changban_bridge_default",
         "LOSS_default": "LOSS_changban_bridge_fall"
       },
       "canonical_branch_key": "WIN_changban_bridge_default",
@@ -106,49 +827,103 @@
         }
       ],
       "beat_9_text_key": "ch07.beat9.transition_to_xiakou",
-      "player_unit_ids": [0, 1],
+      "player_unit_ids": [
+        0,
+        1
+      ],
       "player_commander_id": 0,
-      "player_hero_ids": {"0": "shu_001_liu_bei", "1": "shu_003_zhang_fei"},
-      "enemy_unit_ids": [2, 3],
+      "player_hero_ids": {
+        "0": "shu_001_liu_bei",
+        "1": "shu_003_zhang_fei"
+      },
+      "enemy_unit_ids": [
+        2,
+        3
+      ],
       "deployment_positions_default": {
-        "0": [2, 3],
-        "1": [3, 3],
-        "2": [6, 3],
-        "3": [5, 3]
+        "0": [
+          2,
+          3
+        ],
+        "1": [
+          3,
+          3
+        ],
+        "2": [
+          6,
+          3
+        ],
+        "3": [
+          5,
+          3
+        ]
       },
       "enemy_roster": [
-        {"unit_id": 2, "hero_id": "wei_005_xiahou_dun", "archetype": "aggressor"},
-        {"unit_id": 3, "hero_id": "wei_006_zhang_liao", "archetype": "skirmisher"}
+        {
+          "unit_id": 2,
+          "hero_id": "wei_005_xiahou_dun",
+          "archetype": "aggressor"
+        },
+        {
+          "unit_id": 3,
+          "hero_id": "wei_006_zhang_liao",
+          "archetype": "skirmisher"
+        }
       ],
       "chokepoints": [
-        [3, 3]
+        [
+          3,
+          3
+        ]
       ],
       "branch_overrides": {
         "LOSS_changbanpo_retreat": {
-          "player_unit_ids": [1],
-          "player_hero_ids": {"1": "shu_003_zhang_fei"},
+          "player_unit_ids": [
+            1
+          ],
+          "player_hero_ids": {
+            "1": "shu_003_zhang_fei"
+          },
           "deployment_positions_default": {
-            "1": [3, 3]
+            "1": [
+              3,
+              3
+            ]
           }
         },
         "WIN_changbanpo_lord_unharmed": {
-          "player_unit_ids": [0, 1, 6],
+          "player_unit_ids": [
+            0,
+            1,
+            6
+          ],
           "player_hero_ids": {
             "0": "shu_001_liu_bei",
             "1": "shu_003_zhang_fei",
             "6": "shu_002_guan_yu"
           },
           "deployment_positions_default": {
-            "0": [2, 3],
-            "1": [3, 3],
-            "6": [1, 3]
+            "0": [
+              2,
+              3
+            ],
+            "1": [
+              3,
+              3
+            ],
+            "6": [
+              1,
+              3
+            ]
           }
         }
       },
       "enemy_atk_mult": 0.55,
       "victory_conditions": {
         "primary_condition_type": 2,
-        "target_unit_ids": [0]
+        "target_unit_ids": [
+          0
+        ]
       }
     },
     {
@@ -158,8 +933,8 @@
       "author_draw_branch": false,
       "echo_threshold": 1,
       "branch_table": {
-        "WIN_default":  "WIN_xiakou_breakthrough",
-        "WIN_hidden":   "WIN_xiakou_united_advance",
+        "WIN_default": "WIN_xiakou_breakthrough",
+        "WIN_hidden": "WIN_xiakou_united_advance",
         "LOSS_default": "LOSS_xiakou_pursuit_continues"
       },
       "canonical_branch_key": "WIN_xiakou_breakthrough",
@@ -195,7 +970,13 @@
         }
       ],
       "beat_9_text_key": "ch08.beat9.transition_to_chibi",
-      "player_unit_ids": [0, 1, 6, 8, 9],
+      "player_unit_ids": [
+        0,
+        1,
+        6,
+        8,
+        9
+      ],
       "player_commander_id": 0,
       "player_hero_ids": {
         "0": "shu_001_liu_bei",
@@ -204,34 +985,96 @@
         "8": "qun_004_diao_chan",
         "9": "shu_004_huang_zhong"
       },
-      "enemy_unit_ids": [2, 3, 5, 7],
+      "enemy_unit_ids": [
+        2,
+        3,
+        5,
+        7
+      ],
       "deployment_positions_default": {
-        "0": [11, 4],
-        "1": [10, 4],
-        "6": [11, 3],
-        "8": [10, 3],
-        "9": [11, 5],
-        "2": [3, 4],
-        "3": [3, 3],
-        "5": [2, 5],
-        "7": [2, 4]
+        "0": [
+          11,
+          4
+        ],
+        "1": [
+          10,
+          4
+        ],
+        "6": [
+          11,
+          3
+        ],
+        "8": [
+          10,
+          3
+        ],
+        "9": [
+          11,
+          5
+        ],
+        "2": [
+          3,
+          4
+        ],
+        "3": [
+          3,
+          3
+        ],
+        "5": [
+          2,
+          5
+        ],
+        "7": [
+          2,
+          4
+        ]
       },
       "enemy_roster": [
-        {"unit_id": 2, "hero_id": "wei_005_xiahou_dun", "archetype": "aggressor"},
-        {"unit_id": 3, "hero_id": "wei_006_zhang_liao", "archetype": "skirmisher"},
-        {"unit_id": 5, "hero_id": "wei_008_xu_chu",     "archetype": "coordinator"},
-        {"unit_id": 7, "hero_id": "wei_001_cao_cao",    "archetype": "protector"}
+        {
+          "unit_id": 2,
+          "hero_id": "wei_005_xiahou_dun",
+          "archetype": "aggressor"
+        },
+        {
+          "unit_id": 3,
+          "hero_id": "wei_006_zhang_liao",
+          "archetype": "skirmisher"
+        },
+        {
+          "unit_id": 5,
+          "hero_id": "wei_008_xu_chu",
+          "archetype": "coordinator"
+        },
+        {
+          "unit_id": 7,
+          "hero_id": "wei_001_cao_cao",
+          "archetype": "protector"
+        }
       ],
       "chokepoints": [
-        [4, 3],
-        [4, 4],
-        [13, 4]
+        [
+          4,
+          3
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          13,
+          4
+        ]
       ],
       "enemy_atk_mult": 0.75,
       "victory_conditions": {
         "primary_condition_type": 3,
-        "target_unit_ids": [0],
-        "target_tile": [13, 4]
+        "target_unit_ids": [
+          0
+        ],
+        "target_tile": [
+          13,
+          4
+        ]
       }
     },
     {
@@ -241,7 +1084,7 @@
       "author_draw_branch": false,
       "echo_threshold": 2,
       "branch_table": {
-        "WIN_default":  "WIN_chibi_prelude_alliance",
+        "WIN_default": "WIN_chibi_prelude_alliance",
         "LOSS_default": "LOSS_chibi_prelude_ambushed"
       },
       "canonical_branch_key": "WIN_chibi_prelude_alliance",
@@ -265,7 +1108,14 @@
         }
       ],
       "beat_9_text_key": "ch09.beat9.transition_to_chibi_main",
-      "player_unit_ids": [0, 1, 6, 9, 10, 11],
+      "player_unit_ids": [
+        0,
+        1,
+        6,
+        9,
+        10,
+        11
+      ],
       "player_commander_id": 0,
       "player_hero_ids": {
         "0": "shu_001_liu_bei",
@@ -275,33 +1125,101 @@
         "10": "wu_001_sun_quan",
         "11": "wu_003_zhou_yu"
       },
-      "enemy_unit_ids": [2, 3, 4, 5],
+      "enemy_unit_ids": [
+        2,
+        3,
+        4,
+        5
+      ],
       "deployment_positions_default": {
-        "0": [12, 4],
-        "1": [11, 5],
-        "6": [11, 3],
-        "9": [13, 3],
-        "10": [13, 4],
-        "11": [13, 5],
-        "2": [3, 3],
-        "3": [3, 5],
-        "4": [2, 4],
-        "5": [4, 4]
+        "0": [
+          12,
+          4
+        ],
+        "1": [
+          11,
+          5
+        ],
+        "6": [
+          11,
+          3
+        ],
+        "9": [
+          13,
+          3
+        ],
+        "10": [
+          13,
+          4
+        ],
+        "11": [
+          13,
+          5
+        ],
+        "2": [
+          3,
+          3
+        ],
+        "3": [
+          3,
+          5
+        ],
+        "4": [
+          2,
+          4
+        ],
+        "5": [
+          4,
+          4
+        ]
       },
       "enemy_roster": [
-        {"unit_id": 2, "hero_id": "wei_005_xiahou_dun", "archetype": "aggressor"},
-        {"unit_id": 3, "hero_id": "wei_006_zhang_liao", "archetype": "skirmisher"},
-        {"unit_id": 4, "hero_id": "wei_007_yu_jin",     "archetype": "holder"},
-        {"unit_id": 5, "hero_id": "wei_008_xu_chu",     "archetype": "coordinator"}
+        {
+          "unit_id": 2,
+          "hero_id": "wei_005_xiahou_dun",
+          "archetype": "aggressor"
+        },
+        {
+          "unit_id": 3,
+          "hero_id": "wei_006_zhang_liao",
+          "archetype": "skirmisher"
+        },
+        {
+          "unit_id": 4,
+          "hero_id": "wei_007_yu_jin",
+          "archetype": "holder"
+        },
+        {
+          "unit_id": 5,
+          "hero_id": "wei_008_xu_chu",
+          "archetype": "coordinator"
+        }
       ],
       "chokepoints": [
-        [8, 2],
-        [8, 4],
-        [7, 4]
+        [
+          8,
+          2
+        ],
+        [
+          8,
+          4
+        ],
+        [
+          7,
+          4
+        ]
       ],
       "branch_overrides": {
         "WIN_xiakou_united_advance": {
-          "player_unit_ids": [0, 1, 6, 8, 9, 10, 11],
+          "player_unit_ids": [
+            0,
+            1,
+            6,
+            8,
+            9,
+            10,
+            11
+          ],
           "player_hero_ids": {
             "0": "shu_001_liu_bei",
             "1": "shu_003_zhang_fei",
@@ -312,13 +1230,34 @@
             "11": "wu_003_zhou_yu"
           },
           "deployment_positions_default": {
-            "0": [12, 4],
-            "1": [11, 5],
-            "6": [11, 3],
-            "8": [12, 6],
-            "9": [13, 3],
-            "10": [13, 4],
-            "11": [13, 5]
+            "0": [
+              12,
+              4
+            ],
+            "1": [
+              11,
+              5
+            ],
+            "6": [
+              11,
+              3
+            ],
+            "8": [
+              12,
+              6
+            ],
+            "9": [
+              13,
+              3
+            ],
+            "10": [
+              13,
+              4
+            ],
+            "11": [
+              13,
+              5
+            ]
           }
         }
       },
@@ -331,7 +1270,7 @@
       "author_draw_branch": false,
       "echo_threshold": 2,
       "branch_table": {
-        "WIN_default":  "WIN_chibi_main_burn",
+        "WIN_default": "WIN_chibi_main_burn",
         "LOSS_default": "LOSS_chibi_main_wind_fails"
       },
       "canonical_branch_key": "WIN_chibi_main_burn",
@@ -355,7 +1294,14 @@
         }
       ],
       "beat_9_text_key": "ch10.beat9.transition_to_post_chibi",
-      "player_unit_ids": [0, 1, 6, 9, 10, 11],
+      "player_unit_ids": [
+        0,
+        1,
+        6,
+        9,
+        10,
+        11
+      ],
       "player_commander_id": 0,
       "player_hero_ids": {
         "0": "shu_001_liu_bei",
@@ -365,34 +1311,105 @@
         "10": "wu_001_sun_quan",
         "11": "wu_003_zhou_yu"
       },
-      "enemy_unit_ids": [2, 3, 4, 5, 12],
+      "enemy_unit_ids": [
+        2,
+        3,
+        4,
+        5,
+        12
+      ],
       "deployment_positions_default": {
-        "0": [10, 4],
-        "1": [9, 4],
-        "6": [9, 3],
-        "9": [10, 3],
-        "10": [10, 5],
-        "11": [9, 5],
-        "2": [3, 3],
-        "3": [3, 5],
-        "4": [3, 4],
-        "5": [2, 3],
-        "12": [2, 4]
+        "0": [
+          10,
+          4
+        ],
+        "1": [
+          9,
+          4
+        ],
+        "6": [
+          9,
+          3
+        ],
+        "9": [
+          10,
+          3
+        ],
+        "10": [
+          10,
+          5
+        ],
+        "11": [
+          9,
+          5
+        ],
+        "2": [
+          3,
+          3
+        ],
+        "3": [
+          3,
+          5
+        ],
+        "4": [
+          3,
+          4
+        ],
+        "5": [
+          2,
+          3
+        ],
+        "12": [
+          2,
+          4
+        ]
       },
       "enemy_roster": [
-        {"unit_id": 2,  "hero_id": "wei_005_xiahou_dun", "archetype": "aggressor"},
-        {"unit_id": 3,  "hero_id": "wei_006_zhang_liao", "archetype": "skirmisher"},
-        {"unit_id": 4,  "hero_id": "wei_007_yu_jin",     "archetype": "holder"},
-        {"unit_id": 5,  "hero_id": "wei_008_xu_chu",     "archetype": "protector"},
-        {"unit_id": 12, "hero_id": "wei_001_cao_cao",    "archetype": "coordinator"}
+        {
+          "unit_id": 2,
+          "hero_id": "wei_005_xiahou_dun",
+          "archetype": "aggressor"
+        },
+        {
+          "unit_id": 3,
+          "hero_id": "wei_006_zhang_liao",
+          "archetype": "skirmisher"
+        },
+        {
+          "unit_id": 4,
+          "hero_id": "wei_007_yu_jin",
+          "archetype": "holder"
+        },
+        {
+          "unit_id": 5,
+          "hero_id": "wei_008_xu_chu",
+          "archetype": "protector"
+        },
+        {
+          "unit_id": 12,
+          "hero_id": "wei_001_cao_cao",
+          "archetype": "coordinator"
+        }
       ],
       "chokepoints": [
-        [5, 2],
-        [5, 4],
-        [6, 4],
-        [5, 6]
+        [
+          5,
+          2
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          5,
+          6
+        ]
       ],
-      "enemy_atk_mult": 0.70,
+      "enemy_atk_mult": 0.7,
       "victory_conditions": {
         "primary_condition_type": 1,
         "survive_rounds": 5

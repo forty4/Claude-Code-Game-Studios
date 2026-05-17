@@ -61,9 +61,41 @@
     "default_class": 2, "equipment_slot_override": [],
     "growth_might": 1.3, "growth_intellect": 0.8, "growth_command": 1.0, "growth_agility": 1.1,
     "innate_skill_ids": ["skill_piercing_volley"], "skill_unlock_levels": [1],
-    "join_chapter": 3, "join_condition_tag": "story_ch3_veteran_archer", "is_available_mvp": true,
+    "join_chapter": 8, "join_condition_tag": "story_ch8_veteran_archer", "is_available_mvp": true,
     "relationships": [
       {"hero_b_id": "shu_001_liu_bei", "relation_type": "LIEGE", "effect_tag": "bond_late_career_loyalty", "is_symmetric": false}
+    ]
+  },
+  "shu_005_zhao_yun": {
+    "hero_id": "shu_005_zhao_yun",
+    "name_ko": "조운", "name_zh": "赵云", "name_courtesy": "子龙",
+    "faction": 0,
+    "portrait_id": "portrait_shu_zhao_yun", "battle_sprite_id": "sprite_shu_zhao_yun",
+    "stat_might": 92, "stat_intellect": 75, "stat_command": 82, "stat_agility": 90,
+    "base_hp_seed": 85, "base_initiative_seed": 82,
+    "move_range": 5,
+    "default_class": 0, "equipment_slot_override": [],
+    "growth_might": 1.4, "growth_intellect": 1.0, "growth_command": 1.1, "growth_agility": 1.3,
+    "innate_skill_ids": ["skill_lone_lance", "skill_protect_lord"], "skill_unlock_levels": [1, 5],
+    "join_chapter": 3, "join_condition_tag": "story_ch3_zhao_yun_joins", "is_available_mvp": true,
+    "relationships": [
+      {"hero_b_id": "shu_001_liu_bei", "relation_type": "LIEGE", "effect_tag": "bond_loyal_unto_death", "is_symmetric": false}
+    ]
+  },
+  "shu_006_zhuge_liang": {
+    "hero_id": "shu_006_zhuge_liang",
+    "name_ko": "제갈량", "name_zh": "诸葛亮", "name_courtesy": "孔明",
+    "faction": 0,
+    "portrait_id": "portrait_shu_zhuge_liang", "battle_sprite_id": "sprite_shu_zhuge_liang",
+    "stat_might": 50, "stat_intellect": 99, "stat_command": 95, "stat_agility": 65,
+    "base_hp_seed": 65, "base_initiative_seed": 72,
+    "move_range": 3,
+    "default_class": 3, "equipment_slot_override": [],
+    "growth_might": 0.8, "growth_intellect": 1.6, "growth_command": 1.4, "growth_agility": 0.9,
+    "innate_skill_ids": ["skill_fire_strategy", "skill_empty_fort"], "skill_unlock_levels": [1, 5],
+    "join_chapter": 4, "join_condition_tag": "story_ch4_zhuge_liang_joins", "is_available_mvp": true,
+    "relationships": [
+      {"hero_b_id": "shu_001_liu_bei", "relation_type": "LIEGE", "effect_tag": "bond_three_visits", "is_symmetric": false}
     ]
   },
   "wei_001_cao_cao": {

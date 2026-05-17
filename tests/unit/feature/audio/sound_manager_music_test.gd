@@ -161,15 +161,22 @@ func test_music_id_for_chapter_resolves_distinct_slugs_per_mvp_chapter() -> void
 	assert_bool(sm.has_method("music_id_for_chapter")).override_failure_message(
 		"S60: SoundManager.music_id_for_chapter() must exist"
 	).is_true()
-	# Production chapter_ids per assets/data/scenarios/mvp_shu.json.
-	var expected_distinct_slugs: Array[StringName] = []
-	for chapter_id: StringName in [
+	# Production chapter_ids per assets/data/scenarios/mvp_shu.json — Phase A 10 chapters
+	# (prequel ch01~ch05 + main ch06~ch10). Each must resolve to an authored (non-ambient) theme.
+	# Note: prequel reuses 5 main themes by thematic match — distinctness only required for main 5.
+	var all_chapters: Array[StringName] = [
+		&"ch01_taoyuan_yellow_turban",
+		&"ch02_hulao_gate",
+		&"ch03_xuzhou_rescue",
+		&"ch04_bowang_slope",
+		&"ch05_xinye_fire",
 		&"ch06_changbanpo",
 		&"ch07_changban_bridge",
 		&"ch08_xiakou_outskirts",
 		&"ch09_chibi_prelude",
 		&"ch10_chibi_main",
-	]:
+	]
+	for chapter_id: StringName in all_chapters:
 		var music_id: StringName = sm.music_id_for_chapter(chapter_id)
 		assert_str(String(music_id)).override_failure_message(
 			"S60: chapter '%s' resolved to empty music_id" % chapter_id
@@ -177,16 +184,25 @@ func test_music_id_for_chapter_resolves_distinct_slugs_per_mvp_chapter() -> void
 		assert_str(String(music_id)).override_failure_message(
 			"S60: chapter '%s' must NOT fall back to generic ambient — should have its own theme" % chapter_id
 		).is_not_equal(String(SoundManagerScript.MUSIC_BATTLE_AMBIENT))
-		expected_distinct_slugs.append(music_id)
-	# All 5 chapter slugs must be distinct (no two chapters share a theme).
+	# Main campaign 5 chapters (ch06~ch10) must use distinct slugs — protects against
+	# accidental theme sharing in the canonical 장판~적벽 sequence.
+	var main_slugs: Array[StringName] = []
+	for chapter_id: StringName in [
+		&"ch06_changbanpo",
+		&"ch07_changban_bridge",
+		&"ch08_xiakou_outskirts",
+		&"ch09_chibi_prelude",
+		&"ch10_chibi_main",
+	]:
+		main_slugs.append(sm.music_id_for_chapter(chapter_id))
 	var unique_count: int = 0
 	var seen: Dictionary = {}
-	for slug: StringName in expected_distinct_slugs:
+	for slug: StringName in main_slugs:
 		if not seen.has(slug):
 			seen[slug] = true
 			unique_count += 1
 	assert_int(unique_count).override_failure_message(
-		"S60: each chapter must have its OWN distinct music slug; got duplicates in %s" % str(expected_distinct_slugs)
+		"S60: each main chapter (ch06~ch10) must have its OWN distinct music slug; got duplicates in %s" % str(main_slugs)
 	).is_equal(5)
 
 

@@ -24,8 +24,13 @@ const WEI_PATH: String = "res://assets/data/scenarios/mvp_wei.json"
 
 
 func test_dev_jump_lands_at_each_mvp_shu_chapter() -> void:
-	# 5 chapters in mvp_shu: ch06_changbanpo .. ch10_chibi_main.
+	# 10 chapters in mvp_shu: prequel (ch01~ch05 황건적~신야) + main (ch06~ch10 장판~적벽).
 	var expected_ids: Array[String] = [
+		"ch01_taoyuan_yellow_turban",
+		"ch02_hulao_gate",
+		"ch03_xuzhou_rescue",
+		"ch04_bowang_slope",
+		"ch05_xinye_fire",
 		"ch06_changbanpo",
 		"ch07_changban_bridge",
 		"ch08_xiakou_outskirts",
@@ -116,14 +121,14 @@ func test_dev_jump_rejects_negative_index() -> void:
 
 
 func test_dev_jump_rejects_overflow_index() -> void:
-	# mvp_shu has exactly 5 chapters, so index 5 is out of range.
+	# Phase A: mvp_shu has exactly 10 chapters, so index 10 is out of range.
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
 
-	var ok: bool = runner.dev_jump_to_chapter(SHU_PATH, 5)
+	var ok: bool = runner.dev_jump_to_chapter(SHU_PATH, 10)
 
 	assert_bool(ok).override_failure_message(
-		"dev_jump_to_chapter with index 5 (out of [0, 5)) must return false"
+		"dev_jump_to_chapter with index 10 (out of [0, 10)) must return false"
 	).is_false()
 	# Scenario was loaded (load_scenario succeeded before the range check), so
 	# index stays at 0 — the load landed there before the range check rejected.
@@ -156,8 +161,8 @@ func test_dev_jump_to_index_0_emits_chapter_started_once() -> void:
 		"dev_jump to index 0 emitted chapter_started %d times — expected exactly 1"
 			% emits.size()
 	).is_equal(1)
-	assert_str(emits[0]["id"] as String).is_equal("ch06_changbanpo")
-	assert_int(emits[0]["num"] as int).is_equal(6)
+	assert_str(emits[0]["id"] as String).is_equal("ch01_taoyuan_yellow_turban")
+	assert_int(emits[0]["num"] as int).is_equal(1)
 
 
 ## Index 3 jump emits chapter_started TWICE: once at load_scenario for ch0,

@@ -19,9 +19,10 @@ extends GdUnitTestSuite
 
 
 const SCENARIO_JSON: String = "res://assets/data/scenarios/mvp_shu.json"
-const CHAPTER_1_ID: String = "ch06_changbanpo"
-const CHAPTER_1_CANONICAL_BRANCH: String = "WIN_changbanpo_default"
-const CHAPTER_1_LOSS_BRANCH: String = "LOSS_changbanpo_retreat"
+# Phase A — first chapter is now 도원결의·황건적 토벌; previous 장판파 target moved to ch06.
+const CHAPTER_1_ID: String = "ch01_taoyuan_yellow_turban"
+const CHAPTER_1_CANONICAL_BRANCH: String = "WIN_taoyuan_oath_held"
+const CHAPTER_1_LOSS_BRANCH: String = "LOSS_taoyuan_oath_broken"
 
 
 # ─── Test-side capture state ─────────────────────────────────────────────────
@@ -192,7 +193,7 @@ func test_chapter_1_win_resolves_canonical_win_variant() -> void:
 	).is_greater(0)
 	assert_str(String(beat_8_emit["variant"])).is_equal("canonical_win")
 	# text_key should match chapter authoring.
-	assert_str(String(beat_8_emit["text"])).is_equal("ch06.beat8.win_changbanpo_default")
+	assert_str(String(beat_8_emit["text"])).is_equal("ch01.beat8.win_taoyuan_oath_held")
 
 
 # ─── AC: chapter-1 LOSS → defeat variant ─────────────────────────────────────
@@ -215,7 +216,7 @@ func test_chapter_1_loss_resolves_defeat_variant() -> void:
 			break
 	assert_int(beat_8_emit.size()).is_greater(0)
 	assert_str(String(beat_8_emit["variant"])).is_equal("defeat")
-	assert_str(String(beat_8_emit["text"])).is_equal("ch06.beat8.loss_changbanpo_retreat")
+	assert_str(String(beat_8_emit["text"])).is_equal("ch01.beat8.loss_taoyuan_oath_broken")
 
 
 # ─── AC: revelation_committed register tag (canonical → solemn) ──────────────

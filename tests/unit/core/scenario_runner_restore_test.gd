@@ -40,32 +40,34 @@ func test_unknown_chapter_id_returns_false() -> void:
 
 
 func test_chapter_1_ctx_lands_at_chapter_0_beat_1_anchor() -> void:
+	# Phase A first chapter is ch01_taoyuan_yellow_turban (도원결의·황건적 토벌).
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
-	var ctx: SaveContext = _ctx_for("ch06_changbanpo", 1)
+	var ctx: SaveContext = _ctx_for("ch01_taoyuan_yellow_turban", 1)
 	assert_bool(runner.restore_from_save_context(ctx)).is_true()
 	assert_int(runner.get_current_chapter_index()).is_equal(0)
 	var state_enum: Dictionary = ScenarioRunnerTestSeam.get_state_enum()
 	assert_int(runner.get_state()).is_equal(state_enum["BEAT_1_ANCHOR"] as int)
-	assert_str(runner.get_current_chapter().chapter_id).is_equal("ch06_changbanpo")
+	assert_str(runner.get_current_chapter().chapter_id).is_equal("ch01_taoyuan_yellow_turban")
 
 
 func test_chapter_2_ctx_jumps_to_chapter_1_index() -> void:
+	# Phase A — ch02 is now ch02_hulao_gate (호뢰관·여포 격파전).
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
-	var ctx: SaveContext = _ctx_for("ch07_changban_bridge", 2)
+	var ctx: SaveContext = _ctx_for("ch02_hulao_gate", 2)
 	assert_bool(runner.restore_from_save_context(ctx)).is_true()
 	assert_int(runner.get_current_chapter_index()).is_equal(1)
 	var state_enum: Dictionary = ScenarioRunnerTestSeam.get_state_enum()
 	assert_int(runner.get_state()).is_equal(state_enum["BEAT_1_ANCHOR"] as int)
-	assert_str(runner.get_current_chapter().chapter_id).is_equal("ch07_changban_bridge")
+	assert_str(runner.get_current_chapter().chapter_id).is_equal("ch02_hulao_gate")
 
 
 func test_chapter_3_ctx_jumps_to_chapter_2_index() -> void:
-	# ch3 = ch08_xiakou_outskirts at index 2 (added with the ch3 content patch).
+	# Phase A — ch03 is now ch03_xuzhou_rescue (서주 구원·조운 합류).
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
-	var ctx: SaveContext = _ctx_for("ch08_xiakou_outskirts", 3)
+	var ctx: SaveContext = _ctx_for("ch03_xuzhou_rescue", 3)
 	assert_bool(runner.restore_from_save_context(ctx)).is_true()
 	assert_int(runner.get_current_chapter_index()).is_equal(2)
-	assert_str(runner.get_current_chapter().chapter_id).is_equal("ch08_xiakou_outskirts")
+	assert_str(runner.get_current_chapter().chapter_id).is_equal("ch03_xuzhou_rescue")

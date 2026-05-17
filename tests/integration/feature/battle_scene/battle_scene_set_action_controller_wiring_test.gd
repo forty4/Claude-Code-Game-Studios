@@ -27,10 +27,11 @@ extends GdUnitTestSuite
 
 const BATTLE_SCENE_PATH: String = "res://scenes/battle/battle_scene.tscn"
 
-# Chapter-1 (장판파) roster hero IDs — mirrors battle_scene_smoke_test.gd MOCK_HERO_IDS.
+# Chapter-1 (Phase A 도원결의) roster hero IDs — mirrors battle_scene_smoke_test.gd MOCK_HERO_IDS.
 # Player unit IDs are 1,2 (is_player=true, side=0); enemy unit IDs 3-6 (side=1).
 # Sourced from BattleScene._build_battle_units_from_chapter() + chapter-1 fixture.
 const HERO_LIU_BEI: StringName     = &"shu_001_liu_bei"
+const HERO_GUAN_YU: StringName     = &"shu_002_guan_yu"
 const HERO_ZHANG_FEI: StringName   = &"shu_003_zhang_fei"
 const HERO_ZHOU_YU: StringName     = &"wu_003_zhou_yu"
 const HERO_CAO_CAO: StringName     = &"wei_001_cao_cao"
@@ -39,8 +40,9 @@ const HERO_ZHANG_LIAO: StringName  = &"wei_006_zhang_liao"
 const HERO_YU_JIN: StringName      = &"wei_007_yu_jin"
 const HERO_XU_CHU: StringName      = &"wei_008_xu_chu"
 
+# Phase A — first chapter (ch01_taoyuan_yellow_turban) includes 관우 (uid=6).
 const MOCK_HERO_IDS: Array[StringName] = [
-	HERO_LIU_BEI, HERO_ZHANG_FEI, HERO_ZHOU_YU, HERO_CAO_CAO,
+	HERO_LIU_BEI, HERO_GUAN_YU, HERO_ZHANG_FEI, HERO_ZHOU_YU, HERO_CAO_CAO,
 	HERO_XIAHOU_DUN, HERO_ZHANG_LIAO, HERO_YU_JIN, HERO_XU_CHU,
 ]
 
