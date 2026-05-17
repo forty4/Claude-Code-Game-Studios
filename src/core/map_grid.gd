@@ -131,9 +131,17 @@ const WARN_NEGATIVE_DESTRUCTION_HP := "WARN_NEGATIVE_DESTRUCTION_HP"
 const WARN_DESTRUCTIBLE_ZERO_HP_SET_DESTROYED := "WARN_DESTRUCTIBLE_ZERO_HP_SET_DESTROYED"
 
 ## Valid map dimension bounds (GDD §EC-1 / §EC-7).
-const MAP_COLS_MIN: int = 15
+## S59 (2026-05-17) — lowered from 15/15 to 6/5 to accommodate authored
+## chapters smaller than the original MVP spec: ch02 (10×7), ch03 (14×8),
+## ch05 (12×9). ch04 (16×9) fits the old cols-min but its 9 rows didn't —
+## all four post-ch01 maps were silently rejected by load_map, leaving
+## the gameplay-logic grid in inert state and the camera unable to
+## compute pan_clamp → ch02 rendered at screen bottom-right + clicks
+## silently dropped. Headless tests never caught it because they use
+## a 15×15 synthesized fallback. G-30 pattern.
+const MAP_COLS_MIN: int = 6
 const MAP_COLS_MAX: int = 40
-const MAP_ROWS_MIN: int = 15
+const MAP_ROWS_MIN: int = 5
 const MAP_ROWS_MAX: int = 30
 
 # ─── Private state ────────────────────────────────────────────────────────────

@@ -512,18 +512,19 @@ func test_map_grid_validate_valid_map_passes_and_loads() -> void:
 
 # ─── Story-003 AC-2: Dimension bounds rejection ────────────────────────────────
 
-## Story-003 AC-2: map_cols=14 (below minimum 15) — fails with ERR_MAP_DIMENSIONS_INVALID,
-## _map not assigned, all caches empty.
+## Story-003 AC-2: map_cols=5 (below minimum 6 per S59 — was 15 pre-S59
+## but lowered to accept ch02-ch05 authored dimensions) — fails with
+## ERR_MAP_DIMENSIONS_INVALID, _map not assigned, all caches empty.
 func test_map_grid_validate_invalid_cols_too_small_fails() -> void:
-	# Arrange — 14 cols (minimum is 15); tile array is otherwise correct size
+	# Arrange — 5 cols (minimum is 6); tile array is otherwise correct size
 	var res := MapResource.new()
 	res.map_id = &"invalid_dims"
 	res.map_rows = 15
-	res.map_cols = 14
+	res.map_cols = 5
 	res.terrain_version = 1
-	for i: int in (14 * 15):
+	for i: int in (5 * 15):
 		var t := MapTileData.new()
-		t.coord        = Vector2i(i % 14, i / 14)
+		t.coord        = Vector2i(i % 5, i / 5)
 		t.terrain_type = 0
 		t.elevation    = 0
 		res.tiles.append(t)
@@ -1006,10 +1007,11 @@ func test_map_grid_validate_valid_then_invalid_load_resets_to_inert() -> void:
 	).is_true()
 	assert_int(grid.get_map_dimensions().x).is_equal(15)
 
-	# Act — now attempt an invalid load (14x15 dimensions — below MAP_COLS_MIN=15).
+	# Act — now attempt an invalid load (5x15 dimensions — below MAP_COLS_MIN=6
+	# per S59; pre-S59 was 14 below the then-MIN=15).
 	var invalid_res: MapResource = MapResource.new()
 	invalid_res.map_id = &"test_invalid_dims"
-	invalid_res.map_cols = 14
+	invalid_res.map_cols = 5
 	invalid_res.map_rows = 15
 	invalid_res.terrain_version = 1
 	invalid_res.tiles = []  # size mismatch too; either error suffices to fail
@@ -1101,3 +1103,51 @@ func test_map_grid_plains_tile_remains_passable_unaffected_by_override() -> void
 	).is_equal(expected)
 
 	grid.free()
+
+
+# ─── S59 regression — production chapter maps must all pass validation ──────
+
+
+## Reads every chapter MapResource on disk via ResourceLoader and asserts
+## load_map() succeeds. Catches the class of bug where MAP_*_MIN bounds drift
+## ahead of authored chapter dimensions (pre-S59 MIN=15 silently rejected
+## ch02 10×7, ch03 14×8, ch04 16×9, ch05 12×9 — only headless tests using a
+## synthesized 15×15 fallback passed; windowed boot rendered the grid at
+## bottom-right with zero clicks landing because MapGrid stayed inert).
+##
+## Test design — load actual production assets, not synthesized fixtures, so
+## the test couples to the live chapter file dimensions. When a new chapter is
+## added with smaller dimensions, this test fires first.
+func test_all_production_chapter_maps_pass_validation() -> void:
+	var chapter_paths: Array[String] = [
+		"res://assets/data/maps/mvp_chapter_01.tres",
+		"res://assets/data/maps/mvp_chapter_02.tres",
+		"res://assets/data/maps/mvp_chapter_03.tres",
+		"res://assets/data/maps/mvp_chapter_04.tres",
+		"res://assets/data/maps/mvp_chapter_05.tres",
+	]
+	for path: String in chapter_paths:
+		assert_bool(ResourceLoader.exists(path)).override_failure_message(
+			"S59: chapter map asset missing at %s" % path
+		).is_true()
+		var loaded: Resource = ResourceLoader.load(path)
+		assert_object(loaded).override_failure_message(
+			"S59: ResourceLoader.load returned null for %s" % path
+		).is_not_null()
+		assert_bool(loaded is MapResource).override_failure_message(
+			"S59: asset at %s is not a MapResource" % path
+		).is_true()
+		var grid: MapGrid = MapGrid.new()
+		var ok: bool = grid.load_map(loaded as MapResource)
+		var errors: PackedStringArray = grid.get_last_load_errors()
+		assert_bool(ok).override_failure_message(
+			"S59: load_map FAILED for %s — errors: %s" % [path, str(errors)]
+		).is_true()
+		var dims: Vector2i = grid.get_map_dimensions()
+		assert_int(dims.x).override_failure_message(
+			"S59: %s loaded but get_map_dimensions().x == 0" % path
+		).is_greater(0)
+		assert_int(dims.y).override_failure_message(
+			"S59: %s loaded but get_map_dimensions().y == 0" % path
+		).is_greater(0)
+		grid.free()
