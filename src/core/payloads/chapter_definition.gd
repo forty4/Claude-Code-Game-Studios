@@ -172,3 +172,34 @@ extends Resource
 ## Example — "Zhang Fei kills 2+":
 ##   { "type": "fate_threshold", "field": "assassin_kills", "op": ">=", "value": 2 }
 @export var hidden_condition: Dictionary = {}
+
+
+# ─── Legendary destiny tier (S65+ — 영걸전식 finale 매력 보강) ────────────────
+
+## Optional legendary-tier branch key. When non-empty AND BOTH:
+##   1. hidden_branch_key fires (Row 2a hidden condition satisfied), AND
+##   2. legendary_condition predicate evaluates true,
+## DestinyBranchJudge routes to THIS branch_key INSTEAD of hidden_branch_key.
+## Empty = no legendary tier authored (hidden is the highest reachable branch).
+##
+## Authoring convention: legendary tier must be registered in branch_table just
+## like hidden, with a distinct lookup name (typically "WIN_legendary"):
+##   branch_table = {
+##     "WIN_default":   "WIN_wuzhang_kongming_falls",
+##     "WIN_hidden":    "WIN_wuzhang_kongming_revives",
+##     "WIN_legendary": "WIN_wuzhang_legendary_dawn",
+##     "LOSS_default":  "LOSS_wuzhang_consumed",
+##   }
+##   hidden_branch_key    = "WIN_hidden"
+##   legendary_branch_key = "WIN_legendary"
+##
+## Designed for ch25 칠성단 회생 + 5 시그니처 누적 → "전설의 새벽" 엔딩.
+@export var legendary_branch_key: String = ""
+
+## Predicate Dictionary describing the legendary-tier check. Same shape as
+## hidden_condition. Evaluated by HiddenConditionEvaluator against the cascade-
+## aware fate_data (ScenarioRunner injects active_signature_count at BEAT_7).
+##
+## Example — "all 5 signatures active":
+##   { "type": "fate_threshold", "field": "active_signature_count", "op": ">=", "value": 5 }
+@export var legendary_condition: Dictionary = {}

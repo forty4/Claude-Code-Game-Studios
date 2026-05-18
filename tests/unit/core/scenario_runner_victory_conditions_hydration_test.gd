@@ -828,6 +828,56 @@ func test_mvp_shu_phase_e_authors_ch23_to_ch25_with_qixing_revival_finale() -> v
 		).is_true()
 
 
+## ch25 legendary tier sentinel (S65+ 매력 보강): branch_table에 WIN_legendary
+## 등재 + legendary_branch_key + legendary_condition (active_signature_count >= 5)
+## + beat_8_revelations entry + story_content 한국어 prose. 5 시그니처 누적 +
+## ch25 hidden 둘 다 달성 시 전설의 새벽 ENDING.
+func test_mvp_shu_ch25_authors_legendary_destiny_tier() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+	var data: Dictionary = JSON.parse_string(json_text) as Dictionary
+	var ch25: Dictionary = {}
+	for c: Variant in (data["chapters"] as Array):
+		var d: Dictionary = c as Dictionary
+		if d.get("chapter_id", "") as String == "ch25_wuzhang_plains":
+			ch25 = d
+			break
+	# branch_table contains WIN_legendary → WIN_wuzhang_legendary_dawn.
+	var bt: Dictionary = ch25.get("branch_table", {}) as Dictionary
+	assert_str(bt.get("WIN_legendary", "") as String).override_failure_message(
+		"ch25 branch_table must declare WIN_legendary → WIN_wuzhang_legendary_dawn"
+	).is_equal("WIN_wuzhang_legendary_dawn")
+	# legendary_branch_key declared.
+	assert_str(ch25.get("legendary_branch_key", "") as String).is_equal("WIN_legendary")
+	# legendary_condition: fate_threshold active_signature_count >= 5.
+	var lc: Dictionary = ch25.get("legendary_condition", {}) as Dictionary
+	assert_str(lc.get("type", "") as String).is_equal("fate_threshold")
+	assert_str(lc.get("field", "") as String).is_equal("active_signature_count")
+	assert_str(lc.get("op", "") as String).is_equal(">=")
+	assert_int(int(lc.get("value", -1))).is_equal(5)
+	# beat_8_revelations contains the legendary entry.
+	var revs: Array = ch25.get("beat_8_revelations", []) as Array
+	var has_legendary_rev: bool = false
+	for r_var: Variant in revs:
+		var r: Dictionary = r_var as Dictionary
+		if (r.get("branch_key", "") as String) == "WIN_wuzhang_legendary_dawn":
+			has_legendary_rev = true
+			assert_str(r.get("text_key", "") as String).is_equal(
+				"ch25.beat8.win_wuzhang_legendary_dawn"
+			)
+			break
+	assert_bool(has_legendary_rev).override_failure_message(
+		"ch25.beat_8_revelations must include WIN_wuzhang_legendary_dawn entry"
+	).is_true()
+	# story_content text key authored (한국어 prose 존재).
+	var story_text: String = FileAccess.get_file_as_string(
+		"res://assets/data/story/story_content.json"
+	)
+	var story: Dictionary = JSON.parse_string(story_text) as Dictionary
+	assert_bool(story.has("ch25.beat8.win_wuzhang_legendary_dawn")).override_failure_message(
+		"story_content.json must author 'ch25.beat8.win_wuzhang_legendary_dawn' prose"
+	).is_true()
+
+
 ## 25-chapter master plan completion sentinel — mvp_shu must declare exactly 25 chapters
 ## with the 영걸전식 풀 캠페인 도원결의 → 오장원 progression. Pure structural assertion
 ## independent of phase boundaries — protects against accidental chapter additions/removals.

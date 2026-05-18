@@ -412,6 +412,11 @@ func _validate_chapter_record(record: Dictionary) -> String:
 		var rkey: String = ((rev as Dictionary).get("branch_key", "") as String)
 		if not branch_table.values().has(rkey):
 			return "beat_8_revelation_branch_key_not_in_table"
+	# Legendary destiny tier cross-reference (S65+). When authored, the lookup
+	# name MUST exist in branch_table — same discipline as hidden_branch_key.
+	var legendary_key: String = (record.get("legendary_branch_key", "") as String)
+	if not legendary_key.is_empty() and not branch_table.has(legendary_key):
+		return "legendary_branch_key_not_in_table"
 	return ""
 
 
@@ -480,6 +485,11 @@ func _hydrate_chapter(record: Dictionary) -> ChapterDefinition:
 	# the judge only fires Row 2a when hidden_branch_key is non-empty.
 	c.hidden_branch_key = record.get("hidden_branch_key", "") as String
 	c.hidden_condition = (record.get("hidden_condition", {}) as Dictionary).duplicate(true)
+	# Legendary destiny tier (S65+ — 영걸전식 finale 매력 보강). Both fields
+	# optional; judge only fires legendary path when legendary_branch_key is
+	# non-empty AND hidden_branch_key also fires AND legendary_condition passes.
+	c.legendary_branch_key = record.get("legendary_branch_key", "") as String
+	c.legendary_condition = (record.get("legendary_condition", {}) as Dictionary).duplicate(true)
 	# enemy_atk_mult — sentinel -1.0 when absent so BattleScene falls back to
 	# BalanceConstants global. Float cast handles JSON int (1) or float (0.85).
 	if record.has("enemy_atk_mult"):

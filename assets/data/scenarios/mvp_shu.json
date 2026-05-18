@@ -5394,6 +5394,7 @@
       "branch_table": {
         "WIN_default": "WIN_wuzhang_kongming_falls",
         "WIN_hidden": "WIN_wuzhang_kongming_revives",
+        "WIN_legendary": "WIN_wuzhang_legendary_dawn",
         "LOSS_default": "LOSS_wuzhang_consumed"
       },
       "canonical_branch_key": "WIN_wuzhang_kongming_falls",
@@ -5407,6 +5408,13 @@
           "per_active_signature": 1,
           "min_value": 3
         }
+      },
+      "legendary_branch_key": "WIN_legendary",
+      "legendary_condition": {
+        "type": "fate_threshold",
+        "field": "active_signature_count",
+        "op": ">=",
+        "value": 5
       },
       "beat_1_text_key": "ch25.beat1.anchor",
       "beat_2_fragment": {
@@ -5425,6 +5433,11 @@
           "branch_key": "WIN_wuzhang_kongming_revives",
           "text_key": "ch25.beat8.win_wuzhang_kongming_revives",
           "cue_tag": "tag.beat8.hidden_reveal"
+        },
+        {
+          "branch_key": "WIN_wuzhang_legendary_dawn",
+          "text_key": "ch25.beat8.win_wuzhang_legendary_dawn",
+          "cue_tag": "tag.beat8.legendary_reveal"
         },
         {
           "branch_key": "LOSS_wuzhang_consumed",

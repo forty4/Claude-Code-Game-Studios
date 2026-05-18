@@ -4,9 +4,14 @@
 ## guards live in the base class `resolve()`. F-DB-2 reserved_color_treatment
 ## derivation also lives in `resolve()` (post-result derivation).
 ##
-## F-DB-1 algorithm (5-row decision):
+## F-DB-1 algorithm (6-row decision since S65+):
 ##   Row 1: outcome == DRAW AND NOT chapter.author_draw_branch
 ##          → DRAW fallback to WIN row; is_draw_fallback=true
+##   Row 2a-legendary: outcome == WIN AND chapter.hidden_branch_key fires (Row 2a)
+##           AND chapter.legendary_branch_key non-empty AND
+##           HiddenConditionEvaluator(chapter.legendary_condition, fate_data) == true
+##          → legendary-tier row (looked up by legendary_branch_key in branch_table).
+##          Designed for 영걸전식 finale (ch25 hidden + 5 시그니처 cascade).
 ##   Row 2a: outcome == WIN AND chapter.hidden_branch_key non-empty AND
 ##           HiddenConditionEvaluator(chapter.hidden_condition, fate_data) == true
 ##          → hidden-WIN row (looked up by hidden_branch_key in branch_table)
@@ -18,8 +23,8 @@
 ##          → LOSS_default row
 ##
 ## Hidden-condition row (Row 2a) is the Pillar 2 surface — "운명은 바꿀 수 있다".
-## Per chapter, at most ONE hidden condition; multiple hidden branches per chapter
-## are out of scope until a chapter authors them.
+## Legendary tier (Row 2a-legendary) is the cascade-aware extension — "전설의 새벽".
+## Per chapter, at most ONE hidden condition and at most ONE legendary condition.
 ##
 ## ADR: ADR-0017 §F-SP-1 (algorithm spec) + ADR-0018 §Decision (executor class).
 ## TR: TR-destiny-branch-001..015.
@@ -51,6 +56,26 @@ func _apply_f_sp_1(
 	# Must precede Row 2 so the hidden branch takes priority over WIN_default.
 	if outcome == BattleOutcome.Result.WIN and not chapter.hidden_branch_key.is_empty():
 		if HiddenConditionEvaluator.evaluate(chapter.hidden_condition, fate_data):
+			# Row 2a-legendary (S65+): hidden tier fired AND chapter authored a
+			# legendary tier AND legendary_condition passes → legendary wins.
+			# Cascade-aware fate_data (active_signature_count injected by
+			# ScenarioRunner._enter_beat_7_judgment) is the typical driver.
+			if not chapter.legendary_branch_key.is_empty():
+				if HiddenConditionEvaluator.evaluate(chapter.legendary_condition, fate_data):
+					var legendary_key: String = (
+						branch_table.get(chapter.legendary_branch_key, "") as String
+					)
+					if not legendary_key.is_empty():
+						return {
+							"branch_key": legendary_key,
+							"is_draw_fallback": false,
+							"is_canonical_history": (
+								legendary_key == chapter.canonical_branch_key
+							),
+						}
+					# legendary_branch_key declared but no matching branch_table
+					# entry — fall through to plain hidden (Row 2a) instead of
+					# failing the battle.
 			var hidden_key: String = branch_table.get(chapter.hidden_branch_key, "") as String
 			if not hidden_key.is_empty():
 				return {
