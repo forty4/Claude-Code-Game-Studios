@@ -5402,7 +5402,11 @@
         "type": "fate_threshold",
         "field": "qixing_turns",
         "op": ">=",
-        "value": 6
+        "value": 6,
+        "signature_relief": {
+          "per_active_signature": 1,
+          "min_value": 3
+        }
       },
       "beat_1_text_key": "ch25.beat1.anchor",
       "beat_2_fragment": {

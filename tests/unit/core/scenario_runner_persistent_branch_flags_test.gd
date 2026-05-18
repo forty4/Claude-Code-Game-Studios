@@ -314,6 +314,84 @@ func test_restore_from_save_context_v2_repopulates_cascade_state() -> void:
 	assert_int(runner._chapter_outcomes.size()).is_equal(2)
 
 
+# ─── BEAT_7 cascade fate-data injection (signature_relief integration) ───────
+
+
+## BEAT_7 judgment MUST inject active_signature_count into the fate snapshot
+## passed to the judge, WITHOUT mutating the BattleOutcome.fate_data resource
+## (CR-3 outcome invariant). Verified via mvp_shu ch25 hidden_condition relief:
+##   - 0 active signatures + qixing_turns=4 → fails (base 6 needed)
+##   - 3 active signatures + qixing_turns=4 → passes (relief 6-3=3, 4 >= 3)
+func test_beat_7_injects_active_signature_count_into_fate_for_relief() -> void:
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+	# ch25-shaped chapter with signature_relief on hidden_condition.
+	var ch: ChapterDefinition = ChapterDefinition.new()
+	ch.chapter_id = "ch25_relief_test"
+	ch.chapter_number = 25
+	ch.map_id = "mvp_chapter_25"
+	ch.author_draw_branch = false
+	ch.echo_threshold = 1
+	ch.branch_table = {
+		"WIN_default": "WIN_canonical",
+		"WIN_hidden": "WIN_perfect",
+	}
+	ch.canonical_branch_key = "WIN_canonical"
+	ch.hidden_branch_key = "WIN_hidden"
+	ch.hidden_condition = {
+		"type": "fate_threshold",
+		"field": "qixing_turns",
+		"op": ">=",
+		"value": 6,
+		"signature_relief": {"per_active_signature": 1, "min_value": 3},
+	}
+	runner._set_chapters_for_test([ch] as Array[ChapterDefinition], "test_relief")
+	# Outcome: WIN with qixing_turns=4 (below base 6, above relief floor 3).
+	var outcome: BattleOutcome = BattleOutcome.new()
+	outcome.result = BattleOutcome.Result.WIN
+	outcome.chapter_id = "ch25_relief_test"
+	outcome.fate_data = {"qixing_turns": 4}
+	runner._force_battle_outcome_for_test(outcome)
+	# 0 시그니처: relief 없음 → 6턴 필요 → hidden fail → canonical.
+	runner._set_persistent_branch_flags_for_test(PackedStringArray())
+	runner._transition_to(runner.State.BEAT_7_JUDGMENT)
+	var choice_zero: DestinyBranchChoice = runner.get_last_branch_choice()
+	assert_str(choice_zero.branch_key).override_failure_message(
+		"0 active sigs + qixing_turns=4 → relief 없음 → canonical branch"
+	).is_equal("WIN_canonical")
+	# 같은 outcome.fate_data를 다시 주입 (mutate 검증: BEAT_7이 변경 안 했음).
+	assert_bool(outcome.fate_data.has("active_signature_count")).override_failure_message(
+		"BEAT_7 MUST NOT mutate outcome.fate_data (CR-3 invariant)"
+	).is_false()
+	# 3 시그니처 활성화 시 BEAT_7 재실행을 위해 runner 리셋.
+	var runner2: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner2)
+	var ch2: ChapterDefinition = ChapterDefinition.new()
+	ch2.chapter_id = "ch25_relief_test"
+	ch2.chapter_number = 25
+	ch2.map_id = "mvp_chapter_25"
+	ch2.author_draw_branch = false
+	ch2.echo_threshold = 1
+	ch2.branch_table = {"WIN_default": "WIN_canonical", "WIN_hidden": "WIN_perfect"}
+	ch2.canonical_branch_key = "WIN_canonical"
+	ch2.hidden_branch_key = "WIN_hidden"
+	ch2.hidden_condition = ch.hidden_condition.duplicate(true)
+	runner2._set_chapters_for_test([ch2] as Array[ChapterDefinition], "test_relief")
+	var outcome2: BattleOutcome = BattleOutcome.new()
+	outcome2.result = BattleOutcome.Result.WIN
+	outcome2.chapter_id = "ch25_relief_test"
+	outcome2.fate_data = {"qixing_turns": 4}
+	runner2._force_battle_outcome_for_test(outcome2)
+	runner2._set_persistent_branch_flags_for_test(PackedStringArray([
+		"WIN_alpha", "WIN_beta", "WIN_gamma",
+	]))
+	runner2._transition_to(runner2.State.BEAT_7_JUDGMENT)
+	var choice_three: DestinyBranchChoice = runner2.get_last_branch_choice()
+	assert_str(choice_three.branch_key).override_failure_message(
+		"3 active sigs → effective threshold 3 → qixing_turns=4 passes → hidden branch"
+	).is_equal("WIN_perfect")
+
+
 ## v1 (legacy, pre-cascade) SaveContexts MUST load with empty cascade state.
 ## No history retroactively materialized; cascade plays out from current chapter
 ## forward only. Preserves save-file backward compatibility.

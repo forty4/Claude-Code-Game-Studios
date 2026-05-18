@@ -641,12 +641,18 @@ func _enter_beat_7_judgment() -> void:
 		_emit_scenario_fault(_scenario_id, "beat_7_no_chapter_or_outcome", {})
 		return
 	var judge: DestinyBranchJudge = DefaultDestinyBranchJudge.new()
+	# 영걸전식 cascade-aware fate snapshot — inject active_signature_count
+	# without mutating the BattleOutcome resource (CR-3 invariant). Per-judge
+	# pure-predicate evaluation (HiddenConditionEvaluator) reads this field
+	# when signature_relief is declared in chapter.hidden_condition.
+	var fate_with_cascade: Dictionary = _last_battle_outcome.fate_data.duplicate(true)
+	fate_with_cascade["active_signature_count"] = _persistent_branch_flags.size()
 	var choice: DestinyBranchChoice = judge.resolve(
 		chapter,
 		_last_battle_outcome.result,
 		_echo_count,
 		_first_attempt_resolved,
-		_last_battle_outcome.fate_data,
+		fate_with_cascade,
 	)
 	_last_branch_choice = choice
 	# Step 3: CP-2 emission post-seal (per AC-SP-21).
