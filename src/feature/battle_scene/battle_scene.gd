@@ -538,6 +538,11 @@ func _start_battle() -> void:
 	# ("N라운드 버티기"); everything else (ANNIHILATION default, null vc) keeps
 	# the pre-S29 enemy-defeat phrasing.
 	_battle_hud.set_victory_condition(_resolve_victory_condition_label(chapter))
+	# S65+ — 시그니처 카운트 badge: top-right corner small label. Visible only
+	# when at least one signature has been resolved (cascade in progress).
+	# Mounted at every chapter so the badge surfaces immediately on the chapter
+	# AFTER the first signature lands (위연 ch13 → ch14 진입 시 1/5 표시).
+	_mount_signature_count_badge()
 	# Persistent controls hint at the bottom edge — a first-time player has no
 	# way to discover the click flow otherwise. Static label; no _process needed
 	# (which matters: _pause_overworld() disables _process on this scene, see
@@ -2046,6 +2051,44 @@ func _show_ending_screen() -> void:
 	_add_post_battle_button(row, "종료 (Esc)", func() -> void: get_tree().quit())
 	_hud_layer.add_child(card)
 	again.grab_focus()
+
+
+## Mounts the 시그니처 카운트 badge on _hud_layer top-right when at least one
+## persistent signature flag is active. Skipped silently on scenarios that
+## don't author any signature_branches (mvp_wei, prototype lines) — guarded
+## via ScenarioRunner.get_total_signature_count() == 0 OR active count == 0.
+##
+## Format: "✦ N/총 시그니처". Re-mounted on every chapter (the previous badge
+## is removed in _start_battle's MapGrid step where stale Hud children are
+## already cleared on scene reload).
+func _mount_signature_count_badge() -> void:
+	if _hud_layer == null:
+		return
+	# Clear any stale badge from a previous reload (defense — _hud_layer is
+	# a fresh CanvasLayer per scene instance, but reload paths may differ).
+	var stale: Node = _hud_layer.get_node_or_null("SignatureBadge")
+	if stale != null:
+		stale.queue_free()
+	var active_count: int = ScenarioRunner.get_active_signature_count()
+	var total_count: int = ScenarioRunner.get_total_signature_count()
+	if total_count <= 0 or active_count <= 0:
+		return
+	var badge: Label = Label.new()
+	badge.name = "SignatureBadge"
+	badge.text = "✦ %d/%d 시그니처" % [active_count, total_count]
+	badge.add_theme_color_override("font_color", Color(0.96, 0.86, 0.42, 1.0))
+	badge.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.04, 1.0))
+	badge.add_theme_constant_override("outline_size", 5)
+	badge.add_theme_font_size_override("font_size", 18)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Anchor top-right with a small inset so it doesn't overlap the corner.
+	badge.set_anchors_preset(Control.PRESET_TOP_RIGHT, true)
+	badge.offset_right = -16.0
+	badge.offset_top = 12.0
+	badge.offset_left = -220.0
+	badge.offset_bottom = 40.0
+	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_hud_layer.add_child(badge)
 
 
 ## Resolves the final-chapter ending screen content (title + body) from the

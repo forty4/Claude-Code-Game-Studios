@@ -420,6 +420,21 @@ func test_get_final_chapter_returns_null_on_empty_scenario() -> void:
 	assert_object(runner.get_final_chapter()).is_null()
 
 
+## get_active_signature_count + get_total_signature_count expose persistent
+## flag state to the production HUD badge (avoid _for_test API leakage).
+func test_signature_count_api_returns_persistent_and_total() -> void:
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+	runner._set_signature_branches_for_test(PackedStringArray([
+		"WIN_sig_a", "WIN_sig_b", "WIN_sig_c", "WIN_sig_d", "WIN_sig_e",
+	]))
+	runner._set_persistent_branch_flags_for_test(PackedStringArray([
+		"WIN_sig_a", "WIN_sig_b",
+	]))
+	assert_int(runner.get_total_signature_count()).is_equal(5)
+	assert_int(runner.get_active_signature_count()).is_equal(2)
+
+
 ## get_last_chapter_outcome returns the last archive entry (deep copy).
 ## Ending screen looks at branch_path_id here to resolve ending text.
 func test_get_last_chapter_outcome_returns_last_archive_entry() -> void:

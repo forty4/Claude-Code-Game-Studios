@@ -197,6 +197,22 @@ func get_last_chapter_outcome() -> Dictionary:
 	return (_chapter_outcomes[_chapter_outcomes.size() - 1] as Dictionary).duplicate(true)
 
 
+## Returns the count of currently active persistent signature branch flags.
+## Public read API for HUD badges + ending screen text resolvers. Mirrors
+## get_persistent_branch_flags_for_test but production-friendly (no _for_test
+## suffix). 0 when no signature has resolved yet OR scenario has no signature
+## branches authored.
+func get_active_signature_count() -> int:
+	return _persistent_branch_flags.size()
+
+
+## Returns the total count of signature_branch_keys declared at scenario root.
+## 0 when scenario didn't author any (mvp_wei, prototype scenarios). HUD
+## badge uses this for the "N/total" 비율 표시.
+func get_total_signature_count() -> int:
+	return _signature_branch_keys.size()
+
+
 ## Returns the per-chapter echo_count. Reset to 0 at BEAT_9_TRANSITION.
 func get_current_echo_count() -> int:
 	return _echo_count
