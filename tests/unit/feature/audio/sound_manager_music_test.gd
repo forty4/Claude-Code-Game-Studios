@@ -161,9 +161,9 @@ func test_music_id_for_chapter_resolves_distinct_slugs_per_mvp_chapter() -> void
 	assert_bool(sm.has_method("music_id_for_chapter")).override_failure_message(
 		"S60: SoundManager.music_id_for_chapter() must exist"
 	).is_true()
-	# Production chapter_ids per assets/data/scenarios/mvp_shu.json — Phase A 10 chapters
-	# (prequel ch01~ch05 + main ch06~ch10). Each must resolve to an authored (non-ambient) theme.
-	# Note: prequel reuses 5 main themes by thematic match — distinctness only required for main 5.
+	# Production chapter_ids per assets/data/scenarios/mvp_shu.json — Phase A+B+C+D+E 25 chapters
+	# 영걸전식 풀 캠페인 완성 (도원결의 → 오장원). Each must resolve to an authored (non-ambient) theme.
+	# All extension phases reuse 5 main themes by thematic match — distinctness only required for main 5.
 	var all_chapters: Array[StringName] = [
 		&"ch01_taoyuan_yellow_turban",
 		&"ch02_hulao_gate",
@@ -175,6 +175,21 @@ func test_music_id_for_chapter_resolves_distinct_slugs_per_mvp_chapter() -> void
 		&"ch08_xiakou_outskirts",
 		&"ch09_chibi_prelude",
 		&"ch10_chibi_main",
+		&"ch11_jingzhou_pacify",
+		&"ch12_wuling_marsh",
+		&"ch13_changsha_veteran",
+		&"ch14_jingzhou_consolidate",
+		&"ch15_fushui_pass",
+		&"ch16_luofeng_slope",
+		&"ch17_chengdu_gates",
+		&"ch18_hanzhong_advance",
+		&"ch19_dingjun_peak",
+		&"ch20_fancheng_pursuit",
+		&"ch21_zhangfei_avenge",
+		&"ch22_yiling_burn",
+		&"ch23_southern_pacify",
+		&"ch24_jieting_pass",
+		&"ch25_wuzhang_plains",
 	]
 	for chapter_id: StringName in all_chapters:
 		var music_id: StringName = sm.music_id_for_chapter(chapter_id)

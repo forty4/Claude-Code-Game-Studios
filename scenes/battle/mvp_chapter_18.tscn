@@ -1,0 +1,18 @@
+; Chapter 18 (한중 진군 — 마초 합류) production-tier visual scene.
+; Authored per ADR-0021 §1 + §2 — mounted at /root by SceneManager.
+;
+; TILE_SIZE = 64. Map 16×11 — MOUNTAIN walls top/bottom, ROAD center row 5,
+; HILLS + FOREST patches. 7-unit roster (마초 unit_id 17 joins).
+
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/feature/battle_scene/chapter_visuals.gd" id="1_chapter"]
+[ext_resource type="Resource" path="res://assets/data/maps/mvp_chapter_18.tres" id="2_map"]
+
+[node name="ChapterVisuals" type="Node2D"]
+script = ExtResource("1_chapter")
+map_resource = ExtResource("2_map")
+
+[node name="PlayerUnits" type="Node2D" parent="."]
+
+[node name="EnemyUnits" type="Node2D" parent="."]

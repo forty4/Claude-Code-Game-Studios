@@ -1,0 +1,21 @@
+; Chapter 15 (부수관 — 입촉 시작 / 방통 합류) production-tier visual scene.
+; Authored per ADR-0021 §1 + §2 — mounted at /root by SceneManager.
+;
+; Tile rendering: chapter_visuals.gd `_draw()` overrides on the root Node2D.
+; Unit silhouettes: spawned at runtime by BattleScene._spawn_unit_polygons_async.
+;
+; TILE_SIZE = 64. Map 15×9 — MOUNTAIN walls north/south, ROAD center row 4.
+; REACH_TILE target [14,4] (commander reaches pass gate).
+
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/feature/battle_scene/chapter_visuals.gd" id="1_chapter"]
+[ext_resource type="Resource" path="res://assets/data/maps/mvp_chapter_15.tres" id="2_map"]
+
+[node name="ChapterVisuals" type="Node2D"]
+script = ExtResource("1_chapter")
+map_resource = ExtResource("2_map")
+
+[node name="PlayerUnits" type="Node2D" parent="."]
+
+[node name="EnemyUnits" type="Node2D" parent="."]

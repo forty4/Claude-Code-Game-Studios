@@ -1,0 +1,20 @@
+; Chapter 25 (오장원 — 제갈량 최후·영걸전 최종 시그니처) production-tier visual scene.
+; Authored per ADR-0021 §1 + §2 — mounted at /root by SceneManager.
+;
+; TILE_SIZE = 64. Map 16×11 — HILLS 본진 cluster (rows 4-6 cols 6-8 with center [7,5] PLAIN 제갈량 자리),
+; MOUNTAIN 북쪽 경계, RIVER 위수 + BRIDGE [8,9], ROAD 동서축 row 7.
+; SURVIVE 8라운드. Hidden destiny qixing_turns ≥ 6 → 제갈량 회생 (영걸전 최종 시그니처 #5).
+; 25챕터 풀 캠페인의 ending — WIN_default → ENDING_canonical, WIN_hidden → ENDING_perfect_destiny.
+
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/feature/battle_scene/chapter_visuals.gd" id="1_chapter"]
+[ext_resource type="Resource" path="res://assets/data/maps/mvp_chapter_25.tres" id="2_map"]
+
+[node name="ChapterVisuals" type="Node2D"]
+script = ExtResource("1_chapter")
+map_resource = ExtResource("2_map")
+
+[node name="PlayerUnits" type="Node2D" parent="."]
+
+[node name="EnemyUnits" type="Node2D" parent="."]

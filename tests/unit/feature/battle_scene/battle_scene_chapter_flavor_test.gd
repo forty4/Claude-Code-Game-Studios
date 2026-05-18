@@ -29,6 +29,25 @@ const _EXPECTED_CHAPTER_IDS: Array[String] = [
 	"ch08_xiakou_outskirts",
 	"ch09_chibi_prelude",
 	"ch10_chibi_main",
+	# Phase B (형주 4군 + 통합).
+	"ch11_jingzhou_pacify",
+	"ch12_wuling_marsh",
+	"ch13_changsha_veteran",
+	"ch14_jingzhou_consolidate",
+	# Phase C (익주 입성).
+	"ch15_fushui_pass",
+	"ch16_luofeng_slope",
+	"ch17_chengdu_gates",
+	# Phase D (한중·이릉·시그니처 분기 3개).
+	"ch18_hanzhong_advance",
+	"ch19_dingjun_peak",
+	"ch20_fancheng_pursuit",
+	"ch21_zhangfei_avenge",
+	"ch22_yiling_burn",
+	# Phase E (남만·북벌·오장원·영걸전 finale).
+	"ch23_southern_pacify",
+	"ch24_jieting_pass",
+	"ch25_wuzhang_plains",
 ]
 
 

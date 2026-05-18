@@ -24,7 +24,11 @@ const WEI_PATH: String = "res://assets/data/scenarios/mvp_wei.json"
 
 
 func test_dev_jump_lands_at_each_mvp_shu_chapter() -> void:
-	# 10 chapters in mvp_shu: prequel (ch01~ch05 황건적~신야) + main (ch06~ch10 장판~적벽).
+	# 25 chapters in mvp_shu — 영걸전식 풀 캠페인 완성 (도원결의 → 오장원).
+	# prequel (ch01~ch05 황건적~신야) + main (ch06~ch10 장판~적벽)
+	# + Phase B (ch11~ch14 형주 4군 + 통합) + Phase C (ch15~ch17 익주 입성)
+	# + Phase D (ch18~ch22 한중·이릉·시그니처 분기 3개)
+	# + Phase E (ch23~ch25 남만·북벌·오장원·영걸전 finale).
 	var expected_ids: Array[String] = [
 		"ch01_taoyuan_yellow_turban",
 		"ch02_hulao_gate",
@@ -36,6 +40,21 @@ func test_dev_jump_lands_at_each_mvp_shu_chapter() -> void:
 		"ch08_xiakou_outskirts",
 		"ch09_chibi_prelude",
 		"ch10_chibi_main",
+		"ch11_jingzhou_pacify",
+		"ch12_wuling_marsh",
+		"ch13_changsha_veteran",
+		"ch14_jingzhou_consolidate",
+		"ch15_fushui_pass",
+		"ch16_luofeng_slope",
+		"ch17_chengdu_gates",
+		"ch18_hanzhong_advance",
+		"ch19_dingjun_peak",
+		"ch20_fancheng_pursuit",
+		"ch21_zhangfei_avenge",
+		"ch22_yiling_burn",
+		"ch23_southern_pacify",
+		"ch24_jieting_pass",
+		"ch25_wuzhang_plains",
 	]
 	for idx: int in expected_ids.size():
 		var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
@@ -121,14 +140,14 @@ func test_dev_jump_rejects_negative_index() -> void:
 
 
 func test_dev_jump_rejects_overflow_index() -> void:
-	# Phase A: mvp_shu has exactly 10 chapters, so index 10 is out of range.
+	# Phase E: mvp_shu has exactly 25 chapters (영걸전식 풀 캠페인 완성), index 25 is out of range.
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
 
-	var ok: bool = runner.dev_jump_to_chapter(SHU_PATH, 10)
+	var ok: bool = runner.dev_jump_to_chapter(SHU_PATH, 25)
 
 	assert_bool(ok).override_failure_message(
-		"dev_jump_to_chapter with index 10 (out of [0, 10)) must return false"
+		"dev_jump_to_chapter with index 25 (out of [0, 25)) must return false"
 	).is_false()
 	# Scenario was loaded (load_scenario succeeded before the range check), so
 	# index stays at 0 — the load landed there before the range check rejected.

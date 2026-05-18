@@ -1,0 +1,834 @@
+[gd_resource type="Resource" script_class="MapResource" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/core/map_resource.gd" id="1_mapres"]
+[ext_resource type="Script" path="res://src/core/map_tile_data.gd" id="2_tiledata"]
+
+; mvp_chapter_22 — Phase D 이릉 화공 (유비 위기·시그니처 hidden destiny)
+; 14 cols × 11 rows. MOUNTAIN 협곡 양옆, RIVER 굽이 row 4 + row 6 cols 3-10,
+; BRIDGE [7,4] [7,6] 단일 도하점. FIRE 8 타일 (화공·라운드 시작마다 피해).
+; FOREST 화염 외곽, HILLS 후퇴 지점. chokepoints [6,5] [7,5] [6,6].
+; Hidden destiny: counter_fire_turns ≥ 2 → 유비 생환 (영걸전 시그니처 #4).
+
+[sub_resource type="Resource" id="t_0_0"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(0, 0)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_1_0"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(1, 0)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_2_0"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(2, 0)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_3_0"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(3, 0)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_4_0"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(4, 0)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_5_0"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(5, 0)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_6_0"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(6, 0)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_7_0"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(7, 0)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_8_0"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(8, 0)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_9_0"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(9, 0)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_10_0"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(10, 0)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_11_0"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(11, 0)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_12_0"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(12, 0)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_13_0"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(13, 0)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_0_1"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(0, 1)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_1_1"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(1, 1)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_2_1"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(2, 1)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_3_1"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(3, 1)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_4_1"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(4, 1)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_5_1"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(5, 1)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_6_1"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(6, 1)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_7_1"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(7, 1)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_8_1"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(8, 1)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_9_1"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(9, 1)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_10_1"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(10, 1)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_11_1"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(11, 1)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_12_1"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(12, 1)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_13_1"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(13, 1)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_0_2"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(0, 2)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_1_2"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(1, 2)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_2_2"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(2, 2)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_3_2"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(3, 2)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_4_2"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(4, 2)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_5_2"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(5, 2)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_6_2"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(6, 2)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_7_2"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(7, 2)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_8_2"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(8, 2)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_9_2"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(9, 2)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_10_2"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(10, 2)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_11_2"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(11, 2)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_12_2"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(12, 2)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_13_2"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(13, 2)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_0_3"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(0, 3)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_1_3"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(1, 3)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_2_3"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(2, 3)
+terrain_type = 1
+
+[sub_resource type="Resource" id="t_3_3"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(3, 3)
+terrain_type = 1
+
+[sub_resource type="Resource" id="t_4_3"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(4, 3)
+terrain_type = 8
+
+[sub_resource type="Resource" id="t_5_3"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(5, 3)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_6_3"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(6, 3)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_7_3"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(7, 3)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_8_3"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(8, 3)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_9_3"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(9, 3)
+terrain_type = 8
+
+[sub_resource type="Resource" id="t_10_3"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(10, 3)
+terrain_type = 1
+
+[sub_resource type="Resource" id="t_11_3"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(11, 3)
+terrain_type = 1
+
+[sub_resource type="Resource" id="t_12_3"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(12, 3)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_13_3"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(13, 3)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_0_4"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(0, 4)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_1_4"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(1, 4)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_2_4"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(2, 4)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_3_4"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(3, 4)
+terrain_type = 4
+
+[sub_resource type="Resource" id="t_4_4"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(4, 4)
+terrain_type = 4
+
+[sub_resource type="Resource" id="t_5_4"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(5, 4)
+terrain_type = 4
+
+[sub_resource type="Resource" id="t_6_4"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(6, 4)
+terrain_type = 4
+
+[sub_resource type="Resource" id="t_7_4"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(7, 4)
+terrain_type = 5
+
+[sub_resource type="Resource" id="t_8_4"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(8, 4)
+terrain_type = 4
+
+[sub_resource type="Resource" id="t_9_4"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(9, 4)
+terrain_type = 4
+
+[sub_resource type="Resource" id="t_10_4"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(10, 4)
+terrain_type = 4
+
+[sub_resource type="Resource" id="t_11_4"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(11, 4)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_12_4"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(12, 4)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_13_4"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(13, 4)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_0_5"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(0, 5)
+terrain_type = 2
+elevation = 1
+
+[sub_resource type="Resource" id="t_1_5"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(1, 5)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_2_5"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(2, 5)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_3_5"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(3, 5)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_4_5"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(4, 5)
+terrain_type = 8
+
+[sub_resource type="Resource" id="t_5_5"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(5, 5)
+terrain_type = 8
+
+[sub_resource type="Resource" id="t_6_5"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(6, 5)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_7_5"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(7, 5)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_8_5"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(8, 5)
+terrain_type = 8
+
+[sub_resource type="Resource" id="t_9_5"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(9, 5)
+terrain_type = 8
+
+[sub_resource type="Resource" id="t_10_5"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(10, 5)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_11_5"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(11, 5)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_12_5"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(12, 5)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_13_5"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(13, 5)
+terrain_type = 2
+elevation = 1
+
+[sub_resource type="Resource" id="t_0_6"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(0, 6)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_1_6"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(1, 6)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_2_6"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(2, 6)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_3_6"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(3, 6)
+terrain_type = 4
+
+[sub_resource type="Resource" id="t_4_6"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(4, 6)
+terrain_type = 4
+
+[sub_resource type="Resource" id="t_5_6"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(5, 6)
+terrain_type = 4
+
+[sub_resource type="Resource" id="t_6_6"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(6, 6)
+terrain_type = 4
+
+[sub_resource type="Resource" id="t_7_6"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(7, 6)
+terrain_type = 5
+
+[sub_resource type="Resource" id="t_8_6"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(8, 6)
+terrain_type = 4
+
+[sub_resource type="Resource" id="t_9_6"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(9, 6)
+terrain_type = 4
+
+[sub_resource type="Resource" id="t_10_6"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(10, 6)
+terrain_type = 4
+
+[sub_resource type="Resource" id="t_11_6"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(11, 6)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_12_6"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(12, 6)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_13_6"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(13, 6)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_0_7"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(0, 7)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_1_7"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(1, 7)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_2_7"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(2, 7)
+terrain_type = 1
+
+[sub_resource type="Resource" id="t_3_7"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(3, 7)
+terrain_type = 1
+
+[sub_resource type="Resource" id="t_4_7"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(4, 7)
+terrain_type = 8
+
+[sub_resource type="Resource" id="t_5_7"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(5, 7)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_6_7"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(6, 7)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_7_7"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(7, 7)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_8_7"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(8, 7)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_9_7"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(9, 7)
+terrain_type = 8
+
+[sub_resource type="Resource" id="t_10_7"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(10, 7)
+terrain_type = 1
+
+[sub_resource type="Resource" id="t_11_7"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(11, 7)
+terrain_type = 1
+
+[sub_resource type="Resource" id="t_12_7"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(12, 7)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_13_7"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(13, 7)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_0_8"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(0, 8)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_1_8"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(1, 8)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_2_8"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(2, 8)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_3_8"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(3, 8)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_4_8"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(4, 8)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_5_8"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(5, 8)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_6_8"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(6, 8)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_7_8"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(7, 8)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_8_8"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(8, 8)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_9_8"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(9, 8)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_10_8"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(10, 8)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_11_8"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(11, 8)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_12_8"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(12, 8)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_13_8"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(13, 8)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_0_9"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(0, 9)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_1_9"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(1, 9)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_2_9"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(2, 9)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_3_9"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(3, 9)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_4_9"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(4, 9)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_5_9"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(5, 9)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_6_9"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(6, 9)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_7_9"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(7, 9)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_8_9"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(8, 9)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_9_9"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(9, 9)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_10_9"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(10, 9)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_11_9"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(11, 9)
+terrain_type = 0
+
+[sub_resource type="Resource" id="t_12_9"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(12, 9)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_13_9"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(13, 9)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_0_10"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(0, 10)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_1_10"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(1, 10)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_2_10"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(2, 10)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_3_10"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(3, 10)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_4_10"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(4, 10)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_5_10"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(5, 10)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_6_10"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(6, 10)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_7_10"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(7, 10)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_8_10"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(8, 10)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_9_10"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(9, 10)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_10_10"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(10, 10)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_11_10"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(11, 10)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_12_10"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(12, 10)
+terrain_type = 3
+elevation = 2
+
+[sub_resource type="Resource" id="t_13_10"]
+script = ExtResource("2_tiledata")
+coord = Vector2i(13, 10)
+terrain_type = 3
+elevation = 2
+
+[resource]
+script = ExtResource("1_mapres")
+terrain_version = 1
+map_id = &"mvp_chapter_22"
+map_rows = 11
+map_cols = 14
+tiles = Array[ExtResource("2_tiledata")]([SubResource("t_0_0"), SubResource("t_1_0"), SubResource("t_2_0"), SubResource("t_3_0"), SubResource("t_4_0"), SubResource("t_5_0"), SubResource("t_6_0"), SubResource("t_7_0"), SubResource("t_8_0"), SubResource("t_9_0"), SubResource("t_10_0"), SubResource("t_11_0"), SubResource("t_12_0"), SubResource("t_13_0"), SubResource("t_0_1"), SubResource("t_1_1"), SubResource("t_2_1"), SubResource("t_3_1"), SubResource("t_4_1"), SubResource("t_5_1"), SubResource("t_6_1"), SubResource("t_7_1"), SubResource("t_8_1"), SubResource("t_9_1"), SubResource("t_10_1"), SubResource("t_11_1"), SubResource("t_12_1"), SubResource("t_13_1"), SubResource("t_0_2"), SubResource("t_1_2"), SubResource("t_2_2"), SubResource("t_3_2"), SubResource("t_4_2"), SubResource("t_5_2"), SubResource("t_6_2"), SubResource("t_7_2"), SubResource("t_8_2"), SubResource("t_9_2"), SubResource("t_10_2"), SubResource("t_11_2"), SubResource("t_12_2"), SubResource("t_13_2"), SubResource("t_0_3"), SubResource("t_1_3"), SubResource("t_2_3"), SubResource("t_3_3"), SubResource("t_4_3"), SubResource("t_5_3"), SubResource("t_6_3"), SubResource("t_7_3"), SubResource("t_8_3"), SubResource("t_9_3"), SubResource("t_10_3"), SubResource("t_11_3"), SubResource("t_12_3"), SubResource("t_13_3"), SubResource("t_0_4"), SubResource("t_1_4"), SubResource("t_2_4"), SubResource("t_3_4"), SubResource("t_4_4"), SubResource("t_5_4"), SubResource("t_6_4"), SubResource("t_7_4"), SubResource("t_8_4"), SubResource("t_9_4"), SubResource("t_10_4"), SubResource("t_11_4"), SubResource("t_12_4"), SubResource("t_13_4"), SubResource("t_0_5"), SubResource("t_1_5"), SubResource("t_2_5"), SubResource("t_3_5"), SubResource("t_4_5"), SubResource("t_5_5"), SubResource("t_6_5"), SubResource("t_7_5"), SubResource("t_8_5"), SubResource("t_9_5"), SubResource("t_10_5"), SubResource("t_11_5"), SubResource("t_12_5"), SubResource("t_13_5"), SubResource("t_0_6"), SubResource("t_1_6"), SubResource("t_2_6"), SubResource("t_3_6"), SubResource("t_4_6"), SubResource("t_5_6"), SubResource("t_6_6"), SubResource("t_7_6"), SubResource("t_8_6"), SubResource("t_9_6"), SubResource("t_10_6"), SubResource("t_11_6"), SubResource("t_12_6"), SubResource("t_13_6"), SubResource("t_0_7"), SubResource("t_1_7"), SubResource("t_2_7"), SubResource("t_3_7"), SubResource("t_4_7"), SubResource("t_5_7"), SubResource("t_6_7"), SubResource("t_7_7"), SubResource("t_8_7"), SubResource("t_9_7"), SubResource("t_10_7"), SubResource("t_11_7"), SubResource("t_12_7"), SubResource("t_13_7"), SubResource("t_0_8"), SubResource("t_1_8"), SubResource("t_2_8"), SubResource("t_3_8"), SubResource("t_4_8"), SubResource("t_5_8"), SubResource("t_6_8"), SubResource("t_7_8"), SubResource("t_8_8"), SubResource("t_9_8"), SubResource("t_10_8"), SubResource("t_11_8"), SubResource("t_12_8"), SubResource("t_13_8"), SubResource("t_0_9"), SubResource("t_1_9"), SubResource("t_2_9"), SubResource("t_3_9"), SubResource("t_4_9"), SubResource("t_5_9"), SubResource("t_6_9"), SubResource("t_7_9"), SubResource("t_8_9"), SubResource("t_9_9"), SubResource("t_10_9"), SubResource("t_11_9"), SubResource("t_12_9"), SubResource("t_13_9"), SubResource("t_0_10"), SubResource("t_1_10"), SubResource("t_2_10"), SubResource("t_3_10"), SubResource("t_4_10"), SubResource("t_5_10"), SubResource("t_6_10"), SubResource("t_7_10"), SubResource("t_8_10"), SubResource("t_9_10"), SubResource("t_10_10"), SubResource("t_11_10"), SubResource("t_12_10"), SubResource("t_13_10")])

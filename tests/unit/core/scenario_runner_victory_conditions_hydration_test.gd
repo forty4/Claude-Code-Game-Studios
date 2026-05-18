@@ -407,6 +407,456 @@ func test_mvp_wei_scenario_loads_via_runner_without_fault() -> void:
 	).is_true()
 
 
+# ─── Phase B (mvp_shu ch11~ch14) — 형주 4군 평정 + 통합 authoring sanity ────────
+
+
+## Phase B regression sentinel — mvp_shu must declare exactly 14 chapters
+## (Phase A prequel ch01~ch05 + main ch06~ch10 + Phase B 형주 ch11~ch14).
+## ch13 hidden destiny (wei_yan_spared_turns ≥ 3) + ch14 branch_overrides chain
+## mirror the영걸전 시그니처 위연 합류 분기.
+func test_mvp_shu_phase_b_authors_ch11_to_ch14_with_wei_yan_defection_chain() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+	assert_bool(json_text.is_empty()).override_failure_message(
+		"mvp_shu.json must exist at assets/data/scenarios/mvp_shu.json"
+	).is_false()
+	var parsed: Variant = JSON.parse_string(json_text)
+	var data: Dictionary = parsed as Dictionary
+	var chapters: Array = data["chapters"] as Array
+	assert_int(chapters.size()).override_failure_message(
+		"Phase E: mvp_shu must declare exactly 25 chapters — 영걸전식 풀 캠페인 완성 (A 10 + B 4 + C 3 + D 5 + E 3)"
+	).is_equal(25)
+
+	var by_id: Dictionary = {}
+	for c: Variant in chapters:
+		var d: Dictionary = c as Dictionary
+		by_id[d.get("chapter_id", "") as String] = d
+
+	for expected_id: String in [
+		"ch11_jingzhou_pacify",
+		"ch12_wuling_marsh",
+		"ch13_changsha_veteran",
+		"ch14_jingzhou_consolidate",
+	]:
+		assert_bool(by_id.has(expected_id)).override_failure_message(
+			"Phase B: mvp_shu missing chapter_id '%s'" % expected_id
+		).is_true()
+
+	# ch13 hidden destiny — wei_yan_spared_turns >= 3 → WIN_changsha_wei_yan_defects.
+	var ch13: Dictionary = by_id["ch13_changsha_veteran"] as Dictionary
+	assert_str(ch13.get("hidden_branch_key", "") as String).override_failure_message(
+		"Phase B: ch13 must declare hidden_branch_key = 'WIN_hidden'"
+	).is_equal("WIN_hidden")
+	var hc: Dictionary = ch13.get("hidden_condition", {}) as Dictionary
+	assert_str(hc.get("type", "") as String).is_equal("fate_threshold")
+	assert_str(hc.get("field", "") as String).is_equal("wei_yan_spared_turns")
+	assert_str(hc.get("op", "") as String).is_equal(">=")
+	assert_int(hc.get("value", -1) as int).is_equal(3)
+	var ch13_bt: Dictionary = ch13.get("branch_table", {}) as Dictionary
+	assert_str(ch13_bt.get("WIN_hidden", "") as String).is_equal("WIN_changsha_wei_yan_defects")
+
+	# ch14 branch_overrides — WIN_changsha_wei_yan_defects adds unit_id 15 (위연)
+	# to the player roster, expanding from 6 to 7 deployed units.
+	var ch14: Dictionary = by_id["ch14_jingzhou_consolidate"] as Dictionary
+	var ovr: Dictionary = ch14.get("branch_overrides", {}) as Dictionary
+	assert_bool(ovr.has("WIN_changsha_wei_yan_defects")).override_failure_message(
+		"Phase B: ch14 must author branch_overrides for WIN_changsha_wei_yan_defects"
+	).is_true()
+	var entry: Dictionary = ovr["WIN_changsha_wei_yan_defects"] as Dictionary
+	var ovr_unit_ids: Array = entry.get("player_unit_ids", []) as Array
+	assert_int(ovr_unit_ids.size()).override_failure_message(
+		"Phase B: ch14 hidden override must add 위연 (unit_id 15) → 7 player units (got %d)"
+			% ovr_unit_ids.size()
+	).is_equal(7)
+	var found_wei_yan: bool = false
+	for uid_var: Variant in ovr_unit_ids:
+		if int(uid_var) == 15:
+			found_wei_yan = true
+			break
+	assert_bool(found_wei_yan).override_failure_message(
+		"Phase B: ch14 hidden override player_unit_ids must include unit_id 15 (위연); got %s"
+			% str(ovr_unit_ids)
+	).is_true()
+	var ovr_hero_ids: Dictionary = entry.get("player_hero_ids", {}) as Dictionary
+	assert_str(ovr_hero_ids.get("15", "") as String).is_equal("shu_009_wei_yan")
+
+	# Map ids match the new .tres files generated for Phase B.
+	for expected_id: String in [
+		"ch11_jingzhou_pacify",
+		"ch12_wuling_marsh",
+		"ch13_changsha_veteran",
+		"ch14_jingzhou_consolidate",
+	]:
+		var ch: Dictionary = by_id[expected_id] as Dictionary
+		var map_id: String = ch.get("map_id", "") as String
+		var map_path: String = "res://assets/data/maps/%s.tres" % map_id
+		assert_bool(ResourceLoader.exists(map_path)).override_failure_message(
+			"Phase B: %s declares map_id '%s' but %s does not exist on disk"
+				% [expected_id, map_id, map_path]
+		).is_true()
+
+
+## Phase B end-to-end hydration smoke — full mvp_shu loads through
+## ScenarioRunner.load_scenario without scenario_fault. Catches validator
+## regressions on the new Phase B chapter records (echo_threshold, victory
+## conditions, hidden_condition, branch_overrides shape).
+func test_mvp_shu_phase_b_full_scenario_loads_via_runner_without_fault() -> void:
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+
+	var ok: bool = runner.load_scenario("res://assets/data/scenarios/mvp_shu.json")
+
+	assert_bool(ok).override_failure_message(
+		"Phase B/C: ScenarioRunner.load_scenario MUST succeed on full mvp_shu.json"
+	).is_true()
+
+
+# ─── Phase C (mvp_shu ch15~ch17) — 익주 입성 authoring sanity ──────────────────
+
+
+## Phase C regression sentinel — ch15 부수관 (REACH_TILE 방통 합류) + ch16 낙봉파
+## (시그니처 hidden destiny scout_first_turns ≥ 2 → 방통 생존) + ch17 성도
+## (branch_overrides on WIN_luofeng_pang_tong_lives → 방통 잔류).
+func test_mvp_shu_phase_c_authors_ch15_to_ch17_with_pang_tong_survival_chain() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+	var parsed: Variant = JSON.parse_string(json_text)
+	var data: Dictionary = parsed as Dictionary
+	var chapters: Array = data["chapters"] as Array
+
+	var by_id: Dictionary = {}
+	for c: Variant in chapters:
+		var d: Dictionary = c as Dictionary
+		by_id[d.get("chapter_id", "") as String] = d
+
+	for expected_id: String in [
+		"ch15_fushui_pass",
+		"ch16_luofeng_slope",
+		"ch17_chengdu_gates",
+	]:
+		assert_bool(by_id.has(expected_id)).override_failure_message(
+			"Phase C: mvp_shu missing chapter_id '%s'" % expected_id
+		).is_true()
+
+	# ch15 REACH_TILE victory — commander (unit 0) reaches [14, 4].
+	var ch15: Dictionary = by_id["ch15_fushui_pass"] as Dictionary
+	var ch15_vc: Dictionary = ch15.get("victory_conditions", {}) as Dictionary
+	assert_int(int(ch15_vc.get("primary_condition_type", -1))).override_failure_message(
+		"Phase C: ch15 victory_conditions.primary_condition_type must be 3 (REACH_TILE)"
+	).is_equal(3)
+	var ch15_target_tile: Array = ch15_vc.get("target_tile", []) as Array
+	assert_int(ch15_target_tile.size()).is_equal(2)
+	assert_int(int(ch15_target_tile[0])).is_equal(14)
+	assert_int(int(ch15_target_tile[1])).is_equal(4)
+	# ch15 roster includes 방통 (unit_id 16, hero shu_007_pang_tong).
+	var ch15_hero_ids: Dictionary = ch15.get("player_hero_ids", {}) as Dictionary
+	assert_str(ch15_hero_ids.get("16", "") as String).override_failure_message(
+		"Phase C: ch15 player_hero_ids[16] must be 'shu_007_pang_tong' (방통 합류)"
+	).is_equal("shu_007_pang_tong")
+
+	# ch16 hidden destiny — scout_first_turns >= 2 → WIN_luofeng_pang_tong_lives.
+	var ch16: Dictionary = by_id["ch16_luofeng_slope"] as Dictionary
+	assert_str(ch16.get("hidden_branch_key", "") as String).is_equal("WIN_hidden")
+	var hc: Dictionary = ch16.get("hidden_condition", {}) as Dictionary
+	assert_str(hc.get("type", "") as String).is_equal("fate_threshold")
+	assert_str(hc.get("field", "") as String).is_equal("scout_first_turns")
+	assert_str(hc.get("op", "") as String).is_equal(">=")
+	assert_int(int(hc.get("value", -1))).is_equal(2)
+	var ch16_bt: Dictionary = ch16.get("branch_table", {}) as Dictionary
+	assert_str(ch16_bt.get("WIN_hidden", "") as String).is_equal("WIN_luofeng_pang_tong_lives")
+	# ch16 SURVIVE_N_ROUNDS=4.
+	var ch16_vc: Dictionary = ch16.get("victory_conditions", {}) as Dictionary
+	assert_int(int(ch16_vc.get("primary_condition_type", -1))).override_failure_message(
+		"Phase C: ch16 victory_conditions.primary_condition_type must be 1 (SURVIVE_N_ROUNDS)"
+	).is_equal(1)
+	assert_int(int(ch16_vc.get("survive_rounds", -1))).is_equal(4)
+
+	# ch17 default roster (no 방통) + branch_overrides on hidden destiny restores 방통.
+	var ch17: Dictionary = by_id["ch17_chengdu_gates"] as Dictionary
+	var ch17_default_units: Array = ch17.get("player_unit_ids", []) as Array
+	assert_int(ch17_default_units.size()).override_failure_message(
+		"Phase C: ch17 default player_unit_ids should be 6 (방통 사망 canonical)"
+	).is_equal(6)
+	var ovr: Dictionary = ch17.get("branch_overrides", {}) as Dictionary
+	assert_bool(ovr.has("WIN_luofeng_pang_tong_lives")).override_failure_message(
+		"Phase C: ch17 must author branch_overrides for WIN_luofeng_pang_tong_lives (영걸전 시그니처)"
+	).is_true()
+	var entry: Dictionary = ovr["WIN_luofeng_pang_tong_lives"] as Dictionary
+	var ovr_unit_ids: Array = entry.get("player_unit_ids", []) as Array
+	assert_int(ovr_unit_ids.size()).override_failure_message(
+		"Phase C: ch17 hidden override must add 방통 (unit_id 16) → 7 player units (got %d)"
+			% ovr_unit_ids.size()
+	).is_equal(7)
+	var found_pang_tong: bool = false
+	for uid_var: Variant in ovr_unit_ids:
+		if int(uid_var) == 16:
+			found_pang_tong = true
+			break
+	assert_bool(found_pang_tong).override_failure_message(
+		"Phase C: ch17 hidden override player_unit_ids must include unit_id 16 (방통); got %s"
+			% str(ovr_unit_ids)
+	).is_true()
+	var ovr_hero_ids: Dictionary = entry.get("player_hero_ids", {}) as Dictionary
+	assert_str(ovr_hero_ids.get("16", "") as String).is_equal("shu_007_pang_tong")
+
+	# Map ids match the new .tres files generated for Phase C.
+	for expected_id: String in [
+		"ch15_fushui_pass",
+		"ch16_luofeng_slope",
+		"ch17_chengdu_gates",
+	]:
+		var ch: Dictionary = by_id[expected_id] as Dictionary
+		var map_id: String = ch.get("map_id", "") as String
+		var map_path: String = "res://assets/data/maps/%s.tres" % map_id
+		assert_bool(ResourceLoader.exists(map_path)).override_failure_message(
+			"Phase C: %s declares map_id '%s' but %s does not exist on disk"
+				% [expected_id, map_id, map_path]
+		).is_true()
+
+
+# ─── Phase D (mvp_shu ch18~ch22) — 한중·이릉·영걸전 시그니처 분기 3개 ────────────
+
+
+## Phase D regression sentinel — ch18 한중 진군 (마초 합류) + ch19 정군산 (황충
+## hidden) + ch20 번성 (관우 생환 시그니처 #3) + ch21 장비 (장비 생존 시그니처) +
+## ch22 이릉 (유비 생환 시그니처 #4). ch21/ch22 cascading branch_overrides chain.
+func test_mvp_shu_phase_d_authors_ch18_to_ch22_with_three_signature_branches() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+	var parsed: Variant = JSON.parse_string(json_text)
+	var data: Dictionary = parsed as Dictionary
+	var chapters: Array = data["chapters"] as Array
+
+	var by_id: Dictionary = {}
+	for c: Variant in chapters:
+		var d: Dictionary = c as Dictionary
+		by_id[d.get("chapter_id", "") as String] = d
+
+	for expected_id: String in [
+		"ch18_hanzhong_advance",
+		"ch19_dingjun_peak",
+		"ch20_fancheng_pursuit",
+		"ch21_zhangfei_avenge",
+		"ch22_yiling_burn",
+	]:
+		assert_bool(by_id.has(expected_id)).override_failure_message(
+			"Phase D: mvp_shu missing chapter_id '%s'" % expected_id
+		).is_true()
+
+	# ch18 — 마초 (unit_id 17, hero shu_008_ma_chao) joins the roster.
+	var ch18: Dictionary = by_id["ch18_hanzhong_advance"] as Dictionary
+	var ch18_hero_ids: Dictionary = ch18.get("player_hero_ids", {}) as Dictionary
+	assert_str(ch18_hero_ids.get("17", "") as String).override_failure_message(
+		"Phase D: ch18 player_hero_ids[17] must be 'shu_008_ma_chao' (마초 합류)"
+	).is_equal("shu_008_ma_chao")
+
+	# ch19 hidden destiny — huang_zhong_xiahou_yuan_kill >= 1 → WIN_dingjun_old_general_proven.
+	var ch19: Dictionary = by_id["ch19_dingjun_peak"] as Dictionary
+	var hc19: Dictionary = ch19.get("hidden_condition", {}) as Dictionary
+	assert_str(hc19.get("field", "") as String).is_equal("huang_zhong_xiahou_yuan_kill")
+	var ch19_bt: Dictionary = ch19.get("branch_table", {}) as Dictionary
+	assert_str(ch19_bt.get("WIN_hidden", "") as String).is_equal("WIN_dingjun_old_general_proven")
+
+	# ch20 hidden destiny — retreat_path_clear_turns >= 3 → 관우 생환 (시그니처 #3).
+	var ch20: Dictionary = by_id["ch20_fancheng_pursuit"] as Dictionary
+	var hc20: Dictionary = ch20.get("hidden_condition", {}) as Dictionary
+	assert_str(hc20.get("field", "") as String).is_equal("retreat_path_clear_turns")
+	assert_int(int(hc20.get("value", -1))).is_equal(3)
+	var ch20_bt: Dictionary = ch20.get("branch_table", {}) as Dictionary
+	assert_str(ch20_bt.get("WIN_hidden", "") as String).is_equal("WIN_fancheng_guan_yu_survives")
+	# ch20 SURVIVE_N_ROUNDS = 6.
+	var ch20_vc: Dictionary = ch20.get("victory_conditions", {}) as Dictionary
+	assert_int(int(ch20_vc.get("primary_condition_type", -1))).is_equal(1)
+	assert_int(int(ch20_vc.get("survive_rounds", -1))).is_equal(6)
+
+	# ch21 default roster (no 관우 unit 6) + branch_overrides on WIN_fancheng_guan_yu_survives
+	# restores 관우 to roster (cascading single-step survival chain).
+	var ch21: Dictionary = by_id["ch21_zhangfei_avenge"] as Dictionary
+	var ch21_default_units: Array = ch21.get("player_unit_ids", []) as Array
+	var ch21_has_guan_yu_default: bool = false
+	for uid_var: Variant in ch21_default_units:
+		if int(uid_var) == 6:
+			ch21_has_guan_yu_default = true
+			break
+	assert_bool(ch21_has_guan_yu_default).override_failure_message(
+		"Phase D: ch21 default roster MUST NOT include 관우 (unit 6) — canonical 관우 전사"
+	).is_false()
+	var ovr21: Dictionary = ch21.get("branch_overrides", {}) as Dictionary
+	assert_bool(ovr21.has("WIN_fancheng_guan_yu_survives")).override_failure_message(
+		"Phase D: ch21 must author branch_overrides for WIN_fancheng_guan_yu_survives"
+	).is_true()
+	var ch21_ovr_units: Array = (ovr21["WIN_fancheng_guan_yu_survives"] as Dictionary).get("player_unit_ids", []) as Array
+	var ch21_ovr_has_guan_yu: bool = false
+	for uid_var: Variant in ch21_ovr_units:
+		if int(uid_var) == 6:
+			ch21_ovr_has_guan_yu = true
+			break
+	assert_bool(ch21_ovr_has_guan_yu).override_failure_message(
+		"Phase D: ch21 hidden override player_unit_ids must include 관우 (unit 6) on 시그니처 #3"
+	).is_true()
+	# ch21 hidden destiny — discipline_turns >= 4 → WIN_zhangfei_survives.
+	var hc21: Dictionary = ch21.get("hidden_condition", {}) as Dictionary
+	assert_str(hc21.get("field", "") as String).is_equal("discipline_turns")
+	var ch21_bt: Dictionary = ch21.get("branch_table", {}) as Dictionary
+	assert_str(ch21_bt.get("WIN_hidden", "") as String).is_equal("WIN_zhangfei_survives")
+
+	# ch22 default roster (no 장비 unit 1) + branch_overrides on WIN_zhangfei_survives
+	# restores 장비 to roster (cascading single-step survival chain).
+	var ch22: Dictionary = by_id["ch22_yiling_burn"] as Dictionary
+	var ch22_default_units: Array = ch22.get("player_unit_ids", []) as Array
+	var ch22_has_zhangfei_default: bool = false
+	for uid_var: Variant in ch22_default_units:
+		if int(uid_var) == 1:
+			ch22_has_zhangfei_default = true
+			break
+	assert_bool(ch22_has_zhangfei_default).override_failure_message(
+		"Phase D: ch22 default roster MUST NOT include 장비 (unit 1) — canonical 장비 시해"
+	).is_false()
+	var ovr22: Dictionary = ch22.get("branch_overrides", {}) as Dictionary
+	assert_bool(ovr22.has("WIN_zhangfei_survives")).override_failure_message(
+		"Phase D: ch22 must author branch_overrides for WIN_zhangfei_survives"
+	).is_true()
+	var ch22_ovr_units: Array = (ovr22["WIN_zhangfei_survives"] as Dictionary).get("player_unit_ids", []) as Array
+	var ch22_ovr_has_zhangfei: bool = false
+	for uid_var: Variant in ch22_ovr_units:
+		if int(uid_var) == 1:
+			ch22_ovr_has_zhangfei = true
+			break
+	assert_bool(ch22_ovr_has_zhangfei).override_failure_message(
+		"Phase D: ch22 hidden override player_unit_ids must include 장비 (unit 1) on 시그니처"
+	).is_true()
+	# ch22 hidden destiny — counter_fire_turns >= 2 → 유비 생환 (시그니처 #4).
+	var hc22: Dictionary = ch22.get("hidden_condition", {}) as Dictionary
+	assert_str(hc22.get("field", "") as String).is_equal("counter_fire_turns")
+	var ch22_bt: Dictionary = ch22.get("branch_table", {}) as Dictionary
+	assert_str(ch22_bt.get("WIN_hidden", "") as String).is_equal("WIN_yiling_liu_bei_survives")
+
+	# Map ids match the new .tres files generated for Phase D.
+	for expected_id: String in [
+		"ch18_hanzhong_advance",
+		"ch19_dingjun_peak",
+		"ch20_fancheng_pursuit",
+		"ch21_zhangfei_avenge",
+		"ch22_yiling_burn",
+	]:
+		var ch: Dictionary = by_id[expected_id] as Dictionary
+		var map_id: String = ch.get("map_id", "") as String
+		var map_path: String = "res://assets/data/maps/%s.tres" % map_id
+		assert_bool(ResourceLoader.exists(map_path)).override_failure_message(
+			"Phase D: %s declares map_id '%s' but %s does not exist on disk"
+				% [expected_id, map_id, map_path]
+		).is_true()
+
+
+# ─── Phase E (mvp_shu ch23~ch25) — 남만·북벌·오장원·영걸전 finale ──────────────
+
+
+## Phase E regression sentinel — ch23 남만 정벌 (칠종칠금 hidden) + ch24 가정
+## (강유 합류 + 마속 생존 시그니처) + ch25 오장원 (영걸전 최종 시그니처 #5 제갈량 회생).
+## 25챕터 풀 캠페인 완성 sentinel — master plan §1 100%.
+func test_mvp_shu_phase_e_authors_ch23_to_ch25_with_qixing_revival_finale() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+	var parsed: Variant = JSON.parse_string(json_text)
+	var data: Dictionary = parsed as Dictionary
+	var chapters: Array = data["chapters"] as Array
+
+	var by_id: Dictionary = {}
+	for c: Variant in chapters:
+		var d: Dictionary = c as Dictionary
+		by_id[d.get("chapter_id", "") as String] = d
+
+	for expected_id: String in [
+		"ch23_southern_pacify",
+		"ch24_jieting_pass",
+		"ch25_wuzhang_plains",
+	]:
+		assert_bool(by_id.has(expected_id)).override_failure_message(
+			"Phase E: mvp_shu missing chapter_id '%s'" % expected_id
+		).is_true()
+
+	# ch23 hidden destiny — menghuo_captures >= 7 → WIN_southern_seven_releases (칠종칠금).
+	var ch23: Dictionary = by_id["ch23_southern_pacify"] as Dictionary
+	var hc23: Dictionary = ch23.get("hidden_condition", {}) as Dictionary
+	assert_str(hc23.get("field", "") as String).is_equal("menghuo_captures")
+	assert_int(int(hc23.get("value", -1))).is_equal(7)
+	var ch23_bt: Dictionary = ch23.get("branch_table", {}) as Dictionary
+	assert_str(ch23_bt.get("WIN_hidden", "") as String).is_equal("WIN_southern_seven_releases")
+
+	# ch24 — 강유 (unit 18, hero shu_010_jiang_wei) joins, REACH_TILE 제갈량 to [12,5].
+	var ch24: Dictionary = by_id["ch24_jieting_pass"] as Dictionary
+	var ch24_hero_ids: Dictionary = ch24.get("player_hero_ids", {}) as Dictionary
+	assert_str(ch24_hero_ids.get("18", "") as String).override_failure_message(
+		"Phase E: ch24 player_hero_ids[18] must be 'shu_010_jiang_wei' (강유 합류)"
+	).is_equal("shu_010_jiang_wei")
+	var ch24_vc: Dictionary = ch24.get("victory_conditions", {}) as Dictionary
+	assert_int(int(ch24_vc.get("primary_condition_type", -1))).override_failure_message(
+		"Phase E: ch24 victory_conditions.primary_condition_type must be 3 (REACH_TILE)"
+	).is_equal(3)
+	var ch24_target_units: Array = ch24_vc.get("target_unit_ids", []) as Array
+	assert_int(int(ch24_target_units[0])).override_failure_message(
+		"Phase E: ch24 target_unit_ids[0] must be 13 (제갈량)"
+	).is_equal(13)
+	# ch24 hidden destiny — masu_supervised_turns >= 3 → WIN_jieting_masu_survives (시그니처).
+	var hc24: Dictionary = ch24.get("hidden_condition", {}) as Dictionary
+	assert_str(hc24.get("field", "") as String).is_equal("masu_supervised_turns")
+	var ch24_bt: Dictionary = ch24.get("branch_table", {}) as Dictionary
+	assert_str(ch24_bt.get("WIN_hidden", "") as String).is_equal("WIN_jieting_masu_survives")
+
+	# ch25 — 영걸전 finale — qixing_turns >= 6 → WIN_wuzhang_kongming_revives (시그니처 #5).
+	var ch25: Dictionary = by_id["ch25_wuzhang_plains"] as Dictionary
+	var hc25: Dictionary = ch25.get("hidden_condition", {}) as Dictionary
+	assert_str(hc25.get("field", "") as String).is_equal("qixing_turns")
+	assert_int(int(hc25.get("value", -1))).is_equal(6)
+	var ch25_bt: Dictionary = ch25.get("branch_table", {}) as Dictionary
+	assert_str(ch25_bt.get("WIN_hidden", "") as String).override_failure_message(
+		"Phase E: ch25 WIN_hidden must be 'WIN_wuzhang_kongming_revives' (영걸전 최종 시그니처 #5)"
+	).is_equal("WIN_wuzhang_kongming_revives")
+	# ch25 SURVIVE_N_ROUNDS = 8.
+	var ch25_vc: Dictionary = ch25.get("victory_conditions", {}) as Dictionary
+	assert_int(int(ch25_vc.get("primary_condition_type", -1))).is_equal(1)
+	assert_int(int(ch25_vc.get("survive_rounds", -1))).is_equal(8)
+
+	# Map ids match the new .tres files generated for Phase E.
+	for expected_id: String in [
+		"ch23_southern_pacify",
+		"ch24_jieting_pass",
+		"ch25_wuzhang_plains",
+	]:
+		var ch: Dictionary = by_id[expected_id] as Dictionary
+		var map_id: String = ch.get("map_id", "") as String
+		var map_path: String = "res://assets/data/maps/%s.tres" % map_id
+		assert_bool(ResourceLoader.exists(map_path)).override_failure_message(
+			"Phase E: %s declares map_id '%s' but %s does not exist on disk"
+				% [expected_id, map_id, map_path]
+		).is_true()
+
+
+## 25-chapter master plan completion sentinel — mvp_shu must declare exactly 25 chapters
+## with the 영걸전식 풀 캠페인 도원결의 → 오장원 progression. Pure structural assertion
+## independent of phase boundaries — protects against accidental chapter additions/removals.
+func test_mvp_shu_full_campaign_25_chapter_progression_complete() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+	var data: Dictionary = JSON.parse_string(json_text) as Dictionary
+	var chapters: Array = data["chapters"] as Array
+
+	assert_int(chapters.size()).override_failure_message(
+		"25-chapter master plan: mvp_shu MUST declare exactly 25 chapters"
+	).is_equal(25)
+
+	# Chapter numbers must be 1..25 sequential.
+	for i: int in 25:
+		var ch: Dictionary = chapters[i] as Dictionary
+		assert_int(int(ch.get("chapter_number", -1))).override_failure_message(
+			"25-chapter master plan: chapter at index %d must have chapter_number %d, got %d"
+				% [i, i + 1, int(ch.get("chapter_number", -1))]
+		).is_equal(i + 1)
+
+	# First chapter = 도원결의 (Peach Garden Oath); last chapter = 오장원 (Wuzhang Plains finale).
+	assert_str((chapters[0] as Dictionary).get("chapter_id", "") as String).override_failure_message(
+		"25-chapter master plan: first chapter must be ch01_taoyuan_yellow_turban (도원결의)"
+	).is_equal("ch01_taoyuan_yellow_turban")
+	assert_str((chapters[24] as Dictionary).get("chapter_id", "") as String).override_failure_message(
+		"25-chapter master plan: final chapter must be ch25_wuzhang_plains (오장원·영걸전 finale)"
+	).is_equal("ch25_wuzhang_plains")
+
+
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 

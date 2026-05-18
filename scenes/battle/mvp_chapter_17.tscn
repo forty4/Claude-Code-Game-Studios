@@ -1,0 +1,22 @@
+; Chapter 17 (성도 — 익주 완성·유장 항복) production-tier visual scene.
+; Authored per ADR-0021 §1 + §2 — mounted at /root by SceneManager.
+;
+; Tile rendering: chapter_visuals.gd `_draw()` overrides on the root Node2D.
+; Unit silhouettes: spawned at runtime by BattleScene._spawn_unit_polygons_async.
+;
+; TILE_SIZE = 64. Map 16×10 — FORTRESS_WALL ring rows 2-7 cols 4-13,
+; 3 gates (north/south/west). Interior ROAD network E-W row 5 + N-S col 9.
+; Branch override: WIN_luofeng_pang_tong_lives → roster +1 (방통 unit_id 16).
+
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/feature/battle_scene/chapter_visuals.gd" id="1_chapter"]
+[ext_resource type="Resource" path="res://assets/data/maps/mvp_chapter_17.tres" id="2_map"]
+
+[node name="ChapterVisuals" type="Node2D"]
+script = ExtResource("1_chapter")
+map_resource = ExtResource("2_map")
+
+[node name="PlayerUnits" type="Node2D" parent="."]
+
+[node name="EnemyUnits" type="Node2D" parent="."]

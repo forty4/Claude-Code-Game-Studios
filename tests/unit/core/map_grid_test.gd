@@ -1132,6 +1132,25 @@ func test_all_production_chapter_maps_pass_validation() -> void:
 		"res://assets/data/maps/mvp_chapter_08.tres",
 		"res://assets/data/maps/mvp_chapter_09.tres",
 		"res://assets/data/maps/mvp_chapter_10.tres",
+		# Phase B 형주 4군 + 통합.
+		"res://assets/data/maps/mvp_chapter_11.tres",
+		"res://assets/data/maps/mvp_chapter_12.tres",
+		"res://assets/data/maps/mvp_chapter_13.tres",
+		"res://assets/data/maps/mvp_chapter_14.tres",
+		# Phase C 익주 입성.
+		"res://assets/data/maps/mvp_chapter_15.tres",
+		"res://assets/data/maps/mvp_chapter_16.tres",
+		"res://assets/data/maps/mvp_chapter_17.tres",
+		# Phase D 한중·이릉.
+		"res://assets/data/maps/mvp_chapter_18.tres",
+		"res://assets/data/maps/mvp_chapter_19.tres",
+		"res://assets/data/maps/mvp_chapter_20.tres",
+		"res://assets/data/maps/mvp_chapter_21.tres",
+		"res://assets/data/maps/mvp_chapter_22.tres",
+		# Phase E 남만·북벌·오장원 (영걸전 finale).
+		"res://assets/data/maps/mvp_chapter_23.tres",
+		"res://assets/data/maps/mvp_chapter_24.tres",
+		"res://assets/data/maps/mvp_chapter_25.tres",
 		"res://assets/data/maps/mvp_wei_chapter_01.tres",
 		"res://assets/data/maps/mvp_wei_chapter_02.tres",
 		"res://assets/data/maps/mvp_wei_chapter_03.tres",

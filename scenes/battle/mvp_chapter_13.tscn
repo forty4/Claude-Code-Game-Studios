@@ -1,0 +1,23 @@
+; Chapter 13 (장사성 — 황충/위연) production-tier visual scene.
+; Authored per ADR-0021 §1 + §2 — mounted at /root by SceneManager.
+;
+; Tile rendering: chapter_visuals.gd `_draw()` overrides on the root Node2D.
+; Unit silhouettes: spawned at runtime by BattleScene._spawn_unit_polygons_async
+; → ChapterVisuals.spawn_unit_polygons(roster).
+;
+; TILE_SIZE = 64. Map 14×10 — FORTRESS_WALL ring rows 2-7 cols 5-10,
+; gates at [7,2] north / [8,7] south / [5,5] west.
+; Hidden destiny: wei_yan_spared_turns ≥ 3 → wei_yan defects (영걸전 시그니처).
+
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/feature/battle_scene/chapter_visuals.gd" id="1_chapter"]
+[ext_resource type="Resource" path="res://assets/data/maps/mvp_chapter_13.tres" id="2_map"]
+
+[node name="ChapterVisuals" type="Node2D"]
+script = ExtResource("1_chapter")
+map_resource = ExtResource("2_map")
+
+[node name="PlayerUnits" type="Node2D" parent="."]
+
+[node name="EnemyUnits" type="Node2D" parent="."]

@@ -1,0 +1,20 @@
+; Chapter 22 (이릉 화공 — 유비 위기 / 영걸전 시그니처 #4) production-tier visual scene.
+; Authored per ADR-0021 §1 + §2 — mounted at /root by SceneManager.
+;
+; TILE_SIZE = 64. Map 14×11 — MOUNTAIN 협곡, RIVER + BRIDGE 도하점,
+; FIRE 8 타일 (화공). SURVIVE 6.
+; Branch override on WIN_zhangfei_survives → roster +1 (장비 잔류).
+; Hidden destiny counter_fire_turns ≥ 2 → 유비 생환 (영걸전 시그니처 #4).
+
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/feature/battle_scene/chapter_visuals.gd" id="1_chapter"]
+[ext_resource type="Resource" path="res://assets/data/maps/mvp_chapter_22.tres" id="2_map"]
+
+[node name="ChapterVisuals" type="Node2D"]
+script = ExtResource("1_chapter")
+map_resource = ExtResource("2_map")
+
+[node name="PlayerUnits" type="Node2D" parent="."]
+
+[node name="EnemyUnits" type="Node2D" parent="."]

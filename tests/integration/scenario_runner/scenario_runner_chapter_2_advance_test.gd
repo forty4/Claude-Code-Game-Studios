@@ -61,7 +61,8 @@ func test_scenario_completes_after_final_chapter_win() -> void:
 		captured_scenario.append(r)
 	GameBus.scenario_complete.connect(sr_capture)
 
-	# Phase A — drives all 10 chapters (prequel 황건적~신야 + 장판~적벽 main).
+	# Phase A + Phase B + Phase C + Phase D + Phase E — drives all 25 chapters
+	# 영걸전식 풀 캠페인 완성 (도원결의 → 오장원).
 	_drive_chapter_to_beat_9(runner, "ch01_taoyuan_yellow_turban")
 	_drive_chapter_to_beat_9(runner, "ch02_hulao_gate")
 	_drive_chapter_to_beat_9(runner, "ch03_xuzhou_rescue")
@@ -72,6 +73,21 @@ func test_scenario_completes_after_final_chapter_win() -> void:
 	_drive_chapter_to_beat_9(runner, "ch08_xiakou_outskirts")
 	_drive_chapter_to_beat_9(runner, "ch09_chibi_prelude")
 	_drive_chapter_to_beat_9(runner, "ch10_chibi_main")
+	_drive_chapter_to_beat_9(runner, "ch11_jingzhou_pacify")
+	_drive_chapter_to_beat_9(runner, "ch12_wuling_marsh")
+	_drive_chapter_to_beat_9(runner, "ch13_changsha_veteran")
+	_drive_chapter_to_beat_9(runner, "ch14_jingzhou_consolidate")
+	_drive_chapter_to_beat_9(runner, "ch15_fushui_pass")
+	_drive_chapter_to_beat_9(runner, "ch16_luofeng_slope")
+	_drive_chapter_to_beat_9(runner, "ch17_chengdu_gates")
+	_drive_chapter_to_beat_9(runner, "ch18_hanzhong_advance")
+	_drive_chapter_to_beat_9(runner, "ch19_dingjun_peak")
+	_drive_chapter_to_beat_9(runner, "ch20_fancheng_pursuit")
+	_drive_chapter_to_beat_9(runner, "ch21_zhangfei_avenge")
+	_drive_chapter_to_beat_9(runner, "ch22_yiling_burn")
+	_drive_chapter_to_beat_9(runner, "ch23_southern_pacify")
+	_drive_chapter_to_beat_9(runner, "ch24_jieting_pass")
+	_drive_chapter_to_beat_9(runner, "ch25_wuzhang_plains")
 
 	# Disconnect only our test captures (avoid severing production subscribers).
 	if GameBus.chapter_completed.is_connected(ch_capture):
@@ -79,7 +95,7 @@ func test_scenario_completes_after_final_chapter_win() -> void:
 	if GameBus.scenario_complete.is_connected(sr_capture):
 		GameBus.scenario_complete.disconnect(sr_capture)
 
-	assert_int(captured_chapters.size()).is_equal(10)
+	assert_int(captured_chapters.size()).is_equal(25)
 	# Prequel (Phase A).
 	assert_str(captured_chapters[0].chapter_id).is_equal("ch01_taoyuan_yellow_turban")
 	assert_str(captured_chapters[0].branch_path_id).is_equal("WIN_taoyuan_oath_held")
@@ -102,8 +118,42 @@ func test_scenario_completes_after_final_chapter_win() -> void:
 	assert_str(captured_chapters[8].branch_path_id).is_equal("WIN_chibi_prelude_alliance")
 	assert_str(captured_chapters[9].chapter_id).is_equal("ch10_chibi_main")
 	assert_str(captured_chapters[9].branch_path_id).is_equal("WIN_chibi_main_burn")
+	# Phase B (형주 4군 + 통합).
+	assert_str(captured_chapters[10].chapter_id).is_equal("ch11_jingzhou_pacify")
+	assert_str(captured_chapters[10].branch_path_id).is_equal("WIN_jingzhou_pacified")
+	assert_str(captured_chapters[11].chapter_id).is_equal("ch12_wuling_marsh")
+	assert_str(captured_chapters[11].branch_path_id).is_equal("WIN_wuling_subdued")
+	assert_str(captured_chapters[12].chapter_id).is_equal("ch13_changsha_veteran")
+	assert_str(captured_chapters[12].branch_path_id).is_equal("WIN_changsha_taken")
+	assert_str(captured_chapters[13].chapter_id).is_equal("ch14_jingzhou_consolidate")
+	assert_str(captured_chapters[13].branch_path_id).is_equal("WIN_jingzhou_consolidated")
+	# Phase C (익주 입성).
+	assert_str(captured_chapters[14].chapter_id).is_equal("ch15_fushui_pass")
+	assert_str(captured_chapters[14].branch_path_id).is_equal("WIN_fushui_pass_secured")
+	assert_str(captured_chapters[15].chapter_id).is_equal("ch16_luofeng_slope")
+	assert_str(captured_chapters[15].branch_path_id).is_equal("WIN_luofeng_kongming_arrives")
+	assert_str(captured_chapters[16].chapter_id).is_equal("ch17_chengdu_gates")
+	assert_str(captured_chapters[16].branch_path_id).is_equal("WIN_chengdu_yizhou_taken")
+	# Phase D (한중·이릉·시그니처 분기 3개).
+	assert_str(captured_chapters[17].chapter_id).is_equal("ch18_hanzhong_advance")
+	assert_str(captured_chapters[17].branch_path_id).is_equal("WIN_hanzhong_advance_secured")
+	assert_str(captured_chapters[18].chapter_id).is_equal("ch19_dingjun_peak")
+	assert_str(captured_chapters[18].branch_path_id).is_equal("WIN_dingjun_hanzhong_secured")
+	assert_str(captured_chapters[19].chapter_id).is_equal("ch20_fancheng_pursuit")
+	assert_str(captured_chapters[19].branch_path_id).is_equal("WIN_fancheng_guan_yu_falls")
+	assert_str(captured_chapters[20].chapter_id).is_equal("ch21_zhangfei_avenge")
+	assert_str(captured_chapters[20].branch_path_id).is_equal("WIN_zhangfei_assassinated")
+	assert_str(captured_chapters[21].chapter_id).is_equal("ch22_yiling_burn")
+	assert_str(captured_chapters[21].branch_path_id).is_equal("WIN_yiling_liu_bei_falls_at_baidicheng")
+	# Phase E (남만·북벌·오장원·영걸전 finale).
+	assert_str(captured_chapters[22].chapter_id).is_equal("ch23_southern_pacify")
+	assert_str(captured_chapters[22].branch_path_id).is_equal("WIN_southern_pacified")
+	assert_str(captured_chapters[23].chapter_id).is_equal("ch24_jieting_pass")
+	assert_str(captured_chapters[23].branch_path_id).is_equal("WIN_jieting_first_northern")
+	assert_str(captured_chapters[24].chapter_id).is_equal("ch25_wuzhang_plains")
+	assert_str(captured_chapters[24].branch_path_id).is_equal("WIN_wuzhang_kongming_falls")
 	assert_int(captured_scenario.size()).is_equal(1)
-	assert_int(captured_scenario[0].chapter_outcomes.size()).is_equal(10)
+	assert_int(captured_scenario[0].chapter_outcomes.size()).is_equal(25)
 	var state_enum: Dictionary = ScenarioRunnerTestSeam.get_state_enum()
 	assert_int(runner.get_state()).is_equal(state_enum["SCENARIO_END"] as int)
 

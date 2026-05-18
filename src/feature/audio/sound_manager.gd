@@ -578,6 +578,40 @@ func music_id_for_chapter(chapter_id: StringName) -> StringName:
 		&"ch08_xiakou_outskirts":   return MUSIC_CH03_XIAKOU
 		&"ch09_chibi_prelude":      return MUSIC_CH04_CHIBI_PRELUDE
 		&"ch10_chibi_main":         return MUSIC_CH05_CHIBI_MAIN
+		# Phase B (ch11~ch14: 형주 4군 + 통합) reuses the 5 procedural themes by thematic match:
+		#   jingzhou_pacify (분진 평정·두 길)      → CH02 A-power bridge resolve (분진 결의)
+		#   wuling_marsh (늪지 다리 단일점)        → CH03 C-major wandering (행로 / journey across swamp)
+		#   changsha_veteran (성벽·반골의 칼)      → CH01 D-minor descending (성벽 앞 의심·반골)
+		#   jingzhou_consolidate (도로망 청소)      → CH04 E-major alliance warmth (통합·종주의 인덕)
+		&"ch11_jingzhou_pacify":      return MUSIC_CH02_CHANGBAN_BRIDGE
+		&"ch12_wuling_marsh":         return MUSIC_CH03_XIAKOU
+		&"ch13_changsha_veteran":     return MUSIC_CH01_CHANGBANPO
+		&"ch14_jingzhou_consolidate": return MUSIC_CH04_CHIBI_PRELUDE
+		# Phase C (ch15~ch17: 익주 입성) reuses the 5 themes by thematic match:
+		#   fushui_pass (산악 관문 결의)         → CH02 A-power bridge resolve (단단한 결의)
+		#   luofeng_slope (매복·봉추 위기)        → CH01 D-minor descending (시그니처 위기·하강)
+		#   chengdu_gates (도시 함락·익주 완성)    → CH04 E-major alliance warmth (승리의 따스함)
+		&"ch15_fushui_pass":     return MUSIC_CH02_CHANGBAN_BRIDGE
+		&"ch16_luofeng_slope":   return MUSIC_CH01_CHANGBANPO
+		&"ch17_chengdu_gates":   return MUSIC_CH04_CHIBI_PRELUDE
+		# Phase D (ch18~ch22: 한중·이릉·시그니처 분기 3개) reuses 5 themes by thematic match:
+		#   hanzhong_advance (산악 진군·마초 합류) → CH02 A-power bridge resolve (단단한 결의·마초 합류)
+		#   dingjun_peak (노장 결전·정군산 봉우리)  → CH03 C-major wandering (산봉우리 행로) — Actually CH02 for resolve fits noting 황충 결의
+		#   fancheng_pursuit (관우 시그니처 위기)    → CH05 F-minor fire climax (위기·시그니처 #3)
+		#   zhangfei_avenge (장비 시그니처 위기·밤)  → CH01 D-minor descending (밤·자객·시그니처 #4)
+		#   yiling_burn (이릉 화공·유비 시그니처)    → CH05 F-minor fire climax (화염 클라이맥스·시그니처 #5)
+		&"ch18_hanzhong_advance": return MUSIC_CH02_CHANGBAN_BRIDGE
+		&"ch19_dingjun_peak":     return MUSIC_CH02_CHANGBAN_BRIDGE
+		&"ch20_fancheng_pursuit": return MUSIC_CH05_CHIBI_MAIN
+		&"ch21_zhangfei_avenge":  return MUSIC_CH01_CHANGBANPO
+		&"ch22_yiling_burn":      return MUSIC_CH05_CHIBI_MAIN
+		# Phase E (ch23~ch25: 남만~오장원 / 영걸전 finale) reuses 5 themes by thematic match:
+		#   southern_pacify (남만 정글·칠종칠금)    → CH03 C-major wandering (정글 행로·인덕의 길)
+		#   jieting_pass (가정 산악·강유 합류)      → CH02 A-power bridge resolve (산악 결의·후계)
+		#   wuzhang_plains (오장원 finale·제갈량)   → CH05 F-minor fire climax (영걸전 finale·별)
+		&"ch23_southern_pacify":  return MUSIC_CH03_XIAKOU
+		&"ch24_jieting_pass":     return MUSIC_CH02_CHANGBAN_BRIDGE
+		&"ch25_wuzhang_plains":   return MUSIC_CH05_CHIBI_MAIN
 		# mvp_wei (위) line — reuses the existing 5 themes by thematic match:
 		#   bowang_slope (ambush, urgent)  → CH01 D-minor descending
 		#   xinye_fire (city ablaze)        → CH05 F-minor fire climax
