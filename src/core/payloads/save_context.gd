@@ -14,7 +14,12 @@ extends Resource
 
 ## Schema version. Bump on every additive or breaking change.
 ## Loader consults SaveMigrationRegistry to upgrade old versions.
-@export var schema_version: int = 1
+##
+## v1 → v2 (2026-05-18, multi-step survival cascade):
+##   Added branch_history + persistent_branch_flags. Old (v1) saves load
+##   with both empty — cascade plays out from current chapter forward only,
+##   no historical retroactive cascade.
+@export var schema_version: int = 2
 
 ## Slot this save belongs to (1–3). Informational; authoritative slot
 ## identity is the directory path on disk.
@@ -57,3 +62,18 @@ extends Resource
 ## Cumulative play-time within this run (seconds). Maintained by ScenarioRunner
 ## across beat transitions; persisted here for Save Slot UI display.
 @export var play_time_seconds: int = 0
+
+## v2 — Multi-step survival cascade per-chapter outcome archive.
+## Mirrors ScenarioRunner._chapter_outcomes. Each entry:
+##   {chapter_id: String, branch_path_id: String,
+##    echo_count_at_completion: int, outcome: int (BattleOutcome.Result enum)}
+## Restored to _chapter_outcomes at restore_from_save_context — enables backward
+## scan when chapter is resumed mid-campaign + audit of full path taken.
+@export var branch_history: Array[Dictionary] = []
+
+## v2 — Multi-step survival cascade active signature flag set.
+## Mirrors ScenarioRunner._persistent_branch_flags. Each entry is a branch_path_id
+## (signature key) that resolved at BEAT_9 and stays active for the remainder
+## of the campaign. Restored to _persistent_branch_flags so cascade survives
+## save/load roundtrip.
+@export var persistent_branch_flags: PackedStringArray = PackedStringArray()

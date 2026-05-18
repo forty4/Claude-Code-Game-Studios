@@ -72,6 +72,16 @@ var _scenario_path_segments: PackedStringArray = PackedStringArray()
 var _canonical_delta: int = 0
 var _total_echo: int = 0
 
+# Multi-step survival cascade (영걸전 시그니처 분기 영구 플래그).
+# scenario JSON 루트의 signature_branches 배열에 등재된 branch_path_id 가
+# BEAT_9_TRANSITION 에서 해소되면 이 set 에 영구 등재되어 후속 챕터 전체에
+# branch_overrides 매칭 대상으로 살아남는다. _resolve_branch_override 는
+# 직전 outcome 1건이 아닌 활성 플래그 전체를 스캔해 매칭되는 override 들을
+# union 합성한다. reset_for_tests / load_scenario / _set_chapters_for_test
+# 에서 초기화. restore_from_save_context 에서 SaveContext 로부터 복원.
+var _signature_branch_keys: PackedStringArray = PackedStringArray()
+var _persistent_branch_flags: PackedStringArray = PackedStringArray()
+
 # Test-seam: when true, _ready() does NOT auto-load default scenario.
 # Test fixtures call load_scenario(json_path) directly.
 var _test_mode: bool = false
@@ -121,6 +131,8 @@ func reset_for_tests() -> void:
 	_scenario_path_segments = PackedStringArray()
 	_canonical_delta = 0
 	_total_echo = 0
+	_signature_branch_keys = PackedStringArray()
+	_persistent_branch_flags = PackedStringArray()
 	_test_mode = false
 	_active_scenario_path = DEFAULT_SCENARIO_PATH
 
@@ -224,6 +236,13 @@ func restore_from_save_context(ctx: SaveContext) -> bool:
 	if target_idx == -1:
 		push_warning("ScenarioRunner.restore: chapter_id '%s' not in scenario" % String(ctx.chapter_id))
 		return false
+	# v2 cascade restore — applied regardless of target_idx, so chapter-0 resumes
+	# also keep the persistent flag set (covers save-at-CP1-of-ch01 → no-op + later
+	# campaigns whose first save was at ch02+ but resumed back at ch01 via test seam).
+	# Old (v1, schema_version < 2) saves leave both empty per backward-compat policy.
+	if ctx.schema_version >= 2:
+		_chapter_outcomes = ctx.branch_history.duplicate(true)
+		_persistent_branch_flags = ctx.persistent_branch_flags.duplicate()
 	if target_idx == 0:
 		return true  # already at chapter 0 BEAT_1_ANCHOR after load_scenario
 	_chapter_index = target_idx
@@ -328,6 +347,15 @@ func load_scenario(json_path: String) -> bool:
 	_scenario_path_segments = PackedStringArray()
 	_canonical_delta = 0
 	_total_echo = 0
+	_persistent_branch_flags = PackedStringArray()
+	# 영걸전 시그니처 분기 키 — 루트 signature_branches 배열 (optional).
+	# 등재된 branch_path_id 는 BEAT_9 에서 영구 플래그로 승격되어
+	# 후속 챕터 전체 branch_overrides 합성에 참여한다.
+	_signature_branch_keys = PackedStringArray()
+	if data.has("signature_branches") and data["signature_branches"] is Array:
+		for k_var: Variant in (data["signature_branches"] as Array):
+			if k_var is String:
+				_signature_branch_keys.append(k_var as String)
 	# Synchronous transition LOADING -> CHAPTER_START (Pillar 2 seal-discipline mirror).
 	_transition_to(State.CHAPTER_START)
 	return true
@@ -652,6 +680,14 @@ func _enter_beat_9_transition() -> void:
 		"echo_count_at_completion": echo_at_completion,
 		"outcome": int(_last_battle_outcome.result) if _last_battle_outcome != null else int(BattleOutcome.Result.LOSS),
 	})
+	# Multi-step survival cascade: 시그니처 분기 키가 해소되면 영구 플래그로 승격.
+	# 이후 모든 챕터의 branch_overrides 가 이 플래그를 키로 매칭할 수 있다.
+	if (
+		not branch_path_id.is_empty()
+		and _signature_branch_keys.has(branch_path_id)
+		and not _persistent_branch_flags.has(branch_path_id)
+	):
+		_persistent_branch_flags.append(branch_path_id)
 	# Step 3: Construct ChapterResult (extended + back-compat shape).
 	var result: ChapterResult = ChapterResult.new()
 	result.chapter_id = chapter.chapter_id
@@ -781,7 +817,7 @@ func _on_battle_outcome_resolved(outcome: BattleOutcome) -> void:
 ## `lint_scenario_runner_save_context_complete.sh`.
 func _make_save_context(cp_kind: SaveCheckpoint) -> SaveContext:
 	var ctx: SaveContext = SaveContext.new()
-	ctx.schema_version = 1
+	ctx.schema_version = 2
 	ctx.slot_id = 1
 	var chapter: ChapterDefinition = get_current_chapter()
 	if chapter != null:
@@ -797,6 +833,9 @@ func _make_save_context(cp_kind: SaveCheckpoint) -> SaveContext:
 	ctx.flags_to_set = PackedStringArray()
 	ctx.saved_at_unix = Time.get_unix_time_from_system()
 	ctx.play_time_seconds = 0
+	# v2 — Multi-step survival cascade snapshot.
+	ctx.branch_history = _chapter_outcomes.duplicate(true)
+	ctx.persistent_branch_flags = _persistent_branch_flags.duplicate()
 	return ctx
 
 
@@ -856,22 +895,78 @@ func get_active_branch_override() -> Dictionary:
 	return _resolve_branch_override(chapter)
 
 
-## Returns the branch_overrides Dictionary entry whose key matches the most
-## recent prior chapter's branch_path_id, or empty {} if no match. Empty dict
-## also returned for chapter 1 (no prior chapter) or when chapter has no
-## branch_overrides defined.
+## Returns the branch_overrides Dictionary composed across ALL active flags:
+##   - Every signature key in _persistent_branch_flags (multi-step cascade), plus
+##   - The immediate prior chapter's branch_path_id (single-step legacy entries).
+## Empty {} for chapter 1 or when nothing matches.
+##
+## Composition policy:
+##   player_unit_ids        — union (dedup, latest order preserved)
+##   player_hero_ids        — dict merge, latest wins on key conflict
+##   enemy_unit_ids         — last match wins (적 구성은 합성하지 않음)
+##   deployment_positions_default — dict merge, latest wins on key conflict
+##
+## When only the immediate prior outcome matches (no persistent flags active),
+## the composed result is identical to the legacy single-match return.
 func _resolve_branch_override(chapter: ChapterDefinition) -> Dictionary:
 	if chapter.branch_overrides.is_empty():
 		return {}
-	if _chapter_outcomes.is_empty():
+	# 활성 플래그 set 구성: 영구 플래그 ∪ 직전 outcome branch_path_id.
+	# 중복 제거 + 직전 outcome 이 가장 마지막 (최신 우선)에 오도록 순서 유지.
+	var active_flags: PackedStringArray = PackedStringArray()
+	for flag in _persistent_branch_flags:
+		if chapter.branch_overrides.has(flag) and not active_flags.has(flag):
+			active_flags.append(flag)
+	if not _chapter_outcomes.is_empty():
+		var prior: Dictionary = _chapter_outcomes[_chapter_outcomes.size() - 1] as Dictionary
+		var prior_branch: String = prior.get("branch_path_id", "") as String
+		if (
+			not prior_branch.is_empty()
+			and chapter.branch_overrides.has(prior_branch)
+			and not active_flags.has(prior_branch)
+		):
+			active_flags.append(prior_branch)
+	if active_flags.is_empty():
 		return {}
-	var prior: Dictionary = _chapter_outcomes[_chapter_outcomes.size() - 1] as Dictionary
-	var prior_branch: String = prior.get("branch_path_id", "") as String
-	if prior_branch.is_empty():
-		return {}
-	if not chapter.branch_overrides.has(prior_branch):
-		return {}
-	return chapter.branch_overrides[prior_branch] as Dictionary
+	# 합성: 단일 매치면 dict 그대로 반환 (zero-alloc 빠른 경로 + 기존 동작 동일).
+	if active_flags.size() == 1:
+		return chapter.branch_overrides[active_flags[0]] as Dictionary
+	# 다중 매치: union/merge.
+	var composed: Dictionary = {}
+	var player_unit_ids: PackedInt64Array = PackedInt64Array()
+	var enemy_unit_ids_set: bool = false
+	var player_hero_ids: Dictionary = {}
+	var deployment: Dictionary = {}
+	var seen_unit_ids: Dictionary = {}
+	for flag in active_flags:
+		var override: Dictionary = chapter.branch_overrides[flag] as Dictionary
+		if override.has("player_unit_ids"):
+			for uid_var in (override["player_unit_ids"] as Array):
+				var uid: int = int(uid_var)
+				if not seen_unit_ids.has(uid):
+					seen_unit_ids[uid] = true
+					player_unit_ids.append(uid)
+		if override.has("player_hero_ids"):
+			var heroes: Dictionary = override["player_hero_ids"] as Dictionary
+			for k in heroes.keys():
+				player_hero_ids[k] = heroes[k]
+		if override.has("deployment_positions_default"):
+			var dep: Dictionary = override["deployment_positions_default"] as Dictionary
+			for k in dep.keys():
+				deployment[k] = dep[k]
+		if override.has("enemy_unit_ids"):
+			composed["enemy_unit_ids"] = override["enemy_unit_ids"]
+			enemy_unit_ids_set = true
+	if not player_unit_ids.is_empty():
+		var arr: Array = []
+		for uid in player_unit_ids:
+			arr.append(int(uid))
+		composed["player_unit_ids"] = arr
+	if not player_hero_ids.is_empty():
+		composed["player_hero_ids"] = player_hero_ids
+	if not deployment.is_empty():
+		composed["deployment_positions_default"] = deployment
+	return composed
 
 
 ## F-SP-4: composes scenario_path_key from per-chapter branch_path_ids joined by "::".
@@ -923,6 +1018,42 @@ func _set_chapters_for_test(chapters: Array[ChapterDefinition], scenario_id: Str
 	_scenario_path_segments = PackedStringArray()
 	_canonical_delta = 0
 	_total_echo = 0
+	_signature_branch_keys = PackedStringArray()
+	_persistent_branch_flags = PackedStringArray()
+
+
+## Test-only: directly inject signature_branch_keys (the registry of branch keys
+## that, when resolved at BEAT_9, promote into _persistent_branch_flags). Used by
+## cascade tests that build chapters in-memory via _set_chapters_for_test rather
+## than loading JSON.
+func _set_signature_branches_for_test(keys: PackedStringArray) -> void:
+	_signature_branch_keys = keys.duplicate()
+
+
+## Test-only: read the current persistent flag set (영걸전 cascade audit).
+func get_persistent_branch_flags_for_test() -> PackedStringArray:
+	return _persistent_branch_flags.duplicate()
+
+
+## Test-only: directly inject persistent branch flags (영걸전 cascade isolation).
+## Used by _resolve_branch_override composition tests to avoid running the full
+## BEAT_9 cycle when only the override-resolution math is being verified.
+func _set_persistent_branch_flags_for_test(flags: PackedStringArray) -> void:
+	_persistent_branch_flags = flags.duplicate()
+
+
+## Test-only: directly inject _chapter_outcomes (prior-outcome scan seed).
+## Used by composition tests that need to simulate a specific prior chapter's
+## branch_path_id without running through the full chapter sequence.
+##
+## Accepts untyped Array because GDScript Dictionary-literal inference at call
+## sites does not propagate Array[Dictionary] (G-2 family — typed-array
+## demotion). The function copies entries into the typed _chapter_outcomes via
+## explicit Dictionary cast per element.
+func _set_chapter_outcomes_for_test(outcomes: Array) -> void:
+	_chapter_outcomes.clear()
+	for entry_var: Variant in outcomes:
+		_chapter_outcomes.append((entry_var as Dictionary).duplicate(true))
 
 
 ## Test-only: directly inject battle outcome + transition state. Bypasses the

@@ -857,6 +857,86 @@ func test_mvp_shu_full_campaign_25_chapter_progression_complete() -> void:
 	).is_equal("ch25_wuzhang_plains")
 
 
+# ─── Multi-step survival cascade — mvp_shu.json data sentinel (S65) ───────────
+
+
+## After S65 cascade rollout, mvp_shu.json must declare:
+##   1. signature_branches root array (5 영걸전 시그니처 키)
+##   2. branch_overrides cascade entries on every chapter the signature applies to:
+##      - 위연 (WIN_changsha_wei_yan_defects) : ch14~ch25 (12 chapters)
+##      - 방통 (WIN_luofeng_pang_tong_lives)  : ch17~ch25 (9 chapters)
+##      - 관우 (WIN_fancheng_guan_yu_survives): ch21~ch25 (5 chapters)
+##      - 장비 (WIN_zhangfei_survives)        : ch22~ch25 (4 chapters)
+##      - 유비 (WIN_yiling_liu_bei_survives)  : ch23~ch25 (3 chapters)
+##
+## Each cascade entry MUST patch the cascade hero into the chapter's roster
+## (player_unit_ids + player_hero_ids + deployment_positions_default).
+func test_mvp_shu_signature_branches_root_and_cascade_overrides_complete() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+	var data: Dictionary = JSON.parse_string(json_text) as Dictionary
+
+	# 1. signature_branches root.
+	var sig_keys: Array = data.get("signature_branches", []) as Array
+	assert_int(sig_keys.size()).override_failure_message(
+		"mvp_shu root signature_branches must declare 5 영걸전 시그니처 키"
+	).is_equal(5)
+	for expected: String in [
+		"WIN_changsha_wei_yan_defects",
+		"WIN_luofeng_pang_tong_lives",
+		"WIN_fancheng_guan_yu_survives",
+		"WIN_zhangfei_survives",
+		"WIN_yiling_liu_bei_survives",
+	]:
+		assert_bool(expected in sig_keys).override_failure_message(
+			"signature_branches missing '%s'" % expected
+		).is_true()
+
+	# 2. Build a chapter-number -> dict map for cascade range checks.
+	var by_num: Dictionary = {}
+	for c: Variant in (data["chapters"] as Array):
+		var d: Dictionary = c as Dictionary
+		by_num[int(d.get("chapter_number", -1))] = d
+
+	# Cascade ranges: signature key, expected unit_id added by cascade,
+	# expected hero_id added by cascade, first chapter cascade applies to.
+	var cascade_specs: Array = [
+		{"key": "WIN_changsha_wei_yan_defects",  "uid": 15, "hero": "shu_009_wei_yan",   "start": 14},
+		{"key": "WIN_luofeng_pang_tong_lives",   "uid": 16, "hero": "shu_007_pang_tong", "start": 17},
+		{"key": "WIN_fancheng_guan_yu_survives", "uid":  6, "hero": "shu_002_guan_yu",   "start": 21},
+		{"key": "WIN_zhangfei_survives",         "uid":  1, "hero": "shu_003_zhang_fei", "start": 22},
+		{"key": "WIN_yiling_liu_bei_survives",   "uid":  0, "hero": "shu_001_liu_bei",   "start": 23},
+	]
+	for spec_var: Variant in cascade_specs:
+		var spec: Dictionary = spec_var as Dictionary
+		var sig_key: String = spec["key"] as String
+		var uid: int = spec["uid"] as int
+		var hero: String = spec["hero"] as String
+		var start_n: int = spec["start"] as int
+		for n: int in range(start_n, 26):
+			var ch: Dictionary = by_num[n] as Dictionary
+			var ovr: Dictionary = ch.get("branch_overrides", {}) as Dictionary
+			assert_bool(ovr.has(sig_key)).override_failure_message(
+				"ch%02d cascade missing branch_overrides['%s']" % [n, sig_key]
+			).is_true()
+			var entry: Dictionary = ovr[sig_key] as Dictionary
+			var units: Array = entry.get("player_unit_ids", []) as Array
+			# JSON int parses to Variant — explicit int cast per element.
+			var has_uid: bool = false
+			for uid_var: Variant in units:
+				if int(uid_var) == uid:
+					has_uid = true
+					break
+			assert_bool(has_uid).override_failure_message(
+				"ch%02d cascade '%s' must add unit_id %d to roster"
+					% [n, sig_key, uid]
+			).is_true()
+			var heroes: Dictionary = entry.get("player_hero_ids", {}) as Dictionary
+			assert_str(heroes.get(str(uid), "") as String).override_failure_message(
+				"ch%02d cascade '%s' must map unit %d → hero '%s'"
+					% [n, sig_key, uid, hero]
+			).is_equal(hero)
+
+
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 
