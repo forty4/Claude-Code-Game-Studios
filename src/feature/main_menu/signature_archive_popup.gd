@@ -1,13 +1,13 @@
 ## SignatureArchivePopup — 영걸전 5 시그니처 cascade 진척 archive 화면.
 ##
 ## Mounted by MainMenu when player taps the "시그니처 아카이브" button. Reads
-## the latest SaveContext's persistent_branch_flags + signature metadata
-## (hardcoded 5 영웅) to render a 5-card archive: 각 시그니처 이름 + 활성/
-## 미활성 + 영웅 한 줄 설명 + 첫 달성 챕터.
+## ProgressArchive (cross-campaign 누적 unlock SoT) + signature metadata
+## (hardcoded 5 영웅) to render a 5-card archive: 각 시그니처 이름 + 달성/
+## 미달성 + 영웅 한 줄 설명 + 첫 달성 챕터.
 ##
-## 다중 캠페인 누적 archive (cross-campaign) 은 별도 ProgressArchive 시스템
-## 필요 — 본 popup 은 LAST SaveContext 한정으로 단순 표시 (in-progress 또는
-## 직전 캠페인 끝낸 상태). 캠페인 다시 시작하면 cascade 0/5 부터 다시.
+## Cross-campaign 누적: 한 번 달성하면 캠페인을 다시 시작하거나 save slot
+## 을 지워도 archive 에 영구 보존됨 (ProgressArchive autoload — disk persist
+## at `user://progress_archive.cfg`).
 ##
 ## No class_name — instantiated via SignatureArchivePopup.new() from main_menu.gd.
 extends Control
@@ -28,14 +28,17 @@ const SIGNATURE_CATALOG: Array[Array] = [
 
 
 var _backdrop: ColorRect = null
-var _active_flags: PackedStringArray = PackedStringArray()
+## Cross-campaign cumulative unlocked signature keys (from ProgressArchive).
+## Sourced by MainMenu via ProgressArchive.get_unlocked_keys() and passed
+## through make(); empty when no signatures have ever been unlocked.
+var _unlocked_keys: PackedStringArray = PackedStringArray()
 
 
-## Static factory. `active_flags` is the persistent_branch_flags set from
-## the latest SaveContext (or empty if no save exists).
-static func make(active_flags: PackedStringArray) -> Control:
+## Static factory. `unlocked_keys` is the cumulative unlocked-signature key
+## set from ProgressArchive (or empty if no signatures have ever been unlocked).
+static func make(unlocked_keys: PackedStringArray) -> Control:
 	var p: Node = (load("res://src/feature/main_menu/signature_archive_popup.gd") as GDScript).new()
-	(p as Object).set("_active_flags", active_flags.duplicate())
+	(p as Object).set("_unlocked_keys", unlocked_keys.duplicate())
 	return p as Control
 
 
@@ -64,9 +67,9 @@ func _ready() -> void:
 	center.add_child(vbox)
 
 	# Header
-	var active_count: int = _active_flags.size()
+	var unlocked_count: int = _unlocked_keys.size()
 	var header: Label = Label.new()
-	header.text = "영걸전 시그니처 (%d / 5)" % active_count
+	header.text = "영걸전 시그니처 (%d / 5)" % unlocked_count
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header.add_theme_color_override("font_color", Color(0.96, 0.86, 0.42, 1.0))
 	header.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.04, 1.0))
@@ -76,7 +79,7 @@ func _ready() -> void:
 	vbox.add_child(header)
 
 	var subhead: Label = Label.new()
-	subhead.text = "마지막 저장 시점 기준 — 캠페인 다시 시작하면 0/5 부터."
+	subhead.text = "캠페인 간 누적 — 한 번 달성하면 영구 보존됩니다."
 	subhead.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subhead.add_theme_color_override("font_color", Color(0.74, 0.72, 0.66, 0.92))
 	subhead.add_theme_font_size_override("font_size", 14)
@@ -90,7 +93,7 @@ func _ready() -> void:
 		var hero_name: String = entry[1] as String
 		var chapter_label: String = entry[2] as String
 		var blurb: String = entry[3] as String
-		var is_active: bool = key in _active_flags
+		var is_active: bool = key in _unlocked_keys
 		vbox.add_child(_make_signature_card(hero_name, chapter_label, blurb, is_active))
 
 	# Close button

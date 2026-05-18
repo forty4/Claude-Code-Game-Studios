@@ -29,6 +29,12 @@ SceneManager="*res://src/core/scene_manager.gd"
 SaveManager="*res://src/core/save_manager.gd"
 GameBusDiagnostics="*res://src/core/game_bus_diagnostics.gd"
 BuildModeSentinel="*res://src/platform/build_mode_sentinel.gd"
+; ProgressArchive — cross-campaign meta-progression archive (영걸전 5 시그니처
+; 누적 unlock). Depends on no other autoload at _ready time (FileAccess +
+; ConfigFile + Time only). Placed before ScenarioRunner because ScenarioRunner
+; BEAT_9 signature-unlock hook + restore_from_save_context backfill both call
+; ProgressArchive.unlock_signature(). NO `class_name` per G-3 autoload rule.
+ProgressArchive="*res://src/core/progress_archive.gd"
 ; Boot order position 6: depends on GameBus (signal subscription) + SceneManager
 ; (scenario_fault dialog routing) + SaveManager (save_checkpoint_requested).
 ; ADR-0017 §Decision §Class Form. NO `class_name` per G-3 autoload rule.

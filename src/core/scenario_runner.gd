@@ -288,6 +288,22 @@ func restore_from_save_context(ctx: SaveContext) -> bool:
 	if ctx.schema_version >= 2:
 		_chapter_outcomes = ctx.branch_history.duplicate(true)
 		_persistent_branch_flags = ctx.persistent_branch_flags.duplicate()
+		# Cross-campaign archive backfill — restoring a v2 save guarantees the
+		# accumulated unlocks survive even if ProgressArchive's disk file was
+		# wiped (e.g., fresh device transfer carrying only the save slots).
+		# Correlates each flag with branch_history to recover the originating
+		# chapter_id; falls through with empty chapter_id when uncorrelated.
+		# Isolation: only the live autoload backfills the disk archive.
+		if self == get_node_or_null("/root/ScenarioRunner"):
+			var archive: Node = get_node_or_null("/root/ProgressArchive")
+			if archive != null:
+				for flag: String in _persistent_branch_flags:
+					var origin_chapter: String = ""
+					for entry: Dictionary in _chapter_outcomes:
+						if (entry.get("branch_path_id", "") as String) == flag:
+							origin_chapter = entry.get("chapter_id", "") as String
+							break
+					archive.call("unlock_signature", flag, origin_chapter)
 	if target_idx == 0:
 		return true  # already at chapter 0 BEAT_1_ANCHOR after load_scenario
 	_chapter_index = target_idx
@@ -805,6 +821,17 @@ func _enter_beat_9_transition() -> void:
 		and not _persistent_branch_flags.has(branch_path_id)
 	):
 		_persistent_branch_flags.append(branch_path_id)
+		# Cross-campaign meta-progression: 첫 unlock 시점 metadata 를
+		# ProgressArchive 에 기록. SaveContext.persistent_branch_flags 가
+		# 현재 캠페인 활성 cascade 의 SoT 이라면, ProgressArchive 는
+		# all-time 누적 unlock 의 SoT.
+		# Isolation: only the live autoload writes to the disk archive;
+		# isolated test runners (ScenarioRunnerTestSeam.make_isolated_runner)
+		# skip the write so user://progress_archive.cfg stays clean.
+		if self == get_node_or_null("/root/ScenarioRunner"):
+			var archive: Node = get_node_or_null("/root/ProgressArchive")
+			if archive != null:
+				archive.call("unlock_signature", branch_path_id, String(chapter.chapter_id))
 	# Step 3: Construct ChapterResult (extended + back-compat shape).
 	var result: ChapterResult = ChapterResult.new()
 	result.chapter_id = chapter.chapter_id

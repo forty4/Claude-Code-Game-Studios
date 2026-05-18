@@ -233,36 +233,30 @@ func _refresh_continue_state() -> void:
 # ─── Signature archive (S65+ — meta progression) ─────────────────────────────
 
 
-## Refreshes the SignatureBadge label text from the latest SaveContext's
-## persistent_branch_flags count. Updates on _ready and whenever the player
-## returns from a campaign (currently only on fresh _ready — main_menu reload
-## happens via scene transition so this fires per visit).
+## Refreshes the SignatureBadge label from ProgressArchive's cross-campaign
+## cumulative unlock count. Falls back to 0 when the ProgressArchive autoload
+## is missing (defensive). Reads ProgressArchive — NOT SaveContext — so the
+## badge reflects all-time unlocks (survives save-slot deletion + new campaign).
 func _refresh_signature_state() -> void:
 	if _signature_badge == null:
 		return
-	var flags: PackedStringArray = _read_latest_persistent_branch_flags()
-	_signature_badge.text = "✦ %d/5 시그니처" % flags.size()
+	_signature_badge.text = "✦ %d/5 시그니처 (누적)" % _read_archive_unlocked_keys().size()
 
 
-## Reads the latest SaveContext from the default slot and returns its
-## persistent_branch_flags. Empty PackedStringArray when no save exists or
-## SaveManager is missing (defensive).
-func _read_latest_persistent_branch_flags() -> PackedStringArray:
-	var sm: Node = get_node_or_null("/root/SaveManager")
-	if sm == null:
+## Returns the cross-campaign cumulative unlocked signature keys from
+## ProgressArchive. Empty PackedStringArray when the autoload is missing.
+func _read_archive_unlocked_keys() -> PackedStringArray:
+	var archive: Node = get_node_or_null("/root/ProgressArchive")
+	if archive == null:
 		return PackedStringArray()
-	sm.set_active_slot(_DEFAULT_SLOT)
-	var ctx: SaveContext = sm.load_latest_checkpoint()
-	if ctx == null:
-		return PackedStringArray()
-	return ctx.persistent_branch_flags.duplicate()
+	return archive.call("get_unlocked_keys") as PackedStringArray
 
 
 ## Mounts SignatureArchivePopup as a full-screen overlay. Closes on user
 ## tap of close button or ui_cancel (Esc). Always mountable — empty
-## SaveContext shows a 0/5 archive with all 5 미달성 cards.
+## archive shows a 0/5 archive with all 5 미달성 cards.
 func _on_archive_pressed() -> void:
-	var flags: PackedStringArray = _read_latest_persistent_branch_flags()
+	var keys: PackedStringArray = _read_archive_unlocked_keys()
 	var popup_script: GDScript = load("res://src/feature/main_menu/signature_archive_popup.gd") as GDScript
-	var popup: Control = popup_script.call("make", flags) as Control
+	var popup: Control = popup_script.call("make", keys) as Control
 	add_child(popup)
