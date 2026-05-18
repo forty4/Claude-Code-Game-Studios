@@ -18,7 +18,7 @@ var _battle_scene: Node = null
 
 func before_test() -> void:
 	# Start ScenarioRunner from a clean slate so the BattleScene's bootstrap
-	# loads mvp_shu.json fresh on chapter 1 (not whatever a prior test left).
+	# loads shu_canon_full.json fresh on chapter 1 (not whatever a prior test left).
 	ScenarioRunner.reset_for_tests()
 	var scene: PackedScene = load("res://scenes/battle/battle_scene.tscn") as PackedScene
 	assert(scene != null, "battle_scene.tscn must load")

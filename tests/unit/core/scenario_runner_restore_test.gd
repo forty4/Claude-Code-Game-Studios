@@ -6,7 +6,7 @@
 ## /root/ScenarioRunner autoload (which other tests in the same run rely on).
 extends GdUnitTestSuite
 
-const SCENARIO_JSON: String = "res://assets/data/scenarios/mvp_shu.json"
+const SCENARIO_JSON: String = "res://assets/data/scenarios/shu_canon_full.json"
 
 
 func _ctx_for(chapter_id: String, chapter_number: int) -> SaveContext:

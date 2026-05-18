@@ -377,7 +377,7 @@ func test_hidden_fate_signal_has_zero_default_subscribers() -> void:
 ## Phase F — fate_data dict snapshot includes all 13 new fate fields with their
 ## initial values. Schema completeness sentinel: hidden_condition_evaluator
 ## reads `fate_data[field]` and returns false if field is MISSING (not just
-## zero) — the schema must include every field referenced by mvp_shu hidden
+## zero) — the schema must include every field referenced by shu_canon_full hidden
 ## conditions for the evaluator to operate on a present-but-zero value.
 func test_fate_data_snapshot_includes_all_phase_f_fields() -> void:
 	var u1: BattleUnit = _make_unit(1, Vector2i(0, 0), 0)

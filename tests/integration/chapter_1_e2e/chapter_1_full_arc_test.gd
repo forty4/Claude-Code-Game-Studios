@@ -18,7 +18,7 @@
 extends GdUnitTestSuite
 
 
-const SCENARIO_JSON: String = "res://assets/data/scenarios/mvp_shu.json"
+const SCENARIO_JSON: String = "res://assets/data/scenarios/shu_canon_full.json"
 # Phase A — first chapter is now 도원결의·황건적 토벌; previous 장판파 target moved to ch06.
 const CHAPTER_1_ID: String = "ch01_taoyuan_yellow_turban"
 const CHAPTER_1_CANONICAL_BRANCH: String = "WIN_taoyuan_oath_held"
@@ -147,7 +147,7 @@ func test_chapter_1_canonical_win_full_arc() -> void:
 	# Final drain for any remaining deferred handlers.
 	await get_tree().process_frame
 
-	# After chapter 1 BEAT_9, runner advances to chapter 2 BEAT_1_ANCHOR (mvp_shu.json
+	# After chapter 1 BEAT_9, runner advances to chapter 2 BEAT_1_ANCHOR (shu_canon_full.json
 	# is now a 2-chapter scenario). Chapter index moves 0 -> 1.
 	var state_enum: Dictionary = ScenarioRunnerTestSeam.get_state_enum()
 	assert_int(runner.get_state()).is_equal(state_enum["BEAT_1_ANCHOR"] as int)

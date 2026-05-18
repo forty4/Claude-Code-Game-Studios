@@ -8,9 +8,9 @@
 ##   - SaveContext branch_history + persistent_branch_flags round-trip
 ##   - schema_version 1 (legacy) → 빈 cascade 상태 (backward compat)
 ##
-## Integration with mvp_shu.json (cascade ch20 관우 생존 → ch25까지 roster 유지)
+## Integration with shu_canon_full.json (cascade ch20 관우 생존 → ch25까지 roster 유지)
 ## is covered separately in scenario_runner_victory_conditions_hydration_test.gd
-## via _mvp_shu_full_campaign_persistent_cascade_test (added same session).
+## via _shu_canon_full_full_campaign_persistent_cascade_test (added same session).
 
 extends GdUnitTestSuite
 
@@ -38,16 +38,16 @@ func _make_chapter(
 
 
 ## load_scenario must pull the signature_branches root array into
-## _signature_branch_keys when present. mvp_shu.json declares all 5 영걸전
+## _signature_branch_keys when present. shu_canon_full.json declares all 5 영걸전
 ## signature keys post-S65.
-func test_load_scenario_pulls_signature_branches_from_mvp_shu_root() -> void:
+func test_load_scenario_pulls_signature_branches_from_shu_canon_full_root() -> void:
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
-	var ok: bool = runner.load_scenario("res://assets/data/scenarios/mvp_shu.json")
-	assert_bool(ok).override_failure_message("mvp_shu.json must load").is_true()
+	var ok: bool = runner.load_scenario("res://assets/data/scenarios/shu_canon_full.json")
+	assert_bool(ok).override_failure_message("shu_canon_full.json must load").is_true()
 	var keys: PackedStringArray = runner._signature_branch_keys
 	assert_int(keys.size()).override_failure_message(
-		"mvp_shu signature_branches must declare 5 영걸전 시그니처 키 (위연/방통/관우/장비/유비)"
+		"shu_canon_full signature_branches must declare 5 영걸전 시그니처 키 (위연/방통/관우/장비/유비)"
 	).is_equal(5)
 	for expected: String in [
 		"WIN_changsha_wei_yan_defects",
@@ -62,7 +62,7 @@ func test_load_scenario_pulls_signature_branches_from_mvp_shu_root() -> void:
 
 
 ## Scenarios that omit signature_branches load cleanly with an empty key array.
-## (mvp_wei.json does NOT declare cascades — only mvp_shu does.)
+## (mvp_wei.json does NOT declare cascades — only shu_canon_full does.)
 func test_load_scenario_without_signature_branches_yields_empty_key_array() -> void:
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
@@ -291,8 +291,8 @@ func test_save_context_captures_branch_history_and_persistent_flags() -> void:
 func test_restore_from_save_context_v2_repopulates_cascade_state() -> void:
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
-	# Load mvp_shu (real scenario for real chapter_id resolution).
-	var ok: bool = runner.load_scenario("res://assets/data/scenarios/mvp_shu.json")
+	# Load shu_canon_full (real scenario for real chapter_id resolution).
+	var ok: bool = runner.load_scenario("res://assets/data/scenarios/shu_canon_full.json")
 	assert_bool(ok).is_true()
 	# Build SaveContext snapshot — ch20 관우 생존 → ch22 resume.
 	var ctx: SaveContext = SaveContext.new()
@@ -319,7 +319,7 @@ func test_restore_from_save_context_v2_repopulates_cascade_state() -> void:
 
 ## BEAT_7 judgment MUST inject active_signature_count into the fate snapshot
 ## passed to the judge, WITHOUT mutating the BattleOutcome.fate_data resource
-## (CR-3 outcome invariant). Verified via mvp_shu ch25 hidden_condition relief:
+## (CR-3 outcome invariant). Verified via shu_canon_full ch25 hidden_condition relief:
 ##   - 0 active signatures + qixing_turns=4 → fails (base 6 needed)
 ##   - 3 active signatures + qixing_turns=4 → passes (relief 6-3=3, 4 >= 3)
 func test_beat_7_injects_active_signature_count_into_fate_for_relief() -> void:
@@ -455,7 +455,7 @@ func test_get_last_chapter_outcome_returns_last_archive_entry() -> void:
 func test_restore_from_save_context_v1_leaves_cascade_empty() -> void:
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
-	var ok: bool = runner.load_scenario("res://assets/data/scenarios/mvp_shu.json")
+	var ok: bool = runner.load_scenario("res://assets/data/scenarios/shu_canon_full.json")
 	assert_bool(ok).is_true()
 	# Pre-cascade SaveContext: schema_version 1, no cascade fields populated.
 	var ctx: SaveContext = SaveContext.new()

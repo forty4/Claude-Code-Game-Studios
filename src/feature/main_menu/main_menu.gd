@@ -2,7 +2,7 @@
 ##
 ## Four options:
 ##   - 새 시나리오 (New scenario): reset ScenarioRunner, change_scene to
-##     battle_scene which will fresh-load mvp_shu.json via its bootstrap path.
+##     battle_scene which will fresh-load shu_canon_full.json via its bootstrap path.
 ##   - 이어하기 (Continue): load the latest SaveContext from slot 1 and call
 ##     ScenarioRunner.restore_from_save_context() before changing scenes.
 ##     Disabled when no save exists in the slot.
@@ -37,7 +37,7 @@ const _BATTLE_SCENE_PATH: String = "res://scenes/battle/battle_scene.tscn"
 ## Production scenarios surfaced in the DEV chapter-jump menu. Pairs of
 ## (display_name, res_path). Keep in sync with /assets/data/scenarios/.
 const _DEV_JUMP_SCENARIOS: Array[Array] = [
-	["촉 (蜀)", "res://assets/data/scenarios/mvp_shu.json"],
+	["촉 (蜀)", "res://assets/data/scenarios/shu_canon_full.json"],
 	["위 (魏)", "res://assets/data/scenarios/mvp_wei.json"],
 ]
 
@@ -74,7 +74,7 @@ func _ready() -> void:
 # ─── Buttons ──────────────────────────────────────────────────────────────────
 
 func _on_new_pressed() -> void:
-	# Force the next BattleScene bootstrap to load mvp_shu.json fresh from
+	# Force the next BattleScene bootstrap to load shu_canon_full.json fresh from
 	# disk: reset_for_tests() drops the chapter list back to LOADING/empty
 	# so BattleScene._bootstrap_scenario_if_needed re-loads on first call.
 	# (reset_for_tests is the canonical "drop runtime state" seam established
@@ -196,7 +196,7 @@ func _on_dev_jump_item_selected(id: int) -> void:
 		return
 	# Reset cleans out any previous scenario state; set the active path so a
 	# subsequent _restart_scenario inside BattleScene reloads THIS scenario,
-	# not the default mvp_shu.
+	# not the default shu_canon_full.
 	runner.reset_for_tests()
 	runner.set_active_scenario_path(path)
 	if not runner.dev_jump_to_chapter(path, idx):

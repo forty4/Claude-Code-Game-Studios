@@ -1,7 +1,7 @@
 ## ScenarioRunner.dev_jump_to_chapter — S62 dev-only chapter teleport API.
 ##
 ## Covers:
-##   - Valid jump to ch06..ch10 of mvp_shu + mvp_wei
+##   - Valid jump to ch06..ch10 of shu_canon_full + mvp_wei
 ##   - Out-of-range index refused (state unchanged)
 ##   - Empty path refused
 ##   - Bad path refused (load_scenario fault path)
@@ -16,15 +16,15 @@
 extends GdUnitTestSuite
 
 
-const SHU_PATH: String = "res://assets/data/scenarios/mvp_shu.json"
+const SHU_PATH: String = "res://assets/data/scenarios/shu_canon_full.json"
 const WEI_PATH: String = "res://assets/data/scenarios/mvp_wei.json"
 
 
 # ─── Happy path: every production chapter is reachable ────────────────────────
 
 
-func test_dev_jump_lands_at_each_mvp_shu_chapter() -> void:
-	# 25 chapters in mvp_shu — 영걸전식 풀 캠페인 완성 (도원결의 → 오장원).
+func test_dev_jump_lands_at_each_shu_canon_full_chapter() -> void:
+	# 25 chapters in shu_canon_full — 영걸전식 풀 캠페인 완성 (도원결의 → 오장원).
 	# prequel (ch01~ch05 황건적~신야) + main (ch06~ch10 장판~적벽)
 	# + Phase B (ch11~ch14 형주 4군 + 통합) + Phase C (ch15~ch17 익주 입성)
 	# + Phase D (ch18~ch22 한중·이릉·시그니처 분기 3개)
@@ -61,7 +61,7 @@ func test_dev_jump_lands_at_each_mvp_shu_chapter() -> void:
 		auto_free(runner)
 		var ok: bool = runner.dev_jump_to_chapter(SHU_PATH, idx)
 		assert_bool(ok).override_failure_message(
-			"dev_jump_to_chapter(mvp_shu, %d) must succeed (returned false)" % idx
+			"dev_jump_to_chapter(shu_canon_full, %d) must succeed (returned false)" % idx
 		).is_true()
 		assert_int(runner.get_current_chapter_index()).is_equal(idx)
 		var ch: ChapterDefinition = runner.get_current_chapter()
@@ -69,7 +69,7 @@ func test_dev_jump_lands_at_each_mvp_shu_chapter() -> void:
 			"get_current_chapter() must not be null after dev jump to index %d" % idx
 		).is_not_null()
 		assert_str(ch.chapter_id).override_failure_message(
-			"dev jump to mvp_shu[%d] landed on '%s', expected '%s'"
+			"dev jump to shu_canon_full[%d] landed on '%s', expected '%s'"
 				% [idx, ch.chapter_id, expected_ids[idx]]
 		).is_equal(expected_ids[idx])
 
@@ -140,7 +140,7 @@ func test_dev_jump_rejects_negative_index() -> void:
 
 
 func test_dev_jump_rejects_overflow_index() -> void:
-	# Phase E: mvp_shu has exactly 25 chapters (영걸전식 풀 캠페인 완성), index 25 is out of range.
+	# Phase E: shu_canon_full has exactly 25 chapters (영걸전식 풀 캠페인 완성), index 25 is out of range.
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
 

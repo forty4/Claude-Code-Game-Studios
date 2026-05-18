@@ -180,7 +180,7 @@ func test_cascade_join_no_emit_at_chapter_one_with_empty_outcomes() -> void:
 	assert_int(_captures.size()).is_equal(0)
 
 
-# ─── mvp_shu integration sentinel ─────────────────────────────────────────────
+# ─── shu_canon_full integration sentinel ─────────────────────────────────────────────
 
 
 # ─── pending_cascade_announcement cache + consume ────────────────────────────
@@ -246,13 +246,13 @@ func test_consume_pending_cascade_announcement_is_idempotent() -> void:
 	).is_true()
 
 
-# ─── mvp_shu integration sentinel ─────────────────────────────────────────────
+# ─── shu_canon_full integration sentinel ─────────────────────────────────────────────
 
 
-## mvp_shu.json 의 5 cascade entry 챕터 (ch14/17/21/22/23) 가 모두
+## shu_canon_full.json 의 5 cascade entry 챕터 (ch14/17/21/22/23) 가 모두
 ## cascade_join_prose entry 를 authored 했는지 데이터 sentinel.
-func test_mvp_shu_authors_all_five_cascade_join_prose_entries() -> void:
-	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+func test_shu_canon_full_authors_all_five_cascade_join_prose_entries() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/shu_canon_full.json")
 	var data: Dictionary = JSON.parse_string(json_text) as Dictionary
 	var by_id: Dictionary = {}
 	for c: Variant in (data["chapters"] as Array):

@@ -253,7 +253,7 @@ When a sprint task is authored to address a POLISH-NNN entry, the sprint plan ta
 - G-28 (bulk-disconnect-all severs production subscriptions) — same file
 - Sprint-13 row: `production/sprints/sprint-13.md` Mid-Sprint Expansion section (entry note: bug #4 of 4 surfaced; deferred to POLISH-008)
 
-### POLISH-009 — Missing `res://scenes/battle/mvp_chapter_01.tscn` referenced by mvp_shu.json
+### POLISH-009 — Missing `res://scenes/battle/mvp_chapter_01.tscn` referenced by shu_canon_full.json
 
 | Field | Value |
 |---|---|
@@ -265,15 +265,15 @@ When a sprint task is authored to address a POLISH-NNN entry, the sprint plan ta
 | **Added** | 2026-05-09 |
 | **Resolved** | — |
 
-**Description**: `assets/data/scenarios/mvp_shu.json:8` declares `"map_id": "mvp_chapter_01"`. The chapter loader at `BattleScene._build_map_resource_for_chapter()` (or upstream resolver) attempts to load `res://scenes/battle/mvp_chapter_01.tscn` (or `assets/data/maps/mvp_chapter_01.tres`) and fails with `ERROR: Cannot open file 'res://scenes/battle/mvp_chapter_01.tscn'. ERROR: Failed loading resource: ...`. Fallback path in `battle_scene.gd:_build_map_resource_for_chapter()` synthesizes a 15×15 all-grass MapResource so the battle CAN proceed in headless mode (391 turn-domain emits confirm logic flow), but in windowed mode the fallback grid does NOT render visibly (see POLISH-010).
+**Description**: `assets/data/scenarios/shu_canon_full.json:8` declares `"map_id": "mvp_chapter_01"`. The chapter loader at `BattleScene._build_map_resource_for_chapter()` (or upstream resolver) attempts to load `res://scenes/battle/mvp_chapter_01.tscn` (or `assets/data/maps/mvp_chapter_01.tres`) and fails with `ERROR: Cannot open file 'res://scenes/battle/mvp_chapter_01.tscn'. ERROR: Failed loading resource: ...`. Fallback path in `battle_scene.gd:_build_map_resource_for_chapter()` synthesizes a 15×15 all-grass MapResource so the battle CAN proceed in headless mode (391 turn-domain emits confirm logic flow), but in windowed mode the fallback grid does NOT render visibly (see POLISH-010).
 
-**Action when picked up**: (1) Author `assets/data/maps/mvp_chapter_01.tres` (canonical MapResource path per ADR-0016 §4) — 15×15 grid with bridge tile pattern matching prototype-chapter-prototype; (2) Or relocate the load attempt to use the existing fallback synthesis as the canonical path (rename map_id to a synthetic-only key); (3) Verify `mvp_shu.json` map_id alignment with the actual file path the loader expects.
+**Action when picked up**: (1) Author `assets/data/maps/mvp_chapter_01.tres` (canonical MapResource path per ADR-0016 §4) — 15×15 grid with bridge tile pattern matching prototype-chapter-prototype; (2) Or relocate the load attempt to use the existing fallback synthesis as the canonical path (rename map_id to a synthetic-only key); (3) Verify `shu_canon_full.json` map_id alignment with the actual file path the loader expects.
 
 **Cross-references**:
 - Surfacing 1: `production/session-state/active.md` (S13-11 verification re-run; deferred at S13-11 close-out as candidate)
 - Surfacing 2: S13-12 headless verification — same ERROR
 - Surfacing 3: S13-10 user windowed boot 2026-05-09 PM late — same ERROR + correlates with POLISH-010 visual rendering failure
-- Source data: `assets/data/scenarios/mvp_shu.json:8`
+- Source data: `assets/data/scenarios/shu_canon_full.json:8`
 - Loader: `src/feature/battle_scene/battle_scene.gd:_build_map_resource_for_chapter()` (fallback path)
 
 ### POLISH-010 — Production main_scene `scenes/battle/battle_scene.tscn` does not render battle visuals in windowed mode

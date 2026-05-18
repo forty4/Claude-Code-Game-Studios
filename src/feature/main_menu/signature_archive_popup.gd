@@ -16,7 +16,7 @@ extends Control
 signal closed
 
 
-# Hardcoded signature catalog — order = cascade event chronology in mvp_shu.
+# Hardcoded signature catalog — order = cascade event chronology in shu_canon_full.
 # (signature_key, hero_name_ko, chapter_label, blurb)
 const SIGNATURE_CATALOG: Array[Array] = [
 	["WIN_changsha_wei_yan_defects",  "위연 (魏延)",     "ch13 장사",   "황충 노장과의 결의 — 칼을 거두고 한실의 부장으로."],

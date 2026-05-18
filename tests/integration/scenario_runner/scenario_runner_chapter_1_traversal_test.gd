@@ -1,13 +1,13 @@
 ## scenario_runner_chapter_1_traversal_test.gd
 ##
-## Integration test: full chapter-1 traversal via mvp_shu.json fixture.
+## Integration test: full chapter-1 traversal via shu_canon_full.json fixture.
 ## Covers AC-SP-1 (CR-1 chapter linear progression), AC-SP-2 (CR-2 9-beat
 ## canonical rhythm), AC-SP-9 (Beat 9 chapter_completed + echo reset),
 ## AC-SP-17 (5+1 confirmed signal contract emission for chapter-1).
 extends GdUnitTestSuite
 
 
-const SCENARIO_JSON: String = "res://assets/data/scenarios/mvp_shu.json"
+const SCENARIO_JSON: String = "res://assets/data/scenarios/shu_canon_full.json"
 
 
 # ─── AC-SP-1 + AC-SP-2 + AC-SP-17 ─────────────────────────────────────────────
@@ -19,7 +19,7 @@ func test_chapter_1_full_traversal_fires_9_beats_in_order() -> void:
 	auto_free(runner)
 	var loaded: bool = runner.load_scenario(SCENARIO_JSON)
 	assert_bool(loaded).override_failure_message(
-		"chapter-1 mvp_shu.json must load cleanly"
+		"chapter-1 shu_canon_full.json must load cleanly"
 	).is_true()
 	# Capture state transitions.
 	var state_history: Array[int] = [runner.get_state()]
@@ -45,7 +45,7 @@ func test_chapter_1_full_traversal_fires_9_beats_in_order() -> void:
 	# Verify 9 beat states traversed (exact ordinal sequence checked by enum).
 	var state_enum: Dictionary = ScenarioRunnerTestSeam.get_state_enum()
 	# After chapter 1 BEAT_9, runner advances to chapter 2 (CHAPTER_START synchronously
-	# chains to BEAT_1_ANCHOR per _enter_chapter_start). mvp_shu.json now has 2 chapters.
+	# chains to BEAT_1_ANCHOR per _enter_chapter_start). shu_canon_full.json now has 2 chapters.
 	assert_int(runner.get_state()).is_equal(state_enum["BEAT_1_ANCHOR"] as int)
 	assert_int(runner.get_current_chapter_index()).is_equal(1)
 

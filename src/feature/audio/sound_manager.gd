@@ -560,7 +560,7 @@ func _build_procedural_music_streams() -> void:
 ## unrecognized input. Public — BattleScene calls this at battle init.
 func music_id_for_chapter(chapter_id: StringName) -> StringName:
 	match chapter_id:
-		# mvp_shu (촉) line — 영걸전식 25챕터 캠페인.
+		# shu_canon_full (촉) line — 영걸전식 25챕터 캠페인.
 		# Phase A prequel (ch01~ch05: 황건적~신야) reuses the 5 procedural themes by thematic match:
 		#   taoyuan_yellow_turban (의병 출진)   → CH03 C-major wandering (the journey begins)
 		#   hulao_gate (여포 격파전)            → CH02 A-power bridge resolve (단신의 대결)

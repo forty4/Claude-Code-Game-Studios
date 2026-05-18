@@ -1,6 +1,6 @@
 {
-  "scenario_id": "mvp_shu",
-  "scenario_title_key": "scenario.mvp_shu.title",
+  "scenario_id": "shu_canon_full",
+  "scenario_title_key": "scenario.shu_canon_full.title",
   "chapters": [
     {
       "chapter_id": "ch01_taoyuan_yellow_turban",

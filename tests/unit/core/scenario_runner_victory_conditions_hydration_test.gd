@@ -106,10 +106,10 @@ func test_hydrate_chapter_target_unit_ids_round_trip() -> void:
 # ─── ch10 retrofit verification (smoke) ─────────────────────────────────────
 
 
-## Session-33 — Production mvp_shu.json ch07 record carries the ESCORT retrofit.
+## Session-33 — Production shu_canon_full.json ch07 record carries the ESCORT retrofit.
 ## Verifies the chapter JSON parses + ch07 victory_conditions hydrates correctly.
-func test_mvp_shu_ch02_carries_escort_target_0() -> void:
-	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+func test_shu_canon_full_ch02_carries_escort_target_0() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/shu_canon_full.json")
 	assert_bool(json_text.is_empty()).is_false()
 	var parsed: Variant = JSON.parse_string(json_text)
 	assert_object(parsed).is_not_null()
@@ -122,7 +122,7 @@ func test_mvp_shu_ch02_carries_escort_target_0() -> void:
 			ch07_record = d
 			break
 	assert_bool(ch07_record.is_empty()).override_failure_message(
-		"mvp_shu.json must contain ch07_changban_bridge record"
+		"shu_canon_full.json must contain ch07_changban_bridge record"
 	).is_false()
 	# ESCORT victory_conditions
 	assert_bool(ch07_record.has("victory_conditions")).override_failure_message(
@@ -163,14 +163,14 @@ func test_mvp_shu_ch02_carries_escort_target_0() -> void:
 	).is_false()
 
 
-## Session-34 — Production mvp_shu.json ch08 record carries the REACH_TILE retrofit.
+## Session-34 — Production shu_canon_full.json ch08 record carries the REACH_TILE retrofit.
 ## Verifies ch08_xiakou_outskirts vc block declares REACH_TILE targeting 유비 (unit 0)
 ## with target_tile = (13, 4) — the bridge across to 강하 (Xiakou). Different from
 ## ch07 ESCORT in that REACH_TILE is an ACTIVE win condition (move to tile)
 ## rather than passive (protect + clear enemies). Mirrors SURVIVE no-shortcut
 ## semantics: enemy wipeout does NOT shortcut to VICTORY_REACH_TILE.
-func test_mvp_shu_ch03_carries_reach_tile_target_13_4() -> void:
-	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+func test_shu_canon_full_ch03_carries_reach_tile_target_13_4() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/shu_canon_full.json")
 	assert_bool(json_text.is_empty()).is_false()
 	var parsed: Variant = JSON.parse_string(json_text)
 	assert_object(parsed).is_not_null()
@@ -183,7 +183,7 @@ func test_mvp_shu_ch03_carries_reach_tile_target_13_4() -> void:
 			ch08_record = d
 			break
 	assert_bool(ch08_record.is_empty()).override_failure_message(
-		"mvp_shu.json must contain ch08_xiakou_outskirts record"
+		"shu_canon_full.json must contain ch08_xiakou_outskirts record"
 	).is_false()
 	# REACH_TILE victory_conditions
 	assert_bool(ch08_record.has("victory_conditions")).override_failure_message(
@@ -213,11 +213,11 @@ func test_mvp_shu_ch03_carries_reach_tile_target_13_4() -> void:
 	).is_equal(4)
 
 
-## Production mvp_shu.json ch10 record carries the SURVIVE_N_ROUNDS=5 retrofit.
+## Production shu_canon_full.json ch10 record carries the SURVIVE_N_ROUNDS=5 retrofit.
 ## Reads the JSON directly via FileAccess + hydrate the ch10 record to verify
 ## the wiring end-to-end (catches any JSON syntax breakage at lint time).
-func test_mvp_shu_ch05_carries_survive_5_rounds() -> void:
-	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+func test_shu_canon_full_ch05_carries_survive_5_rounds() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/shu_canon_full.json")
 	assert_bool(json_text.is_empty()).is_false()
 	var parsed: Variant = JSON.parse_string(json_text)
 	assert_object(parsed).is_not_null()
@@ -231,7 +231,7 @@ func test_mvp_shu_ch05_carries_survive_5_rounds() -> void:
 			ch10_record = d
 			break
 	assert_bool(ch10_record.is_empty()).override_failure_message(
-		"mvp_shu.json must contain ch10_chibi_main record"
+		"shu_canon_full.json must contain ch10_chibi_main record"
 	).is_false()
 	assert_bool(ch10_record.has("victory_conditions")).override_failure_message(
 		"S29: ch10_chibi_main must carry victory_conditions block"
@@ -248,8 +248,8 @@ func test_mvp_shu_ch05_carries_survive_5_rounds() -> void:
 ## branch_overrides carries the corresponding WIN_xiakou_united_advance
 ## key with 초선 (unit 8 / qun_004_diao_chan) added to the alliance roster.
 ## Pillar 2 second realization — mirrors ch06 → ch07 chain authored at S57.
-func test_mvp_shu_ch03_authors_hidden_destiny_with_ch04_override() -> void:
-	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+func test_shu_canon_full_ch03_authors_hidden_destiny_with_ch04_override() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/shu_canon_full.json")
 	assert_bool(json_text.is_empty()).is_false()
 	var parsed: Variant = JSON.parse_string(json_text)
 	assert_object(parsed).is_not_null()
@@ -407,23 +407,23 @@ func test_mvp_wei_scenario_loads_via_runner_without_fault() -> void:
 	).is_true()
 
 
-# ─── Phase B (mvp_shu ch11~ch14) — 형주 4군 평정 + 통합 authoring sanity ────────
+# ─── Phase B (shu_canon_full ch11~ch14) — 형주 4군 평정 + 통합 authoring sanity ────────
 
 
-## Phase B regression sentinel — mvp_shu must declare exactly 14 chapters
+## Phase B regression sentinel — shu_canon_full must declare exactly 14 chapters
 ## (Phase A prequel ch01~ch05 + main ch06~ch10 + Phase B 형주 ch11~ch14).
 ## ch13 hidden destiny (wei_yan_spared_turns ≥ 3) + ch14 branch_overrides chain
 ## mirror the영걸전 시그니처 위연 합류 분기.
-func test_mvp_shu_phase_b_authors_ch11_to_ch14_with_wei_yan_defection_chain() -> void:
-	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+func test_shu_canon_full_phase_b_authors_ch11_to_ch14_with_wei_yan_defection_chain() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/shu_canon_full.json")
 	assert_bool(json_text.is_empty()).override_failure_message(
-		"mvp_shu.json must exist at assets/data/scenarios/mvp_shu.json"
+		"shu_canon_full.json must exist at assets/data/scenarios/shu_canon_full.json"
 	).is_false()
 	var parsed: Variant = JSON.parse_string(json_text)
 	var data: Dictionary = parsed as Dictionary
 	var chapters: Array = data["chapters"] as Array
 	assert_int(chapters.size()).override_failure_message(
-		"Phase E: mvp_shu must declare exactly 25 chapters — 영걸전식 풀 캠페인 완성 (A 10 + B 4 + C 3 + D 5 + E 3)"
+		"Phase E: shu_canon_full must declare exactly 25 chapters — 영걸전식 풀 캠페인 완성 (A 10 + B 4 + C 3 + D 5 + E 3)"
 	).is_equal(25)
 
 	var by_id: Dictionary = {}
@@ -438,7 +438,7 @@ func test_mvp_shu_phase_b_authors_ch11_to_ch14_with_wei_yan_defection_chain() ->
 		"ch14_jingzhou_consolidate",
 	]:
 		assert_bool(by_id.has(expected_id)).override_failure_message(
-			"Phase B: mvp_shu missing chapter_id '%s'" % expected_id
+			"Phase B: shu_canon_full missing chapter_id '%s'" % expected_id
 		).is_true()
 
 	# ch13 hidden destiny — wei_yan_spared_turns >= 3 → WIN_changsha_wei_yan_defects.
@@ -495,29 +495,29 @@ func test_mvp_shu_phase_b_authors_ch11_to_ch14_with_wei_yan_defection_chain() ->
 		).is_true()
 
 
-## Phase B end-to-end hydration smoke — full mvp_shu loads through
+## Phase B end-to-end hydration smoke — full shu_canon_full loads through
 ## ScenarioRunner.load_scenario without scenario_fault. Catches validator
 ## regressions on the new Phase B chapter records (echo_threshold, victory
 ## conditions, hidden_condition, branch_overrides shape).
-func test_mvp_shu_phase_b_full_scenario_loads_via_runner_without_fault() -> void:
+func test_shu_canon_full_phase_b_full_scenario_loads_via_runner_without_fault() -> void:
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
 
-	var ok: bool = runner.load_scenario("res://assets/data/scenarios/mvp_shu.json")
+	var ok: bool = runner.load_scenario("res://assets/data/scenarios/shu_canon_full.json")
 
 	assert_bool(ok).override_failure_message(
-		"Phase B/C: ScenarioRunner.load_scenario MUST succeed on full mvp_shu.json"
+		"Phase B/C: ScenarioRunner.load_scenario MUST succeed on full shu_canon_full.json"
 	).is_true()
 
 
-# ─── Phase C (mvp_shu ch15~ch17) — 익주 입성 authoring sanity ──────────────────
+# ─── Phase C (shu_canon_full ch15~ch17) — 익주 입성 authoring sanity ──────────────────
 
 
 ## Phase C regression sentinel — ch15 부수관 (REACH_TILE 방통 합류) + ch16 낙봉파
 ## (시그니처 hidden destiny scout_first_turns ≥ 2 → 방통 생존) + ch17 성도
 ## (branch_overrides on WIN_luofeng_pang_tong_lives → 방통 잔류).
-func test_mvp_shu_phase_c_authors_ch15_to_ch17_with_pang_tong_survival_chain() -> void:
-	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+func test_shu_canon_full_phase_c_authors_ch15_to_ch17_with_pang_tong_survival_chain() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/shu_canon_full.json")
 	var parsed: Variant = JSON.parse_string(json_text)
 	var data: Dictionary = parsed as Dictionary
 	var chapters: Array = data["chapters"] as Array
@@ -533,7 +533,7 @@ func test_mvp_shu_phase_c_authors_ch15_to_ch17_with_pang_tong_survival_chain() -
 		"ch17_chengdu_gates",
 	]:
 		assert_bool(by_id.has(expected_id)).override_failure_message(
-			"Phase C: mvp_shu missing chapter_id '%s'" % expected_id
+			"Phase C: shu_canon_full missing chapter_id '%s'" % expected_id
 		).is_true()
 
 	# ch15 REACH_TILE victory — commander (unit 0) reaches [14, 4].
@@ -612,14 +612,14 @@ func test_mvp_shu_phase_c_authors_ch15_to_ch17_with_pang_tong_survival_chain() -
 		).is_true()
 
 
-# ─── Phase D (mvp_shu ch18~ch22) — 한중·이릉·영걸전 시그니처 분기 3개 ────────────
+# ─── Phase D (shu_canon_full ch18~ch22) — 한중·이릉·영걸전 시그니처 분기 3개 ────────────
 
 
 ## Phase D regression sentinel — ch18 한중 진군 (마초 합류) + ch19 정군산 (황충
 ## hidden) + ch20 번성 (관우 생환 시그니처 #3) + ch21 장비 (장비 생존 시그니처) +
 ## ch22 이릉 (유비 생환 시그니처 #4). ch21/ch22 cascading branch_overrides chain.
-func test_mvp_shu_phase_d_authors_ch18_to_ch22_with_three_signature_branches() -> void:
-	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+func test_shu_canon_full_phase_d_authors_ch18_to_ch22_with_three_signature_branches() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/shu_canon_full.json")
 	var parsed: Variant = JSON.parse_string(json_text)
 	var data: Dictionary = parsed as Dictionary
 	var chapters: Array = data["chapters"] as Array
@@ -637,7 +637,7 @@ func test_mvp_shu_phase_d_authors_ch18_to_ch22_with_three_signature_branches() -
 		"ch22_yiling_burn",
 	]:
 		assert_bool(by_id.has(expected_id)).override_failure_message(
-			"Phase D: mvp_shu missing chapter_id '%s'" % expected_id
+			"Phase D: shu_canon_full missing chapter_id '%s'" % expected_id
 		).is_true()
 
 	# ch18 — 마초 (unit_id 17, hero shu_008_ma_chao) joins the roster.
@@ -745,14 +745,14 @@ func test_mvp_shu_phase_d_authors_ch18_to_ch22_with_three_signature_branches() -
 		).is_true()
 
 
-# ─── Phase E (mvp_shu ch23~ch25) — 남만·북벌·오장원·영걸전 finale ──────────────
+# ─── Phase E (shu_canon_full ch23~ch25) — 남만·북벌·오장원·영걸전 finale ──────────────
 
 
 ## Phase E regression sentinel — ch23 남만 정벌 (칠종칠금 hidden) + ch24 가정
 ## (강유 합류 + 마속 생존 시그니처) + ch25 오장원 (영걸전 최종 시그니처 #5 제갈량 회생).
 ## 25챕터 풀 캠페인 완성 sentinel — master plan §1 100%.
-func test_mvp_shu_phase_e_authors_ch23_to_ch25_with_qixing_revival_finale() -> void:
-	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+func test_shu_canon_full_phase_e_authors_ch23_to_ch25_with_qixing_revival_finale() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/shu_canon_full.json")
 	var parsed: Variant = JSON.parse_string(json_text)
 	var data: Dictionary = parsed as Dictionary
 	var chapters: Array = data["chapters"] as Array
@@ -768,7 +768,7 @@ func test_mvp_shu_phase_e_authors_ch23_to_ch25_with_qixing_revival_finale() -> v
 		"ch25_wuzhang_plains",
 	]:
 		assert_bool(by_id.has(expected_id)).override_failure_message(
-			"Phase E: mvp_shu missing chapter_id '%s'" % expected_id
+			"Phase E: shu_canon_full missing chapter_id '%s'" % expected_id
 		).is_true()
 
 	# ch23 hidden destiny — menghuo_captures >= 7 → WIN_southern_seven_releases (칠종칠금).
@@ -831,8 +831,8 @@ func test_mvp_shu_phase_e_authors_ch23_to_ch25_with_qixing_revival_finale() -> v
 ## ch25 ending_screen_text_keys sentinel (S65+ — 3-tier ending UX). 4 분기
 ## (canonical/hidden/legendary/loss) 각각 ending prose key 매핑 + story_content
 ## prose 존재 검증.
-func test_mvp_shu_ch25_authors_ending_screen_text_keys_for_all_four_branches() -> void:
-	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+func test_shu_canon_full_ch25_authors_ending_screen_text_keys_for_all_four_branches() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/shu_canon_full.json")
 	var data: Dictionary = JSON.parse_string(json_text) as Dictionary
 	var ch25: Dictionary = {}
 	for c: Variant in (data["chapters"] as Array):
@@ -868,8 +868,8 @@ func test_mvp_shu_ch25_authors_ending_screen_text_keys_for_all_four_branches() -
 ## 등재 + legendary_branch_key + legendary_condition (active_signature_count >= 5)
 ## + beat_8_revelations entry + story_content 한국어 prose. 5 시그니처 누적 +
 ## ch25 hidden 둘 다 달성 시 전설의 새벽 ENDING.
-func test_mvp_shu_ch25_authors_legendary_destiny_tier() -> void:
-	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+func test_shu_canon_full_ch25_authors_legendary_destiny_tier() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/shu_canon_full.json")
 	var data: Dictionary = JSON.parse_string(json_text) as Dictionary
 	var ch25: Dictionary = {}
 	for c: Variant in (data["chapters"] as Array):
@@ -914,16 +914,16 @@ func test_mvp_shu_ch25_authors_legendary_destiny_tier() -> void:
 	).is_true()
 
 
-## 25-chapter master plan completion sentinel — mvp_shu must declare exactly 25 chapters
+## 25-chapter master plan completion sentinel — shu_canon_full must declare exactly 25 chapters
 ## with the 영걸전식 풀 캠페인 도원결의 → 오장원 progression. Pure structural assertion
 ## independent of phase boundaries — protects against accidental chapter additions/removals.
-func test_mvp_shu_full_campaign_25_chapter_progression_complete() -> void:
-	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+func test_shu_canon_full_full_campaign_25_chapter_progression_complete() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/shu_canon_full.json")
 	var data: Dictionary = JSON.parse_string(json_text) as Dictionary
 	var chapters: Array = data["chapters"] as Array
 
 	assert_int(chapters.size()).override_failure_message(
-		"25-chapter master plan: mvp_shu MUST declare exactly 25 chapters"
+		"25-chapter master plan: shu_canon_full MUST declare exactly 25 chapters"
 	).is_equal(25)
 
 	# Chapter numbers must be 1..25 sequential.
@@ -943,10 +943,10 @@ func test_mvp_shu_full_campaign_25_chapter_progression_complete() -> void:
 	).is_equal("ch25_wuzhang_plains")
 
 
-# ─── Multi-step survival cascade — mvp_shu.json data sentinel (S65) ───────────
+# ─── Multi-step survival cascade — shu_canon_full.json data sentinel (S65) ───────────
 
 
-## After S65 cascade rollout, mvp_shu.json must declare:
+## After S65 cascade rollout, shu_canon_full.json must declare:
 ##   1. signature_branches root array (5 영걸전 시그니처 키)
 ##   2. branch_overrides cascade entries on every chapter the signature applies to:
 ##      - 위연 (WIN_changsha_wei_yan_defects) : ch14~ch25 (12 chapters)
@@ -957,14 +957,14 @@ func test_mvp_shu_full_campaign_25_chapter_progression_complete() -> void:
 ##
 ## Each cascade entry MUST patch the cascade hero into the chapter's roster
 ## (player_unit_ids + player_hero_ids + deployment_positions_default).
-func test_mvp_shu_signature_branches_root_and_cascade_overrides_complete() -> void:
-	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+func test_shu_canon_full_signature_branches_root_and_cascade_overrides_complete() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/shu_canon_full.json")
 	var data: Dictionary = JSON.parse_string(json_text) as Dictionary
 
 	# 1. signature_branches root.
 	var sig_keys: Array = data.get("signature_branches", []) as Array
 	assert_int(sig_keys.size()).override_failure_message(
-		"mvp_shu root signature_branches must declare 5 영걸전 시그니처 키"
+		"shu_canon_full root signature_branches must declare 5 영걸전 시그니처 키"
 	).is_equal(5)
 	for expected: String in [
 		"WIN_changsha_wei_yan_defects",

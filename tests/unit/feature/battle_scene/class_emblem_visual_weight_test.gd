@@ -91,7 +91,7 @@ func test_make_without_hero_overlay_mounts_cleanly() -> void:
 # ─── All 13 production heroes have overlays ──────────────────────────────────
 
 
-## Every hero in the production deployment (mvp_shu.json + heroes.json) must
+## Every hero in the production deployment (shu_canon_full.json + heroes.json) must
 ## have an authored overlay. Without an overlay, the hero falls back to a
 ## plain class emblem — undistinguishable from another hero of the same class.
 ## S40's visual-weight rebalance ASSUMES the overlay is present; missing

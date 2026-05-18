@@ -2,7 +2,7 @@
 ##
 ## Verifies assets/data/story/story_content.json: it parses to a JSON object,
 ## and every beat text key referenced by chapters in EVERY production scenario
-## (mvp_shu.json + mvp_wei.json + future lines) has a content entry with a
+## (shu_canon_full.json + mvp_wei.json + future lines) has a content entry with a
 ## non-empty title and body. Beat 2 is a silent_visual fragment — no text key —
 ## so it is not checked.
 ##
@@ -13,7 +13,7 @@ extends GdUnitTestSuite
 
 
 const SCENARIO_PATHS: Array[String] = [
-	"res://assets/data/scenarios/mvp_shu.json",
+	"res://assets/data/scenarios/shu_canon_full.json",
 	"res://assets/data/scenarios/mvp_wei.json",
 ]
 const STORY_CONTENT_PATH: String = "res://assets/data/story/story_content.json"
