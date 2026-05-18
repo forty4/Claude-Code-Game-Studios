@@ -21,6 +21,9 @@ signal resume_requested
 
 
 const _MAIN_MENU_PATH: String = "res://scenes/main_menu/main_menu.tscn"
+## Palette tokens — see design/art/art-bible-v1-distilled.md §1
+## 묵 backdrop at 0.88 alpha — intentionally lighter than story screens (0.94)
+## so the battle world is slightly more visible while paused (context not lost).
 const _BACKDROP_COLOR: Color = Color(0.025, 0.035, 0.055, 0.88)
 
 
@@ -56,7 +59,7 @@ func _ready() -> void:
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	center.add_child(box)
 
-	var title: Label = _make_label("일시정지", 40, Color(0.96, 0.92, 0.80, 1.0), 8)
+	var title: Label = _make_label("일시정지", 40, Palette.JI_BAEK, 8)
 	box.add_child(title)
 	box.add_child(_make_spacer(12))
 
@@ -179,7 +182,7 @@ func _make_label(text: String, size: int, color: Color, outline: int) -> Label:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.add_theme_color_override("font_color", color)
-	label.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.03, 1.0))
+	label.add_theme_color_override("font_outline_color", Palette.MUK_OUTLINE)
 	label.add_theme_constant_override("outline_size", outline)
 	label.add_theme_font_size_override("font_size", size)
 	return label

@@ -89,8 +89,10 @@ const _UI_GB_01_ACTED_DIM_ALPHA: float = 0.5
 ## is the default fallback (panel won't normally be visible in that state since
 ## the gating _btn_use_skill is disabled, but we set it explicitly so a stale
 ## modulate from a prior turn doesn't leak in).
-const _COLOR_SKILL_READY: Color = Color(1.0, 0.55, 0.55)
-const _COLOR_SKILL_USED: Color = Color(0.55, 0.55, 0.55)
+## Palette tokens — see design/art/art-bible-v1-distilled.md §1
+## Functional state colours — not palette tokens (semantic tint, not art-bible role).
+const _COLOR_SKILL_READY: Color = Color(1.0, 0.55, 0.55)  # red tint — "ready to fire"
+const _COLOR_SKILL_USED: Color = Color(0.55, 0.55, 0.55)   # grey tint — "spent"
 
 
 ## Preloaded UI element scenes (story-003 + story-004 + story-005 + future stories add more).
@@ -357,7 +359,7 @@ func _ready() -> void:
 		if name_label != null and name_label.get_node_or_null("StrikethroughLine") == null:
 			var strike: ColorRect = ColorRect.new()
 			strike.name = "StrikethroughLine"
-			strike.color = Color(0.11, 0.10, 0.09, 0.85)  # ink stroke (matches tile borders)
+			strike.color = Color(Palette.MUK.r, Palette.MUK.g, Palette.MUK.b, 0.85)  # 묵 ink stroke
 			strike.set_anchors_preset(Control.PRESET_HCENTER_WIDE)
 			strike.offset_top = -1.0
 			strike.offset_bottom = 1.0
@@ -601,8 +603,8 @@ func set_victory_condition(condition_text: StringName) -> void:
 	# import refresh — PanelContainer's default panel slot is empty otherwise
 	# and the box renders invisibly against the canvas.
 	var sb: StyleBoxFlat = StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.09, 0.13, 0.92)
-	sb.border_color = Color(0.96, 0.78, 0.32, 0.95)
+	sb.bg_color = Color(0.08, 0.09, 0.13, 0.92)       # 묵 dark panel — no exact palette token at this alpha
+	sb.border_color = Color(Palette.GEUM_SAEK.r, Palette.GEUM_SAEK.g, Palette.GEUM_SAEK.b, 0.95)  # 금색 border
 	sb.border_width_left = 2
 	sb.border_width_top = 2
 	sb.border_width_right = 2
@@ -619,7 +621,7 @@ func set_victory_condition(condition_text: StringName) -> void:
 	var label: Label = panel.get_node_or_null("ConditionLabel") as Label
 	if label != null:
 		label.text = tr(String(condition_text))
-		label.add_theme_color_override("font_color", Color(0.98, 0.96, 0.90, 1.0))
+		label.add_theme_color_override("font_color", Palette.JI_BAEK)
 		label.add_theme_font_size_override("font_size", 18)
 	panel.visible = true
 

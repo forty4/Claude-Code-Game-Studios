@@ -2029,8 +2029,8 @@ func _show_ending_screen() -> void:
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title.custom_minimum_size = Vector2(820.0, 0.0)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	title.add_theme_color_override("font_color", Color(0.95, 0.84, 0.46, 1.0))  # warm gold-ish (not the reserved #D4A017)
-	title.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.04, 1.0))
+	title.add_theme_color_override("font_color", Palette.UI_GOLD)  # warm gold UI-hierarchy, NOT reserved GEUM_SAEK
+	title.add_theme_color_override("font_outline_color", Palette.MUK_OUTLINE)
 	title.add_theme_constant_override("outline_size", 8)
 	title.add_theme_font_size_override("font_size", 36)
 	box.add_child(title)
@@ -2042,8 +2042,8 @@ func _show_ending_screen() -> void:
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	sub.custom_minimum_size = Vector2(820.0, 0.0)
 	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sub.add_theme_color_override("font_color", Color(0.86, 0.84, 0.78, 1.0))
-	sub.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.04, 1.0))
+	sub.add_theme_color_override("font_color", Color(0.86, 0.84, 0.78, 1.0))  # off-cream subtitle — not a palette role
+	sub.add_theme_color_override("font_outline_color", Palette.MUK_OUTLINE)
 	sub.add_theme_constant_override("outline_size", 6)
 	sub.add_theme_font_size_override("font_size", 18)
 	box.add_child(sub)
@@ -2082,7 +2082,7 @@ func _show_legendary_visual_cue() -> void:
 	# during cue presentation doesn't stall the animation.
 	var overlay: ColorRect = ColorRect.new()
 	overlay.name = "LegendaryCueOverlay"
-	overlay.color = Color(1.0, 0.85, 0.40, 0.0)
+	overlay.color = Color(Palette.GEUM_SAEK.r, Palette.GEUM_SAEK.g, Palette.GEUM_SAEK.b, 0.0)  # 금색 — legendary cue per bible §1
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_hud_layer.add_child(overlay)
@@ -2119,8 +2119,8 @@ func _mount_signature_count_badge() -> void:
 	var badge: Label = Label.new()
 	badge.name = "SignatureBadge"
 	badge.text = "✦ %d/%d 시그니처" % [active_count, total_count]
-	badge.add_theme_color_override("font_color", Color(0.96, 0.86, 0.42, 1.0))
-	badge.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.04, 1.0))
+	badge.add_theme_color_override("font_color", Palette.GEUM_SAEK)       # 금색 — signature badge
+	badge.add_theme_color_override("font_outline_color", Palette.MUK_OUTLINE)
 	badge.add_theme_constant_override("outline_size", 5)
 	badge.add_theme_font_size_override("font_size", 18)
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE

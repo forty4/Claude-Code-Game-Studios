@@ -49,7 +49,7 @@ func _ready() -> void:
 
 	_backdrop = ColorRect.new()
 	_backdrop.name = "Backdrop"
-	_backdrop.color = Color(0.03, 0.04, 0.06, 0.92)
+	_backdrop.color = Palette.BACKDROP_DARK  # 묵 — Palette tokens (art-bible-v1-distilled.md §1)
 	_backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(_backdrop)
@@ -71,8 +71,8 @@ func _ready() -> void:
 	var header: Label = Label.new()
 	header.text = "영걸전 시그니처 (%d / 5)" % unlocked_count
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	header.add_theme_color_override("font_color", Color(0.96, 0.86, 0.42, 1.0))
-	header.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.04, 1.0))
+	header.add_theme_color_override("font_color", Palette.GEUM_SAEK)       # 금색 — archive header gold
+	header.add_theme_color_override("font_outline_color", Palette.MUK_OUTLINE)
 	header.add_theme_constant_override("outline_size", 6)
 	header.add_theme_font_size_override("font_size", 28)
 	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -81,7 +81,7 @@ func _ready() -> void:
 	var subhead: Label = Label.new()
 	subhead.text = "캠페인 간 누적 — 한 번 달성하면 영구 보존됩니다."
 	subhead.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subhead.add_theme_color_override("font_color", Color(0.74, 0.72, 0.66, 0.92))
+	subhead.add_theme_color_override("font_color", Color(0.74, 0.72, 0.66, 0.92))  # muted — no palette token
 	subhead.add_theme_font_size_override("font_size", 14)
 	subhead.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(subhead)
@@ -113,8 +113,11 @@ func _make_signature_card(hero_name: String, chapter_label: String,
 	card.custom_minimum_size = Vector2(620, 0)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sb: StyleBoxFlat = StyleBoxFlat.new()
-	sb.bg_color = Color(0.10, 0.12, 0.16, 0.92) if is_active else Color(0.07, 0.08, 0.10, 0.84)
-	sb.border_color = Color(0.96, 0.78, 0.32, 0.95) if is_active else Color(0.32, 0.32, 0.34, 0.55)
+	sb.bg_color = Color(0.10, 0.12, 0.16, 0.92) if is_active else Color(0.07, 0.08, 0.10, 0.84)  # 묵 dark panel
+	sb.border_color = (
+		Color(Palette.GEUM_SAEK.r, Palette.GEUM_SAEK.g, Palette.GEUM_SAEK.b, 0.95)  # 금색 active border
+		if is_active else Color(0.32, 0.32, 0.34, 0.55)                               # muted inactive border
+	)
 	sb.border_width_left = 2
 	sb.border_width_top = 2
 	sb.border_width_right = 2
@@ -142,8 +145,8 @@ func _make_signature_card(hero_name: String, chapter_label: String,
 	var status_label: Label = Label.new()
 	status_label.text = "✦ 달성" if is_active else "○ 미달성"
 	var status_color: Color = (
-		Color(0.96, 0.86, 0.42, 1.0) if is_active
-		else Color(0.50, 0.50, 0.54, 0.85)
+		Palette.GEUM_SAEK if is_active          # 금색 — achieved status marker
+		else Color(0.50, 0.50, 0.54, 0.85)     # muted — no palette token
 	)
 	status_label.add_theme_color_override("font_color", status_color)
 	status_label.add_theme_font_size_override("font_size", 16)
@@ -153,11 +156,11 @@ func _make_signature_card(hero_name: String, chapter_label: String,
 	var hero_label: Label = Label.new()
 	hero_label.text = hero_name
 	var hero_color: Color = (
-		Color(0.98, 0.94, 0.84, 1.0) if is_active
-		else Color(0.62, 0.62, 0.62, 0.85)
+		Palette.JI_BAEK if is_active            # 지백 — active hero name
+		else Color(0.62, 0.62, 0.62, 0.85)     # muted — no palette token
 	)
 	hero_label.add_theme_color_override("font_color", hero_color)
-	hero_label.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.04, 1.0))
+	hero_label.add_theme_color_override("font_outline_color", Palette.MUK_OUTLINE)
 	hero_label.add_theme_constant_override("outline_size", 4)
 	hero_label.add_theme_font_size_override("font_size", 20)
 	hero_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -165,7 +168,7 @@ func _make_signature_card(hero_name: String, chapter_label: String,
 
 	var chapter_inline: Label = Label.new()
 	chapter_inline.text = "[%s]" % chapter_label
-	chapter_inline.add_theme_color_override("font_color", Color(0.62, 0.62, 0.62, 0.78))
+	chapter_inline.add_theme_color_override("font_color", Color(0.62, 0.62, 0.62, 0.78))  # muted — no palette token
 	chapter_inline.add_theme_font_size_override("font_size", 13)
 	chapter_inline.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title_row.add_child(chapter_inline)
@@ -174,8 +177,8 @@ func _make_signature_card(hero_name: String, chapter_label: String,
 	blurb_label.text = blurb
 	blurb_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var blurb_color: Color = (
-		Color(0.85, 0.83, 0.76, 0.94) if is_active
-		else Color(0.55, 0.55, 0.55, 0.80)
+		Color(0.85, 0.83, 0.76, 0.94) if is_active  # near-지백 prose — no exact palette token at this alpha
+		else Color(0.55, 0.55, 0.55, 0.80)           # muted — no palette token
 	)
 	blurb_label.add_theme_color_override("font_color", blurb_color)
 	blurb_label.add_theme_font_size_override("font_size", 14)

@@ -32,10 +32,6 @@ signal sequence_finished
 
 # ─── Tuning ───────────────────────────────────────────────────────────────────
 
-## Backdrop dim color — near-black with a faint cool cast so it reads as
-## "the world recedes, listen" rather than a plain black wipe.
-const BACKDROP_COLOR: Color = Color(0.035, 0.045, 0.065, 0.94)
-
 ## Max width of the text column so prose stays readable on wide (1920+) screens.
 const TEXT_COLUMN_WIDTH: float = 720.0
 
@@ -55,13 +51,14 @@ const TEXT_FADEIN_DURATION: float = 0.55
 ## before reading the body.
 const BODY_FADEIN_DELAY: float = 0.22
 
-## Cosmetic theme colors (kept off the art-bible reserved #D4A017).
-const TITLE_COLOR: Color = Color(0.96, 0.90, 0.74, 1.0)
-const BODY_COLOR: Color = Color(0.88, 0.87, 0.83, 1.0)
-const SPEAKER_COLOR: Color = Color(0.74, 0.84, 0.66, 1.0)
-const LINE_COLOR: Color = Color(0.97, 0.93, 0.84, 1.0)
-const OUTLINE_COLOR: Color = Color(0.02, 0.02, 0.03, 1.0)
-const FOOTER_COLOR: Color = Color(0.62, 0.62, 0.66, 0.85)
+## Cosmetic theme colors — Palette tokens — see design/art/art-bible-v1-distilled.md §1
+const BACKDROP_COLOR: Color = Palette.BACKDROP_DARK
+const TITLE_COLOR: Color = Palette.JI_BAEK                           # 지백 warm for title
+const BODY_COLOR: Color = Color(0.88, 0.87, 0.83, 1.0)               # near-지백, lighter prose
+const SPEAKER_COLOR: Color = Color(0.74, 0.84, 0.66, 1.0)            # UI hierarchy — no palette token
+const LINE_COLOR: Color = Palette.JI_BAEK                            # 지백 for quoted lines
+const OUTLINE_COLOR: Color = Palette.MUK_OUTLINE
+const FOOTER_COLOR: Color = Color(0.62, 0.62, 0.66, 0.85)            # dim footer — no palette token
 
 
 # ─── State ────────────────────────────────────────────────────────────────────

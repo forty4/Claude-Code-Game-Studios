@@ -29,18 +29,19 @@ signal sequence_finished
 
 # ─── Tuning ───────────────────────────────────────────────────────────────────
 
-const BACKDROP_COLOR:     Color = Color(0.035, 0.045, 0.065, 0.94)
-const HEADER_COLOR:       Color = Color(0.96, 0.90, 0.74, 1.0)
-const SUBHEAD_MUTED:      Color = Color(0.65, 0.62, 0.55, 0.85)
-const SUBHEAD_VIVID:      Color = Color("e8d68a")
-const TITLE_MUTED_COLOR:  Color = Color(0.62, 0.56, 0.48, 0.88)
-const TITLE_VIVID_COLOR:  Color = Color("e8d68a")
-const SEPARATOR_COLOR:    Color = Color(0.50, 0.50, 0.55, 0.40)
-const OUTLINE_COLOR:      Color = Color(0.02, 0.02, 0.03, 1.0)
+## Palette tokens — see design/art/art-bible-v1-distilled.md §1
+const BACKDROP_COLOR:     Color = Palette.BACKDROP_DARK
+const HEADER_COLOR:       Color = Palette.JI_BAEK                    # 지백 for section heading
+const SUBHEAD_MUTED:      Color = Color(0.65, 0.62, 0.55, 0.85)      # muted UI hierarchy — no palette token
+const SUBHEAD_VIVID:      Color = Palette.UI_GOLD                    # #E8D68A soft gold, NOT reserved 금색
+const TITLE_MUTED_COLOR:  Color = Color(0.62, 0.56, 0.48, 0.88)      # muted sepia — no palette token
+const TITLE_VIVID_COLOR:  Color = Palette.UI_GOLD                    # #E8D68A soft gold, NOT reserved 금색
+const SEPARATOR_COLOR:    Color = Color(0.50, 0.50, 0.55, 0.40)      # dim rule — no palette token
+const OUTLINE_COLOR:      Color = Palette.MUK_OUTLINE
 ## Session-44 — footnote color: dim parchment. Reads as ancillary "도움말"
 ## that doesn't compete with the bold title tier above. Stay legible against
 ## the dark backdrop via the heavy outline.
-const FOOTNOTE_COLOR:     Color = Color(0.68, 0.66, 0.60, 0.78)
+const FOOTNOTE_COLOR:     Color = Color(0.68, 0.66, 0.60, 0.78)      # dim footer — no palette token
 
 const HEADER_TEXT:        String = "역사의 두 갈래"
 const SUBHEAD_OTHER:      String = "또 다른 갈래"
