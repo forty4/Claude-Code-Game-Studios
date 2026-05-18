@@ -328,6 +328,47 @@ var _fate_formation_turns: int = 0
 var _fate_assassin_kills: int = 0
 var _fate_boss_killed: bool = false
 
+# Phase F (영걸전식 25챕터 hidden destiny tracking) — 12 additional fate field counters.
+# Each is updated in either _on_round_started (per-round predicates) or kill / damage
+# hooks. fate_data dict emits all 13+5 fields at battle end; HiddenConditionEvaluator
+# reads via fate_threshold field → counter mapping.
+#
+# Wired (concrete gameplay logic):
+#   win_within_turns        — round number when WIN outcome emits (sentinel 9999 if LOSS)
+#   discipline_turns        — round count where no friendly losses occurred since last round
+#   escort_alive_turns      — round count where unit 5 (ch03 escort placeholder) alive
+#   wei_yan_spared_turns    — round count where unit 15 (ch13 위연) alive
+#   qixing_turns            — round count where unit 13 (제갈량) on tile [7,5] (ch25 칠성단)
+#   counter_fire_turns      — round count where ≥1 FIRE tile (terrain 8) on map (ch22)
+#   retreat_path_clear_turns— round count where tile [13,5] has no enemy within 2 cells (ch20)
+#   masu_supervised_turns   — round count where chokepoint [7,5] has friendly unit (ch24)
+#   dmg_to_lubu             — cumulative damage to unit with hero_id qun_001_lu_bu (ch02)
+#   huang_zhong_xiahou_yuan_kill — bool 1 if 황충 (unit 9) killed 하후돈 (unit 2) (ch19)
+#
+# Wired (continued):
+#   scout_first_turns       — round count where ≥1 friendly CAVALRY/SCOUT unit
+#                             stands on a FOREST tile (terrain 1). Represents
+#                             정찰 forward positioning (ch16 방통 생존 시그니처).
+#
+# Aspirational (counter declared, NOT incremented — needs system extension):
+#   civilians_escorted      — TODO ch05; needs civilian system
+#   menghuo_captures        — TODO ch23; needs capture-and-release mechanic
+var _fate_dmg_to_lubu: int = 0
+var _fate_escort_alive_turns: int = 0
+var _fate_win_within_turns: int = 9999
+var _fate_civilians_escorted: int = 0
+var _fate_wei_yan_spared_turns: int = 0
+var _fate_scout_first_turns: int = 0
+var _fate_huang_zhong_xiahou_yuan_kill: int = 0
+var _fate_retreat_path_clear_turns: int = 0
+var _fate_discipline_turns: int = 0
+var _fate_counter_fire_turns: int = 0
+var _fate_menghuo_captures: int = 0
+var _fate_masu_supervised_turns: int = 0
+var _fate_qixing_turns: int = 0
+# Internal: friendly-alive snapshot for discipline_turns. -1 = uninitialized.
+var _fate_friendly_alive_at_last_round: int = -1
+
 # ─── Player-facing battle stats (session-15 commit 4 — 성취감 surface) ────────
 # These are categorical aggregates rendered on the UI-GB-09 result panel after
 # battle_outcome_resolved fires. NOT fate counters — Pillar 2 audit clean.
@@ -1181,6 +1222,18 @@ func _on_unit_died(unit_id: int) -> void:
 		if _units.has(unit_id) and _units[unit_id].side == 1:
 			_fate_assassin_kills += 1
 			hidden_fate_condition_progressed.emit(&"assassin_kills", _fate_assassin_kills)
+	# Phase F — huang_zhong_xiahou_yuan_kill (ch19 정군산 노장 결전 시그니처).
+	# Bool 1 iff 황충 (shu_004_huang_zhong) directly killed 하후돈 (wei_005_xiahou_dun).
+	# Hero_id matching is chapter-agnostic — works in any chapter where both heroes
+	# happen to be on opposite sides (ch19 is the only one as authored).
+	if _fate_huang_zhong_xiahou_yuan_kill == 0 \
+			and _last_attacker_id != -1 \
+			and _units.has(_last_attacker_id) and _units.has(unit_id):
+		var k: BattleUnit = _units[_last_attacker_id]
+		var v: BattleUnit = _units[unit_id]
+		if k.hero_id == &"shu_004_huang_zhong" and v.hero_id == &"wei_005_xiahou_dun":
+			_fate_huang_zhong_xiahou_yuan_kill = 1
+			hidden_fate_condition_progressed.emit(&"huang_zhong_xiahou_yuan_kill", 1)
 	# Session-15 commit 4: kill credit for the result-screen aggregate. Credit
 	# the LAST ATTACKER only when victim is on the opposite side (no friendly-fire
 	# credit). Side-agnostic — both player and enemy "kills" are tracked but only
@@ -1384,9 +1437,137 @@ func _on_round_started(round_num: int) -> void:
 			_fate_formation_turns += 1
 			hidden_fate_condition_progressed.emit(&"formation_turns", _fate_formation_turns)
 			break  # one increment per round, not per qualifying unit
+	# Phase F — 25챕터 영걸전 hidden destiny per-round predicates. Each counter
+	# increments when its chapter-specific predicate holds. Counters tied to
+	# unit_ids that don't exist in the current chapter stay 0 (predicate false).
+	_evaluate_phase_f_per_round_counters()
 	# Story-007 AC-3: round 6 (>5) triggers TURN_LIMIT_REACHED.
 	if round_num > _max_turns:
 		_emit_battle_outcome(&"TURN_LIMIT_REACHED")
+
+
+## Phase F — per-round fate field evaluation. Each counter increments when its
+## chapter-specific predicate holds. Predicate references unit_ids that may
+## not exist outside their owning chapter → stays 0 in other contexts.
+##
+## See _fate_* var declarations for the field → chapter mapping.
+func _evaluate_phase_f_per_round_counters() -> void:
+	# discipline_turns (ch21): no friendly losses since last round. Snapshot the
+	# alive friendly count each round; if unchanged, the discipline held.
+	var current_friendly_alive: int = 0
+	for unit: BattleUnit in _units.values():
+		if unit.side == 0 and _hp_controller.is_alive(unit.unit_id):
+			current_friendly_alive += 1
+	if _fate_friendly_alive_at_last_round == -1:
+		_fate_friendly_alive_at_last_round = current_friendly_alive  # round 1 baseline
+	elif current_friendly_alive == _fate_friendly_alive_at_last_round:
+		_fate_discipline_turns += 1
+		hidden_fate_condition_progressed.emit(&"discipline_turns", _fate_discipline_turns)
+		_fate_friendly_alive_at_last_round = current_friendly_alive
+	else:
+		_fate_friendly_alive_at_last_round = current_friendly_alive  # someone died; reset baseline
+
+	# escort_alive_turns (ch03): unit 5 (wei_001_cao_cao placeholder for 도겸) alive.
+	if _units.has(5) and _hp_controller.is_alive(5):
+		_fate_escort_alive_turns += 1
+		hidden_fate_condition_progressed.emit(&"escort_alive_turns", _fate_escort_alive_turns)
+
+	# wei_yan_spared_turns (ch13): unit 15 (위연) alive. Only present in ch13 enemy roster.
+	if _units.has(15) and _hp_controller.is_alive(15):
+		_fate_wei_yan_spared_turns += 1
+		hidden_fate_condition_progressed.emit(&"wei_yan_spared_turns", _fate_wei_yan_spared_turns)
+
+	# qixing_turns (ch25): 제갈량 (unit 13) on tile [7,5] (칠성단). 본진 사수.
+	if _units.has(13) and _hp_controller.is_alive(13):
+		var zhuge: BattleUnit = _units[13]
+		if zhuge.position == Vector2i(7, 5):
+			_fate_qixing_turns += 1
+			hidden_fate_condition_progressed.emit(&"qixing_turns", _fate_qixing_turns)
+
+	# counter_fire_turns (ch22): ≥1 FIRE tile (terrain 8) on map.
+	if _map_grid != null and _map_has_fire_tile():
+		_fate_counter_fire_turns += 1
+		hidden_fate_condition_progressed.emit(&"counter_fire_turns", _fate_counter_fire_turns)
+
+	# retreat_path_clear_turns (ch20): tile [13,5] has no enemy within Chebyshev distance 2.
+	if not _enemy_within_radius(Vector2i(13, 5), 2):
+		_fate_retreat_path_clear_turns += 1
+		hidden_fate_condition_progressed.emit(
+			&"retreat_path_clear_turns", _fate_retreat_path_clear_turns
+		)
+
+	# masu_supervised_turns (ch24): friendly unit on chokepoint [7,5] (가정 길목).
+	if _friendly_on_tile(Vector2i(7, 5)):
+		_fate_masu_supervised_turns += 1
+		hidden_fate_condition_progressed.emit(
+			&"masu_supervised_turns", _fate_masu_supervised_turns
+		)
+
+	# scout_first_turns (ch16 낙봉파 — 방통 생존 시그니처 #2). Friendly CAVALRY
+	# (class 0) or SCOUT (class 5) on a FOREST tile (terrain 1) = 정찰 forward
+	# positioning. In ch16 map, FOREST patches at rows 3 + 7 are the ambush
+	# spots — 조운/마초 occupying those tiles exposes the matsumoto archers
+	# before they fire on the main 방통-led column.
+	if _friendly_scout_on_forest():
+		_fate_scout_first_turns += 1
+		hidden_fate_condition_progressed.emit(&"scout_first_turns", _fate_scout_first_turns)
+
+
+func _map_has_fire_tile() -> bool:
+	if _map_grid == null:
+		return false
+	var dims: Vector2i = _map_grid.get_map_dimensions()
+	for r: int in dims.y:
+		for c: int in dims.x:
+			var td: MapTileData = _map_grid.get_tile(Vector2i(c, r))
+			if td != null and td.terrain_type == 8:
+				return true
+	return false
+
+
+func _enemy_within_radius(center: Vector2i, radius: int) -> bool:
+	for unit: BattleUnit in _units.values():
+		if unit.side != 1:
+			continue
+		if not _hp_controller.is_alive(unit.unit_id):
+			continue
+		var dx: int = absi(unit.position.x - center.x)
+		var dy: int = absi(unit.position.y - center.y)
+		if maxi(dx, dy) <= radius:
+			return true
+	return false
+
+
+func _friendly_on_tile(tile: Vector2i) -> bool:
+	for unit: BattleUnit in _units.values():
+		if unit.side != 0:
+			continue
+		if not _hp_controller.is_alive(unit.unit_id):
+			continue
+		if unit.position == tile:
+			return true
+	return false
+
+
+## Phase F (ch16) — friendly CAVALRY (class 0) or SCOUT (class 5) on a FOREST
+## tile (terrain 1). Requires both a friendly mobile-class unit AND its
+## position be on a FOREST tile in the current map. Used by scout_first_turns
+## per-round predicate.
+func _friendly_scout_on_forest() -> bool:
+	if _map_grid == null:
+		return false
+	for unit: BattleUnit in _units.values():
+		if unit.side != 0:
+			continue
+		if not _hp_controller.is_alive(unit.unit_id):
+			continue
+		# CAVALRY (0) or SCOUT (5) class = mobile scout role
+		if unit.unit_class != 0 and unit.unit_class != 5:
+			continue
+		var td: MapTileData = _map_grid.get_tile(unit.position)
+		if td != null and td.terrain_type == 1:
+			return true
+	return false
 
 
 # ─── Private helpers ─────────────────────────────────────────────────────────
@@ -2440,6 +2621,14 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 		_damage_dealt_by_unit[attacker.unit_id] = \
 			_damage_dealt_by_unit.get(attacker.unit_id, 0) + final_damage
 
+	# Phase F — dmg_to_lubu (ch02 hidden destiny 시그니처). Accumulate damage
+	# dealt to any unit with hero_id qun_001_lu_bu (여포). Chapter-agnostic by
+	# hero_id; only ch02 enemy roster contains lu_bu as authored.
+	if result.kind == ResolveResult.Kind.HIT and final_damage > 0 \
+			and defender.hero_id == &"qun_001_lu_bu" and attacker.side == 0:
+		_fate_dmg_to_lubu += final_damage
+		hidden_fate_condition_progressed.emit(&"dmg_to_lubu", _fate_dmg_to_lubu)
+
 	# Stage 8: emit damage_applied per ADR-0014 §8
 	damage_applied.emit(attacker.unit_id, defender.unit_id, final_damage)
 
@@ -2694,6 +2883,18 @@ func _emit_battle_outcome(outcome: StringName) -> void:
 		var max_hp: int = _hp_controller.get_max_hp(_fate_tank_unit_id)
 		if max_hp > 0:
 			tank_pct = float(_hp_controller.get_current_hp(_fate_tank_unit_id)) / float(max_hp)
+	# Phase F — win_within_turns (ch04 시그니처). Set to actual round count iff
+	# outcome is a WIN-class; LOSS / DRAW keep the sentinel 9999 so the threshold
+	# check `win_within_turns <= 6` only fires for fast WINs.
+	if outcome == &"VICTORY_ANNIHILATION" \
+			or outcome == &"VICTORY_SURVIVE" \
+			or outcome == &"VICTORY_REACH_TILE" \
+			or outcome == &"VICTORY_ESCORT":
+		var round_now: int = 0
+		if _turn_runner != null and _turn_runner.has_method("get_current_round_number"):
+			round_now = _turn_runner.get_current_round_number()
+		_fate_win_within_turns = round_now if round_now > 0 else 1
+
 	var fate_data: Dictionary = {
 		"tank_unit_id": _fate_tank_unit_id,
 		"tank_alive_hp_pct": tank_pct,
@@ -2703,6 +2904,21 @@ func _emit_battle_outcome(outcome: StringName) -> void:
 		"formation_turns": _fate_formation_turns,
 		"assassin_kills": _fate_assassin_kills,
 		"boss_killed": _fate_boss_killed,
+		# Phase F — 25챕터 영걸전 hidden destiny fate fields (see _fate_* var
+		# declarations for chapter mapping + wireable/aspirational status).
+		"dmg_to_lubu": _fate_dmg_to_lubu,
+		"escort_alive_turns": _fate_escort_alive_turns,
+		"win_within_turns": _fate_win_within_turns,
+		"civilians_escorted": _fate_civilians_escorted,
+		"wei_yan_spared_turns": _fate_wei_yan_spared_turns,
+		"scout_first_turns": _fate_scout_first_turns,
+		"huang_zhong_xiahou_yuan_kill": _fate_huang_zhong_xiahou_yuan_kill,
+		"retreat_path_clear_turns": _fate_retreat_path_clear_turns,
+		"discipline_turns": _fate_discipline_turns,
+		"counter_fire_turns": _fate_counter_fire_turns,
+		"menghuo_captures": _fate_menghuo_captures,
+		"masu_supervised_turns": _fate_masu_supervised_turns,
+		"qixing_turns": _fate_qixing_turns,
 	}
 	battle_outcome_resolved.emit(outcome, fate_data)
 

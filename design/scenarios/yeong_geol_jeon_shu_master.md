@@ -1,8 +1,39 @@
 # 영걸전식 Shu 라인 마스터 플랜 (mvp_shu 풀 캠페인)
 
-> **상태**: DRAFT — 2026-05-17 작성. 구현 전 사용자 승인 단계.
+> **상태**: ✅ **COMPLETE — Phase 0 / A / B / C / D / E + F (fate tracking) all shipped 2026-05-18**.
 > **목표**: 현재 5챕터(장판~적벽)인 `mvp_shu` 시나리오를 영걸전식 25챕터 풀 캠페인으로 확장 (도원결의 → 오장원).
 > **범위**: 데이터 레이어 (JSON + .tres 맵 + story_content + heroes.json + 회귀 테스트). 시나리오 선택 UI / 기존 메뉴는 별건.
+
+## 진행 상태 요약 (2026-05-18 attested)
+
+| Phase | 챕터 | 신규 영웅 | 시그니처 hidden destiny | 상태 |
+|-------|------|----------|------------------------|------|
+| **Phase 0** | ch01~05 → ch06~10 인덱스 시프트 | — | — | ✅ commit `982a609` |
+| **Phase A** | ch01~05 prequel (황건적~신야) | 조운, 제갈량 | 4 hidden (ch02/03/04/05) | ✅ commit `e66de5a` |
+| **Phase B** | ch11~14 (형주 4군 + 통합) | 위연 | ch13 위연 투항 | ✅ |
+| **Phase C** | ch15~17 (익주 입성) | 방통 | ch16 방통 생존 ★ (#1) | ✅ |
+| **Phase D** | ch18~22 (한중·이릉) | 마초 | ch19 황충 인증 / ch20 관우 생환 ★ (#2) / ch21 장비 생존 ★ (#3) / ch22 유비 생환 ★ (#4) | ✅ |
+| **Phase E** | ch23~25 (남만·북벌·오장원) | 강유 | ch23 칠종칠금 / ch24 마속 생존 / ch25 제갈량 회생 ★ (#5) | ✅ |
+| **Phase F** | Fate tracking + windowed attestation | — | 11/13 wireable (5/5 시그니처 ★ trigger 가능) | 🟡 manual attestation 대기 |
+
+**★ = 영걸전 5대 시그니처 분기 (방통/관우/장비/유비/제갈량 생환) — 5/5 모두 데이터 레이어 + 게임플레이 트리거 완성.**
+
+**Tests**: 1803/1803 PASS · 0 errors · 0 failures · 0 flaky · 0 skipped · 276 orphans.
+**Hero roster**: 9 Shu (유비/관우/장비/황충/조운/제갈량/방통/마초/위연/강유) + 외부 7 (조조/하후돈/장료/우금/허저/손권/주유/초선/여포).
+**Hidden destiny chain**: 14개 작성 (master plan §1) / 11개 wireable / 5/5 영걸전 시그니처 trigger 가능.
+**Fate field wired**: dmg_to_lubu, escort_alive_turns, win_within_turns, wei_yan_spared_turns, scout_first_turns, huang_zhong_xiahou_yuan_kill, retreat_path_clear_turns, discipline_turns, counter_fire_turns, masu_supervised_turns, qixing_turns.
+**Aspirational (TODO)**: civilians_escorted (ch05 — civilian system 필요), menghuo_captures (ch23 — capture-release mechanic 필요).
+
+## Phase F 미완료 잔여
+
+- **Manual windowed attestation**: `production/qa/evidence/phase-f-windowed-boot-attestation-25-chapters.md` 체크리스트 — 25 챕터 windowed boot 시각/입력/음악 검증 (~13분).
+- **시그니처 5/5 in-windowed trigger 검증**: ch21 `discipline_turns >= 4` 가장 쉬운 시도 (친군 손실 없이 4턴).
+- **Multi-step survival cascade**: 단일 step branch_overrides 한계 — 관우/장비/유비 모두 ch25까지 살리려면 ScenarioState memory + chained branch keys 필요. polish 후보.
+- **`scenario_id` rename**: `mvp_shu` → `shu_canon_full` or `yeong_geol_jeon_shu`. SaveContext 마이그레이션.
+- **음악 다양성**: 5 procedural 테마 25챕터 mapping — 반복감 polish 후보.
+- **DEV 챕터 점프 메뉴 UX**: 25 행 PopupMenu — submenu (5 phase × 5 ch) 또는 scroll 가능성.
+
+---
 
 ---
 

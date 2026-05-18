@@ -99,9 +99,13 @@ func test_on_round_started_with_adjacent_allies_increments_formation_turns() -> 
 	var enemy: BattleUnit = _make_unit(3, Vector2i(7, 7), 1)
 	var bag: Dictionary = _setup([u1, u2, enemy])
 	var controller: GridBattleController = bag["controller"]
+	# Filter to formation_turns only — Phase F added per-round counters
+	# (retreat_path_clear_turns / discipline_turns etc.) that fire on the same
+	# round but are unrelated to this AC-3 formation test.
 	var captures: Array = []
 	controller.hidden_fate_condition_progressed.connect(func(condition: StringName, value: int) -> void:
-		captures.append({"condition": condition, "value": value})
+		if condition == &"formation_turns":
+			captures.append({"condition": condition, "value": value})
 	)
 
 	controller._on_round_started(1)
@@ -121,9 +125,11 @@ func test_on_round_started_no_adjacent_allies_no_increment() -> void:
 	var enemy: BattleUnit = _make_unit(3, Vector2i(4, 4), 1)
 	var bag: Dictionary = _setup([u1, u2, enemy])
 	var controller: GridBattleController = bag["controller"]
+	# Filter to formation_turns only — Phase F per-round counters fire too.
 	var captures: Array = []
 	controller.hidden_fate_condition_progressed.connect(func(condition: StringName, value: int) -> void:
-		captures.append({"condition": condition, "value": value})
+		if condition == &"formation_turns":
+			captures.append({"condition": condition, "value": value})
 	)
 
 	controller._on_round_started(1)
@@ -304,9 +310,16 @@ func test_full_fate_sweep_all_conditions_trigger_independently() -> void:
 	hp.set_hp(1, 50, 100)  # tank at 50%
 	var bag: Dictionary = _setup([tank, assassin, ally, boss, grunt], hp)
 	var controller: GridBattleController = bag["controller"]
+	# Filter to legacy 3 fields — Phase F added per-round counters that fire
+	# alongside formation_turns; this AC-9 sweep is scoped to the original
+	# 4 trackable conditions (formation_turns + assassin_kills + boss_killed).
+	var _legacy_fields: Array[StringName] = [
+		&"formation_turns", &"assassin_kills", &"boss_killed", &"rear_attacks",
+	]
 	var fate_emits: Array = []
 	controller.hidden_fate_condition_progressed.connect(func(condition: StringName, value: int) -> void:
-		fate_emits.append({"condition": condition, "value": value})
+		if condition in _legacy_fields:
+			fate_emits.append({"condition": condition, "value": value})
 	)
 	var outcome_captures: Array = []
 	controller.battle_outcome_resolved.connect(func(_outcome: StringName, data: Dictionary) -> void:
@@ -356,3 +369,230 @@ func test_hidden_fate_signal_has_zero_default_subscribers() -> void:
 	var connections: Array = controller.hidden_fate_condition_progressed.get_connections()
 
 	assert_int(connections.size()).is_equal(0)
+
+
+# ─── Phase F (영걸전식 25챕터 hidden destiny fate field tracking) ────────────
+
+
+## Phase F — fate_data dict snapshot includes all 13 new fate fields with their
+## initial values. Schema completeness sentinel: hidden_condition_evaluator
+## reads `fate_data[field]` and returns false if field is MISSING (not just
+## zero) — the schema must include every field referenced by mvp_shu hidden
+## conditions for the evaluator to operate on a present-but-zero value.
+func test_fate_data_snapshot_includes_all_phase_f_fields() -> void:
+	var u1: BattleUnit = _make_unit(1, Vector2i(0, 0), 0)
+	var enemy: BattleUnit = _make_unit(2, Vector2i(7, 7), 1)
+	var bag: Dictionary = _setup([u1, enemy])
+	var controller: GridBattleController = bag["controller"]
+	var captures: Array = []
+	controller.battle_outcome_resolved.connect(func(_outcome: StringName, data: Dictionary) -> void:
+		captures.append(data)
+	)
+
+	controller._emit_battle_outcome(&"DEFEAT_ANNIHILATION")
+
+	assert_int(captures.size()).is_equal(1)
+	var fate_data: Dictionary = captures[0] as Dictionary
+	var phase_f_fields: Array[StringName] = [
+		&"dmg_to_lubu", &"escort_alive_turns", &"win_within_turns",
+		&"civilians_escorted", &"wei_yan_spared_turns", &"scout_first_turns",
+		&"huang_zhong_xiahou_yuan_kill", &"retreat_path_clear_turns",
+		&"discipline_turns", &"counter_fire_turns", &"menghuo_captures",
+		&"masu_supervised_turns", &"qixing_turns",
+	]
+	for field: StringName in phase_f_fields:
+		assert_bool(fate_data.has(field)).override_failure_message(
+			"Phase F: fate_data snapshot must include field '%s' (HiddenConditionEvaluator returns false on missing field)"
+				% String(field)
+		).is_true()
+
+
+## Phase F — wei_yan_spared_turns increments each round unit 15 (ch13 위연) is alive.
+func test_wei_yan_spared_turns_increments_when_unit_15_alive() -> void:
+	var u1: BattleUnit = _make_unit(1, Vector2i(0, 0), 0)
+	var wei_yan: BattleUnit = _make_unit(15, Vector2i(7, 7), 1)
+	var bag: Dictionary = _setup([u1, wei_yan])
+	var controller: GridBattleController = bag["controller"]
+
+	controller._on_round_started(1)
+	controller._on_round_started(2)
+	controller._on_round_started(3)
+
+	assert_int(controller._fate_wei_yan_spared_turns).override_failure_message(
+		"Phase F: wei_yan_spared_turns must increment each round unit 15 is alive (got %d, expected 3)"
+			% controller._fate_wei_yan_spared_turns
+	).is_equal(3)
+
+
+## Phase F — wei_yan_spared_turns stays 0 when unit 15 absent (other chapters).
+func test_wei_yan_spared_turns_stays_zero_when_unit_15_absent() -> void:
+	var u1: BattleUnit = _make_unit(1, Vector2i(0, 0), 0)
+	var enemy: BattleUnit = _make_unit(2, Vector2i(7, 7), 1)
+	var bag: Dictionary = _setup([u1, enemy])
+	var controller: GridBattleController = bag["controller"]
+
+	controller._on_round_started(1)
+	controller._on_round_started(2)
+
+	assert_int(controller._fate_wei_yan_spared_turns).is_equal(0)
+
+
+## Phase F — discipline_turns counts rounds 2+ where friendly alive count
+## unchanged since previous round (ch21 시그니처). Round 1 sets baseline.
+func test_discipline_turns_increments_rounds_with_no_friendly_loss() -> void:
+	var u1: BattleUnit = _make_unit(1, Vector2i(0, 0), 0)
+	var u2: BattleUnit = _make_unit(2, Vector2i(1, 0), 0)
+	var enemy: BattleUnit = _make_unit(3, Vector2i(7, 7), 1)
+	var bag: Dictionary = _setup([u1, u2, enemy])
+	var controller: GridBattleController = bag["controller"]
+
+	controller._on_round_started(1)  # baseline (2 friendly alive)
+	controller._on_round_started(2)  # 2 alive → discipline=1
+	controller._on_round_started(3)  # 2 alive → discipline=2
+	controller._on_round_started(4)  # 2 alive → discipline=3
+
+	assert_int(controller._fate_discipline_turns).override_failure_message(
+		"Phase F: discipline_turns should be 3 (rounds 2/3/4 with no friendly losses since baseline round 1)"
+	).is_equal(3)
+
+
+## Phase F — discipline_turns does NOT increment when a friendly death happened.
+func test_discipline_turns_resets_baseline_when_friendly_dies() -> void:
+	var u1: BattleUnit = _make_unit(1, Vector2i(0, 0), 0)
+	var u2: BattleUnit = _make_unit(2, Vector2i(1, 0), 0)
+	var enemy: BattleUnit = _make_unit(3, Vector2i(7, 7), 1)
+	var hp: FateAwareHPStub = FateAwareHPStub.new()
+	var bag: Dictionary = _setup([u1, u2, enemy], hp)
+	var controller: GridBattleController = bag["controller"]
+
+	controller._on_round_started(1)  # baseline (2 friendly alive)
+	controller._on_round_started(2)  # 2 alive → discipline=1
+	hp.mark_dead(2)  # u2 dies between rounds
+	controller._on_round_started(3)  # 1 alive — different from baseline → no increment + reset
+	controller._on_round_started(4)  # 1 alive → matches new baseline → discipline=2
+
+	assert_int(controller._fate_discipline_turns).override_failure_message(
+		"Phase F: discipline_turns should be 2 (round 2 increment + round 3 reset + round 4 new-baseline increment)"
+	).is_equal(2)
+
+
+## Phase F — qixing_turns increments each round 제갈량 (unit 13) on tile [7,5] (ch25).
+func test_qixing_turns_increments_when_zhuge_holds_position() -> void:
+	var zhuge: BattleUnit = _make_unit(13, Vector2i(7, 5), 0)
+	var enemy: BattleUnit = _make_unit(2, Vector2i(0, 0), 1)
+	var bag: Dictionary = _setup([zhuge, enemy])
+	var controller: GridBattleController = bag["controller"]
+
+	controller._on_round_started(1)
+	controller._on_round_started(2)
+
+	assert_int(controller._fate_qixing_turns).is_equal(2)
+
+
+## Phase F — qixing_turns stays 0 when 제갈량 (unit 13) NOT on the칠성단 tile.
+func test_qixing_turns_stays_zero_when_zhuge_off_position() -> void:
+	var zhuge: BattleUnit = _make_unit(13, Vector2i(6, 5), 0)  # adjacent, not [7,5]
+	var enemy: BattleUnit = _make_unit(2, Vector2i(0, 0), 1)
+	var bag: Dictionary = _setup([zhuge, enemy])
+	var controller: GridBattleController = bag["controller"]
+
+	controller._on_round_started(1)
+	controller._on_round_started(2)
+
+	assert_int(controller._fate_qixing_turns).is_equal(0)
+
+
+## Phase F — win_within_turns set to round count on WIN outcome (ch04 시그니처).
+func test_win_within_turns_set_on_victory() -> void:
+	var u1: BattleUnit = _make_unit(1, Vector2i(0, 0), 0)
+	var enemy: BattleUnit = _make_unit(2, Vector2i(7, 7), 1)
+	var bag: Dictionary = _setup([u1, enemy])
+	var controller: GridBattleController = bag["controller"]
+	var captures: Array = []
+	controller.battle_outcome_resolved.connect(func(_outcome: StringName, data: Dictionary) -> void:
+		captures.append(data)
+	)
+
+	controller._emit_battle_outcome(&"VICTORY_ANNIHILATION")
+
+	var fate_data: Dictionary = captures[0] as Dictionary
+	# TurnOrderRunnerStub returns 0 for get_current_round_number; controller
+	# defaults to 1 when round_now <= 0 per win_within_turns set-logic.
+	assert_int(fate_data["win_within_turns"] as int).override_failure_message(
+		"Phase F: win_within_turns must be set to round count on WIN outcome (got %d)"
+			% (fate_data["win_within_turns"] as int)
+	).is_equal(1)
+
+
+## Phase F — win_within_turns stays sentinel 9999 on LOSS outcome.
+func test_win_within_turns_stays_sentinel_on_loss() -> void:
+	var u1: BattleUnit = _make_unit(1, Vector2i(0, 0), 0)
+	var enemy: BattleUnit = _make_unit(2, Vector2i(7, 7), 1)
+	var bag: Dictionary = _setup([u1, enemy])
+	var controller: GridBattleController = bag["controller"]
+	var captures: Array = []
+	controller.battle_outcome_resolved.connect(func(_outcome: StringName, data: Dictionary) -> void:
+		captures.append(data)
+	)
+
+	controller._emit_battle_outcome(&"DEFEAT_ANNIHILATION")
+
+	var fate_data: Dictionary = captures[0] as Dictionary
+	assert_int(fate_data["win_within_turns"] as int).override_failure_message(
+		"Phase F: win_within_turns must stay sentinel 9999 on LOSS (threshold 'win_within_turns <= 6' must NOT fire)"
+	).is_equal(9999)
+
+
+## Phase F — scout_first_turns increments each round CAVALRY friendly stands
+## on a FOREST tile (ch16 방통 생존 시그니처 #2). MapGridStub provides per-coord
+## terrain via set_terrain_type_for_test.
+func test_scout_first_turns_increments_when_cavalry_on_forest() -> void:
+	var scout: BattleUnit = _make_unit(1, Vector2i(3, 3), 0)
+	scout.unit_class = 0  # CAVALRY — matches scout role predicate
+	var enemy: BattleUnit = _make_unit(2, Vector2i(7, 7), 1)
+	var bag: Dictionary = _setup([scout, enemy])
+	var controller: GridBattleController = bag["controller"]
+	# Set [3,3] as FOREST (terrain_type=1) so scout predicate fires.
+	var map_grid: MapGridStub = controller._map_grid as MapGridStub
+	map_grid.set_terrain_type_for_test(Vector2i(3, 3), 1)
+
+	controller._on_round_started(1)
+	controller._on_round_started(2)
+
+	assert_int(controller._fate_scout_first_turns).override_failure_message(
+		"Phase F: scout_first_turns must increment each round CAVALRY friendly on FOREST (got %d, expected 2)"
+			% controller._fate_scout_first_turns
+	).is_equal(2)
+
+
+## Phase F — scout_first_turns stays 0 when CAVALRY friendly is NOT on a FOREST tile.
+func test_scout_first_turns_stays_zero_off_forest() -> void:
+	var scout: BattleUnit = _make_unit(1, Vector2i(3, 3), 0)
+	scout.unit_class = 0  # CAVALRY
+	var enemy: BattleUnit = _make_unit(2, Vector2i(7, 7), 1)
+	var bag: Dictionary = _setup([scout, enemy])
+	var controller: GridBattleController = bag["controller"]
+	# No FOREST terrain set — [3,3] defaults to PLAINS (terrain_type=0).
+
+	controller._on_round_started(1)
+	controller._on_round_started(2)
+
+	assert_int(controller._fate_scout_first_turns).is_equal(0)
+
+
+## Phase F — scout_first_turns ignores non-CAVALRY/non-SCOUT classes (e.g.,
+## STRATEGIST on FOREST does NOT count — 방통은 본진, 정찰은 조운/마초 같은 기동 무장).
+func test_scout_first_turns_ignores_strategist_on_forest() -> void:
+	var strategist: BattleUnit = _make_unit(1, Vector2i(3, 3), 0)
+	strategist.unit_class = 3  # STRATEGIST — not scout class
+	var enemy: BattleUnit = _make_unit(2, Vector2i(7, 7), 1)
+	var bag: Dictionary = _setup([strategist, enemy])
+	var controller: GridBattleController = bag["controller"]
+	var map_grid: MapGridStub = controller._map_grid as MapGridStub
+	map_grid.set_terrain_type_for_test(Vector2i(3, 3), 1)  # FOREST
+
+	controller._on_round_started(1)
+
+	assert_int(controller._fate_scout_first_turns).override_failure_message(
+		"Phase F: scout_first_turns must IGNORE STRATEGIST (class 3) — only CAVALRY (0) and SCOUT (5) qualify"
+	).is_equal(0)
