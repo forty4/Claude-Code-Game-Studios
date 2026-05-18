@@ -84,3 +84,21 @@ theme_override_colors/font_color = Color(0.66, 0.66, 0.70, 1)
 theme_override_constants/outline_size = 3
 theme_override_font_sizes/font_size = 16
 mouse_filter = 2
+
+[node name="Spacer2" type="Control" parent="Center/Box"]
+custom_minimum_size = Vector2(0, 8)
+mouse_filter = 2
+
+[node name="SignatureBadge" type="Label" parent="Center/Box"]
+text = "✦ 0/5 시그니처"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.96, 0.86, 0.42, 1)
+theme_override_colors/font_outline_color = Color(0.03, 0.03, 0.04, 1)
+theme_override_constants/outline_size = 5
+theme_override_font_sizes/font_size = 18
+mouse_filter = 2
+
+[node name="ArchiveButton" type="Button" parent="Center/Box"]
+text = "시그니처 아카이브"
+custom_minimum_size = Vector2(280, 40)
+theme_override_font_sizes/font_size = 18
