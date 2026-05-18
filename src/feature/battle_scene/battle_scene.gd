@@ -686,8 +686,19 @@ func _beat_content(text_key: String) -> Dictionary:
 
 ## Pre-battle beats for `chapter`: Beat 1 anchor + Beat 3 brief (Beat 2 is a
 ## silent_visual fragment with no text — skipped). Filters out keys with no content.
+##
+## S65+ — cascade 합류 인사: ScenarioRunner has a pending cascade announcement
+## (직전 챕터에서 시그니처 키가 해소되어 현재 챕터가 cascade entry first-join
+## 인 상황), prepend that beat AHEAD of beat_1. Consume the announcement after
+## reading so it doesn't replay on retry-reload.
 func _collect_pre_battle_beats(chapter: ChapterDefinition) -> Array:
 	var beats: Array = []
+	var cascade: Dictionary = ScenarioRunner.consume_pending_cascade_announcement()
+	if not cascade.is_empty():
+		var cascade_text_key: String = cascade.get("text_key", "") as String
+		var cascade_beat: Dictionary = _beat_content(cascade_text_key)
+		if not cascade_beat.is_empty():
+			beats.append(cascade_beat)
 	var b1: Dictionary = _beat_content(chapter.beat_1_text_key)
 	if not b1.is_empty():
 		beats.append(b1)

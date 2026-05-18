@@ -82,6 +82,14 @@ var _total_echo: int = 0
 var _signature_branch_keys: PackedStringArray = PackedStringArray()
 var _persistent_branch_flags: PackedStringArray = PackedStringArray()
 
+# Pending cascade announcement — set in _emit_cascade_join_if_authored AFTER
+# GameBus.cascade_join_announced emit. BattleScene consumes via
+# consume_pending_cascade_announcement() to prepend the 합류 인사 prose at the
+# top of pre-battle beats. Cleared by consume + reset_for_tests. Empty dict
+# means no announcement waiting (most chapters).
+##   {"signature_key": String, "text_key": String}
+var _pending_cascade_announcement: Dictionary = {}
+
 # Test-seam: when true, _ready() does NOT auto-load default scenario.
 # Test fixtures call load_scenario(json_path) directly.
 var _test_mode: bool = false
@@ -133,6 +141,7 @@ func reset_for_tests() -> void:
 	_total_echo = 0
 	_signature_branch_keys = PackedStringArray()
 	_persistent_branch_flags = PackedStringArray()
+	_pending_cascade_announcement = {}
 	_test_mode = false
 	_active_scenario_path = DEFAULT_SCENARIO_PATH
 
@@ -623,7 +632,27 @@ func _emit_cascade_join_if_authored(chapter: ChapterDefinition) -> void:
 	var text_key: String = chapter.cascade_join_prose[prior_key] as String
 	if text_key.is_empty():
 		return
+	_pending_cascade_announcement = {
+		"signature_key": prior_key,
+		"text_key": text_key,
+	}
 	GameBus.cascade_join_announced.emit(prior_key, text_key)
+
+
+## Returns the pending cascade announcement Dictionary (empty if none waiting).
+## BattleScene polls at _ready and prepends the matching story_content entry
+## to the pre-battle StoryBeatScreen beats. NON-CONSUMING — caller must invoke
+## consume_pending_cascade_announcement() to clear after rendering.
+func get_pending_cascade_announcement() -> Dictionary:
+	return _pending_cascade_announcement.duplicate()
+
+
+## Reads + clears the pending cascade announcement in one call. Idempotent —
+## subsequent calls return {} until a new cascade_join is emitted.
+func consume_pending_cascade_announcement() -> Dictionary:
+	var ann: Dictionary = _pending_cascade_announcement
+	_pending_cascade_announcement = {}
+	return ann
 
 
 func _enter_beat_1_anchor() -> void:

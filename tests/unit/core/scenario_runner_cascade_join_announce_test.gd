@@ -183,6 +183,72 @@ func test_cascade_join_no_emit_at_chapter_one_with_empty_outcomes() -> void:
 # ─── mvp_shu integration sentinel ─────────────────────────────────────────────
 
 
+# ─── pending_cascade_announcement cache + consume ────────────────────────────
+
+
+## emit 시 _pending_cascade_announcement 에 cache 됨 (BattleScene consume 대상).
+func test_pending_cascade_announcement_set_on_emit() -> void:
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+	var ch_prior: ChapterDefinition = _make_chapter("ch_prior", 1)
+	var ch_current: ChapterDefinition = _make_chapter(
+		"ch_current",
+		2,
+		{"WIN_test_signature": "test.cascade_join.alpha"},
+	)
+	runner._set_chapters_for_test(
+		[ch_prior, ch_current] as Array[ChapterDefinition], "test_cascade"
+	)
+	runner._set_signature_branches_for_test(PackedStringArray(["WIN_test_signature"]))
+	runner._set_chapter_outcomes_for_test([{
+		"chapter_id": "ch_prior",
+		"branch_path_id": "WIN_test_signature",
+		"echo_count_at_completion": 0,
+		"outcome": 0,
+	}])
+	runner._chapter_index = 1
+	runner._enter_chapter_start()
+	var pending: Dictionary = runner.get_pending_cascade_announcement()
+	assert_bool(pending.is_empty()).override_failure_message(
+		"Cascade emit 직후 pending announcement cache 비어있으면 안 됨"
+	).is_false()
+	assert_str(pending.get("signature_key", "") as String).is_equal("WIN_test_signature")
+	assert_str(pending.get("text_key", "") as String).is_equal("test.cascade_join.alpha")
+
+
+## consume 은 1회만 동작 (이후엔 빈 dict 반환). retry-reload 시 cascade 중복 차단.
+func test_consume_pending_cascade_announcement_is_idempotent() -> void:
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+	var ch_prior: ChapterDefinition = _make_chapter("ch_prior", 1)
+	var ch_current: ChapterDefinition = _make_chapter(
+		"ch_current",
+		2,
+		{"WIN_test_signature": "test.cascade_join.alpha"},
+	)
+	runner._set_chapters_for_test(
+		[ch_prior, ch_current] as Array[ChapterDefinition], "test_cascade"
+	)
+	runner._set_signature_branches_for_test(PackedStringArray(["WIN_test_signature"]))
+	runner._set_chapter_outcomes_for_test([{
+		"chapter_id": "ch_prior",
+		"branch_path_id": "WIN_test_signature",
+		"echo_count_at_completion": 0,
+		"outcome": 0,
+	}])
+	runner._chapter_index = 1
+	runner._enter_chapter_start()
+	var first: Dictionary = runner.consume_pending_cascade_announcement()
+	assert_bool(first.is_empty()).is_false()
+	var second: Dictionary = runner.consume_pending_cascade_announcement()
+	assert_bool(second.is_empty()).override_failure_message(
+		"consume 두 번째 호출 시 빈 dict (idempotent)"
+	).is_true()
+
+
+# ─── mvp_shu integration sentinel ─────────────────────────────────────────────
+
+
 ## mvp_shu.json 의 5 cascade entry 챕터 (ch14/17/21/22/23) 가 모두
 ## cascade_join_prose entry 를 authored 했는지 데이터 sentinel.
 func test_mvp_shu_authors_all_five_cascade_join_prose_entries() -> void:
