@@ -108,6 +108,16 @@ const EXPECTED_SIGNALS: Array[Dictionary] = [
 			{"name": "details", "type": TYPE_DICTIONARY},
 		],
 	},
+	{
+		# cascade_join_announced (S65+) — emitted at CHAPTER_START when prior
+		# chapter resolved a signature_branch_key AND current chapter authored
+		# matching cascade_join_prose entry. 5 영웅 cascade 합류 narrative.
+		"name": "cascade_join_announced",
+		"args": [
+			{"name": "signature_key", "type": TYPE_STRING},
+			{"name": "text_key", "type": TYPE_STRING},
+		],
+	},
 	# ── Domain: Grid Battle (ADR-0001 §Signal Contract Schema §2) ─────────────────
 	{
 		"name": "battle_outcome_resolved",

@@ -7,11 +7,12 @@ extends GdUnitTestSuite
 const GAME_BUS_PATH: String = "res://src/core/game_bus.gd"
 const PROJECT_GODOT_PATH: String = "res://project.godot"
 
-## The 34 signal names declared in game_bus.gd — authoritative list per ADR-0001
+## The 35 signal names declared in game_bus.gd — authoritative list per ADR-0001
 ## (+ ADR-0011 victory_condition_detected + ADR-0014 CR-12 / ADR-0015 §3 R-3
 ## formation_bonuses_updated landed in battle-hud story-002 + ADR-0017
 ## scenario_fault landed in scenario-progression S7-02 + save_loaded(SaveContext)
-## added by save-load story-002 Persistence-domain 4th signal per CR-SL-19/20).
+## added by save-load story-002 Persistence-domain 4th signal per CR-SL-19/20 +
+## cascade_join_announced added S65+ for 영걸전식 5 영웅 cascade 합류 narrative).
 const EXPECTED_SIGNALS: Array[String] = [
 	"chapter_started",
 	"battle_prepare_requested",
@@ -20,6 +21,7 @@ const EXPECTED_SIGNALS: Array[String] = [
 	"scenario_complete",
 	"scenario_beat_retried",
 	"scenario_fault",
+	"cascade_join_announced",
 	"battle_outcome_resolved",
 	"formation_bonuses_updated",
 	"round_started",
@@ -108,8 +110,8 @@ func test_gamebus_extends_node_and_has_no_class_name() -> void:
 		assert_bool(class_name_regex.search(line) == null).is_true()
 
 
-## AC-2 + AC-3: game_bus.gd declares exactly 34 user signals (33 prior + save_loaded per save-load story-002).
-func test_gamebus_declares_exactly_34_signals() -> void:
+## AC-2 + AC-3: game_bus.gd declares exactly 35 user signals (34 prior + cascade_join_announced per S65+).
+func test_gamebus_declares_exactly_35_signals() -> void:
 	# Arrange
 	var script: GDScript = load(GAME_BUS_PATH)
 	var instance: Node = auto_free(script.new())
@@ -122,11 +124,11 @@ func test_gamebus_declares_exactly_34_signals() -> void:
 		if not (sig["name"] as String) in inherited:
 			user_signals.append(sig)
 
-	# Assert — exactly 34 (33 prior baseline + save_loaded per save-load story-002 Persistence-domain 4th signal)
-	assert_int(user_signals.size()).is_equal(34)
+	# Assert — exactly 35 (34 prior baseline + cascade_join_announced per S65+ 영걸전식 narrative).
+	assert_int(user_signals.size()).is_equal(35)
 
 
-## AC-3: All 34 declared signals match the authoritative name list from ADR-0001 + ADR-0011.
+## AC-3: All 35 declared signals match the authoritative name list from ADR-0001 + ADR-0011.
 func test_gamebus_signal_names_match_spec() -> void:
 	# Arrange
 	var script: GDScript = load(GAME_BUS_PATH)

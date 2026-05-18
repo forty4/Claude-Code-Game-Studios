@@ -29,6 +29,12 @@ signal scenario_complete(result: ScenarioResult)
 signal scenario_fault(scenario_id: String, fault: String, details: Dictionary)
 signal scenario_beat_retried(mark: EchoMark)
 
+# S65+ — 영걸전식 cascade 합류 인사. ScenarioRunner emits at CHAPTER_START when
+# the prior chapter resolved a signature_branch_key AND the current chapter
+# authored a matching cascade_join_prose entry. Subscribers (BattleScene /
+# StoryEvent) display the first-join narrative for the cascade hero.
+signal cascade_join_announced(signature_key: String, text_key: String)
+
 # ═══ DOMAIN: Grid Battle (emitter: BattleController) ═══════════════════════════
 signal battle_outcome_resolved(outcome: BattleOutcome)
 

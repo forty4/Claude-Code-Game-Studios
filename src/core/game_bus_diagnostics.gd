@@ -202,6 +202,10 @@ func _route_to_domain(sig_name: String) -> String:
 	# ADR-0015 §3 R-3) but has no "battle_" prefix — explicit name guard.
 	if sig_name == "formation_bonuses_updated":
 		return "battle"
+	# cascade_join_announced (S65+ 영걸전식 narrative) — emitted by ScenarioRunner
+	# at CHAPTER_START; belongs to Scenario domain despite "cascade_" prefix.
+	if sig_name == "cascade_join_announced":
+		return "scenario"
 	if sig_name.begins_with("scenario_") or sig_name.begins_with("chapter_"):
 		return "scenario"
 	if sig_name.begins_with("battle_"):

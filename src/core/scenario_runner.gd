@@ -490,6 +490,10 @@ func _hydrate_chapter(record: Dictionary) -> ChapterDefinition:
 	# non-empty AND hidden_branch_key also fires AND legendary_condition passes.
 	c.legendary_branch_key = record.get("legendary_branch_key", "") as String
 	c.legendary_condition = (record.get("legendary_condition", {}) as Dictionary).duplicate(true)
+	# Cascade join announcement prose (S65+ — 5 영웅 fan service narrative).
+	# Optional {signature_key: i18n_text_key} map. Emitted at CHAPTER_START when
+	# prior chapter resolved a matching signature key.
+	c.cascade_join_prose = (record.get("cascade_join_prose", {}) as Dictionary).duplicate(true)
 	# enemy_atk_mult — sentinel -1.0 when absent so BattleScene falls back to
 	# BalanceConstants global. Float cast handles JSON int (1) or float (0.85).
 	if record.has("enemy_atk_mult"):
@@ -593,7 +597,33 @@ func _enter_chapter_start() -> void:
 		_emit_scenario_fault(_scenario_id, "chapter_start_no_chapter", {})
 		return
 	GameBus.chapter_started.emit(chapter.chapter_id, chapter.chapter_number)
+	_emit_cascade_join_if_authored(chapter)
 	_transition_to(State.BEAT_1_ANCHOR)
+
+
+## 영걸전식 cascade 합류 인사 — 직전 챕터가 signature_branch_key 를 해소했고
+## 현재 챕터가 그 키에 해당하는 cascade_join_prose entry 를 authored 했으면
+## GameBus.cascade_join_announced(signature_key, text_key) emit. 5 영웅의
+## 첫 cascade entry 시점에 1회씩 발화 (위연 ch14 / 방통 ch17 / 관우 ch21 /
+## 장비 ch22 / 유비 ch23). 직전 outcome 이 시그니처 키가 아니거나 현재
+## 챕터가 매칭 entry 를 authored 하지 않으면 no-op.
+func _emit_cascade_join_if_authored(chapter: ChapterDefinition) -> void:
+	if chapter.cascade_join_prose.is_empty():
+		return
+	if _chapter_outcomes.is_empty():
+		return
+	var prior: Dictionary = _chapter_outcomes[_chapter_outcomes.size() - 1] as Dictionary
+	var prior_key: String = prior.get("branch_path_id", "") as String
+	if prior_key.is_empty():
+		return
+	if not _signature_branch_keys.has(prior_key):
+		return
+	if not chapter.cascade_join_prose.has(prior_key):
+		return
+	var text_key: String = chapter.cascade_join_prose[prior_key] as String
+	if text_key.is_empty():
+		return
+	GameBus.cascade_join_announced.emit(prior_key, text_key)
 
 
 func _enter_beat_1_anchor() -> void:

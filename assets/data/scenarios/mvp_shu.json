@@ -2041,6 +2041,9 @@
       "enemy_atk_mult": 0.7,
       "victory_conditions": {
         "primary_condition_type": 0
+      },
+      "cascade_join_prose": {
+        "WIN_changsha_wei_yan_defects": "ch14.cascade_join.wei_yan"
       }
     },
     {
@@ -2785,6 +2788,9 @@
       "enemy_atk_mult": 0.75,
       "victory_conditions": {
         "primary_condition_type": 0
+      },
+      "cascade_join_prose": {
+        "WIN_luofeng_pang_tong_lives": "ch17.cascade_join.pang_tong"
       }
     },
     {
@@ -4047,6 +4053,9 @@
       "enemy_atk_mult": 0.7,
       "victory_conditions": {
         "primary_condition_type": 0
+      },
+      "cascade_join_prose": {
+        "WIN_fancheng_guan_yu_survives": "ch21.cascade_join.guan_yu"
       }
     },
     {
@@ -4460,6 +4469,9 @@
       "victory_conditions": {
         "primary_condition_type": 1,
         "survive_rounds": 6
+      },
+      "cascade_join_prose": {
+        "WIN_zhangfei_survives": "ch22.cascade_join.zhang_fei"
       }
     },
     {
@@ -4900,6 +4912,9 @@
       "enemy_atk_mult": 0.7,
       "victory_conditions": {
         "primary_condition_type": 0
+      },
+      "cascade_join_prose": {
+        "WIN_yiling_liu_bei_survives": "ch23.cascade_join.liu_bei"
       }
     },
     {

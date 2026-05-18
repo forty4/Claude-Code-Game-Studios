@@ -451,6 +451,8 @@ func test_diagnostics_route_to_domain_covers_all_31_signals() -> void:
 		"scenario_complete":         "scenario",
 		"scenario_beat_retried":     "scenario",
 		"scenario_fault":            "scenario",
+		# cascade_join_announced (S65+) — "cascade_" prefix but Scenario domain.
+		"cascade_join_announced":    "scenario",
 		# §2 Grid Battle (emitter: BattleController + GridBattleController formation-bonus path)
 		"battle_outcome_resolved":   "battle",
 		# formation_bonuses_updated lacks "battle_" prefix — routed via explicit name guard

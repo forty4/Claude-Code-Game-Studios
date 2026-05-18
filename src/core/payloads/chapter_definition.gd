@@ -203,3 +203,21 @@ extends Resource
 ## Example — "all 5 signatures active":
 ##   { "type": "fate_threshold", "field": "active_signature_count", "op": ">=", "value": 5 }
 @export var legendary_condition: Dictionary = {}
+
+
+# ─── Cascade join announcement (S65+ — 5 영웅 fan service narrative) ──────────
+
+## Optional per-signature cascade join text key. When a signature branch resolved
+## in the IMMEDIATELY PRIOR chapter AND this chapter authored a matching entry,
+## ScenarioRunner emits GameBus.cascade_join_announced(signature_key, text_key)
+## at CHAPTER_START — letting BattleScene / StoryEvent show the cascade hero's
+## first-join prose (위연 ch14 합류 인사 / 방통 ch17 등).
+##
+## Runtime shape: { signature_branch_key: i18n_text_key }. Empty = no cascade
+## prose authored for this chapter.
+##
+## Example (ch14 의 wei_yan first-join):
+##   cascade_join_prose = {
+##     "WIN_changsha_wei_yan_defects": "ch14.cascade_join.wei_yan"
+##   }
+@export var cascade_join_prose: Dictionary = {}

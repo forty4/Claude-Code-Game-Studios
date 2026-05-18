@@ -49,6 +49,12 @@ func _required_text_keys_for(scenario_path: String) -> Array[String]:
 		var b9: String = ch.get("beat_9_text_key", "") as String
 		if not b9.is_empty():
 			keys.append(b9)
+		# S65+ — cascade_join_prose values are also text keys that must resolve.
+		var cascade: Dictionary = ch.get("cascade_join_prose", {}) as Dictionary
+		for v in cascade.values():
+			var ck: String = v as String
+			if not ck.is_empty():
+				keys.append(ck)
 	return keys
 
 
