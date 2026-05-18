@@ -5431,6 +5431,12 @@
         "op": ">=",
         "value": 5
       },
+      "ending_screen_text_keys": {
+        "WIN_wuzhang_kongming_falls":   "ch25.ending.canonical_loyal",
+        "WIN_wuzhang_kongming_revives": "ch25.ending.perfect_destiny",
+        "WIN_wuzhang_legendary_dawn":   "ch25.ending.legendary_destiny",
+        "LOSS_wuzhang_consumed":        "ch25.ending.loss_total"
+      },
       "beat_1_text_key": "ch25.beat1.anchor",
       "beat_2_fragment": {
         "variant": "silent_visual",

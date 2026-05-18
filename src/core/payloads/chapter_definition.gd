@@ -221,3 +221,16 @@ extends Resource
 ##     "WIN_changsha_wei_yan_defects": "ch14.cascade_join.wei_yan"
 ##   }
 @export var cascade_join_prose: Dictionary = {}
+
+
+# ─── Ending screen text resolution (S65+ — 캠페인 마지막 챕터 한정) ────────────
+
+## Optional per-branch ending screen text key map. When the SCENARIO_END is
+## reached and this chapter is the final chapter, BattleScene looks up the
+## resolved branch_path_id here to find the epilogue prose text key. Empty =
+## no per-branch ending screen authored (BattleScene falls back to its
+## hardcoded "시나리오 클리어" generic card).
+##
+## Runtime shape: { branch_path_id: i18n_text_key }. Designed for mvp_shu ch25
+## 4-tier ending (canonical / hidden / legendary / loss).
+@export var ending_screen_text_keys: Dictionary = {}

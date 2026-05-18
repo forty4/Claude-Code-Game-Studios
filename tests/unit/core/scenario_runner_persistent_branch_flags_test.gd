@@ -392,6 +392,48 @@ func test_beat_7_injects_active_signature_count_into_fate_for_relief() -> void:
 	).is_equal("WIN_perfect")
 
 
+# ─── Ending screen resolution APIs (S65+) ────────────────────────────────────
+
+
+## get_final_chapter returns the LAST chapter even after SCENARIO_END (when
+## get_current_chapter would return null). Required for ending screen lookup
+## of ending_screen_text_keys at scenario completion.
+func test_get_final_chapter_returns_last_chapter_definition() -> void:
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+	var chapters: Array[ChapterDefinition] = [
+		_make_chapter("ch_alpha", 1),
+		_make_chapter("ch_beta", 2),
+		_make_chapter("ch_gamma", 3),
+	]
+	runner._set_chapters_for_test(chapters, "test_final")
+	var final_ch: ChapterDefinition = runner.get_final_chapter()
+	assert_object(final_ch).is_not_null()
+	assert_str(final_ch.chapter_id).is_equal("ch_gamma")
+
+
+## get_final_chapter returns null on empty scenario (defensive).
+func test_get_final_chapter_returns_null_on_empty_scenario() -> void:
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+	# No load_scenario / _set_chapters_for_test → empty _chapters.
+	assert_object(runner.get_final_chapter()).is_null()
+
+
+## get_last_chapter_outcome returns the last archive entry (deep copy).
+## Ending screen looks at branch_path_id here to resolve ending text.
+func test_get_last_chapter_outcome_returns_last_archive_entry() -> void:
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+	runner._set_chapter_outcomes_for_test([
+		{"chapter_id": "ch_a", "branch_path_id": "WIN_a", "echo_count_at_completion": 0, "outcome": 0},
+		{"chapter_id": "ch_b", "branch_path_id": "WIN_b", "echo_count_at_completion": 1, "outcome": 0},
+	])
+	var last: Dictionary = runner.get_last_chapter_outcome()
+	assert_str(last.get("chapter_id", "") as String).is_equal("ch_b")
+	assert_str(last.get("branch_path_id", "") as String).is_equal("WIN_b")
+
+
 ## v1 (legacy, pre-cascade) SaveContexts MUST load with empty cascade state.
 ## No history retroactively materialized; cascade plays out from current chapter
 ## forward only. Preserves save-file backward compatibility.

@@ -1998,6 +1998,10 @@ func _show_ending_screen() -> void:
 	var old_banner: Node = _hud_layer.get_node_or_null("OutcomeBanner")
 	if old_banner != null:
 		old_banner.queue_free()
+	# S65+ — 3-tier ending resolution. Final chapter's ending_screen_text_keys
+	# map + last branch_path_id → epilogue prose. Fallback to generic title/sub
+	# when scenario doesn't author per-branch endings (mvp_wei + future lines).
+	var ending: Dictionary = _resolve_ending_screen_content()
 	var card: CenterContainer = CenterContainer.new()
 	card.name = "EndingCard"
 	card.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -2006,24 +2010,32 @@ func _show_ending_screen() -> void:
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_theme_constant_override("separation", 16)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Keep the epilogue body width readable on narrow viewports.
+	box.custom_minimum_size = Vector2(820.0, 0.0)
 	card.add_child(box)
 	var title: Label = Label.new()
-	title.text = "시나리오 클리어"
+	title.text = ending.get("title", "시나리오 클리어") as String
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title.custom_minimum_size = Vector2(820.0, 0.0)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	title.add_theme_color_override("font_color", Color(0.95, 0.84, 0.46, 1.0))  # warm gold-ish (not the reserved #D4A017)
 	title.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.04, 1.0))
 	title.add_theme_constant_override("outline_size", 8)
-	title.add_theme_font_size_override("font_size", 48)
+	title.add_theme_font_size_override("font_size", 36)
 	box.add_child(title)
 	var sub: Label = Label.new()
-	sub.text = "장판파에서 강하 외곽까지 — 촉한은 살아남았고, 적벽이 기다린다."
+	sub.text = ending.get(
+		"body", "장판파에서 강하 외곽까지 — 촉한은 살아남았고, 적벽이 기다린다."
+	) as String
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sub.custom_minimum_size = Vector2(820.0, 0.0)
 	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	sub.add_theme_color_override("font_color", Color(0.86, 0.84, 0.78, 1.0))
 	sub.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.04, 1.0))
 	sub.add_theme_constant_override("outline_size", 6)
-	sub.add_theme_font_size_override("font_size", 22)
+	sub.add_theme_font_size_override("font_size", 18)
 	box.add_child(sub)
 	var row: HBoxContainer = HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -2034,6 +2046,28 @@ func _show_ending_screen() -> void:
 	_add_post_battle_button(row, "종료 (Esc)", func() -> void: get_tree().quit())
 	_hud_layer.add_child(card)
 	again.grab_focus()
+
+
+## Resolves the final-chapter ending screen content (title + body) from the
+## final chapter's ending_screen_text_keys map indexed by the last resolved
+## branch_path_id. Returns empty {} when no per-branch entry exists — caller
+## falls back to its hardcoded generic strings.
+func _resolve_ending_screen_content() -> Dictionary:
+	var final_chapter: ChapterDefinition = ScenarioRunner.get_final_chapter()
+	if final_chapter == null:
+		return {}
+	if final_chapter.ending_screen_text_keys.is_empty():
+		return {}
+	var last_outcome: Dictionary = ScenarioRunner.get_last_chapter_outcome()
+	var branch_path_id: String = last_outcome.get("branch_path_id", "") as String
+	if branch_path_id.is_empty():
+		return {}
+	if not final_chapter.ending_screen_text_keys.has(branch_path_id):
+		return {}
+	var text_key: String = final_chapter.ending_screen_text_keys[branch_path_id] as String
+	if text_key.is_empty():
+		return {}
+	return _beat_content(text_key)
 
 
 ## Mid-/post-battle keyboard polling. Polling sidesteps InputRouter (autoload),

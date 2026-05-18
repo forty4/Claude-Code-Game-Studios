@@ -55,6 +55,13 @@ func _required_text_keys_for(scenario_path: String) -> Array[String]:
 			var ck: String = v as String
 			if not ck.is_empty():
 				keys.append(ck)
+		# S65+ — ending_screen_text_keys values are text keys for the final
+		# chapter's 3-tier ending screen (canonical / hidden / legendary / loss).
+		var endings: Dictionary = ch.get("ending_screen_text_keys", {}) as Dictionary
+		for v in endings.values():
+			var ek: String = v as String
+			if not ek.is_empty():
+				keys.append(ek)
 	return keys
 
 

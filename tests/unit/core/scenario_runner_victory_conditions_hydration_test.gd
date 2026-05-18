@@ -828,6 +828,42 @@ func test_mvp_shu_phase_e_authors_ch23_to_ch25_with_qixing_revival_finale() -> v
 		).is_true()
 
 
+## ch25 ending_screen_text_keys sentinel (S65+ — 3-tier ending UX). 4 분기
+## (canonical/hidden/legendary/loss) 각각 ending prose key 매핑 + story_content
+## prose 존재 검증.
+func test_mvp_shu_ch25_authors_ending_screen_text_keys_for_all_four_branches() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/mvp_shu.json")
+	var data: Dictionary = JSON.parse_string(json_text) as Dictionary
+	var ch25: Dictionary = {}
+	for c: Variant in (data["chapters"] as Array):
+		var d: Dictionary = c as Dictionary
+		if d.get("chapter_id", "") as String == "ch25_wuzhang_plains":
+			ch25 = d
+			break
+	var endings: Dictionary = ch25.get("ending_screen_text_keys", {}) as Dictionary
+	assert_int(endings.size()).override_failure_message(
+		"ch25 ending_screen_text_keys must declare exactly 4 entries (canonical/hidden/legendary/loss)"
+	).is_equal(4)
+	var expected: Dictionary = {
+		"WIN_wuzhang_kongming_falls":   "ch25.ending.canonical_loyal",
+		"WIN_wuzhang_kongming_revives": "ch25.ending.perfect_destiny",
+		"WIN_wuzhang_legendary_dawn":   "ch25.ending.legendary_destiny",
+		"LOSS_wuzhang_consumed":        "ch25.ending.loss_total",
+	}
+	for branch in expected.keys():
+		assert_str(endings.get(branch, "") as String).override_failure_message(
+			"ch25 ending_screen_text_keys['%s'] must map to '%s'" % [branch, expected[branch]]
+		).is_equal(expected[branch] as String)
+	# Verify story_content prose exists for all 4 ending keys.
+	var story: Dictionary = JSON.parse_string(
+		FileAccess.get_file_as_string("res://assets/data/story/story_content.json")
+	) as Dictionary
+	for text_key in expected.values():
+		assert_bool(story.has(text_key as String)).override_failure_message(
+			"story_content.json must author '%s' prose" % text_key
+		).is_true()
+
+
 ## ch25 legendary tier sentinel (S65+ 매력 보강): branch_table에 WIN_legendary
 ## 등재 + legendary_branch_key + legendary_condition (active_signature_count >= 5)
 ## + beat_8_revelations entry + story_content 한국어 prose. 5 시그니처 누적 +

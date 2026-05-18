@@ -177,6 +177,26 @@ func get_current_chapter_index() -> int:
 	return _chapter_index
 
 
+## Returns the LAST chapter definition in the loaded scenario. Used by ending
+## screen resolution to look up the final chapter's ending_screen_text_keys
+## map even after SCENARIO_END (when get_current_chapter() returns null).
+## Returns null when no scenario is loaded.
+func get_final_chapter() -> ChapterDefinition:
+	if _chapters.is_empty():
+		return null
+	return _chapters[_chapters.size() - 1]
+
+
+## Returns the most recent chapter outcome Dictionary (the last entry in the
+## per-scenario archive). Empty {} when no chapter has completed yet. Used by
+## ending screen resolution to identify the resolved branch_path_id at the
+## final chapter. Mirrors _set_chapter_outcomes_for_test's read shape.
+func get_last_chapter_outcome() -> Dictionary:
+	if _chapter_outcomes.is_empty():
+		return {}
+	return (_chapter_outcomes[_chapter_outcomes.size() - 1] as Dictionary).duplicate(true)
+
+
 ## Returns the per-chapter echo_count. Reset to 0 at BEAT_9_TRANSITION.
 func get_current_echo_count() -> int:
 	return _echo_count
@@ -503,6 +523,12 @@ func _hydrate_chapter(record: Dictionary) -> ChapterDefinition:
 	# Optional {signature_key: i18n_text_key} map. Emitted at CHAPTER_START when
 	# prior chapter resolved a matching signature key.
 	c.cascade_join_prose = (record.get("cascade_join_prose", {}) as Dictionary).duplicate(true)
+	# Ending screen text key map (S65+ — final chapter 3-tier ending). Optional
+	# {branch_path_id: i18n_text_key}. BattleScene._show_ending_screen consults
+	# this for per-branch epilogue prose at SCENARIO_END.
+	c.ending_screen_text_keys = (
+		record.get("ending_screen_text_keys", {}) as Dictionary
+	).duplicate(true)
 	# enemy_atk_mult — sentinel -1.0 when absent so BattleScene falls back to
 	# BalanceConstants global. Float cast handles JSON int (1) or float (0.85).
 	if record.has("enemy_atk_mult"):
