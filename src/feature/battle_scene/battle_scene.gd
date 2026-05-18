@@ -2058,11 +2058,12 @@ func _show_ending_screen() -> void:
 	again.grab_focus()
 
 
-## S65+ — Legendary cue: 별빛 fade overlay + victory SFX. Awaited from
-## _proceed_scenario between Beat 8 prose and outcome banner when the resolved
-## branch_path_id is WIN_wuzhang_legendary_dawn. Pure ColorRect overlay (no
-## new procedural music asset — sound_manager SFX_VICTORY reused) keeps the
-## scope tight while still marking the "전설의 새벽" moment.
+## S65+ — Legendary cue: 별빛 fade overlay + dedicated Legendary fanfare.
+## Awaited from _proceed_scenario between Beat 8 prose and outcome banner
+## when the resolved branch_path_id is WIN_wuzhang_legendary_dawn. Gold
+## ColorRect overlay + S66 SFX_LEGENDARY (3s ascending C-major arpeggio,
+## distinct from the standard SFX_VICTORY chapter-close triad) mark the
+## "전설의 새벽" moment with a clearly bigger gesture.
 ##
 ## Headless callers (_should_present_story == false) are NOT routed through
 ## _proceed_scenario's b8 path, so this cue never fires in tests by default.
@@ -2075,7 +2076,7 @@ func _show_legendary_visual_cue() -> void:
 			or get_node_or_null("/root/SoundManager") != null:
 		var sm: Node = get_node_or_null("/root/SoundManager")
 		if sm != null and sm.has_method("play_sfx"):
-			sm.call("play_sfx", &"victory")
+			sm.call("play_sfx", &"legendary")
 	# Visual: full-screen gold ColorRect that fades from 0 → 0.6 alpha and back.
 	# G-31: bind tween to SceneTree (NOT self) so SceneManager.pause_overworld
 	# during cue presentation doesn't stall the animation.

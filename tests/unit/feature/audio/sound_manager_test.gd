@@ -117,6 +117,41 @@ func test_sfx_fire_tick_registered() -> void:
 	assert_int(stream.data.size()).is_greater(0)
 
 
+## S66: SFX_LEGENDARY must register as part of _build_procedural_streams.
+## ~3s buffer (per _make_legendary_fanfare duration constant) — much longer
+## than the standard ~0.6s SFX_VICTORY, so the difference is structurally
+## visible at PCM length.
+func test_sfx_legendary_registered_and_longer_than_victory() -> void:
+	var sm: Node = SoundManagerScript.new()
+	auto_free(sm)
+	sm._build_procedural_streams()
+	assert_bool(sm._streams.has(SoundManagerScript.SFX_LEGENDARY)).override_failure_message(
+		"SFX_LEGENDARY must be registered after _build_procedural_streams"
+	).is_true()
+	var legendary: AudioStreamWAV = sm._streams[SoundManagerScript.SFX_LEGENDARY] as AudioStreamWAV
+	var victory: AudioStreamWAV = sm._streams[SoundManagerScript.SFX_VICTORY] as AudioStreamWAV
+	assert_object(legendary).is_not_null()
+	assert_int(legendary.format).is_equal(AudioStreamWAV.FORMAT_16_BITS)
+	# Legendary fanfare (3s) must be at least 3x longer than SFX_VICTORY (0.6s)
+	# — that gap is the audible "bigger gesture" the Legendary cue requires.
+	assert_int(legendary.data.size()).override_failure_message(
+		"SFX_LEGENDARY buffer (%d bytes) must be >= 3x SFX_VICTORY (%d bytes)"
+		% [legendary.data.size(), victory.data.size()]
+	).is_greater_equal(victory.data.size() * 3)
+
+
+## S66: _make_legendary_fanfare produces deterministic PCM (pure synthesis,
+## no RNG). Two consecutive calls must return byte-identical buffers.
+func test_make_legendary_fanfare_is_deterministic() -> void:
+	var sm: Node = SoundManagerScript.new()
+	auto_free(sm)
+	var a: AudioStreamWAV = sm._make_legendary_fanfare()
+	var b: AudioStreamWAV = sm._make_legendary_fanfare()
+	assert_bool(a.data == b.data).override_failure_message(
+		"_make_legendary_fanfare PCM must be byte-identical across calls — pure synthesis"
+	).is_true()
+
+
 # ─── Session-32: volume_offset_db ────────────────────────────────────────────
 
 

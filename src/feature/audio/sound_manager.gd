@@ -60,6 +60,13 @@ const SFX_KILL: StringName = &"kill"
 ## competing for attention (session-23 originally deferred this for that
 ## reason; session-26 ships at low amp to honour the budget).
 const SFX_FIRE_TICK: StringName = &"fire_tick"
+## S66 — Legendary cue fanfare for the 5-시그니처 + 칠성단 회생 ending.
+## Ascending C-major arpeggio (C5/E5/G5/C6 staggered) resolving to a
+## sustained ringing chord, ~3s. Distinct from SFX_VICTORY (short flat triad)
+## — Legendary needs a clearly bigger gesture for the "전설의 새벽" moment.
+## Used by BattleScene._show_legendary_visual_cue (S65+ branch path
+## WIN_wuzhang_legendary_dawn).
+const SFX_LEGENDARY: StringName = &"legendary"
 
 ## Music slugs — separate stream pool from SFX so they can be muted
 ## independently (player may want music off but SFX on, or vice versa).
@@ -353,6 +360,13 @@ func _build_procedural_streams() -> void:
 	# Amp 0.18 sits comfortably below SFX_HIT (0.32) so the round-start cue
 	# stack stays legible.
 	_streams[SFX_FIRE_TICK] = _make_noise_burst(0.18, 6.0, 0.18)
+	# S66 — Legendary fanfare. 3s ascending C-major arpeggio with staggered
+	# partial onsets resolving to a sustained ringing chord (decay 1.4 — slow
+	# enough that the climactic C6 lingers across the overlay fade-out at
+	# battle_scene._show_legendary_visual_cue). Clearly distinct from
+	# SFX_VICTORY (0.6s flat triad) — Legendary requires a bigger gesture
+	# matching the gold ColorRect overlay's visual scale.
+	_streams[SFX_LEGENDARY] = _make_legendary_fanfare()
 
 
 ## Synthesizes a single-frequency 16-bit mono tone with exponential decay
@@ -402,6 +416,54 @@ func _make_chord(freqs: Array, duration: float, decay_rate: float, amp: float) -
 			var f: float = f_var as float
 			sum += sin(two_pi * f * t)
 		var sample: float = sum * envelope * per_voice_amp
+		var s16: int = clampi(int(sample * 32767.0), -32767, 32767)
+		data[i * 2]     = s16 & 0xff
+		data[i * 2 + 1] = (s16 >> 8) & 0xff
+	stream.data = data
+	return stream
+
+
+## S66 — synthesizes the Legendary fanfare. ~3s mono buffer with 4 staggered
+## sinusoidal partials (C5 → E5 → G5 → C6 ascending arpeggio onsets at
+## 0.00/0.35/0.70/1.05s) and a slow shared decay (1.4) so the climactic chord
+## rings across the overlay fade. Each partial gets an 8ms cosine-ramp attack
+## to avoid the click that bare sample-1 sin(0)=0 → sin(2πf/SR) discontinuity
+## produces. Pure synthesis (no RNG) — deterministic PCM across runs.
+func _make_legendary_fanfare() -> AudioStreamWAV:
+	var stream: AudioStreamWAV = AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_16_BITS
+	stream.mix_rate = _MIX_RATE
+	stream.stereo = false
+	stream.loop_mode = AudioStreamWAV.LOOP_DISABLED
+	var duration: float = 3.0
+	var sample_count: int = int(duration * _MIX_RATE)
+	var data: PackedByteArray = PackedByteArray()
+	data.resize(sample_count * 2)
+	var two_pi: float = TAU
+	# [freq_hz, onset_seconds] entries. Order = ascending C-major arpeggio.
+	var partials: Array = [
+		[523.25, 0.00],   # C5
+		[659.25, 0.35],   # E5
+		[783.99, 0.70],   # G5
+		[1046.50, 1.05],  # C6 — climactic top note
+	]
+	var decay_rate: float = 1.4
+	var per_voice_amp: float = 0.30 / float(partials.size())
+	var attack_seconds: float = 0.008
+	for i: int in sample_count:
+		var t: float = float(i) / float(_MIX_RATE)
+		var sum: float = 0.0
+		for entry_var: Variant in partials:
+			var entry: Array = entry_var as Array
+			var freq: float = entry[0] as float
+			var onset: float = entry[1] as float
+			if t < onset:
+				continue
+			var local_t: float = t - onset
+			var attack: float = clampf(local_t / attack_seconds, 0.0, 1.0)
+			var envelope: float = attack * exp(-local_t * decay_rate)
+			sum += sin(two_pi * freq * t) * envelope
+		var sample: float = sum * per_voice_amp
 		var s16: int = clampi(int(sample * 32767.0), -32767, 32767)
 		data[i * 2]     = s16 & 0xff
 		data[i * 2 + 1] = (s16 >> 8) & 0xff
