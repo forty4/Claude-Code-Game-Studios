@@ -1939,6 +1939,11 @@ func _proceed_scenario() -> void:
 				_beat_8_text_key_for_branch(finished_chapter, branch_key))
 			var b9: Dictionary = _beat_content(finished_chapter.beat_9_text_key)
 			_clear_post_battle_ui()
+			# Act 0.5 (S65+) — legendary cue: 5 시그니처 + ch25 hidden 동시
+			# 달성 시 별빛 fade overlay + victory sfx 로 "전설의 새벽" 도달을
+			# 강조. visual cue 끝나야 b8 prose 표시 (~1.2초 await).
+			if branch_key == "WIN_wuzhang_legendary_dawn":
+				await _show_legendary_visual_cue()
 			# Act 1 — Beat 8 (your branch's resolved prose).
 			if not b8.is_empty():
 				await _present_story_beats([b8])
@@ -2051,6 +2056,43 @@ func _show_ending_screen() -> void:
 	_add_post_battle_button(row, "종료 (Esc)", func() -> void: get_tree().quit())
 	_hud_layer.add_child(card)
 	again.grab_focus()
+
+
+## S65+ — Legendary cue: 별빛 fade overlay + victory SFX. Awaited from
+## _proceed_scenario between Beat 8 prose and outcome banner when the resolved
+## branch_path_id is WIN_wuzhang_legendary_dawn. Pure ColorRect overlay (no
+## new procedural music asset — sound_manager SFX_VICTORY reused) keeps the
+## scope tight while still marking the "전설의 새벽" moment.
+##
+## Headless callers (_should_present_story == false) are NOT routed through
+## _proceed_scenario's b8 path, so this cue never fires in tests by default.
+func _show_legendary_visual_cue() -> void:
+	if _hud_layer == null:
+		return
+	# Try the SFX channel first — non-blocking. Skipped if SoundManager autoload
+	# is missing or its API differs (defensive).
+	if Engine.has_singleton("SoundManager") \
+			or get_node_or_null("/root/SoundManager") != null:
+		var sm: Node = get_node_or_null("/root/SoundManager")
+		if sm != null and sm.has_method("play_sfx"):
+			sm.call("play_sfx", &"victory")
+	# Visual: full-screen gold ColorRect that fades from 0 → 0.6 alpha and back.
+	# G-31: bind tween to SceneTree (NOT self) so SceneManager.pause_overworld
+	# during cue presentation doesn't stall the animation.
+	var overlay: ColorRect = ColorRect.new()
+	overlay.name = "LegendaryCueOverlay"
+	overlay.color = Color(1.0, 0.85, 0.40, 0.0)
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hud_layer.add_child(overlay)
+	var tween: Tween = get_tree().create_tween()
+	tween.tween_property(overlay, "color:a", 0.6, 0.45) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(overlay, "color:a", 0.0, 0.65) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	await tween.finished
+	if is_instance_valid(overlay):
+		overlay.queue_free()
 
 
 ## Mounts the 시그니처 카운트 badge on _hud_layer top-right when at least one
