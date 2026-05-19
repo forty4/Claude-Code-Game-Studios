@@ -72,6 +72,20 @@ const UI_GOLD: Color = Color(0.910, 0.839, 0.541, 1.0)  # #E8D68A
 ## Alpha always 1.0 — outlines at partial alpha wash out against light backgrounds.
 const MUK_OUTLINE: Color = MUK
 
+## JI_BAEK_DIM ≈ #DBD6C7 — JI_BAEK lowered ~10% in luminance. Tier-2 text on
+## paper-white-tone hierarchies (chapter title tagline below the title proper).
+## Derived from JI_BAEK to keep the warm-paper temperature; do NOT substitute
+## an arbitrary grey here — the warmth is what reads as "same paper, lower
+## prominence" instead of "different surface."
+const JI_BAEK_DIM: Color = Color(0.86, 0.84, 0.78, 1.0)
+
+## CHEONG_HOE_LIFT ≈ #C7DBED — CHEONG_HOE lifted ~50% in luminance. Used where
+## the player-side / "your forces" cool-tactical read is needed at small text
+## size — CHEONG_HOE itself is too dark to read at 18px against a dim battle
+## background. Reserved for text/UI ONLY (chapter title card roster line);
+## the base CHEONG_HOE remains the tactical-UI surface tone.
+const CHEONG_HOE_LIFT: Color = Color(0.78, 0.86, 0.93, 1.0)
+
 ## BACKDROP_DARK — near-black backdrop for full-screen overlays (StoryBeatScreen,
 ## ConsequenceScreen, PauseMenu, SignatureArchivePopup). Near-묵 with strong
 ## alpha so the world shows through slightly, signalling "world is still there".

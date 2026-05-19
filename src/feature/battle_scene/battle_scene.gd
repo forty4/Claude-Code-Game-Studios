@@ -1644,8 +1644,8 @@ func _mount_title_card(chapter: ChapterDefinition, roster: Array[BattleUnit]) ->
 	title.text = title_text
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	title.add_theme_color_override("font_color", Color(0.98, 0.96, 0.90, 1.0))
-	title.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.04, 1.0))
+	title.add_theme_color_override("font_color", Palette.JI_BAEK)
+	title.add_theme_color_override("font_outline_color", Palette.MUK_OUTLINE)
 	title.add_theme_constant_override("outline_size", 8)
 	title.add_theme_font_size_override("font_size", 40)
 	box.add_child(title)
@@ -1655,24 +1655,24 @@ func _mount_title_card(chapter: ChapterDefinition, roster: Array[BattleUnit]) ->
 		tagline.text = tagline_text
 		tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		tagline.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		tagline.add_theme_color_override("font_color", Color(0.86, 0.84, 0.78, 1.0))
-		tagline.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.04, 1.0))
+		tagline.add_theme_color_override("font_color", Palette.JI_BAEK_DIM)
+		tagline.add_theme_color_override("font_outline_color", Palette.MUK_OUTLINE)
 		tagline.add_theme_constant_override("outline_size", 6)
 		tagline.add_theme_font_size_override("font_size", 22)
 		box.add_child(tagline)
 
 	# Session-39 — tactical objective line (영걸전식 mission briefing). Composed
 	# from the resolver so it stays in sync with the in-battle UI-GB-08 label.
-	# Gold tier matches the OutcomeBanner victory color (#e8d68a) — reads as
-	# "must-do" without colliding with the art-bible reserved 주홍/금색.
+	# UI_GOLD reads as "must-do" without colliding with the art-bible reserved
+	# 주홍/금색 (운명 분기 / Legendary VFX only — see distilled bible §1).
 	var objective_text: String = String(_resolve_victory_condition_label(chapter))
 	if not objective_text.is_empty():
 		var objective_label: Label = Label.new()
 		objective_label.text = "▶  %s" % objective_text
 		objective_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		objective_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		objective_label.add_theme_color_override("font_color", Color("e8d68a"))
-		objective_label.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.04, 1.0))
+		objective_label.add_theme_color_override("font_color", Palette.UI_GOLD)
+		objective_label.add_theme_color_override("font_outline_color", Palette.MUK_OUTLINE)
 		objective_label.add_theme_constant_override("outline_size", 6)
 		objective_label.add_theme_font_size_override("font_size", 24)
 		box.add_child(objective_label)
@@ -1682,10 +1682,10 @@ func _mount_title_card(chapter: ChapterDefinition, roster: Array[BattleUnit]) ->
 		roster_label.text = roster_text
 		roster_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		roster_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		# Slight cool tint so the roster reads as "your forces" — distinct from the
+		# Cool tint so the roster reads as "your forces" — distinct from the
 		# warm tagline (situation prose) above it.
-		roster_label.add_theme_color_override("font_color", Color(0.78, 0.86, 0.93, 1.0))
-		roster_label.add_theme_color_override("font_outline_color", Color(0.03, 0.03, 0.04, 1.0))
+		roster_label.add_theme_color_override("font_color", Palette.CHEONG_HOE_LIFT)
+		roster_label.add_theme_color_override("font_outline_color", Palette.MUK_OUTLINE)
 		roster_label.add_theme_constant_override("outline_size", 5)
 		roster_label.add_theme_font_size_override("font_size", 18)
 		box.add_child(roster_label)
