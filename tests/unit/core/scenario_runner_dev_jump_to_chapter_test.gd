@@ -208,3 +208,80 @@ func test_dev_jump_to_index_3_emits_chapter_started_for_target_chapter() -> void
 	assert_str(emits[emits.size() - 1] as String).override_failure_message(
 		"Final chapter_started emit must be the target chapter (ch09 of mvp_wei)"
 	).is_equal("ch04_jiangling_conquest")
+
+
+# ─── S69: DEV cascade-state seeding for signature badge + pulse attestation ──
+
+
+## DEV jump to ch14 (cascade 1번째 합류 — 위연 from ch13 hidden) seeds
+## _persistent_branch_flags with the prior signature key + sets pending cascade
+## announcement so the badge renders "1/5" + pulse fires on first mount.
+func test_dev_jump_to_ch14_seeds_wei_yan_cascade_state() -> void:
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+	var ok: bool = runner.dev_jump_to_chapter(SHU_PATH, 13)  # ch14 = index 13
+	assert_bool(ok).is_true()
+	var flags: PackedStringArray = runner.get_persistent_branch_flags_for_test()
+	assert_int(flags.size()).override_failure_message(
+		"DEV jump to ch14 expects exactly 1 prior signature flag (위연 ch13 hidden)"
+	).is_equal(1)
+	assert_bool("WIN_changsha_wei_yan_defects" in flags).is_true()
+	var pending: Dictionary = runner.get_pending_cascade_announcement()
+	assert_str(pending.get("signature_key", "") as String).is_equal("WIN_changsha_wei_yan_defects")
+	assert_str(pending.get("text_key", "") as String).is_equal("ch14.cascade_join.wei_yan")
+
+
+## DEV jump to ch22 (장비 합류 — accumulates 4 prior cascade signatures:
+## 위연 ch13 / 방통 ch16 / 관우 ch20 / 장비 ch21) seeds all 4 flags + sets
+## pending announcement to the immediate prior's signature (zhang_fei).
+func test_dev_jump_to_ch22_accumulates_four_prior_signature_flags() -> void:
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+	var ok: bool = runner.dev_jump_to_chapter(SHU_PATH, 21)  # ch22 = index 21
+	assert_bool(ok).is_true()
+	var flags: PackedStringArray = runner.get_persistent_branch_flags_for_test()
+	assert_int(flags.size()).override_failure_message(
+		"DEV jump to ch22 expects 4 prior signature flags (위연/방통/관우/장비)"
+	).is_equal(4)
+	for expected: String in [
+		"WIN_changsha_wei_yan_defects",
+		"WIN_luofeng_pang_tong_lives",
+		"WIN_fancheng_guan_yu_survives",
+		"WIN_zhangfei_survives",
+	]:
+		assert_bool(expected in flags).override_failure_message(
+			"flags must include %s after dev_jump to ch22" % expected
+		).is_true()
+	var pending: Dictionary = runner.get_pending_cascade_announcement()
+	assert_str(pending.get("signature_key", "") as String).is_equal("WIN_zhangfei_survives")
+
+
+## DEV jump to ch15 (post-cascade chapter with no own cascade_join_prose entry)
+## still seeds prior signature flag but does NOT set pending announcement —
+## badge shows "1/5 시그니처" without pulse.
+func test_dev_jump_to_ch15_seeds_flag_but_no_cascade_announcement() -> void:
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+	var ok: bool = runner.dev_jump_to_chapter(SHU_PATH, 14)  # ch15 = index 14
+	assert_bool(ok).is_true()
+	var flags: PackedStringArray = runner.get_persistent_branch_flags_for_test()
+	assert_int(flags.size()).override_failure_message(
+		"DEV jump to ch15 inherits 1 prior signature flag from ch13"
+	).is_equal(1)
+	var pending: Dictionary = runner.get_pending_cascade_announcement()
+	assert_bool(pending.is_empty()).override_failure_message(
+		"ch15 authored no cascade_join_prose → no pending announcement"
+	).is_true()
+
+
+## DEV jump to ch01 (index 0) returns early without seeding — chapter 0 has no
+## prior chapters, no cascade state to seed.
+func test_dev_jump_to_ch01_seeds_no_cascade_state() -> void:
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+	var ok: bool = runner.dev_jump_to_chapter(SHU_PATH, 0)
+	assert_bool(ok).is_true()
+	var flags: PackedStringArray = runner.get_persistent_branch_flags_for_test()
+	assert_int(flags.size()).is_equal(0)
+	var pending: Dictionary = runner.get_pending_cascade_announcement()
+	assert_bool(pending.is_empty()).is_true()

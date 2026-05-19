@@ -328,6 +328,13 @@ func restore_from_save_context(ctx: SaveContext) -> bool:
 ## from any prior chapter) are also skipped. Use the natural playthrough path
 ## (`MainMenu.새 시나리오`) to verify hidden destiny + branch_override behaviour.
 ##
+## DOES seed cascade state via `_dev_seed_cascade_state` after S69 — prior
+## chapters' hidden_branch_keys (that are in _signature_branch_keys) flow into
+## _persistent_branch_flags, and if the target chapter authored cascade_join_prose
+## whose signature_key matches a seeded flag, _pending_cascade_announcement is
+## set + cascade_join_announced is emitted. This lets DEV jump exercise the
+## signature badge + cascade pulse without the full natural-play prerequisite.
+##
 ## Test-seam: this method bypasses the SCENARIO_LOAD entry assertion that
 ## production paths (BattleScene._bootstrap_scenario_if_needed +
 ## restore_from_save_context) honour. Build gating via `OS.has_feature("debug")`
@@ -353,10 +360,72 @@ func dev_jump_to_chapter(scenario_path: String, chapter_index: int) -> bool:
 		return true  # load_scenario already landed at chapter 0 BEAT_1_ANCHOR
 	_chapter_index = chapter_index
 	_reset_per_chapter_state()
+	# DEV cascade-state seeding: simulate the production playthrough state at
+	# target chapter — assume all prior hidden signature branches resolved.
+	# Lets DEV-jump exercise signature badge + cascade pulse without the full
+	# natural play. S69 — added after windowed attestation found pulse silent
+	# under DEV jump (no cascade state was ever set by the original method).
+	_dev_seed_cascade_state(chapter_index)
 	var chapter: ChapterDefinition = get_current_chapter()
 	if chapter != null:
 		GameBus.chapter_started.emit(chapter.chapter_id, chapter.chapter_number)
 	return true
+
+
+## DEV-ONLY helper for `dev_jump_to_chapter`. Walks chapters [0, chapter_index)
+## and seeds `_persistent_branch_flags` with each prior chapter's hidden-path
+## resolved branch_path_id (via `branch_table[hidden_branch_key]`) — if that
+## branch_path_id is in `_signature_branch_keys`. Then, if the target chapter
+## authored `cascade_join_prose` whose signature_key matches one of the seeded
+## flags, seeds `_pending_cascade_announcement` + emits `cascade_join_announced`
+## for HUD/observer consistency.
+##
+## Note: `hidden_branch_key` field on ChapterDefinition is the ROUTING KEY
+## (e.g., "WIN_hidden"), not the actual branch_path_id. The resolved branch
+## flows through `branch_table[hidden_branch_key]` (e.g., "WIN_hidden" →
+## "WIN_changsha_wei_yan_defects"). _signature_branch_keys contains the latter.
+##
+## Result: DEV jump to ch14 → badge "1/5" + pulse; DEV jump to ch22 → badge "4/5"
+## + pulse; DEV jump to ch15 (post-ch14, no own cascade entry) → badge "1/5", no
+## pulse. Production-path natural play uses `_enter_chapter_start` instead;
+## this helper is bypassed entirely outside DEV jumps.
+func _dev_seed_cascade_state(chapter_index: int) -> void:
+	if chapter_index <= 0:
+		return
+	var flags: PackedStringArray = PackedStringArray()
+	for i: int in range(chapter_index):
+		var prior: ChapterDefinition = _chapters[i] as ChapterDefinition
+		if prior == null:
+			continue
+		var routing_key: String = prior.hidden_branch_key
+		if routing_key.is_empty():
+			continue
+		if not prior.branch_table.has(routing_key):
+			continue
+		var resolved_path: String = prior.branch_table[routing_key] as String
+		if resolved_path.is_empty():
+			continue
+		if not (resolved_path in _signature_branch_keys):
+			continue
+		if not (resolved_path in flags):
+			flags.append(resolved_path)
+	_persistent_branch_flags = flags
+	if flags.is_empty():
+		return
+	var target: ChapterDefinition = _chapters[chapter_index] as ChapterDefinition
+	if target == null or target.cascade_join_prose.is_empty():
+		return
+	for sig_key_var: Variant in target.cascade_join_prose.keys():
+		var sig_key: String = sig_key_var as String
+		if not (sig_key in flags):
+			continue
+		var text_key: String = target.cascade_join_prose[sig_key] as String
+		_pending_cascade_announcement = {
+			"signature_key": sig_key,
+			"text_key": text_key,
+		}
+		GameBus.cascade_join_announced.emit(sig_key, text_key)
+		return
 
 
 # ─── Scenario load + validation (LOADING state entry) ─────────────────────────
