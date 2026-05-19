@@ -2194,18 +2194,53 @@ func _mount_signature_count_badge() -> void:
 	# B1.2 — cascade 합류 챕터 (위연 ch14 / 방통 ch17 / 관우 ch21 / 장비 ch22 /
 	# 유비 ch23) 진입 시 badge 가 "방금 N+1/5 으로 증가" 시점에 강조 pulse.
 	# `_collect_pre_battle_beats` 가 consume 시 _pulse_signature_badge_next_mount
-	# 을 true 로 set — 여기서 one-shot 으로 소비 후 리셋. peek 의존은 consume
-	# 이 항상 mount 보다 먼저라서 영원히 empty 였음 (S68 race; S69 fix).
-	# G-31: tween 은 SceneTree 바인딩 (BattleScene PROCESS_MODE_DISABLED 우회).
+	# 을 true 로 set — 헬퍼에서 await 한 프레임 후 layout 안정된 badge.size 로
+	# pivot 보정 + 다중 채널 (scale + color + outline) pulse. S68 race + S69
+	# 가시성 polish 결합 (사용자 attestation: "subtle 의도가 plays-too-quiet").
 	if _pulse_signature_badge_next_mount:
 		_pulse_signature_badge_next_mount = false
-		badge.pivot_offset = badge.size * 0.5
-		var pulse: Tween = get_tree().create_tween().set_parallel(true)
-		pulse.tween_property(badge, "scale", Vector2(1.2, 1.2), 0.18) \
-			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		pulse.tween_property(badge, "scale", Vector2.ONE, 0.42) \
-			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN) \
-			.set_delay(0.18)
+		_trigger_signature_badge_pulse(badge)
+
+
+## B1.2 pulse 헬퍼 — `_mount_signature_count_badge` 에서 분리. mount 직후엔
+## badge.size 가 (0, 0) (layout 아직 propagate 안 됨) — await 한 프레임 후
+## pivot 계산 → scale 1.0 → 1.5 → 1.0 + font_color GEUM_SAEK → UI_GOLD →
+## GEUM_SAEK + outline_size 5 → 10 → 5 동시 진행. 총 ~0.90s. G-31: tween 은
+## SceneTree 바인딩 (BattleScene PROCESS_MODE_DISABLED 우회).
+func _trigger_signature_badge_pulse(badge: Label) -> void:
+	await get_tree().process_frame
+	if not is_instance_valid(badge):
+		return
+	badge.pivot_offset = badge.size * 0.5
+	var pulse: Tween = get_tree().create_tween().set_parallel(true)
+	# Scale: 1.0 → 1.5 (0.20s ease-out) → 1.0 (0.70s ease-in).
+	pulse.tween_property(badge, "scale", Vector2(1.5, 1.5), 0.20) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	pulse.tween_property(badge, "scale", Vector2.ONE, 0.70) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN) \
+		.set_delay(0.20)
+	# Color flash: GEUM_SAEK → UI_GOLD (soft warm) → GEUM_SAEK.
+	pulse.tween_method(
+		func(c: Color) -> void:
+			if is_instance_valid(badge):
+				badge.add_theme_color_override("font_color", c),
+		Palette.GEUM_SAEK, Palette.UI_GOLD, 0.20)
+	pulse.tween_method(
+		func(c: Color) -> void:
+			if is_instance_valid(badge):
+				badge.add_theme_color_override("font_color", c),
+		Palette.UI_GOLD, Palette.GEUM_SAEK, 0.70).set_delay(0.20)
+	# Outline thickness: 5 → 10 → 5 (시각 무게감 증폭).
+	pulse.tween_method(
+		func(s: float) -> void:
+			if is_instance_valid(badge):
+				badge.add_theme_constant_override("outline_size", int(s)),
+		5.0, 10.0, 0.20)
+	pulse.tween_method(
+		func(s: float) -> void:
+			if is_instance_valid(badge):
+				badge.add_theme_constant_override("outline_size", int(s)),
+		10.0, 5.0, 0.70).set_delay(0.20)
 
 
 ## Resolves the final-chapter ending screen content (title + body) from the
