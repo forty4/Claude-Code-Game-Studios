@@ -1942,8 +1942,14 @@ func _proceed_scenario() -> void:
 			# Act 0.5 (S65+) — legendary cue: 5 시그니처 + ch25 hidden 동시
 			# 달성 시 별빛 fade overlay + victory sfx 로 "전설의 새벽" 도달을
 			# 강조. visual cue 끝나야 b8 prose 표시 (~1.2초 await).
+			# B1.2 — hidden branch (legendary 가 아닌) 일 경우 JU_HONG edge
+			# vignette 로 "역사가 갈라진다" 운명 분기 punctuation. legendary
+			# 와 hidden 동시 fire 방지 위해 elif (legendary 우선).
 			if branch_key == "WIN_wuzhang_legendary_dawn":
 				await _show_legendary_visual_cue()
+			elif not branch_key.is_empty() \
+					and branch_key == finished_chapter.hidden_branch_key:
+				await _show_hidden_branch_vignette()
 			# Act 1 — Beat 8 (your branch's resolved prose).
 			if not b8.is_empty():
 				await _present_story_beats([b8])
@@ -2096,6 +2102,49 @@ func _show_legendary_visual_cue() -> void:
 		overlay.queue_free()
 
 
+## B1.2 — hidden branch resolution 시 "역사가 갈라진다" punctuation.
+## branch_key 가 chapter.hidden_branch_key 와 일치할 때만 fire — legendary 분기는
+## 별도 cue (_show_legendary_visual_cue) 가 우선 처리하므로 caller 가 elif 로
+## 분기. JU_HONG (`#C0392B`) 의 첫 적용 site — distilled bible §1 "운명 분기
+## ONLY" reservation. Top + bottom 60px edge strips 가 0 → 0.5 alpha 로 brackets
+## 처럼 fade-in (0.30s), 0 alpha 로 fade-out (0.55s). full-screen GEUM_SAEK
+## legendary wash 와 명확히 다른 gesture (edge bracket vs full overlay).
+##
+## Headless callers 는 _proceed_scenario's b8 path 를 거치지 않아 이 cue 도 fire 안 됨.
+func _show_hidden_branch_vignette() -> void:
+	if _hud_layer == null:
+		return
+	var top_strip: ColorRect = ColorRect.new()
+	top_strip.name = "HiddenVignetteTop"
+	top_strip.color = Color(Palette.JU_HONG.r, Palette.JU_HONG.g, Palette.JU_HONG.b, 0.0)
+	top_strip.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	top_strip.offset_bottom = 60.0
+	top_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hud_layer.add_child(top_strip)
+	var bottom_strip: ColorRect = ColorRect.new()
+	bottom_strip.name = "HiddenVignetteBottom"
+	bottom_strip.color = Color(Palette.JU_HONG.r, Palette.JU_HONG.g, Palette.JU_HONG.b, 0.0)
+	bottom_strip.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	bottom_strip.offset_top = -60.0
+	bottom_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hud_layer.add_child(bottom_strip)
+	# G-31: SceneTree-bound tween (BattleScene PROCESS_MODE_DISABLED 우회).
+	var tween: Tween = get_tree().create_tween().set_parallel(true)
+	tween.tween_property(top_strip, "color:a", 0.5, 0.30) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(bottom_strip, "color:a", 0.5, 0.30) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(top_strip, "color:a", 0.0, 0.55) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN).set_delay(0.30)
+	tween.tween_property(bottom_strip, "color:a", 0.0, 0.55) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN).set_delay(0.30)
+	await tween.finished
+	if is_instance_valid(top_strip):
+		top_strip.queue_free()
+	if is_instance_valid(bottom_strip):
+		bottom_strip.queue_free()
+
+
 ## Mounts the 시그니처 카운트 badge on _hud_layer top-right when at least one
 ## persistent signature flag is active. Skipped silently on scenarios that
 ## don't author any signature_branches (mvp_wei, prototype lines) — guarded
@@ -2132,6 +2181,19 @@ func _mount_signature_count_badge() -> void:
 	badge.offset_bottom = 40.0
 	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_hud_layer.add_child(badge)
+	# B1.2 — cascade 합류 챕터 (위연 ch14 / 방통 ch17 / 관우 ch21 / 장비 ch22 /
+	# 유비 ch23) 진입 시 badge 가 "방금 N+1/5 으로 증가" 시점에 강조 pulse.
+	# peek 만 (consume 은 _collect_pre_battle_beats 가 담당). G-31: tween 은
+	# SceneTree 바인딩 (BattleScene PROCESS_MODE_DISABLED 우회).
+	var pending: Dictionary = ScenarioRunner.get_pending_cascade_announcement()
+	if not pending.is_empty():
+		badge.pivot_offset = badge.size * 0.5
+		var pulse: Tween = get_tree().create_tween().set_parallel(true)
+		pulse.tween_property(badge, "scale", Vector2(1.2, 1.2), 0.18) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		pulse.tween_property(badge, "scale", Vector2.ONE, 0.42) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN) \
+			.set_delay(0.18)
 
 
 ## Resolves the final-chapter ending screen content (title + body) from the

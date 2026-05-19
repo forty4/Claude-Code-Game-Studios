@@ -216,6 +216,47 @@ func test_pending_cascade_announcement_set_on_emit() -> void:
 	assert_str(pending.get("text_key", "") as String).is_equal("test.cascade_join.alpha")
 
 
+## B1.2 — get_pending_cascade_announcement 는 non-consuming (peek). BattleScene
+## signature badge pulse 가 peek 후 _collect_pre_battle_beats 가 consume 하는
+## 흐름을 보장. 두 번 호출 시 두 번 모두 동일 dict 반환, consume 후에야 비워짐.
+func test_get_pending_cascade_announcement_is_non_consuming() -> void:
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+	var ch_prior: ChapterDefinition = _make_chapter("ch_prior", 1)
+	var ch_current: ChapterDefinition = _make_chapter(
+		"ch_current",
+		2,
+		{"WIN_test_signature": "test.cascade_join.alpha"},
+	)
+	runner._set_chapters_for_test(
+		[ch_prior, ch_current] as Array[ChapterDefinition], "test_cascade"
+	)
+	runner._set_signature_branches_for_test(PackedStringArray(["WIN_test_signature"]))
+	runner._set_chapter_outcomes_for_test([{
+		"chapter_id": "ch_prior",
+		"branch_path_id": "WIN_test_signature",
+		"echo_count_at_completion": 0,
+		"outcome": 0,
+	}])
+	runner._chapter_index = 1
+	runner._enter_chapter_start()
+	var peek1: Dictionary = runner.get_pending_cascade_announcement()
+	assert_bool(peek1.is_empty()).override_failure_message(
+		"첫 peek 직후 cascade 데이터 보존"
+	).is_false()
+	var peek2: Dictionary = runner.get_pending_cascade_announcement()
+	assert_bool(peek2.is_empty()).override_failure_message(
+		"두 번째 peek 도 동일 데이터 (non-consuming)"
+	).is_false()
+	assert_str(peek2.get("signature_key", "") as String).is_equal("WIN_test_signature")
+	# consume 후에는 비어야 함
+	runner.consume_pending_cascade_announcement()
+	var peek3: Dictionary = runner.get_pending_cascade_announcement()
+	assert_bool(peek3.is_empty()).override_failure_message(
+		"consume 후 peek 은 빈 dict"
+	).is_true()
+
+
 ## consume 은 1회만 동작 (이후엔 빈 dict 반환). retry-reload 시 cascade 중복 차단.
 func test_consume_pending_cascade_announcement_is_idempotent() -> void:
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
