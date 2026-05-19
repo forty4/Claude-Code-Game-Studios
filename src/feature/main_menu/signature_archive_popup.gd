@@ -17,13 +17,15 @@ signal closed
 
 
 # Hardcoded signature catalog — order = cascade event chronology in shu_canon_full.
-# (signature_key, hero_name_ko, chapter_label, blurb)
+# (signature_key, hero_name_ko, chapter_label, blurb, hero_id)
+# hero_id maps to heroes.json for portrait lookup via HeroDatabase.get_portrait_texture().
+# B2.1 ships portrait_shu_wei_yan.png only; other 4 fall back to text-only until B2.2-5.
 const SIGNATURE_CATALOG: Array[Array] = [
-	["WIN_changsha_wei_yan_defects",  "위연 (魏延)",     "ch13 장사",   "황충 노장과의 결의 — 칼을 거두고 한실의 부장으로."],
-	["WIN_luofeng_pang_tong_lives",   "방통 (龐統)",     "ch16 낙봉파", "낙봉의 화살을 비껴 간 봉추 — 와룡의 옆에."],
-	["WIN_fancheng_guan_yu_survives", "관우 (關羽)",     "ch20 번성",   "퇴로가 열렸다 — 청룡언월도 다시 본진에."],
-	["WIN_zhangfei_survives",         "장비 (張飛)",     "ch21 장비",   "부하의 칼을 규율로 거두고 호통이 다시."],
-	["WIN_yiling_liu_bei_survives",   "유비 (劉備)",     "ch22 이릉",   "이릉의 화공을 대비로 막다 — 인의가 끝까지."],
+	["WIN_changsha_wei_yan_defects",  "위연 (魏延)",     "ch13 장사",   "황충 노장과의 결의 — 칼을 거두고 한실의 부장으로.",  &"shu_009_wei_yan"],
+	["WIN_luofeng_pang_tong_lives",   "방통 (龐統)",     "ch16 낙봉파", "낙봉의 화살을 비껴 간 봉추 — 와룡의 옆에.",          &"shu_007_pang_tong"],
+	["WIN_fancheng_guan_yu_survives", "관우 (關羽)",     "ch20 번성",   "퇴로가 열렸다 — 청룡언월도 다시 본진에.",            &"shu_002_guan_yu"],
+	["WIN_zhangfei_survives",         "장비 (張飛)",     "ch21 장비",   "부하의 칼을 규율로 거두고 호통이 다시.",             &"shu_003_zhang_fei"],
+	["WIN_yiling_liu_bei_survives",   "유비 (劉備)",     "ch22 이릉",   "이릉의 화공을 대비로 막다 — 인의가 끝까지.",         &"shu_001_liu_bei"],
 ]
 
 
@@ -93,8 +95,9 @@ func _ready() -> void:
 		var hero_name: String = entry[1] as String
 		var chapter_label: String = entry[2] as String
 		var blurb: String = entry[3] as String
+		var hero_id: StringName = entry[4] as StringName
 		var is_active: bool = key in _unlocked_keys
-		vbox.add_child(_make_signature_card(hero_name, chapter_label, blurb, is_active))
+		vbox.add_child(_make_signature_card(hero_name, chapter_label, blurb, is_active, hero_id))
 
 	# Close button
 	var close_btn: Button = Button.new()
@@ -108,7 +111,7 @@ func _ready() -> void:
 
 
 func _make_signature_card(hero_name: String, chapter_label: String,
-		blurb: String, is_active: bool) -> PanelContainer:
+		blurb: String, is_active: bool, hero_id: StringName) -> PanelContainer:
 	var card: PanelContainer = PanelContainer.new()
 	card.custom_minimum_size = Vector2(620, 0)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -135,7 +138,30 @@ func _make_signature_card(hero_name: String, chapter_label: String,
 	var inner: VBoxContainer = VBoxContainer.new()
 	inner.add_theme_constant_override("separation", 4)
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(inner)
+
+	# Portrait conditional wrap (B2.1) — when a portrait Texture2D exists for
+	# this hero, wrap inner in an HBox with portrait left + content right.
+	# When null (B2.2-5 pending), keep the existing inner-only layout so
+	# unfilled cards visually match the pre-portrait baseline.
+	var portrait_texture: Texture2D = HeroDatabase.get_portrait_texture(hero_id)
+	if portrait_texture != null:
+		var hbox: HBoxContainer = HBoxContainer.new()
+		hbox.add_theme_constant_override("separation", 14)
+		hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var portrait_rect: TextureRect = TextureRect.new()
+		portrait_rect.texture = portrait_texture
+		portrait_rect.custom_minimum_size = Vector2(96, 96)
+		portrait_rect.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		portrait_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		portrait_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# Active cards: full opacity. Inactive: dim to read as "locked" without
+		# destroying the silhouette legibility.
+		portrait_rect.modulate = Color(1, 1, 1, 1.0) if is_active else Color(1, 1, 1, 0.45)
+		hbox.add_child(portrait_rect)
+		hbox.add_child(inner)
+		card.add_child(hbox)
+	else:
+		card.add_child(inner)
 
 	var title_row: HBoxContainer = HBoxContainer.new()
 	title_row.add_theme_constant_override("separation", 12)
@@ -182,7 +208,8 @@ func _make_signature_card(hero_name: String, chapter_label: String,
 	)
 	blurb_label.add_theme_color_override("font_color", blurb_color)
 	blurb_label.add_theme_font_size_override("font_size", 14)
-	blurb_label.custom_minimum_size = Vector2(560, 0)
+	# Reduce min width when portrait occupies the left ~110px of the card.
+	blurb_label.custom_minimum_size = Vector2(460 if portrait_texture != null else 560, 0)
 	blurb_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner.add_child(blurb_label)
 

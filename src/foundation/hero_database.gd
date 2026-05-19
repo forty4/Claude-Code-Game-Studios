@@ -11,6 +11,10 @@ class_name HeroDatabase extends RefCounted
 
 const _HEROES_JSON_PATH: String = "res://assets/data/heroes/heroes.json"
 
+## Portrait asset directory. Convention: `{_PORTRAIT_DIR}{portrait_id}.png`.
+## Established by B2.1 (위연 first portrait pipeline) — future heroes follow same.
+const _PORTRAIT_DIR: String = "res://assets/art/portraits/"
+
 ## Regex pattern for hero_id: ^[a-z]+_\d{3}_[a-z_]+$
 ## Faction segment: one or more lowercase letters.
 ## Sequence: exactly 3 digits.
@@ -448,6 +452,31 @@ static func _detect_asymmetric_conflicts(
 					)
 				seen_pairs[pair_key] = true
 				break  # found reciprocal; move on
+
+
+# RETURNS NEW REFERENCE — load() result; caller may store and reuse.
+## Returns the Texture2D for the given hero_id's portrait, or null when the
+## portrait asset is not yet shipped or the hero is unknown.
+##
+## Path convention: `assets/art/portraits/{portrait_id}.png` per B2.1 pipeline.
+## Designed for graceful incremental asset rollout — heroes whose portrait file
+## has not yet been generated return null; UI code MUST fall back to text-only
+## display rather than treating null as an error.
+##
+## Empty hero_id returns null silently (no push_error) — graceful for callers
+## that iterate over a catalog where some entries lack hero_id mapping yet.
+static func get_portrait_texture(hero_id: StringName) -> Texture2D:
+	if String(hero_id).is_empty():
+		return null
+	var hero: HeroData = get_hero(hero_id)
+	if hero == null:
+		return null  # get_hero already emitted push_error for unknown hero_id
+	if hero.portrait_id.is_empty():
+		return null  # hero exists but no portrait_id registered in heroes.json
+	var path: String = _PORTRAIT_DIR + hero.portrait_id + ".png"
+	if not ResourceLoader.exists(path, "Texture2D"):
+		return null  # portrait_id declared in data but asset not yet shipped on disk
+	return load(path) as Texture2D
 
 
 ## Order-independent pair key for EC-6 de-duplication.
