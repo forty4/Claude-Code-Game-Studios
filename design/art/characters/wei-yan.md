@@ -45,32 +45,42 @@ Three Kingdoms general Wei Yan, asymmetric mercenary stance 3/4 view, right hand
 
 ---
 
-## Gemini prompt — copy-paste ready
+## Gemini prompt — copy-paste ready (v3, reframe 학습 적용)
 
-> Gemini Image (Imagen 4 계열) 은 자연어 prompt + 자연어 exclusion 으로 동작. AI Studio / Gemini 앱에서 사용 시 aspect ratio 는 드롭다운 OR 본문에 "1:1 square format" 명시.
+> v1 / v2 시행착오를 통해 학습한 **Gemini reframe 원칙** 적용:
+> - "absence 명시" (NOT drawn, NO blade visible) → **STANCE + visible portion STRUCTURE 명시** ("wooden hilt grip and scabbard fitting visible, weapon held inside")
+> - prop STATE 의 부정형 강조 → prop visibility 의 inverse 강화 위험. v3 는 "blade" / "sword" 단어 빈도 최소화 + 시각 anchor 를 hilt + scabbard 의 visible portion 으로 이동
+> - 양손 무기 issue 차단: "NO second weapon in his other hand — his left hand rests relaxed at his side" 명시
+> - 시선: "lower-left of frame" 좌표 + "looks at the ground in front of his feet" 구체 지시
 
 ```
-A portrait illustration of Wei Yan (魏延, 文长), a Three Kingdoms-era Chinese general, painted in traditional sumi-e ink wash style.
+A portrait illustration of a Three Kingdoms-era Chinese general, painted in traditional sumi-e ink wash style. This is the first of a 5-portrait series — establish the style baseline.
 
-He stands in an asymmetric mercenary posture, three-quarter view facing slightly right, with his right hand resting on the hilt of his sheathed sword at his hip — the weapon is not drawn, his arm is not raised. His gaze is directed downward and to the side, calculating and ambivalent. His face shows weathered, mature, sharp narrow features with subtle asymmetry — not idealized, not youthful, not anime-styled.
+CRITICAL CHARACTER FACE: The character is Wei Yan (魏延, 文长), a hardened mercenary general in his mid-40s. His face is mature, weathered, sun-bronzed, and hardened by years of soldiering — visible lines at the eyes, lined forehead, weathered jaw. Sharp narrow features with subtle asymmetry. He looks like a hardened veteran soldier who has survived many campaigns. Build is medium — lean and practical, NOT slender, NOT heavy. He carries the visible tiredness and ambivalence of an opportunist who joins last among the generals.
 
-He wears practical iron-grey lamellar armor with ochre-earth cloth trim and leather binding straps. There is no ceremonial decoration, no Shu-blue accent colors, no gold filigree, no ornate surface pattern.
+CRITICAL STANCE AND HANDS: He stands in an asymmetric mercenary three-quarter view facing slightly right. Body weight casual — one hip slightly cocked, weight resting on one leg. His right hand rests gently on the bound wooden grip of a hilt protruding from a scabbard at his left hip — only the round wooden pommel and the bound hilt grip are visible above the scabbard's metal fitting; the rest of the weapon stays enclosed inside the black lacquered scabbard. The visual silhouette shows: wooden hilt grip (small protrusion above hip line) + scabbard length hanging down beneath. NO long blade extends from his hand. NO drawn weapon. NO second weapon in his other hand — his left hand rests relaxed at his side. The silhouette read is "a blade waiting inside its sheath" — restraint, not action.
 
-The artistic style is sumi-e ink wash painting in the tradition of late-Ming Chinese woodblock prints and Yokoyama Mitsuteru's historical manga linework. The outlines are variable-weight ink — thicker at the silhouette edge, thinner for interior detail, with visible ink bleeds where the ink meets the paper at the outline edges. The underpainting is monochrome wash with limited muted color: ochre earth tone (hex #C8874A) for the cloth trim, iron blue-grey (hex #5C7A8A) for the armor base, ink-black (hex #1C1A17) for deep shadows and outlines, paper-white (hex #F2E8D4) with visible paper grain for the ground.
+CRITICAL GAZE DIRECTION: His eyes are directed downward toward the ground in front of his feet, lower-left area of the frame. He is NOT looking at the viewer. He is NOT looking to the side. He is calculating something while staring at the ground — the inward gaze of a man weighing options.
 
-The lighting is cold blue-grey daylight, evoking the strategic tension of Jing Province fog. There is generous negative space behind the figure on a neutral paper ground. The composition is centered, with the figure rendered at 8-heads-tall proportion. Historical Three Kingdoms costume accuracy throughout.
+He wears practical iron blue-grey lamellar armor with ochre-earth cloth trim and leather binding straps at the joints. The armor is functional combat gear, NOT ceremonial. No gold filigree, no ornate decoration, no Shu-blue accent colors.
+
+Hair: jet-black, bound in a simple tight topknot, no ornament.
+
+The artistic style is sumi-e ink wash painting in the tradition of late-Ming Chinese woodblock prints and Yokoyama Mitsuteru's historical manga linework. Variable-weight ink outlines, thicker at the silhouette edge, thinner for interior detail, with visible ink bleeds. Monochrome wash underpainting with restrained muted color: iron blue-grey (#5C7A8A) for the armor, ochre earth (#C8874A) for the cloth trim, ink-black (#1C1A17) for the scabbard and shadows, paper-white (#F2E8D4) with visible paper grain for the ground.
+
+Lighting: cool blue-grey daylight — strategic tension atmosphere. Generous negative space behind the figure. Composition centered, figure rendered at 8-heads-tall lean-build proportion. Historical Three Kingdoms costume accuracy throughout.
 
 Aspect ratio: 1:1 square, 1024×1024 pixels.
 
-Do not produce anime, cel-shaded, or stylized cartoon art. Do not produce photorealistic illustration. Do not include gradient glow effects, bright saturated colors, or modern Western fantasy elements. Do not use Dynasty Warriors video-game aesthetics with muscle-baroque armor or glowing weapon trails. Do not include red or gold accent colors. Do not depict the sword being drawn, raised, or held in a strike pose. Do not show a young, idealized, or anime-styled face.
+Do not produce anime, cel-shaded, or stylized cartoon art. Do not produce photorealistic illustration. Do not include gradient glow effects, bright saturated colors, or modern Western fantasy elements. Do not use Dynasty Warriors aesthetics with muscle-baroque armor or glowing weapon trails. Do not include red or gold accent colors. Do not show a young, idealized, or handsome face — only mature weathered veteran.
 ```
 
-**Gemini 튜닝 메모**:
-- 너무 깨끗 / 디지털 일러스트 느낌 → 본문에 추가: `rough textured brushwork is essential, with irregular ink bleed and visible paper grain throughout the entire image`
-- 자세 오류 (검 뽑음 / 팔 듦) → exclusion 강화: `The sword remains entirely sheathed in its scabbard. His hand merely rests on the hilt — the blade is not visible at all.`
-- 얼굴이 anime / 너무 어림 → `The face must have mature, realistic, weathered proportions. This is a hardened soldier, not a young hero — visible signs of age and combat experience on the face.`
-- 색이 너무 다양 → `Restrict the color palette strictly to the four named hex values only. The image should read as primarily monochromatic ink wash with very restrained color accents — no other colors should appear.`
-- 배경이 sumi-e 안 됨 → `The background is paper-white with visible paper grain texture, in the tradition of traditional Chinese ink painting — NOT a digital gradient, NOT a solid color fill.`
+**Gemini 튜닝 메모** (v3 단계):
+- 두 손에 다른 무기 / 양손 무기 → "NO second weapon in other hand — left hand relaxed at side" 강화 inline
+- 검신이 보임 → "weapon stays enclosed inside scabbard, only wooden pommel and hilt grip visible above fitting" 같은 visible portion STRUCTURE 묘사로 재구성. "blade" / "drawn" 단어 빈도 최소화.
+- 시선이 정면 / 옆 → "downward toward ground in front of his feet, lower-left of frame" 좌표 명시. "He is NOT looking at viewer" 직접 부정 보조.
+- 얼굴이 anime / 어림 → "hardened veteran in mid-40s" 구체 나이 + "visible lines at eyes, lined forehead" 부위별 묘사.
+- 화풍 drift → "first of a 5-portrait series — establish the style baseline" series anchor 도입.
 
 ---
 
