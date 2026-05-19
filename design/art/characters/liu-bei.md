@@ -1,170 +1,202 @@
-# Character Visual Profile: 유비 (Liu Bei) — Stub
+# 유비 (Liu Bei) — Portrait Asset Spec
 
-> **Status**: Stub (sprint-11 S11-09 — descoped from 3 stubs to 1 per S10-07 carryover absorption decision; closes AD-C5 ADVISORY to "first-stub-shipped" partial state)
-> **Hero ID**: `shu_001_liu_bei` (per `assets/data/heroes/heroes.json`)
-> **Tier**: Sections 1-3 minimum (silhouette + costume + role-anchor); Sections 4-N deferred to character-art production sprint
-> **Author**: claude (sprint-11 S11-09; art-director consulted via `design/art/art-bible.md` §3-2 hero-silhouette philosophy)
-> **Last Updated**: 2026-05-08
-> **Cross-refs**: `design/gdd/hero-database.md` §COMMANDER role + record `shu_001_liu_bei`; `design/art/art-bible.md` §1 Visual Identity + §3-2 Hero Silhouette + §3 reserved-color discipline; `assets/data/heroes/heroes.json` `shu_001_liu_bei` stat block
+> **Status**: B2.5-a — spec authored, pending external AI gen (B2.5-b)
+> **Hero ID**: `shu_001_liu_bei` · **Portrait ID**: `portrait_shu_liu_bei`
+> **Cascade signature**: ch22 이릉 hidden destiny (`WIN_yiling_liu_bei_survives`) — 유비는 ch1 부터 party. cascade 는 historical 이릉 화공-grief 회피. ch25 영걸전 legendary finale 의 center figure
+> **Sources**: `art-bible-v1-distilled.md` §1 palette + §2 line + §4 유비 anatomy seed; `heroes.json` `shu_001_liu_bei`; B2.1 위연 v3 + B2.2 방통 v2s + B2.3 관우 + B2.4 장비 pipeline + reframe 학습 적용 (commits `4e5ceae`, `f6e994e`, `b3610ef`, `5431283`)
+> **Date**: 2026-05-19
+
+> **NOTE**: 이 파일은 sprint-11 의 liu-bei.md (170-line 스텁 — sections 1-3 silhouette/costume/role-anchor, §4-N deferred) 와 다른 production spec. 기존 stub 은 historical sprint-mode 산물로 보존하지 않음 (overwrite). forward-going SoT 는 이 production spec.
 
 ---
 
-## Canonical Anchors (from hero-database.md + heroes.json)
+## Canonical anchors (from `heroes.json`)
 
 | Field | Value | Visual implication |
 |---|---|---|
-| Korean name | 유비 (Liu Bei) | Three-Kingdoms 蜀 (Shu) founder — primary virtue archetype |
-| Chinese name | 劉備 | — |
-| Courtesy name (字) | 玄德 (Xuande) — "profound virtue" | Visual must read as virtuous leader, not warrior |
-| Faction | Shu (faction 0) | Shu palette anchor: 황토 (ochre) dominant in armor accents — earth-virtue association |
-| Class | COMMANDER (default_class=4 → 지휘관 per `hero-database.md` §COMMANDER row) | Silhouette anchored on leadership posture, not strike pose |
-| Stat profile | Might 70 / Intellect 75 / **Command 90** / Agility 65 | Command is the dominant stat — silhouette + props must read as commander first, fighter second |
-| Innate skills | `skill_inspire` (rally buff) + `skill_benevolence` (defensive/team-support) | Visual signals must support both rally + benevolence — open posture, raised hand or sword-pointed-skyward, NOT lowered-blade strike pose |
-| Sworn-brother bond | Guan Yu + Zhang Fei (Peach Garden Oath; `bond_oath_peach_garden` symmetric) | Silhouette must hold its own at the **center** of the 3-brother triangle composition; supports the canonical Peach Garden tableau |
-| Join chapter | 1 (`join_chapter=1` + `story_ch1_intro` tag) | First-impression role — silhouette sets the project's overall hero-silhouette legibility benchmark |
+| name_ko / name_zh / 자 | 유비 / 刘备 / 玄德 (Xuande, "profound virtue") | 자 "玄德" — virtue-leader archetype |
+| Faction | Shu (0) — **founder** | Shu 정체성 가장 명확. 묵 base + 황토 trim 표준 |
+| Class | default_class=4 (**COMMANDER**) | 5장 중 유일한 commander. 무장 silhouette 아님 — 지휘 posture |
+| Stat profile | Might 70 · Intellect 75 · **Command 90** (정점) · Agility 65 | balanced stats, command 만 명확히 leading — 무력보다 지휘 |
+| Innate skills | `skill_inspire` (rally buff) + `skill_benevolence` (defensive team support) | 두 skill 모두 rally / 인의 → open-arm rally posture 와 직접 연결 |
+| Join chapter | 1 (canonical, project's first hero) | cascade signature 는 ch22 이릉 survival (Phase D 의 grief-laden finale). portrait 는 character canonical state |
+| Bond | `bond_oath_peach_garden` (SWORN_BROTHER 관우 + 장비, 둘 다 대칭) | Peach Garden 삼각 composition 의 **center**. 관우 (right) + 장비 (left) 와 함께 놓였을 때 framing 역할 |
 
 ---
 
-## Section 1 — Silhouette
+## Portrait brief (per distilled §4 + production interpretation)
 
-**Anchor pose**: open commander stance — feet shoulder-width, weight balanced, **right arm extended forward or upward** (rallying gesture; reads as inspire / call-to-arms even in static frame). Left arm relaxed at side OR resting on sword pommel (NOT mid-strike). Head slightly raised — looks **at** rather than **down**, conveys leader-among-equals (not commander-from-above).
+**Balanced open-arm rally posture** — 5장 중 유일하게 active gesture 자세. 약간 forward facing, 양발 어깨 너비 planted (장비 forward-leaning 도 아니고 관우 fully planted square 도 아닌 중간 balanced). **right arm raised forward with open palm in rally / call-to-arms gesture** — 또는 가슴 높이에서 손바닥 위로 향한 inviting/inspiring 자세. left hand 는 hip 의 sword pommel 에 가볍게 — relaxed reach.
 
-**Head shape**: rounded crown with **prominent ears** (Three-Kingdoms canonical visual marker — 大耳 / "big ears" associated with nobility in Chinese folklore; also serves as a silhouette-distinguishing trait at small zoom levels). Beard: full but trim, NOT bushy (distinguish from Zhang Fei's wild beard); reads as scholar-tempered virtue, not warrior wildness.
+**双股劍 (paired twin short swords)** — right hip 에 **두 자루 scabbard 나란히**. 5장 중 유일하게 **paired short weapons** + **vertical protrusion 없음**. 다른 4장은 모두 single prop (검 hilt / 부채 / 폴암 / 사모) 이고 관우/장비는 vertical 머리 위 protrusion 인데, 유비는 hip-level twin scabbard 의 horizontal asymmetric 만. silhouette 의 weight 가 weapon 이 아닌 자세에 있음.
 
-**Body proportions** (per art-bible §3-2 영웅 vs. 일반 병사):
-- Hero scale = 1.25× same-class soldier per art-bible §3-2 line 158
-- Outline irregularity: brush-stroke variability on the silhouette edge (per art-bible §3-2 line 159) — concentrated on robe hem + cloak edge to read as wind-caught fabric, NOT armor edges (those stay clean to read as disciplined commander)
+**Prominent ears** — Three Kingdoms canonical visual marker (大耳, "big ears" = 귀인 의 표상). 머리 양옆에 약간 커 보이는 ears visible, naturalistic proportion (cartoon-ish 과장 금지 — 자연스러운 약간의 emphasis). 5장 중 유일한 character marker.
 
-**Equipment protrusions** (per art-bible §3-2 line 160 — heroes get asymmetric protrusions for silhouette individuation):
-- **Right side**: paired swords (双股劍 / 자웅쌍고검) at hip — TWO scabbards, NOT one. The double-scabbard is Liu Bei's canonical Three-Kingdoms attribute and provides the asymmetric silhouette protrusion against the otherwise-symmetric COMMANDER class shape. At reading distance, the silhouette reads as "commander with twin blades" — distinguishes immediately from Cao Cao (typically single sword) and Sun Quan (no visible weapon).
-- **Left side**: NO ceremonial fan, NO scroll, NO mace. The void on the left is intentional — frames the rally gesture when the right arm is raised.
-- **Cloak**: long cloak trailing behind, brush-stroke outline. The cloak's asymmetric drift (catching wind from behind-right) reinforces the forward-leaning rally posture without shifting the figure's center of gravity.
+**Full-trim beard** — **잘 정돈된, 가지런한 mid-chest 길이 수염**. 관우의 long flowing 보다 짧고 더 trimmed, 장비의 wild curling 과 명확히 정반대. jet-black, 깔끔한 brushstroke, 수염 끝이 chest 에 닿거나 조금 아래. virtue-leader 의 self-discipline 시각 표현.
 
-**Silhouette read at three zoom levels** (per art-bible §3-2 실루엣 읽힘 층위 lines 138-145):
-- Battlefield zoom (small): "human silhouette with raised arm + paired-blade hip protrusion" — distinct from common COMMANDER silhouettes (e.g., Cao Cao single-blade, Sun Quan no-blade)
-- Mid zoom (forecast / unit-info panel): "rounded-head + full-beard + double-scabbard" — confirms identity
-- Portrait zoom: full canonical Liu Bei face per portrait spec (deferred to portrait sprint; this stub does NOT specify face details beyond "prominent ears + full-trim beard + virtuous expression")
+**시선: direct forward, calm warm**. 5장 중 **유일하게 looks AT (정면 응시) — 위연 downward / 방통 calm-forward-slight-downward / 관우 stoic-forward / 장비 intense-forward-but-glaring 와 다른 direct calm warm engagement**. virtue-leader 의 "leader-among-equals" — 위 가 아닌 사람-눈높이 응시.
 
----
+**얼굴**: mature middle-aged, weathered but warm and composed. 위엄 있지만 군림하지 않는. 시리즈 통일 skin tone (warm sun-tanned olive). 표정: virtue-warm, slight smile 가능하나 over-soft 회피.
 
-## Section 2 — Costume
+**Build**: **medium balanced** — 5장 중 유일하게 heavy 도 lean 도 아닌 중간. 관우/장비 의 heavy build 와 위연/방통 의 medium 사이의 average warrior-commander 비율.
 
-**Palette restraint** (per art-bible §1 + §3 reserved-color discipline):
+**의복**: **묵 base robe + 황토 trim** — Shu 표준 hex 정확 (#1C1A17 robe + #C8874A trim at cuff + collar + 가운 하단 panel). 갑옷은 robe 안에 lamellar 보이지 않음 — virtue-king 은 갑옷보다 robe 가 dominant (commander, not 전투원). long cloak 후방으로 자연스럽게 흐름 — 약간의 wind-caught feel (NOT 화려한 flapping).
 
-| Layer | Color (project token) | Justification |
-|---|---|---|
-| Base robe | 묵 (ink, deep indigo-black) | Pillar 4 ink-wash anchor; Liu Bei's robe is the canonical ink-tone silhouette base |
-| Robe trim + cuff | 황토 (ochre) | Shu faction visual signature; subtle gold-adjacent without crossing into reserved 금색 |
-| Sash / belt | 청회 (blue-grey) | Tertiary palette tone; provides waist-level horizontal break for silhouette legibility |
-| Sword scabbards | 묵 lacquered black + 황토 ochre fittings | Reads as understated, virtue-anchored — NOT ostentatious like a tyrant's weapon |
-| **Cloak (outer layer)** | 황토 with deep 묵 lining | Visible only when wind-caught; the ochre-on-ink interior reveal is Liu Bei's canonical color signature without invoking reserved colors |
+머리: jet-black bound topknot or simple bound style, scholar-warrior 의 중간. NO 황제 관모, NO 화려한 장식.
 
-**Reserved-color discipline** (per art-bible §1 + accessibility-requirements.md R-1):
-- 주홍 (vermillion) — **NOT used** on Liu Bei in any baseline frame. Vermillion is reserved for 운명 분기 (destiny branch) tragedy beats only.
-- 금색 (gold) — **NOT used** on Liu Bei in any baseline frame. Gold is reserved for triumph/accession 운명 분기 beats only. Even the Han-imperial accession (proclamation as emperor of Shu Han) does NOT introduce gold to Liu Bei's costume — that moment uses 금색 in the *environmental treatment* (banner, light, throne), not on the character.
-- Implication: Liu Bei's baseline costume must be readable as **virtuous-but-not-yet-emperor**. The ascension to emperor-status is a narrative beat handled by environment + lighting, not character costume.
+**Phase E lighting (baseline)**: "cool blue-grey dawn — strategic horizon, the moment before destiny is sealed or rewritten". Phase E baseline 은 cold blue-grey (legendary trigger 의 gold dawn 은 미래 variant). 5장 phase 통합: 위연 B cold / 방통 C amber dusk / 관우 + 장비 D warm amber / **유비 E cool dawn** — 모두 다른 phase.
 
-**Era markers**:
-- **Pre-CH-1 narrative state** (chapter 1 introduction): commoner-rank robe + travel cloak. Sash reads as practical, not ceremonial. Visual reads "wandering virtuous leader" not "established sovereign."
-- **Post-Peach-Garden / Late-game progression** (deferred to character-art production sprint; this stub specifies pre-ch-1 only): scholarly-imperial robe variants are **future-stub work**. Note for the future spec: never add gold (reserved) to costume; instead, robe pattern complexity increases (more layered trim, longer cloak, ceremonial collar) while staying within the 묵 + 황토 + 청회 palette.
-
-**Anti-pattern checklist** (what Liu Bei's costume must NOT do):
-- ❌ Heavy plate armor — Liu Bei is COMMANDER class (command 90 > might 70), not WARRIOR class. Plate armor would mislead the silhouette read toward warrior identity.
-- ❌ Gold/vermillion accents — violates reserved-color discipline.
-- ❌ Bare-armed / battle-stripped — Liu Bei is a virtue-ruler archetype; bare-armed would mislead toward warrior/peasant reading. Even in defeat scenes, the cloak stays.
-- ❌ Single sword — collapses silhouette distinguishability against single-sword COMMANDER profiles. Paired swords are non-negotiable.
-- ❌ Horse-mounted baseline — battle-sprite is foot-soldier scale per `battle_sprite_id: sprite_shu_liu_bei`; mounted variants are deferred to event-art sprint (Peach Garden Oath, Imperial Procession).
+**Why these anchors**:
+- 유비 = cascade 의 anchor figure. 다른 4 영걸 (위연 / 방통 / 관우 / 장비) 가 유비 의 silhouette 을 framing 하는 composition intent (distilled §4: "his silhouette is the one the other four frame")
+- 5장 중 유일하게 weapon-free 자세 (rally posture) + paired horizontal weapon (vertical above-head protrusion 없음) → 유비 silhouette 이 viewers 의 안구가 마지막에 머무는 calm center 가 됨 (장비/관우 의 vertical 무기 가 viewers 안구를 끌어 다른 4 영걸 쪽으로 밀어내는데, 유비는 그 visual energy 의 종착점)
+- ch25 legendary finale 의 center — 다른 4 영걸이 모두 cascade unlock 됐을 때 legendary cue 의 gold dawn 이 유비 portrait 에 떨어짐 (그건 future variant; baseline 은 cool dawn)
+- Peach Garden Oath 삼각 (관우 right / 장비 left / 유비 center) 시각 composition 의 center anchor
 
 ---
 
-## Section 3 — Role-Anchor
+## Midjourney prompt — copy-paste ready
 
-**Class identity reinforcement** (COMMANDER per `hero-database.md` §COMMANDER):
-- Silhouette pose + raised-arm rally gesture + open stance reinforces command/leadership. Foreign players unfamiliar with Three Kingdoms canon should still read "leader" at first sight without needing to know the source material. Pillar 3 (모든 무장에게 자리가 있다 / Every Hero Has a Role) is satisfied at the silhouette layer.
-- Paired-swords protrusion provides individual identification without pose-swapping; Liu Bei is recognizable in any frame regardless of animation state.
+```
+Three Kingdoms commander Liu Bei, balanced standing rally posture front-facing 3/4 slight, right arm raised forward at chest height with open palm in inspiring call-to-arms gesture, left hand resting relaxed on the pommel of paired twin short swords at right hip (双股劍 two short scabbards side by side, horizontal hip-level protrusion only NO vertical above-head weapon), prominent slightly larger ears visible at the side of the head naturalistic proportion, full-trim neatly trimmed mid-chest jet-black beard well-groomed and disciplined NOT wild NOT bushy, direct calm warm forward gaze looking at viewer eye-level engagement, mature middle-aged weathered but warm composed face slight virtue-warm expression, weathered sun-tanned olive complexion same skin tone as previous four cascade portraits, jet-black bound topknot or simple bound hair NO imperial crown NO ornament, ink-black base robe (#1C1A17 dominant) with ochre-earth (#C8874A) trim at cuff collar and lower panel, long flowing cloak behind catching slight wind, medium balanced build (NOT heavy NOT lean — average warrior-commander proportion), sumi-e ink wash painting illustration, Romance of Three Kingdoms historical style, variable-weight ink outlines thicker at silhouette edge, ink bleeds at outline edges, late-Ming woodblock print linework, Yokoyama Mitsuteru historical manga influence, monochrome wash underpainting limited muted colour palette, ink-black dominant with ochre-earth trim accents on paper-white #F2E8D4 ground, cool blue-grey dawn Phase-E lighting strategic horizon, generous negative space behind figure centered composition, 8-heads-tall balanced proportion, historical Three Kingdoms costume accuracy --ar 1:1 --style raw --s 200 --v 6 --no anime, photoreal, cel shading, gradient glow, bright saturation, dynasty warriors muscle armor, gold filigree, vermillion red accents, modern western fantasy, glowing weapon trail, single sword, vertical above-head weapon, bushy wild beard, exaggerated cartoonish ears, imperial yellow robe
+```
 
-**Pillar 4 anchoring** (삼국지의 숨결 / Spirit of Three Kingdoms):
-- Prominent-ears + full-trim-beard + paired-swords is the **minimum canonical Liu Bei recognition triplet**. Three Kingdoms-literate players should immediately recognize "Liu Bei" at portrait zoom; non-literate players see a clear COMMANDER identity. Both audiences are served.
-- The Peach Garden Oath bond (`bond_oath_peach_garden` with Guan Yu + Zhang Fei) **shapes the Liu Bei-Guan Yu-Zhang Fei triangle composition** when those three are co-deployed:
-  - Liu Bei occupies the **center** position; his open-arm rally posture frames the trio.
-  - Guan Yu (right-side, when present in same frame) carries his green dragon crescent blade — the silhouette's vertical rise to the right of Liu Bei.
-  - Zhang Fei (left-side, when present in same frame) carries his serpent spear (蛇矛) — the silhouette's vertical rise to the left of Liu Bei.
-  - Together: Liu Bei's open arms span between the two upright weapons of his sworn brothers. The triangle composition is **the** canonical Three Kingdoms tableau.
-
-**Pillar 2 narrative-pillar interaction** (운명은 바꿀 수 있다 / Destiny Can Be Rewritten):
-- Liu Bei is a **canonical-history-defying** archetype within Pillar 2 framing. Visual cues at neutral state must NOT pre-spoil future destiny-branch outcomes. The baseline costume is era-1 (pre-Peach-Garden); destiny-branch divergences (e.g., a "Liu Bei dies young" branch) get **separate sprite variants**, not baseline costume changes.
-- Reserved-color discipline (no 주홍/금색 on baseline costume) is what allows destiny-branch moments to land — when Liu Bei's death-treatment frame uses vermillion outline or his accession-frame uses gold environmental light, the player reads it as destiny-rewrite signal because the baseline is restraint.
-
-**Pillar 3 cross-class boundary**: Liu Bei MUST NOT be confused for any other COMMANDER hero on the roster. Comparison:
-
-| Hero | Class | Distinguishing silhouette features |
-|---|---|---|
-| 유비 (Liu Bei) | COMMANDER | Paired swords (right hip); rounded crown + prominent ears; rally posture |
-| 조조 (Cao Cao) | COMMANDER (per hero-database row 165) | TBD in future stub — must NOT use paired swords; must NOT use rally posture (defer to Cao Cao spec; presumed: single tactical sword + scroll, calculating posture) |
-| 손권 (Sun Quan) | TBD | TBD — must NOT collide with Liu Bei silhouette |
-
-The "paired swords + rounded-crown + rally-posture" triplet is reserved for Liu Bei within the COMMANDER class. Future COMMANDER hero stubs must avoid collision.
+**MJ 튜닝 메모**:
+- Single sword (paired 누락) → `paired twin scabbards at right hip side by side, two weapons visible NOT one, double pommel grip` 강화
+- 수염 wild / bushy → `neatly trimmed well-groomed full beard, NOT wild, NOT bushy, NOT spreading sideways like Zhang Fei` 강화
+- 시선 옆 / 아래 → `direct calm gaze toward the viewer, looking at the camera eye-to-eye, NOT looking down, NOT looking to the side` 강화
+- 귀 cartoonish 과장 → `slightly larger ears NATURALISTIC proportion, visible but realistic, NOT cartoonish, NOT exaggerated` 강화
+- 황제풍 robe / 황금색 → `humble ink-black scholar-warrior robe, ochre trim only, NO imperial yellow, NO gold, NO ceremonial decoration` 강화
+- Build heavy / lean → `medium balanced average build, NOT heavy like Guan Yu, NOT lean like Wei Yan` 강화
 
 ---
 
-## Sections 4-N — DEFERRED
+## Gemini prompt — copy-paste ready (reframe 학습 적용)
 
-The following sections are **NOT** authored in this stub; they belong to the character-art production sprint (post-character-art prerequisites met):
+> 위연 v3 + 방통 v2 + 관우 + 장비 (sample 1→4) 의 **검증된 reframe 원칙** 모두 적용:
+> - "red face" 부정 → "warm sun-tanned olive" + "same skin tone as previous four portraits in this series" series anchor. "red" / "vermillion" 단어 0회
+> - 무기 type 우선: "paired twin short scabbards side by side at right hip" + "NO vertical above-head weapon" 분명 + 4 prior portraits 비교
+> - 수염 type 우선: "neatly trimmed well-groomed mid-chest beard" + 장비 안티-비교 + 관우 안티-비교 (장비 wild / 관우 long flowing 와 다른 third style)
+> - 귀 prominent risk: type 명시 ("slightly larger naturalistic proportion") + 부정 보조 ("NOT cartoonish exaggerated")
+> - 시선 direct: "direct calm gaze at viewer" + 4 prior portraits 안티-비교
+> - 자세 rally posture: "right arm raised forward with open palm" 부위별 묘사
+> - Series anchor 가장 강함: 4 prior portraits 모두 reference
 
-- Section 4 — Animation key poses (idle / walk / attack / cast / hit / death cycles)
-- Section 5 — Portrait spec (face details, eye treatment, expression sheet)
-- Section 6 — Variant sprites (chapter-specific costume changes; destiny-branch outcome variants)
-- Section 7 — VFX integration (rally aura, benevolence buff visualization)
-- Section 8 — Audio cue alignment (voice-over direction, foley pairing)
-- Section 9 — Localization considerations (Korean / Chinese / English nameplate font sizing)
-- Section 10 — Cross-promo art (key art appearances, Peach Garden Oath set piece, Han accession set piece)
+```
+A portrait illustration of a Three Kingdoms-era Chinese commander, painted in traditional sumi-e ink wash style. This is the FINAL portrait of a 5-portrait series — match the established visual style of the previous four portraits (Wei Yan: mid-40s mercenary with hilt-on-scabbard; Pang Tong: round-faced strategist with fan; Guan Yu: heavy stoic general with long flowing beard and polearm; Zhang Fei: wedge-shaped fierce general with wild beard and serpent spear).
 
-Each deferred section requires inputs that are **not yet decided** (animation system commitments, portrait pipeline, VFX system, localization scope). Authoring them now would require speculative decisions that risk mid-sprint churn.
+CRITICAL CHARACTER FACE AND SKIN: The character's skin tone is naturalistic warm sun-tanned olive — the same warm tan, weathered, sun-bronzed complexion as the previous four portraits in this series. His face has mature, weathered features that read as warm and composed — a virtue-leader, not a hardened warrior. His expression is calm and warm with a faint virtue-warmth. His gaze is directed straight forward at the viewer — direct, calm, eye-level engagement. This is the ONLY portrait in the series where the character looks DIRECTLY at the viewer; the previous four all looked downward, sideways, or stared past the viewer.
 
----
+CRITICAL CHARACTER EARS: He has slightly larger ears than typical, visible at the side of his head — this is a canonical Three Kingdoms recognition marker for this character. The ears are proportioned naturalistically — slightly emphasized but realistic. They should be NOTICEABLE in the portrait but NOT cartoonish, NOT exaggerated, NOT distorted.
 
-## Acceptance Criteria (this stub)
+CRITICAL CHARACTER BEARD: His beard is jet-black, neatly trimmed and well-groomed, reaching mid-chest length. The beard is full but disciplined — every hair in place, the silhouette is clean and tidy. This is the THIRD style of beard in the series, distinct from both the previous portraits: shorter and more controlled than Guan Yu's long flowing chest-beard, neat and groomed instead of Zhang Fei's wild curling sideways-spread beard. Think "well-kept virtuous leader" rather than "warrior."
 
-| ID | Criterion | Verification |
-|---|---|---|
-| AC-LB-01 | Hero ID + Korean name + Chinese name + courtesy name match `assets/data/heroes/heroes.json` `shu_001_liu_bei` exactly | grep cross-check |
-| AC-LB-02 | Class identity (COMMANDER) matches `hero-database.md` §COMMANDER row + `default_class=4` mapping | doc cross-check |
-| AC-LB-03 | All palette references use only `묵 / 황토 / 청회` baseline tokens; reserved 주홍 / 금색 are explicitly excluded from baseline | doc grep `주홍\|금색`; expect occurrences only in §2 anti-pattern + §3 Pillar 2 explanatory text |
-| AC-LB-04 | Paired-swords (双股劍) silhouette protrusion is non-negotiable (named in §1 + reinforced in §3 Pillar 3 cross-class boundary) | doc cross-check |
-| AC-LB-05 | Pillar 4 minimum recognition triplet (prominent-ears + full-trim-beard + paired-swords) is named explicitly in §3 | doc cross-check |
-| AC-LB-06 | Peach Garden Oath triangle composition (Liu Bei center, Guan Yu right, Zhang Fei left) is documented as the canonical tableau | doc cross-check |
-| AC-LB-07 | Sections 4-N are explicitly deferred (not silently omitted) so future authors know the stub boundary | §Sections 4-N — DEFERRED block present |
-| AC-LB-08 | Stub closes AD-C5 to "first-stub-shipped" partial state — verified at next gate-check pass | gate-check rerating from "AD-C5 ADVISORY: 0 stubs shipped" → "AD-C5: 1 of 3 originally-planned stubs shipped (first-stub partial state)" |
+CRITICAL POSTURE AND WEAPONS: He stands in a balanced open-arm rally posture — slightly facing 3/4 toward the viewer. His right arm is raised forward at chest height with an open upturned palm in an inspiring call-to-arms gesture. His left hand rests relaxed on the pommel of weapons at his right hip. The weapons are PAIRED TWIN SHORT SWORDS (双股劍 "twin swords") — TWO short scabbards side by side at the right hip, with two visible pommel grips above. Both swords stay inside their scabbards. This is the ONLY portrait in the series with paired weapons; the previous four all carried a single prop (single sword, single fan, single polearm, single spear). There is NO vertical above-head weapon protrusion in this portrait — the weapon presence is at hip level only, horizontal.
 
----
+CRITICAL CHARACTER BUILD: His build is medium balanced — distinctly NOT heavy (unlike the previous two portraits Guan Yu and Zhang Fei), NOT lean (unlike Wei Yan), NOT round-scholar (unlike Pang Tong). Average warrior-commander proportion. The visual weight of the silhouette comes from the open-arm rally posture and the long cloak behind, not from heavy mass.
 
-## Open Questions
+CHARACTER CONTEXT — Liu Bei (刘备, 玄德), founder of Shu, virtue-king. Sworn brother of Guan Yu (right position of Peach Garden trio) and Zhang Fei (left position). When this portrait is placed between the previous two, the three form the canonical Peach Garden Oath triangle composition with this character at the CENTER.
 
-| ID | Question | Owner | When to resolve |
-|---|---|---|---|
-| OQ-LB-01 | Is the paired-swords Three-Kingdoms canon visual translation acceptable per current Korean translation/localization style guide? | localization-lead + art-director | First localization pass |
-| OQ-LB-02 | Cao Cao + Sun Quan + remaining COMMANDER stubs need silhouette-collision verification against this Liu Bei stub before authoring | art-director | At each future COMMANDER hero stub authoring time |
-| OQ-LB-03 | Should the "rally posture" be a one-frame static pose for portrait/forecast contexts, OR is it the idle-loop's rest-frame? | animation-lead (TBD) | Animation pipeline kickoff |
-| OQ-LB-04 | Late-game robe progression (post-accession imperial variant) — should this stub reserve a §6 "Variant sprites" hook now to prevent late-game variant scope-creep into baseline? | art-director + narrative-director | Character-art production sprint planning |
-| OQ-LB-05 | Battle sprite scale (1.25× per art-bible §3-2) and viewport pixel target — confirm before pixel-art commission | art-director | Before any pixel-art production starts |
+He wears an ink-black base robe (hex #1C1A17 dominant) with ochre-earth (#C8874A) trim at the cuffs, collar, and lower panel. A long cloak flows behind, catching slight wind in a brushstroke style. There is NO imperial yellow color, NO gold, NO ceremonial decoration — the robe is humble scholar-warrior, the rank reads through posture not ornament.
 
----
+Hair bound in a simple jet-black topknot, no imperial crown, no ornament.
 
-## Cross-references
+The artistic style is sumi-e ink wash painting in the tradition of late-Ming Chinese woodblock prints and Yokoyama Mitsuteru's historical manga linework. Variable-weight ink outlines, thicker at the silhouette edge, with visible ink bleeds. Monochrome wash underpainting with restrained muted color: ink-black (#1C1A17) dominant for the robe, ochre earth (#C8874A) for the trim, paper-white (#F2E8D4) with visible paper grain for the ground.
 
-- Hero data: `assets/data/heroes/heroes.json` `shu_001_liu_bei` (canonical stat + relationship + skill data)
-- Hero database GDD: `design/gdd/hero-database.md` §COMMANDER row + record schema
-- Art bible: `design/art/art-bible.md` §1 Visual Identity, §3-2 hero silhouette philosophy (line 156-160 hero proportion + protrusion rules), §3 reserved-color discipline
-- Game concept Pillars: `design/gdd/game-concept.md` §Pillar 2 + §Pillar 3 + §Pillar 4
-- Accessibility binding: `design/ux/accessibility-requirements.md` §4 R-1 reserved-color alternate encoding (this stub satisfies by NOT using reserved colors at baseline)
-- Sprint task: sprint-11 S11-09 (this stub creation; descoped from 3 stubs to 1 per S10-07 carryover absorption)
-- AD-C5 source: `production/gate-checks/pre-prod-to-prod-2026-05-05.md` (ADVISORY: character visual profile stubs — author for first 2-3 characters before sprint-8 art tasks)
-- Carryover chain: sprint-7 (AD-C5 first surfaced) → sprint-8 (deferred) → sprint-9 (deferred) → sprint-10 S10-07 (3-stub original) → sprint-11 S11-09 (descoped to 1 stub; first-stub-shipped partial-state closure)
+Lighting: cool blue-grey dawn — Phase E strategic horizon, the moment before destiny is sealed or rewritten. Generous negative space behind the figure. Composition centered, figure rendered at 8-heads-tall balanced proportion. Historical Three Kingdoms costume accuracy throughout.
+
+Aspect ratio: 1:1 square, 1024×1024 pixels.
+
+Do not produce anime, cel-shaded, or stylized cartoon art. Do not produce photorealistic illustration. Do not include gradient glow effects, bright saturated colors, or modern Western fantasy elements. Do not use Dynasty Warriors aesthetics. Do not use imperial yellow or gold accent colors.
+```
+
+**Gemini 튜닝 메모** (reframe 학습 sample 5 적용):
+- Skin tone series anchor: 가장 강화된 형태 — "previous four portraits" reference, sample 1→4 누적
+- Paired weapons: 일반 single sword prior 가 강함 → "PAIRED TWIN SHORT SWORDS at right hip, TWO scabbards side by side" + "ONLY portrait in the series with paired weapons" series uniqueness 명시 + 4 prior portraits 단일 prop 비교. inverse 위험 차단을 위해 본문에서 paired emphasis 3회 반복
+- Beard 3번째 스타일: 관우 (long flowing) + 장비 (wild curling) 와 anti-comparison + "neat trimmed well-groomed mid-chest" type. 두 prior portraits 와의 명확한 contrast 가 anchor
+- Direct gaze risk: "ONLY portrait in the series where character looks DIRECTLY at viewer; previous four looked downward / sideways / past viewer" series uniqueness 가 가장 강한 anchor
+- Prominent ears: "noticeable but naturalistic, NOT cartoonish" — emphasize 와 realism 의 균형. 부정 보조 minimal
+- Imperial yellow / gold robe risk: "founder of Shu, virtue-king" character context 가 imperial yellow / gold prior 트리거 — type prescription ("humble ink-black scholar-warrior robe") + "rank reads through posture not ornament" 명시
+- Phase E lighting: "cool blue-grey dawn — strategic horizon" 단순 (legendary gold dawn 은 future variant, 메타-설명 제거)
 
 ---
 
-## Status & Next Step
+## Asset target
 
-**Stub-level visual profile.** Sections 1-3 (silhouette + costume + role-anchor) are committed at the structural level only; full visual design + animation + portrait + variant work falls to the character-art production sprint (currently unscheduled; gated by character-art pipeline prerequisites which include localization style guide + animation system commitments).
+| Field | Value |
+|---|---|
+| Filename | `assets/art/portraits/portrait_shu_liu_bei.png` |
+| Dimensions | 1024×1024 |
+| Format | PNG (no transparency — paper-white `#F2E8D4` ground is design intent) |
+| Variants in this spec | 1 (canonical baseline) — **legendary finale variant** (cool blue-grey dawn lifting into gold per Phase E legendary trigger) 는 별도 future spec (ch25 cascade complete state 시각 결산용) |
+| Convention | `assets/art/portraits/{portrait_id}.png` — established by B2.1 |
 
-Next checkpoint: at the next `/gate-check` pass, AD-C5 should re-rate from "ADVISORY: 0 of planned 3 stubs shipped" to "ADVISORY: 1 of originally-planned 3 stubs shipped (first-stub partial-state per sprint-10 retro AI #5 descoping decision)." 관우 (Guan Yu) + 장비 (Zhang Fei) stubs remain DESCOPED — they are explicitly carried as future Polish-tier candidates and do NOT appear in any sprint-11 backlog row.
+---
+
+## Integration plan (B2.5-c — same session as B2.5-b drop-in)
+
+pipeline B2.1 검증 완료, B2.2-4 일반화 증명 (3 zero-code drop-ins) — 자산 drop-in 만:
+
+1. `assets/art/portraits/portrait_shu_liu_bei.png` 배치
+2. `godot --headless --import --path .` (이미지 import)
+3. 헤드리스 부팅 + 풀 테스트 (baseline 유지 확인)
+4. windowed 검증: 메인메뉴 → 시그니처 아카이브 → **유비 카드** portrait 표시 → **5장 카드 모두 portrait 완성** 첫 확인
+
+**코드 변경 0** — SIGNATURE_CATALOG 가 이미 `&"shu_001_liu_bei"` 포함. 5/5 portrait pipeline 완성.
+
+---
+
+## Acceptance for AI generation (B2.5-b — user side)
+
+Ship-able output must satisfy (single AND gate):
+- ✅ **Paired twin short swords (双股劍) at right hip** — two scabbards side by side, NO single sword, NO vertical above-head weapon
+- ✅ **Direct calm forward gaze at viewer** — looks AT (5장 중 유일)
+- ✅ **Rally posture**: right arm raised forward with open palm at chest height
+- ✅ **Full-trim neatly-trimmed mid-chest beard** — NOT wild (장비) NOT long flowing (관우) — 시리즈 3번째 beard style
+- ✅ **Prominent ears**: noticeable but naturalistic — NOT cartoonish exaggerated
+- ✅ **Medium balanced build**: NOT heavy (관우/장비), NOT lean (위연), NOT round (방통)
+- ✅ **Naturalistic skin tone** — warm sun-tanned olive, 4 prior portraits 와 series consistency
+- ✅ **묵 base robe + 황토 trim** — NO imperial yellow, NO gold accent
+- ✅ **Sumi-e 잉크-워시 visual language + 시리즈 5장 화풍 통일**
+- ✅ Negative space 충분
+
+If any miss → regen with tuning notes above. No manual touch-up (per AI-output-direct policy).
+
+---
+
+## Cross-reference: 5-hero cascade visual differentiation — **FINAL MATRIX (5/5)**
+
+| Hero | Phase / lighting | Posture | Prop | Build / silhouette | Beard | Eyes / gaze | Marker |
+|---|---|---|---|---|---|---|---|
+| **위연** (B2.1 v3 ✅) | B blue-grey cold | Asymmetric mercenary 3/4 | Sword hilt at scabbard | Medium lean | — | inward downward lower-left | weathered sharp narrow |
+| **방통** (B2.2 v2s ✅) | C amber dusk Sichuan | Centered static near-frontal | Paper-white folding fan | Medium-short scholar (round) | — | calm forward slight-downward | plain round mature |
+| **관우** (B2.3 ✅) | D warm amber Fancheng | Massive immovable broad square 3/4 | 청룡언월도 curved crescent polearm (vertical, top) | **Heavy broad-square** | **Long flowing chest-length neat** | **Phoenix narrow** | weathered stern |
+| **장비** (B2.4 ✅) | D warm amber 이릉 | Forward-leaning coiled 3/4 | 사모 straight serpent spear (vertical, top) | **Heavy wedge (taper)** | **Wild curling outward sideways** | **Leopard round wide-open** | dark armor contrast |
+| **유비** (B2.5 — this) | **E cool blue-grey dawn** | **Balanced open-arm rally 3/4** | **双股劍 paired twin short swords (hip-level, horizontal)** | **Medium balanced** | **Neat trimmed disciplined mid-chest** | **Direct forward at viewer** | **prominent ears** |
+
+**5장 통일성 finalize**:
+- **Phase 5/5 unique**: B / C / D / D / E — Phase D 만 2장 (관우 + 장비, Peach Garden Oath pair) 외 모두 다른 phase
+- **Posture 5/5 unique**: asymmetric mercenary / centered scholar / immovable square / forward-leaning wedge / balanced rally
+- **Prop 5/5 unique**: sword hilt / fan / polearm crescent / spear serpent / paired swords
+- **Build 5/5 unique**: lean medium / short scholar round / heavy square / heavy wedge / **medium balanced**
+- **Beard 5 patterns**: 위연/방통 없음 → 관우 long flowing → 장비 wild → 유비 trimmed (3 distinct beard styles in 3 heavy/commander heroes)
+- **Eyes/gaze 5 patterns**: inward downward / calm forward / phoenix narrow / leopard round / **direct at viewer** (5장 중 유비만 응시)
+
+**Cascade composition intents 충족**:
+- Peach Garden Oath 삼각 (장비 left / 유비 center / 관우 right): 셋 모두 다른 build (heavy-wedge / medium-balanced / heavy-square) + 다른 weapon orientation (vertical serpent / horizontal paired / vertical crescent) + 다른 beard (wild / trimmed / long flowing) + 다른 gaze (intense / direct / stoic) → silhouette 만으로 즉시 구분
+- 5장 같이 봤을 때 visual energy 흐름: 위연 (calculating inward) → 방통 (controlled stillness) → 관우 (immovable righteousness) → 장비 (contained ferocity) → **유비 (warm rally direct engagement)** — 5장 viewing path 가 emotionally 의 narrative arc 완성
+- Reserved 주홍/금색 0회 등장 (5장 모두) — distilled §1 의 "destiny-branch only" + "legendary only" reservation 정확 준수. legendary trigger 의 gold dawn 은 ch25 cascade-complete state 의 future variant 로 별도 (이 baseline 5장 모두 cool/warm but never reserved)
+
+---
+
+## Phase B 시각 정체성 milestone
+
+B2.* 트랙 (AI 자산 production) **완성**. B1.1 (Palette token) + B2.1-5 (5 portrait pipeline + 자산) 으로 distilled bible §1, §2, §4 의 시각 정체성 spec 이 production 자산으로 처음 변환됨. 미완 항목:
+- B1.2 시그니처 발동 / hidden / legendary VFX (godot-shader-specialist, JU_HONG `#C0392B` 첫 적용)
+- B1.3 HUD / 메뉴 정보 계층
+- B1.4 카메라 워크
+- B1.5 5-Phase post-process 톤 분리
+- 챕터 배경 자산 (5 phase × N chapter)
+- UI frame 자산
+- 시그니처 일러스트 (5 cascade trigger 별)
+
+B2 완료 후 통합 플레이세션 (`/playtest-report`) 으로 5장 portrait 가 실제 게임 흐름 안에서 어떻게 인상되는지 검증 권장.
