@@ -208,7 +208,7 @@
         {
           "unit_id": 14,
           "hero_id": "qun_001_lu_bu",
-          "archetype": "boss"
+          "archetype": "coordinator"
         },
         {
           "unit_id": 2,
@@ -3201,7 +3201,7 @@
         {
           "unit_id": 2,
           "hero_id": "wei_005_xiahou_dun",
-          "archetype": "boss"
+          "archetype": "coordinator"
         },
         {
           "unit_id": 3,
@@ -4600,7 +4600,7 @@
         {
           "unit_id": 14,
           "hero_id": "qun_001_lu_bu",
-          "archetype": "boss"
+          "archetype": "coordinator"
         }
       ],
       "chokepoints": [
@@ -5049,7 +5049,7 @@
         {
           "unit_id": 12,
           "hero_id": "wei_001_cao_cao",
-          "archetype": "boss"
+          "archetype": "coordinator"
         }
       ],
       "chokepoints": [
@@ -5555,7 +5555,7 @@
         {
           "unit_id": 12,
           "hero_id": "wei_001_cao_cao",
-          "archetype": "boss"
+          "archetype": "coordinator"
         }
       ],
       "chokepoints": [
