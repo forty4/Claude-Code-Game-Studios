@@ -92,6 +92,13 @@ var _slide_tween_keepalive: Tween = null
 ## keyboard handler (R = reload scene, ESC = quit).
 var _battle_resolved: bool = false
 
+## B1.2 — cascade 합류 pulse one-shot flag. `_collect_pre_battle_beats` 가
+## cascade announcement 를 consume 할 때 true 로 set; `_mount_signature_count_badge`
+## 가 사용 후 false 로 리셋. consume 이 mount 보다 먼저 실행되므로 peek 의존이
+## 불가능 (영원히 empty) — 플래그로 의도 전달. retry-reload (consume 미발생) 는
+## 자연스럽게 false 유지 → pulse 없음, badge 만 표시.
+var _pulse_signature_badge_next_mount: bool = false
+
 
 ## Diagnostic-trace gate. Sessions 4-5 used inline raw `print(...)` calls (SLIDE
 ## / SLIDE-DONE / BATTLE-END / POST-BATTLE-WAIT categories) to debug windowed-env
@@ -700,6 +707,9 @@ func _collect_pre_battle_beats(chapter: ChapterDefinition) -> Array:
 	var beats: Array = []
 	var cascade: Dictionary = ScenarioRunner.consume_pending_cascade_announcement()
 	if not cascade.is_empty():
+		# B1.2 — signal _mount_signature_count_badge to fire one-shot pulse.
+		# consume 이 mount 보다 먼저 실행되므로 peek 의존이 불가 — 플래그로 전달.
+		_pulse_signature_badge_next_mount = true
 		var cascade_text_key: String = cascade.get("text_key", "") as String
 		var cascade_beat: Dictionary = _beat_content(cascade_text_key)
 		if not cascade_beat.is_empty():
@@ -2183,10 +2193,12 @@ func _mount_signature_count_badge() -> void:
 	_hud_layer.add_child(badge)
 	# B1.2 — cascade 합류 챕터 (위연 ch14 / 방통 ch17 / 관우 ch21 / 장비 ch22 /
 	# 유비 ch23) 진입 시 badge 가 "방금 N+1/5 으로 증가" 시점에 강조 pulse.
-	# peek 만 (consume 은 _collect_pre_battle_beats 가 담당). G-31: tween 은
-	# SceneTree 바인딩 (BattleScene PROCESS_MODE_DISABLED 우회).
-	var pending: Dictionary = ScenarioRunner.get_pending_cascade_announcement()
-	if not pending.is_empty():
+	# `_collect_pre_battle_beats` 가 consume 시 _pulse_signature_badge_next_mount
+	# 을 true 로 set — 여기서 one-shot 으로 소비 후 리셋. peek 의존은 consume
+	# 이 항상 mount 보다 먼저라서 영원히 empty 였음 (S68 race; S69 fix).
+	# G-31: tween 은 SceneTree 바인딩 (BattleScene PROCESS_MODE_DISABLED 우회).
+	if _pulse_signature_badge_next_mount:
+		_pulse_signature_badge_next_mount = false
 		badge.pivot_offset = badge.size * 0.5
 		var pulse: Tween = get_tree().create_tween().set_parallel(true)
 		pulse.tween_property(badge, "scale", Vector2(1.2, 1.2), 0.18) \
