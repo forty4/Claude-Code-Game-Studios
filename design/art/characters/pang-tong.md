@@ -50,34 +50,43 @@ Three Kingdoms strategist Pang Tong, centered vertical calm standing pose front-
 
 ---
 
-## Gemini prompt — copy-paste ready
+## Gemini prompt — copy-paste ready (v2-strengthened, reframe 학습 적용)
 
-> Gemini Image (Imagen 4 계열) 은 자연어 prompt + 자연어 exclusion 으로 동작. AI Studio / Gemini 앱에서 사용 시 aspect ratio 는 드롭다운 OR 본문에 "1:1 square format" 명시.
+> 위연 v3 와 동일 **Gemini reframe 원칙** 적용:
+> - "absence 명시" ("NOT handsome, NOT idealized") → **type 명시 우선** ("round-ish jaw, soft contours, broad cheekbones, average forehead proportions")
+> - exclusion list 에서 face 관련 부정 제거 (attractive prior 트리거 위험 차단)
+> - **series anchor**: "matching the skin tone of the previous portrait" — 위연 v3 와 cascade 통일
+> - Anti-comparison (Zhuge Liang) 은 character context 단락에 통합 (분리된 CRITICAL block 으로 weight 분산 방지)
 
 ```
-A portrait illustration of Pang Tong (庞统, 士元), a Three Kingdoms-era Chinese strategist known as "Phoenix Chick" (鳳雛), painted in traditional sumi-e ink wash style.
+A portrait illustration of a Three Kingdoms-era Chinese strategist, painted in traditional sumi-e ink wash style. This is part of a 5-portrait series — match the established visual style of the previous portrait (Wei Yan: a mid-40s hardened mercenary general with mature weathered sun-bronzed olive complexion).
 
-He stands in a centered, vertical, calm pose, facing slightly three-quarter toward the viewer. His wide-sleeve scholar robes spread outward to form a triangular silhouette — the classic 모사 (strategist) shape. In his right hand, he holds a folded paper-white fan as his sole asymmetric prop. He carries no weapon, no armor, and no ceremonial decoration beyond simple scholar's trim.
+CRITICAL CHARACTER FACE: The character's face shape is round and full — a round-ish jaw with soft contours, broad cheekbones, average forehead proportions. His features are deliberately unremarkable — symmetric but plain, the kind of face that does not stand out in a crowd. Light crow's feet at the eye corners and a slightly lined forehead show his middle age. His skin tone is naturalistic warm-olive, weathered from years of strategic life, matching the skin tone of the previous portrait in this series. This is a face shape that conceals brilliance behind plainness.
 
-His face is deliberately plain and unglamorous — a round-ish jaw with mature, weathered, scholarly features. He is NOT handsome, NOT young, NOT idealized. The point of this character is that his ordinary appearance conceals brilliant intellect. There is a subtle tension in his shoulders, as though he is remembering surviving an ambush. His gaze is calm, directed centered-forward with a slight downward angle — the quietest person in the room, who controls it.
+CHARACTER CONTEXT — Pang Tong (庞统, 士元), known as "Phoenix Chick" (鳳雛), the strategic counterpart to Zhuge Liang. The two strategists must be visually OPPOSITE in proportions: Zhuge Liang is tall and refined with sharp aristocratic features; Pang Tong is shorter, rounder, and ordinary-looking. Liu Bei initially dismissed Pang Tong because of his unimpressive appearance — that visible plainness IS the character.
 
-His hair is bound in a simple topknot or short bound style, jet-black, with no scholar's hat and no ornament. He wears ink-heavy black scholar robes with ochre-earth (#C8874A) trim at the cuffs and collar.
+He stands in a centered, vertical, completely static pose, facing slightly three-quarter toward the viewer. His build is shorter and rounder than the previous portrait in the series — a softer, slightly stout scholar's frame. Wide-sleeve scholar robes spread outward from his arms to form a triangular silhouette — the classic 모사 (strategist) shape.
 
-The artistic style is sumi-e ink wash painting in the tradition of late-Ming Chinese woodblock prints and Yokoyama Mitsuteru's historical manga linework. The outlines are variable-weight ink — thicker at the silhouette edge, thinner for interior detail, with visible ink bleeds at the outline edges. The underpainting is monochrome wash with very limited color: ink-black (#1C1A17) dominates for the robes, ochre earth (#C8874A) appears only as trim at cuff and collar, and the paper-white folding fan (#F2E8D4) is the visual focal accent. The ground is paper-white with visible paper grain.
+In his right hand he holds a folded paper-white folding fan as his sole asymmetric prop. The fan is the visual focal accent — paper-white, clearly visible. He carries no weapon, no armor, no ceremonial decoration.
 
-The lighting is amber dusk warmth with deep Sichuan mountain shadow — evoking the moment after surviving Luofengpo. There is generous negative space behind the figure. The composition is centered, with the figure rendered at 8-heads-tall proportion. Historical Three Kingdoms costume accuracy throughout.
+There is subtle tension in his shoulders, as though he is remembering surviving an ambush at Luofengpo. His gaze is calm, directed centered-forward with a slight downward angle.
+
+Hair bound in a simple topknot, jet-black, no scholar's hat, no ornament. He wears ink-heavy black scholar robes (#1C1A17 dominant) with ochre-earth (#C8874A) trim at the cuffs and collar.
+
+The artistic style is sumi-e ink wash painting in the tradition of late-Ming Chinese woodblock prints and Yokoyama Mitsuteru's historical manga linework. Variable-weight ink outlines, thicker at the silhouette edge, with visible ink bleeds. Monochrome wash underpainting with very limited color: ink-black for the robes, ochre earth as trim only, the paper-white folding fan provides the only color contrast. Paper-white ground (#F2E8D4) with visible paper grain.
+
+Lighting: warm amber dusk — Sichuan mountain shadow atmosphere. Generous negative space behind the figure. Composition centered, figure rendered at 8-heads-tall scholar-build proportion. Historical Three Kingdoms costume accuracy throughout.
 
 Aspect ratio: 1:1 square, 1024×1024 pixels.
 
-Do not produce anime, cel-shaded, or stylized cartoon art. Do not produce photorealistic illustration. Do not include gradient glow effects, bright saturated colors, or modern Western fantasy elements. Do not use Dynasty Warriors video-game aesthetics. Do not include red or gold accent colors. Do not depict him in a dynamic action pose or carrying a weapon. Do not give him a handsome, youthful, or idealized face — he is plain on purpose. Do not draw him in the graceful tall silhouette of Zhuge Liang — Pang Tong is shorter and rounder than his strategic counterpart, and the silhouette must reflect that contrast.
+Do not produce anime, cel-shaded, or stylized cartoon art. Do not produce photorealistic illustration. Do not include gradient glow effects or bright saturated colors. Do not include red or gold accent colors.
 ```
 
-**Gemini 튜닝 메모**:
-- 잘생긴 학자 / Zhuge Liang 풍 → exclusion 강화: `The face must be deliberately ordinary, unglamorous, with no traditional beauty markers. This character's brilliance is hidden behind plain features — this is essential to who he is.`
-- 부채 없음 / 잘못된 prop → `The folding fan held in his right hand is essential — it is paper-white, visible, and reads as the asymmetric focal accent of the entire silhouette.`
-- 자세가 동적 → `He is completely still — feet planted, body weight centered, no implied motion. The stillness IS the strategic presence.`
-- 색 너무 다양 → `The image must read as primarily ink-black with restrained ochre trim accents. The paper-white fan provides the only color contrast. No other colors should appear.`
-- 너무 어림 / 화려한 학자 → `He is a mature middle-aged scholar with weathered eyes and lined features. There are no ornate hat, no jewelry, no decorative robe patterns.`
+**Gemini 튜닝 메모** (v2 단계):
+- 얼굴 conventional handsome → CRITICAL FACE block 의 부위별 type 묘사 우선 ("round-ish jaw, soft contours, broad cheekbones") + 부정 exclusion list 슬림
+- Zhuge Liang anti-comparison: 분리된 CRITICAL block 으로 두면 weight 분산 위험 — character context 단락에 통합
+- 시리즈 통일성: "matching skin tone of previous portrait" series anchor 도입 (위연 v3 와 cascade 화풍 통일)
+- 얼굴 strong attractive prior 트리거 회피: "If your rendering looks attractive" 같은 명시적 negation 제거
 
 ---
 
