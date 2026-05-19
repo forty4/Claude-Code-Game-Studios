@@ -68,6 +68,12 @@ InputRouter="*res://src/foundation/input_router.gd"
 ; Procedural-only SFX layer; swap _build_procedural_streams for an asset
 ; loader when real audio under assets/audio/sfx/ ships.
 SoundManager="*res://src/feature/audio/sound_manager.gd"
+; Boot order position 11: no dependencies — pure DisplayServer single-shot at
+; _ready() to resize the window proportional to screen usable area. Placed
+; last so the resize settles AFTER all systems init but BEFORE the main scene
+; first renders (autoload _ready chain completes within a frame). Headless
+; mode no-ops via usable_rect=(0,0) guard. NO `class_name` per G-3.
+WindowScaler="*res://src/foundation/window_scaler.gd"
 
 [display]
 
