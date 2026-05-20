@@ -31,11 +31,13 @@
 
 **섬기는 필라:** 필라 2 — 운명은 바꿀 수 있다
 
-### 지지 원칙 3: 포트레이트는 사람을, 스프라이트는 역할을 말한다 (Portrait Is Character, Sprite Is Role)
+### 지지 원칙 3: 포트레이트는 인물성을, 스프라이트는 인물성-실루엣을 말한다 (Portrait Is Character, Sprite Is Character-in-Silhouette)
 
-**정의:** 무장의 인물화(portrait)는 고증된 의상과 개성으로 그 인물의 감정과 역사적 맥락을 담는다. 반면 전장 스프라이트는 병종(兵種)과 역할을 즉시 식별할 수 있는 실루엣 언어를 우선한다. 관우가 아름다운가보다 "중기병(重騎兵)임을 0.5초 내에 파악 가능한가"가 스프라이트의 기준이다.
+**정의 (개정 2026-05-20):** 무장의 인물화(portrait, LOD 0)는 고증된 의상과 표정으로 인물의 감정과 역사적 맥락을 담는다. 전장 스프라이트(LOD 1)는 병종(兵種) 식별을 우선하되, **인물의 핵심 도상(무기 형태·머리·실루엣 돌출)을 간결한 chibi 인물성으로 표현**한다. §5.6 의 "도상을 실루엣에 통합" 원칙은 유지 — 단 통합 형태가 추상 도형이 아닌 **개성을 가진 mini character** 일 수 있다.
 
-**디자인 테스트:** 무장 스프라이트의 세부 묘사와 실루엣 명확성이 충돌할 때 — "5미터 거리에서 화면을 보았을 때 병종을 구분할 수 없다면, 실루엣을 위해 디테일을 희생하라. 캐릭터성은 포트레이트가 담당한다."
+> **이전 정의 (2026-05 이전, 참조용)**: "관우가 아름다운가보다 중기병임을 0.5초 내에 파악 가능한가가 스프라이트의 기준". 이 버전은 LOD 1 에서 얼굴 묘사를 배제하고 추상 silhouette 만 허용했음. 사용자 attestation 결과 "장수의 모습이 안 보임" / "정적 portrait 는 안 됨" → 개정.
+
+**디자인 테스트 (개정):** 5미터 거리에서 화면을 보았을 때 (1) **병종 식별 가능** AND (2) **어느 인물인지 0.5초 내 인지 가능** — 두 조건 모두 만족해야 한다. 어느 하나도 못 만족하면 추상 silhouette 으로 되돌린다.
 
 **섬기는 필라:** 필라 3 — 모든 무장에게 자리가 있다
 
@@ -501,7 +503,7 @@ reserved_color_treatment :=
 | 단계 | 트리거 조건 | 유닛 크기(화면상) | 유지하는 디테일 | 생략하는 디테일 |
 |---|---|---|---|---|
 | **LOD 0 (전체)** | 편성 화면, 유닛 선택 확대 | 64px 이상 | 전체 디테일, 얼굴 묘사 포함 | 없음 |
-| **LOD 1 (전투)** | 전투 중 일반 상태 | 32-63px | 병종 실루엣, 세력 깃발, 무기 형태, 외곽선 언어 | 얼굴 세부, 의상 주름, 장식 요소 |
+| **LOD 1 (전투)** | 전투 중 일반 상태 | 32-63px | 병종 실루엣, 세력 깃발, 무기 형태, 외곽선 언어, **간결한 chibi 표정 (개정 2026-05-20)** | 사실적 얼굴 디테일, 의상 주름, 장식 요소 |
 | **LOD 2 (원경)** | 맵 전체 보기, 미니맵 | 16-31px | 병종 실루엣 핵심 돌출부 + 세력 색점 | 무기 세부, 신체 비율 정확도, 아웃라인 불규칙성 |
 
 **모바일 최소 판독 규칙**
@@ -520,7 +522,9 @@ reserved_color_treatment :=
 1. 장식 문양 (의상 자수, 갑옷 무늬) — 가장 먼저 제거
 2. 의상 내부 주름선
 3. 무기 세부 형태 (길이/형태 유지, 날끝 처리만 제거)
-4. 얼굴 묘사 (최후까지 보류)
+4. 얼굴 묘사 (개정 2026-05-20: LOD 1 에서 사실적 얼굴은 제거하되 **chibi 단순 표정** (눈 2점 + 입 1선) 은 보존)
+
+**LOD 1 chibi 표정 허용 (개정 2026-05-20)**: LOD 1 의 32-63px 사이즈에서 사실적 얼굴 묘사는 여전히 금지이나, 단순화된 chibi 표정 (양쪽 눈 검은 점, 입 단일 선, 머리/수염 도상) 은 허용한다. 사용자 attestation 결과 추상 silhouette 만으로는 "장수의 모습이 보이지 않음" 진단 — §5.7 의 Grid Character Sprite Style 이 구체 spec.
 
 ### 5.6 무장 개성 표현 (Hero Individuality)
 
@@ -545,6 +549,65 @@ reserved_color_treatment :=
 3. 도상을 실루엣 돌출부로 통합 가능한가? → 가능하면 통합, 불가능하면 포트레이트 전용
 4. 개인 도상이 없는 무장: 병종 실루엣 기본형 + 세력 깃발로만 식별. 포트레이트에서 개성 부여
 5. 동일 병종 내 같은 세력 무장 2인 이상 공존 시: 무기 실루엣 차별화 필수. 머리 형태 2차 차별화
+
+### 5.7 Grid Character Sprite Style (신규 2026-05-20)
+
+**도입 배경**: 사용자 attestation (2026-05-20) — "각 장수의 실제 모습에 가깝게 그렇지만 아기자기한 모습으로 볼 수 없을까?" + "정적 사진은 안 됨, 움직임 표현 필요". §1.3 의 sprite 정의 개정과 함께 LOD 1 에서 character 표현 허용. 본 §5.7 은 chibi 톤의 구체 spec.
+
+**스타일 정체성**: **sumi-e + chibi 융합**. sumi-e 의 외곽선 (variable-weight brush) 과 절제된 평면 색은 유지하되, **비례를 3-head chibi 로 압축**. art-bible 전체 정체성 (sumi-e ink-wash painterly) 과 grid layer 의 chibi 결을 layer 별로 분리 — portrait/title card 는 formal sumi-e, grid 는 chibi-fusion.
+
+**비례**:
+- 3-head chibi: 머리 : 몸통 : 다리 = 1 : 1 : 1
+- 머리 크기 ≈ 전체 높이의 33%
+- 어깨 폭 ≈ 머리 폭의 1.2x
+- 다리 길이 ≈ 몸통 길이와 동일
+
+**해상도**:
+- Native: 128×128 px
+- 화면 표시: 64×64 px (TILE_SIZE)
+- 2× supersample → 작은 사이즈에서도 외곽선 선명도 유지
+
+**스타일 융합 규칙**:
+- **외곽선**: sumi-e variable-weight brush (이미 §2 의 정체성) 유지 — 단 head 영역에서는 1.5-2x 두께
+- **색**: art-bible §4 의 7 팔레트 그대로 (확장 금지). 세력 색 우선, 인물 악센트 silhouette/도상에 적용
+- **얼굴**: chibi 표정 (눈 = 검은 점 2개, 입 = 단일 선). 코/귀 생략 (단 유비의 큰 귀는 silhouette 특징)
+- **표정 다양성**: idle / 공격 / 피격 / 승리 — Phase 4+ 에서 정의
+
+**금지 (anti-ref)**:
+- 거대 눈동자 (anime 흔한 stylization) — chibi 라도 눈은 작게
+- 광택 (specular highlight) — sumi-e 의 평면성 유지
+- Cell-shading gradient — 평면 색 + 외곽선만
+- Dynasty Warriors / 무쌍 류 muscle-bound 비례
+
+**도상 통합 (§5.6 와 연계)**:
+- 관우의 청룡언월도 → chibi 캐릭터 옆에 비례 보정한 큰 무기 silhouette
+- 장비의 장팔사모 → chibi 머리 위로 솟은 수직 돌출
+- 유비의 큰 귀 → chibi 머리 silhouette 의 명확한 돌출
+- 방통의 부채 → chibi 손에 부채, 어깨 옆 비대칭
+
+**애니메이션 phased rollout**:
+1. **Phase 1 (1차 시도)**: idle 1 frame (정적). chibi character 가 grid 에 보이는지 사용자 attestation.
+2. **Phase 2**: idle breath (2 frame loop, 1.5s 주기). 살아있는 느낌.
+3. **Phase 3**: walk cycle (4 frame). 이동 시 발화.
+4. **Phase 4**: attack frame (3 frame). 공격 시 발화. 기존 lunge tween 과 협력.
+5. **Phase 5 (post-MVP)**: 피격 / 사망 / 승리 reaction.
+
+**색채 (art-bible §4 정합)**:
+- 묵: 외곽선
+- 지백: 종이 톤 배경 / 옷 안감 highlight
+- 황토: 촉 세력 (유비/장비/관우 등)
+- 청회: 위 세력
+- 주홍 / 금색: 예약 — sprite 에 사용 금지 (LOD 0 portrait + VFX 한정)
+- 청록: 형성 aura 만
+
+**우선 적용 대상**:
+- Phase 1 우선: 5 cascade 영웅 (유비/장비/관우/위연/방통) — 기존 sumi-e portrait 의 chibi reframe 작업
+- Phase 2+: 적 hero — 새 generation, 위 spec 의 anti-ref 준수
+- Phase 3+: 무명 병사 (개성 없음) — chibi 병종 기본형 + 세력 깃발
+
+**제외 (LOD 0/2 변경 없음)**:
+- Portrait (LOD 0) — 기존 sumi-e formal 톤 유지. chibi 톤 영향 없음.
+- 미니맵 / 원경 (LOD 2) — 16-31px, silhouette + 세력 색점만. chibi 표정도 제거.
 
 ---
 
@@ -1187,10 +1250,18 @@ reserved_color_treatment :=
 
 **연결:** 섹션 4.1, 4.6, 2
 
+### 레퍼런스 6: Triangle Strategy / Octopath Traveler — chibi + 절제된 톤 (신규 2026-05-20)
+
+**취할 것:** 작은 chibi 캐릭터가 광활한 tactical 화면에서 인물 정체성을 유지하는 방법. Triangle Strategy 의 grid sprite 는 ~32-48px 영역에서 (1) 무장 식별 가능 (2) 감정 표현 가능 (3) 무게감 있는 톤 유지 — 본 art-bible §5.7 의 sumi-e + chibi 융합 모델. 머리 비율 (1/3) + 평면 색 + 외곽선이 핵심. Octopath 의 sprite + 3D 배경의 layer 분리는 우리 grid (chibi) + portrait (sumi-e) 분리의 reference.
+
+**피할 것:** 모에 (萌え) 스타일의 거대 눈동자, 광택, 머리카락 채도 상승. art-bible §5 의 anti-ref 5번째 (decorative chinoiserie) 와 같은 결로 — chibi 가 sumi-e 의 무게감을 희석하면 안 됨.
+
+**연결:** 섹션 1.3 (개정), 5.5 (개정), 5.7 (신규)
+
 ### 레퍼런스 상호 견제
 
 | 축 | 긴장 관계 | 천명역전의 좌표 |
 |---|---|---|
 | 에너지 | 양 이(폭발)↔DD(억제) | 평상시 억제, 운명 순간 방출 |
-| 캐릭터 밀도 | 요코야마(개성 극대화)↔FE(전술 축소) | 포트레이트=요코야마, 스프라이트=FE |
+| 캐릭터 밀도 | 요코야마(개성 극대화)↔FE(전술 축소) | 포트레이트=요코야마, 스프라이트=FE+chibi (개정 2026-05-20: Triangle Strategy 류 chibi 융합) |
 | UI 질감 | 인왕(어두운 철)↔나머지(밝은 먹) | 인장/목간 차용, 톤은 따뜻한 탁상 |

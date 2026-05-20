@@ -76,6 +76,24 @@ This game is **not**:
 
 ---
 
+## §6 Grid Character Sprite Style (개정 2026-05-20)
+
+art-bible.md §5.7 의 압축판. **sumi-e + chibi 융합** — LOD 1 (grid, 32-63px) 에서 character 표현 허용 (LOD 0 portrait 은 formal sumi-e 그대로).
+
+- **비례**: 3-head chibi (머리:몸:다리 = 1:1:1)
+- **해상도**: native 128×128, 표시 64×64 (2× supersample)
+- **외곽선**: sumi-e variable-weight brush (head 1.5-2x 두께)
+- **얼굴**: chibi 표정 (눈 = 검은 점 2, 입 = 1 line). 코/귀 생략 (단 유비의 큰 귀는 silhouette 특징)
+- **색**: art-bible §4 7 팔레트 + 세력 색 우선. 주홍/금색 sprite 금지 (LOD 0 + VFX 한정)
+- **도상 통합** (§5.6): 청룡언월도/장팔사모/부채/큰 귀 = chibi 옆 비례 보정 무기 OR silhouette 돌출
+- **금지**: 거대 눈동자, 광택, cell-shading gradient, Dynasty Warriors 비례
+
+**Animation phased**: P1 idle 1f → P2 idle breath 2f → P3 walk 4f → P4 attack 3f → P5 reaction (피격/사망/승리)
+
+**Reference**: Triangle Strategy / Octopath Traveler 의 chibi-tactical 결 (모에 anti-ref 지속)
+
+---
+
 ## AI Prompt Scaffold
 
 Copy-paste foundation. Append per-asset specifics (character name, pose, phase lighting) after this block.
