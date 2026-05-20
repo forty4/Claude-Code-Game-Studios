@@ -2704,6 +2704,8 @@ func _sfx_for_skill(skill_id: StringName) -> StringName:
 		&"skill_strategist":      return SoundManager.SFX_SKILL_STRATEGIST
 		&"skill_naval_strategy":  return SoundManager.SFX_SKILL_NAVAL_STRATEGY
 		&"skill_rebel_charge":    return SoundManager.SFX_SKILL_DRAGON_BLADE  # 위연 — reuse dragon_blade SFX (offensive sharp); per-skill SFX 차후 별도 작곡
+		&"skill_blunt_strategy":  return SoundManager.SFX_SKILL_STRATEGIST    # 방통 — reuse strategist (책략 톤)
+		&"skill_phoenix_chick":   return SoundManager.SFX_SKILL_INSPIRE       # 방통 — reuse inspire (warm support 톤)
 		_:                        return SoundManager.SFX_SKILL
 
 
@@ -2719,6 +2721,8 @@ func _skill_display_name(skill_id: StringName) -> String:
 		&"skill_strategist":      return "책략!"
 		&"skill_naval_strategy":  return "책략!"
 		&"skill_rebel_charge":    return "반골일도!"
+		&"skill_blunt_strategy":  return "기만전략!"
+		&"skill_phoenix_chick":   return "봉추!"
 		_:                        return "스킬!"
 
 
@@ -2735,7 +2739,8 @@ func _shake_for_skill(skill_id: StringName) -> Vector2:
 		&"skill_dragon_blade":    return Vector2(5.0, 0.18)
 		&"skill_piercing_volley": return Vector2(5.0, 0.18)
 		&"skill_rebel_charge":    return Vector2(6.0, 0.20)  # 위연 — 압축된 충격, between dragon_blade and thunder_roar
-		_:                        return Vector2.ZERO  # utility — no shake
+		&"skill_blunt_strategy":  return Vector2(5.0, 0.18)  # 방통 — AoE control, moderate (dragon_blade tier)
+		_:                        return Vector2.ZERO  # utility / heal — no shake (phoenix_chick included)
 
 
 ## Session-16: mid-battle kill notification. Spawns "X 처치!" popup at the

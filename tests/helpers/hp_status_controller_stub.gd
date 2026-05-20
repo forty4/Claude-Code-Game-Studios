@@ -114,3 +114,20 @@ func apply_status(unit_id: int, effect_template_id: StringName,
 		"source_unit_id": source_unit_id,
 	})
 	return true
+
+
+## Phase 2 — call recorder for apply_heal (방통의 skill_phoenix_chick + 후속
+## heal-skill 테스트). Records (unit_id, raw_heal, source_unit_id). Returns
+## the raw_heal value (production path computes a capped effective heal, but
+## the stub returns raw — callers asserting capped values should switch to
+## production HPStatusController).
+var apply_heal_calls: Array[Dictionary] = []
+
+
+func apply_heal(unit_id: int, raw_heal: int, source_unit_id: int) -> int:
+	apply_heal_calls.append({
+		"unit_id": unit_id,
+		"raw_heal": raw_heal,
+		"source_unit_id": source_unit_id,
+	})
+	return raw_heal

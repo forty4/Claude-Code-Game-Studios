@@ -554,3 +554,135 @@ func test_rebel_charge_vs_dragon_blade_against_tank_defender() -> void:
 		"rebel_charge should out-damage dragon_blade vs high-DEF tank; got rebel=%d dragon=%d"
 		% [dmg_rebel, dmg_dragon]
 	).is_greater(dmg_dragon)
+
+
+# ─── skill_blunt_strategy (방통, Phase 2) ────────────────────────────────────
+
+
+## Phase 2 Step C — 방통 blunt_strategy AoE-2: 12 damage + slow to each enemy
+## within Manhattan ≤ 2 of caster. Differs from 조조 strategist (global AoE)
+## by range filter + slow status; differs from 장비 thunder_roar by range +
+## status.
+func test_blunt_strategy_damages_enemies_within_range_2() -> void:
+	# Arrange — 방통 at (3,3); enemies at (3,4) dist=1 / (5,3) dist=2 / (3,6) dist=3
+	var caster: BattleUnit = _make_unit(1, Vector2i(3, 3), 0, &"skill_blunt_strategy",
+		int(UnitRole.UnitClass.STRATEGIST))
+	var e_adj: BattleUnit = _make_unit(2, Vector2i(3, 4), 1)
+	var e_mid: BattleUnit = _make_unit(3, Vector2i(5, 3), 1)
+	var e_far: BattleUnit = _make_unit(4, Vector2i(3, 6), 1)
+	var controller: GridBattleController = _setup([caster, e_adj, e_mid, e_far])
+
+	# Act
+	assert_bool(controller.use_skill(1)).is_true()
+
+	# Assert — only the 2 in-range enemies took damage; far one skipped
+	var hits: Array[Dictionary] = (controller._hp_controller as HPStatusControllerStub).apply_damage_calls
+	var damaged_ids: Array[int] = []
+	for h: Dictionary in hits:
+		damaged_ids.append(h["unit_id"] as int)
+	assert_int(damaged_ids.size()).override_failure_message(
+		"blunt_strategy should damage 2 in-range enemies (dist 1, 2); got %d hits" % damaged_ids.size()
+	).is_equal(2)
+	assert_bool(2 in damaged_ids).is_true()  # adjacent
+	assert_bool(3 in damaged_ids).is_true()  # range 2
+	assert_bool(4 in damaged_ids).is_false()  # range 3 — skipped
+
+
+## Phase 2 Step C — slow status applied to each hit target.
+func test_blunt_strategy_applies_slow_to_each_hit_target() -> void:
+	# Arrange
+	var caster: BattleUnit = _make_unit(1, Vector2i(3, 3), 0, &"skill_blunt_strategy",
+		int(UnitRole.UnitClass.STRATEGIST))
+	var e1: BattleUnit = _make_unit(2, Vector2i(3, 4), 1)
+	var e2: BattleUnit = _make_unit(3, Vector2i(4, 3), 1)
+	var controller: GridBattleController = _setup([caster, e1, e2])
+
+	# Act
+	controller.use_skill(1)
+
+	# Assert — slow applied to both enemies
+	var status_calls: Array[Dictionary] = (controller._hp_controller as HPStatusControllerStub).applied_status_calls
+	var slowed_ids: Array[int] = []
+	for s: Dictionary in status_calls:
+		if String(s["effect_id"] as StringName) == "slow":
+			slowed_ids.append(s["unit_id"] as int)
+	assert_int(slowed_ids.size()).override_failure_message(
+		"blunt_strategy should slow both hit targets; got %d slows" % slowed_ids.size()
+	).is_equal(2)
+
+
+## Phase 2 Step C — terminal action: ATK token spent + declare_action ATTACK
+## (when any enemy hit) or WAIT (no enemy in range, defensive)
+func test_blunt_strategy_spends_action_token() -> void:
+	# Arrange
+	var caster: BattleUnit = _make_unit(1, Vector2i(3, 3), 0, &"skill_blunt_strategy",
+		int(UnitRole.UnitClass.STRATEGIST))
+	var e: BattleUnit = _make_unit(2, Vector2i(3, 4), 1)
+	var controller: GridBattleController = _setup([caster, e])
+
+	# Act
+	controller.use_skill(1)
+
+	# Assert — _acted_this_turn flag set
+	assert_bool(controller._acted_this_turn.get(1, false)).override_failure_message(
+		"blunt_strategy must spend the caster's ATK token (terminal action)"
+	).is_true()
+
+
+# ─── skill_phoenix_chick (방통, Phase 2) ─────────────────────────────────────
+
+
+## Phase 2 Step C — 방통 phoenix_chick: heals each adjacent ally 25 HP.
+func test_phoenix_chick_heals_adjacent_allies() -> void:
+	# Arrange — 방통 at (3,3); ally_adj at (3,4) / ally_far at (3,5) / enemy_adj at (4,3)
+	var caster: BattleUnit = _make_unit(1, Vector2i(3, 3), 0, &"skill_phoenix_chick",
+		int(UnitRole.UnitClass.STRATEGIST))
+	var ally_adj: BattleUnit = _make_unit(2, Vector2i(3, 4), 0)
+	var ally_far: BattleUnit = _make_unit(3, Vector2i(3, 5), 0)
+	var enemy_adj: BattleUnit = _make_unit(4, Vector2i(4, 3), 1)
+	var controller: GridBattleController = _setup([caster, ally_adj, ally_far, enemy_adj])
+
+	# Act
+	assert_bool(controller.use_skill(1)).is_true()
+
+	# Assert — only adjacent ally healed; far ally skipped; enemy skipped (wrong side)
+	var heals: Array[Dictionary] = (controller._hp_controller as HPStatusControllerStub).apply_heal_calls
+	assert_int(heals.size()).override_failure_message(
+		"phoenix_chick should heal 1 adjacent ally; got %d heal calls" % heals.size()
+	).is_equal(1)
+	assert_int(heals[0]["unit_id"] as int).is_equal(2)  # ally_adj
+	assert_int(heals[0]["raw_heal"] as int).is_equal(25)
+
+
+## Phase 2 Step C — phoenix_chick does NOT heal caster (per cinematic intent).
+func test_phoenix_chick_does_not_heal_self() -> void:
+	# Arrange — caster alone, no allies in range
+	var caster: BattleUnit = _make_unit(1, Vector2i(3, 3), 0, &"skill_phoenix_chick",
+		int(UnitRole.UnitClass.STRATEGIST))
+	var controller: GridBattleController = _setup([caster])
+
+	# Act
+	controller.use_skill(1)
+
+	# Assert — no heal calls fired (caster excluded)
+	var heals: Array[Dictionary] = (controller._hp_controller as HPStatusControllerStub).apply_heal_calls
+	assert_int(heals.size()).override_failure_message(
+		"phoenix_chick should NOT heal self; got %d heal calls" % heals.size()
+	).is_equal(0)
+
+
+## Phase 2 Step C — phoenix_chick terminal action.
+func test_phoenix_chick_spends_action_token() -> void:
+	# Arrange
+	var caster: BattleUnit = _make_unit(1, Vector2i(3, 3), 0, &"skill_phoenix_chick",
+		int(UnitRole.UnitClass.STRATEGIST))
+	var ally: BattleUnit = _make_unit(2, Vector2i(3, 4), 0)
+	var controller: GridBattleController = _setup([caster, ally])
+
+	# Act
+	controller.use_skill(1)
+
+	# Assert
+	assert_bool(controller._acted_this_turn.get(1, false)).override_failure_message(
+		"phoenix_chick must spend the caster's ATK token (terminal action)"
+	).is_true()

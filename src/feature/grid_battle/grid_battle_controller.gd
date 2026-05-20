@@ -1994,6 +1994,10 @@ func use_skill(unit_id: int) -> bool:
 			fired = _skill_thunder_roar(unit)
 		&"skill_rebel_charge":
 			fired = _skill_rebel_charge(unit)
+		&"skill_blunt_strategy":
+			fired = _skill_blunt_strategy(unit)
+		&"skill_phoenix_chick":
+			fired = _skill_phoenix_chick(unit)
 		&"skill_inspire":
 			fired = _skill_inspire(unit)
 		&"skill_piercing_volley":
@@ -2052,6 +2056,76 @@ func _skill_dragon_blade(unit: BattleUnit) -> bool:
 ## enemies; situationally weaker vs squishies since +50% multiplier same).
 func _skill_rebel_charge(unit: BattleUnit) -> bool:
 	_rebel_charge_pending[unit.unit_id] = true
+	return true
+
+
+## 방통 blunt_strategy (Phase 2): "기만전략" — Strategist standoff AoE control.
+## Range-2 enemies (Manhattan ≤ 2) take 12 fixed damage each + slow status.
+## Cinematic: 와룡-봉추 의 "기만으로 적이 헛걸음한다". Differs from 조조의
+## skill_strategist (global AoE 15 damage, no status) by trading damage for
+## sustained debuff — and from 장비의 thunder_roar (adjacent AoE 25, no
+## status) by trading damage radius for range + control. Spends ATK token.
+func _skill_blunt_strategy(unit: BattleUnit) -> bool:
+	var blunt_damage: int = 12
+	var blunt_range: int = 2
+	var any_hit: bool = false
+	for victim: BattleUnit in _units.values():
+		if victim.side == unit.side:
+			continue
+		if not _hp_controller.is_alive(victim.unit_id):
+			continue
+		var dx: int = absi(victim.position.x - unit.position.x)
+		var dy: int = absi(victim.position.y - unit.position.y)
+		if dx + dy > blunt_range:
+			continue
+		_last_attacker_id = unit.unit_id
+		_hp_controller.apply_damage(victim.unit_id, blunt_damage,
+			ResolveModifiers.AttackType.MAGICAL, [&"skill"] as Array[StringName])
+		_damage_dealt_by_unit[unit.unit_id] = \
+			_damage_dealt_by_unit.get(unit.unit_id, 0) + blunt_damage
+		damage_applied.emit(unit.unit_id, victim.unit_id, blunt_damage)
+		# Slow always applies — sustained debuff that survives into next round.
+		_apply_status_with_signal(victim.unit_id, &"slow", unit.unit_id)
+		any_hit = true
+	# Terminal action — spends ATK token whether or not any enemy was in range
+	# (parity with skill_strategist + thunder_roar — deters probe-clicks).
+	_acted_this_turn[unit.unit_id] = true
+	if _turn_runner != null and _turn_runner.has_method("declare_action"):
+		_turn_runner.declare_action(unit.unit_id,
+			TurnOrderRunner.ActionType.ATTACK if any_hit else TurnOrderRunner.ActionType.WAIT,
+			null)
+	return true
+
+
+## 방통 phoenix_chick (Phase 2): "봉추" — phoenix's healing fire. Heals each
+## adjacent (Manhattan ≤ 1) alive ally for 25 HP. Cinematic: the rising
+## phoenix radiates restoration around the strategist. Differs from 유비의
+## skill_inspire (action token refund) by trading economy buff for raw
+## sustain — strategists keep allies ALIVE rather than letting them act
+## twice. Spends ATK token (terminal action).
+func _skill_phoenix_chick(unit: BattleUnit) -> bool:
+	var heal_amount: int = 25
+	var any_heal: bool = false
+	for ally: BattleUnit in _units.values():
+		if ally.side != unit.side:
+			continue
+		if ally.unit_id == unit.unit_id:
+			continue  # cinematic — phoenix heals allies, not self
+		if not _hp_controller.is_alive(ally.unit_id):
+			continue
+		var dx: int = absi(ally.position.x - unit.position.x)
+		var dy: int = absi(ally.position.y - unit.position.y)
+		if dx + dy != 1:
+			continue  # adjacent only
+		if _hp_controller.has_method("apply_heal"):
+			_hp_controller.apply_heal(ally.unit_id, heal_amount, unit.unit_id)
+			any_heal = true
+	# Terminal action — same probe-click deterrent as blunt_strategy.
+	_acted_this_turn[unit.unit_id] = true
+	if _turn_runner != null and _turn_runner.has_method("declare_action"):
+		_turn_runner.declare_action(unit.unit_id,
+			TurnOrderRunner.ActionType.USE_SKILL if any_heal else TurnOrderRunner.ActionType.WAIT,
+			null)
 	return true
 
 
