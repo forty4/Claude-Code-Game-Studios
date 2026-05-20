@@ -2908,8 +2908,12 @@ func _trigger_low_hp_danger(unit_node: Node2D) -> void:
 	if not is_instance_valid(unit_node):
 		return
 	# Label "위급!" — JU_HONG 색, 1.0s dwell (long enough to read).
+	# mouse_filter IGNORE 필수 — unit polygon 위 spawn 이라 default STOP 이면
+	# 0.9s 동안 polygon 근처 grid click 흡수 (사용자 attestation: "장비 이동
+	# 클릭이 안 먹고 빈 자리가 선택됨" 버그의 원인).
 	var label: Label = Label.new()
 	label.text = "위급!"
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.add_theme_font_size_override("font_size", 20)
 	label.add_theme_color_override("font_color", Palette.JU_HONG)
 	label.add_theme_color_override("font_outline_color", Palette.MUK_OUTLINE)
