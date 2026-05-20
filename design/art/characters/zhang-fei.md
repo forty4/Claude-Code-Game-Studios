@@ -171,3 +171,57 @@ If any miss → regen with tuning notes above. No manual touch-up (per AI-output
 - 둘 다 heavy build + vertical weapon protrusion + warm Phase D lighting
 - 정반대: build shape (square vs wedge) + beard (neat vs wild) + eyes (narrow vs round) + posture (planted vs forward-leaning) + weapon tip (crescent vs serpent S)
 - 5축 모두 명확한 contrast → 같은 frame 에 함께 놓여도 즉시 구분 가능
+
+---
+
+## Grid sprite (chibi) — Q5 Phase 1 (신규 2026-05-20)
+
+art-bible §5.7 정합.
+
+### Per-hero chibi 요소 (장비 한정)
+- **정체성**: assault cavalry, raw force, forward-leaning. wedge-shaped silhouette.
+- **무기**: 장팔사모 (serpent spear, 丈八蛇矛) — chibi 머리 위로 솟은 수직 spear. tip 은 S-curve (serpent).
+- **수염**: 검은 곱슬 수염, 거칠게 흩어짐 — chibi 비례에서도 wild silhouette 유지.
+- **눈**: 표범 눈 (leopard-ring) — chibi 단순화에서도 눈 = 검은 점이되 약간 더 크고 또렷.
+
+### Gemini prompt — copy-paste ready
+
+```
+A chibi grid sprite of a Three Kingdoms-era Chinese assault cavalry general, painted in fused sumi-e ink-wash AND chibi proportions. For tactical RPG combat grid (LOD 1, 64×64 display, 128×128 native).
+
+CRITICAL CHIBI PROPORTIONS: 3-head ratio. Wedge-shaped torso (shoulders wider than hips). Slight forward lean — momentum read.
+
+CRITICAL CHARACTER FACE: Zhang Fei (張飛, 翼德) — raw force, leopard-ring eyes. In chibi: eyes = bold black dots SLIGHTLY larger and rounder than other heroes (leopard-ring intensity), single mouth line, NO nose. Skin: darker / higher contrast than other heroes (highest contrast in the 5-hero series). 
+
+CRITICAL POSE AND WEAPON: Slight forward-lean stance, weight on front foot. Right hand grips a tall spear (장팔사모 — Serpent Spear) held vertically. Spear shaft extends UP past head, TIP at top with subtle S-curve (serpent silhouette). Spear shaft thinner than Guan Yu's polearm.
+
+CRITICAL BEARD AND HAIR: Black curly wild beard, scattered and rough — silhouette spills beyond armor edges. Hair tied in topknot but with stray curls. The beard's wildness is the visual key.
+
+Outfit: Dark armor with leather binding. Dark color palette — highest contrast figure. NO ceremonial gold, NO bright colors.
+
+Visual style: **Fused sumi-e + chibi** — variable-weight ink brush. The beard especially uses heavy wet-brush ink with visible drag.
+
+NO anime moe, NO Dynasty Warriors muscle-baroque exaggeration, NO red/gold accents.
+
+Composition: forward-leaning chibi with spear vertically above. ~70% canvas vertically.
+
+Aspect ratio: 1:1, 128×128 native.
+```
+
+### Asset target
+
+| Field | Value |
+|---|---|
+| Filename | `assets/art/sprites/grid/sprite_shu_zhang_fei_idle.png` |
+| Dimensions | 128×128 native |
+| Format | PNG with alpha |
+| Frame | 1 of 1 (idle pose) |
+
+### Acceptance
+- ✅ 3-head + wedge torso + 약간 forward-lean
+- ✅ 눈 = 검은 점, 약간 더 크고 또렷 (leopard-ring)
+- ✅ 장팔사모 spear 머리 위 vertical, S-curve tip
+- ✅ Wild curly black beard silhouette spilling beyond armor
+- ✅ 어두운 palette + 최고 대비 (5 영웅 중 가장 어두움)
+- ✅ Sumi-e variable brush, 특히 수염은 wet-brush 강조
+- ✅ 투명 배경 + 평면 색 + 주홍/금색 침투 0

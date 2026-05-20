@@ -200,3 +200,60 @@ B2.* 트랙 (AI 자산 production) **완성**. B1.1 (Palette token) + B2.1-5 (5 
 - 시그니처 일러스트 (5 cascade trigger 별)
 
 B2 완료 후 통합 플레이세션 (`/playtest-report`) 으로 5장 portrait 가 실제 게임 흐름 안에서 어떻게 인상되는지 검증 권장.
+
+---
+
+## Grid sprite (chibi) — Q5 Phase 1 (신규 2026-05-20)
+
+art-bible §5.7 정합.
+
+### Per-hero chibi 요소 (유비 한정)
+- **정체성**: virtue-king, commander, balanced open-arm rally. cascade 의 5번째 (legendary 중심).
+- **무기**: 双股劍 (paired twin swords) — chibi 오른쪽 hip 에 두 자루 visible. 작은 비대칭 돌출.
+- **귀**: 큰 귀 — silhouette 의 명확한 돌출 (chibi 라도 귀 자체는 약간 보이게 강조).
+- **수염**: 절제된 trim beard (장비 wild 와 명확히 차별). 깔끔.
+- **자세**: balanced open-arm 포즈 — 양쪽 팔 약간 벌어짐 (rally 의도). 가장 symmetric.
+
+### Gemini prompt — copy-paste ready
+
+```
+A chibi grid sprite of a Three Kingdoms-era Chinese commander-king, painted in fused sumi-e ink-wash AND chibi proportions. For tactical RPG combat grid (LOD 1, 64×64 display, 128×128 native).
+
+CRITICAL CHIBI PROPORTIONS: 3-head ratio. Symmetric balanced pose — open-arm rally stance (most symmetric of the 5-hero series).
+
+CRITICAL CHARACTER FACE: Liu Bei (劉備, 玄德) — virtue-king, balanced commander. In chibi: two small black dots for eyes, single mouth line, NO nose detail. Skin: warm naturalistic. Face gaze: STRAIGHT AHEAD (looking at viewer), NOT downward or away — Liu Bei is the only hero whose gaze meets the viewer.
+
+CRITICAL EAR DETAIL: Liu Bei has historically large ears — even in chibi simplification, the ears should be slightly visible as silhouette protrusion from the head shape (NOT erased per usual chibi convention). Subtle but distinct.
+
+CRITICAL POSE AND PROPS: Balanced standing pose, weight evenly on both feet. Both arms slightly extended outward — open-arm rally posture (signaling command). Right hip carries TWO paired short swords (双股劍 — twin swords), visible as small hilt + scabbard pair at right side asymmetrically protruding from waistline.
+
+CRITICAL BEARD: Trim full beard — NEATLY groomed, NOT wild (distinguishes from Zhang Fei). Black, medium length.
+
+Outfit: Ink-base (#1C1A17) layered robe with ochre (#C8874A) trim at edges. Royal but not gaudy — yellow ochre accents in trim. NO bright gold, NO dragon embroidery, NO ostentation.
+
+Visual style: **Fused sumi-e + chibi** — variable-weight ink brush. Calm composition befitting his "still center" identity.
+
+NO anime moe, NO Dynasty Warriors muscle-baroque, NO red/gold accents (reserved for legendary VFX when he triggers).
+
+Composition: chibi figure centered, open-arm symmetric pose. Generous negative space matching his contemplative identity.
+
+Aspect ratio: 1:1, 128×128 native.
+```
+
+### Asset target
+
+| Field | Value |
+|---|---|
+| Filename | `assets/art/sprites/grid/sprite_shu_liu_bei_idle.png` |
+| Dimensions | 128×128 native |
+| Format | PNG with alpha |
+| Frame | 1 of 1 (idle pose) |
+
+### Acceptance
+- ✅ 3-head + symmetric open-arm pose
+- ✅ 얼굴 단순화 + 시선 STRAIGHT AHEAD (다른 영웅과 차별 — 유일 정면 시선)
+- ✅ 큰 귀 silhouette 돌출 visible
+- ✅ 双股劍 paired swords at right hip — asymmetric 돌출
+- ✅ Trim 정돈된 수염 (장비 wild 와 차별)
+- ✅ Ink-base 로브 + ochre trim — royal 톤 절제
+- ✅ Sumi-e variable brush + 투명 배경 + 평면 색 + 주홍/금색 침투 0

@@ -141,3 +141,55 @@ If any miss → regen with tuning notes above. No manual touch-up (per AI-output
 | 유비 (B2.5) | E (cold blue→gold) | Balanced open-arm rally | 双股劍 (paired swords) | Ink + ochre | Prominent ears, full-trim beard |
 
 5장이 같이 놓였을 때 phase / posture / prop / palette / face 5개 축에서 모두 차이가 나도록 — 이게 cascade 의 시각 정체성.
+
+---
+
+## Grid sprite (chibi) — Q5 Phase 1 (신규 2026-05-20)
+
+art-bible §5.7 정합. portrait (sumi-e formal) 과 별도 자산.
+
+### Per-hero chibi 요소 (방통 한정)
+- **정체성 유지**: 둥근 얼굴 + 평범한 인상 + 부채를 든 책사. chibi 단순화: 눈 = 점 2개, 입 = 1선, 둥근 윤곽 유지.
+- **부채**: 손에 든 큰 부채가 chibi 비례에 맞게 (어깨 폭의 1.0x). 봉의 깃털 도상.
+- **자세**: 중심 수직 calm. 어깨 약간 처짐 (subtle tension from Luofengpo arrow dodge).
+- **머리**: 윤건(綸巾) + 학창의(鶴氅衣) silhouette — 사각 모자 + 넓은 sleeves 가 wide-sleeve triangular silhouette 형성.
+
+### Gemini prompt — copy-paste ready
+
+```
+A chibi grid sprite of a Three Kingdoms-era Chinese strategist, painted in fused sumi-e ink-wash AND chibi proportions. For tactical RPG combat grid (LOD 1, 64×64 px display, 128×128 native).
+
+CRITICAL CHIBI PROPORTIONS: 3-head ratio — head : torso : legs = 1 : 1 : 1. Head occupies ~33% height.
+
+CRITICAL CHARACTER FACE (simplified for chibi): Pang Tong (龐統, 士元) — a strategist in his mid-to-late 30s. In chibi: two small black dots for eyes (NO large anime pupils), a single short line for the mouth, NO nose detail. His face is deliberately ROUND and FULL — round-ish jaw, soft contours — distinguishing him from sharp-featured warriors. Skin: naturalistic warm-olive.
+
+CRITICAL POSE AND PROP: Centered vertical calm stance — facing slightly right, weight evenly on both feet, NO hip cocking. Both hands visible: right hand holds a large feather fan (봉추 phoenix feather emblem), held at chest level. Fan width ~1.0x shoulder width. Left hand at side.
+
+Outfit: Wide-sleeve scholar robe (鶴氅衣) — sleeves form triangular silhouette extending past shoulders. Square scholar cap (윤건). Robe color: ink-heavy black-grey (#1C1A17 deepened), with paper-white (#F2E8D4) fan and inner robe lining for contrast.
+
+Visual style: **Fused sumi-e + chibi** — variable-weight ink brush outlines (1.5-2x thicker on head), flat color fills no gradients. Reference: Triangle Strategy chibi-tactical, BUT with sumi-e brush quality.
+
+NO anime moe (no large eyes, no shoujo features), NO cell-shading, NO glow, NO Dynasty Warriors muscle, NO red/gold accents (reserved for VFX).
+
+Composition: chibi figure centered, ~60% canvas vertically. Generous negative space.
+
+Aspect ratio: 1:1, 128×128 native (display 64×64).
+```
+
+### Asset target
+
+| Field | Value |
+|---|---|
+| Filename | `assets/art/sprites/grid/sprite_shu_pang_tong_idle.png` |
+| Dimensions | 128×128 native |
+| Format | PNG with alpha |
+| Frame | 1 of 1 (idle pose) |
+
+### Acceptance for AI generation
+- ✅ 3-head chibi 비례 / 얼굴 단순화 (눈 점 2 + 입 1선)
+- ✅ 둥근 얼굴 형 (sharp-features 금지)
+- ✅ 부채 visible at chest level
+- ✅ Wide-sleeve scholar robe silhouette
+- ✅ 어두운 ink-heavy 색 + paper-white fan/lining contrast
+- ✅ Sumi-e variable brush 외곽선
+- ✅ 투명 배경 + 평면 색 + 주홍/금색 침투 0

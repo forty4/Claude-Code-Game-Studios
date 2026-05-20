@@ -116,3 +116,65 @@ Ship-able output must satisfy (single AND gate):
 - ✅ Negative space around figure (figure NOT filling entire 1024×1024)
 
 If any miss → regen with tuning notes above. No manual touch-up (per AI-output-direct policy).
+
+---
+
+## Grid sprite (chibi) — Q5 Phase 1 (신규 2026-05-20)
+
+art-bible §5.7 정합. 위 portrait (8-head sumi-e) 와 별도 자산 — LOD 1 grid 표시용 chibi reframe.
+
+### Per-hero chibi 요소 (위연 한정)
+
+- **신원 일관성**: portrait 의 hardened mercenary 정체성 유지 — narrow features, weathered face, mid-40s. 단 chibi 단순화 적용 (눈 = 검은 점 2개, 입 = 단일 선, 주름 생략).
+- **무기 표현**: 칼이 scabbard 안 — chibi 비례에 맞춘 작은 wooden hilt + 검집 visible at left hip. 칼 자체 추출 안 함 ("blade waiting inside its sheath" 정체성 유지).
+- **자세**: 약간 옆을 본 asymmetric 자세. 한쪽 hip cocked. 시선은 약간 아래 (downward 명시 안 해도 chibi 비례라 자연스러움).
+- **머리**: jet-black topknot. chibi 비례라 머리 영역 33% 차지.
+- **갑옷**: iron blue-grey lamellar + ochre cloth trim. chibi 단순화 — 자수/장식 생략, 색 블록으로만.
+
+### Gemini prompt — copy-paste ready
+
+```
+A chibi grid sprite of a Three Kingdoms-era Chinese general, painted in fused sumi-e ink-wash AND chibi proportions. This is for a tactical RPG's combat grid (LOD 1, 64×64 px display, 128×128 native).
+
+CRITICAL CHIBI PROPORTIONS: 3-head ratio — head : torso : legs = 1 : 1 : 1. Head occupies ~33% of total figure height. Shoulder width ~1.2x head width. Legs short but visible.
+
+CRITICAL CHARACTER FACE (simplified for chibi LOD 1): The character is Wei Yan (魏延, 文长), a hardened mercenary general. In chibi style, his face is simplified to: two small black dots for eyes (NO large anime pupils), a single short line for the mouth, NO nose detail, NO wrinkles. The hardened mercenary identity comes from his stance and weapon, NOT detailed facial rendering. Skin tone: sun-bronzed warm beige.
+
+CRITICAL STANCE AND WEAPON: Asymmetric mercenary three-quarter view facing slightly right. Body weight casual — one hip slightly cocked. His right hand rests on the bound wooden grip of a hilt protruding from a scabbard at his left hip. Only the wooden pommel and hilt grip are visible above the scabbard's metal fitting. The blade stays enclosed inside the black lacquered scabbard. NO drawn weapon. NO second weapon. His left hand rests relaxed at his side. Silhouette read: "blade waiting inside sheath" — restraint preserved despite chibi.
+
+Hair: jet-black, bound in a simple tight topknot, no ornament.
+
+Outfit: Practical iron blue-grey (#5C7A8A) lamellar armor with ochre-earth (#C8874A) cloth trim — chibi-simplified, no decorative patterns, just flat color blocks separated by ink outline. Black lacquered scabbard.
+
+Visual style: **Fused sumi-e + chibi** — sumi-e variable-weight brush ink outlines (thicker at silhouette edge, 1.5-2x thickness on head outline), restrained flat color fills with no gradients or cel-shading, paper-white (#F2E8D4) background with subtle paper grain. Reference: Triangle Strategy / Octopath Traveler chibi-tactical sprites, BUT with sumi-e brush quality NOT vector-clean lines.
+
+NO photorealism, NO anime moe (no large eyes, no shoujo features), NO cell-shading gradients, NO glow effects, NO Dynasty Warriors muscle-baroque, NO bright saturation, NO red or gold accents (those are reserved for legendary VFX).
+
+Composition: chibi figure centered, occupying ~60% of canvas vertically. Generous negative space around figure for clean silhouette read.
+
+Aspect ratio: 1:1 square, 128×128 native (intended display 64×64 after 2× supersample downscale).
+```
+
+### Asset target
+
+| Field | Value |
+|---|---|
+| Filename | `assets/art/sprites/grid/sprite_shu_wei_yan_idle.png` |
+| Dimensions | 128×128 native (display 64×64 after 2× supersample) |
+| Format | PNG with alpha (transparent background — chapter_visuals 가 polygon tint 배경 제공) |
+| Frame | 1 of 1 (Phase 1 idle pose only — breath/walk/attack post-MVP) |
+| Convention | `assets/art/sprites/grid/sprite_{hero_id}_idle.png` — Phase 2-4 추가 시 `_breath_0.png` / `_walk_0..3.png` / `_attack_0..2.png` |
+
+### Acceptance for AI generation
+
+Ship-able output must satisfy (single AND gate):
+- ✅ 3-head chibi 비례 (사실적 8-head 비례 금지)
+- ✅ 얼굴 단순화 (눈 = 점 2개, 입 = 1선) — anime 큰 눈 금지
+- ✅ Iron-grey + ochre-earth 팔레트 (장식/자수 생략)
+- ✅ 검 sheath 안에 — drawn weapon 금지, hilt + scabbard 만 visible
+- ✅ Sumi-e variable brush 외곽선 (vector-clean 금지)
+- ✅ 투명 배경 (alpha PNG)
+- ✅ 평면 색 (gradient / cell-shading 금지)
+- ✅ 주홍/금색 침투 0
+
+미달 시 regen. portrait 와 동일 정책 (manual touch-up 금지).

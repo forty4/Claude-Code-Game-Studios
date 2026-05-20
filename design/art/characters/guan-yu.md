@@ -158,3 +158,57 @@ If any miss → regen with tuning notes above. No manual touch-up (per AI-output
 - Build 첫 heavy 도입 (관우) — 위연/방통의 medium-build 와 명확한 무게 대비
 - Prop: 검 hilt → 부채 → polearm — propusion 길이가 점점 길어지면서 silhouette 의 vertical extent 확대
 - Palette 첫 green 도입 (관우 녹포 historical exception) — 위연 iron-grey, 방통 ink-heavy 와 색 다양성 시작
+
+---
+
+## Grid sprite (chibi) — Q5 Phase 1 (신규 2026-05-20)
+
+art-bible §5.7 정합. portrait (sumi-e formal) 과 별도 자산.
+
+### Per-hero chibi 요소 (관우 한정)
+- **정체성**: heavy cavalry, immovable pillar. chibi 라도 frame 안에서 가장 큰 silhouette (다른 영웅 대비 어깨 폭 1.3x).
+- **무기**: 청룡언월도 (Green Dragon Crescent Blade) — chibi 머리 높이 위로 솟은 수직 polearm. 초승달 날 = 우상단 돌출.
+- **수염**: 긴 검은 수염 — 흉부까지 내려옴, chibi 비례에서 두드러진 silhouette element.
+- **녹포**: 녹색 (#2D6B4A) 전포 — historical exception. iron under-armor.
+
+### Gemini prompt — copy-paste ready
+
+```
+A chibi grid sprite of a Three Kingdoms-era Chinese heavy cavalry general, painted in fused sumi-e ink-wash AND chibi proportions. For tactical RPG combat grid (LOD 1, 64×64 px display, 128×128 native).
+
+CRITICAL CHIBI PROPORTIONS: 3-head ratio. Head ~33%. Shoulder width ~1.3x other heroes — Guan Yu is the LARGEST silhouette in the 5-hero series.
+
+CRITICAL CHARACTER FACE (simplified for chibi): Guan Yu (關羽, 雲長) — heavy cavalry general, immovable. In chibi: two small black dots for eyes, single short line for mouth, NO nose detail. Skin: warm sun-tanned olive — same tone as previous heroes. NOT red-faced (no historical "red face" stereotype).
+
+CRITICAL POSE AND WEAPON: Stable centered stance, weight on both feet. Right hand grips a tall polearm (Green Dragon Crescent Blade — 青龍偃月刀) held vertically alongside body. Polearm extends UP past the head silhouette, crescent blade visible at top-right of frame as silhouette protrusion. Polearm shaft thicker than typical spear (heavy weapon read).
+
+CRITICAL BEARD: Long black beard extending down to mid-chest — major asymmetric silhouette element. In chibi proportions, beard occupies significant lower-face area, distinguishing him at a glance.
+
+Outfit: Green (#2D6B4A) battle robe (historical exception — Shu green, deeper than naval green), iron under-armor showing at shoulders + chest. Practical combat gear, NO ceremonial decoration.
+
+Visual style: **Fused sumi-e + chibi** — variable-weight ink brush outlines (1.5-2x thicker on head), flat color fills. Reference: Triangle Strategy chibi-tactical with sumi-e brush.
+
+NO anime moe, NO red face, NO Dynasty Warriors muscle-baroque, NO cell-shading, NO glow, NO bright saturation, NO gold accents.
+
+Composition: chibi figure centered with polearm extending vertically above head. ~70% canvas vertically (taller than other heroes due to polearm).
+
+Aspect ratio: 1:1, 128×128 native.
+```
+
+### Asset target
+
+| Field | Value |
+|---|---|
+| Filename | `assets/art/sprites/grid/sprite_shu_guan_yu_idle.png` |
+| Dimensions | 128×128 native |
+| Format | PNG with alpha |
+| Frame | 1 of 1 (idle pose) |
+
+### Acceptance for AI generation
+- ✅ 3-head chibi + 어깨 폭 1.3x (다른 영웅 대비 largest)
+- ✅ 얼굴 단순화 (눈 점 2 + 입 1선)
+- ✅ 청룡언월도 polearm 머리 위로 수직 돌출
+- ✅ 긴 검은 수염 chest 까지 (silhouette 핵심)
+- ✅ 녹색 (#2D6B4A) 전포 — historical Shu green exception
+- ✅ NOT red-faced
+- ✅ Sumi-e variable brush + 투명 배경 + 평면 색
