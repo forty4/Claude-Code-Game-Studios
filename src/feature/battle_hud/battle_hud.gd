@@ -604,7 +604,7 @@ func set_victory_condition(condition_text: StringName) -> void:
 	# and the box renders invisibly against the canvas.
 	var sb: StyleBoxFlat = StyleBoxFlat.new()
 	sb.bg_color = Color(0.08, 0.09, 0.13, 0.92)       # 묵 dark panel — no exact palette token at this alpha
-	sb.border_color = Color(Palette.GEUM_SAEK.r, Palette.GEUM_SAEK.g, Palette.GEUM_SAEK.b, 0.95)  # 금색 border
+	sb.border_color = Color(Palette.UI_GOLD.r, Palette.UI_GOLD.g, Palette.UI_GOLD.b, 0.95)  # UI_GOLD border — tactical objective accent; GEUM_SAEK reserved for §2.11 legendary end-screen per art-bible §1
 	sb.border_width_left = 2
 	sb.border_width_top = 2
 	sb.border_width_right = 2
@@ -677,6 +677,9 @@ func show_forecast(attacker_id: int, defender_id: int, preview: Dictionary = {})
 	_populate_forecast_section(&"passives", attacker_id, defender_id)
 	# Mark visible AFTER population so render-time delta captures the full work.
 	_forecast_root.visible = true
+	# AC-B13-03 (C-3): dim UI-GB-03 unit info while UI-GB-04 forecast occupies T1
+	# attention. Restored to 1.0 by _on_forecast_dismiss_finished.
+	_apply_unit_info_dim(0.50)
 	_forecast_show_us = Time.get_ticks_usec()
 	_forecast_render_ms_last = float(_forecast_show_us - start_us) / 1000.0
 
@@ -891,11 +894,25 @@ func _on_forecast_dismiss_finished() -> void:
 	if _forecast_root != null:
 		_forecast_root.visible = false
 		_forecast_root.modulate.a = 1.0
+	# AC-B13-03 (C-3): forecast hidden → restore UI-GB-03 unit info modulate.
+	_apply_unit_info_dim(1.0)
 	_forecast_dismiss_ms_last = float(Time.get_ticks_usec() - _forecast_dismiss_start_us) / 1000.0
 	_forecast_dismiss_tween = null
 	# Clear cached preview so a subsequent show_forecast with no preview arg
 	# falls back to placeholder content rather than stale numbers.
 	_last_preview = {}
+
+
+## AC-B13-03 (C-3) helper. Sets UI-GB-03 unit info panel modulate.a to the
+## given value. No-op when the panel isn't mounted (defensive — UI-GB-03 is
+## mounted lazily in some test fixtures). Called from show_forecast (0.50 dim)
+## and _on_forecast_dismiss_finished (1.0 restore) to keep T1 attention on the
+## active forecast per battle-hud-info-hierarchy.md §6 C-3.
+func _apply_unit_info_dim(target_alpha: float) -> void:
+	var panel: Control = _ui_elements.get(&"UI-GB-03")
+	if panel == null:
+		return
+	panel.modulate.a = target_alpha
 
 
 # ─── Session-10 attack-preview signal handlers ────────────────────────────────

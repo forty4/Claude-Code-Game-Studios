@@ -329,6 +329,93 @@ func test_damage_applied_no_op_when_forecast_invisible() -> void:
 	_free_node_deps(bag)
 
 
+# ─── AC-B13-03 (C-3): forecast 표시 중 UI-GB-03 unit info dim ─────────────────
+
+
+## AC-B13-03: show_forecast() dims UI-GB-03 unit info panel to modulate.a = 0.50
+## while forecast occupies T1 attention. Per battle-hud-info-hierarchy.md §6 C-3
+## (BLOCKING gate). Restored to 1.0 by _on_forecast_dismiss_finished.
+func test_show_forecast_dims_unit_info_panel_to_half_alpha() -> void:
+	# Arrange
+	var bag: Dictionary = _make_hud_with_stubs()
+	var hud: BattleHUD = bag["hud"]
+	add_child(hud)
+	var unit_info: Control = hud._ui_elements.get(&"UI-GB-03")
+	assert_object(unit_info).override_failure_message(
+		"AC-B13-03: UI-GB-03 must be mounted in _ui_elements after _ready"
+	).is_not_null()
+	# Sanity: unit info starts at modulate.a = 1.0 before any forecast.
+	assert_float(unit_info.modulate.a).is_equal_approx(1.0, 0.001)
+
+	# Act
+	hud.show_forecast(TEST_ATTACKER_ID, TEST_DEFENDER_ID)
+
+	# Assert
+	assert_float(unit_info.modulate.a).override_failure_message(
+		"AC-B13-03: UI-GB-03 modulate.a must be 0.50 while forecast visible (got %.3f)" % unit_info.modulate.a
+	).is_equal_approx(0.50, 0.001)
+
+	hud.free()
+	_free_node_deps(bag)
+
+
+## AC-B13-03: forecast dismiss restores UI-GB-03 modulate.a to 1.0 after the
+## dismiss tween finishes. Mirrors test_dismiss_completes_within_80ms_budget
+## tween-await pattern.
+func test_forecast_dismiss_restores_unit_info_modulate_to_full() -> void:
+	# Arrange
+	var bag: Dictionary = _make_hud_with_stubs()
+	var hud: BattleHUD = bag["hud"]
+	add_child(hud)
+	var unit_info: Control = hud._ui_elements.get(&"UI-GB-03")
+	assert_object(unit_info).is_not_null()
+	hud.show_forecast(TEST_ATTACKER_ID, TEST_DEFENDER_ID)
+	assert_float(unit_info.modulate.a).is_equal_approx(0.50, 0.001)
+
+	# Act
+	hud._dismiss_forecast(&"test_b13_03_dismiss")
+	# Await dismiss tween (Tween.finished triggers _on_forecast_dismiss_finished
+	# which restores UI-GB-03 modulate via _apply_unit_info_dim(1.0)).
+	var tween: Tween = hud._forecast_dismiss_tween
+	if tween != null and tween.is_running():
+		await tween.finished
+	else:
+		await get_tree().process_frame
+
+	# Assert
+	assert_float(unit_info.modulate.a).override_failure_message(
+		"AC-B13-03: UI-GB-03 modulate.a must restore to 1.0 after dismiss (got %.3f)" % unit_info.modulate.a
+	).is_equal_approx(1.0, 0.001)
+
+	hud.free()
+	_free_node_deps(bag)
+
+
+## AC-B13-03 idempotency: consecutive show_forecast calls without intervening
+## dismiss keep UI-GB-03 dim at exactly 0.50 (not stacked or double-multiplied).
+## Guards against future regressions where show_forecast accidentally compounds
+## the dim instead of setting an absolute alpha value.
+func test_consecutive_show_forecast_holds_unit_info_dim_at_half() -> void:
+	# Arrange
+	var bag: Dictionary = _make_hud_with_stubs()
+	var hud: BattleHUD = bag["hud"]
+	add_child(hud)
+	var unit_info: Control = hud._ui_elements.get(&"UI-GB-03")
+	assert_object(unit_info).is_not_null()
+
+	# Act
+	hud.show_forecast(TEST_ATTACKER_ID, TEST_DEFENDER_ID)
+	hud.show_forecast(TEST_ATTACKER_ID, TEST_DEFENDER_ID)
+
+	# Assert
+	assert_float(unit_info.modulate.a).override_failure_message(
+		"AC-B13-03: consecutive show_forecast must hold UI-GB-03 dim at 0.50 (got %.3f)" % unit_info.modulate.a
+	).is_equal_approx(0.50, 0.001)
+
+	hud.free()
+	_free_node_deps(bag)
+
+
 # ─── AC-5: passives precedence (defensive — story-006 ships placeholder query) ─
 
 

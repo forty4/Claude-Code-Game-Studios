@@ -223,7 +223,7 @@ UI-GB-01 의 active slot scale 1.0 → 1.2 boost (현재 코드 line 1087) 는 r
 
 **검토 필요**: victory condition border 가 "must-do tactical UI" 인지 vs "운명 역전 emotional punctuation" 인지. 만약 전자라면 UI_GOLD (border 도 가능) 로 교체. 후자라면 (= legendary chapter 시각적 sanctity) 현 상태 유지.
 
-**Open question** — Phase B 구현 phase 에서 art-director 와 합의 필요. battle-hud.md §6.1 의 reservation 명시와 비교.
+**Resolution** (art-director, 2026-05-20): UI-GB-08 은 tactical objective UI — "must-do mission panel" 성격. GEUM_SAEK 는 art-bible §1 + battle-hud.md §6.1 reservation ("victory screen only, §2.11") 과 불일치. **UI_GOLD (#E8D68A) 로 교체** — 1 line at `battle_hud.gd:607`. palette.gd 의 UI_GOLD docstring (line 63-68) 이 이미 이 케이스의 invariant 를 명시 ("Deliberately NOT GEUM_SAEK ... reserve UI_GOLD for text-only vivid states"). ADR 불필요. **C-5 RESOLVED**.
 
 ---
 
@@ -268,8 +268,8 @@ B1.3 spec 의 구현 phase 진입 시 만족해야 할 조건. 모두 battle_hud
 **AC-B13-04**: T4 누적 alpha cap. 동일 tile 에 3+ T4 overlay 적용 시 GridLayer 측 cap logic 작동 — 합산 alpha ≤ 0.50. Synthetic fixture 로 verify.
 — Type: Integration — Gate: ADVISORY (별도 epic 분리 가능).
 
-**AC-B13-05**: C-5 — UI-GB-08 border 색 결정. GEUM_SAEK 유지 or UI_GOLD 교체 — art-director 합의 + Palette token 반영. ADR 또는 battle-hud.md §6.1 update.
-— Type: Decision — Gate: BLOCKING (정합성 invariant).
+**AC-B13-05** ✅ RESOLVED (art-director, 2026-05-20): C-5 — UI-GB-08 border = `Palette.UI_GOLD` (was `Palette.GEUM_SAEK`). art-bible §1 + battle-hud.md §6.1 + palette.gd UI_GOLD docstring 3-way invariant 정합. `battle_hud.gd:607` 1-line change 적용. ADR 불필요.
+— Type: Decision — Gate: BLOCKING — Status: **RESOLVED**.
 
 **AC-B13-06**: Tier 5.1 font size budget 준수. 14 UI-GB-* 의 모든 font_size override 가 tier-별 floor/ceiling 안에 들어옴. 코드 grep 으로 verify — `add_theme_font_size_override` 호출의 두 번째 인자 vs 해당 element 의 tier 매핑.
 — Type: Lint — Gate: ADVISORY (drift detection).

@@ -576,7 +576,7 @@ confirm button (A/Cross). Full gamepad spec deferred to
 - **청회 (#5C7A8A)** — movement range, FRONT indicator, path preview.
 - **주홍 (reserved)** — forbidden outside 운명 분기 moments. Any visual that
   needs "urgent" must use brush weight or glyph shape.
-- **금색 (reserved)** — victory screen only (Section 2.11).
+- **금색 (reserved)** — victory screen only (Section 2.11). 금색이 필요한 *다른* tactical UI (UI-GB-08 objective border 등) 에는 `Palette.UI_GOLD` (#E8D68A — soft warm gold) 사용. GEUM_SAEK 의 legendary-only sanctity 보호 (B1.3 art-director 결정, 2026-05-20).
 - **청록 (#3A7D6E)** *(v1.1)* — Formation Aura overlay (UI-GB-14). Distinct from Rally's 황금 warm amber. Contrast ratio against standard tile base: **TBD — pending art-director verification** (cross-doc obligation tracked in `design/ux/accessibility-requirements.md` §4). Do not use outside Formation Aura context.
 
 ### 6.2 Colorblind Support
