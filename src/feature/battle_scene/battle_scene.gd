@@ -1919,6 +1919,16 @@ func _on_battle_outcome_resolved(outcome: StringName, _fate_data: Dictionary) ->
 		banner.name = "OutcomeBanner"
 		_hud_layer.add_child(banner)
 		_mount_post_battle_buttons(_pending_outcome)
+		# Phase 3 Step F — Battle outcome 모먼트. 결과별 결 분리:
+		#   WIN  → 환희 (gold flash + camera slow zoom-out)
+		#   LOSS → 무게 (MUK darken 길게 + 깊은 호흡)
+		#   DRAW → 조용 (시각 효과 0, banner 만으로 충분)
+		# 1/battle 발화 — climax 라 강도 가장 높은 family.
+		var result_kind: int = _pending_outcome
+		if result_kind == BattleOutcome.Result.WIN:
+			_trigger_outcome_victory_drama()
+		elif result_kind == BattleOutcome.Result.LOSS:
+			_trigger_outcome_defeat_drama()
 
 
 ## Maps a controller outcome StringName to a BattleOutcome.Result int.
@@ -2229,6 +2239,36 @@ func _show_legendary_visual_cue() -> void:
 func _show_hidden_branch_vignette() -> void:
 	if _hud_layer == null:
 		return
+	# Phase 3 Step G — Hidden branch trigger 드라마 강화. 기존 edge strip 만
+	# 으로는 "역사가 갈라진다" 의 정점 체감 약함 — hit-stop + 중심 텍스트
+	# "운명이 바뀐다" 추가. JU_HONG reservation site (art-bible §1) 유일한
+	# vignette 발화점이라 inflation 0.
+	Engine.time_scale = 0.5
+	get_tree().create_timer(0.35, true, false, true).timeout.connect(
+		func() -> void: Engine.time_scale = 1.0
+	)
+	# 중심 텍스트 — 별도 Label, 0.85s dwell + drift up + fade out
+	var caption: Label = Label.new()
+	caption.text = "운명이 바뀐다"
+	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	caption.add_theme_font_size_override("font_size", 32)
+	caption.add_theme_color_override("font_color", Palette.JU_HONG)
+	caption.add_theme_color_override("font_outline_color", Palette.MUK_OUTLINE)
+	caption.add_theme_constant_override("outline_size", 8)
+	var caption_wrap: CenterContainer = CenterContainer.new()
+	caption_wrap.name = "HiddenVignetteCaption"
+	caption_wrap.set_anchors_preset(Control.PRESET_FULL_RECT)
+	caption_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	caption_wrap.add_child(caption)
+	_hud_layer.add_child(caption_wrap)
+	var caption_tween: Tween = get_tree().create_tween()
+	caption_tween.tween_property(caption, "modulate:a", 1.0, 0.30) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	caption_tween.tween_interval(0.30)
+	caption_tween.tween_property(caption, "modulate:a", 0.0, 0.55) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	caption_tween.tween_callback(caption_wrap.queue_free)
+	caption.modulate.a = 0.0  # fade-in 시작점
 	var top_strip: ColorRect = ColorRect.new()
 	top_strip.name = "HiddenVignetteTop"
 	top_strip.color = Color(Palette.JU_HONG.r, Palette.JU_HONG.g, Palette.JU_HONG.b, 0.0)
@@ -2783,6 +2823,12 @@ func _on_unit_skill_used(unit_id: int, skill_id: StringName) -> void:
 		var shake_params: Vector2 = _shake_for_skill(skill_id)
 		if shake_params.x > 0.0:
 			_battle_camera.shake(shake_params.x, shake_params.y)
+	# Phase 3 Step E — Skill activation 드라마. "ultimate" 패턴 — 매 전투 1-2
+	# 회. CRIT (0.20s/1.10×) > kill (0.10s/1.05×) > skill (0.12s/1.07×) 의
+	# 중간 강도. player side 만 발화 — 적 skill 은 popup + shake 로 충분
+	# (적의 ultimate 가 player 쪽 만족감 줄 이유 없음).
+	if caster.side == 0:
+		_trigger_skill_activation_drama(accent)
 
 
 ## Session-20 — maps skill_id → SFX constant. Falls back to generic SFX_SKILL
@@ -2942,6 +2988,81 @@ func _trigger_low_hp_danger(unit_node: Node2D) -> void:
 	# Audio cue — reuse SFX_HIT but with negative pitch offset for "low rumble".
 	if SoundManager != null and SoundManager.has_method("play"):
 		SoundManager.play(SoundManager.SFX_HIT, -3.0)  # 3 semitones lower
+
+
+## Phase 3 Step F — Battle outcome WIN 환희 모먼트. UI_GOLD 화면 wash + camera
+## slow zoom-out (1.0 → 0.92 over 0.6s → 복귀 0.8s). hit-stop 없음 (이미
+## OutcomeBanner 가 정지된 화면이라 freeze 가 redundant). UI_GOLD 선택 —
+## art-bible §1 의 GEUM_SAEK reservation 회피 (legendary 가 아닌 일반 승리는
+## tactical-UI gold tone).
+func _trigger_outcome_victory_drama() -> void:
+	if _battle_camera != null:
+		var orig_zoom: Vector2 = _battle_camera.zoom
+		var zoom_tween: Tween = get_tree().create_tween()
+		zoom_tween.tween_property(_battle_camera, "zoom", orig_zoom * 0.92, 0.60) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		zoom_tween.tween_property(_battle_camera, "zoom", orig_zoom, 0.80) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	if _hud_layer != null:
+		var flash: ColorRect = ColorRect.new()
+		flash.name = "OutcomeVictoryFlash"
+		flash.color = Color(Palette.UI_GOLD.r, Palette.UI_GOLD.g, Palette.UI_GOLD.b, 0.20)
+		flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+		flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_hud_layer.add_child(flash)
+		var flash_tween: Tween = get_tree().create_tween()
+		flash_tween.tween_property(flash, "color:a", 0.0, 1.00) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		flash_tween.tween_callback(flash.queue_free)
+
+
+## Phase 3 Step F — Battle outcome LOSS 상실 모먼트. MUK 화면 darken 깊고
+## 길게 (kill drama 의 0.22α/0.55s → 0.32α/1.20s — 더 무거움). 카메라 zoom
+## 없음 (관조). Engine.time_scale 도 안 건드림 (banner UI 응답성 보호).
+func _trigger_outcome_defeat_drama() -> void:
+	if _hud_layer != null:
+		var darken: ColorRect = ColorRect.new()
+		darken.name = "OutcomeDefeatDarken"
+		darken.color = Color(Palette.MUK.r, Palette.MUK.g, Palette.MUK.b, 0.32)
+		darken.set_anchors_preset(Control.PRESET_FULL_RECT)
+		darken.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_hud_layer.add_child(darken)
+		var darken_tween: Tween = get_tree().create_tween()
+		darken_tween.tween_property(darken, "color:a", 0.0, 1.20) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		darken_tween.tween_callback(darken.queue_free)
+
+
+## Phase 3 Step E — Player skill activation 드라마. CRIT 와 kill 중간 강도:
+## hit-stop 0.12s (CRIT 0.20 > skill 0.12 > kill 0.10), zoom 1.07× (CRIT 1.10
+## > skill 1.07 > kill 1.05), accent tint flash (hero 컬러로 — 차별화 + 시
+## 그니처 강조).
+##
+## accent: hero 별 색상 (chapter_visuals 가 dispatching). 매 전투 1-2회 발화
+## 라 inflation 우려 없음 — kill drama 와 같은 진폭 family.
+func _trigger_skill_activation_drama(accent: Color) -> void:
+	Engine.time_scale = 0.5
+	get_tree().create_timer(0.12, true, false, true).timeout.connect(
+		func() -> void: Engine.time_scale = 1.0
+	)
+	if _battle_camera != null:
+		var orig_zoom: Vector2 = _battle_camera.zoom
+		var zoom_tween: Tween = get_tree().create_tween()
+		zoom_tween.tween_property(_battle_camera, "zoom", orig_zoom * 1.07, 0.10) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		zoom_tween.tween_property(_battle_camera, "zoom", orig_zoom, 0.18) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	if _hud_layer != null:
+		var flash: ColorRect = ColorRect.new()
+		flash.name = "SkillAccentFlash"
+		flash.color = Color(accent.r, accent.g, accent.b, 0.14)
+		flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+		flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_hud_layer.add_child(flash)
+		var flash_tween: Tween = get_tree().create_tween()
+		flash_tween.tween_property(flash, "color:a", 0.0, 0.32) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		flash_tween.tween_callback(flash.queue_free)
 
 
 ## Phase 3 Step D — Player kills enemy 만족 모먼트. CRIT 보다 낮은 강도:
