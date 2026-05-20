@@ -471,3 +471,86 @@ func test_unit_status_applied_signal_emits_on_apply() -> void:
 	assert_int(captures.size()).is_equal(1)
 	assert_int(captures[0]["unit_id"] as int).is_equal(2)
 	assert_str(String(captures[0]["effect_id"] as StringName)).is_equal("slow")
+
+
+# ─── skill_rebel_charge (위연, Phase 2) ──────────────────────────────────────
+
+
+## Phase 2 Step B — 위연 rebel_charge boosts the next attack via DEF pierce
+## (defender.raw_def → 0) + post-damage +50%. Same fixture pair as dragon_blade
+## to confirm strict-greater damage vs unbuffed baseline.
+func test_rebel_charge_amplifies_next_attack_damage() -> void:
+	# Arrange — baseline
+	var attacker_a: BattleUnit = _make_unit(1, Vector2i(2, 2), 0, &"skill_rebel_charge",
+		int(UnitRole.UnitClass.INFANTRY))
+	var defender_a: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	var ctl_a: GridBattleController = _setup([attacker_a, defender_a])
+	var dmg_no_skill: int = ctl_a._resolve_attack(attacker_a, defender_a)
+
+	# Act — buff then attack
+	var attacker_b: BattleUnit = _make_unit(1, Vector2i(2, 2), 0, &"skill_rebel_charge",
+		int(UnitRole.UnitClass.INFANTRY))
+	var defender_b: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	var ctl_b: GridBattleController = _setup([attacker_b, defender_b])
+	assert_bool(ctl_b.use_skill(1)).override_failure_message(
+		"rebel_charge use_skill must return true on first use"
+	).is_true()
+	var dmg_with_skill: int = ctl_b._resolve_attack(attacker_b, defender_b)
+
+	# Assert
+	assert_int(dmg_with_skill).override_failure_message(
+		"rebel_charge should boost damage (DEF pierce + 1.5×); got %d (skill) vs %d (baseline)"
+		% [dmg_with_skill, dmg_no_skill]
+	).is_greater(dmg_no_skill)
+
+
+## Phase 2 Step B — rebel_charge is one-shot. Attack #1 buffed, attack #2 plain.
+func test_rebel_charge_consumed_on_first_attack() -> void:
+	# Arrange
+	var attacker: BattleUnit = _make_unit(1, Vector2i(2, 2), 0, &"skill_rebel_charge",
+		int(UnitRole.UnitClass.INFANTRY))
+	var defender1: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	var defender2: BattleUnit = _make_unit(3, Vector2i(2, 3), 1)
+	var controller: GridBattleController = _setup([attacker, defender1, defender2])
+
+	# Act
+	controller.use_skill(1)
+	var dmg1: int = controller._resolve_attack(attacker, defender1)
+	var dmg2: int = controller._resolve_attack(attacker, defender2)
+
+	# Assert — buff fired on #1 only
+	assert_int(dmg1).override_failure_message(
+		"rebel_charge should fire on attack #1 only; got dmg1=%d vs dmg2=%d" % [dmg1, dmg2]
+	).is_greater(dmg2)
+
+
+## Phase 2 Step B — rebel_charge DEF-pierce: against a high-DEF defender,
+## the boost should be MORE pronounced than dragon_blade's pure +50% (which
+## still pays the DEF tax). Comparison uses a tank defender to isolate DEF
+## pierce contribution.
+func test_rebel_charge_vs_dragon_blade_against_tank_defender() -> void:
+	# Arrange — high-DEF defender (tank). rebel_charge should out-damage
+	# dragon_blade because rebel_charge bypasses the high DEF entirely.
+	var atk_rebel: BattleUnit = _make_unit(1, Vector2i(2, 2), 0, &"skill_rebel_charge",
+		int(UnitRole.UnitClass.INFANTRY))
+	var tank_a: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	tank_a.raw_def = 50  # high DEF tank
+	var ctl_rebel: GridBattleController = _setup([atk_rebel, tank_a])
+	ctl_rebel.use_skill(1)
+	var dmg_rebel: int = ctl_rebel._resolve_attack(atk_rebel, tank_a)
+
+	var atk_dragon: BattleUnit = _make_unit(1, Vector2i(2, 2), 0, &"skill_dragon_blade",
+		int(UnitRole.UnitClass.CAVALRY))
+	var tank_b: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	tank_b.raw_def = 50
+	var ctl_dragon: GridBattleController = _setup([atk_dragon, tank_b])
+	ctl_dragon.use_skill(1)
+	var dmg_dragon: int = ctl_dragon._resolve_attack(atk_dragon, tank_b)
+
+	# Assert — rebel_charge (DEF-pierce) > dragon_blade (multiplier-only) vs tank
+	# Note: CAVALRY has class_atk_mult 1.1 vs INFANTRY 0.9, so the comparison
+	# is not pure-mechanic — but DEF pierce is dominant against raw_def=50.
+	assert_int(dmg_rebel).override_failure_message(
+		"rebel_charge should out-damage dragon_blade vs high-DEF tank; got rebel=%d dragon=%d"
+		% [dmg_rebel, dmg_dragon]
+	).is_greater(dmg_dragon)

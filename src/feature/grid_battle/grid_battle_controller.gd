@@ -1945,6 +1945,13 @@ func _handle_defend_stance_input() -> void:
 ## handler; consumed by _resolve_attack (which clears + marks skill_used).
 var _dragon_blade_pending: Dictionary[int, bool] = {}
 
+## Phase 2 — 위연 (INFANTRY) skill_rebel_charge: "Blade waiting for the moment"
+## per design/art/characters/wei-yan.md — long restraint released. Next attack
+## bypasses defender raw_def AND deals +50% damage. Mirrors dragon_blade pattern
+## (one-shot, no ATK token consumed by skill itself — player must follow with
+## an attack to cash in). Cinematic intent: ignored defenses, devastating strike.
+var _rebel_charge_pending: Dictionary[int, bool] = {}
+
 
 ## S-key entry point. Mirrors _handle_defend_stance_input — routes the use_skill
 ## input action to the selected unit if a skill is wired AND not yet used.
@@ -1985,6 +1992,8 @@ func use_skill(unit_id: int) -> bool:
 			fired = _skill_dragon_blade(unit)
 		&"skill_thunder_roar":
 			fired = _skill_thunder_roar(unit)
+		&"skill_rebel_charge":
+			fired = _skill_rebel_charge(unit)
 		&"skill_inspire":
 			fired = _skill_inspire(unit)
 		&"skill_piercing_volley":
@@ -2031,6 +2040,18 @@ func can_use_skill(unit_id: int) -> bool:
 ## battle ends; no turn-end auto-clear so the player can move first then attack.
 func _skill_dragon_blade(unit: BattleUnit) -> bool:
 	_dragon_blade_pending[unit.unit_id] = true
+	return true
+
+
+## 위연 rebel_charge (Phase 2): "Blade waiting for the moment" — marks the
+## unit's next attack to (1) bypass defender raw_def (defender.raw_def → 0)
+## AND (2) deal +50% post-damage. Cinematic punch: the restrained blade
+## strikes through defenses. Same pattern as dragon_blade — does NOT consume
+## ATK token; player follows with attack to cash in. Differs from dragon_blade
+## by piercing DEF (more cinematic / situationally stronger vs high-DEF
+## enemies; situationally weaker vs squishies since +50% multiplier same).
+func _skill_rebel_charge(unit: BattleUnit) -> bool:
+	_rebel_charge_pending[unit.unit_id] = true
 	return true
 
 
@@ -2574,9 +2595,15 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 		passives,
 		on_high_ground,
 	)
+	# Phase 2 위연 skill_rebel_charge: pierces defender DEF when pending.
+	# Flag read here (not later) so the DEF=0 propagates through DamageCalc's
+	# Stage 1 raw-damage formula. Cleared at the post-resolve site below
+	# alongside the +50% multiplier (one-shot).
+	var rebel_charge_active: bool = _rebel_charge_pending.get(attacker.unit_id, false)
+	var defender_def_input: int = 0 if rebel_charge_active else defender.raw_def
 	var defender_ctx: DefenderContext = DefenderContext.make(
 		defender.hero_id,
-		defender.raw_def,
+		defender_def_input,
 		0,  # terrain_def — MVP no terrain bonus
 		0,  # terrain_evasion — MVP no evasion
 	)
@@ -2594,7 +2621,7 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 		false,  # is_counter — MVP no counter (counter is forecast-only in production)
 		"",  # skill_id — MVP no skills
 		[],  # source_flags — populated by DamageCalc
-		0.0,  # rally_bonus — MVP no rally
+		0.0,  # rally_bonus — COMMANDER 의 ally buff 는 _compute_aura_mult (+15% post-resolve) 로 이미 구현됨 (command_aura passive). unit-role.md 의 passive_rally 스펙 (+5%/+10% stacking) 과 number/naming 다르지만 같은 mechanical role. 통합은 별도 balance-tuning 작업.
 		formation_mult - 1.0,  # formation_atk_bonus (consumed by DamageCalc P_mult)
 		0.0,  # formation_def_bonus — MVP no def bonus
 		Callable(self, "_unit_acted_this_turn"),  # AMBUSH_BONUS gate (session-14)
@@ -2622,6 +2649,12 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 	if _dragon_blade_pending.get(attacker.unit_id, false) and result.kind == ResolveResult.Kind.HIT:
 		final_damage = roundi(float(final_damage) * 1.50)
 		_dragon_blade_pending[attacker.unit_id] = false
+	# Phase 2 위연 skill_rebel_charge: +50% post-damage (in addition to the
+	# DEF=0 bypass already applied at DefenderContext build above). Same +50%
+	# coefficient as dragon_blade; differentiation comes from the DEF pierce.
+	if rebel_charge_active and result.kind == ResolveResult.Kind.HIT:
+		final_damage = roundi(float(final_damage) * 1.50)
+		_rebel_charge_pending[attacker.unit_id] = false
 	if result.kind == ResolveResult.Kind.HIT and final_damage < 1:
 		final_damage = 1  # ensure HIT delivers minimum 1 damage post-rounding
 
