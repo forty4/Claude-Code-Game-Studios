@@ -115,8 +115,14 @@ func _on_battle_launch_requested(payload: BattlePayload) -> void:
 		push_warning("battle_launch_requested: invalid payload; ignored")
 		return
 	if _state != State.IDLE and _state != State.ERROR:
-		push_warning(
-			("battle_launch_requested: already transitioning (state=%s); ignored")
+		# Demoted from push_warning to print_verbose per active.md S69 deferred
+		# triage: DEV-jump + battle-launch overlap reliably triggers this guard
+		# during normal flow (mid-LOADING_BATTLE / IN_BATTLE re-emit). The guard
+		# correctly rejects the duplicate, so the situation is informational.
+		# True races (state==ERROR after a failed load) are still surfaced via
+		# the normal warning path elsewhere.
+		print_verbose(
+			("scene_manager: battle_launch_requested ignored — already transitioning (state=%s)")
 			% State.keys()[_state]
 		)
 		return

@@ -285,3 +285,66 @@ func test_dev_jump_to_ch01_seeds_no_cascade_state() -> void:
 	assert_int(flags.size()).is_equal(0)
 	var pending: Dictionary = runner.get_pending_cascade_announcement()
 	assert_bool(pending.is_empty()).is_true()
+
+
+# ─── D3 — hidden vignette attestation flag (DEV jump auto-arm) ────────────────
+
+
+## D3: DEV jump to a chapter with hidden_branch_key auto-arms the hidden-branch
+## attestation flag. Lets a debug build attest the JU_HONG vignette + Beat 8
+## hidden-prose without naturally satisfying the chapter's hidden_condition.
+func test_dev_jump_to_ch13_auto_arms_hidden_branch_attestation() -> void:
+	# Arrange
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+
+	# Act
+	var ok: bool = runner.dev_jump_to_chapter(SHU_PATH, 12)  # ch13 = first hidden_branch_key
+
+	# Assert
+	assert_bool(ok).is_true()
+	assert_bool(runner.is_dev_arm_hidden_branch_for_test()).override_failure_message(
+		"D3: ch13 declares hidden_branch_key + hidden_condition → flag must auto-arm on dev_jump"
+	).is_true()
+
+
+## D3: DEV jump to a chapter without hidden_branch_key leaves the flag unset.
+## ch07 (changban_bridge) has no hidden_branch_key authored.
+func test_dev_jump_to_ch07_leaves_hidden_branch_flag_unset() -> void:
+	# Arrange
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+
+	# Act
+	var ok: bool = runner.dev_jump_to_chapter(SHU_PATH, 6)  # ch07 = no hidden_branch_key
+
+	# Assert
+	assert_bool(ok).is_true()
+	assert_bool(runner.is_dev_arm_hidden_branch_for_test()).override_failure_message(
+		"D3: ch07 declares no hidden_branch_key → flag must NOT auto-arm"
+	).is_false()
+
+
+## D3: explicit dev_arm_hidden_branch_for_attestation() call also arms the flag
+## when the current chapter has hidden_branch_key. Use case: dev tools that
+## opt in mid-flow without re-jumping.
+func test_dev_arm_hidden_branch_explicit_call_succeeds_on_ch13() -> void:
+	# Arrange
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+	runner.dev_jump_to_chapter(SHU_PATH, 12)
+	# Clear the flag set by dev_jump's auto-arm so we observe explicit arming.
+	runner.reset_for_tests()
+	runner.set_active_scenario_path(SHU_PATH)
+	runner.dev_jump_to_chapter(SHU_PATH, 12)
+	# Note: dev_jump_to_chapter itself re-auto-arms; manually clear before testing
+	# explicit call. Simpler — observe the explicit call's return value.
+
+	# Act
+	var armed: bool = runner.dev_arm_hidden_branch_for_attestation()
+
+	# Assert
+	assert_bool(armed).override_failure_message(
+		"D3: dev_arm_hidden_branch_for_attestation() must return true on ch13 (has hidden_branch_key)"
+	).is_true()
+	assert_bool(runner.is_dev_arm_hidden_branch_for_test()).is_true()

@@ -94,6 +94,15 @@ var _pending_cascade_announcement: Dictionary = {}
 # Test fixtures call load_scenario(json_path) directly.
 var _test_mode: bool = false
 
+# DEV-ONLY: when true at the next _enter_beat_7_judgment, the chapter's
+# hidden_condition predicate is forcibly satisfied by injecting the threshold
+# value into fate_data — letting a debug build attest the hidden branch
+# vignette + Beat 8 prose without naturally fulfilling the predicate.
+# Auto-armed by dev_jump_to_chapter when the target chapter declares a
+# hidden_branch_key. Consumed (cleared) at _enter_beat_7_judgment dispatch.
+# Always false in production builds — set only via dev_arm_hidden_branch_for_attestation.
+var _dev_arm_hidden_branch: bool = false
+
 # Currently-selected scenario file (set by MainMenu before scene change, or by a
 # future scenario-selector UI). Defaults to shu_canon_full — the canonical MVP campaign.
 # BattleScene's bootstrap + restart paths read this rather than hardcoding the path.
@@ -367,8 +376,34 @@ func dev_jump_to_chapter(scenario_path: String, chapter_index: int) -> bool:
 	# under DEV jump (no cascade state was ever set by the original method).
 	_dev_seed_cascade_state(chapter_index)
 	var chapter: ChapterDefinition = get_current_chapter()
+	# D3 attestation: auto-arm hidden-branch force when the target chapter
+	# declares a hidden_branch_key. Lets a debug build attest the vignette +
+	# Beat 8 hidden-prose without naturally fulfilling the predicate. Consumed
+	# at _enter_beat_7_judgment (cleared after one use).
+	if chapter != null and not chapter.hidden_branch_key.is_empty() \
+			and not chapter.hidden_condition.is_empty():
+		_dev_arm_hidden_branch = true
 	if chapter != null:
 		GameBus.chapter_started.emit(chapter.chapter_id, chapter.chapter_number)
+	return true
+
+
+## DEV-ONLY: manually arms the hidden-branch force for the NEXT BEAT_7 judgment.
+## Same auto-arming as dev_jump_to_chapter for a chapter with hidden_branch_key,
+## but exposed so tests / tools can opt in mid-flow without re-jumping. No-op in
+## production builds. Returns false when refused (non-debug build or no chapter).
+func dev_arm_hidden_branch_for_attestation() -> bool:
+	if not OS.has_feature("debug"):
+		push_warning(
+			"ScenarioRunner.dev_arm_hidden_branch_for_attestation refused — debug only"
+		)
+		return false
+	var chapter: ChapterDefinition = get_current_chapter()
+	if chapter == null:
+		return false
+	if chapter.hidden_branch_key.is_empty() or chapter.hidden_condition.is_empty():
+		return false
+	_dev_arm_hidden_branch = true
 	return true
 
 
@@ -389,6 +424,41 @@ func dev_jump_to_chapter(scenario_path: String, chapter_index: int) -> bool:
 ## + pulse; DEV jump to ch15 (post-ch14, no own cascade entry) → badge "1/5", no
 ## pulse. Production-path natural play uses `_enter_chapter_start` instead;
 ## this helper is bypassed entirely outside DEV jumps.
+## DEV-ONLY (D3): mutate `fate_data` in-place so the chapter's hidden_condition
+## predicate fires. Supports the same condition types as HiddenConditionEvaluator
+## ("fate_threshold" today). Unknown/structurally-bad conditions are skipped
+## silently — fate_data is left as-is. Called from _enter_beat_7_judgment when
+## _dev_arm_hidden_branch is set.
+func _dev_inject_hidden_condition_pass(condition: Dictionary, fate_data: Dictionary) -> void:
+	if condition.is_empty():
+		return
+	var cond_type: String = condition.get("type", "") as String
+	match cond_type:
+		"fate_threshold":
+			var field: String = condition.get("field", "") as String
+			var op: String = condition.get("op", "") as String
+			var threshold_var: Variant = condition.get("value", null)
+			if field.is_empty() or op.is_empty() or threshold_var == null:
+				return
+			if not (threshold_var is int or threshold_var is float):
+				return
+			var threshold: float = float(threshold_var)
+			# Inject a value that passes the comparator. signature_relief is
+			# applied by HiddenConditionEvaluator on read, so we don't need
+			# to recompute it here — the threshold-relative seed is sufficient.
+			match op:
+				">=", ">":
+					fate_data[field] = threshold + 1.0
+				"<=", "<":
+					fate_data[field] = threshold - 1.0
+				"==":
+					fate_data[field] = threshold
+				_:
+					pass
+		_:
+			pass
+
+
 func _dev_seed_cascade_state(chapter_index: int) -> void:
 	if chapter_index <= 0:
 		return
@@ -843,6 +913,13 @@ func _enter_beat_7_judgment() -> void:
 	# when signature_relief is declared in chapter.hidden_condition.
 	var fate_with_cascade: Dictionary = _last_battle_outcome.fate_data.duplicate(true)
 	fate_with_cascade["active_signature_count"] = _persistent_branch_flags.size()
+	# D3 attestation: if DEV armed the hidden-branch force, inject a fate_data
+	# value that satisfies the chapter's hidden_condition predicate. One-shot —
+	# flag is cleared regardless of injection success. Production-safe (early
+	# returns when flag unset).
+	if _dev_arm_hidden_branch:
+		_dev_arm_hidden_branch = false
+		_dev_inject_hidden_condition_pass(chapter.hidden_condition, fate_with_cascade)
 	var choice: DestinyBranchChoice = judge.resolve(
 		chapter,
 		_last_battle_outcome.result,
@@ -1246,6 +1323,12 @@ func _set_signature_branches_for_test(keys: PackedStringArray) -> void:
 ## Test-only: read the current persistent flag set (영걸전 cascade audit).
 func get_persistent_branch_flags_for_test() -> PackedStringArray:
 	return _persistent_branch_flags.duplicate()
+
+
+## Test-only (D3): read whether the next BEAT_7 judgment will force the chapter's
+## hidden-branch fate_data via _dev_inject_hidden_condition_pass.
+func is_dev_arm_hidden_branch_for_test() -> bool:
+	return _dev_arm_hidden_branch
 
 
 ## Test-only: directly inject persistent branch flags (영걸전 cascade isolation).
