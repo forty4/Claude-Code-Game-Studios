@@ -2841,7 +2841,7 @@ func _shake_for_skill(skill_id: StringName) -> Vector2:
 ## victim's polygon position (captured BEFORE the death-fade tween hides the
 ## node) + plays SFX_KILL flourish. Killer/victim ids both arrive on the
 ## signal; only the victim's display name + accent are needed.
-func _on_unit_killed_mid_battle(_killer_id: int, victim_id: int,
+func _on_unit_killed_mid_battle(killer_id: int, victim_id: int,
 		victim_hero_id: StringName) -> void:
 	var visuals: Node = _find_chapter_visuals()
 	if visuals == null:
@@ -2866,6 +2866,17 @@ func _on_unit_killed_mid_battle(_killer_id: int, victim_id: int,
 	var popup: KillPopup = KillPopup.make(display_name, accent)
 	popup.position = victim_node.position + Vector2(0.0, -16.0)
 	visuals.add_child(popup)
+	# Phase 3 Step D — Killing blow drama. side 별로 결이 다른 모먼트:
+	#   player kills enemy → 만족 (subtle hit-stop + zoom + white tint)
+	#   enemy kills player → 상실 (slow pause + screen darken)
+	# CRIT (1-2 회/전투) 보다 빈도 높음 (4-6 kills/전투) — 강도 낮춰 inflation 회피.
+	if _grid_controller != null:
+		var killer_unit: BattleUnit = _grid_controller.get_battle_unit(killer_id)
+		if killer_unit != null:
+			if killer_unit.side == 0:
+				_trigger_player_kill_drama()
+			elif killer_unit.side == 1:
+				_trigger_enemy_kill_drama()
 
 
 ## Session-16: critical-hit (REAR-direction) feedback. Spawns the "치명타!"
@@ -2931,6 +2942,57 @@ func _trigger_low_hp_danger(unit_node: Node2D) -> void:
 	# Audio cue — reuse SFX_HIT but with negative pitch offset for "low rumble".
 	if SoundManager != null and SoundManager.has_method("play"):
 		SoundManager.play(SoundManager.SFX_HIT, -3.0)  # 3 semitones lower
+
+
+## Phase 3 Step D — Player kills enemy 만족 모먼트. CRIT 보다 낮은 강도:
+## hit-stop 0.10s real-time (CRIT 0.20s 의 절반), zoom 1.05× (CRIT 1.10× 의
+## 절반), 화이트 tint flash (JI_BAEK 0.12α — JU_HONG 0.18α 보다 약함).
+## 한 전투 4-6회 발화 — 강도 낮춰야 inflation 회피.
+func _trigger_player_kill_drama() -> void:
+	Engine.time_scale = 0.5
+	get_tree().create_timer(0.10, true, false, true).timeout.connect(
+		func() -> void: Engine.time_scale = 1.0
+	)
+	if _battle_camera != null:
+		var orig_zoom: Vector2 = _battle_camera.zoom
+		var zoom_tween: Tween = get_tree().create_tween()
+		zoom_tween.tween_property(_battle_camera, "zoom", orig_zoom * 1.05, 0.08) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		zoom_tween.tween_property(_battle_camera, "zoom", orig_zoom, 0.16) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	if _hud_layer != null:
+		var flash: ColorRect = ColorRect.new()
+		flash.name = "PlayerKillFlash"
+		flash.color = Color(Palette.JI_BAEK.r, Palette.JI_BAEK.g, Palette.JI_BAEK.b, 0.12)
+		flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+		flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_hud_layer.add_child(flash)
+		var flash_tween: Tween = get_tree().create_tween()
+		flash_tween.tween_property(flash, "color:a", 0.0, 0.28) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		flash_tween.tween_callback(flash.queue_free)
+
+
+## Phase 3 Step D — Enemy kills player 상실 모먼트. "만족" 과 결이 다른:
+## 슬로우 호흡 0.25s real (좀 더 길게 — 무게감), 카메라 zoom 없음 (관조),
+## 화면 darken (MUK 0.22α — 무거운 검정 wash). G1 의 Defeat shake (10.0
+## /0.45s) 와 별도로 functional — shake 가 운동, darken 이 mood.
+func _trigger_enemy_kill_drama() -> void:
+	Engine.time_scale = 0.5
+	get_tree().create_timer(0.25, true, false, true).timeout.connect(
+		func() -> void: Engine.time_scale = 1.0
+	)
+	if _hud_layer != null:
+		var darken: ColorRect = ColorRect.new()
+		darken.name = "EnemyKillDarken"
+		darken.color = Color(Palette.MUK.r, Palette.MUK.g, Palette.MUK.b, 0.22)
+		darken.set_anchors_preset(Control.PRESET_FULL_RECT)
+		darken.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_hud_layer.add_child(darken)
+		var darken_tween: Tween = get_tree().create_tween()
+		darken_tween.tween_property(darken, "color:a", 0.0, 0.55) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		darken_tween.tween_callback(darken.queue_free)
 
 
 ## Phase 3 Step A helper. 3 채널 동시 발화. Engine.time_scale 변경은 SceneTree
