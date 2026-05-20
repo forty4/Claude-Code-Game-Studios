@@ -1711,21 +1711,18 @@ func _mount_title_card(chapter: ChapterDefinition, roster: Array[BattleUnit]) ->
 		roster_label.add_theme_font_size_override("font_size", 18)
 		box.add_child(roster_label)
 
-	# Phase 3 Step C — Hidden condition hint. chapter 가 hidden_branch_key +
-	# hidden_condition 을 authored 했으면 vague 한 discovery quest 한 줄 추가.
-	# JU_HONG (운명 분기 reservation site) 으로 색 결정 — player 가 "이 색이
-	# 보이면 운명이 흔들리는 챕터" 임을 학습. 강한 spoiler 없이 방향만 시사.
+	# Phase 3 Step C (rev 2) — Hidden condition hint as a SEPARATE moment AFTER
+	# title card disappears. v1 buried the hint inside the title card stack and
+	# user attestation: "그런게 있었는지 눈치를 못 챘어". Now: title card runs
+	# its normal duration → fades → 0.2s gap → hint label appears center-screen
+	# alone, dwells 2.0s with pulse animation, self-frees.
 	if not chapter.hidden_branch_key.is_empty() and not chapter.hidden_condition.is_empty():
 		var hint_text: String = _resolve_hidden_condition_hint(chapter.hidden_condition)
-		var hint_label: Label = Label.new()
-		hint_label.text = hint_text
-		hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		hint_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		hint_label.add_theme_color_override("font_color", Palette.JU_HONG)
-		hint_label.add_theme_color_override("font_outline_color", Palette.MUK_OUTLINE)
-		hint_label.add_theme_constant_override("outline_size", 4)
-		hint_label.add_theme_font_size_override("font_size", 16)
-		box.add_child(hint_label)
+		# Schedule the hint to appear AFTER the title card lifecycle.
+		# ignore_time_scale=true so Engine.time_scale (Phase 3 Step A crit
+		# hit-stop) doesn't shift the schedule.
+		get_tree().create_timer(TITLE_CARD_DURATION + 0.2, true, false, true) \
+			.timeout.connect(func() -> void: _mount_hidden_hint_moment(hint_text))
 
 	# Session-46 — process_mode ALWAYS on both card + Timer. BattleScene flips
 	# PROCESS_MODE_DISABLED when SceneManager pauses the "overworld" (the battle
@@ -1750,6 +1747,46 @@ func _mount_title_card(chapter: ChapterDefinition, roster: Array[BattleUnit]) ->
 		if is_instance_valid(card):
 			card.queue_free())
 	card.add_child(life)
+
+
+## Phase 3 Step C (rev 2) helper. Spawns the hidden hint as a separate
+## center-screen moment. 24pt JU_HONG label + MUK outline + pulse animation
+## (modulate.a 1.0 → 0.7 → 1.0 over 0.6s, repeats twice) + 2.0s total dwell.
+## Self-frees on dwell expiry. process_mode ALWAYS so PROCESS_MODE_DISABLED
+## (BattleScene's overworld-pause state) doesn't freeze the timer.
+func _mount_hidden_hint_moment(hint_text: String) -> void:
+	if _hud_layer == null or hint_text.is_empty():
+		return
+	var center: CenterContainer = CenterContainer.new()
+	center.name = "HiddenHintMoment"
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.process_mode = Node.PROCESS_MODE_ALWAYS
+
+	var hint: Label = Label.new()
+	hint.text = hint_text
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hint.add_theme_color_override("font_color", Palette.JU_HONG)
+	hint.add_theme_color_override("font_outline_color", Palette.MUK_OUTLINE)
+	hint.add_theme_constant_override("outline_size", 6)
+	hint.add_theme_font_size_override("font_size", 24)
+	center.add_child(hint)
+	_hud_layer.add_child(center)
+
+	# 2-channel animation: pulse modulate.a + self-destruct after dwell.
+	var pulse: Tween = get_tree().create_tween()
+	pulse.set_loops(2)
+	pulse.tween_property(hint, "modulate:a", 0.6, 0.45) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	pulse.tween_property(hint, "modulate:a", 1.0, 0.45) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	# Self-destruct timer, separate from the pulse loop. 2.0s total dwell.
+	get_tree().create_timer(2.0, true, false, true).timeout.connect(
+		func() -> void:
+			if is_instance_valid(center):
+				center.queue_free()
+	)
 
 
 ## Phase 3 Step C helper. Translates a hidden_condition Dictionary into a vague

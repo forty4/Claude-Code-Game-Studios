@@ -112,7 +112,7 @@
           4
         ]
       ],
-      "enemy_atk_mult": 0.45,
+      "enemy_atk_mult": 0.7,
       "victory_conditions": {
         "primary_condition_type": 0
       },
@@ -231,7 +231,7 @@
           4
         ]
       ],
-      "enemy_atk_mult": 0.5,
+      "enemy_atk_mult": 0.75,
       "victory_conditions": {
         "primary_condition_type": 1,
         "survive_rounds": 5
@@ -371,7 +371,7 @@
           7
         ]
       ],
-      "enemy_atk_mult": 0.6,
+      "enemy_atk_mult": 0.8,
       "victory_conditions": {
         "primary_condition_type": 0
       },
