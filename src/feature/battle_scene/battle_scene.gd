@@ -1515,6 +1515,19 @@ func _on_damage_applied(attacker_id: int, defender_id: int, damage: int) -> void
 		var popup: DamagePopup = DamagePopup.make(damage)
 		popup.position = unit_node.position + Vector2(0.0, -36.0)
 		visuals.add_child(popup)
+	# Phase 3 Step B — Low-HP danger. Player unit 이 이번 hit 로 25% 경계선
+	# 을 cross 한 순간 (pre >= 25% AND post < 25%) 1회용 "위급!" + audio cue
+	# + HP bar pulse. 적은 skip — 적 위급은 player 의 momentum 이지 tension
+	# 이 아님. Heal 로 복귀 시 다시 cross 가능하면 재발화 — natural design.
+	if damage > 0 and _grid_controller != null and _hp_controller != null:
+		var defender_unit: BattleUnit = _grid_controller.get_battle_unit(defender_id)
+		if defender_unit != null and defender_unit.side == 0:
+			var max_hp: int = _hp_controller.get_max_hp(defender_id)
+			var post_hp: int = _hp_controller.get_current_hp(defender_id)
+			var pre_hp: int = post_hp + damage
+			var threshold: float = float(max_hp) * 0.25
+			if float(pre_hp) >= threshold and float(post_hp) < threshold and post_hp > 0:
+				_trigger_low_hp_danger(unit_node)
 	# Attack lunge: nudge attacker toward defender then return. Sells the
 	# swing without requiring per-class attack animations. Adjacent attackers
 	# get the full distance; ranged attackers (황충 attack_range=2) get the
@@ -1698,6 +1711,22 @@ func _mount_title_card(chapter: ChapterDefinition, roster: Array[BattleUnit]) ->
 		roster_label.add_theme_font_size_override("font_size", 18)
 		box.add_child(roster_label)
 
+	# Phase 3 Step C — Hidden condition hint. chapter 가 hidden_branch_key +
+	# hidden_condition 을 authored 했으면 vague 한 discovery quest 한 줄 추가.
+	# JU_HONG (운명 분기 reservation site) 으로 색 결정 — player 가 "이 색이
+	# 보이면 운명이 흔들리는 챕터" 임을 학습. 강한 spoiler 없이 방향만 시사.
+	if not chapter.hidden_branch_key.is_empty() and not chapter.hidden_condition.is_empty():
+		var hint_text: String = _resolve_hidden_condition_hint(chapter.hidden_condition)
+		var hint_label: Label = Label.new()
+		hint_label.text = hint_text
+		hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		hint_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hint_label.add_theme_color_override("font_color", Palette.JU_HONG)
+		hint_label.add_theme_color_override("font_outline_color", Palette.MUK_OUTLINE)
+		hint_label.add_theme_constant_override("outline_size", 4)
+		hint_label.add_theme_font_size_override("font_size", 16)
+		box.add_child(hint_label)
+
 	# Session-46 — process_mode ALWAYS on both card + Timer. BattleScene flips
 	# PROCESS_MODE_DISABLED when SceneManager pauses the "overworld" (the battle
 	# itself is treated as that), which would freeze the title card's Timer
@@ -1721,6 +1750,37 @@ func _mount_title_card(chapter: ChapterDefinition, roster: Array[BattleUnit]) ->
 		if is_instance_valid(card):
 			card.queue_free())
 	card.add_child(life)
+
+
+## Phase 3 Step C helper. Translates a hidden_condition Dictionary into a vague
+## Korean hint line for the title card. Strong spoiler 회피 — condition 의
+## *방향* 만 시사 (rear_attacks → "후방", no_player_deaths → "한 명도", etc).
+## Unknown condition types fall through to a generic destiny-stirring line.
+##
+## hidden_condition schema (HiddenConditionEvaluator 와 일치):
+##   {"type": "fate_threshold", "field": <name>, "op": ">=" / ">" / "==" / "<=" / "<", "value": Number, ...}
+func _resolve_hidden_condition_hint(condition: Dictionary) -> String:
+	var cond_type: String = condition.get("type", "") as String
+	if cond_type != "fate_threshold":
+		return "운명은 아직 결정되지 않았다..."
+	var field: String = condition.get("field", "") as String
+	# Per-field 직관적 hint. Coverage 는 production scenario 의 실제 fate
+	# fields 만 — 새 field 추가 시 이 표 도 늘리거나 default 사용.
+	match field:
+		"rear_attacks":
+			return "적의 후방을 노려라"
+		"player_deaths", "no_player_deaths":
+			return "한 명도 잃지 마라"
+		"formation_turns", "fate_formation_turns":
+			return "진형을 유지하라"
+		"kills", "total_kills":
+			return "신속히 격파하라"
+		"dmg_to_lubu":
+			return "여포에게 결정타를 내려라"
+		"signature_relief", "active_signature_count":
+			return "전설의 끝자락을 잡아라"
+		_:
+			return "운명은 아직 결정되지 않았다..."
 
 
 ## Builds the "출진: 유비 (지휘) · 장비 (보병)" line shown under the chapter
@@ -2795,6 +2855,73 @@ func _on_critical_hit_landed(_attacker_id: int, defender_id: int, damage: int,
 	var popup: CriticalPopup = CriticalPopup.make(damage)
 	popup.position = defender_node.position
 	visuals.add_child(popup)
+	# Phase 3 Step A — CRIT 모먼트 클라이맥스 (XCOM 류 dramatic punctuation).
+	# 3 채널: (1) hit-stop 0.25s — Engine.time_scale 0.4, freeze-frame 효과.
+	# (2) camera zoom punch — 1.0 → 1.10 → 1.0 over 0.30s. (3) red tint flash
+	# overlay — JU_HONG 0.18 alpha → 0 over 0.40s. 1 전투 당 1~2회 발화 빈도
+	# 라 inflation 없음.
+	_trigger_critical_climax()
+
+
+## Phase 3 Step B helper. Player unit 이 25% 경계선 cross 시 1회용 위급 cue.
+## (1) "위급!" 라벨 1초 위에 spawn (CriticalPopup 스타일 mirror 가능),
+## (2) JU_HONG color flash on unit polygon, (3) SFX_HIT lower-pitch 변형 또는
+## 기존 SFX 재사용. 간단함 우선 — Label 직접 + JU_HONG modulate flash.
+func _trigger_low_hp_danger(unit_node: Node2D) -> void:
+	if not is_instance_valid(unit_node):
+		return
+	# Label "위급!" — JU_HONG 색, 1.0s dwell (long enough to read).
+	var label: Label = Label.new()
+	label.text = "위급!"
+	label.add_theme_font_size_override("font_size", 20)
+	label.add_theme_color_override("font_color", Palette.JU_HONG)
+	label.add_theme_color_override("font_outline_color", Palette.MUK_OUTLINE)
+	label.add_theme_constant_override("outline_size", 4)
+	label.position = Vector2(-30, -52)  # 상단 hp bar 위
+	unit_node.add_child(label)
+	# Drift up + fade out, G-31 tree-bound tween.
+	var tween: Tween = get_tree().create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(label, "position:y", label.position.y - 14.0, 0.9) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(label, "modulate:a", 0.0, 0.9) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.chain().tween_callback(label.queue_free)
+	# Audio cue — reuse SFX_HIT but with negative pitch offset for "low rumble".
+	if SoundManager != null and SoundManager.has_method("play"):
+		SoundManager.play(SoundManager.SFX_HIT, -3.0)  # 3 semitones lower
+
+
+## Phase 3 Step A helper. 3 채널 동시 발화. Engine.time_scale 변경은 SceneTree
+## 전역이므로 0.25s 후 1.0 복원 보장 (timer 단일 시점, 중첩 발화 시 마지막
+## fire 가 wins — 동시 다발 crit 은 매우 드물어 무시 가능).
+func _trigger_critical_climax() -> void:
+	# 채널 1 — Hit-stop. ignore_time_scale=true 로 real-time 0.20s 후 복원
+	# (game-time 으로 환산하면 0.08s — 인지 가능한 freeze-frame).
+	Engine.time_scale = 0.4
+	get_tree().create_timer(0.20, true, false, true).timeout.connect(
+		func() -> void: Engine.time_scale = 1.0
+	)
+	# 채널 2 — Camera zoom punch. SceneTree 바인딩 (G-31 정합).
+	if _battle_camera != null:
+		var orig_zoom: Vector2 = _battle_camera.zoom
+		var zoom_tween: Tween = get_tree().create_tween()
+		zoom_tween.tween_property(_battle_camera, "zoom", orig_zoom * 1.10, 0.10) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		zoom_tween.tween_property(_battle_camera, "zoom", orig_zoom, 0.20) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	# 채널 3 — Full-screen red tint flash. HUDLayer 위에 ColorRect 1회용 마운트.
+	if _hud_layer != null:
+		var flash: ColorRect = ColorRect.new()
+		flash.name = "CritTintFlash"
+		flash.color = Color(Palette.JU_HONG.r, Palette.JU_HONG.g, Palette.JU_HONG.b, 0.18)
+		flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+		flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_hud_layer.add_child(flash)
+		var flash_tween: Tween = get_tree().create_tween()
+		flash_tween.tween_property(flash, "color:a", 0.0, 0.40) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		flash_tween.tween_callback(flash.queue_free)
 
 
 func _list_polygon_names(visuals: Node) -> String:
