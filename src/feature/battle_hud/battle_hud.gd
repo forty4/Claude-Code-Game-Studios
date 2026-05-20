@@ -417,6 +417,19 @@ func _ready() -> void:
 		_btn_skill_slot_0.pressed.connect(_on_skill_slot_pressed.bind(0))
 	if _btn_skill_slot_1 != null:
 		_btn_skill_slot_1.pressed.connect(_on_skill_slot_pressed.bind(1))
+	# AC-B13-02 (C-2): UI-GB-05 visual subordination to UI-GB-02 action menu.
+	# Skill list buttons are sub-actions, not peer actions — drop button font to
+	# 14pt + indent the panel container 8pt from the left so the visual weight
+	# reads as "child of the action menu" per battle-hud-info-hierarchy.md §6 C-2.
+	if _btn_skill_slot_0 != null:
+		_btn_skill_slot_0.add_theme_font_size_override("font_size", 14)
+	if _btn_skill_slot_1 != null:
+		_btn_skill_slot_1.add_theme_font_size_override("font_size", 14)
+	var ui_gb_05_panel: PanelContainer = ui_gb_05 as PanelContainer
+	if ui_gb_05_panel != null:
+		var sb_indent: StyleBoxEmpty = StyleBoxEmpty.new()
+		sb_indent.content_margin_left = 8.0
+		ui_gb_05_panel.add_theme_stylebox_override("panel", sb_indent)
 
 	# ── Story-006: UI-GB-04 Combat Forecast mount ──────────────────────────────
 	# Instantiate forecast panel; starts hidden (visible = false).
@@ -1090,8 +1103,10 @@ func _clear_initiative_queue_highlight() -> void:
 
 
 ## _set_initiative_queue_slot_modulate() — story-004 (S7-09) visual highlight impl.
-## Implementation choice per Implementation Note 3: modulate.a boost
-## (1.0 default → 1.2 when highlighted). Art-director sign-off per epic R-6.
+## Per AC-B13-01 (battle-hud-info-hierarchy.md §6 + §8): modulate.a is capped at
+## 1.0 (T1 invariant — boost via alpha >1.0 was a no-op visually since Godot
+## clamps at compositing). Brightness emphasis moved to NameLabel font outline
+## channel — active slot grows MUK outline_size from 0 → 4, restored on deactivate.
 ## false branch delegates to _apply_slot_modulate so un-highlighted acted slots
 ## keep their dim (consistent with the polygon end-of-turn dim).
 func _set_initiative_queue_slot_modulate(slot_index: int, highlighted: bool) -> void:
@@ -1101,11 +1116,28 @@ func _set_initiative_queue_slot_modulate(slot_index: int, highlighted: bool) -> 
 	if slot == null:
 		return
 	if highlighted:
-		slot.modulate.a = 1.2
+		slot.modulate.a = 1.0  # AC-B13-01: T1 cap (was 1.2, no-op since Godot clamps)
+		_apply_slot_name_outline(slot, true)
 		# Highlight visually trumps strike: the active unit is mid-turn, not done.
 		_set_slot_strikethrough(slot, false)
 	else:
+		_apply_slot_name_outline(slot, false)
 		_apply_slot_modulate(slot_index)
+
+
+## AC-B13-01 brightness emphasis channel. Active slot's NameLabel gets a 4px MUK
+## outline; non-active slots have no outline. Idempotent — overrides are added /
+## removed at theme level so repeat calls don't accumulate.
+func _apply_slot_name_outline(slot: Control, active: bool) -> void:
+	var name_label: Label = slot.get_node_or_null("NameLabel") as Label
+	if name_label == null:
+		return
+	if active:
+		name_label.add_theme_color_override("font_outline_color", Palette.MUK_OUTLINE)
+		name_label.add_theme_constant_override("outline_size", 4)
+	else:
+		name_label.remove_theme_color_override("font_outline_color")
+		name_label.remove_theme_constant_override("outline_size")
 
 
 ## Resolves the desired modulate.a + strikethrough visibility for a non-active

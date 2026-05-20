@@ -219,9 +219,15 @@ func test_unit_turn_started_highlights_slot_and_updates_turn_label() -> void:
 	var turn_label: Label = counter.get_node("TurnLabel") as Label
 	assert_str(turn_label.text).contains("Zhang Fei")
 
-	# UI-GB-01 slot[0] highlighted (modulate.a == 1.2)
+	# UI-GB-01 slot[0] highlighted. Per AC-B13-01, brightness boost moved from
+	# modulate.a (capped at 1.0 — T1 invariant) to NameLabel outline_size = 4.
 	assert_int(hud._ui_gb_01_active_slot_index).is_equal(0)
-	assert_float(hud._ui_gb_01_slots[0].modulate.a).is_equal_approx(1.2, 0.01)
+	assert_float(hud._ui_gb_01_slots[0].modulate.a).is_equal_approx(1.0, 0.01)
+	var active_name_label: Label = hud._ui_gb_01_slots[0].get_node_or_null("NameLabel") as Label
+	assert_object(active_name_label).is_not_null()
+	assert_int(active_name_label.get_theme_constant("outline_size")).override_failure_message(
+		"AC-B13-01: active slot NameLabel outline_size must be 4 (brightness emphasis channel)"
+	).is_equal(4)
 
 	hud.free()
 	_free_node_deps(fixture)
