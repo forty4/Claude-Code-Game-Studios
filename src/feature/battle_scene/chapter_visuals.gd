@@ -31,6 +31,30 @@ extends Node2D
 ## .tscn unit polygon positions use (col * TILE_SIZE + TILE_SIZE/2, row * TILE_SIZE + TILE_SIZE/2).
 const TILE_SIZE: int = 64
 
+## Q4 facing chevron — small arrow pointing east (+x) by default. Local
+## rotation rotates it to point in unit.facing direction. Apex at (10, 0),
+## base 4px wide on the west side. static var (not const) — Vector2() 가
+## runtime constructor 라 const expression 으로 사용 불가; static var 는
+## 클래스 로드 시 1회 초기화 (G-25 family — typed-collection 제약 회피).
+
+
+static var _FRONT_CHEVRON_SHAPE: PackedVector2Array = PackedVector2Array([
+	Vector2(10.0, 0.0),    # apex (forward tip)
+	Vector2(2.0, -4.0),    # back-top
+	Vector2(2.0, 4.0),     # back-bottom
+])
+
+
+## Q4 helper — maps facing enum (0=N, 1=E, 2=S, 3=W per BattleUnit.facing) to
+## a unit-vector pointing in that direction in world-space.
+static func facing_to_vector(facing: int) -> Vector2:
+	match facing:
+		0: return Vector2(0.0, -1.0)
+		1: return Vector2(1.0, 0.0)
+		2: return Vector2(0.0, 1.0)
+		3: return Vector2(-1.0, 0.0)
+		_: return Vector2(0.0, -1.0)  # defensive default — N
+
 ## Color palette (art-bible §4.1 — non-reserved subset only).
 const COLOR_PLAINS:        Color = Color("6b8c5a")  # 소록 — natural plains
 const COLOR_FOREST:        Color = Color("4a6b3a")  # 소록 어두움 — forest density
@@ -485,6 +509,25 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 		label.size = Vector2(60, 18)
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		poly.add_child(label)
+		# Q4 facing chevron — universal "front" indicator on EVERY unit polygon
+		# so player can tell which direction each unit is looking (esp. INFANTRY/
+		# STRATEGIST/COMMANDER which are rotation-symmetric — pre-Q4 they had
+		# zero facing cue, making REAR-attack 치명타 unusable). Chevron is a
+		# child of poly so it inherits modulate / scale / death-fade animations.
+		# Pose math accounts for class-specific poly.rotation: chevron's GLOBAL
+		# pose always points at unit.facing regardless of class symmetry.
+		var chevron: Polygon2D = Polygon2D.new()
+		chevron.name = "FrontChevron"
+		chevron.polygon = _FRONT_CHEVRON_SHAPE
+		chevron.color = Color(0.05, 0.04, 0.04, 1.0)  # MUK ink — contrasts both faction fills
+		var poly_rot: float = poly.rotation
+		var facing_vec: Vector2 = facing_to_vector(unit.facing)
+		var chevron_radius: float = TILE_SIZE * 0.42
+		# Position in poly's local frame = (global facing offset) rotated by -poly_rot.
+		chevron.position = facing_vec.rotated(-poly_rot) * chevron_radius
+		# Local rotation = (global facing angle) - poly's rotation.
+		chevron.rotation = atan2(facing_vec.y, facing_vec.x) - poly_rot
+		poly.add_child(chevron)
 	# Session-43 — fresh roster spawned with default modulate.a=1.0 on every
 	# NameLabel. Refresh so non-active, non-selected names start at dim alpha.
 	# Active turn coord may not be set yet (round 1 first init unit fires

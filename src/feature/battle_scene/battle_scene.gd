@@ -1441,6 +1441,21 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 		if is_instance_valid(_turn_indicator) and _turn_indicator.get_parent() == unit_node:
 			rot_tween.tween_property(_turn_indicator, "rotation", -target_rotation, MOVE_ANIM_DURATION) \
 				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		# Q4 facing chevron pose update — for symmetric classes (poly.rotation
+		# stays 0) the chevron's LOCAL pose carries the facing cue. Recompute
+		# position + rotation from the post-move facing so the front indicator
+		# tracks correctly. For directional classes the math also works (chevron
+		# stays at local (radius, 0) rotation 0).
+		var chevron: Node = unit_node.get_node_or_null("FrontChevron")
+		if chevron is Polygon2D:
+			var facing_vec: Vector2 = ChapterVisuals.facing_to_vector(unit.facing)
+			var chevron_radius: float = float(ChapterVisuals.TILE_SIZE) * 0.42
+			var new_chevron_pos: Vector2 = facing_vec.rotated(-target_rotation) * chevron_radius
+			var new_chevron_rot: float = atan2(facing_vec.y, facing_vec.x) - target_rotation
+			rot_tween.tween_property(chevron, "position", new_chevron_pos, MOVE_ANIM_DURATION) \
+				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			rot_tween.tween_property(chevron, "rotation", new_chevron_rot, MOVE_ANIM_DURATION) \
+				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	# Active-turn highlight follows the moving unit so the gold border sits on
 	# the new tile by the time the slide finishes.
 	if _grid_controller.get_selected_unit_id() == unit_id:
