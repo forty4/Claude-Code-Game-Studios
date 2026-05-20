@@ -42,6 +42,11 @@ var _drag_start_camera_pos: Vector2 = Vector2.ZERO
 ## driven by BattleScene's damage-feedback chain, not by camera input.
 var _shake_tween: Tween = null
 
+## Active focus tween reference (D4 spec §3 M-3). Killed on re-entry so
+## consecutive focus shifts don't stack. Same rationale as _shake_tween —
+## view-layer afford-ance, not user input.
+var _focus_tween: Tween = null
+
 
 # ─── DI seam (BattleScene calls before add_child per ADR-0013 §5) ───────────
 
@@ -143,6 +148,34 @@ func shake(intensity: float = 5.0, duration: float = 0.20) -> void:
 		)
 		_shake_tween.tween_property(self, "offset", random_offset, step_duration)
 	_shake_tween.tween_property(self, "offset", Vector2.ZERO, step_duration)
+
+
+## Focus the camera on a target world position (Vector2). Smooth Tween over
+## `duration` seconds with TRANS_QUAD / EASE_OUT. Per battle-camera-work.md §3
+## M-3: enemy turn cue (~0.35s) + attack preview (~0.20s).
+##
+## **Skipped when the player is actively dragging** — drag intent takes
+## priority over auto-focus. Callers don't need to check; the camera owns
+## the discrimination.
+##
+## Caller passes `world_pos: Vector2` (the target unit's polygon position).
+## Camera animates position toward `world_pos - offset` so the target sits in
+## the viewport center (offset.y biases up for HUD top-ribbon clearance).
+func focus_on(world_pos: Vector2, duration: float = 0.35) -> void:
+	if _drag_active:
+		return  # user drag in flight — yield to the player
+	if _focus_tween != null and _focus_tween.is_valid():
+		_focus_tween.kill()
+	# Same SceneTree binding rationale as shake() — BattleCamera is under
+	# BattleScene which gets PROCESS_MODE_DISABLED on battle launch.
+	_focus_tween = get_tree().create_tween()
+	# Account for the existing offset.y (HUD top-ribbon clearance) so the
+	# focused unit doesn't get pushed behind the ribbon.
+	var target_pos: Vector2 = Vector2(world_pos.x, world_pos.y) - offset
+	_focus_tween.tween_property(self, "position", target_pos, duration) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	# Re-clamp after the focus settles so map edges still bound the camera.
+	_focus_tween.tween_callback(_apply_pan_clamp)
 
 
 # ─── Signal handler ─────────────────────────────────────────────────────────

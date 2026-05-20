@@ -4,7 +4,8 @@
 ## AudioStreamWAV resources at boot (no .ogg / .wav files on disk to ship).
 ## Each tone is intentionally distinct in pitch + envelope so events are
 ## audibly separable even without a real sound design pass:
-##   - SFX_TURN     — short E5 chirp on every turn change
+##   - SFX_TURN     — short E5 chirp on player turn change
+##   - SFX_TURN_ENEMY — E4 (one octave below) on enemy turn change
 ##   - SFX_MOVE     — soft mid A4 on slide
 ##   - SFX_HIT      — low thud on damage_applied
 ##   - SFX_DEATH    — long low fade on unit_visual_died
@@ -26,6 +27,11 @@ extends Node
 # ─── SFX slugs ────────────────────────────────────────────────────────────────
 
 const SFX_TURN: StringName = &"turn"
+## Phase 1 D fix — distinct enemy turn cue (lower-pitch + slightly longer
+## envelope) so the player perceives "now it's their turn" without conflating
+## with the player chirp. Paired with the 0.35s AI thinking pause that prevents
+## chain spam (grid_battle_controller.AI_THINKING_PAUSE_SEC).
+const SFX_TURN_ENEMY: StringName = &"turn_enemy"
 const SFX_MOVE: StringName = &"move"
 const SFX_HIT: StringName = &"hit"
 const SFX_DEATH: StringName = &"death"
@@ -283,7 +289,8 @@ func play(sfx_id: StringName, volume_offset_db: float = 0.0) -> void:
 # ─── Procedural stream construction ───────────────────────────────────────────
 
 func _build_procedural_streams() -> void:
-	_streams[SFX_TURN]    = _make_tone(660.0, 0.08, 14.0, 0.18)  # E5 chirp
+	_streams[SFX_TURN]    = _make_tone(660.0, 0.08, 14.0, 0.18)  # E5 chirp (player)
+	_streams[SFX_TURN_ENEMY] = _make_tone(330.0, 0.10, 12.0, 0.18)  # E4 — one octave below player chirp; "their turn" cue
 	_streams[SFX_MOVE]    = _make_tone(440.0, 0.10, 12.0, 0.20)  # A4 soft
 	_streams[SFX_HIT]     = _make_tone(180.0, 0.12,  9.0, 0.32)  # low thud
 	_streams[SFX_DEATH]   = _make_tone( 90.0, 0.45,  3.5, 0.30)  # long fade

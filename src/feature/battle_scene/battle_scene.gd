@@ -2465,11 +2465,22 @@ func _on_active_unit_changed(unit_id: int) -> void:
 	var unit: BattleUnit = _grid_controller.get_battle_unit(unit_id)
 	if unit != null and visuals.has_method("set_active_turn_coord"):
 		visuals.set_active_turn_coord(unit.position)
-	# Player-side units only — AI turns can chain rapid-fire and a chirp on every
-	# enemy turn would feel like spam. Player chirp signals "your turn now" cleanly.
+	# Phase 1 D fix: per battle-camera-work.md §3 M-3, enemy turn focus-pans
+	# the camera to the active unit so the player can SEE who's acting. Player
+	# turn keeps M-1 hold (player sees the whole board for tactical reading).
+	# 0.35s focus duration matches the AI_THINKING_PAUSE_SEC so the camera
+	# settles before AI dispatches its action.
+	var polygon: Node2D = _find_unit_polygon(visuals, unit_id)
+	# Audio + camera cue split by side:
+	#   - player turn  → SFX_TURN chirp (E5) + camera hold
+	#   - enemy turn   → SFX_TURN_ENEMY chirp (lower pitch) + camera focus shift
+	# The thinking pause (grid_battle_controller.gd AI_THINKING_PAUSE_SEC=0.35)
+	# absorbs the "spam" concern that previously blocked the enemy chirp.
 	if unit != null and unit.is_player_controlled:
 		SoundManager.play(SoundManager.SFX_TURN)
-	var polygon: Node2D = _find_unit_polygon(visuals, unit_id)
+	elif unit != null and _battle_camera != null and polygon != null:
+		SoundManager.play(SoundManager.SFX_TURN_ENEMY)
+		_battle_camera.focus_on(polygon.position, 0.35)
 	if polygon == null:
 		return
 	if not is_instance_valid(_turn_indicator):

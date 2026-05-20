@@ -159,6 +159,10 @@ func test_t5_fires_for_enemy_unit_triggers_ai_dispatch_chain() -> void:
 	assert_object(grid_ctrl).is_not_null()
 	assert_object(runner).is_not_null()
 
+	# Phase 1 D fix: AI dispatch is now paused 0.35s (anticipation beat). Tests
+	# zero the pause to keep the existing 1-frame process_frame settle pattern.
+	grid_ctrl.set_ai_thinking_pause_sec_for_test(0.0)
+
 	# Subscribe to ai_action_requested with G-4 Array captures pattern
 	# G-10: connect to the INSTANCE signal on grid_ctrl (not a GameBus signal);
 	# this is a LOCAL signal on GridBattleController — no autoload binding concern.

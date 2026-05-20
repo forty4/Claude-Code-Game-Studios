@@ -95,6 +95,25 @@ func _trace(msg: String) -> void:
 		print(msg)
 
 
+## Phase 1 D fix — anticipation beat between unit_turn_started(enemy) and
+## ai_action_requested.emit. Lets the player read "Turn: 적장" label + tile
+## highlight + chevron before the AI move/attack fires. Per session 2026-05-20
+## D-track agreement; tune later if attestation reveals different sweet spot.
+const AI_THINKING_PAUSE_SEC_DEFAULT: float = 0.35
+
+## Per-instance pause override. Tests set to 0.0 to keep AI dispatch synchronous
+## with the existing process_frame-based settle pattern. Production code MUST NOT
+## mutate this — use set_ai_thinking_pause_sec_for_test() from tests only.
+var _ai_thinking_pause_sec: float = AI_THINKING_PAUSE_SEC_DEFAULT
+
+
+## Test-only: zero (or shorten) the AI thinking pause so existing wiring tests
+## don't have to wait 0.35s wall-clock per dispatch. Production callers MUST NOT
+## call this — battle balance assumes the default beat.
+func set_ai_thinking_pause_sec_for_test(sec: float) -> void:
+	_ai_thinking_pause_sec = max(0.0, sec)
+
+
 # ─── Signals (Battle-domain per ADR-0014 §8) ────────────────────────────────
 
 ## Emitted when unit selection changes. was_selected == -1 for deselect.
@@ -3099,8 +3118,23 @@ func _on_turn_runner_action_request(unit_id: int, snapshot: TurnOrderSnapshot) -
 	match unit.side:
 		0:  # player — natural input path (S15-C); T5 stays paused until grid-click fires declare_action
 			return
-		1:  # enemy — synchronous AI dispatch via existing ai_action_requested → AISystem chain (S15-B)
-			var battle_snapshot: BattleStateSnapshot = _make_battle_state_snapshot()
-			ai_action_requested.emit(unit_id, battle_snapshot)
+		1:  # enemy — Phase 1 D fix: 0.35s thinking pause before dispatch so the
+			# player can read "Turn: 적장" + tile highlight + chevron before the AI
+			# action fires. Snapshot built INSIDE the timer to capture the current
+			# state at dispatch time (not at signal-fire time) — defensive against
+			# late-arriving state changes during the pause window.
+			# Tests can zero the pause via set_ai_thinking_pause_sec_for_test(0.0).
+			# Also fall back to synchronous emit when not inside a SceneTree
+			# (tests that instantiate the controller without add_child) — keeps
+			# unit-test reachability without forcing scene-tree mounting.
+			var pause_unit_id: int = unit_id
+			if _ai_thinking_pause_sec <= 0.0 or not is_inside_tree():
+				ai_action_requested.emit(pause_unit_id, _make_battle_state_snapshot())
+			else:
+				get_tree().create_timer(_ai_thinking_pause_sec).timeout.connect(func() -> void:
+					if not _units.has(pause_unit_id):
+						return  # unit died / removed during the pause — skip dispatch
+					var battle_snapshot: BattleStateSnapshot = _make_battle_state_snapshot()
+					ai_action_requested.emit(pause_unit_id, battle_snapshot))
 		_:
 			push_warning("S15-J: unknown unit.side=%d for unit_id=%d" % [unit.side, unit_id])
