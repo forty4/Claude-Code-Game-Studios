@@ -1600,6 +1600,14 @@ func _on_unit_died_visual(unit_id: int) -> void:
 	var unit_node: Node2D = _find_unit_polygon(visuals, unit_id)
 	if unit_node == null:
 		return
+	# G1 polish (battle-camera-work.md §3 M-2 Defeat tier): player-side death
+	# gets a stronger camera shake — marks "지키지 못함" emotional beat.
+	# Enemy-side deaths keep the standard Medium shake from _on_damage_applied
+	# (no additive shake — repeated death feedback would desensitize).
+	if _battle_camera != null and _grid_controller != null:
+		var unit: BattleUnit = _grid_controller.get_battle_unit(unit_id)
+		if unit != null and unit.side == 0:
+			_battle_camera.shake(10.0, 0.45)
 	# Failsafe pattern (windowed Tween-writes can stall): set the final state
 	# via a SceneTreeTimer that fires unconditionally regardless of tween
 	# scheduler behaviour. Re-resolve the polygon at fire time (don't capture it)
