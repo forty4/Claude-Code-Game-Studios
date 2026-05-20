@@ -509,31 +509,10 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 		label.size = Vector2(60, 18)
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		poly.add_child(label)
-		# Q5 hero portrait — character identity on grid. When HeroDatabase has a
-		# portrait texture for this hero_id, mount as Sprite2D child of poly so
-		# the player recognizes 유비/장비/관우/위연/방통 etc. immediately on the
-		# board. Counter-rotates against poly.rotation so the face stays upright
-		# regardless of class facing (CAVALRY/ARCHER/SCOUT poly rotates with
-		# facing). For units without portrait (enemies, non-cascade heroes),
-		# this block is skipped — polygon + class emblem remain unobstructed.
-		var portrait: Texture2D = HeroDatabase.get_portrait_texture(unit.hero_id)
-		if portrait != null:
-			var portrait_sprite: Sprite2D = Sprite2D.new()
-			portrait_sprite.name = "HeroPortrait"
-			portrait_sprite.texture = portrait
-			# Portrait PNGs are 2048×2048; target ~40px in 64px tile leaves
-			# 12px margin on each side for polygon + border to read as outline.
-			var target_size: float = 40.0
-			var tex_width: float = float(portrait.get_width())
-			if tex_width > 0.0:
-				var scale_factor: float = target_size / tex_width
-				portrait_sprite.scale = Vector2(scale_factor, scale_factor)
-			portrait_sprite.centered = true
-			# Counter-rotate so the face stays upright regardless of poly rotation.
-			portrait_sprite.rotation = -poly.rotation
-			poly.add_child(portrait_sprite)
-			# Portrait covers center — hide class emblem (redundant identity).
-			emblem.visible = false
+		# Q5 1차 revert (사용자 attestation): 정적 sumi-e portrait 를 grid 에
+		# 얹은 것은 "아기자기 + 움직임" 의도와 정반대. portrait 는 HUD/signature/
+		# title card 자리로만 사용. on-grid 영웅 표현은 별도 자산 pipeline 필요
+		# — chibi 톤 sprite + idle/move/attack 애니메이션. multi-session 작업.
 		# Q4 facing chevron — universal "front" indicator on EVERY unit polygon
 		# so player can tell which direction each unit is looking (esp. INFANTRY/
 		# STRATEGIST/COMMANDER which are rotation-symmetric — pre-Q4 they had

@@ -1441,13 +1441,8 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 		if is_instance_valid(_turn_indicator) and _turn_indicator.get_parent() == unit_node:
 			rot_tween.tween_property(_turn_indicator, "rotation", -target_rotation, MOVE_ANIM_DURATION) \
 				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		# Q5 hero portrait — counter-rotate so the face stays upright through
-		# the slide. Sprite is centered on polygon; rotation alone keeps it
-		# upright regardless of poly's facing rotation.
-		var portrait_node: Node = unit_node.get_node_or_null("HeroPortrait")
-		if portrait_node is Sprite2D:
-			rot_tween.tween_property(portrait_node, "rotation", -target_rotation, MOVE_ANIM_DURATION) \
-				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		# Q5 1차 revert — HeroPortrait Sprite2D 제거됨. on-grid 표현은 chibi
+		# sprite pipeline 으로 별도 (포트레잇 = HUD 자리만).
 		# Q4 facing chevron pose update — for symmetric classes (poly.rotation
 		# stays 0) the chevron's LOCAL pose carries the facing cue. Recompute
 		# position + rotation from the post-move facing so the front indicator
