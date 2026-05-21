@@ -284,14 +284,41 @@ EVERYTHING ELSE 100% IDENTICAL TO INPUT IDLE:
 Output filename: sprite_shu_pang_tong_walk_0.png
 ```
 
-### Walk frame 1 prompt — right step (image-to-image)
+### Walk frame 1 prompt — right step (image-to-image, STRENGTHENED)
+
+**S72 학습**: Gemini walk_1 (right foot forward) 실패 패턴. 강화 prompt.
+**권장 input**: walk_0 PNG (success frame). 대안: idle PNG.
 
 ```
-Apply WALK STEP MODIFICATIONS to the input idle PNG, producing walk frame 1
-— MIRROR of walk frame 0 (RIGHT foot forward instead of left).
+Apply LEG MIRROR MODIFICATIONS to the input PNG, producing walk frame 1
+(character's anatomical RIGHT foot forward — OPPOSITE of walk frame 0).
 
-Same VISIBLE CHANGES as frame 0 but right/left swapped. Same identity
-preservation list (round face, fan at chest, wide-sleeve robe, etc.).
+CRITICAL VIEWER-VS-CHARACTER PERSPECTIVE MAPPING:
+- Character's anatomical LEFT leg appears on VIEWER'S RIGHT side of image.
+- Character's anatomical RIGHT leg appears on VIEWER'S LEFT side of image.
+
+In walk frame 0 (success): LEFT leg forward = leg on VIEWER'S RIGHT half.
+In walk frame 1 (this generation): RIGHT leg forward = leg on VIEWER'S LEFT
+half. → FORWARD LEG MUST APPEAR ON OPPOSITE HALF FROM WALK_0.
+
+VISIBLE CHANGES (image coordinates):
+- Leg on LEFT HALF of image stepped forward (~10-12% of figure height,
+  gentle scholar pace)
+- Leg on RIGHT HALF trailing slightly back
+- Body subtly leaned forward ~2-3° (same lean as walk frame 0)
+- Robe naturally falls forward slightly (wide-sleeve silhouette preserved)
+
+SELF-CHECK: forward leg MUST be on opposite canvas side from walk_0. Same
+side = WRONG, regenerate.
+
+EVERYTHING ELSE 100% IDENTICAL TO INPUT:
+- Same ROUND face, same eye dots, same single mouth line
+- Same 윤건 square scholar cap shape
+- Same feather fan at chest level (right hand), left hand at side
+- Same ink-heavy 학창의 robe + paper-white fan/lining contrast
+- Same wide-sleeve silhouette (sleeves NOT flapping or shifting)
+- Same sumi-e brush + ink wash
+- Same TRANSPARENT alpha background, same dimensions
 
 Output filename: sprite_shu_pang_tong_walk_1.png
 ```

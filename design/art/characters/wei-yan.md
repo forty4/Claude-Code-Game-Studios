@@ -295,23 +295,74 @@ EVERYTHING ELSE 100% IDENTICAL TO INPUT IDLE:
 Output filename: sprite_shu_wei_yan_walk_0.png
 ```
 
-### Walk frame 1 prompt — right step (image-to-image)
+### Walk frame 1 prompt — right step (image-to-image, STRENGTHENED)
+
+**S72 학습**: Gemini 가 walk_0 (left foot forward) 는 잘 만들지만 walk_1
+(right foot forward) 는 못 만듦. Root cause: "right foot" 의 anatomical
+orientation 을 viewer-perspective 와 혼동 — 항상 left-foot default 로
+끌어옴. 강화된 prompt 는 viewer-vs-character perspective 명시.
+
+**권장 input**: walk_0 PNG (이미 성공한 frame) — frame consistency 최대.
+대안: idle PNG (Path B 아래).
 
 ```
-Apply WALK STEP MODIFICATIONS to the input idle PNG, producing walk frame 1
-— MIRROR of walk frame 0 (RIGHT foot forward instead of left).
+Apply LEG MIRROR MODIFICATIONS to the input PNG, producing walk frame 1
+(character's anatomical RIGHT foot forward — OPPOSITE of walk frame 0's
+left foot forward).
 
-VISIBLE CHANGES (clearly mid-stride, RIGHT foot forward):
-- Right leg stepped forward visibly (~12-15% of figure height advance)
-- Left leg trailing slightly back
-- Body subtly leaned forward ~3-5° (same lean angle as frame 0)
-- Slight torso twist toward forward direction (opposite of frame 0)
+CRITICAL VIEWER-VS-CHARACTER PERSPECTIVE MAPPING:
+The character faces the viewer (front-on chibi orientation). In this view:
+- The character's anatomical LEFT leg appears on the VIEWER'S RIGHT side of
+  the image.
+- The character's anatomical RIGHT leg appears on the VIEWER'S LEFT side
+  of the image.
 
-EVERYTHING ELSE 100% IDENTICAL TO INPUT IDLE (same identity preservation list
-as frame 0 above).
+In walk frame 0 (input or reference): the character's LEFT leg is forward,
+which appears on the VIEWER'S RIGHT side of the canvas (right half of the
+image). This was generated successfully.
+
+In walk frame 1 (this generation): the character's RIGHT leg MUST be forward,
+which means the leg on the VIEWER'S LEFT side of the canvas (left half of
+the image) is stepped forward, and the leg on the viewer's right side is
+trailing back.
+
+→ THE FORWARD LEG IN WALK_1 MUST APPEAR ON THE OPPOSITE HALF OF THE CANVAS
+  FROM WHERE IT APPEARED IN WALK_0.
+
+VISIBLE CHANGES (in image coordinates — what the viewer sees):
+- The leg visible on the LEFT HALF of the image is stepped forward
+  (~12-15% of figure height advance). This is the character's anatomical
+  RIGHT leg.
+- The leg visible on the RIGHT HALF is trailing slightly back.
+- Body subtly leaned forward ~3-5° (same lean angle as walk frame 0)
+- Slight torso twist toward forward direction (subtle, NOT a full body
+  rotation — torso still mostly facing the viewer)
+
+SELF-CHECK before saving: compare against walk frame 0.
+- IF the forward leg position in your output is on the SAME SIDE of the
+  canvas as walk frame 0's forward leg → the result is WRONG. Regenerate.
+- The legs MUST appear swapped between the two frames.
+
+EVERYTHING ELSE 100% IDENTICAL TO INPUT:
+- Same face dots, mouth line, skin tone
+- Same hair topknot
+- Same scabbard HIP-WORN at left hip — sword sheathed, NOT held
+- Same right hand on hilt grip, left hand at side empty
+- Same iron blue-grey lamellar armor with ochre trim
+- Same upper-body posture (only legs change)
+- Same sumi-e brush + ink wash
+- Same TRANSPARENT alpha PNG background
+- Same image dimensions
 
 Output filename: sprite_shu_wei_yan_walk_1.png
 ```
+
+**Path B fallback (idle PNG input, walk_0 미사용)**:
+
+위 prompt 의 "input PNG" 를 idle PNG 로 해석, "walk frame 0 (input or
+reference)" 를 "기존 idle 자세 — both legs symmetric" 로 해석. Same
+anatomy mapping logic. Self-check 는 "left half forward, right half back"
+로 변경.
 
 ### Text-to-image fallback prompt
 

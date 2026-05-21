@@ -309,14 +309,42 @@ EVERYTHING ELSE 100% IDENTICAL TO INPUT IDLE:
 Output filename: sprite_shu_guan_yu_walk_0.png
 ```
 
-### Walk frame 1 prompt — right step (image-to-image)
+### Walk frame 1 prompt — right step (image-to-image, STRENGTHENED)
+
+**S72 학습**: Gemini walk_1 (right foot forward) 실패 패턴. 강화 prompt.
+**권장 input**: walk_0 PNG (success frame). 대안: idle PNG.
 
 ```
-Apply WALK STEP MODIFICATIONS to the input idle PNG, producing walk frame 1
-— MIRROR of walk frame 0 (RIGHT foot forward).
+Apply LEG MIRROR MODIFICATIONS to the input PNG, producing walk frame 1
+(character's anatomical RIGHT foot forward — OPPOSITE of walk frame 0).
 
-Same identity preservation list (1.4× shoulder ratio, long beard, polearm
-vertical, green robe). Same heavy step feel.
+CRITICAL VIEWER-VS-CHARACTER PERSPECTIVE MAPPING:
+- Character's anatomical LEFT leg appears on VIEWER'S RIGHT side of image.
+- Character's anatomical RIGHT leg appears on VIEWER'S LEFT side of image.
+
+In walk frame 0 (success): LEFT leg forward = leg on VIEWER'S RIGHT half.
+In walk frame 1 (this generation): RIGHT leg forward = leg on VIEWER'S LEFT
+half. → FORWARD LEG MUST APPEAR ON OPPOSITE HALF FROM WALK_0.
+
+VISIBLE CHANGES (image coordinates):
+- Leg on LEFT HALF of image stepped forward (~12-14% of figure height,
+  heavy cavalry step)
+- Leg on RIGHT HALF trailing slightly back, weight distributed deliberately
+- Body very subtly leaned forward ~2-4° (heavy momentum, same lean as walk_0)
+- Green robe naturally falls with the step
+
+SELF-CHECK: forward leg MUST be on opposite canvas side from walk_0. Same
+side = WRONG, regenerate.
+
+EVERYTHING ELSE 100% IDENTICAL TO INPUT:
+- Same WIDEST silhouette — 어깨 ~1.4× ratio preserved
+- Same face (eye dots, mouth line), NOT red-faced
+- Same long black beard down to mid-chest (silhouette key)
+- Same 청룡언월도 polearm vertical in right hand — POLEARM POSITION
+  UNCHANGED (blade tip at top-right same spot, NO swing or lean)
+- Same green (#2D6B4A) robe + iron under-armor
+- Same sumi-e brush + green robe ink wash
+- Same TRANSPARENT alpha background, same dimensions
 
 Output filename: sprite_shu_guan_yu_walk_1.png
 ```

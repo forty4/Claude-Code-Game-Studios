@@ -358,14 +358,43 @@ EVERYTHING ELSE 100% IDENTICAL TO INPUT IDLE:
 Output filename: sprite_shu_liu_bei_walk_0.png
 ```
 
-### Walk frame 1 prompt — right step (image-to-image)
+### Walk frame 1 prompt — right step (image-to-image, STRENGTHENED)
+
+**S72 학습**: Gemini walk_1 (right foot forward) 실패 패턴. 강화 prompt.
+**권장 input**: walk_0 PNG (success frame). 대안: idle PNG.
 
 ```
-Apply WALK STEP MODIFICATIONS to the input idle PNG, producing walk frame 1
-— MIRROR of walk frame 0 (RIGHT foot forward).
+Apply LEG MIRROR MODIFICATIONS to the input PNG, producing walk frame 1
+(character's anatomical RIGHT foot forward — OPPOSITE of walk frame 0).
 
-Same identity preservation list (정면 시선, 큰 귀 1.5×, open-arm extended,
-双股劍 paired hip, trim 수염). Same dignified step feel.
+CRITICAL VIEWER-VS-CHARACTER PERSPECTIVE MAPPING:
+- Character's anatomical LEFT leg appears on VIEWER'S RIGHT side of image.
+- Character's anatomical RIGHT leg appears on VIEWER'S LEFT side of image.
+
+In walk frame 0 (success): LEFT leg forward = leg on VIEWER'S RIGHT half.
+In walk frame 1 (this generation): RIGHT leg forward = leg on VIEWER'S LEFT
+half. → FORWARD LEG MUST APPEAR ON OPPOSITE HALF FROM WALK_0.
+
+VISIBLE CHANGES (image coordinates):
+- Leg on LEFT HALF of image stepped forward (~11-13% of figure height,
+  dignified commander pace)
+- Leg on RIGHT HALF trailing slightly back
+- Body subtly leaned forward ~3-4° (balanced, same as walk_0)
+- Robe naturally falls with step
+
+SELF-CHECK: forward leg MUST be on opposite canvas side from walk_0. Same
+side = WRONG, regenerate.
+
+EVERYTHING ELSE 100% IDENTICAL TO INPUT:
+- Same STRAIGHT-AHEAD gaze (정면 시선 — walk 시에도 유일 정면 보존)
+- Same eye dots, single mouth line, naturalistic skin
+- Same LARGE EARS 1.5× protruding from head silhouette (Buddha-iconography)
+- Same trim full beard (NEATLY groomed, NOT wild)
+- Same open-arm rally pose — BOTH ARMS still extended outward
+- Same 双股劍 paired short swords at right hip
+- Same ink-base + ochre trim robe
+- Same sumi-e brush quality
+- Same TRANSPARENT alpha background, same dimensions
 
 Output filename: sprite_shu_liu_bei_walk_1.png
 ```

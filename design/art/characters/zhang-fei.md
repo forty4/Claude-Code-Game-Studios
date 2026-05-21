@@ -321,14 +321,42 @@ EVERYTHING ELSE 100% IDENTICAL TO INPUT IDLE:
 Output filename: sprite_shu_zhang_fei_walk_0.png
 ```
 
-### Walk frame 1 prompt — right step (image-to-image)
+### Walk frame 1 prompt — right step (image-to-image, STRENGTHENED)
+
+**S72 학습**: Gemini walk_1 (right foot forward) 실패 패턴. 강화 prompt.
+**권장 input**: walk_0 PNG (success frame). 대안: idle PNG.
 
 ```
-Apply WALK STEP MODIFICATIONS to the input idle PNG, producing walk frame 1
-— MIRROR of walk frame 0 (RIGHT foot forward).
+Apply LEG MIRROR MODIFICATIONS to the input PNG, producing walk frame 1
+(character's anatomical RIGHT foot forward — OPPOSITE of walk frame 0).
 
-Same identity preservation list (leopard-ring eyes 1.5×, wild beard, spear
-vertical, wedge torso). Same dynamic step feel.
+CRITICAL VIEWER-VS-CHARACTER PERSPECTIVE MAPPING:
+- Character's anatomical LEFT leg appears on VIEWER'S RIGHT side of image.
+- Character's anatomical RIGHT leg appears on VIEWER'S LEFT side of image.
+
+In walk frame 0 (success): LEFT leg forward = leg on VIEWER'S RIGHT half.
+In walk frame 1 (this generation): RIGHT leg forward = leg on VIEWER'S LEFT
+half. → FORWARD LEG MUST APPEAR ON OPPOSITE HALF FROM WALK_0.
+
+VISIBLE CHANGES (image coordinates):
+- Leg on LEFT HALF of image stepped forward BOLDLY (~14-16% of figure
+  height — largest step among 5 heroes)
+- Leg on RIGHT HALF trailing back, weight aggressively forward
+- Body leaned forward ~5-7° (strongest forward-lean — same as walk_0)
+- Wedge torso silhouette emphasizes momentum
+
+SELF-CHECK: forward leg MUST be on opposite canvas side from walk_0. Same
+side = WRONG, regenerate.
+
+EVERYTHING ELSE 100% IDENTICAL TO INPUT:
+- Same LEOPARD-RING EYES — 1.5× black dots with white outer ring
+- Same wild curly black beard spilling beyond armor (wet-brush ink)
+- Same hair topknot with stray curls
+- Same 장팔사모 spear vertical in right hand — SPEAR POSITION UNCHANGED
+  (S-curve tip same spot, NO swing)
+- Same dark armor with leather binding, darkest in 5-hero series
+- Same sumi-e wet-brush quality (especially beard)
+- Same TRANSPARENT alpha background, same dimensions
 
 Output filename: sprite_shu_zhang_fei_walk_1.png
 ```
