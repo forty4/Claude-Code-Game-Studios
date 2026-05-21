@@ -3082,53 +3082,55 @@ func _trigger_skill_activation_drama(accent: Color) -> void:
 		flash_tween.tween_callback(flash.queue_free)
 
 
-## Phase 3 Step D — Player kills enemy 만족 모먼트. CRIT 보다 낮은 강도:
-## hit-stop 0.10s real-time (CRIT 0.20s 의 절반), zoom 1.05× (CRIT 1.10× 의
-## 절반), 화이트 tint flash (JI_BAEK 0.12α — JU_HONG 0.18α 보다 약함).
-## 한 전투 4-6회 발화 — 강도 낮춰야 inflation 회피.
+## Phase 3 Step D — Player kills enemy 만족 모먼트. CRIT 동등 강도 (S72 ↑):
+## hit-stop 0.16s real-time (CRIT 0.20s 의 80% — 만족 결 위해 약간 짧게),
+## zoom 1.10× (CRIT 일치 — 만족 punch 의 핵심), 화이트 tint flash (JI_BAEK
+## 0.20α — JI_BAEK 가 JU_HONG 보다 시각 약하므로 보정). 한 전투 4-6회 발화
+## 가 가장 빈번한 family — S71 attestation "특별한 느낌 없다" 대응 ↑.
 func _trigger_player_kill_drama() -> void:
-	Engine.time_scale = 0.5
-	get_tree().create_timer(0.10, true, false, true).timeout.connect(
+	Engine.time_scale = 0.4
+	get_tree().create_timer(0.16, true, false, true).timeout.connect(
 		func() -> void: Engine.time_scale = 1.0
 	)
 	if _battle_camera != null:
 		var orig_zoom: Vector2 = _battle_camera.zoom
 		var zoom_tween: Tween = get_tree().create_tween()
-		zoom_tween.tween_property(_battle_camera, "zoom", orig_zoom * 1.05, 0.08) \
+		zoom_tween.tween_property(_battle_camera, "zoom", orig_zoom * 1.10, 0.08) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		zoom_tween.tween_property(_battle_camera, "zoom", orig_zoom, 0.16) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	if _hud_layer != null:
 		var flash: ColorRect = ColorRect.new()
 		flash.name = "PlayerKillFlash"
-		flash.color = Color(Palette.JI_BAEK.r, Palette.JI_BAEK.g, Palette.JI_BAEK.b, 0.12)
+		flash.color = Color(Palette.JI_BAEK.r, Palette.JI_BAEK.g, Palette.JI_BAEK.b, 0.20)
 		flash.set_anchors_preset(Control.PRESET_FULL_RECT)
 		flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_hud_layer.add_child(flash)
 		var flash_tween: Tween = get_tree().create_tween()
-		flash_tween.tween_property(flash, "color:a", 0.0, 0.28) \
+		flash_tween.tween_property(flash, "color:a", 0.0, 0.36) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		flash_tween.tween_callback(flash.queue_free)
 
 
 ## Phase 3 Step D — Enemy kills player 상실 모먼트. "만족" 과 결이 다른:
-## 슬로우 호흡 0.25s real (좀 더 길게 — 무게감), 카메라 zoom 없음 (관조),
-## 화면 darken (MUK 0.22α — 무거운 검정 wash). G1 의 Defeat shake (10.0
-## /0.45s) 와 별도로 functional — shake 가 운동, darken 이 mood.
+## 슬로우 호흡 0.35s real (player kill 0.16s 의 2× — 죽음의 무게), time_scale
+## 0.35 (CRIT 0.4 보다 더 무겁게), 카메라 zoom 없음 (관조), 화면 darken
+## (MUK 0.35α — 거의 ½ wash, lingering 0.80s). G1 의 Defeat shake (10.0
+## /0.45s) 와 별도 channel — shake 가 운동, darken 이 mood. S72 ↑.
 func _trigger_enemy_kill_drama() -> void:
-	Engine.time_scale = 0.5
-	get_tree().create_timer(0.25, true, false, true).timeout.connect(
+	Engine.time_scale = 0.35
+	get_tree().create_timer(0.35, true, false, true).timeout.connect(
 		func() -> void: Engine.time_scale = 1.0
 	)
 	if _hud_layer != null:
 		var darken: ColorRect = ColorRect.new()
 		darken.name = "EnemyKillDarken"
-		darken.color = Color(Palette.MUK.r, Palette.MUK.g, Palette.MUK.b, 0.22)
+		darken.color = Color(Palette.MUK.r, Palette.MUK.g, Palette.MUK.b, 0.35)
 		darken.set_anchors_preset(Control.PRESET_FULL_RECT)
 		darken.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_hud_layer.add_child(darken)
 		var darken_tween: Tween = get_tree().create_tween()
-		darken_tween.tween_property(darken, "color:a", 0.0, 0.55) \
+		darken_tween.tween_property(darken, "color:a", 0.0, 0.80) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		darken_tween.tween_callback(darken.queue_free)
 
