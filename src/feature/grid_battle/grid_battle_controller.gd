@@ -2633,6 +2633,82 @@ func _compute_aura_mult(attacker: BattleUnit) -> float:
 	return 1.0
 
 
+## S72 Synergy adjacency — hero-specific bonds. Computed on-demand from
+## 4-directional adjacency (4 tile checks, cheap, no caching).
+##
+## Rules (v1 pilot):
+##   - Peach Garden Bond (유비/관우/장비 trio): when ANY 2+ of them are
+##     4-dir adjacent, all involved get +5 ATK
+##   - Lone Wolf (위연): when no allies are 4-dir adjacent, +5 ATK
+##   - Strategist's Counsel (방통): adjacent allies (and 방통 himself if
+##     adjacent to any ally) get +3 DEF
+const _PEACH_GARDEN_TRIO: Dictionary = {
+	&"shu_001_liu_bei":   true,
+	&"shu_002_guan_yu":   true,
+	&"shu_003_zhang_fei": true,
+}
+
+
+## ATK bonus for `unit` from synergy adjacency. Adds to raw_atk before
+## DamageCalc.resolve. 0 if no synergy active.
+func _compute_synergy_atk_bonus(unit: BattleUnit) -> int:
+	if unit == null or _hp_controller == null:
+		return 0
+	if not _hp_controller.is_alive(unit.unit_id):
+		return 0
+	var allies: Array[BattleUnit] = _adjacent_allies(unit)
+	var bonus: int = 0
+	# Peach Garden Bond
+	if _PEACH_GARDEN_TRIO.has(unit.hero_id):
+		for ally: BattleUnit in allies:
+			if _PEACH_GARDEN_TRIO.has(ally.hero_id):
+				bonus += 5
+				break  # cap +5 even if 2 brothers adjacent
+	# Lone Wolf — 위연
+	if unit.hero_id == &"shu_009_wei_yan" and allies.is_empty():
+		bonus += 5
+	return bonus
+
+
+## DEF bonus for `unit` from synergy adjacency. Adds to raw_def before
+## DefenderContext.make. 0 if no synergy active.
+func _compute_synergy_def_bonus(unit: BattleUnit) -> int:
+	if unit == null or _hp_controller == null:
+		return 0
+	if not _hp_controller.is_alive(unit.unit_id):
+		return 0
+	var allies: Array[BattleUnit] = _adjacent_allies(unit)
+	var bonus: int = 0
+	var is_pang_tong: bool = unit.hero_id == &"shu_007_pang_tong"
+	if is_pang_tong:
+		# 방통 self-buff when adjacent to any ally
+		if not allies.is_empty():
+			bonus += 3
+	else:
+		# Ally check for 방통 in adjacency
+		for ally: BattleUnit in allies:
+			if ally.hero_id == &"shu_007_pang_tong":
+				bonus += 3
+				break
+	return bonus
+
+
+## 4-directional adjacent allies (same side, alive).
+func _adjacent_allies(unit: BattleUnit) -> Array[BattleUnit]:
+	var allies: Array[BattleUnit] = []
+	if unit == null or _hp_controller == null:
+		return allies
+	for u: BattleUnit in _units.values():
+		if u.unit_id == unit.unit_id or u.side != unit.side:
+			continue
+		if not _hp_controller.is_alive(u.unit_id):
+			continue
+		var d: Vector2i = u.position - unit.position
+		if absi(d.x) + absi(d.y) == 1:
+			allies.append(u)
+	return allies
+
+
 ## Maps controller-local angle string to ResolveModifiers.direction_rel StringName
 ## per ADR-0012 ResolveModifiers contract: {FRONT, FLANK, REAR}.
 ##
@@ -2694,10 +2770,14 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 	# unlocks the ARCHER HIGH_GROUND_BONUS via DamageCalc._high_ground_factor (which
 	# also gates on class + passive + not-counter).
 	var on_high_ground: bool = _is_unit_on_high_ground(attacker)
+	# S72 Synergy — adjacency bond bonuses additive on raw_atk / raw_def
+	# (Peach Garden +5 ATK / Lone Wolf +5 ATK / 방통 Counsel +3 DEF).
+	var synergy_atk: int = _compute_synergy_atk_bonus(attacker)
+	var synergy_def: int = _compute_synergy_def_bonus(defender)
 	var attacker_ctx: AttackerContext = AttackerContext.make(
 		attacker.hero_id,
 		attacker.unit_class,
-		attacker.raw_atk,
+		attacker.raw_atk + synergy_atk,
 		charge_active,
 		false,  # defend_stance_active (attacker side; MVP doesn't defend then attack)
 		passives,
@@ -2706,9 +2786,10 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 	# Phase 2 위연 skill_rebel_charge: pierces defender DEF when pending.
 	# Flag read here (not later) so the DEF=0 propagates through DamageCalc's
 	# Stage 1 raw-damage formula. Cleared at the post-resolve site below
-	# alongside the +50% multiplier (one-shot).
+	# alongside the +50% multiplier (one-shot). Synergy DEF additive on top
+	# of raw_def — rebel_charge bypasses ALL DEF (including synergy +3).
 	var rebel_charge_active: bool = _rebel_charge_pending.get(attacker.unit_id, false)
-	var defender_def_input: int = 0 if rebel_charge_active else defender.raw_def
+	var defender_def_input: int = 0 if rebel_charge_active else (defender.raw_def + synergy_def)
 	var defender_ctx: DefenderContext = DefenderContext.make(
 		defender.hero_id,
 		defender_def_input,
@@ -2866,11 +2947,14 @@ func preview_attack(attacker_id: int, defender_id: int) -> Dictionary:
 	# damage reflects HIGH_GROUND_BONUS when ARCHER is on HILLS.
 	var on_high_ground: bool = _is_unit_on_high_ground(attacker)
 	# Stage 2: DamageCalc contexts — same construction as _resolve_attack.
+	# S72 Synergy bonus mirrored so forecast matches live damage.
+	var synergy_atk: int = _compute_synergy_atk_bonus(attacker)
+	var synergy_def: int = _compute_synergy_def_bonus(defender)
 	var attacker_ctx: AttackerContext = AttackerContext.make(
-		attacker.hero_id, attacker.unit_class, attacker.raw_atk,
+		attacker.hero_id, attacker.unit_class, attacker.raw_atk + synergy_atk,
 		charge_active, false, passives, on_high_ground)
 	var defender_ctx: DefenderContext = DefenderContext.make(
-		defender.hero_id, defender.raw_def, 0, 0)
+		defender.hero_id, defender.raw_def + synergy_def, 0, 0)
 	# Throwaway RNG — see docstring for determinism rationale. Uses a freshly
 	# constructed RNG with default-randomized seed; preview never feeds back
 	# into _rng so replay determinism on the production attack is preserved.
@@ -3012,11 +3096,15 @@ func _preview_counter_damage(counter_attacker: BattleUnit, original_attacker: Ba
 	var passives: Array[StringName] = []
 	if counter_attacker.passive != &"":
 		passives.append(counter_attacker.passive)
+	# S72 Synergy bonus mirrored on counter-preview so forecast is consistent.
+	var counter_synergy_atk: int = _compute_synergy_atk_bonus(counter_attacker)
+	var counter_synergy_def: int = _compute_synergy_def_bonus(original_attacker)
 	var attacker_ctx: AttackerContext = AttackerContext.make(
-		counter_attacker.hero_id, counter_attacker.unit_class, counter_attacker.raw_atk,
+		counter_attacker.hero_id, counter_attacker.unit_class,
+		counter_attacker.raw_atk + counter_synergy_atk,
 		false, false, passives)
 	var defender_ctx: DefenderContext = DefenderContext.make(
-		original_attacker.hero_id, original_attacker.raw_def, 0, 0)
+		original_attacker.hero_id, original_attacker.raw_def + counter_synergy_def, 0, 0)
 	var preview_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	var modifiers: ResolveModifiers = ResolveModifiers.make(
 		ResolveModifiers.AttackType.PHYSICAL, preview_rng,
