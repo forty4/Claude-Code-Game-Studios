@@ -174,21 +174,27 @@ art-bible §5.7 정합. portrait (sumi-e formal) 과 별도 자산.
 ### Gemini prompt — copy-paste ready
 
 ```
-A chibi grid sprite of a Three Kingdoms-era Chinese heavy cavalry general, painted in fused sumi-e ink-wash AND chibi proportions. For tactical RPG combat grid (LOD 1, 64×64 px display, 128×128 native).
+A chibi grid sprite of a Three Kingdoms-era Chinese heavy cavalry general, painted in STRICTLY ink-wash sumi-e brush style applied to chibi proportions. For tactical RPG combat grid (LOD 1, 64×64 px display, 128×128 native).
 
-CRITICAL CHIBI PROPORTIONS: 3-head ratio. Head ~33%. Shoulder width ~1.3x other heroes — Guan Yu is the LARGEST silhouette in the 5-hero series.
+CRITICAL CHIBI PROPORTIONS: 3-head ratio. Head ~33%.
 
-CRITICAL CHARACTER FACE (simplified for chibi): Guan Yu (關羽, 雲長) — heavy cavalry general, immovable. In chibi: two small black dots for eyes, single short line for mouth, NO nose detail. Skin: warm sun-tanned olive — same tone as previous heroes. NOT red-faced (no historical "red face" stereotype).
+CRITICAL SILHOUETTE — WIDEST IN FRAME: Guan Yu's body MUST appear visibly broader and heavier than a normal chibi figure. Shoulder width is approximately 1.4x typical chibi shoulder width — shoulders extend OUT visibly beyond a normal chibi outline. Heavyset stance, thick torso, broad chest. He should look CLEARLY larger and bulkier than typical 3-head chibi proportions would suggest — this heavy-cavalry mass is the key identifier. Picture a sumo-wrestler-broad body on chibi-height proportions. NOT a normal-width chibi.
 
-CRITICAL POSE AND WEAPON: Stable centered stance, weight on both feet. Right hand grips a tall polearm (Green Dragon Crescent Blade — 青龍偃月刀) held vertically alongside body. Polearm extends UP past the head silhouette, crescent blade visible at top-right of frame as silhouette protrusion. Polearm shaft thicker than typical spear (heavy weapon read).
+CRITICAL VISUAL STYLE — SUMI-E BRUSH QUALITY (HIGHEST PRIORITY): Outlines MUST be hand-painted ink-wash brush strokes with VISIBLE thickness variation — thicker at silhouette edges (1.5-2x), thinner inside, with brush-bleed and dry-drag texture. Green robe folds show visible ink-wash bleed and graduated tone. This is traditional East Asian ink painting (墨绘 / 水墨) in chibi form. STRICTLY NOT vector-clean cartoon, NOT CalArts/Disney cartoon, NOT uniform digital ink. The brush must look hand-painted.
+
+CRITICAL CHARACTER FACE: Guan Yu (關羽, 雲長), heavy cavalry general, immovable. In chibi: two small black dots for eyes, single short mouth line, NO nose detail. Skin: warm sun-tanned olive — same tone as other heroes. NOT red-faced (no historical "red face" stereotype). NO blush, NO pink/red cheek dots, NO moe softening.
+
+CRITICAL WEAPON COUNT — EXACTLY ONE WEAPON ITEM IN ENTIRE FRAME: One single polearm (Green Dragon Crescent Blade — 青龍偃月刀) held vertically alongside body in his right hand. Polearm extends UP past the head silhouette — crescent blade visible at top-right of frame as silhouette protrusion. Polearm shaft thicker than typical spear (heavy weapon read). ABSOLUTELY NO secondary weapon, NO sword on the hip, NO dagger, NO additional spear or polearm. The figure carries EXACTLY ONE weapon total. Left hand empty.
 
 CRITICAL BEARD: Long black beard extending down to mid-chest — major asymmetric silhouette element. In chibi proportions, beard occupies significant lower-face area, distinguishing him at a glance.
 
+POSE: Stable centered stance, weight on both feet.
+
 Outfit: Green (#2D6B4A) battle robe (historical exception — Shu green, deeper than naval green), iron under-armor showing at shoulders + chest. Practical combat gear, NO ceremonial decoration.
 
-Visual style: **Fused sumi-e + chibi** — variable-weight ink brush outlines (1.5-2x thicker on head), flat color fills. Reference: Triangle Strategy chibi-tactical with sumi-e brush.
+Background: TRANSPARENT alpha PNG.
 
-NO anime moe, NO red face, NO Dynasty Warriors muscle-baroque, NO cell-shading, NO glow, NO bright saturation, NO gold accents.
+NEGATIVE / ANTI-REFERENCE: NO anime moe, NO red face, NO Dynasty Warriors muscle-baroque, NO cell-shading gradients, NO glow, NO bright saturation, NO gold accents. NO clean vector cartoon, NO uniform-thickness outlines, NO CalArts/Disney style. NO additional weapons beyond the single polearm. NO narrow / normal-width chibi body (must be visibly broader).
 
 Composition: chibi figure centered with polearm extending vertically above head. ~70% canvas vertically (taller than other heroes due to polearm).
 
@@ -205,10 +211,12 @@ Aspect ratio: 1:1, 128×128 native.
 | Frame | 1 of 1 (idle pose) |
 
 ### Acceptance for AI generation
-- ✅ 3-head chibi + 어깨 폭 1.3x (다른 영웅 대비 largest)
-- ✅ 얼굴 단순화 (눈 점 2 + 입 1선)
+- ✅ 3-head chibi + **어깨 폭 1.4× — heavy cavalry mass 가 명확히 시각화** (S71 attestation: 1차 regen 에서 normal-width 로 약화 — 강화)
+- ✅ 얼굴 단순화 (눈 점 2 + 입 1선) + NO 핑크/빨간 볼터치 / blush / moe softening
+- ✅ **EXACTLY ONE weapon — 청룡언월도 polearm 하나만**. 추가 칼/단검 절대 금지
 - ✅ 청룡언월도 polearm 머리 위로 수직 돌출
 - ✅ 긴 검은 수염 chest 까지 (silhouette 핵심)
 - ✅ 녹색 (#2D6B4A) 전포 — historical Shu green exception
 - ✅ NOT red-faced
-- ✅ Sumi-e variable brush + 투명 배경 + 평면 색
+- ✅ Sumi-e variable brush 외곽선 + 잉크 wash bleed visible (특히 녹포 — vector-clean / CalArts 금지)
+- ✅ 투명 배경 (alpha PNG, paper-cream fill 금지) + 평면 색

@@ -217,23 +217,27 @@ art-bible §5.7 정합.
 ### Gemini prompt — copy-paste ready
 
 ```
-A chibi grid sprite of a Three Kingdoms-era Chinese commander-king, painted in fused sumi-e ink-wash AND chibi proportions. For tactical RPG combat grid (LOD 1, 64×64 display, 128×128 native).
+A chibi grid sprite of a Three Kingdoms-era Chinese commander-king, painted in STRICTLY ink-wash sumi-e brush style applied to chibi proportions. For tactical RPG combat grid (LOD 1, 64×64 display, 128×128 native).
 
 CRITICAL CHIBI PROPORTIONS: 3-head ratio. Symmetric balanced pose — open-arm rally stance (most symmetric of the 5-hero series).
 
-CRITICAL CHARACTER FACE: Liu Bei (劉備, 玄德) — virtue-king, balanced commander. In chibi: two small black dots for eyes, single mouth line, NO nose detail. Skin: warm naturalistic. Face gaze: STRAIGHT AHEAD (looking at viewer), NOT downward or away — Liu Bei is the only hero whose gaze meets the viewer.
+CRITICAL VISUAL STYLE — SUMI-E BRUSH QUALITY (HIGHEST PRIORITY): Outlines MUST be hand-painted ink-wash brush strokes with VISIBLE thickness variation — thicker at silhouette edges (1.5-2x), thinner inside, with brush-bleed and dry-drag texture. Robe folds and shaded areas show visible ink-wash bleed and graduated tone. This is traditional East Asian ink painting (墨绘 / 水墨) in chibi form. STRICTLY NOT vector-clean cartoon, NOT CalArts/Disney cartoon, NOT uniform digital ink. The brush must look hand-painted.
 
-CRITICAL EAR DETAIL: Liu Bei has historically large ears — even in chibi simplification, the ears should be slightly visible as silhouette protrusion from the head shape (NOT erased per usual chibi convention). Subtle but distinct.
+CRITICAL CHARACTER FACE: Liu Bei (劉備, 玄德), virtue-king, balanced commander. In chibi: two small black dots for eyes, single mouth line, NO nose detail. Skin: warm naturalistic. Face gaze STRAIGHT AHEAD (looking at viewer) — Liu Bei is the ONLY hero whose gaze meets the viewer. NO blush, NO pink/red cheek dots, NO moe softening.
 
-CRITICAL POSE AND PROPS: Balanced standing pose, weight evenly on both feet. Both arms slightly extended outward — open-arm rally posture (signaling command). Right hip carries TWO paired short swords (双股劍 — twin swords), visible as small hilt + scabbard pair at right side asymmetrically protruding from waistline.
+CRITICAL EAR DETAIL — LARGE PROTRUDING EARS (HIGHLY EXAGGERATED): Liu Bei's ears MUST be CLEARLY EXAGGERATED — approximately 1.5x normal anatomical proportion, visibly PROTRUDING outward from the head silhouette as distinct bumps on either side. Even within chibi simplification, the ears MUST be obvious silhouette protrusions, NOT erased per usual chibi convention. The large ears are his single most important identifying feature — historical "Big-Eared Liu" (大耳劉備). Picture how Buddha's elongated earlobes are exaggerated in iconography — same principle.
+
+CRITICAL POSE: Balanced standing pose, weight evenly on both feet. Both arms slightly extended outward — open-arm rally posture (signaling command).
+
+CRITICAL WEAPON COUNT — 双股劍 PAIRED SET ONLY: TWO paired short swords (双股劍 — twin swords), worn as a paired set at the right hip — visible as a small hilt + scabbard pair asymmetrically protruding from the waistline at his right side. The paired 双股劍 counts as ONE weapon item set (historically a paired set). ABSOLUTELY NO other weapons of any kind anywhere in the frame — no swords on the back, no daggers, no spears, no additional blade. ONLY the paired 双股劍 at the right hip.
 
 CRITICAL BEARD: Trim full beard — NEATLY groomed, NOT wild (distinguishes from Zhang Fei). Black, medium length.
 
 Outfit: Ink-base (#1C1A17) layered robe with ochre (#C8874A) trim at edges. Royal but not gaudy — yellow ochre accents in trim. NO bright gold, NO dragon embroidery, NO ostentation.
 
-Visual style: **Fused sumi-e + chibi** — variable-weight ink brush. Calm composition befitting his "still center" identity.
+Background: TRANSPARENT alpha PNG.
 
-NO anime moe, NO Dynasty Warriors muscle-baroque, NO red/gold accents (reserved for legendary VFX when he triggers).
+NEGATIVE / ANTI-REFERENCE: NO anime moe (NO pink/red cheek blush dots, NO moe softening). NO Dynasty Warriors muscle-baroque. NO red/gold accents (reserved for legendary VFX when he triggers). NO cell-shading gradients. NO clean vector cartoon, NO uniform-thickness outlines, NO CalArts/Disney style. NO additional weapons beyond the paired 双股劍. NO normal-size chibi ears (ears MUST clearly protrude).
 
 Composition: chibi figure centered, open-arm symmetric pose. Generous negative space matching his contemplative identity.
 
@@ -252,8 +256,11 @@ Aspect ratio: 1:1, 128×128 native.
 ### Acceptance
 - ✅ 3-head + symmetric open-arm pose
 - ✅ 얼굴 단순화 + 시선 STRAIGHT AHEAD (다른 영웅과 차별 — 유일 정면 시선)
-- ✅ 큰 귀 silhouette 돌출 visible
+- ✅ NO 핑크/빨간 볼터치 / blush / moe softening
+- ✅ **큰 귀 1.5× 명확한 silhouette 돌출** (S71 attestation: 1차 regen 정상 크기 — Buddha-iconography 수준으로 강화)
+- ✅ **EXACTLY ONE weapon set — 双股劍 paired pair 만**. 추가 칼/단검/spear 절대 금지
 - ✅ 双股劍 paired swords at right hip — asymmetric 돌출
 - ✅ Trim 정돈된 수염 (장비 wild 와 차별)
-- ✅ Ink-base 로브 + ochre trim — royal 톤 절제
-- ✅ Sumi-e variable brush + 투명 배경 + 평면 색 + 주홍/금색 침투 0
+- ✅ Ink-base 로브 + ochre trim — royal 톤 절제 (bright gold 침투 0)
+- ✅ Sumi-e variable brush 외곽선 + 잉크 wash bleed visible (vector-clean / CalArts 금지)
+- ✅ 투명 배경 (alpha PNG, paper-cream fill 금지) + 평면 색 + 주홍/금색 침투 0

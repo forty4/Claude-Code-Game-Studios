@@ -187,21 +187,23 @@ art-bible §5.7 정합.
 ### Gemini prompt — copy-paste ready
 
 ```
-A chibi grid sprite of a Three Kingdoms-era Chinese assault cavalry general, painted in fused sumi-e ink-wash AND chibi proportions. For tactical RPG combat grid (LOD 1, 64×64 display, 128×128 native).
+A chibi grid sprite of a Three Kingdoms-era Chinese assault cavalry general, painted in STRICTLY ink-wash sumi-e brush style applied to chibi proportions. For tactical RPG combat grid (LOD 1, 64×64 display, 128×128 native).
 
-CRITICAL CHIBI PROPORTIONS: 3-head ratio. Wedge-shaped torso (shoulders wider than hips). Slight forward lean — momentum read.
+CRITICAL CHIBI PROPORTIONS: 3-head ratio. Wedge-shaped torso (shoulders wider than hips). Pronounced forward lean — clear momentum read, weight on front foot.
 
-CRITICAL CHARACTER FACE: Zhang Fei (張飛, 翼德) — raw force, leopard-ring eyes. In chibi: eyes = bold black dots SLIGHTLY larger and rounder than other heroes (leopard-ring intensity), single mouth line, NO nose. Skin: darker / higher contrast than other heroes (highest contrast in the 5-hero series). 
+CRITICAL VISUAL STYLE — SUMI-E BRUSH QUALITY (HIGHEST PRIORITY): Outlines MUST be hand-painted ink-wash brush strokes with VISIBLE thickness variation — thicker at silhouette edges (1.5-2x), thinner inside, with brush-bleed and dry-drag texture. THE BEARD especially uses heavy wet-brush ink with visible drag and bleed (the wildness IS the brush quality). Armor folds also show ink-wash bleed. This is traditional East Asian ink painting (墨绘 / 水墨) in chibi form. STRICTLY NOT vector-clean cartoon, NOT CalArts/Disney cartoon, NOT uniform digital ink. The brush must look hand-painted.
 
-CRITICAL POSE AND WEAPON: Slight forward-lean stance, weight on front foot. Right hand grips a tall spear (장팔사모 — Serpent Spear) held vertically. Spear shaft extends UP past head, TIP at top with subtle S-curve (serpent silhouette). Spear shaft thinner than Guan Yu's polearm.
+CRITICAL CHARACTER FACE — LEOPARD-RING EYES (HIGHLY EXAGGERATED): Zhang Fei (張飛, 翼德), raw force. Eyes are notably LARGER and ROUNDER than typical chibi dot eyes — approximately 1.5x the size of normal chibi eye dots. The eyes should be CLEARLY VISIBLE as bold black circular pupils with white outer ring around them (leopard-ring 표범 눈 intensity). Each eye occupies a meaningfully visible portion of the face, intense glare implied. Single mouth line, NO nose. Skin: darker / higher contrast than other heroes (highest contrast in the 5-hero series). NO blush, NO pink/red cheek dots, NO moe softening.
+
+CRITICAL WEAPON COUNT — EXACTLY ONE WEAPON ITEM IN ENTIRE FRAME: One single tall spear (장팔사모 — Serpent Spear) held vertically in right hand. Spear shaft extends UP past head, TIP at top with clear S-curve (serpent silhouette). Spear shaft thinner than Guan Yu's polearm. ABSOLUTELY NO secondary weapon, NO sword on the hip, NO dagger, NO additional spear. The figure carries EXACTLY ONE weapon total. Left hand empty.
 
 CRITICAL BEARD AND HAIR: Black curly wild beard, scattered and rough — silhouette spills beyond armor edges. Hair tied in topknot but with stray curls. The beard's wildness is the visual key.
 
 Outfit: Dark armor with leather binding. Dark color palette — highest contrast figure. NO ceremonial gold, NO bright colors.
 
-Visual style: **Fused sumi-e + chibi** — variable-weight ink brush. The beard especially uses heavy wet-brush ink with visible drag.
+Background: TRANSPARENT alpha PNG.
 
-NO anime moe, NO Dynasty Warriors muscle-baroque exaggeration, NO red/gold accents.
+NEGATIVE / ANTI-REFERENCE: NO anime moe (NO pink/red cheek blush dots, NO moe softening). NO Dynasty Warriors muscle-baroque exaggeration. NO red/gold accents. NO cell-shading gradients. NO clean vector cartoon, NO uniform-thickness outlines, NO CalArts/Disney style. NO additional weapons beyond the single serpent spear. NO normal-size chibi dot eyes (eyes MUST be visibly larger/rounder).
 
 Composition: forward-leaning chibi with spear vertically above. ~70% canvas vertically.
 
@@ -218,10 +220,12 @@ Aspect ratio: 1:1, 128×128 native.
 | Frame | 1 of 1 (idle pose) |
 
 ### Acceptance
-- ✅ 3-head + wedge torso + 약간 forward-lean
-- ✅ 눈 = 검은 점, 약간 더 크고 또렷 (leopard-ring)
-- ✅ 장팔사모 spear 머리 위 vertical, S-curve tip
+- ✅ 3-head + wedge torso + **명확한 forward-lean** (S71 attestation: 1차 regen 거의 직립 — 강화)
+- ✅ **눈 = 1.5× larger + rounder leopard-ring** — 일반 chibi dot 보다 명확히 큼 (S71 attestation: 1차 regen 약화 — 절대수치 강화)
+- ✅ NO 핑크/빨간 볼터치 / blush / moe softening
+- ✅ **EXACTLY ONE weapon — 장팔사모 spear 하나만**. 추가 칼/단검 절대 금지
+- ✅ 장팔사모 spear 머리 위 vertical, 명확한 S-curve tip
 - ✅ Wild curly black beard silhouette spilling beyond armor
 - ✅ 어두운 palette + 최고 대비 (5 영웅 중 가장 어두움)
-- ✅ Sumi-e variable brush, 특히 수염은 wet-brush 강조
-- ✅ 투명 배경 + 평면 색 + 주홍/금색 침투 0
+- ✅ Sumi-e variable brush 외곽선 + 잉크 wash bleed visible, 특히 수염은 wet-brush 강조
+- ✅ 투명 배경 (alpha PNG, paper-cream fill 금지) + 평면 색 + 주홍/금색 침투 0

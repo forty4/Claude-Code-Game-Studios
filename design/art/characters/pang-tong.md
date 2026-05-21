@@ -157,19 +157,23 @@ art-bible §5.7 정합. portrait (sumi-e formal) 과 별도 자산.
 ### Gemini prompt — copy-paste ready
 
 ```
-A chibi grid sprite of a Three Kingdoms-era Chinese strategist, painted in fused sumi-e ink-wash AND chibi proportions. For tactical RPG combat grid (LOD 1, 64×64 px display, 128×128 native).
+A chibi grid sprite of a Three Kingdoms-era Chinese strategist, painted in STRICTLY ink-wash sumi-e brush style applied to chibi proportions. For tactical RPG combat grid (LOD 1, 64×64 px display, 128×128 native).
 
-CRITICAL CHIBI PROPORTIONS: 3-head ratio — head : torso : legs = 1 : 1 : 1. Head occupies ~33% height.
+CRITICAL CHIBI PROPORTIONS: 3-head ratio — head : torso : legs = 1 : 1 : 1. Head ~33% of total height.
 
-CRITICAL CHARACTER FACE (simplified for chibi): Pang Tong (龐統, 士元) — a strategist in his mid-to-late 30s. In chibi: two small black dots for eyes (NO large anime pupils), a single short line for the mouth, NO nose detail. His face is deliberately ROUND and FULL — round-ish jaw, soft contours — distinguishing him from sharp-featured warriors. Skin: naturalistic warm-olive.
+CRITICAL VISUAL STYLE — SUMI-E BRUSH QUALITY (HIGHEST PRIORITY): Outlines MUST be hand-painted ink-wash brush strokes with VISIBLE thickness variation — thicker at silhouette edges (1.5-2x), thinner inside, with occasional brush-bleed and dry-drag texture. Robe folds especially show visible ink-wash bleed and graduated tone (the strategist's robe is the primary stage for sumi-e brush quality). This is traditional East Asian ink painting (墨绘 / 水墨) in chibi form. STRICTLY NOT vector-clean cartoon, NOT CalArts/Disney cartoon, NOT uniform digital ink. The brush must look hand-painted.
 
-CRITICAL POSE AND PROP: Centered vertical calm stance — facing slightly right, weight evenly on both feet, NO hip cocking. Both hands visible: right hand holds a large feather fan (봉추 phoenix feather emblem), held at chest level. Fan width ~1.0x shoulder width. Left hand at side.
+CRITICAL CHARACTER FACE: Pang Tong (龐統, 士元), strategist mid-to-late 30s. In chibi: two small black dots for eyes (NO large anime pupils), single short mouth line, NO nose detail. Face is deliberately ROUND and FULL — round-ish jaw, soft contours — distinguishing him from sharp-featured warriors. Skin: naturalistic warm-olive. ABSOLUTELY NO blush, NO pink/red cheek dots, NO moe softening (the round face provides identity — no cuteness markers needed).
+
+CRITICAL PROP COUNT — EXACTLY ONE PROP IN ENTIRE FRAME: One large feather fan (봉추 phoenix feather emblem) held by the right hand at chest level. Fan width ~1.0x shoulder width. ABSOLUTELY NO additional fans, NO scrolls, NO weapons, NO secondary props of any kind anywhere in the frame. Left hand empty at his side. The figure carries EXACTLY ONE prop total.
+
+POSE: Centered vertical calm stance — facing slightly right, weight evenly on both feet, NO hip cocking.
 
 Outfit: Wide-sleeve scholar robe (鶴氅衣) — sleeves form triangular silhouette extending past shoulders. Square scholar cap (윤건). Robe color: ink-heavy black-grey (#1C1A17 deepened), with paper-white (#F2E8D4) fan and inner robe lining for contrast.
 
-Visual style: **Fused sumi-e + chibi** — variable-weight ink brush outlines (1.5-2x thicker on head), flat color fills no gradients. Reference: Triangle Strategy chibi-tactical, BUT with sumi-e brush quality.
+Background: TRANSPARENT alpha PNG. The figure sits on transparent alpha — no paper-cream fill, no border.
 
-NO anime moe (no large eyes, no shoujo features), NO cell-shading, NO glow, NO Dynasty Warriors muscle, NO red/gold accents (reserved for VFX).
+NEGATIVE / ANTI-REFERENCE: NO anime moe (no large eyes, no shoujo features, NO pink/red cheek blush dots, NO kawaii cuteness markers). NO cell-shading gradients. NO glow effects. NO Dynasty Warriors muscle-baroque. NO red/gold accents (reserved for VFX). NO clean vector cartoon, NO uniform-thickness outlines, NO CalArts/Disney style.
 
 Composition: chibi figure centered, ~60% canvas vertically. Generous negative space.
 
@@ -187,9 +191,10 @@ Aspect ratio: 1:1, 128×128 native (display 64×64).
 
 ### Acceptance for AI generation
 - ✅ 3-head chibi 비례 / 얼굴 단순화 (눈 점 2 + 입 1선)
+- ✅ NO 핑크/빨간 볼터치 / blush / moe softening (S71 attestation: 1차 regen 방통에서 발견 — 강화)
 - ✅ 둥근 얼굴 형 (sharp-features 금지)
-- ✅ 부채 visible at chest level
+- ✅ **EXACTLY ONE prop — 부채 하나만**. 추가 부채/scroll/무기 절대 금지
 - ✅ Wide-sleeve scholar robe silhouette
 - ✅ 어두운 ink-heavy 색 + paper-white fan/lining contrast
-- ✅ Sumi-e variable brush 외곽선
-- ✅ 투명 배경 + 평면 색 + 주홍/금색 침투 0
+- ✅ Sumi-e variable brush 외곽선 + 잉크 wash bleed visible (특히 로브 — vector-clean / CalArts 금지)
+- ✅ 투명 배경 (alpha PNG, paper-cream fill 금지) + 평면 색 + 주홍/금색 침투 0

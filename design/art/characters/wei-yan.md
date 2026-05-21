@@ -134,25 +134,29 @@ art-bible §5.7 정합. 위 portrait (8-head sumi-e) 와 별도 자산 — LOD 1
 ### Gemini prompt — copy-paste ready
 
 ```
-A chibi grid sprite of a Three Kingdoms-era Chinese general, painted in fused sumi-e ink-wash AND chibi proportions. This is for a tactical RPG's combat grid (LOD 1, 64×64 px display, 128×128 native).
+A chibi grid sprite of a Three Kingdoms-era Chinese general, painted in STRICTLY ink-wash sumi-e brush style applied to chibi proportions. For a tactical RPG's combat grid (LOD 1, 64×64 px display, 128×128 native).
 
-CRITICAL CHIBI PROPORTIONS: 3-head ratio — head : torso : legs = 1 : 1 : 1. Head occupies ~33% of total figure height. Shoulder width ~1.2x head width. Legs short but visible.
+CRITICAL CHIBI PROPORTIONS: 3-head ratio — head : torso : legs = 1 : 1 : 1. Head ~33% of total height. Shoulder width ~1.2x head width.
 
-CRITICAL CHARACTER FACE (simplified for chibi LOD 1): The character is Wei Yan (魏延, 文长), a hardened mercenary general. In chibi style, his face is simplified to: two small black dots for eyes (NO large anime pupils), a single short line for the mouth, NO nose detail, NO wrinkles. The hardened mercenary identity comes from his stance and weapon, NOT detailed facial rendering. Skin tone: sun-bronzed warm beige.
+CRITICAL VISUAL STYLE — SUMI-E BRUSH QUALITY (HIGHEST PRIORITY): Outlines MUST be hand-painted ink-wash brush strokes with VISIBLE thickness variation — thicker at silhouette edges (1.5-2x), thinner inside, with occasional brush-bleed and dry-drag texture. Robe folds and shaded areas show visible ink-wash bleed. This is traditional East Asian ink painting (墨绘 / 水墨) in chibi form. STRICTLY NOT vector-clean cartoon, NOT CalArts/Disney cartoon, NOT uniform digital ink lines. The brush quality must look hand-painted, not vector-traced.
 
-CRITICAL STANCE AND WEAPON: Asymmetric mercenary three-quarter view facing slightly right. Body weight casual — one hip slightly cocked. His right hand rests on the bound wooden grip of a hilt protruding from a scabbard at his left hip. Only the wooden pommel and hilt grip are visible above the scabbard's metal fitting. The blade stays enclosed inside the black lacquered scabbard. NO drawn weapon. NO second weapon. His left hand rests relaxed at his side. Silhouette read: "blade waiting inside sheath" — restraint preserved despite chibi.
+CRITICAL CHARACTER FACE: Wei Yan (魏延, 文长), hardened mercenary. In chibi: two small black dots for eyes (NO large anime pupils), single short mouth line, NO nose detail. Identity comes from stance and weapon, NOT face. Skin: sun-bronzed warm beige. NO blush, NO pink/red cheek dots, NO moe softening of any kind.
 
-Hair: jet-black, bound in a simple tight topknot, no ornament.
+CRITICAL WEAPON COUNT — EXACTLY ONE WEAPON ITEM IN ENTIRE FRAME: One single sword sheathed in a scabbard at his LEFT hip. Right hand rests on the wooden hilt protruding from the scabbard. Only the wooden pommel and hilt grip visible above the scabbard's metal fitting — blade stays fully enclosed in the black lacquered scabbard. ABSOLUTELY NO drawn blade, NO second sword, NO additional dagger or knife, NO weapon on the back, the right hip, the floor, or in the left hand. The figure carries EXACTLY ONE weapon item total. Left hand empty at his side.
 
-Outfit: Practical iron blue-grey (#5C7A8A) lamellar armor with ochre-earth (#C8874A) cloth trim — chibi-simplified, no decorative patterns, just flat color blocks separated by ink outline. Black lacquered scabbard.
+STANCE: Asymmetric mercenary three-quarter view facing slightly right. Body weight casual — one hip slightly cocked. Silhouette read: "blade waiting inside sheath" — restraint preserved despite chibi.
 
-Visual style: **Fused sumi-e + chibi** — sumi-e variable-weight brush ink outlines (thicker at silhouette edge, 1.5-2x thickness on head outline), restrained flat color fills with no gradients or cel-shading, paper-white (#F2E8D4) background with subtle paper grain. Reference: Triangle Strategy / Octopath Traveler chibi-tactical sprites, BUT with sumi-e brush quality NOT vector-clean lines.
+Hair: jet-black, simple tight topknot, no ornament.
 
-NO photorealism, NO anime moe (no large eyes, no shoujo features), NO cell-shading gradients, NO glow effects, NO Dynasty Warriors muscle-baroque, NO bright saturation, NO red or gold accents (those are reserved for legendary VFX).
+Outfit: Practical iron blue-grey (#5C7A8A) lamellar armor with ochre-earth (#C8874A) cloth trim — chibi-simplified, NO decorative patterns, just flat color blocks separated by hand-painted ink-brush outlines. Black lacquered scabbard.
 
-Composition: chibi figure centered, occupying ~60% of canvas vertically. Generous negative space around figure for clean silhouette read.
+Background: TRANSPARENT alpha PNG. The figure sits on transparent alpha — no paper texture, no fill, no border.
 
-Aspect ratio: 1:1 square, 128×128 native (intended display 64×64 after 2× supersample downscale).
+NEGATIVE / ANTI-REFERENCE: NO photorealism. NO anime moe (no large eyes, no shoujo features, NO pink/red cheek blush dots). NO cell-shading gradients. NO glow effects. NO Dynasty Warriors muscle-baroque. NO bright saturation. NO red or gold accents (reserved for legendary VFX). NO clean vector cartoon, NO uniform-thickness outlines, NO CalArts/Disney style. NO additional weapons beyond the single sheathed sword.
+
+Composition: chibi figure centered, ~60% canvas vertically. Generous negative space.
+
+Aspect ratio: 1:1, 128×128 native (intended display 64×64 after 2× supersample downscale).
 ```
 
 ### Asset target
@@ -170,10 +174,11 @@ Aspect ratio: 1:1 square, 128×128 native (intended display 64×64 after 2× sup
 Ship-able output must satisfy (single AND gate):
 - ✅ 3-head chibi 비례 (사실적 8-head 비례 금지)
 - ✅ 얼굴 단순화 (눈 = 점 2개, 입 = 1선) — anime 큰 눈 금지
+- ✅ NO 핑크/빨간 볼터치 / blush / moe softening (S71 attestation: 1차 regen 에서 발견)
 - ✅ Iron-grey + ochre-earth 팔레트 (장식/자수 생략)
-- ✅ 검 sheath 안에 — drawn weapon 금지, hilt + scabbard 만 visible
-- ✅ Sumi-e variable brush 외곽선 (vector-clean 금지)
-- ✅ 투명 배경 (alpha PNG)
+- ✅ **EXACTLY ONE weapon — 왼쪽 hip sheathed sword 만**. 두 번째 칼/단검/추가 무기 절대 금지 (S71 attestation: 1차 regen 위연 에서 추가 칼 발견)
+- ✅ Sumi-e variable brush 외곽선 + 잉크 wash bleed visible — vector-clean / CalArts / 균일 두께 line 모두 금지 (S71 attestation: 1차 regen 5장 중 3장 miss)
+- ✅ 투명 배경 (alpha PNG, paper-cream fill 도 금지)
 - ✅ 평면 색 (gradient / cell-shading 금지)
 - ✅ 주홍/금색 침투 0
 
