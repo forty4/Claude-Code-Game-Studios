@@ -15,6 +15,11 @@ const _HEROES_JSON_PATH: String = "res://assets/data/heroes/heroes.json"
 ## Established by B2.1 (위연 first portrait pipeline) — future heroes follow same.
 const _PORTRAIT_DIR: String = "res://assets/art/portraits/"
 
+## Grid sprite asset directory. Convention: `{_GRID_SPRITE_DIR}{battle_sprite_id}_idle.png`.
+## Established by Q5 Phase 1 (5 cascade 영웅 chibi sprite — sumi-e + chibi fusion per
+## art-bible §5.7). Phase 2-4 may add `_breath_0.png` / `_walk_0..3.png` / `_attack_0..2.png`.
+const _GRID_SPRITE_DIR: String = "res://assets/art/sprites/grid/"
+
 ## Regex pattern for hero_id: ^[a-z]+_\d{3}_[a-z_]+$
 ## Faction segment: one or more lowercase letters.
 ## Sequence: exactly 3 digits.
@@ -476,6 +481,36 @@ static func get_portrait_texture(hero_id: StringName) -> Texture2D:
 	var path: String = _PORTRAIT_DIR + hero.portrait_id + ".png"
 	if not ResourceLoader.exists(path, "Texture2D"):
 		return null  # portrait_id declared in data but asset not yet shipped on disk
+	return load(path) as Texture2D
+
+
+# RETURNS NEW REFERENCE — load() result; caller may store and reuse.
+## Returns the Texture2D for the given hero_id's grid sprite (chibi LOD 1 idle pose),
+## or null when the sprite asset is not yet shipped or the hero is unknown.
+##
+## Path convention: `assets/art/sprites/grid/{battle_sprite_id}_idle.png` per Q5
+## Phase 1. Designed for graceful incremental asset rollout — heroes whose grid
+## sprite is not yet generated return null; chapter_visuals.spawn_unit_polygons
+## MUST fall back to polygon-only display (faction tint + emblem + label + chevron)
+## rather than treating null as an error.
+##
+## See `design/art/characters/{hero}.md` "Grid sprite (chibi)" section for the
+## generation prompt + acceptance gate that produced each asset. Q5 cascade asset
+## evolution evidence retained at `assets/art/sprites/grid/_archive_v{1,2}/`.
+##
+## Empty hero_id returns null silently (no push_error) — graceful for callers
+## that iterate over a catalog where some entries lack hero_id mapping yet.
+static func get_grid_sprite_texture(hero_id: StringName) -> Texture2D:
+	if String(hero_id).is_empty():
+		return null
+	var hero: HeroData = get_hero(hero_id)
+	if hero == null:
+		return null  # get_hero already emitted push_error for unknown hero_id
+	if hero.battle_sprite_id.is_empty():
+		return null  # hero exists but no battle_sprite_id registered in heroes.json
+	var path: String = _GRID_SPRITE_DIR + hero.battle_sprite_id + "_idle.png"
+	if not ResourceLoader.exists(path, "Texture2D"):
+		return null  # battle_sprite_id declared in data but asset not yet shipped on disk
 	return load(path) as Texture2D
 
 

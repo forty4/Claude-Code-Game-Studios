@@ -464,6 +464,32 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 		border.joint_mode = Line2D.LINE_JOINT_BEVEL
 		border.antialiased = true
 		poly.add_child(border)
+		# Q5 Phase 1 — Chibi grid sprite mount (sumi-e + chibi fusion per
+		# art-bible §5.7). Per-hero character sprite overlaid on the polygon —
+		# the polygon's faction fill remains visible as a halo around the
+		# sprite's transparent silhouette, preserving friend/foe read.
+		# Counter-rotated against poly.rotation so the chibi always renders
+		# upright regardless of class facing. Scaled to fit TILE_SIZE * 0.9 →
+		# slight inset so the faction halo reads. When a hero has no
+		# battle_sprite_id or the asset is not yet shipped, get_grid_sprite_texture
+		# returns null and the polygon falls back to the bare faction tint +
+		# emblem composition (graceful incremental rollout).
+		# Distinct from the Q5 1차 attempt (`4c17ac2`, reverted at `97b0c7a`):
+		# that mounted the static sumi-e portrait directly — wrong direction
+		# per user attestation ("정적 사진 안 됨, 아기자기도 아님"). Q5 Phase 1
+		# uses dedicated chibi sprites generated against art-bible §5.7 spec.
+		var sprite_texture: Texture2D = HeroDatabase.get_grid_sprite_texture(unit.hero_id)
+		if sprite_texture != null:
+			var chibi_sprite: Sprite2D = Sprite2D.new()
+			chibi_sprite.name = "ChibiSprite"
+			chibi_sprite.texture = sprite_texture
+			var native_size: Vector2 = sprite_texture.get_size()
+			var max_dim: float = maxf(native_size.x, native_size.y)
+			var fit_factor: float = (TILE_SIZE * 0.9) / max_dim
+			chibi_sprite.scale = Vector2(fit_factor, fit_factor)
+			chibi_sprite.position = Vector2.ZERO
+			chibi_sprite.rotation = -poly.rotation
+			poly.add_child(chibi_sprite)
 		# Session-16: small class-glyph inside the polygon (spear / shield / bow
 		# / scroll / crown / dagger). Counter-rotated against the polygon facing
 		# so the glyph stays upright. Reads as "what this piece does" at a glance
@@ -509,10 +535,9 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 		label.size = Vector2(60, 18)
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		poly.add_child(label)
-		# Q5 1차 revert (사용자 attestation): 정적 sumi-e portrait 를 grid 에
-		# 얹은 것은 "아기자기 + 움직임" 의도와 정반대. portrait 는 HUD/signature/
-		# title card 자리로만 사용. on-grid 영웅 표현은 별도 자산 pipeline 필요
-		# — chibi 톤 sprite + idle/move/attack 애니메이션. multi-session 작업.
+		# Q5 Phase 1 status (S72): chibi grid sprite mount 활성화 (위 ChibiSprite
+		# 블록 참조). Phase 2-4 (idle breath / walk 4-frame / attack 3-frame
+		# animation) 은 추후 multi-session 작업 — 현재 idle 단일 frame 만.
 		# Q4 facing chevron — universal "front" indicator on EVERY unit polygon
 		# so player can tell which direction each unit is looking (esp. INFANTRY/
 		# STRATEGIST/COMMANDER which are rotation-symmetric — pre-Q4 they had
