@@ -17,7 +17,8 @@ const _PORTRAIT_DIR: String = "res://assets/art/portraits/"
 
 ## Grid sprite asset directory. Convention: `{_GRID_SPRITE_DIR}{battle_sprite_id}_idle.png`.
 ## Established by Q5 Phase 1 (5 cascade 영웅 chibi sprite — sumi-e + chibi fusion per
-## art-bible §5.7). Phase 2-4 may add `_breath_0.png` / `_walk_0..3.png` / `_attack_0..2.png`.
+## art-bible §5.7). Phase 2 adds `_breath.png`. Phase 3 walk = code-side bounce
+## (no PNG — S72 학습). Phase 4 may add `_attack_0..2.png`.
 const _GRID_SPRITE_DIR: String = "res://assets/art/sprites/grid/"
 
 ## Regex pattern for hero_id: ^[a-z]+_\d{3}_[a-z_]+$
@@ -506,7 +507,7 @@ static func get_grid_sprite_texture(hero_id: StringName) -> Texture2D:
 
 # RETURNS NEW REFERENCE — load() result; caller may store and reuse.
 ## Generic Q5 grid sprite frame loader. Loads the named frame (idle / breath /
-## walk_0..3 / attack_0..2 etc.) for the given hero. Same graceful-null
+## attack_0..2 etc. — walk has no PNG, see Phase 3 note) for the given hero. Same graceful-null
 ## semantics as get_grid_sprite_texture — unknown hero / missing
 ## battle_sprite_id / asset not shipped → null without push_error.
 ##

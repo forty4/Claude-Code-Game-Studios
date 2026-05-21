@@ -1413,9 +1413,20 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 	var chibi_at_start: Node = unit_node.get_node_or_null("ChibiSprite")
 	if chibi_at_start is AnimatedSprite2D:
 		var anim_at_start: AnimatedSprite2D = chibi_at_start as AnimatedSprite2D
-		if anim_at_start.sprite_frames != null \
-				and anim_at_start.sprite_frames.has_animation(&"walk"):
-			anim_at_start.play(&"walk")
+		# Q5 Phase 3 — code-side vertical bounce during slide. Frame-swap
+		# (walk_0/walk_1 PNG) approach was 폐기 — chibi 짧은 다리 비례 +
+		# TILE_SIZE=64 scale_crush 로 sub-pixel motion. 결정적 ~5px Y hop
+		# 으로 통일. 2 hops per slide (each 0.3s). Bound to SceneTree per
+		# G-31 (BattleScene gets PROCESS_MODE_DISABLED during battle).
+		var bounce_tween: Tween = get_tree().create_tween()
+		bounce_tween.tween_property(anim_at_start, "position:y", -5.0, 0.15) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		bounce_tween.tween_property(anim_at_start, "position:y", 0.0, 0.15) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		bounce_tween.tween_property(anim_at_start, "position:y", -5.0, 0.15) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		bounce_tween.tween_property(anim_at_start, "position:y", 0.0, 0.15) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	var slide_tween: Tween = get_tree().create_tween()
 	slide_tween.tween_property(unit_node, "position", world_pos, MOVE_ANIM_DURATION) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
@@ -1428,13 +1439,12 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 		var n: Node2D = _find_unit_polygon(v, unit_id)
 		if is_instance_valid(n):
 			n.position = world_pos
-			# Revert ChibiSprite to default (idle/breath) animation.
+			# Safety-reset ChibiSprite bounce y in case bounce_tween was
+			# interrupted (battle end / scene transition mid-slide). Default
+			# animation (idle/breath) never stopped — no play() needed.
 			var chibi_at_end: Node = n.get_node_or_null("ChibiSprite")
 			if chibi_at_end is AnimatedSprite2D:
-				var anim_at_end: AnimatedSprite2D = chibi_at_end as AnimatedSprite2D
-				if anim_at_end.sprite_frames != null \
-						and anim_at_end.sprite_frames.has_animation(&"default"):
-					anim_at_end.play(&"default"))
+				(chibi_at_end as AnimatedSprite2D).position.y = 0.0)
 	SoundManager.play(SoundManager.SFX_MOVE)
 	_trace("[SLIDE-DONE] unit=%d polygon.position now %s (start %s → target %s)" %
 		[unit_id, str(unit_node.position), str(start_pos), str(world_pos)])

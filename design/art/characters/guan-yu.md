@@ -278,89 +278,38 @@ Output filename: sprite_shu_guan_yu_breath.png
 - ✅ 1 weapon (청룡언월도) 만 + NOT red-faced + NO blush
 
 
-## Walk frames (Phase 3) — 신규 2026-05-21
+## Walk animation (Phase 3 — code-side bounce, S72-revised 2026-05-21)
 
-art-bible §5.7 Phase 3 — walk animation 2-frame ping-pong. 관우 walk: heavy
-cavalry 결의 무거운 step (slow swing 인상). 1.4× 어깨 폭 + 청룡언월도
-vertical + 긴 수염 silhouette 모두 보존, 다리만 alternation.
+**No walk frame PNG assets needed.** Phase 3 walking motion is generated
+100% in code (`battle_scene._on_unit_moved` vertical bounce tween — 2 hops
+× 5px during 0.6s slide). idle + breath PNG 만으로 chibi 는 full Phase 3
+까지 작동.
 
-### Walk frame 0 prompt — left step (image-to-image)
+Bounce gate: `ChibiSprite is AnimatedSprite2D` — 모든 chibi 영웅 자동
+적용 (hero-specific 자산 추가 없이 5 영웅 cascade 즉시 활성).
 
-```
-Apply WALK STEP MODIFICATIONS to the input idle PNG of Guan Yu, producing
-walk frame 0 (LEFT foot forward).
+### S72 학습 — chibi walk PNG strategy 폐기
 
-VISIBLE CHANGES (heavy cavalry step, slow swing feel):
-- Left leg stepped forward visibly (~12-14% of figure height advance)
-- Right leg trailing slightly back, weight distributed deliberately
-- Body very subtly leaned forward ~2-4° (heavy momentum, not light step)
-- Green robe naturally falls with the step
+Frame-swap walk attempt cascade 5-step:
 
-EVERYTHING ELSE 100% IDENTICAL TO INPUT IDLE:
-- Same WIDEST silhouette (어깨 1.4× ratio 보존)
-- Same face (eye dots, mouth line), NOT red-faced
-- Same long black beard down to mid-chest (silhouette key)
-- Same 청룡언월도 polearm vertical in right hand — POLEARM POSITION UNCHANGED
-  (no swing, no lean, blade tip at top-right same spot)
-- Same green (#2D6B4A) robe + iron under-armor
-- Same sumi-e brush + green robe ink wash
-- Same TRANSPARENT alpha background, same dimensions
+1. **1차** (commit `e38e674`): walk_0/walk_1 leg-alternation (left/right foot
+   forward). Gemini Liu Bei test: "왼발" 요청에 옷만 바뀌고 오른발 그대로 —
+   surface re-roll, structural pose anchor 고정.
+2. **2차** (commit `dad36f5`): viewer-vs-character perspective 명시 +
+   canvas-side 좌표 명령. 여전히 실패 — model prior 더 강함.
+3. **3차 (S72)**: anchor 전략 — "polearm-side leg" / "opposite-from-polearm
+   leg" 좌우 단어 영구 추방. 관우 무조건 왼발만 결과. chibi 짧은 다리 비례
+   에서 leg position delta 가 시각적으로 marginal → model 이 input pose
+   재복사하는 깊은 한계.
+4. **4차 pivot (S72)**: bounce-based walk_0 (settled lowered) + walk_1
+   (lifted raised). Gemini 가 lateral 안 건드리니 OK 였으나 vertical delta
+   도 under-apply (~1-2% PNG). TILE_SIZE=64 scale_crush (2048→58px) 와
+   결합 → sub-pixel = 완전 불가시.
+5. **5차 — code-side pivot (S72)**: walk PNG 폐기, `_on_unit_moved` 에서
+   vertical bounce tween (5px Y hop × 2) 으로 결정적 motion. Frame-swap
+   infrastructure 제거, idle/breath 만 shipping.
 
-Output filename: sprite_shu_guan_yu_walk_0.png
-```
-
-### Walk frame 1 prompt — right step (image-to-image, STRENGTHENED)
-
-**S72 학습**: Gemini walk_1 (right foot forward) 실패 패턴. 강화 prompt.
-**권장 input**: walk_0 PNG (success frame). 대안: idle PNG.
-
-```
-Apply LEG MIRROR MODIFICATIONS to the input PNG, producing walk frame 1
-(character's anatomical RIGHT foot forward — OPPOSITE of walk frame 0).
-
-CRITICAL VIEWER-VS-CHARACTER PERSPECTIVE MAPPING:
-- Character's anatomical LEFT leg appears on VIEWER'S RIGHT side of image.
-- Character's anatomical RIGHT leg appears on VIEWER'S LEFT side of image.
-
-In walk frame 0 (success): LEFT leg forward = leg on VIEWER'S RIGHT half.
-In walk frame 1 (this generation): RIGHT leg forward = leg on VIEWER'S LEFT
-half. → FORWARD LEG MUST APPEAR ON OPPOSITE HALF FROM WALK_0.
-
-VISIBLE CHANGES (image coordinates):
-- Leg on LEFT HALF of image stepped forward (~12-14% of figure height,
-  heavy cavalry step)
-- Leg on RIGHT HALF trailing slightly back, weight distributed deliberately
-- Body very subtly leaned forward ~2-4° (heavy momentum, same lean as walk_0)
-- Green robe naturally falls with the step
-
-SELF-CHECK: forward leg MUST be on opposite canvas side from walk_0. Same
-side = WRONG, regenerate.
-
-EVERYTHING ELSE 100% IDENTICAL TO INPUT:
-- Same WIDEST silhouette — 어깨 ~1.4× ratio preserved
-- Same face (eye dots, mouth line), NOT red-faced
-- Same long black beard down to mid-chest (silhouette key)
-- Same 청룡언월도 polearm vertical in right hand — POLEARM POSITION
-  UNCHANGED (blade tip at top-right same spot, NO swing or lean)
-- Same green (#2D6B4A) robe + iron under-armor
-- Same sumi-e brush + green robe ink wash
-- Same TRANSPARENT alpha background, same dimensions
-
-Output filename: sprite_shu_guan_yu_walk_1.png
-```
-
-### Asset target
-
-| Field | Value |
-|---|---|
-| Filenames | `sprite_shu_guan_yu_walk_0.png` / `sprite_shu_guan_yu_walk_1.png` |
-| Frame count | 2 (Phase 3 walk ping-pong) |
-| Format | PNG with alpha (TRANSPARENT background) |
-| Dimensions | idle 와 동일 |
-
-### Acceptance for walk frames
-- ✅ Side-by-side: leg alternation 명확, heavy step 인상
-- ✅ 어깨 1.4× ratio 보존 + 긴 수염 silhouette 동일
-- ✅ 청룡언월도 polearm 위치 정확히 동일 (swing 금지)
-- ✅ 녹포 색 동일 + NOT red-faced
-- ✅ TRANSPARENT alpha + same dimensions
+**일반 교훈**: Gemini chibi 매체에서 *micro-modification of pose/position*
+는 신뢰 불가. AnimatedSprite2D frame-swap 은 *큰 시각 변화* (idle vs
+breath, death pose 등) 에만 유효. *small delta motion* 은 code-side
+tween 으로. cascade 의 다른 영웅도 동일 — Phase 3 walk PNG 생성 불요.
