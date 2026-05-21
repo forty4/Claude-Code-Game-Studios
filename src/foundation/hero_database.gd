@@ -501,16 +501,30 @@ static func get_portrait_texture(hero_id: StringName) -> Texture2D:
 ## Empty hero_id returns null silently (no push_error) — graceful for callers
 ## that iterate over a catalog where some entries lack hero_id mapping yet.
 static func get_grid_sprite_texture(hero_id: StringName) -> Texture2D:
+	return get_grid_sprite_frame_texture(hero_id, "idle")
+
+
+# RETURNS NEW REFERENCE — load() result; caller may store and reuse.
+## Generic Q5 grid sprite frame loader. Loads the named frame (idle / breath /
+## walk_0..3 / attack_0..2 etc.) for the given hero. Same graceful-null
+## semantics as get_grid_sprite_texture — unknown hero / missing
+## battle_sprite_id / asset not shipped → null without push_error.
+##
+## Path convention: `{_GRID_SPRITE_DIR}{battle_sprite_id}_{frame_suffix}.png`.
+## frame_suffix may not contain path separators or "..".
+static func get_grid_sprite_frame_texture(hero_id: StringName, frame_suffix: String) -> Texture2D:
 	if String(hero_id).is_empty():
+		return null
+	if frame_suffix.is_empty() or frame_suffix.contains("/") or frame_suffix.contains(".."):
 		return null
 	var hero: HeroData = get_hero(hero_id)
 	if hero == null:
-		return null  # get_hero already emitted push_error for unknown hero_id
+		return null
 	if hero.battle_sprite_id.is_empty():
-		return null  # hero exists but no battle_sprite_id registered in heroes.json
-	var path: String = _GRID_SPRITE_DIR + hero.battle_sprite_id + "_idle.png"
+		return null
+	var path: String = _GRID_SPRITE_DIR + hero.battle_sprite_id + "_" + frame_suffix + ".png"
 	if not ResourceLoader.exists(path, "Texture2D"):
-		return null  # battle_sprite_id declared in data but asset not yet shipped on disk
+		return null
 	return load(path) as Texture2D
 
 

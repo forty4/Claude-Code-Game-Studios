@@ -464,32 +464,53 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 		border.joint_mode = Line2D.LINE_JOINT_BEVEL
 		border.antialiased = true
 		poly.add_child(border)
-		# Q5 Phase 1 — Chibi grid sprite mount (sumi-e + chibi fusion per
-		# art-bible §5.7). Per-hero character sprite overlaid on the polygon —
-		# the polygon's faction fill remains visible as a halo around the
-		# sprite's transparent silhouette, preserving friend/foe read.
-		# Counter-rotated against poly.rotation so the chibi always renders
-		# upright regardless of class facing. Scaled to fit TILE_SIZE * 0.9 →
-		# slight inset so the faction halo reads. When a hero has no
-		# battle_sprite_id or the asset is not yet shipped, get_grid_sprite_texture
-		# returns null and the polygon falls back to the bare faction tint +
-		# emblem composition (graceful incremental rollout).
-		# Distinct from the Q5 1차 attempt (`4c17ac2`, reverted at `97b0c7a`):
-		# that mounted the static sumi-e portrait directly — wrong direction
-		# per user attestation ("정적 사진 안 됨, 아기자기도 아님"). Q5 Phase 1
-		# uses dedicated chibi sprites generated against art-bible §5.7 spec.
-		var sprite_texture: Texture2D = HeroDatabase.get_grid_sprite_texture(unit.hero_id)
-		if sprite_texture != null:
-			var chibi_sprite: Sprite2D = Sprite2D.new()
-			chibi_sprite.name = "ChibiSprite"
-			chibi_sprite.texture = sprite_texture
-			var native_size: Vector2 = sprite_texture.get_size()
+		# Q5 Phase 1+2 — Chibi grid sprite mount (sumi-e + chibi fusion per
+		# art-bible §5.7). AnimatedSprite2D — idle frame always (Phase 1), plus
+		# optional breath frame (Phase 2) for 2-frame ping-pong loop visualizing
+		# subtle inhale/exhale chest-shoulder breath. Per-hero phase offset
+		# (hero_id hash) → multi-hero grids don't sync into a uniformed drill.
+		# Polygon faction fill remains visible as halo around sprite's
+		# transparent silhouette, preserving friend/foe read. Counter-rotated
+		# against poly.rotation so chibi always renders upright regardless of
+		# class facing. Scaled to fit TILE_SIZE * 0.9 → slight inset so faction
+		# halo reads. Graceful fallback: no idle → polygon-only; idle but no
+		# breath → 1-frame static (no animation). Distinct from Q5 1차
+		# (`4c17ac2`, reverted at `97b0c7a`) which mounted static portraits.
+		var idle_tex: Texture2D = HeroDatabase.get_grid_sprite_frame_texture(unit.hero_id, "idle")
+		if idle_tex != null:
+			var breath_tex: Texture2D = HeroDatabase.get_grid_sprite_frame_texture(unit.hero_id, "breath")
+			var anim_sprite: AnimatedSprite2D = AnimatedSprite2D.new()
+			anim_sprite.name = "ChibiSprite"
+			var frames: SpriteFrames = SpriteFrames.new()
+			frames.add_animation(&"default")
+			frames.add_frame(&"default", idle_tex)
+			if breath_tex != null:
+				frames.add_frame(&"default", breath_tex)
+			# 800 ms per frame → 1.25 fps. 2-frame ping-pong = 1.6 s cycle.
+			frames.set_animation_speed(&"default", 1.25)
+			frames.set_animation_loop(&"default", true)
+			anim_sprite.sprite_frames = frames
+			var native_size: Vector2 = idle_tex.get_size()
 			var max_dim: float = maxf(native_size.x, native_size.y)
 			var fit_factor: float = (TILE_SIZE * 0.9) / max_dim
-			chibi_sprite.scale = Vector2(fit_factor, fit_factor)
-			chibi_sprite.position = Vector2.ZERO
-			chibi_sprite.rotation = -poly.rotation
-			poly.add_child(chibi_sprite)
+			anim_sprite.scale = Vector2(fit_factor, fit_factor)
+			anim_sprite.position = Vector2.ZERO
+			anim_sprite.rotation = -poly.rotation
+			anim_sprite.play(&"default")
+			# Per-hero phase offset — hash unit.hero_id to a 0..1 fraction,
+			# then seed initial frame + frame_progress so 5 heroes on grid
+			# breathe at staggered phases (no drill-team sync). Only meaningful
+			# when breath frame exists (else 1-frame anim = no phase to shift).
+			if breath_tex != null:
+				var hash_val: int = hash(String(unit.hero_id))
+				var phase: float = float(hash_val % 1000) / 1000.0
+				if phase >= 0.5:
+					anim_sprite.frame = 1
+					anim_sprite.frame_progress = (phase - 0.5) * 2.0
+				else:
+					anim_sprite.frame = 0
+					anim_sprite.frame_progress = phase * 2.0
+			poly.add_child(anim_sprite)
 		# Session-16: small class-glyph inside the polygon (spear / shield / bow
 		# / scroll / crown / dagger). Counter-rotated against the polygon facing
 		# so the glyph stays upright. Reads as "what this piece does" at a glance
@@ -535,9 +556,10 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 		label.size = Vector2(60, 18)
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		poly.add_child(label)
-		# Q5 Phase 1 status (S72): chibi grid sprite mount 활성화 (위 ChibiSprite
-		# 블록 참조). Phase 2-4 (idle breath / walk 4-frame / attack 3-frame
-		# animation) 은 추후 multi-session 작업 — 현재 idle 단일 frame 만.
+		# Q5 Phase 1+2 status (S72): chibi grid sprite mount + idle breath
+		# 활성화 (위 ChibiSprite 블록 참조). 현재 위연만 breath frame asset 보유
+		# (codex CLI image-to-image trial 산물) — 다른 4 영웅은 1-frame static.
+		# Phase 3-4 (walk 4-frame / attack 3-frame) 은 추후 작업.
 		# Q4 facing chevron — universal "front" indicator on EVERY unit polygon
 		# so player can tell which direction each unit is looking (esp. INFANTRY/
 		# STRATEGIST/COMMANDER which are rotation-symmetric — pre-Q4 they had
