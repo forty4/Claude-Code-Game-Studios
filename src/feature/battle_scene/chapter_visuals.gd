@@ -450,20 +450,32 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 			player_parent.add_child(poly)
 		else:
 			enemy_parent.add_child(poly)
+		# Q5 Phase 1+2 — Resolve chibi grid sprite first. When chibi is mounted,
+		# the legacy identity cues (HeroBorder accent ring, ClassEmblem class
+		# glyph + per-hero overlay, NameLabel Korean name) are SKIPPED — the
+		# sprite already conveys hero identity (silhouette + face + weapon) and
+		# the legacy cues clutter / occlude it. FrontChevron is retained always
+		# since chibi is counter-rotated to upright and cannot encode unit
+		# facing — REAR-attack 치명타 가독성 cue must remain.
+		# Heroes without a chibi asset (un-shipped roster, pre-cascade enemies
+		# at ch13, etc.) keep the legacy 4-cue composition unchanged.
+		var idle_tex: Texture2D = HeroDatabase.get_grid_sprite_frame_texture(unit.hero_id, "idle")
+		var has_chibi_sprite: bool = (idle_tex != null)
 		# Per-hero accent BORDER as a closed Line2D over the polygon's edge.
 		# Same shape, vivid hero-specific color → individual generals are
 		# distinct within their faction without diluting the faction fill read.
 		# modulate cascade from the parent polygon takes the border along for
 		# damage-flash / death-fade / end-of-turn dim / round-undim animations.
-		var border: Line2D = Line2D.new()
-		border.name = "HeroBorder"
-		border.points = shape
-		border.closed = true
-		border.width = _HERO_BORDER_WIDTH
-		border.default_color = _get_hero_accent(unit.hero_id, unit.side)
-		border.joint_mode = Line2D.LINE_JOINT_BEVEL
-		border.antialiased = true
-		poly.add_child(border)
+		if not has_chibi_sprite:
+			var border: Line2D = Line2D.new()
+			border.name = "HeroBorder"
+			border.points = shape
+			border.closed = true
+			border.width = _HERO_BORDER_WIDTH
+			border.default_color = _get_hero_accent(unit.hero_id, unit.side)
+			border.joint_mode = Line2D.LINE_JOINT_BEVEL
+			border.antialiased = true
+			poly.add_child(border)
 		# Q5 Phase 1+2 — Chibi grid sprite mount (sumi-e + chibi fusion per
 		# art-bible §5.7). AnimatedSprite2D — idle frame always (Phase 1), plus
 		# optional breath frame (Phase 2) for 2-frame ping-pong loop visualizing
@@ -473,11 +485,9 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 		# transparent silhouette, preserving friend/foe read. Counter-rotated
 		# against poly.rotation so chibi always renders upright regardless of
 		# class facing. Scaled to fit TILE_SIZE * 0.9 → slight inset so faction
-		# halo reads. Graceful fallback: no idle → polygon-only; idle but no
-		# breath → 1-frame static (no animation). Distinct from Q5 1차
-		# (`4c17ac2`, reverted at `97b0c7a`) which mounted static portraits.
-		var idle_tex: Texture2D = HeroDatabase.get_grid_sprite_frame_texture(unit.hero_id, "idle")
-		if idle_tex != null:
+		# halo reads. Distinct from Q5 1차 (`4c17ac2`, reverted at `97b0c7a`)
+		# which mounted static portraits.
+		if has_chibi_sprite:
 			var breath_tex: Texture2D = HeroDatabase.get_grid_sprite_frame_texture(unit.hero_id, "breath")
 			var anim_sprite: AnimatedSprite2D = AnimatedSprite2D.new()
 			anim_sprite.name = "ChibiSprite"
@@ -519,48 +529,50 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 		# without obscuring the shape silhouette — placed at origin (center).
 		# Also paints a per-hero overlay symbol (수염 / 안대 / 꽃 / 별 / 산 / 부채
 		# / 등) using the hero accent color so 관우와 장비를 한 눈에 구분.
-		var emblem: ClassEmblem = ClassEmblem.make(unit.unit_class, unit.side,
-			-poly.rotation, unit.hero_id, _get_hero_accent(unit.hero_id, unit.side))
-		emblem.name = "ClassEmblem"
-		poly.add_child(emblem)
+		if not has_chibi_sprite:
+			var emblem: ClassEmblem = ClassEmblem.make(unit.unit_class, unit.side,
+				-poly.rotation, unit.hero_id, _get_hero_accent(unit.hero_id, unit.side))
+			emblem.name = "ClassEmblem"
+			poly.add_child(emblem)
 		# Name label above the polygon — bigger, heavier outline than the prior
 		# pass so the hero is identifiable at a glance even before the player
 		# memorizes the shape+border palette. Session-16: tint label color to the
 		# hero accent (HERO_ACCENT_BY_HERO_ID) so 관우/장비/유비/황충/초선 etc. read
 		# as distinct hand-named pieces at the same time the border color does.
 		# Outline stays near-black for contrast against terrain.
-		var hero: HeroData = HeroDatabase.get_hero(unit.hero_id)
-		var accent: Color = _get_hero_accent(unit.hero_id, unit.side)
-		# Brighten the accent slightly so it reads at small font sizes against
-		# any terrain backdrop without dropping to dim. Session-40: lerp factor
-		# tightened 0.45 → 0.30 so the hero accent reads more saturated — pre-
-		# S40 the names trended toward neutral cream and the per-hero color
-		# distinction in the labels was muddled. Outline still carries contrast.
-		var label_color: Color = accent.lerp(Color(1.0, 1.0, 1.0, 1.0), 0.30)
-		var label: Label = Label.new()
-		label.name = "NameLabel"
-		label.text = hero.name_ko if hero != null and hero.name_ko != "" else String(unit.hero_id)
-		label.add_theme_color_override("font_color", label_color)
-		label.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.05, 1.0))
-		# S60 — name labels are always visible (per_UNIT_LABEL_DIM_ALPHA=0.85).
-		# Pre-S60 size 80×22 + font_size 20 overflowed TILE_SIZE=64 → adjacent
-		# columns had 16px horizontal label overlap, garbled at standard zoom
-		# when DIM_ALPHA was bumped from 0. Resized to 60×18 + font_size 13 so
-		# every label fits within its tile column. 2-3 char Korean names
-		# (유비/관우/장비/황충/초선/하후돈 etc.) all fit cleanly.
-		label.add_theme_constant_override("outline_size", 4)
-		label.add_theme_font_size_override("font_size", 13)
-		# Counter the polygon's facing rotation so the label always reads upright.
-		label.rotation = -poly.rotation
-		# Centered horizontally over the polygon, just above the class emblem.
-		# size.x=60 < TILE_SIZE=64 → no horizontal overlap with adjacent columns.
-		label.position = Vector2(-30, -44)
-		label.size = Vector2(60, 18)
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		poly.add_child(label)
-		# Q5 Phase 1+2 status (S72): chibi grid sprite mount + idle breath
-		# 활성화 (위 ChibiSprite 블록 참조). 현재 위연만 breath frame asset 보유
-		# (codex CLI image-to-image trial 산물) — 다른 4 영웅은 1-frame static.
+		if not has_chibi_sprite:
+			var hero: HeroData = HeroDatabase.get_hero(unit.hero_id)
+			var accent: Color = _get_hero_accent(unit.hero_id, unit.side)
+			# Brighten the accent slightly so it reads at small font sizes against
+			# any terrain backdrop without dropping to dim. Session-40: lerp factor
+			# tightened 0.45 → 0.30 so the hero accent reads more saturated — pre-
+			# S40 the names trended toward neutral cream and the per-hero color
+			# distinction in the labels was muddled. Outline still carries contrast.
+			var label_color: Color = accent.lerp(Color(1.0, 1.0, 1.0, 1.0), 0.30)
+			var label: Label = Label.new()
+			label.name = "NameLabel"
+			label.text = hero.name_ko if hero != null and hero.name_ko != "" else String(unit.hero_id)
+			label.add_theme_color_override("font_color", label_color)
+			label.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.05, 1.0))
+			# S60 — name labels are always visible (per_UNIT_LABEL_DIM_ALPHA=0.85).
+			# Pre-S60 size 80×22 + font_size 20 overflowed TILE_SIZE=64 → adjacent
+			# columns had 16px horizontal label overlap, garbled at standard zoom
+			# when DIM_ALPHA was bumped from 0. Resized to 60×18 + font_size 13 so
+			# every label fits within its tile column. 2-3 char Korean names
+			# (유비/관우/장비/황충/초선/하후돈 etc.) all fit cleanly.
+			label.add_theme_constant_override("outline_size", 4)
+			label.add_theme_font_size_override("font_size", 13)
+			# Counter the polygon's facing rotation so the label always reads upright.
+			label.rotation = -poly.rotation
+			# Centered horizontally over the polygon, just above the class emblem.
+			# size.x=60 < TILE_SIZE=64 → no horizontal overlap with adjacent columns.
+			label.position = Vector2(-30, -44)
+			label.size = Vector2(60, 18)
+			label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			poly.add_child(label)
+		# Q5 Phase 1+2 status (S72): chibi sprite + 2-frame breath mounted for
+		# all 5 cascade 영웅 (위연 / 방통 / 관우 / 장비 / 유비). Legacy cues
+		# (border / emblem / label) suppressed when chibi present per Heavy hide.
 		# Phase 3-4 (walk 4-frame / attack 3-frame) 은 추후 작업.
 		# Q4 facing chevron — universal "front" indicator on EVERY unit polygon
 		# so player can tell which direction each unit is looking (esp. INFANTRY/
