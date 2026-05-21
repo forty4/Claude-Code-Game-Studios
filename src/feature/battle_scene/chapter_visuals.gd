@@ -496,20 +496,22 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 			anim_sprite.scale = Vector2(fit_factor, fit_factor)
 			anim_sprite.position = Vector2.ZERO
 			anim_sprite.rotation = -poly.rotation
-			anim_sprite.play(&"default")
 			# Per-hero phase offset — hash unit.hero_id to a 0..1 fraction,
 			# then seed initial frame + frame_progress so 5 heroes on grid
 			# breathe at staggered phases (no drill-team sync). Only meaningful
 			# when breath frame exists (else 1-frame anim = no phase to shift).
+			# CRITICAL: set frame + progress BEFORE play() — Godot 4.6
+			# AnimatedSprite2D.frame setter stops playback if assigned after
+			# play() (first windowed attestation: 위연 "전혀 움직임 없음").
+			# set_frame_and_progress(int, float) is atomic and preferred.
 			if breath_tex != null:
 				var hash_val: int = hash(String(unit.hero_id))
 				var phase: float = float(hash_val % 1000) / 1000.0
 				if phase >= 0.5:
-					anim_sprite.frame = 1
-					anim_sprite.frame_progress = (phase - 0.5) * 2.0
+					anim_sprite.set_frame_and_progress(1, (phase - 0.5) * 2.0)
 				else:
-					anim_sprite.frame = 0
-					anim_sprite.frame_progress = phase * 2.0
+					anim_sprite.set_frame_and_progress(0, phase * 2.0)
+			anim_sprite.play(&"default")
 			poly.add_child(anim_sprite)
 		# Session-16: small class-glyph inside the polygon (spear / shield / bow
 		# / scroll / crown / dagger). Counter-rotated against the polygon facing
