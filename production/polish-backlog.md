@@ -523,11 +523,39 @@ The session-7 production_slide isolation fix (commit `ba4f83c` — adds `SceneMa
 
 ---
 
+### POLISH-015 — 관우 chibi sprite 이동 시 90도 회전 (다른 4 영웅 미확인)
+
+| Field | Value |
+|---|---|
+| **Source** | 사용자 windowed attestation 2026-05-21, Q5 Phase 2 Heavy hide commit `136203e` 직후. 관우만 reported — 다른 영웅 (방통/장비/유비/위연) 회전 여부 미확인 |
+| **Tier** | DEFECT (LOW severity — visual quirk only; gameplay/functionality 영향 0; chibi 가 이미 mount 되고 사용자가 "잘 나오네" 만족 표한 후 발견) |
+| **Closure trigger** | Q5 Phase 3 (walk 4-frame animation) 작업 진입 시점 (그때 sprite rotation 전체 path 재검토 필연) OR 사용자 explicit request |
+| **Owner** | unassigned |
+| **Status** | Open |
+| **Added** | 2026-05-21 |
+| **Resolved** | — |
+
+**Description**: Q5 Phase 1 mount 시 `chibi_sprite.rotation = -poly.rotation` 가 spawn-time only 한 번 set (chapter_visuals.gd:498). unit 이동 후 polygon.rotation 이 새 facing 으로 update 되어도 ChibiSprite 의 rotation 은 spawn 시점 값 유지 → polygon-relative 으로 90도 어긋남. 관우만 reported 인 이유는 미확인 — 관우의 unit_class (CAVALRY 추정) 가 이동 시 facing change 가 가장 자주 발생하거나, rotation_for_facing 의 class-specific 값이 관우 case 에서만 가시한 회전 produce 가능.
+
+**Action when picked up**:
+1. unit movement 처리 코드에서 polygon.rotation update 시점 찾기 (`battle_scene.gd` 의 `_on_unit_moved` 또는 비슷한 handler 가능성)
+2. 같은 시점에 자식 ChibiSprite (있을 경우) 의 rotation 도 `-poly.rotation` 으로 동기 update
+3. 5 영웅 모두 (방통/관우/장비/유비/위연) 이동 시 회전 검증 — 관우만 issue 인지 universal issue 인지 확인
+4. NameLabel + FrontChevron 도 동일 counter-rotation 패턴 (chapter_visuals.gd:531, 533) — 그들은 어떻게 처리되는지 참고
+
+**Cross-references**:
+- `src/feature/battle_scene/chapter_visuals.gd:498` (chibi_sprite.rotation = -poly.rotation, spawn-only)
+- `src/feature/battle_scene/chapter_visuals.gd:531-533` (FrontChevron counter-rotation 패턴 참고)
+- `src/feature/battle_scene/battle_scene.gd` 의 unit movement handler (정확한 line 미상)
+- Q5 Phase 2 commit chain: `c9948a1` (5 breath asset) / `136203e` (Heavy hide)
+
+---
+
 ## Index — by Status
 
 | Status | Count | IDs |
 |---|---|---|
-| Open | 14 | POLISH-001 / POLISH-002 / POLISH-003 / POLISH-004 / POLISH-005 / POLISH-006 / POLISH-007 / POLISH-008 / POLISH-009 / POLISH-010 / POLISH-011 / POLISH-012 / POLISH-013 / POLISH-014 |
+| Open | 15 | POLISH-001 / POLISH-002 / POLISH-003 / POLISH-004 / POLISH-005 / POLISH-006 / POLISH-007 / POLISH-008 / POLISH-009 / POLISH-010 / POLISH-011 / POLISH-012 / POLISH-013 / POLISH-014 / POLISH-015 |
 | In-progress | 0 | — |
 | Resolved | 0 | — |
 | Cancelled | 0 | — |
@@ -544,6 +572,7 @@ The session-7 production_slide isolation fix (commit `ba4f83c` — adds `SceneMa
 | Sprint-15 S15-D /dev-story Phase 4 godot-gdscript-specialist mid-implementation investigation (2026-05-10 PM late-late) | POLISH-012 |
 | Sprint-15 S15-D /dev-story 3-spawn-cycle attempt at natural-loop test (2026-05-10 PM very-late; deferred to sprint-16 with reframed scope) | POLISH-013 |
 | Session 7 Phase 7 production_slide test isolation fix (2026-05-13 — surfaced when exit code transitioned 100→101 after eliminating the 1-known-error) | POLISH-014 |
+| S72 사용자 windowed attestation 2026-05-21 (Q5 Phase 2 Heavy hide `136203e` 직후 관우 회전 발견) | POLISH-015 |
 
 ## Index — by Closure Trigger
 
@@ -557,6 +586,7 @@ The session-7 production_slide isolation fix (commit `ba4f83c` — adds `SceneMa
 | MUST resolve before production stage advancement (gate-check rerun-3 path-to-PASS) | POLISH-011 |
 | MUST resolve before production stage advancement (sprint-15 S15-J mid-amendment in flight; production-wiring residual of POLISH-011 absorption arc) | POLISH-012 |
 | Pre-release CI green requirement OR dedicated hygiene sweep (gdUnit4 exit 101 warning, not error) | POLISH-014 |
+| Q5 Phase 3 (walk 4-frame animation) 작업 진입 시점 OR 사용자 explicit request | POLISH-015 |
 
 ---
 
