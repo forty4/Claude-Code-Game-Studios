@@ -261,3 +261,77 @@ Ship-able output must satisfy:
 - ✅ NO blush / NO 핑크 볼터치 / NO moe softening
 
 미달 시 regen. ping-pong 시 깜빡임 (lamellar pattern drift / outline 두께 변동) 도 fail 대상.
+
+
+## Walk frames (Phase 3) — 신규 2026-05-21
+
+art-bible §5.7 Phase 3 — walk animation 2-frame ping-pong (200ms × 2 = 400ms
+cycle, ~1 cycle per tile move). 위연 walk: leg position alternation +
+subtle forward-lean. mercenary 자세 (hip-cocked, weapon mount) 모두 보존.
+
+### Walk frame 0 prompt — left step (image-to-image)
+
+```
+Apply WALK STEP MODIFICATIONS to the input idle PNG of Wei Yan, producing
+walk frame 0 of a 2-frame walk cycle.
+
+VISIBLE CHANGES (clearly mid-stride, LEFT foot forward):
+- Left leg stepped forward visibly (~12-15% of figure height advance)
+- Right leg trailing slightly back
+- Body subtly leaned forward ~3-5° (momentum read, not extreme)
+- Slight torso twist toward forward direction
+
+EVERYTHING ELSE 100% IDENTICAL TO INPUT IDLE:
+- Same face dots, mouth line, skin tone
+- Same hair topknot
+- Same scabbard HIP-WORN at left hip — sword sheathed, NOT held
+- Same right hand resting on hilt grip, left hand hanging empty
+- Same iron blue-grey (#5C7A8A) lamellar armor with ochre-earth trim
+- Same lamellar plate pattern (UPPER body unchanged — only legs change)
+- Same sumi-e brush outline and ink wash texture
+- Same TRANSPARENT alpha PNG background
+- Same image dimensions
+
+Output filename: sprite_shu_wei_yan_walk_0.png
+```
+
+### Walk frame 1 prompt — right step (image-to-image)
+
+```
+Apply WALK STEP MODIFICATIONS to the input idle PNG, producing walk frame 1
+— MIRROR of walk frame 0 (RIGHT foot forward instead of left).
+
+VISIBLE CHANGES (clearly mid-stride, RIGHT foot forward):
+- Right leg stepped forward visibly (~12-15% of figure height advance)
+- Left leg trailing slightly back
+- Body subtly leaned forward ~3-5° (same lean angle as frame 0)
+- Slight torso twist toward forward direction (opposite of frame 0)
+
+EVERYTHING ELSE 100% IDENTICAL TO INPUT IDLE (same identity preservation list
+as frame 0 above).
+
+Output filename: sprite_shu_wei_yan_walk_1.png
+```
+
+### Text-to-image fallback prompt
+
+위 idle prompt base + 위 VISIBLE CHANGES 블록 (frame 0 또는 1 의도 선택) 을
+`STANCE` 섹션 앞에 삽입. leg alternation 만 변경, weapon mount + 손 위치 보존.
+
+### Asset target
+
+| Field | Value |
+|---|---|
+| Filenames | `sprite_shu_wei_yan_walk_0.png` (left step) / `sprite_shu_wei_yan_walk_1.png` (right step) |
+| Frame count | 2 (Phase 3 walk ping-pong) |
+| Format | PNG with alpha (TRANSPARENT background) |
+| Dimensions | idle 와 동일 |
+
+### Acceptance for walk frames
+- ✅ Side-by-side with idle: leg position 변경 명확
+- ✅ Frame 0 ↔ Frame 1: leg mirroring 명확 — 좌우 step 식별 가능
+- ✅ Upper body (얼굴, 무기, 갑옷, hilt grip) idle 와 100% identical
+- ✅ 검집 hip-worn 유지 (walk 으로 weapon 잡기 자세 변경 금지)
+- ✅ TRANSPARENT alpha background
+- ✅ Sumi-e brush 유지 + outline drift 미세
+- ✅ Same dimensions, no decorative borders

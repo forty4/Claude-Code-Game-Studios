@@ -324,3 +324,65 @@ Output filename: sprite_shu_liu_bei_breath.png
 - ✅ Trim 정돈 수염 (wild 변경 금지)
 - ✅ TRANSPARENT alpha background
 - ✅ Ink-base + ochre trim 색 동일 + 주홍/금색 침투 0
+
+
+## Walk frames (Phase 3) — 신규 2026-05-21
+
+art-bible §5.7 Phase 3 — walk animation 2-frame ping-pong. 유비 walk: virtue-
+king commander 결의 dignified step (calm, balanced). open-arm pose + 정면 시선
++ 큰 귀 + 双股劍 paired hip 모두 보존, 다리만 alternation.
+
+### Walk frame 0 prompt — left step (image-to-image)
+
+```
+Apply WALK STEP MODIFICATIONS to the input idle PNG of Liu Bei, producing
+walk frame 0 (LEFT foot forward).
+
+VISIBLE CHANGES (dignified commander step):
+- Left leg stepped forward visibly (~11-13% of figure height — moderate)
+- Right leg trailing slightly back
+- Body subtly leaned forward ~3-4° (balanced, not aggressive)
+- Robe naturally falls with step
+
+EVERYTHING ELSE 100% IDENTICAL TO INPUT IDLE:
+- Same STRAIGHT-AHEAD gaze (정면 시선 — walk 시에도 유일 정면 보존)
+- Same eye dots, single mouth line, naturalistic skin
+- Same LARGE EARS 1.5× protruding from head silhouette (Buddha-iconography 보존)
+- Same trim full beard (NEATLY groomed, NOT wild)
+- Same open-arm rally pose — BOTH ARMS still slightly extended outward
+- Same 双股劍 paired short swords at right hip
+- Same ink-base + ochre trim robe
+- Same sumi-e brush quality
+- Same TRANSPARENT alpha background, same dimensions
+
+Output filename: sprite_shu_liu_bei_walk_0.png
+```
+
+### Walk frame 1 prompt — right step (image-to-image)
+
+```
+Apply WALK STEP MODIFICATIONS to the input idle PNG, producing walk frame 1
+— MIRROR of walk frame 0 (RIGHT foot forward).
+
+Same identity preservation list (정면 시선, 큰 귀 1.5×, open-arm extended,
+双股劍 paired hip, trim 수염). Same dignified step feel.
+
+Output filename: sprite_shu_liu_bei_walk_1.png
+```
+
+### Asset target
+
+| Field | Value |
+|---|---|
+| Filenames | `sprite_shu_liu_bei_walk_0.png` / `sprite_shu_liu_bei_walk_1.png` |
+| Frame count | 2 (Phase 3 walk ping-pong) |
+| Format | PNG with alpha (TRANSPARENT background) |
+| Dimensions | idle 와 동일 |
+
+### Acceptance for walk frames
+- ✅ Side-by-side: leg alternation 명확, dignified step tone
+- ✅ 정면 시선 보존 (walk 으로 시선 변경 금지)
+- ✅ 큰 귀 1.5× silhouette 동일 (Buddha-iconography 유지)
+- ✅ Open-arm pose 동일 (양팔 still extended outward)
+- ✅ 双股劍 paired hip 위치 + trim 수염 동일
+- ✅ TRANSPARENT alpha + same dimensions

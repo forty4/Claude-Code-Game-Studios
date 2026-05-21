@@ -1405,6 +1405,17 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 	# either way (covers headless tests that don't run the tween scheduler
 	# loop AND any remaining windowed-env edge cases).
 	var start_pos: Vector2 = unit_node.position
+	# Q5 Phase 3 — Switch ChibiSprite to "walk" animation if present. Reverts
+	# to "default" (idle/breath) at slide end via the deferred timer callback.
+	# Graceful: chibi 미-mount 영웅 (asset 없음) 은 ChibiSprite 자체 없어 skip.
+	# Either walk frame 미배포 시 walk animation 등록 안 되어 has_animation
+	# false → play("walk") skip.
+	var chibi_at_start: Node = unit_node.get_node_or_null("ChibiSprite")
+	if chibi_at_start is AnimatedSprite2D:
+		var anim_at_start: AnimatedSprite2D = chibi_at_start as AnimatedSprite2D
+		if anim_at_start.sprite_frames != null \
+				and anim_at_start.sprite_frames.has_animation(&"walk"):
+			anim_at_start.play(&"walk")
 	var slide_tween: Tween = get_tree().create_tween()
 	slide_tween.tween_property(unit_node, "position", world_pos, MOVE_ANIM_DURATION) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
@@ -1416,7 +1427,14 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 			return
 		var n: Node2D = _find_unit_polygon(v, unit_id)
 		if is_instance_valid(n):
-			n.position = world_pos)
+			n.position = world_pos
+			# Revert ChibiSprite to default (idle/breath) animation.
+			var chibi_at_end: Node = n.get_node_or_null("ChibiSprite")
+			if chibi_at_end is AnimatedSprite2D:
+				var anim_at_end: AnimatedSprite2D = chibi_at_end as AnimatedSprite2D
+				if anim_at_end.sprite_frames != null \
+						and anim_at_end.sprite_frames.has_animation(&"default"):
+					anim_at_end.play(&"default"))
 	SoundManager.play(SoundManager.SFX_MOVE)
 	_trace("[SLIDE-DONE] unit=%d polygon.position now %s (start %s → target %s)" %
 		[unit_id, str(unit_node.position), str(start_pos), str(world_pos)])
@@ -1436,6 +1454,16 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 		var label_node: Node = unit_node.get_node_or_null("NameLabel")
 		if label_node is Label:
 			rot_tween.tween_property(label_node, "rotation", -target_rotation, MOVE_ANIM_DURATION) \
+				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		# POLISH-015 fix — Counter-rotate the ChibiSprite so it stays upright
+		# through the slide (Q5 Phase 1 mount sets rotation=-poly.rotation at
+		# spawn-time only; without this tween the chibi co-rotates with polygon
+		# when directional classes (CAVALRY/관우 etc.) change facing → 90° drift).
+		# Pattern mirrors NameLabel counter-rotation above. Heavy hide ensures
+		# NameLabel and ChibiSprite are mutually exclusive — only one is present.
+		var chibi_node: Node = unit_node.get_node_or_null("ChibiSprite")
+		if chibi_node is AnimatedSprite2D:
+			rot_tween.tween_property(chibi_node, "rotation", -target_rotation, MOVE_ANIM_DURATION) \
 				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		# Counter-rotate the chevron if it's parented to this unit.
 		if is_instance_valid(_turn_indicator) and _turn_indicator.get_parent() == unit_node:

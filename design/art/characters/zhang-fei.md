@@ -288,3 +288,63 @@ critical 명시.
 - ✅ Forward-lean stance 유지 (호흡으로 직립 변경 금지)
 - ✅ TRANSPARENT alpha background
 - ✅ 1 weapon + NO blush + 최고 대비 어두운 palette 동일
+
+
+## Walk frames (Phase 3) — 신규 2026-05-21
+
+art-bible §5.7 Phase 3 — walk animation 2-frame ping-pong. 장비 walk: assault
+결의 가장 dynamic step (5 영웅 중 가장 강한 forward-lean + momentum). leopard-
+ring eye + wild beard + 장팔사모 spear vertical 모두 보존, 다리만 alternation.
+
+### Walk frame 0 prompt — left step (image-to-image)
+
+```
+Apply WALK STEP MODIFICATIONS to the input idle PNG of Zhang Fei, producing
+walk frame 0 (LEFT foot forward).
+
+VISIBLE CHANGES (assault step, strongest momentum among 5 heroes):
+- Left leg stepped forward boldly (~14-16% of figure height — largest step)
+- Right leg trailing back, weight aggressively forward
+- Body leaned forward ~5-7° (strong forward-lean — strongest of 5 heroes)
+- Wedge torso silhouette emphasizes momentum
+
+EVERYTHING ELSE 100% IDENTICAL TO INPUT IDLE:
+- Same LEOPARD-RING EYES — 1.5× black dots with white outer ring
+- Same wild curly black beard spilling beyond armor (wet-brush ink)
+- Same hair topknot with stray curls
+- Same 장팔사모 spear vertical in right hand — SPEAR POSITION UNCHANGED
+  (S-curve tip same spot, no swing)
+- Same dark armor with leather binding, darkest in 5-hero series
+- Same sumi-e wet-brush quality (especially beard)
+- Same TRANSPARENT alpha background, same dimensions
+
+Output filename: sprite_shu_zhang_fei_walk_0.png
+```
+
+### Walk frame 1 prompt — right step (image-to-image)
+
+```
+Apply WALK STEP MODIFICATIONS to the input idle PNG, producing walk frame 1
+— MIRROR of walk frame 0 (RIGHT foot forward).
+
+Same identity preservation list (leopard-ring eyes 1.5×, wild beard, spear
+vertical, wedge torso). Same dynamic step feel.
+
+Output filename: sprite_shu_zhang_fei_walk_1.png
+```
+
+### Asset target
+
+| Field | Value |
+|---|---|
+| Filenames | `sprite_shu_zhang_fei_walk_0.png` / `sprite_shu_zhang_fei_walk_1.png` |
+| Frame count | 2 (Phase 3 walk ping-pong) |
+| Format | PNG with alpha (TRANSPARENT background) |
+| Dimensions | idle 와 동일 |
+
+### Acceptance for walk frames
+- ✅ Side-by-side: 가장 dynamic step 명확 (다른 4 영웅 대비 forward-lean 최대)
+- ✅ leopard-ring eye 1.5× 보존 (drift 금지)
+- ✅ Wild curly beard + 장팔사모 spear 위치 동일
+- ✅ Wedge torso + 어두운 palette 동일
+- ✅ TRANSPARENT alpha + same dimensions

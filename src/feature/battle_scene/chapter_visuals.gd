@@ -499,6 +499,21 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 			# 800 ms per frame → 1.25 fps. 2-frame ping-pong = 1.6 s cycle.
 			frames.set_animation_speed(&"default", 1.25)
 			frames.set_animation_loop(&"default", true)
+			# Q5 Phase 3 — Walk animation (2-frame ping-pong, 200ms per frame =
+			# 400ms cycle ~ 1 cycle per tile move at default MOVE_ANIM_DURATION).
+			# Both walk_0 (left step) AND walk_1 (right step) must be present —
+			# either-missing falls back to no walk animation (graceful, code in
+			# battle_scene._on_unit_moved checks has_animation(&"walk") before
+			# play). Activated by movement handler; reverts to "default" at
+			# slide end.
+			var walk_0_tex: Texture2D = HeroDatabase.get_grid_sprite_frame_texture(unit.hero_id, "walk_0")
+			var walk_1_tex: Texture2D = HeroDatabase.get_grid_sprite_frame_texture(unit.hero_id, "walk_1")
+			if walk_0_tex != null and walk_1_tex != null:
+				frames.add_animation(&"walk")
+				frames.add_frame(&"walk", walk_0_tex)
+				frames.add_frame(&"walk", walk_1_tex)
+				frames.set_animation_speed(&"walk", 5.0)  # 5 fps = 200ms per frame
+				frames.set_animation_loop(&"walk", true)
 			anim_sprite.sprite_frames = frames
 			var native_size: Vector2 = idle_tex.get_size()
 			var max_dim: float = maxf(native_size.x, native_size.y)

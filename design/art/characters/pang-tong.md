@@ -252,3 +252,62 @@ Output filename: sprite_shu_pang_tong_breath.png
 - ✅ Sumi-e brush + 잉크 wash 유지
 - ✅ 1 prop (부채) 만 — 추가 prop 금지
 - ✅ NO blush / NO moe softening
+
+
+## Walk frames (Phase 3) — 신규 2026-05-21
+
+art-bible §5.7 Phase 3 — walk animation 2-frame ping-pong. 방통 walk: scholar
+calm 결의 차분한 step (관우/장비 의 heavy step 과 차별). 부채 chest level
++ 학창의 silhouette 모두 유지, 다리만 alternation.
+
+### Walk frame 0 prompt — left step (image-to-image)
+
+```
+Apply WALK STEP MODIFICATIONS to the input idle PNG of Pang Tong, producing
+walk frame 0 (LEFT foot forward).
+
+VISIBLE CHANGES (gentle scholar step):
+- Left leg stepped forward visibly (~10-12% of figure height — moderate, not aggressive)
+- Right leg trailing slightly back
+- Body subtly leaned forward ~2-3° (calm, not dramatic)
+- Wide-sleeve robe naturally falls forward slightly
+
+EVERYTHING ELSE 100% IDENTICAL TO INPUT IDLE:
+- Same ROUND face, same eye dots, same single mouth line
+- Same 윤건 square scholar cap
+- Same feather fan at chest level (right hand), left hand at side
+- Same ink-heavy 학창의 robe, same paper-white fan/lining contrast
+- Same wide-sleeve silhouette (sleeves not flapping)
+- Same sumi-e brush + ink wash
+- Same TRANSPARENT alpha background, same dimensions
+
+Output filename: sprite_shu_pang_tong_walk_0.png
+```
+
+### Walk frame 1 prompt — right step (image-to-image)
+
+```
+Apply WALK STEP MODIFICATIONS to the input idle PNG, producing walk frame 1
+— MIRROR of walk frame 0 (RIGHT foot forward instead of left).
+
+Same VISIBLE CHANGES as frame 0 but right/left swapped. Same identity
+preservation list (round face, fan at chest, wide-sleeve robe, etc.).
+
+Output filename: sprite_shu_pang_tong_walk_1.png
+```
+
+### Asset target
+
+| Field | Value |
+|---|---|
+| Filenames | `sprite_shu_pang_tong_walk_0.png` / `sprite_shu_pang_tong_walk_1.png` |
+| Frame count | 2 (Phase 3 walk ping-pong) |
+| Format | PNG with alpha (TRANSPARENT background) |
+| Dimensions | idle 와 동일 |
+
+### Acceptance for walk frames
+- ✅ Side-by-side: leg alternation 명확, scholar calm tone 유지
+- ✅ 부채 chest level + 학창의 silhouette 보존
+- ✅ 둥근 얼굴 유지 (sharp-feature drift 금지)
+- ✅ TRANSPARENT alpha + same dimensions
+- ✅ Sumi-e brush 유지, no decorative frame

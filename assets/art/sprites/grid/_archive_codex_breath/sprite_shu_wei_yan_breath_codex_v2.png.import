@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bmkx6clpvlbbu"
-path="res://.godot/imported/sprite_shu_wei_yan_breath_codex_v1.png-66634516501f732e473ca8c7777613b2.ctex"
+uid="uid://dv3ivad1iuf2m"
+path="res://.godot/imported/sprite_shu_wei_yan_breath_codex_v2.png-c9dc117c4c1ae615459ccfdba75b8558.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art/sprites/grid/_archive_codex_breath/sprite_shu_wei_yan_breath_codex_v1.png"
-dest_files=["res://.godot/imported/sprite_shu_wei_yan_breath_codex_v1.png-66634516501f732e473ca8c7777613b2.ctex"]
+source_file="res://assets/art/sprites/grid/_archive_codex_breath/sprite_shu_wei_yan_breath_codex_v2.png"
+dest_files=["res://.godot/imported/sprite_shu_wei_yan_breath_codex_v2.png-c9dc117c4c1ae615459ccfdba75b8558.ctex"]
 
 [params]
 

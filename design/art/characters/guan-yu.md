@@ -276,3 +276,63 @@ Output filename: sprite_shu_guan_yu_breath.png
 - ✅ TRANSPARENT alpha background
 - ✅ Sumi-e brush 유지, 녹포 잉크 wash 동일
 - ✅ 1 weapon (청룡언월도) 만 + NOT red-faced + NO blush
+
+
+## Walk frames (Phase 3) — 신규 2026-05-21
+
+art-bible §5.7 Phase 3 — walk animation 2-frame ping-pong. 관우 walk: heavy
+cavalry 결의 무거운 step (slow swing 인상). 1.4× 어깨 폭 + 청룡언월도
+vertical + 긴 수염 silhouette 모두 보존, 다리만 alternation.
+
+### Walk frame 0 prompt — left step (image-to-image)
+
+```
+Apply WALK STEP MODIFICATIONS to the input idle PNG of Guan Yu, producing
+walk frame 0 (LEFT foot forward).
+
+VISIBLE CHANGES (heavy cavalry step, slow swing feel):
+- Left leg stepped forward visibly (~12-14% of figure height advance)
+- Right leg trailing slightly back, weight distributed deliberately
+- Body very subtly leaned forward ~2-4° (heavy momentum, not light step)
+- Green robe naturally falls with the step
+
+EVERYTHING ELSE 100% IDENTICAL TO INPUT IDLE:
+- Same WIDEST silhouette (어깨 1.4× ratio 보존)
+- Same face (eye dots, mouth line), NOT red-faced
+- Same long black beard down to mid-chest (silhouette key)
+- Same 청룡언월도 polearm vertical in right hand — POLEARM POSITION UNCHANGED
+  (no swing, no lean, blade tip at top-right same spot)
+- Same green (#2D6B4A) robe + iron under-armor
+- Same sumi-e brush + green robe ink wash
+- Same TRANSPARENT alpha background, same dimensions
+
+Output filename: sprite_shu_guan_yu_walk_0.png
+```
+
+### Walk frame 1 prompt — right step (image-to-image)
+
+```
+Apply WALK STEP MODIFICATIONS to the input idle PNG, producing walk frame 1
+— MIRROR of walk frame 0 (RIGHT foot forward).
+
+Same identity preservation list (1.4× shoulder ratio, long beard, polearm
+vertical, green robe). Same heavy step feel.
+
+Output filename: sprite_shu_guan_yu_walk_1.png
+```
+
+### Asset target
+
+| Field | Value |
+|---|---|
+| Filenames | `sprite_shu_guan_yu_walk_0.png` / `sprite_shu_guan_yu_walk_1.png` |
+| Frame count | 2 (Phase 3 walk ping-pong) |
+| Format | PNG with alpha (TRANSPARENT background) |
+| Dimensions | idle 와 동일 |
+
+### Acceptance for walk frames
+- ✅ Side-by-side: leg alternation 명확, heavy step 인상
+- ✅ 어깨 1.4× ratio 보존 + 긴 수염 silhouette 동일
+- ✅ 청룡언월도 polearm 위치 정확히 동일 (swing 금지)
+- ✅ 녹포 색 동일 + NOT red-faced
+- ✅ TRANSPARENT alpha + same dimensions
