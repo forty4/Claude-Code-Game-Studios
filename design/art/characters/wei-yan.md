@@ -142,9 +142,16 @@ CRITICAL VISUAL STYLE — SUMI-E BRUSH QUALITY (HIGHEST PRIORITY): Outlines MUST
 
 CRITICAL CHARACTER FACE: Wei Yan (魏延, 文长), hardened mercenary. In chibi: two small black dots for eyes (NO large anime pupils), single short mouth line, NO nose detail. Identity comes from stance and weapon, NOT face. Skin: sun-bronzed warm beige. NO blush, NO pink/red cheek dots, NO moe softening of any kind.
 
-CRITICAL WEAPON COUNT — EXACTLY ONE WEAPON ITEM IN ENTIRE FRAME: One single sword sheathed in a scabbard at his LEFT hip. Right hand rests on the wooden hilt protruding from the scabbard. Only the wooden pommel and hilt grip visible above the scabbard's metal fitting — blade stays fully enclosed in the black lacquered scabbard. ABSOLUTELY NO drawn blade, NO second sword, NO additional dagger or knife, NO weapon on the back, the right hip, the floor, or in the left hand. The figure carries EXACTLY ONE weapon item total. Left hand empty at his side.
+CRITICAL WEAPON MOUNT — HIP-WORN, NOT HELD: ONE single sword in a scabbard that is **WORN at his LEFT hip — attached to the belt/sash, hanging vertically alongside his left thigh**. The scabbard is NOT held in any hand — it is mounted on the belt as part of his outfit, like a samurai's daisho or a soldier's sidearm. The blade points DOWN. The scabbard remains attached to the hip throughout — it does NOT detach, it is NOT raised, it is NOT held horizontally in front of the body. Reference: a samurai/general standing at rest with the katana mounted at the obi, OR a Roman legionnaire with the gladius sheathed at the side. NOT a knight presenting a sheathed sword forward. NOT a figure carrying or displaying a scabbard horizontally.
 
-STANCE: Asymmetric mercenary three-quarter view facing slightly right. Body weight casual — one hip slightly cocked. Silhouette read: "blade waiting inside sheath" — restraint preserved despite chibi.
+CRITICAL HANDS POSITION — BOTH HANDS RESTING AT SIDES:
+- LEFT HAND: hangs straight down at the side, fingers relaxed, EMPTY. Not touching the weapon. Not raised. Not gesturing.
+- RIGHT HAND: rests RELAXED on top of the wooden hilt that protrudes UP from the scabbard mounted at the left hip. The hand crosses slightly to the body's left to reach the hilt. Only the wooden pommel and hilt grip are visible above the scabbard's metal fitting — blade stays fully enclosed in the black lacquered scabbard.
+- DO NOT depict either hand carrying, lifting, holding-out, or presenting the sword/scabbard. The weapon stays on the hip.
+
+CRITICAL WEAPON COUNT — EXACTLY ONE WEAPON ITEM IN ENTIRE FRAME: ABSOLUTELY NO drawn blade, NO second sword, NO additional dagger or knife, NO weapon on the back, the right hip, the floor, or in either hand independently of the hip-mounted scabbard. The figure carries EXACTLY ONE weapon item total — the sheathed sword mounted on the left hip.
+
+STANCE: Asymmetric mercenary three-quarter view facing slightly right. Body weight casual — one hip slightly cocked, standing AT REST (not engaged, not drawing, not ready-to-fight). Silhouette read: "blade waiting inside its hip-mounted sheath" — restraint preserved.
 
 Hair: jet-black, simple tight topknot, no ornament.
 
@@ -152,7 +159,7 @@ Outfit: Practical iron blue-grey (#5C7A8A) lamellar armor with ochre-earth (#C88
 
 Background: TRANSPARENT alpha PNG. The figure sits on transparent alpha — no paper texture, no fill, no border.
 
-NEGATIVE / ANTI-REFERENCE: NO photorealism. NO anime moe (no large eyes, no shoujo features, NO pink/red cheek blush dots). NO cell-shading gradients. NO glow effects. NO Dynasty Warriors muscle-baroque. NO bright saturation. NO red or gold accents (reserved for legendary VFX). NO clean vector cartoon, NO uniform-thickness outlines, NO CalArts/Disney style. NO additional weapons beyond the single sheathed sword.
+NEGATIVE / ANTI-REFERENCE: NO photorealism. NO anime moe (no large eyes, no shoujo features, NO pink/red cheek blush dots). NO cell-shading gradients. NO glow effects. NO Dynasty Warriors muscle-baroque. NO bright saturation. NO red or gold accents (reserved for legendary VFX). NO clean vector cartoon, NO uniform-thickness outlines, NO CalArts/Disney style. NO additional weapons beyond the single sheathed sword. NO carrying or holding the scabbard horizontally in front of the body. NO scabbard detached from the hip. NO presenting/displaying the sheathed sword. NO ready-to-draw or combat-ready posture.
 
 Composition: chibi figure centered, ~60% canvas vertically. Generous negative space.
 
@@ -176,7 +183,8 @@ Ship-able output must satisfy (single AND gate):
 - ✅ 얼굴 단순화 (눈 = 점 2개, 입 = 1선) — anime 큰 눈 금지
 - ✅ NO 핑크/빨간 볼터치 / blush / moe softening (S71 attestation: 1차 regen 에서 발견)
 - ✅ Iron-grey + ochre-earth 팔레트 (장식/자수 생략)
-- ✅ **EXACTLY ONE weapon — 왼쪽 hip sheathed sword 만**. 두 번째 칼/단검/추가 무기 절대 금지 (S71 attestation: 1차 regen 위연 에서 추가 칼 발견)
+- ✅ **EXACTLY ONE weapon — 왼쪽 hip 에 MOUNTED sheathed sword 만**. 두 번째 칼/단검/추가 무기 절대 금지 (v1: 추가 칼; v2: 검집 가로 들기 자세 — 둘 다 prompt 위반)
+- ✅ **WEAPON MOUNT — hip-worn, NOT held**: 검집이 belt/sash 에 매달려 있어야 함. 가로 들기 / 검집 들고 있기 / 앞으로 내밀기 절대 금지. 오른손은 hilt 위에 **얹어**, 왼손은 side hang down empty
 - ✅ Sumi-e variable brush 외곽선 + 잉크 wash bleed visible — vector-clean / CalArts / 균일 두께 line 모두 금지 (S71 attestation: 1차 regen 5장 중 3장 miss)
 - ✅ 투명 배경 (alpha PNG, paper-cream fill 도 금지)
 - ✅ 평면 색 (gradient / cell-shading 금지)
