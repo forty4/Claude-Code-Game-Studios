@@ -1,0 +1,46 @@
+{
+	"_schema": "Hero banter lines — short personality dialogue triggered at battle events. Keyed by hero_id, then event_key. Unmapped hero × event returns empty silently.",
+	"_events": [
+		"battle_start — fired once per player chibi hero at battle init",
+		"player_kill — fired on the unit that landed killing blow (player side only)",
+		"low_hp — fired on the unit that dropped below ~30% HP",
+		"outcome_win — fired on each surviving player chibi hero at battle WIN",
+		"outcome_loss — fired on each player chibi hero at battle LOSS"
+	],
+	"_authoring_notes": "Korean. Single short sentence per line (≤20 chars optimal). Voice contrast required across heroes — see character spec docs (design/art/characters/*.md) for personality anchors.",
+	"shu_002_guan_yu": {
+		"battle_start": "운명이 다하기 전엔 물러나지 않는다.",
+		"player_kill": "한 명 줄었군.",
+		"low_hp": "...아직 멀었다.",
+		"outcome_win": "이번도 천운이로다.",
+		"outcome_loss": "이 죄, 사후에 갚으리라."
+	},
+	"shu_003_zhang_fei": {
+		"battle_start": "와하하! 다 덤벼라!",
+		"player_kill": "이게 끝이냐!",
+		"low_hp": "이 정도로는!",
+		"outcome_win": "별 거 아니었군!",
+		"outcome_loss": "...형님, 죄송합니다."
+	},
+	"shu_001_liu_bei": {
+		"battle_start": "물러서지 마라, 형제들이여.",
+		"player_kill": "어쩔 수 없었다.",
+		"low_hp": "...아직 할 일이 남았다.",
+		"outcome_win": "오늘도 무사하구나.",
+		"outcome_loss": "내 부덕의 소치다."
+	},
+	"shu_009_wei_yan": {
+		"battle_start": "내 길은 내가 정한다.",
+		"player_kill": "다음.",
+		"low_hp": "흥, 우습군.",
+		"outcome_win": "쓸 만했다.",
+		"outcome_loss": "...운이 없었을 뿐."
+	},
+	"shu_007_pang_tong": {
+		"battle_start": "예측대로다.",
+		"player_kill": "흠, 의외였군.",
+		"low_hp": "...계산 외였군.",
+		"outcome_win": "역시 책략이 으뜸이다.",
+		"outcome_loss": "...이 또한 운명인가."
+	}
+}

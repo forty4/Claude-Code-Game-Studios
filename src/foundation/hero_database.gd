@@ -536,3 +536,54 @@ static func _pair_key_unordered(a: StringName, b: StringName) -> String:
 	if a_str <= b_str:
 		return a_str + "::" + b_str
 	return b_str + "::" + a_str
+
+
+## Hero banter — short personality dialogue triggered at battle events.
+## Keyed by hero_id → event_key → line (String). Loaded lazily on first
+## get_banter() call. Unmapped hero × event returns empty string silently.
+const _BANTER_JSON_PATH: String = "res://assets/data/heroes/hero_banter.json"
+
+static var _banter_loaded: bool = false
+static var _banter: Dictionary[StringName, Dictionary] = {}
+
+
+## Lazy-init banter loader. Same graceful-failure semantics as _load_heroes.
+static func _load_banter() -> void:
+	if _banter_loaded:
+		return
+	var raw_text: String = FileAccess.get_file_as_string(_BANTER_JSON_PATH)
+	if raw_text.is_empty():
+		push_error("HeroDatabase: failed to read hero_banter.json at %s" % _BANTER_JSON_PATH)
+		return
+	var json: JSON = JSON.new()
+	var parse_err: int = json.parse(raw_text)
+	if parse_err != OK:
+		push_error(
+			("HeroDatabase: banter JSON parse error at line %d: %s")
+			% [json.get_error_line(), json.get_error_message()]
+		)
+		return
+	var raw: Dictionary = json.data
+	for key_str: String in raw:
+		# Skip schema/meta keys (any "_" prefix). Per-hero records keyed by hero_id.
+		if key_str.begins_with("_"):
+			continue
+		var hero_id: StringName = StringName(key_str)
+		var inner: Variant = raw[key_str]
+		if inner is Dictionary:
+			_banter[hero_id] = inner as Dictionary
+	_banter_loaded = true
+
+
+## Returns the banter line for hero_id × event_key, or empty string if
+## unmapped. Events: battle_start / player_kill / low_hp / outcome_win /
+## outcome_loss. Pilot scope (S72): 관우 + 장비 only; other heroes return ""
+## (caller skips popup).
+static func get_banter(hero_id: StringName, event_key: String) -> String:
+	_load_banter()
+	if not _banter.has(hero_id):
+		return ""
+	var hero_banter: Dictionary = _banter[hero_id]
+	if not hero_banter.has(event_key):
+		return ""
+	return hero_banter[event_key] as String

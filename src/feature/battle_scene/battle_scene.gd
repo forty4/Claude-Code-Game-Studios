@@ -1583,6 +1583,7 @@ func _on_damage_applied(attacker_id: int, defender_id: int, damage: int) -> void
 			var threshold: float = float(max_hp) * 0.25
 			if float(pre_hp) >= threshold and float(post_hp) < threshold and post_hp > 0:
 				_trigger_low_hp_danger(unit_node)
+				_spawn_banter(defender_id, "low_hp")
 	# Attack lunge: nudge attacker toward defender then return. Sells the
 	# swing without requiring per-class attack animations. Adjacent attackers
 	# get the full distance; ranged attackers (황충 attack_range=2) get the
@@ -1982,8 +1983,10 @@ func _on_battle_outcome_resolved(outcome: StringName, _fate_data: Dictionary) ->
 		var result_kind: int = _pending_outcome
 		if result_kind == BattleOutcome.Result.WIN:
 			_trigger_outcome_victory_drama()
+			_fire_player_roster_banter("outcome_win")
 		elif result_kind == BattleOutcome.Result.LOSS:
 			_trigger_outcome_defeat_drama()
+			_fire_player_roster_banter("outcome_loss")
 
 
 ## Maps a controller outcome StringName to a BattleOutcome.Result int.
@@ -2710,10 +2713,14 @@ func _on_unit_turn_ended_visual(unit_id: int, acted: bool) -> void:
 ## and EnemyUnits and tweens modulate back to WHITE. Skips invisible polygons
 ## (dead units snap-hidden by _on_unit_died_visual) so a corpse doesn't get
 ## its alpha briefly lifted before staying invisible.
-func _on_round_started_visual(_round_num: int) -> void:
+func _on_round_started_visual(round_num: int) -> void:
 	var visuals: Node = _find_chapter_visuals()
 	if visuals == null:
 		return
+	# S72 Hero banter — battle_start event fires on round 1 only (per-battle
+	# climax). Later rounds run round-start visual cleanup only.
+	if round_num == 1:
+		_fire_player_roster_banter("battle_start")
 	for parent_name: String in ["PlayerUnits", "EnemyUnits"]:
 		var parent: Node = visuals.get_node_or_null(parent_name)
 		if parent == null:
@@ -2976,6 +2983,7 @@ func _on_unit_killed_mid_battle(killer_id: int, victim_id: int,
 		if killer_unit != null:
 			if killer_unit.side == 0:
 				_trigger_player_kill_drama()
+				_spawn_banter(killer_id, "player_kill")
 			elif killer_unit.side == 1:
 				_trigger_enemy_kill_drama()
 
@@ -3171,6 +3179,84 @@ func _trigger_enemy_kill_drama() -> void:
 		darken_tween.tween_property(darken, "color:a", 0.0, 0.80) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		darken_tween.tween_callback(darken.queue_free)
+
+
+## S72 Hero banter helpers — personality cue layer adjacent to Phase 3 drama.
+## Per-unit-per-event cooldown 3s avoids inflation during rapid-fire scenarios
+## (multi-kill round, low-HP cross then re-cross). Pilot scope: 관우 + 장비
+## only (assets/data/heroes/hero_banter.json) — other heroes return ""
+## from get_banter and the helper silently skips. Stagger 0.5s between
+## multi-unit waves (battle_start, outcome_*) to avoid simultaneous overlap.
+const _BANTER_COOLDOWN_MS: int = 3000
+const _BANTER_STAGGER_S: float = 0.5
+var _banter_cooldown: Dictionary = {}
+
+
+func _spawn_banter(unit_id: int, event_key: String) -> void:
+	if _grid_controller == null:
+		return
+	var unit: BattleUnit = _grid_controller.get_battle_unit(unit_id)
+	if unit == null:
+		return
+	var line: String = HeroDatabase.get_banter(unit.hero_id, event_key)
+	if line.is_empty():
+		return  # graceful: unmapped hero × event (non-pilot heroes silent)
+	var key: String = "%d:%s" % [unit_id, event_key]
+	var now_ms: int = Time.get_ticks_msec()
+	if _banter_cooldown.has(key) and now_ms < int(_banter_cooldown[key]):
+		return
+	_banter_cooldown[key] = now_ms + _BANTER_COOLDOWN_MS
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null:
+		return
+	var unit_node: Node2D = _find_unit_polygon(visuals, unit_id)
+	if unit_node == null:
+		return
+	var accent: Color = Color(1.00, 0.85, 0.32)
+	if visuals.has_method("_get_hero_accent"):
+		accent = visuals._get_hero_accent(unit.hero_id, unit.side)
+	var popup: BanterPopup = BanterPopup.make(line, accent)
+	popup.position = unit_node.position + Vector2(0.0, -8.0)
+	visuals.add_child(popup)
+
+
+## Iterate player roster polygons + fire event-specific banter staggered 0.5s
+## apart. Used for multi-unit events: battle_start / outcome_win / outcome_loss.
+## outcome_win skips dead heroes; battle_start / outcome_loss include all.
+func _fire_player_roster_banter(event_key: String) -> void:
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null or _grid_controller == null:
+		return
+	var parent: Node = visuals.get_node_or_null("PlayerUnits")
+	if parent == null:
+		return
+	var stagger: float = 0.0
+	for child: Node in parent.get_children():
+		if not (child is Node2D):
+			continue
+		var poly: Node2D = child as Node2D
+		var uid: int = _extract_unit_id_from_polygon_name(poly.name)
+		if uid == -1:
+			continue
+		var unit: BattleUnit = _grid_controller.get_battle_unit(uid)
+		if unit == null or unit.side != 0:
+			continue
+		# Skip unmapped heroes early to avoid scheduling empty timers.
+		if HeroDatabase.get_banter(unit.hero_id, event_key).is_empty():
+			continue
+		# outcome_win: surviving heroes only celebrate. outcome_loss + battle_start
+		# include all (dead heroes still mourn / cheer pre-fight).
+		if event_key == "outcome_win" and _hp_controller != null \
+				and not _hp_controller.is_alive(uid):
+			continue
+		var captured_uid: int = uid
+		if stagger > 0.0:
+			get_tree().create_timer(stagger).timeout.connect(
+				func() -> void: _spawn_banter(captured_uid, event_key)
+			)
+		else:
+			_spawn_banter(captured_uid, event_key)
+		stagger += _BANTER_STAGGER_S
 
 
 ## Phase 3 Step A helper. 3 채널 동시 발화. Engine.time_scale 변경은 SceneTree
