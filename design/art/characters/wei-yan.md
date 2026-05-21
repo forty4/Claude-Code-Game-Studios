@@ -191,3 +191,73 @@ Ship-able output must satisfy (single AND gate):
 - ✅ 주홍/금색 침투 0
 
 미달 시 regen. portrait 와 동일 정책 (manual touch-up 금지).
+
+
+## Breath frame (Phase 2) — 신규 2026-05-21
+
+art-bible §5.7 Phase 2 — idle breath 2-frame ping-pong (1.6s cycle). 위연
+breath frame: mid-inhale 자세 — chest 명확히 부풀음 + 어깨 약간 raise +
+torso 살짝 elongate. CLI image-to-image trial (codex) 가 quality control 어려움
+판가름 — 사용자 web 도구 (idle cascade 진행한 도구) 직접 generation 결정.
+
+### Breath modification prompt — image-to-image (idle PNG 입력 시)
+
+```
+Apply BREATH MODIFICATIONS to the input idle PNG of Wei Yan, producing the
+second frame of his 2-frame breath cycle.
+
+VISIBLE CHANGES (clearly mid-inhale, side-by-side with idle obviously different):
+- Chest puffed outward ~10% wider than idle
+- Shoulders raised noticeably ~5-8% higher
+- Torso slightly elongated ~3% vertical stretch in chest area
+- Subtle implication of held breath — character is mid-inhale
+
+EVERYTHING ELSE 100% IDENTICAL TO INPUT IDLE:
+- Same face dots (eye positions), same single mouth line, same skin tone
+- Same hair topknot shape and ink color
+- Same scabbard HIP-WORN at left hip — sword sheathed, NOT held in hand
+- Same right hand resting on hilt grip, left hand hanging at side empty
+- Same iron blue-grey (#5C7A8A) lamellar armor with ochre-earth (#C8874A) trim
+- Same lamellar plate pattern and fold lines
+- Same sumi-e variable-weight brush outline and ink wash texture
+- Same TRANSPARENT alpha PNG background (NOT black fill, NOT colored fill,
+  NOT decorative border/frame)
+- Same image dimensions
+
+Output filename: sprite_shu_wei_yan_breath.png
+```
+
+### Text-to-image fallback prompt (idle PNG 없이 도구가 text-only)
+
+위 "Gemini prompt — copy-paste ready" 의 idle prompt 를 base 로 사용하되,
+`STANCE` 섹션 위에 다음 블록을 삽입:
+
+```
+CRITICAL BREATH POSE (this is the BREATH frame, not idle):
+The character is mid-inhale — chest puffed outward ~10% wider, shoulders raised
+~5-8% higher, torso slightly elongated ~3% vertically. Everything else in the
+posture remains as idle (hip-worn scabbard, hand positions, etc.) — only the
+chest/shoulder/torso change.
+```
+
+### Asset target
+
+| Field | Value |
+|---|---|
+| Filename | `assets/art/sprites/grid/sprite_shu_wei_yan_breath.png` |
+| Frame | 2 of 2 (Phase 2 ping-pong with idle) |
+| Format | PNG with alpha (TRANSPARENT background, NOT black/colored fill) |
+| Dimensions | idle 와 동일 |
+
+### Acceptance for breath frame
+
+Ship-able output must satisfy:
+- ✅ Side-by-side with idle: viewer immediately sees breath delta (chest puffed + 어깨 raised)
+- ✅ Same character recognizable — face dots / topknot / weapon mount / outfit identical
+- ✅ TRANSPARENT alpha background (codex v2 trial 의 검정 fill + decoration 같은 regression 금지)
+- ✅ Same image dimensions as idle
+- ✅ Sumi-e variable brush 외곽선 유지 (drift 미세 OK, 깜빡임 정도면 fail)
+- ✅ Single weapon — hip-worn sheathed sword 만 (drawn / 가로 들기 / 추가 무기 금지)
+- ✅ NO blush / NO 핑크 볼터치 / NO moe softening
+
+미달 시 regen. ping-pong 시 깜빡임 (lamellar pattern drift / outline 두께 변동) 도 fail 대상.

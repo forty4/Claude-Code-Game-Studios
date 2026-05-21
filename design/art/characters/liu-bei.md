@@ -264,3 +264,63 @@ Aspect ratio: 1:1, 128×128 native.
 - ✅ Ink-base 로브 + ochre trim — royal 톤 절제 (bright gold 침투 0)
 - ✅ Sumi-e variable brush 외곽선 + 잉크 wash bleed visible (vector-clean / CalArts 금지)
 - ✅ 투명 배경 (alpha PNG, paper-cream fill 금지) + 평면 색 + 주홍/금색 침투 0
+
+
+## Breath frame (Phase 2) — 신규 2026-05-21
+
+art-bible §5.7 Phase 2 — idle breath 2-frame ping-pong (1.6s cycle). 유비의 호흡
+은 **virtue-king commander 의 평온한 결** — chest moderate expand + 어깨 약간
+lift, open-arm pose 와 정면 시선 동일 유지. 큰 귀 silhouette 보존 critical.
+
+### Breath modification prompt — image-to-image (idle PNG 입력 시)
+
+```
+Apply BREATH MODIFICATIONS to the input idle PNG of Liu Bei, producing the
+second frame of his 2-frame breath cycle.
+
+VISIBLE CHANGES (clearly mid-inhale, calm commander breath):
+- Chest puffed outward ~8% wider than idle (moderate, dignified)
+- Shoulders raised slightly ~4-5% higher
+- Torso slightly elongated ~2-3% vertically
+- Open-arm rally pose preserved — arms stay in same outward position
+
+EVERYTHING ELSE 100% IDENTICAL TO INPUT IDLE:
+- Same face with STRAIGHT-AHEAD gaze (정면 시선 — 유일 정면 시선 영웅, 보존 critical)
+- Same eye dots, single mouth line, naturalistic skin tone
+- Same LARGE EARS 1.5× clearly protruding from head silhouette (Buddha-iconography
+  scale, NOT erased per chibi convention)
+- Same hair, same trim full beard (NEATLY groomed, NOT wild like Zhang Fei)
+- Same 双股劍 paired short swords at right hip — same asymmetric hilt+scabbard
+  pair protrusion
+- Same open-arm balanced pose, both arms slightly extended outward (rally posture)
+- Same ink-base (#1C1A17) layered robe with ochre (#C8874A) trim
+- Same sumi-e brush quality and ink wash texture
+- Same TRANSPARENT alpha PNG background (NOT black fill, NOT decorative frame)
+- Same image dimensions
+
+Output filename: sprite_shu_liu_bei_breath.png
+```
+
+### Text-to-image fallback prompt (idle PNG 없이)
+
+위 idle prompt 를 base + 위 VISIBLE CHANGES 블록을 `CRITICAL POSE` 섹션 앞에
+삽입. 큰 귀 1.5× protrusion + 정면 시선 + open-arm pose 보존 critical 명시.
+
+### Asset target
+
+| Field | Value |
+|---|---|
+| Filename | `assets/art/sprites/grid/sprite_shu_liu_bei_breath.png` |
+| Frame | 2 of 2 (Phase 2 ping-pong with idle) |
+| Format | PNG with alpha (TRANSPARENT background) |
+| Dimensions | idle 와 동일 |
+
+### Acceptance for breath frame
+- ✅ Side-by-side with idle: calm commander breath delta 명확
+- ✅ 정면 시선 보존 (호흡으로 다른 방향 시선 변경 금지 — 유일 정면 영웅)
+- ✅ 큰 귀 1.5× silhouette 돌출 동일 (Buddha-iconography scale 유지)
+- ✅ Open-arm 대칭 pose 동일 (양팔 outward extension 유지)
+- ✅ 双股劍 paired hip 위치 동일
+- ✅ Trim 정돈 수염 (wild 변경 금지)
+- ✅ TRANSPARENT alpha background
+- ✅ Ink-base + ochre trim 색 동일 + 주홍/금색 침투 0

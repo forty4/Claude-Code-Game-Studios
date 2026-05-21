@@ -220,3 +220,59 @@ Aspect ratio: 1:1, 128×128 native.
 - ✅ NOT red-faced
 - ✅ Sumi-e variable brush 외곽선 + 잉크 wash bleed visible (특히 녹포 — vector-clean / CalArts 금지)
 - ✅ 투명 배경 (alpha PNG, paper-cream fill 금지) + 평면 색
+
+
+## Breath frame (Phase 2) — 신규 2026-05-21
+
+art-bible §5.7 Phase 2 — idle breath 2-frame ping-pong (1.6s cycle). 관우의 호흡
+은 **heavy cavalry 결** — chest 명확 expand + 어깨 명확 raise. 1.4× 어깨 폭 +
+긴 수염 silhouette 보존 critical (드라마틱 호흡으로 어깨 폭이 더 두드러져 보임).
+
+### Breath modification prompt — image-to-image (idle PNG 입력 시)
+
+```
+Apply BREATH MODIFICATIONS to the input idle PNG of Guan Yu, producing the
+second frame of his 2-frame breath cycle.
+
+VISIBLE CHANGES (clearly mid-inhale, heavy cavalry feel):
+- Chest puffed outward ~10% wider than idle (clear, heavy breath)
+- Shoulders raised noticeably ~5-6% higher
+- Torso slightly elongated ~3% vertically
+- Heavy-cavalry breath presence — the broad silhouette emphasized further
+
+EVERYTHING ELSE 100% IDENTICAL TO INPUT IDLE:
+- Same WIDEST silhouette — shoulder ratio ~1.4× still preserved
+- Same face (eye dots, mouth line), NOT red-faced
+- Same long black beard down to mid-chest (silhouette key)
+- Same 청룡언월도 polearm held vertically in right hand, crescent blade visible
+  at top-right, polearm position unchanged (not swinging, not lowering)
+- Same green (#2D6B4A) Shu battle robe with iron under-armor
+- Same sumi-e ink-wash brush quality, especially the green robe folds
+- Same TRANSPARENT alpha PNG background (NOT black fill, NOT decorative frame)
+- Same image dimensions
+
+Output filename: sprite_shu_guan_yu_breath.png
+```
+
+### Text-to-image fallback prompt (idle PNG 없이)
+
+위 idle prompt 를 base + 위 VISIBLE CHANGES 블록을 `POSE` 섹션 앞에 삽입.
+어깨 1.4× ratio + 긴 수염 silhouette 보존 critical 명시.
+
+### Asset target
+
+| Field | Value |
+|---|---|
+| Filename | `assets/art/sprites/grid/sprite_shu_guan_yu_breath.png` |
+| Frame | 2 of 2 (Phase 2 ping-pong with idle) |
+| Format | PNG with alpha (TRANSPARENT background) |
+| Dimensions | idle 와 동일 |
+
+### Acceptance for breath frame
+- ✅ Side-by-side with idle: heavy breath delta 명확
+- ✅ 어깨 1.4× ratio 보존 (호흡으로 어깨 폭이 더 두드러져 보이는 게 의도)
+- ✅ 긴 검은 수염 silhouette 보존 + 청룡언월도 vertical 위치 동일
+- ✅ 녹포 (#2D6B4A) 색 + iron under-armor 동일
+- ✅ TRANSPARENT alpha background
+- ✅ Sumi-e brush 유지, 녹포 잉크 wash 동일
+- ✅ 1 weapon (청룡언월도) 만 + NOT red-faced + NO blush

@@ -229,3 +229,62 @@ Aspect ratio: 1:1, 128×128 native.
 - ✅ 어두운 palette + 최고 대비 (5 영웅 중 가장 어두움)
 - ✅ Sumi-e variable brush 외곽선 + 잉크 wash bleed visible, 특히 수염은 wet-brush 강조
 - ✅ 투명 배경 (alpha PNG, paper-cream fill 금지) + 평면 색 + 주홍/금색 침투 0
+
+
+## Breath frame (Phase 2) — 신규 2026-05-21
+
+art-bible §5.7 Phase 2 — idle breath 2-frame ping-pong (1.6s cycle). 장비의 호흡
+은 **assault 결의 가장 깊은 호흡** — chest 가장 크게 expand + 어깨 명확 lift +
+wedge torso 더 두드러짐. leopard-ring eye + wild beard silhouette 보존 critical.
+
+### Breath modification prompt — image-to-image (idle PNG 입력 시)
+
+```
+Apply BREATH MODIFICATIONS to the input idle PNG of Zhang Fei, producing the
+second frame of his 2-frame breath cycle.
+
+VISIBLE CHANGES (clearly mid-inhale, deepest breath of the 5 heroes):
+- Chest puffed outward ~12% wider than idle (DEEPEST among 5 heroes)
+- Shoulders raised noticeably ~6-8% higher
+- Torso slightly elongated ~3-4% vertically
+- Wedge torso silhouette becomes more pronounced (shoulders more visibly wider
+  than hips)
+- Forward-lean stance unchanged (NOT straightened) — momentum read preserved
+
+EVERYTHING ELSE 100% IDENTICAL TO INPUT IDLE:
+- Same LEOPARD-RING EYES — 1.5× larger black dots with white outer ring
+- Same single mouth line, NO nose
+- Same wild curly black beard spilling beyond armor edges (wet-brush ink wash)
+- Same hair topknot with stray curls
+- Same 장팔사모 spear held vertically in right hand, S-curve tip at top
+- Same dark armor with leather binding, same darkest color in the 5-hero series
+- Same sumi-e wet-brush ink quality (especially beard)
+- Same TRANSPARENT alpha PNG background (NOT black fill, NOT decorative frame)
+- Same image dimensions
+
+Output filename: sprite_shu_zhang_fei_breath.png
+```
+
+### Text-to-image fallback prompt (idle PNG 없이)
+
+위 idle prompt 를 base + 위 VISIBLE CHANGES 블록을 `POSE` 섹션 앞에 삽입.
+leopard-ring eye 1.5× + wild beard wet-brush + wedge torso forward-lean 보존
+critical 명시.
+
+### Asset target
+
+| Field | Value |
+|---|---|
+| Filename | `assets/art/sprites/grid/sprite_shu_zhang_fei_breath.png` |
+| Frame | 2 of 2 (Phase 2 ping-pong with idle) |
+| Format | PNG with alpha (TRANSPARENT background) |
+| Dimensions | idle 와 동일 |
+
+### Acceptance for breath frame
+- ✅ Side-by-side with idle: 가장 깊은 호흡 명확 (다른 4 영웅 대비 chest delta 최대)
+- ✅ leopard-ring eye 1.5× + 흰자 ring 동일 (drift 금지)
+- ✅ Wild curly beard silhouette 보존 (wet-brush ink wash 동일)
+- ✅ 장팔사모 spear vertical + S-curve tip 위치 동일
+- ✅ Forward-lean stance 유지 (호흡으로 직립 변경 금지)
+- ✅ TRANSPARENT alpha background
+- ✅ 1 weapon + NO blush + 최고 대비 어두운 palette 동일

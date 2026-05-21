@@ -198,3 +198,57 @@ Aspect ratio: 1:1, 128×128 native (display 64×64).
 - ✅ 어두운 ink-heavy 색 + paper-white fan/lining contrast
 - ✅ Sumi-e variable brush 외곽선 + 잉크 wash bleed visible (특히 로브 — vector-clean / CalArts 금지)
 - ✅ 투명 배경 (alpha PNG, paper-cream fill 금지) + 평면 색 + 주홍/금색 침투 0
+
+
+## Breath frame (Phase 2) — 신규 2026-05-21
+
+art-bible §5.7 Phase 2 — idle breath 2-frame ping-pong (1.6s cycle). 방통의 호흡
+은 **차분한 책사 결** — chest gentle expand + 어깨 minimal raise. 다른 영웅보다
+subtle 한 호흡 (관우/장비 의 무거운 호흡과 차별).
+
+### Breath modification prompt — image-to-image (idle PNG 입력 시)
+
+```
+Apply BREATH MODIFICATIONS to the input idle PNG of Pang Tong, producing the
+second frame of his 2-frame breath cycle.
+
+VISIBLE CHANGES (clearly mid-inhale, but gentle/scholarly):
+- Chest puffed outward ~7% wider than idle (gentle, not dramatic)
+- Shoulders raised slightly ~3-4% higher (minimal lift — scholar calm)
+- Torso slightly elongated ~2% vertically
+
+EVERYTHING ELSE 100% IDENTICAL TO INPUT IDLE:
+- Same ROUND face (둥근 얼굴), same eye dots, same single mouth line
+- Same hair / 윤건 square scholar cap shape
+- Same feather fan (봉추) held at chest level by right hand, same fan width
+- Same wide-sleeve 학창의 robe — same triangular sleeve silhouette
+- Same ink-heavy black-grey robe color, same paper-white fan/lining contrast
+- Same sumi-e ink-wash brush quality and outline texture
+- Same TRANSPARENT alpha PNG background (NOT black fill, NOT decorative frame)
+- Same image dimensions
+
+Output filename: sprite_shu_pang_tong_breath.png
+```
+
+### Text-to-image fallback prompt (idle PNG 없이)
+
+위 idle prompt 를 base + 위 VISIBLE CHANGES 블록을 `POSE` 또는 `STANCE` 섹션
+앞에 삽입. 차분한 책사 결 (관우/장비 무거운 호흡 대비 gentle) 명시.
+
+### Asset target
+
+| Field | Value |
+|---|---|
+| Filename | `assets/art/sprites/grid/sprite_shu_pang_tong_breath.png` |
+| Frame | 2 of 2 (Phase 2 ping-pong with idle) |
+| Format | PNG with alpha (TRANSPARENT background) |
+| Dimensions | idle 와 동일 |
+
+### Acceptance for breath frame
+- ✅ Side-by-side with idle: chest/shoulder breath delta 명확 (gentle 이지만 식별 가능)
+- ✅ 둥근 얼굴 형 보존 (sharp-feature drift 금지)
+- ✅ 부채 chest level + 학창의 silhouette 보존
+- ✅ TRANSPARENT alpha background (codex v2 trial regression 회피)
+- ✅ Sumi-e brush + 잉크 wash 유지
+- ✅ 1 prop (부채) 만 — 추가 prop 금지
+- ✅ NO blush / NO moe softening
