@@ -325,7 +325,7 @@ func test_critical_hit_landed_fires_on_rear_strike() -> void:
 	var controller: GridBattleController = bag["controller"]
 	var captures: Array = []
 	controller.critical_hit_landed.connect(
-		func(att_id: int, def_id: int, dmg: int, angle: StringName) -> void:
+		func(att_id: int, def_id: int, dmg: int, angle: StringName, _chain: int) -> void:
 			captures.append({"att_id": att_id, "def_id": def_id,
 				"dmg": dmg, "angle": angle})
 	)
@@ -350,7 +350,7 @@ func test_critical_hit_landed_does_not_fire_on_front_strike() -> void:
 	var controller: GridBattleController = bag["controller"]
 	var captures: Array = []
 	controller.critical_hit_landed.connect(
-		func(_a: int, _d: int, _g: int, _ang: StringName) -> void:
+		func(_a: int, _d: int, _g: int, _ang: StringName, _chain: int) -> void:
 			captures.append(true)
 	)
 
@@ -370,7 +370,7 @@ func test_critical_hit_landed_does_not_fire_on_flank_strike() -> void:
 	var controller: GridBattleController = bag["controller"]
 	var captures: Array = []
 	controller.critical_hit_landed.connect(
-		func(_a: int, _d: int, _g: int, _ang: StringName) -> void:
+		func(_a: int, _d: int, _g: int, _ang: StringName, _chain: int) -> void:
 			captures.append(true)
 	)
 

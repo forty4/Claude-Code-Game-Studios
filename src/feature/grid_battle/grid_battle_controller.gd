@@ -140,7 +140,15 @@ signal fire_damage_applied(defender_id: int, damage: int)
 ## &"FRONT" / &"FLANK" / &"REAR" per _angle_to_direction_rel; only &"REAR" is
 ## sent today but the field is included for forward compat with a future
 ## "strong flank" tier.
-signal critical_hit_landed(attacker_id: int, defender_id: int, damage: int, angle: StringName)
+signal critical_hit_landed(attacker_id: int, defender_id: int, damage: int, angle: StringName, chain_level: int)
+
+## S72 Critical chain — emitted whenever the per-side CRIT chain advances OR
+## resets at round_started. `level` is the new chain count (0 on reset, 1+
+## post-increment). View-layer subscribers (battle_hud) render persistent
+## chain indicator. Chain advances on REAR-direction CRIT; resets at round
+## boundary. Per-side (0 = player, 1 = enemy) so cross-side CRITs do not
+## interfere.
+signal critical_chain_changed(side: int, level: int)
 
 ## Session-16: emitted when a unit is killed (cross-side, credited to a known
 ## last attacker) and the battle is NOT yet over. View-layer subscribers
@@ -317,6 +325,26 @@ func _apply_fire_damage_on_round_start() -> void:
 
 ## ID of the last attacker — used by fate-counter (assassin kill attribution).
 var _last_attacker_id: int = -1
+
+## S72 Critical chain — per-side CRIT counter that boosts subsequent CRIT
+## damage within the same round. Reset at round_started. Per-side (0 = player,
+## 1 = enemy) so cross-side CRITs don't interfere. Bonus table:
+##   chain 1 (1st CRIT this round) → +10% to that hit's final_damage
+##   chain 2 (2nd CRIT) → +25%
+##   chain 3+ (3rd+) → +50% (cap)
+var _critical_chain_per_side: Dictionary[int, int] = {0: 0, 1: 0}
+
+
+## Bonus multiplier for the chain LEVEL (the count AFTER this CRIT increments).
+## level 1 → 0.10 / level 2 → 0.25 / level 3+ → 0.50 (cap). level 0 = no bonus.
+static func _critical_chain_bonus_for(level: int) -> float:
+	if level <= 0:
+		return 0.0
+	if level == 1:
+		return 0.10
+	if level == 2:
+		return 0.25
+	return 0.50  # 3+ cap
 
 
 # ─── Turn limit (ADR-0014 §3 / AC-4) ────────────────────────────────────────
@@ -1435,6 +1463,12 @@ func _on_round_started(round_num: int) -> void:
 	# Session-10: also clear any pending attack preview — counters reset between
 	# rounds and the relative direction/aura state may have shifted.
 	_clear_attack_preview(&"round_started")
+	# S72 Critical chain — reset per-side CRIT chain at round boundary so
+	# momentum lives within a round, doesn't compound indefinitely.
+	_critical_chain_per_side[0] = 0
+	_critical_chain_per_side[1] = 0
+	critical_chain_changed.emit(0, 0)
+	critical_chain_changed.emit(1, 0)
 	# Session-21: ch5 적벽 본전 FIRE terrain damage. Any alive unit standing on a
 	# FIRE tile (terrain_type=8, burning ship debris) at round start takes
 	# FIRE_DAMAGE_PER_TURN as MAGICAL damage (bypasses shield_wall flat reduction;
@@ -2737,6 +2771,23 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 		_fate_rear_attacks += 1
 		hidden_fate_condition_progressed.emit(&"rear_attacks", _fate_rear_attacks)
 
+	# Stage 6.5 — S72 Critical chain bonus. CRIT-only (angle == "rear"). Apply
+	# BEFORE Stage 7 so the boosted number reaches HP apply + DamagePopup + the
+	# critical_hit_landed feedback. Per-side chain accumulates across the round
+	# (reset at _on_round_started). chain_level captured here is passed to
+	# critical_hit_landed below so the popup can render the chain badge.
+	var crit_chain_level: int = 0
+	if angle == "rear" and result.kind == ResolveResult.Kind.HIT:
+		_critical_chain_per_side[attacker.side] = \
+			_critical_chain_per_side.get(attacker.side, 0) + 1
+		crit_chain_level = _critical_chain_per_side[attacker.side]
+		var chain_bonus: float = _critical_chain_bonus_for(crit_chain_level)
+		if chain_bonus > 0.0:
+			final_damage = int(roundi(float(final_damage) * (1.0 + chain_bonus)))
+			if final_damage < 1:
+				final_damage = 1
+		critical_chain_changed.emit(attacker.side, crit_chain_level)
+
 	# Stage 7: apply via HPStatusController (sole writer of HP per ADR-0010)
 	_hp_controller.apply_damage(defender.unit_id, final_damage, modifiers.attack_type, modifiers.source_flags)
 
@@ -2763,7 +2814,7 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 	# "치명타!" popup + camera shake + SFX so the player feels the flank payoff.
 	# Gated on HIT + non-zero damage so MISS / 0-damage edge cases don't pop.
 	if angle == "rear" and result.kind == ResolveResult.Kind.HIT and final_damage > 0:
-		critical_hit_landed.emit(attacker.unit_id, defender.unit_id, final_damage, &"REAR")
+		critical_hit_landed.emit(attacker.unit_id, defender.unit_id, final_damage, &"REAR", crit_chain_level)
 
 	return final_damage
 

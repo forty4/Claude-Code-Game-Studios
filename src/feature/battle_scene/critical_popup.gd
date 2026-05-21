@@ -28,18 +28,20 @@ const COLOR_DAMAGE:  Color = Color(1.00, 0.42, 0.20)  # vivid red-orange
 const COLOR_OUTLINE: Color = Color(0.32, 0.04, 0.04, 1.0)  # dark crimson ink
 
 var _damage: int = 0
+var _chain_level: int = 1  # 1 = first CRIT this round (no badge); 2+ = chain badge
 
 
-static func make(damage: int) -> CriticalPopup:
+static func make(damage: int, chain_level: int = 1) -> CriticalPopup:
 	var p: CriticalPopup = CriticalPopup.new()
 	p._damage = damage
+	p._chain_level = chain_level
 	return p
 
 
 func _ready() -> void:
-	# Banner label — "치명타!"
+	# Banner label — "치명타!" or "치명타 ×N!" when chain ≥ 2 (S72 chain bonus).
 	var banner: Label = Label.new()
-	banner.text = "치명타!"
+	banner.text = "치명타!" if _chain_level <= 1 else "치명타 ×%d!" % _chain_level
 	banner.add_theme_font_size_override("font_size", FONT_SIZE_BANNER)
 	banner.add_theme_color_override("font_color", COLOR_BANNER)
 	banner.add_theme_color_override("font_outline_color", COLOR_OUTLINE)

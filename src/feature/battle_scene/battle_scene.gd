@@ -2993,23 +2993,28 @@ func _on_unit_killed_mid_battle(killer_id: int, victim_id: int,
 ## Receives the same defender_id the damage_applied handler does; uses the
 ## defender's polygon position so the popup tracks late-game repositioning.
 func _on_critical_hit_landed(_attacker_id: int, defender_id: int, damage: int,
-		_angle: StringName) -> void:
+		_angle: StringName, chain_level: int) -> void:
 	var visuals: Node = _find_chapter_visuals()
 	if visuals == null:
 		return
 	var defender_node: Node2D = _find_unit_polygon(visuals, defender_id)
 	if defender_node == null:
 		return
-	# Stronger camera shake than a normal hit — REAR is the big payoff.
+	# S72 Critical chain — stronger shake at higher chain (chain 1 = baseline,
+	# chain 2 = 1.25× shake, chain 3+ = 1.5× shake) so momentum reads kinetically.
 	if _battle_camera != null and _battle_camera.has_method("shake"):
-		_battle_camera.shake(8.0, 0.25)
+		var shake_scale: float = 1.0
+		if chain_level == 2:
+			shake_scale = 1.25
+		elif chain_level >= 3:
+			shake_scale = 1.50
+		_battle_camera.shake(8.0 * shake_scale, 0.25)
 	# SFX cue.
 	if SoundManager != null and SoundManager.has_method("play"):
 		SoundManager.play(SoundManager.SFX_CRITICAL)
 	# "치명타!" popup above the defender. Offset slightly above the standard
-	# DamagePopup (which also fires this frame via _on_damage_applied) so the
-	# two labels don't stack.
-	var popup: CriticalPopup = CriticalPopup.make(damage)
+	# DamagePopup. Chain level ≥ 2 → "치명타 ×N!" badge variant.
+	var popup: CriticalPopup = CriticalPopup.make(damage, chain_level)
 	popup.position = defender_node.position
 	visuals.add_child(popup)
 	# Phase 3 Step A — CRIT 모먼트 클라이맥스 (XCOM 류 dramatic punctuation).
