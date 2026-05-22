@@ -18,7 +18,7 @@
 - [ ] Trace flag (`_SYNERGY_TRACE_ENABLED` / `_CRIT_CHAIN_TRACE_ENABLED`) 모두 `false`
 
 ### Content & Narrative
-- [ ] Beat 8 revelation prose 16 챕터 모두 작성 (한국어 초안 가능)
+- [x] Beat 8 revelation prose 16 챕터 win-side 모두 작성 (default 16/16 + alt-win 8/8 + ★ headline 6/6; loss-side deferred — ROI 낮음)
 - [ ] ch16 방통 생존 trigger windowed-attested (scout_first ≥ 2 → 방통 살아남음 → Beat 8 revelation 발화)
 - [ ] Banter per-chapter context — 최소 ch01/05/13/16 변형 (반복감 완화)
 - [ ] 적측 voice minimal — 최소 조조 / 하후돈 / 여포 / 방통 적측 (ch01-16 등장 적장)
@@ -71,7 +71,7 @@
 | Unit test backfill | | | ◐ | ★ | | |
 | Windowed smoke harness | | | ◐ | ★ | | |
 | Macro-loop UI | | ★ | | | | ◐ |
-| Beat 8 prose | | ◐ | | | | ★ |
+| Beat 8 prose (win-side ✅) | | ◐ | | | | ★ |
 | World/env tile | | | | | ★ | |
 | Banter per-chapter | | | | | | ★ |
 | 적측 voice | | | | | | ★ |
@@ -129,8 +129,21 @@
 
 같은 register / 4-5 단락 / 三國演義 직접 소환 / cascade ambiguity 흡수 / thematic line 결 정합. 6 ★ prose 모두 narrative-director drafts-without-writing 패턴 → 사용자 선택 → orchestrator Edit.
 
+**Beat 8 win-side prose 100% coverage — S75 session 75 (2026-05-22)**:
+- `fa4a4a1` — MVP ch01-15 default win Beat 8 prose batch (15개, 3-4 단락 / 三國演義 회수 직접 소환 / dignified canonical register). narrative-director 1회 spawn (~87k tokens) → 사용자 일괄 review → python atomic JSON write → focused suite PASS.
+- `2ac5c99` — MVP alt-win Beat 8 prose batch (6개: ch02/03/04/05/06/08, 3-4 단락 / "정사에 적히지 않은" / quiet alt-history reveal register). ch02/03/04/05 thin (162-232 chars) → expansion. ch06/08 light refine + 결 강화. 초선 motif (ch08) 보존. narrative-director 1회 spawn (~42k tokens).
+
+**3-register clean differentiation 검증됨**: ★ (4-5 단락 / 多回 三國演義 / 강한 thematic anchor) ↔ default (3-4 단락 / 1-2회 三國演義 / dignified canonical) ↔ alt-win (3-4 단락 / "정사에 적히지 않은" / quiet alt-history reveal). 한 세션 안에서 default + alt 두 batch 모두 register leak 0.
+
+**MVP Beat 8 win-side prose coverage = 100%**:
+- default win 16/16 (ch01-15 from `fa4a4a1` + ch16 default from `4deb651` 의 paired entry)
+- alt-win 8/8 (ch02/03/04/05/06/08 from `2ac5c99` + ch13 ★ `30db11d` + ch16 ★ `4deb651`)
+- ★ headline 6/6 (ch16/13/20/21/22/ch25 from S74 paired suite)
+
+Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (default + alt batch 각각).
+
 **Remaining**:
-- [ ] MVP-scope default win Beat 8 prose (ch01-12 + ch14-15 — 9-12 chapters) — ★ prose register 보다 약한 contextual prose, 다음 세션 batch 작성 가능 (낮은 우선순위 — ★ 가 헤드라인)
+- [ ] Beat 8 default-loss prose 16/16 — 우선순위 낮음 (loss outcome 회로 사용자 미관통 가능성 큼, alt-loss register 정의 필요)
 - [ ] ch16 방통 생존 trigger windowed-attested (scout_first ≥ 2) — 코드 path 완성, **사용자 windowed 실행 대기**
 
 ### S18 — Content Polish (예정)
