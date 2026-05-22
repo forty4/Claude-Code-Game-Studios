@@ -92,19 +92,41 @@
 
 ## Attestation Log
 
-각 sprint 종결 시 사용자 windowed attestation 결과 누적:
+각 sprint 종결 시 사용자 windowed attestation 결과 누적.
 
-### S16 (예정)
-- [ ] (todo)
+### S16 — Foundation (in progress, 2026-05-22 ~)
 
-### S17 (예정)
-- [ ] (todo)
+**Completed**:
+- [x] Milestone file 작성 (이 문서) — `0511465`
+- [x] Trace flag cleanup (`_SYNERGY_TRACE_ENABLED` / `_CRIT_CHAIN_TRACE_ENABLED` → false 후 attestation 완료) — `0511465`
+- [x] Unit test backfill 4/4 (S72 + S73 mechanic) — `c2f11f5` + `ba5d11e`
+  - Hero banter (10 tests / `hero_database_banter_test.gd`)
+  - Critical chain (15 tests / `grid_battle_controller_critical_chain_test.gd`)
+  - Synergy v1 + v2 (19 tests / `grid_battle_controller_synergy_test.gd`)
+  - Total 44 신규 tests / 663/663 PASS unified
+- [x] S73 사용자 windowed attestation: Synergy v1 (Peach Garden +5 ATK 3 영웅) + Critical chain (lv1 다회 + lv2 +25% 장비 245→306)
 
-### S18 (예정)
-- [ ] (todo)
+**Remaining**:
+- [ ] Windowed attestation 16-ch cut (`production/qa/evidence/phase-f-windowed-boot-attestation-16-chapters.md` 신규 — 기존 25-cut 파일에서 fork)
+- [ ] Sprint 16 retrospective (짧게, build mode 컨벤션)
 
-### S19 (예정 — Ship)
-- [ ] (todo)
+### S17 — Macro-loop (예정)
+- [ ] Chapter selection 화면 (DEV menu 졸업)
+- [ ] Post-battle outcome + branch reveal 화면 (ceremonial witness pattern, 1.5s dwell)
+- [ ] Beat 8 revelation prose 16 챕터 초안 (ch16 부터 진심)
+- [ ] ch16 방통 생존 trigger windowed-attested (scout_first ≥ 2)
+
+### S18 — Content Polish (예정)
+- [ ] World/environment 첫 tile set (Phase A-B 분위기, 신야/형주 ambient)
+- [ ] Banter per-chapter context (ch01/05/13/16 최소 4 변형)
+- [ ] 적측 voice minimal (조조 / 하후돈 / 여포 / 방통 적측)
+- [ ] 5 procedural music 16 챕터 mapping
+
+### S19 — Ship (예정)
+- [ ] Full windowed playthrough ch01 → ch16
+- [ ] Save migration (scenario_id rename)
+- [ ] Bug bash
+- [ ] Polish backlog 최종 cull
 
 ## Reference
 
