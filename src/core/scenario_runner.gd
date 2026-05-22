@@ -388,6 +388,43 @@ func dev_jump_to_chapter(scenario_path: String, chapter_index: int) -> bool:
 	return true
 
 
+## Production sibling of dev_jump_to_chapter — same load + index + cascade-state
+## seeding behaviour, BUT no debug-build gate and no hidden-branch auto-arm.
+## Used by the chapter-selection screen (S17 macro-loop, "DEV menu 졸업") to
+## let the player jump to any chapter ch01-N. Caller is responsible for calling
+## reset_for_tests() first if they want fresh per-chapter state.
+##
+## Cascade-state seeding (`_dev_seed_cascade_state`) IS applied — this is the
+## same "as-if-all-prior-chapters-played-canonically" assumption that the DEV
+## jump uses. The signature badge populates correctly when jumping to mid/late
+## chapters. The hidden-branch auto-arm is NOT applied — production callers
+## (player choosing a chapter from the menu) must satisfy the hidden_condition
+## naturally to trigger the hidden Beat 8. That is the demo's whole point.
+##
+## Returns true on success; false on empty path / invalid index / load failure.
+func jump_to_chapter(scenario_path: String, chapter_index: int) -> bool:
+	if scenario_path.is_empty():
+		push_warning("ScenarioRunner.jump_to_chapter: empty scenario_path")
+		return false
+	if not load_scenario(scenario_path):
+		return false
+	if chapter_index < 0 or chapter_index >= _chapters.size():
+		push_warning(
+			"ScenarioRunner.jump_to_chapter: index %d out of range [0, %d)"
+				% [chapter_index, _chapters.size()]
+		)
+		return false
+	if chapter_index == 0:
+		return true  # load_scenario already landed at chapter 0 BEAT_1_ANCHOR
+	_chapter_index = chapter_index
+	_reset_per_chapter_state()
+	_dev_seed_cascade_state(chapter_index)
+	var chapter: ChapterDefinition = get_current_chapter()
+	if chapter != null:
+		GameBus.chapter_started.emit(chapter.chapter_id, chapter.chapter_number)
+	return true
+
+
 ## DEV-ONLY: manually arms the hidden-branch force for the NEXT BEAT_7 judgment.
 ## Same auto-arming as dev_jump_to_chapter for a chapter with hidden_branch_key,
 ## but exposed so tests / tools can opt in mid-flow without re-jumping. No-op in

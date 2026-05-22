@@ -1,0 +1,71 @@
+; Chapter Select — production "챕터 선택" surface (S17 macro-loop).
+; MainMenu's "새 시나리오" button routes here. Player picks one of 16
+; ch01-16 cards (4×4 grid populated by script) → battle_scene.
+
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/feature/chapter_select/chapter_select.gd" id="1_chapter_select"]
+
+[node name="ChapterSelect" type="Control"]
+script = ExtResource("1_chapter_select")
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 1
+
+[node name="Background" type="ColorRect" parent="."]
+color = Color(0.04, 0.06, 0.09, 1)
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Center" type="CenterContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="Box" type="VBoxContainer" parent="Center"]
+alignment = 1
+theme_override_constants/separation = 22
+mouse_filter = 2
+
+[node name="Title" type="Label" parent="Center/Box"]
+text = "챕터 선택"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.96, 0.92, 0.78, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.02, 0.03, 1)
+theme_override_constants/outline_size = 8
+theme_override_font_sizes/font_size = 44
+mouse_filter = 2
+
+[node name="Subtitle" type="Label" parent="Center/Box"]
+text = "MVP Demo · 도원결의에서 낙봉파까지"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.78, 0.78, 0.74, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.02, 0.03, 1)
+theme_override_constants/outline_size = 5
+theme_override_font_sizes/font_size = 18
+mouse_filter = 2
+
+[node name="Spacer1" type="Control" parent="Center/Box"]
+custom_minimum_size = Vector2(0, 16)
+mouse_filter = 2
+
+[node name="Grid" type="GridContainer" parent="Center/Box"]
+columns = 4
+theme_override_constants/h_separation = 14
+theme_override_constants/v_separation = 14
+mouse_filter = 2
+
+[node name="Spacer2" type="Control" parent="Center/Box"]
+custom_minimum_size = Vector2(0, 16)
+mouse_filter = 2
+
+[node name="Footer" type="HBoxContainer" parent="Center/Box"]
+alignment = 1
+theme_override_constants/separation = 12
+mouse_filter = 2
+
+[node name="BackButton" type="Button" parent="Center/Box/Footer"]
+text = "← 뒤로"
+custom_minimum_size = Vector2(200, 48)
+theme_override_font_sizes/font_size = 20

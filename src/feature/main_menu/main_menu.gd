@@ -1,8 +1,10 @@
 ## MainMenu — entry-point screen shown at game launch.
 ##
 ## Four options:
-##   - 새 시나리오 (New scenario): reset ScenarioRunner, change_scene to
-##     battle_scene which will fresh-load shu_canon_full.json via its bootstrap path.
+##   - 새 시나리오 (New scenario): change_scene to chapter_select.tscn — the
+##     player picks a chapter ch01-16 from the MVP-demo grid. Replaces the
+##     pre-S17 direct ScenarioRunner.reset + battle_scene jump; the reset now
+##     happens inside chapter_select.gd once a card is clicked.
 ##   - 이어하기 (Continue): load the latest SaveContext from slot 1 and call
 ##     ScenarioRunner.restore_from_save_context() before changing scenes.
 ##     Disabled when no save exists in the slot.
@@ -33,6 +35,7 @@ extends Control
 
 const _DEFAULT_SLOT: int = 1
 const _BATTLE_SCENE_PATH: String = "res://scenes/battle/battle_scene.tscn"
+const _CHAPTER_SELECT_SCENE_PATH: String = "res://scenes/chapter_select/chapter_select.tscn"
 
 ## Production scenarios surfaced in the DEV chapter-jump menu. Pairs of
 ## (display_name, res_path). Keep in sync with /assets/data/scenarios/.
@@ -74,15 +77,12 @@ func _ready() -> void:
 # ─── Buttons ──────────────────────────────────────────────────────────────────
 
 func _on_new_pressed() -> void:
-	# Force the next BattleScene bootstrap to load shu_canon_full.json fresh from
-	# disk: reset_for_tests() drops the chapter list back to LOADING/empty
-	# so BattleScene._bootstrap_scenario_if_needed re-loads on first call.
-	# (reset_for_tests is the canonical "drop runtime state" seam established
-	# across the 4 autoloads; not test-exclusive — its name is a misnomer.)
-	var runner: Node = get_node_or_null("/root/ScenarioRunner")
-	if runner != null:
-		runner.reset_for_tests()
-	get_tree().change_scene_to_file(_BATTLE_SCENE_PATH)
+	# Hand off to the chapter-select surface. The actual ScenarioRunner reset +
+	# jump_to_chapter happens inside chapter_select.gd once a card is clicked.
+	# Pre-S17 this used to reset_for_tests + change_scene straight to battle —
+	# the indirection through chapter_select is the "DEV menu 졸업" path per
+	# production/milestones/mvp-demo-16ch.md S17 Macro-loop.
+	get_tree().change_scene_to_file(_CHAPTER_SELECT_SCENE_PATH)
 
 
 func _on_continue_pressed() -> void:
