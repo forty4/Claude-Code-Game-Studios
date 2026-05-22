@@ -111,11 +111,17 @@
 - [ ] 사용자 windowed attestation 실행 (~8분 + S72-S73 mechanic 자연 발화분)
 - [ ] Sprint 16 retrospective (짧게, build mode 컨벤션)
 
-### S17 — Macro-loop (예정)
-- [ ] Chapter selection 화면 (DEV menu 졸업)
-- [ ] Post-battle outcome + branch reveal 화면 (ceremonial witness pattern, 1.5s dwell)
-- [ ] Beat 8 revelation prose 16 챕터 초안 (ch16 부터 진심)
-- [ ] ch16 방통 생존 trigger windowed-attested (scout_first ≥ 2)
+### S17 — Macro-loop (in progress, 2026-05-22 session 74 ~)
+
+**Completed**:
+- [x] Chapter selection 화면 (DEV menu 졸업) — `eaa1a63` (NEW scenes/chapter_select/ + src/feature/chapter_select/ + ScenarioRunner.jump_to_chapter() sibling, +12 unit tests)
+- [x] Post-battle outcome + branch reveal 시퀀스 (ceremonial witness pattern) — `7379e1e` (기존 ceremonial 시퀀스 재사용 + tail redirect to chapter_select, +6 sentinel tests). Beat 8 prose 의 사용자 input 대기 자체가 ceremonial dwell — 별도 timer 불필요.
+- [x] Beat 8 revelation prose ch16 진심 작성 — `4deb651` (narrative-director Draft B: 삼국지연의 제63회 직접 소환 패턴)
+- [x] Macro-loop closed: main_menu → chapter_select → battle → post-battle ceremonial → chapter_select 복귀. **MVP demo 사용자 흐름 처음으로 닫힘**.
+
+**Remaining**:
+- [ ] Beat 8 revelation prose 나머지 15 챕터 초안 (ch01-15) — ch16 reference 결로 다음 세션 batch 작성
+- [ ] ch16 방통 생존 trigger windowed-attested (scout_first ≥ 2) — 코드 path 완성, **사용자 windowed 실행 대기**
 
 ### S18 — Content Polish (예정)
 - [ ] World/environment 첫 tile set (Phase A-B 분위기, 신야/형주 ambient)
