@@ -158,6 +158,15 @@ const DEATH_FADE_DURATION: float = 0.3
 const OUTCOME_DIM_COLOR: Color = Color(0.45, 0.45, 0.50, 1.0)
 const OUTCOME_DIM_DURATION: float = 0.4
 
+## S17 macro-loop — chapter selection scene path. After the post-battle
+## ceremonial sequence (OutcomeBanner + Beat 8 + ConsequenceScreen + Beat 9),
+## scene transitions back here instead of auto-loading the next chapter.
+## Lets the player explicitly choose what to play next, matching the
+## "DEV menu 졸업" → user-driven chapter pacing of mvp-demo-16ch milestone.
+## SCENARIO_END (last chapter walked off) still routes to _show_ending_screen
+## first; that screen offers a "챕터 선택으로" button as its primary return.
+const _CHAPTER_SELECT_SCENE_PATH: String = "res://scenes/chapter_select/chapter_select.tscn"
+
 ## End-of-turn polygon dim. A unit's polygon modulate fades to this alpha when
 ## the unit finishes its turn having spent at least one token (acted=true);
 ## reset back to WHITE when the next round starts. Reads as "this unit is
@@ -2064,7 +2073,9 @@ func _resolve_victory_condition_label(chapter: ChapterDefinition) -> StringName:
 
 
 ## Outcome-aware post-battle button cluster below the OutcomeBanner.
-## WIN → 다음 장으로 / 처음부터 / 종료.   DRAW or LOSS → 재시도 / 이대로 진행 / 종료.
+## WIN → 챕터 선택으로 / 처음부터 / 종료.   DRAW or LOSS → 재시도 / 챕터 선택으로 / 종료.
+## (S17 macro-loop — primary "advance" button now routes to chapter_select
+## instead of auto-loading the next chapter; player chooses pace explicitly.)
 ## Buttons go through the Viewport GUI path, so they work even if the keyboard
 ## poll in _process doesn't register in the windowed env (session 4). The first
 ## button grabs focus so Enter activates it.
@@ -2081,13 +2092,16 @@ func _mount_post_battle_buttons(result: int) -> void:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.add_child(row)
 
+	# S17 macro-loop — primary "advance" button now leads back to chapter_select
+	# (via _proceed_scenario tail change), not the next-chapter auto-load. Button
+	# label renamed to "챕터 선택으로 ▶" to match the new flow semantics.
 	var first_btn: Button = null
 	if result == BattleOutcome.Result.WIN:
-		first_btn = _add_post_battle_button(row, "다음 장으로 ▶  (Enter)", _proceed_scenario)
+		first_btn = _add_post_battle_button(row, "챕터 선택으로 ▶  (Enter)", _proceed_scenario)
 		_add_post_battle_button(row, "처음부터", _restart_scenario)
 	else:
 		first_btn = _add_post_battle_button(row, "재시도  (Enter)", _retry_chapter)
-		_add_post_battle_button(row, "이대로 진행 ▶", _proceed_scenario)
+		_add_post_battle_button(row, "챕터 선택으로 ▶", _proceed_scenario)
 	_add_post_battle_button(row, "종료 (Esc)", func() -> void: get_tree().quit())
 
 	_hud_layer.add_child(bar)
@@ -2186,9 +2200,15 @@ func _proceed_scenario() -> void:
 	if ScenarioRunner.get_state() == ScenarioRunner.State.SCENARIO_END:
 		_show_ending_screen()
 		return
-	# A next chapter is queued in BEAT_1_ANCHOR — reload (the fresh _ready walks
-	# its pre-battle beats and re-triggers SceneManager to mount ch2's tiles).
-	await _reload_via_scenario()
+	# S17 macro-loop — instead of auto-reloading the next chapter (pre-S17
+	# behaviour), return to the chapter-selection screen so the player picks
+	# what to play next. The ScenarioRunner state machine has already advanced
+	# to BEAT_1_ANCHOR of the next chapter via BEAT_8 → BEAT_9 → LOADING →
+	# CHAPTER_START; that state is fine to leave because chapter_select's
+	# click handler calls reset_for_tests + jump_to_chapter, which re-seeds
+	# state from scratch. The next chapter "queued" by the state machine is
+	# silently discarded when this scene tears down.
+	get_tree().change_scene_to_file(_CHAPTER_SELECT_SCENE_PATH)
 
 
 ## Reloads this scene once SceneManager has settled to IDLE (it's tearing down
@@ -2278,10 +2298,16 @@ func _show_ending_screen() -> void:
 	row.add_theme_constant_override("separation", 24)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(row)
-	var again: Button = _add_post_battle_button(row, "처음부터  (Enter)", _restart_scenario)
+	# S17 macro-loop — primary action returns to chapter_select; "처음부터"
+	# (full ch01 restart) stays as a secondary option for full-replay desire.
+	var return_btn: Button = _add_post_battle_button(
+		row, "챕터 선택으로  (Enter)",
+		func() -> void: get_tree().change_scene_to_file(_CHAPTER_SELECT_SCENE_PATH)
+	)
+	_add_post_battle_button(row, "처음부터", _restart_scenario)
 	_add_post_battle_button(row, "종료 (Esc)", func() -> void: get_tree().quit())
 	_hud_layer.add_child(card)
-	again.grab_focus()
+	return_btn.grab_focus()
 
 
 ## S65+ — Legendary cue: 별빛 fade overlay + dedicated Legendary fanfare.
