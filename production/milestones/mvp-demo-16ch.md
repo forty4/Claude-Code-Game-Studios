@@ -119,8 +119,18 @@
 - [x] Beat 8 revelation prose ch16 진심 작성 — `4deb651` (narrative-director Draft B: 삼국지연의 제63회 직접 소환 패턴)
 - [x] Macro-loop closed: main_menu → chapter_select → battle → post-battle ceremonial → chapter_select 복귀. **MVP demo 사용자 흐름 처음으로 닫힘**.
 
+**Beat 8 hidden ★ prose paired suite — 6 chapters 완성** (`4deb651` + `30db11d` + `0f04942` + `13a6535` + `2747467` + `f17f475`):
+- [x] ch16 ★ #1 방통 (낙봉파, 제63회 직접 소환) — MVP scope
+- [x] ch13 ★ #2 위연 (장사 반골, 제53회 메타) — MVP scope
+- [x] ch20 ★ #3 관우 (번성, 제76/77회 + "빚") — out-of-scope (reference frame)
+- [x] ch21 ★ #4 장비 (낭중 규율의 밤, 제81회, thematic anchor "살아 있는 자가 지키는 맹세는 끊어지지 않는다") — out-of-scope (reference frame)
+- [x] ch22 (#) 유비 (이릉, 제85회, 공명 시점) — out-of-scope (reference frame)
+- [x] ch25 closing 제갈량 (오장원, 제103/104회, 시리즈 anchor "출사표는 시작을 여는 표") — out-of-scope (reference frame)
+
+같은 register / 4-5 단락 / 三國演義 직접 소환 / cascade ambiguity 흡수 / thematic line 결 정합. 6 ★ prose 모두 narrative-director drafts-without-writing 패턴 → 사용자 선택 → orchestrator Edit.
+
 **Remaining**:
-- [ ] Beat 8 revelation prose 나머지 15 챕터 초안 (ch01-15) — ch16 reference 결로 다음 세션 batch 작성
+- [ ] MVP-scope default win Beat 8 prose (ch01-12 + ch14-15 — 9-12 chapters) — ★ prose register 보다 약한 contextual prose, 다음 세션 batch 작성 가능 (낮은 우선순위 — ★ 가 헤드라인)
 - [ ] ch16 방통 생존 trigger windowed-attested (scout_first ≥ 2) — 코드 path 완성, **사용자 windowed 실행 대기**
 
 ### S18 — Content Polish (예정)
