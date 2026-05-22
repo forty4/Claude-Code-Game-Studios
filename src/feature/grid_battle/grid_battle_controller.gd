@@ -90,16 +90,17 @@ const _GRID_ACTIONS: Array[String] = [
 const _TRACE_ENABLED: bool = false
 
 ## S73 — Synergy attestation gate (independent of `_TRACE_ENABLED`). Fires only
-## when a synergy bonus is actually applied (bonus > 0), so silent for units
-## without active synergy. Flip to `false` after windowed attestation confirms
-## Peach Garden / Lone Wolf / Counsel apply correctly in ch1.
-const _SYNERGY_TRACE_ENABLED: bool = true
+## when a synergy bonus is actually applied (bonus > 0). Flipped to false after
+## S73 windowed attestation confirmed Peach Garden +5 ATK fires correctly
+## (장비 92→97 / 유비 70→75 / 관우 95→100). Flip back to true if mechanic
+## investigation needed.
+const _SYNERGY_TRACE_ENABLED: bool = false
 
 ## S73 — Critical chain attestation gate (independent of `_TRACE_ENABLED`).
-## Fires when REAR CRIT chain advances (level ≥ 1). Useful because chain is
-## a rare per-round event — manual setup hard, so trace captures every natural
-## occurrence. Flip to `false` after attestation confirms chain mechanic.
-const _CRIT_CHAIN_TRACE_ENABLED: bool = true
+## Fires when REAR CRIT chain advances (level ≥ 1). Flipped to false after S73
+## windowed attestation confirmed natural lv1 + lv2 firing (장비 245→306 +25%
+## chain). Flip back to true if chain mechanic investigation needed.
+const _CRIT_CHAIN_TRACE_ENABLED: bool = false
 
 
 func _trace(msg: String) -> void:
