@@ -1,0 +1,2 @@
+- [Sprint-9 input-handling epic closure state](project_sprint9_closure.md) — sprint-9 APPROVED WITH CONDITIONS; 1203 PASS; 4 Polish-deferred items TD-068; 5 contracts TD-069; user attestations S9-13/S9-14 still open
+- [Foundation-layer epic QA pattern](feedback_foundation_layer_qa.md) — collapse 7-phase team-qa to single sign-off for headless-only Foundation epics; manual batches are no-ops; confirmed at sprint-9

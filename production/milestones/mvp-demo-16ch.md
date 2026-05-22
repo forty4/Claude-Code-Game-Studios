@@ -107,7 +107,8 @@
 - [x] S73 사용자 windowed attestation: Synergy v1 (Peach Garden +5 ATK 3 영웅) + Critical chain (lv1 다회 + lv2 +25% 장비 245→306)
 
 **Remaining**:
-- [ ] Windowed attestation 16-ch cut (`production/qa/evidence/phase-f-windowed-boot-attestation-16-chapters.md` 신규 — 기존 25-cut 파일에서 fork)
+- [x] Windowed attestation 16-ch cut 파일 작성 (`production/qa/evidence/phase-f-windowed-boot-attestation-16-chapters.md` 신규 fork from 25-cut) — 사용자 windowed attestation 실행 대기
+- [ ] 사용자 windowed attestation 실행 (~8분 + S72-S73 mechanic 자연 발화분)
 - [ ] Sprint 16 retrospective (짧게, build mode 컨벤션)
 
 ### S17 — Macro-loop (예정)
