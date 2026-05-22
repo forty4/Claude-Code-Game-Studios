@@ -119,6 +119,25 @@ func _trace(msg: String) -> void:
 ## slide reads as "moved to here" rather than a teleport jump.
 const MOVE_ANIM_DURATION: float = 0.6
 
+## S73 Bounce hero-specific tuning — per-hero {amplitude_px, hop_count} dict.
+## Total bounce duration normalized to MOVE_ANIM_DURATION (each up/down quarter
+## = MOVE_ANIM_DURATION / (hop_count * 2)). 5 cascade chibi 영웅 별 personality:
+##   관우 = 묵직 (shallow hop, 2 count) — heavy stride
+##   방통 = 통통 (taller hop, 3 count fast cadence) — light agile
+##   위연 = sharp (tallest hop, 2 count) — sudden up/down
+##   유비 = steady standard (5px × 2)
+##   장비 = 호쾌 (taller hop, 2 count) — boisterous
+## Heroes without entry → default 5px × 2 (matches pre-S73 behavior).
+const _BOUNCE_AMP_DEFAULT: float = 5.0
+const _BOUNCE_COUNT_DEFAULT: int = 2
+const _BOUNCE_PROFILE_BY_HERO: Dictionary = {
+	&"shu_002_guan_yu":   {"amp": 3.0, "count": 2},  # heavy / shallow
+	&"shu_007_pang_tong": {"amp": 6.0, "count": 3},  # light / fast cadence
+	&"shu_009_wei_yan":   {"amp": 7.0, "count": 2},  # sharp / tall
+	&"shu_001_liu_bei":   {"amp": 5.0, "count": 2},  # steady
+	&"shu_003_zhang_fei": {"amp": 6.0, "count": 2},  # 호쾌 / taller
+}
+
 ## Attack-lunge tuning. On damage_applied, the attacker polygon nudges
 ## LUNGE_DISTANCE px toward the defender over LUNGE_HALF_DURATION seconds,
 ## then returns to origin over another LUNGE_HALF_DURATION seconds. Total
@@ -1330,6 +1349,7 @@ func _spawn_unit_polygons_async(roster: Array[BattleUnit]) -> void:
 				(visuals as CanvasItem).modulate = Color.WHITE
 			visuals.spawn_unit_polygons(roster)
 			_mount_hp_bars(visuals, roster)
+			_refresh_synergy_badges()
 			# S59 windowed UX — when chapter is REACH_TILE, mark the target
 			# tile with a persistent gold-flag overlay so the player can see
 			# WHERE to go. User stuck on ch03 after enemy wipeout because
@@ -1415,18 +1435,26 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 		var anim_at_start: AnimatedSprite2D = chibi_at_start as AnimatedSprite2D
 		# Q5 Phase 3 — code-side vertical bounce during slide. Frame-swap
 		# (walk_0/walk_1 PNG) approach was 폐기 — chibi 짧은 다리 비례 +
-		# TILE_SIZE=64 scale_crush 로 sub-pixel motion. 결정적 ~5px Y hop
-		# 으로 통일. 2 hops per slide (each 0.3s). Bound to SceneTree per
+		# TILE_SIZE=64 scale_crush 로 sub-pixel motion. Bound to SceneTree per
 		# G-31 (BattleScene gets PROCESS_MODE_DISABLED during battle).
+		# S73 — per-hero amplitude + hop count (_BOUNCE_PROFILE_BY_HERO).
+		# Total normalized to MOVE_ANIM_DURATION so all heroes still end at y=0
+		# when slide ends. Heroes without entry fall back to default (5px × 2).
+		var bounce_amp: float = _BOUNCE_AMP_DEFAULT
+		var bounce_count: int = _BOUNCE_COUNT_DEFAULT
+		if _grid_controller != null:
+			var bunit: BattleUnit = _grid_controller.get_battle_unit(unit_id)
+			if bunit != null and _BOUNCE_PROFILE_BY_HERO.has(bunit.hero_id):
+				var profile: Dictionary = _BOUNCE_PROFILE_BY_HERO[bunit.hero_id]
+				bounce_amp = profile.get("amp", _BOUNCE_AMP_DEFAULT) as float
+				bounce_count = profile.get("count", _BOUNCE_COUNT_DEFAULT) as int
+		var hop_quarter: float = MOVE_ANIM_DURATION / float(bounce_count * 2)
 		var bounce_tween: Tween = get_tree().create_tween()
-		bounce_tween.tween_property(anim_at_start, "position:y", -5.0, 0.15) \
-			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		bounce_tween.tween_property(anim_at_start, "position:y", 0.0, 0.15) \
-			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-		bounce_tween.tween_property(anim_at_start, "position:y", -5.0, 0.15) \
-			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		bounce_tween.tween_property(anim_at_start, "position:y", 0.0, 0.15) \
-			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		for _i: int in bounce_count:
+			bounce_tween.tween_property(anim_at_start, "position:y", -bounce_amp, hop_quarter) \
+				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			bounce_tween.tween_property(anim_at_start, "position:y", 0.0, hop_quarter) \
+				.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	var slide_tween: Tween = get_tree().create_tween()
 	slide_tween.tween_property(unit_node, "position", world_pos, MOVE_ANIM_DURATION) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
@@ -1520,6 +1548,11 @@ func _on_unit_moved(unit_id: int, _from: Vector2i, to: Vector2i) -> void:
 	else:
 		visuals.set_attackable_tiles(PackedVector2Array())
 		_clear_verb_feedback_overlays(visuals)
+	# S73 Synergy v2 — adjacency may have shifted; refresh badges. Controller
+	# already updated unit.position before unit_moved.emit, so compute uses
+	# post-move state. Visually the slide tween animates over 0.6s, but badge
+	# text snaps to the new state at slide-start (synergy is logical).
+	_refresh_synergy_badges()
 
 
 ## Damage feedback: brief red flash on the defender's polygon so the player
@@ -1689,6 +1722,10 @@ func _on_unit_died_visual(unit_id: int) -> void:
 		if is_instance_valid(n):
 			n.modulate.a = 0.0
 			n.visible = false)
+	# S73 Synergy v2 — a unit death may activate Lone Wolf (위연's last neighbor
+	# fell) or break Peach Garden (a brother died). Recompute now; controller
+	# already marked the unit dead before unit_visual_died.emit.
+	_refresh_synergy_badges()
 
 
 ## Mounts a brief centered title card (chapter title + tagline) at battle start.
@@ -2886,9 +2923,10 @@ func _on_unit_skill_used(unit_id: int, skill_id: StringName) -> void:
 		if shake_params.x > 0.0:
 			_battle_camera.shake(shake_params.x, shake_params.y)
 	# Phase 3 Step E — Skill activation 드라마. "ultimate" 패턴 — 매 전투 1-2
-	# 회. CRIT (0.20s/1.10×) > kill (0.10s/1.05×) > skill (0.12s/1.07×) 의
-	# 중간 강도. player side 만 발화 — 적 skill 은 popup + shake 로 충분
-	# (적의 ultimate 가 player 쪽 만족감 줄 이유 없음).
+	# 회. S73 bumped to parity with kill: CRIT ≈ kill ≈ skill (all big-tier
+	# now — frequency differentiates: CRIT 빈번 / kill 4-6 / skill 1-2). player
+	# side 만 발화 — 적 skill 은 popup + shake 로 충분 (적의 ultimate 가 player
+	# 쪽 만족감 줄 이유 없음).
 	if caster.side == 0:
 		_trigger_skill_activation_drama(accent)
 
@@ -3109,26 +3147,33 @@ func _trigger_outcome_defeat_drama() -> void:
 ## accent: hero 별 색상 (chapter_visuals 가 dispatching). 매 전투 1-2회 발화
 ## 라 inflation 우려 없음 — kill drama 와 같은 진폭 family.
 func _trigger_skill_activation_drama(accent: Color) -> void:
-	Engine.time_scale = 0.5
-	get_tree().create_timer(0.12, true, false, true).timeout.connect(
+	# S73 ↑ — skill drama was weakest in the Phase 3 family (S71 attestation
+	# "특별한 느낌 없다" residual). Bumped to parity with S72 player_kill drama
+	# (0.4 time_scale / 0.16s hit-stop / 1.10× zoom / 0.08+0.20 zoom timings).
+	# Accent flash alpha bumped 0.14 → 0.24 (vs kill 0.20 JI_BAEK) — colored
+	# accent reads softer than near-white so +0.04 α to compensate. Fade 0.32
+	# → 0.42s (longer afterglow — skill is "ultimate" rarer than kill so the
+	# moment lingers). Family ranking post-S73: CRIT ≈ kill ≈ skill (all big).
+	Engine.time_scale = 0.4
+	get_tree().create_timer(0.16, true, false, true).timeout.connect(
 		func() -> void: Engine.time_scale = 1.0
 	)
 	if _battle_camera != null:
 		var orig_zoom: Vector2 = _battle_camera.zoom
 		var zoom_tween: Tween = get_tree().create_tween()
-		zoom_tween.tween_property(_battle_camera, "zoom", orig_zoom * 1.07, 0.10) \
+		zoom_tween.tween_property(_battle_camera, "zoom", orig_zoom * 1.10, 0.08) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		zoom_tween.tween_property(_battle_camera, "zoom", orig_zoom, 0.18) \
+		zoom_tween.tween_property(_battle_camera, "zoom", orig_zoom, 0.20) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	if _hud_layer != null:
 		var flash: ColorRect = ColorRect.new()
 		flash.name = "SkillAccentFlash"
-		flash.color = Color(accent.r, accent.g, accent.b, 0.14)
+		flash.color = Color(accent.r, accent.g, accent.b, 0.24)
 		flash.set_anchors_preset(Control.PRESET_FULL_RECT)
 		flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_hud_layer.add_child(flash)
 		var flash_tween: Tween = get_tree().create_tween()
-		flash_tween.tween_property(flash, "color:a", 0.0, 0.32) \
+		flash_tween.tween_property(flash, "color:a", 0.0, 0.42) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		flash_tween.tween_callback(flash.queue_free)
 
@@ -3317,6 +3362,23 @@ func _find_unit_polygon(visuals: Node, unit_id: int) -> Node2D:
 			if (child.name as String).begins_with(prefix) and child is Node2D:
 				return child as Node2D
 	return null
+
+
+## S73 Synergy v2 — recompute per-unit synergy badges and push to ChapterVisuals.
+## Called from _spawn_unit_polygons_async (initial), _on_unit_moved (adjacency
+## shifts on slide), _on_unit_died_visual (Lone Wolf activates / Peach Garden
+## breaks). No-op when controller or visuals missing (test mode / mid-teardown).
+func _refresh_synergy_badges() -> void:
+	if _grid_controller == null:
+		return
+	if not _grid_controller.has_method(&"compute_synergy_badges"):
+		return
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null:
+		return
+	if not visuals.has_method(&"set_synergy_badges"):
+		return
+	visuals.set_synergy_badges(_grid_controller.compute_synergy_badges())
 
 
 ## Returns a flat row-major Array[MapTileData] with all tiles passable grass.

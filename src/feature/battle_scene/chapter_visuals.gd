@@ -492,7 +492,11 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 			var anim_sprite: AnimatedSprite2D = AnimatedSprite2D.new()
 			anim_sprite.name = "ChibiSprite"
 			var frames: SpriteFrames = SpriteFrames.new()
-			frames.add_animation(&"default")
+			# Godot 4.6: SpriteFrames.new() auto-creates the "default" animation.
+			# Calling add_animation(&"default") here triggers the warning
+			# "SpriteFrames already has animation 'default'" + no-op. Just
+			# add frames directly. Fixed S73 (was firing once per chibi unit
+			# per spawn cycle).
 			frames.add_frame(&"default", idle_tex)
 			if breath_tex != null:
 				frames.add_frame(&"default", breath_tex)
@@ -599,6 +603,27 @@ func spawn_unit_polygons(roster: Array[BattleUnit]) -> void:
 		# Local rotation = (global facing angle) - poly's rotation.
 		chevron.rotation = atan2(facing_vec.y, facing_vec.x) - poly_rot
 		poly.add_child(chevron)
+		# S73 — Synergy badge slot (Synergy v2). Empty text until controller
+		# calls set_synergy_badges() with per-unit char map. Chars: '義' Peach
+		# Garden / '策' 방통 Counsel (recipient or self) / '獨' 위연 Lone Wolf.
+		# Concat possible (e.g. '義策' when 유비 adjacent to both 장비 and 방통).
+		# Counter-rotated position (world-frame upper-right of tile, regardless
+		# of poly facing) + counter-rotated text (always upright). Gold tint per
+		# art-bible JI_BAEK warm palette. mouse_filter IGNORE per Phase 3 위급!
+		# learning (Label default STOP intercepts click — breaks grid click).
+		var badge: Label = Label.new()
+		badge.name = "SynergyBadge"
+		badge.text = ""
+		badge.visible = false
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		badge.add_theme_color_override("font_color", Color(0.85, 0.71, 0.27, 1.0))  # gold
+		badge.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.05, 1.0))
+		badge.add_theme_constant_override("outline_size", 3)
+		badge.add_theme_font_size_override("font_size", 14)
+		badge.position = Vector2(14, -30).rotated(-poly_rot)
+		badge.rotation = -poly_rot
+		poly.set_meta(&"unit_id", unit.unit_id)
+		poly.add_child(badge)
 	# Session-43 — fresh roster spawned with default modulate.a=1.0 on every
 	# NameLabel. Refresh so non-active, non-selected names start at dim alpha.
 	# Active turn coord may not be set yet (round 1 first init unit fires
@@ -640,6 +665,31 @@ func _refresh_unit_label_alphas() -> void:
 				_UNIT_LABEL_FULL_ALPHA if (is_active or is_selected)
 				else _UNIT_LABEL_DIM_ALPHA
 			)
+
+
+## S73 Synergy v2 — paints per-unit synergy badge (義/策/獨, concat possible)
+## above each polygon. Called by battle_scene after spawn / unit_moved /
+## unit_killed / unit_visual_died — any event that can change adjacency. Empty
+## string hides the badge. unit_id stored as poly meta (&"unit_id") during
+## spawn_unit_polygons. Walks both PlayerUnits + EnemyUnits parents.
+func set_synergy_badges(badges: Dictionary) -> void:
+	for parent_name: String in ["PlayerUnits", "EnemyUnits"]:
+		var parent: Node2D = get_node_or_null(parent_name) as Node2D
+		if parent == null:
+			continue
+		for child: Node in parent.get_children():
+			if not (child is Polygon2D):
+				continue
+			var poly: Polygon2D = child as Polygon2D
+			if not poly.has_meta(&"unit_id"):
+				continue
+			var unit_id: int = int(poly.get_meta(&"unit_id"))
+			var badge: Label = poly.get_node_or_null("SynergyBadge") as Label
+			if badge == null:
+				continue
+			var text: String = badges.get(unit_id, "") as String
+			badge.text = text
+			badge.visible = text != ""
 
 
 ## Returns the per-hero accent border color for `hero_id`, falling back to a

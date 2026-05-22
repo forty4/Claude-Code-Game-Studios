@@ -89,6 +89,18 @@ const _GRID_ACTIONS: Array[String] = [
 ## again.
 const _TRACE_ENABLED: bool = false
 
+## S73 — Synergy attestation gate (independent of `_TRACE_ENABLED`). Fires only
+## when a synergy bonus is actually applied (bonus > 0), so silent for units
+## without active synergy. Flip to `false` after windowed attestation confirms
+## Peach Garden / Lone Wolf / Counsel apply correctly in ch1.
+const _SYNERGY_TRACE_ENABLED: bool = true
+
+## S73 — Critical chain attestation gate (independent of `_TRACE_ENABLED`).
+## Fires when REAR CRIT chain advances (level ≥ 1). Useful because chain is
+## a rare per-round event — manual setup hard, so trace captures every natural
+## occurrence. Flip to `false` after attestation confirms chain mechanic.
+const _CRIT_CHAIN_TRACE_ENABLED: bool = true
+
 
 func _trace(msg: String) -> void:
 	if _TRACE_ENABLED:
@@ -2658,15 +2670,21 @@ func _compute_synergy_atk_bonus(unit: BattleUnit) -> int:
 		return 0
 	var allies: Array[BattleUnit] = _adjacent_allies(unit)
 	var bonus: int = 0
+	var reason: String = ""
 	# Peach Garden Bond
 	if _PEACH_GARDEN_TRIO.has(unit.hero_id):
 		for ally: BattleUnit in allies:
 			if _PEACH_GARDEN_TRIO.has(ally.hero_id):
 				bonus += 5
+				reason = "Peach Garden Bond (ally=%s)" % ally.hero_id
 				break  # cap +5 even if 2 brothers adjacent
 	# Lone Wolf — 위연
 	if unit.hero_id == &"shu_009_wei_yan" and allies.is_empty():
 		bonus += 5
+		reason = "Lone Wolf"
+	if _SYNERGY_TRACE_ENABLED and bonus > 0:
+		print("[SYNERGY] hero=%s raw_atk=%d synergy_atk=+%d total=%d reason='%s'" %
+			[unit.hero_id, unit.raw_atk, bonus, unit.raw_atk + bonus, reason])
 	return bonus
 
 
@@ -2679,18 +2697,61 @@ func _compute_synergy_def_bonus(unit: BattleUnit) -> int:
 		return 0
 	var allies: Array[BattleUnit] = _adjacent_allies(unit)
 	var bonus: int = 0
+	var reason: String = ""
 	var is_pang_tong: bool = unit.hero_id == &"shu_007_pang_tong"
 	if is_pang_tong:
 		# 방통 self-buff when adjacent to any ally
 		if not allies.is_empty():
 			bonus += 3
+			reason = "Strategist's Counsel (self, ally=%s)" % allies[0].hero_id
 	else:
 		# Ally check for 방통 in adjacency
 		for ally: BattleUnit in allies:
 			if ally.hero_id == &"shu_007_pang_tong":
 				bonus += 3
+				reason = "Strategist's Counsel (from 방통)"
 				break
+	if _SYNERGY_TRACE_ENABLED and bonus > 0:
+		print("[SYNERGY] hero=%s raw_def=%d synergy_def=+%d total=%d reason='%s'" %
+			[unit.hero_id, unit.raw_def, bonus, unit.raw_def + bonus, reason])
 	return bonus
+
+
+## S73 Synergy v2 — returns {unit_id: badge_chars} for all alive units. Empty
+## string for units without active synergy. Chars concat possible:
+## '義' Peach Garden trio (mutual adj), '策' 방통 Counsel (self or recipient),
+## '獨' 위연 Lone Wolf (no adj ally). Pure read — call after any adjacency-
+## changing event (spawn / move / kill / death).
+func compute_synergy_badges() -> Dictionary:
+	var result: Dictionary = {}
+	if _hp_controller == null:
+		return result
+	for u: BattleUnit in _units.values():
+		if not _hp_controller.is_alive(u.unit_id):
+			result[u.unit_id] = ""
+			continue
+		var allies: Array[BattleUnit] = _adjacent_allies(u)
+		var chars: String = ""
+		# Peach Garden — any 4-adj ally also in trio
+		if _PEACH_GARDEN_TRIO.has(u.hero_id):
+			for ally: BattleUnit in allies:
+				if _PEACH_GARDEN_TRIO.has(ally.hero_id):
+					chars += "義"
+					break
+		# 방통 Counsel — 방통 self when adj to any ally, OR non-방통 with 방통 adj
+		if u.hero_id == &"shu_007_pang_tong":
+			if not allies.is_empty():
+				chars += "策"
+		else:
+			for ally: BattleUnit in allies:
+				if ally.hero_id == &"shu_007_pang_tong":
+					chars += "策"
+					break
+		# Lone Wolf — 위연 with 0 adj allies
+		if u.hero_id == &"shu_009_wei_yan" and allies.is_empty():
+			chars += "獨"
+		result[u.unit_id] = chars
+	return result
 
 
 ## 4-directional adjacent allies (same side, alive).
@@ -2863,10 +2924,15 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 			_critical_chain_per_side.get(attacker.side, 0) + 1
 		crit_chain_level = _critical_chain_per_side[attacker.side]
 		var chain_bonus: float = _critical_chain_bonus_for(crit_chain_level)
+		var pre_chain_damage: int = final_damage
 		if chain_bonus > 0.0:
 			final_damage = int(roundi(float(final_damage) * (1.0 + chain_bonus)))
 			if final_damage < 1:
 				final_damage = 1
+		if _CRIT_CHAIN_TRACE_ENABLED:
+			print("[CRIT-CHAIN] side=%d level=%d +%d%% damage %d→%d attacker=%s" %
+				[attacker.side, crit_chain_level, int(chain_bonus * 100.0),
+				pre_chain_damage, final_damage, attacker.hero_id])
 		critical_chain_changed.emit(attacker.side, crit_chain_level)
 
 	# Stage 7: apply via HPStatusController (sole writer of HP per ADR-0010)
