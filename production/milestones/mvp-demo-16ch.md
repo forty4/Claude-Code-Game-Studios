@@ -38,7 +38,7 @@
 
 ### Production
 - [ ] `production/milestones/mvp-demo-16ch.md` (이 파일) maintained — 매 sprint 종결 시 attestation log 업데이트
-- [ ] Polish backlog 중 ship blocker 만 별도 분리 (`production/milestones/mvp-demo-16ch-ship-blockers.md` 또는 inline)
+- [x] Polish backlog 중 ship blocker 만 별도 분리 — inline 절 "Polish Backlog Ship-Blocker Triage" (S77, S19-A). 0 net new ship-blocker, 4 entries (POLISH-009/010/011/012) EFFECTIVELY-RESOLVED pending S19-D windowed attestation
 
 ## Out of Scope (explicit)
 
@@ -51,6 +51,32 @@
 - **CombatResolver 추출** (Tech Director 추천) — 5번째 in-controller mechanic 추가 시점에 trigger, 이번 milestone 의 blocker 아님
 - **Choice flatness Phase 4** (S71 진단) — Full Vision 의 후속 polish, MVP 의 4 pillar 진단 중 1개만 light entry (synergy)
 - **Multi-step survival cascade** (관우/장비/유비 ch25 까지 chained) — single ch16 branch 만 시연
+
+## Polish Backlog Ship-Blocker Triage
+
+> **Decided**: 2026-05-23 (S77, S19-A). `production/polish-backlog.md` 의 15 Open entries 를 ship-blocker 기준 (= MVP demo ship = ch01-16 windowed-attested + 방통 ★ 작동) 으로 triage. polish-backlog.md 자체는 미수정 (Build mode 의 POLISH-NNN 추적 dormant 원칙 유지) — 이 표가 ship-relevant 단일 view.
+
+| POLISH ID | Tier | Ship-blocker 분류 | 근거 |
+|-----------|------|-------------------|------|
+| 001 / 002 / 003 | ADVISORY | NON-BLOCKER | Battle HUD doc nits, Polish-phase doc sweep 대상 |
+| 004 / 005 | ADVISORY | NON-BLOCKER | Lint 5 whitelist + em-dash const, localization sprint trigger |
+| 006 | ADVISORY→char-art | NON-BLOCKER (MVP scope) | Guan Yu/Zhang Fei profile stubs — MVP 는 commissioned art 없음, chibi pixel 사용. char-art commission 부재로 trigger 미발화 |
+| 007 | ADVISORY (perf) | NON-BLOCKER | GameBus 391 emits/frame, 60fps 영향 0 (소프트 캡 calibration) |
+| 008 | ADVISORY (LOW defect) | NON-BLOCKER | ObjectDB exit-time leak, in-session 영향 0 |
+| 009 | DEFECT | **EFFECTIVELY-RESOLVED** | S14-02 visual fix 가 `mvp_chapter_01.tscn` ERROR 해소 (polish-backlog Amendment log 2026-05-09 PM late) |
+| 010 | DEFECT (HIGH) | **EFFECTIVELY-RESOLVED** | S14-02 가 production main_scene 의 visual rendering 검증 (Amendment log 동일 entry) |
+| 011 | DEFECT (CRITICAL) | **EFFECTIVELY-RESOLVED pending S19-D** | S15-A/B/C/J + S17 macro-loop closure (chapter_select→battle→ceremonial→back) 가 input + turn-loop 회로 검증. windowed re-attestation = S19-D |
+| 012 | DEFECT (CRITICAL) | **EFFECTIVELY-RESOLVED pending S19-D** | S15-J production wiring (set_action_controller) + S17 macro-loop closure. S19-D windowed 가 formal 종결 |
+| 013 | DEFECT HIGH (verif-gap) | NON-BLOCKER (test-side) | natural-loop integration test 환경의 deferred-chain stall — production main_scene 의 macro-loop 가 닫혀 있으므로 production 결로는 작동 확인됨. test infra 보강은 ship 후 polish |
+| 014 | DEFECT (LOW) | NON-BLOCKER | BattleScene teardown ~270 orphan, exit code 101 warning. 1949 tests 모두 PASS, 276 orphan baseline 유지 |
+| 015 | DEFECT (LOW visual) | NON-BLOCKER | 관우 chibi 90° 회전, gameplay 영향 0. Q5 Phase 3 walk-frame 또는 사용자 explicit request 시점 |
+
+**Triage summary**:
+- 0 net new ship-blocker (ship gate 통과에 필요한 새 작업 없음)
+- 4 entries (009/010/011/012) = EFFECTIVELY-RESOLVED 또는 pending-S19-D-attestation. S19-D 의 windowed playthrough 통과가 곧 formal closure trigger
+- 11 entries = NON-BLOCKER (Polish-phase / post-MVP / cosmetic)
+
+**Implication for S19**: ship gate = (a) S19-B Save migration 종결 + (b) S18 World/env tile set spec doc (S18 carryover) + (c) S19-D 사용자 windowed playthrough ch01-16 + ch16 ★ 통과. 그 3개가 통과하면 ship 준비 완료. polish-backlog 의 어떤 entry 도 별도 fix 작업 불필요.
 
 ## Sprint TOC
 
