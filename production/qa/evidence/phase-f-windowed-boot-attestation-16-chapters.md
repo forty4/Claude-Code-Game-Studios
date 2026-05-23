@@ -1,6 +1,6 @@
 # Phase F — 16챕터 MVP Demo Windowed Boot Attestation
 
-> **Status**: 작성 — 2026-05-22 (S73, S16 Foundation). 사용자 windowed attestation 대기 중.
+> **Status**: 작성 — 2026-05-22 (S73, S16 Foundation). S18 deliverable checkpoint 추가 — 2026-05-24 (S77, S19-D 준비). 사용자 windowed attestation 대기 중.
 > **Scope**: MVP Demo 16-ch (도원결의 ch01 → 낙봉파·방통 생존 ch16). DEV 챕터 점프 메뉴
 > 활용. G-30 (`.claude/rules/godot-4x-gotchas.md`) 패턴 mitigation.
 > **Anchor**: `production/milestones/mvp-demo-16ch.md` ship target.
@@ -11,6 +11,8 @@
 ## 0. 헤드리스 자동화 커버리지 (이미 그린)
 
 **663/663 PASS (foundation + grid_battle unit + integration scope)** · 0 errors · 0 failures · 276 orphans baseline (S73 시점, S72 3 신규 mechanic + S73 synergy v2 unit test 44개 backfill 후).
+
+> **현재 baseline (S77, 2026-05-24)**: 전체 unit + integration scope **1949/1949 PASS** · 0 errors · 0 failures · 276 orphan baseline 유지. S74 macro-loop closure + S75 Beat 8 prose batches + S76 banter chapter-override + enemy voice + music palette doc + S77 ship-blocker triage + S77 `scenario_id` rename (`shu_canon_full` → `shu_canon_main`) 모두 반영. 회귀 0.
 
 자동화로 검증된 사항 (ch01-16 범위 확인):
 - 16 챕터 .tres 맵 모두 MapGrid validation 통과 (`map_grid_test.gd`)
@@ -127,6 +129,49 @@ ch01-16 진행 중 자연 발화 가능한 mechanic — windowed 환경에서만
 
 ---
 
+## 3.5 S18 Content Polish 가시화 체크
+
+S18 (session 76) 완성 3 deliverable — windowed 환경에서만 가시 (자동화 cover 안 됨):
+
+### Banter per-chapter context 변형 (ch01/05/13/16 × {battle_start, outcome_win}, 26 lines)
+
+default banter 가 아닌 chapter-specific 결로 발화하는지 인지. 기존 default 와 결 비교 (e.g. ch01 결의 anchor / ch05 신야 백성 anchor / ch13 황충 anchor / ch16 능선 anchor).
+
+- [ ] **ch01 battle_start** — 유비/관우/장비 도원결의 결의 (default 와 결 다름, 황건적 첫 출진 anchor)
+- [ ] **ch01 outcome_win** — 황건적 격파 결의
+- [ ] **ch05 battle_start** — 신야 백성 보호 anchor
+- [ ] **ch05 outcome_win** — 신야 화공 후 결
+- [ ] **ch13 battle_start** — 장사 황충 노장 anchor
+- [ ] **ch13 outcome_win** — 위연 ★ 합류 분기 시 default 결
+- [ ] **ch16 battle_start** — 낙봉파 능선 anchor (방통 4번째 영웅)
+- [ ] **ch16 outcome_win** — 방통 생존 ★ 분기 후 결 (★ 발화 시)
+
+### 적측 voice minimal (4 적장 × {battle_start, outcome_loss} = 8 lines)
+
+발화 시점: round 1 player banter 후 2.0s start_delay (battle_start) / outcome WIN 시 player banter 후 2.0s (outcome_loss).
+
+- [ ] **조조** (wei_001) battle_start — 시인 거리 register
+- [ ] **조조** outcome_loss — 시인 register
+- [ ] **하후돈** (wei_005) battle_start — 충성 직진 register
+- [ ] **하후돈** outcome_loss — 충성 register
+- [ ] **여포** (qun_001) battle_start — 자만 외부귀인 register
+- [ ] **여포** outcome_loss — 외부귀인 register
+- [ ] **장료** (wei_006) battle_start — dignified 자기책임 register
+- [ ] **장료** outcome_loss — 자기책임 register
+
+### 5 procedural music palette (CH01-05 / 25-ch mapping)
+
+`design/audio/music-themes.md` 의 5-theme palette + 25-ch mapping table reference.
+
+- [ ] **CH01 D minor descending** — ch01/06/13/16 4 챕터 청취 (반복 분포 인지)
+- [ ] **CH02 bridge** — ch02/07/11/12/15 5 챕터 청취
+- [ ] **CH03 wandering** — ch01/08/12 3 챕터 (CH01 과 결 구별)
+- [ ] **CH04 warmth** — ch04/09/14 3 챕터
+- [ ] **CH05 fire climax** — ch05/10 2 챕터 (climax 결 강도)
+- [ ] **Playtest-watch flag**: ch04→ch05 연속 CH05 (절정→fire) 자연스러움 / ch13→ch16 CH01 proximity 결 leak 없음
+
+---
+
 ## 4. Boot fault 발생 시
 
 각 챕터 점프 후 stderr 확인:
@@ -179,8 +224,10 @@ ch13 (위연 합류) 도 같은 패턴 의 보조 시그니처 — `wei_yan_spar
 - [ ] BGM 5 슬러그 모두 청취 (CH01 / CH02 / CH03 / CH04 / CH05 — 챕터 사이 전환 자연스러움)
 - [ ] DEV 챕터 점프 메뉴 — 16 행 표시 + 클릭 응답 (메뉴 길이 polish 후보)
 - [ ] S72-S73 신규 mechanic 자연 발화 분 모두 인지 가능 (자연 발생 한도 내)
+- [ ] **S18 banter chapter 변형** ch01/05/13/16 × {battle_start, outcome_win} 8 슬롯 인지 (§3.5)
+- [ ] **S18 적측 voice** 4 적장 (조조/하후돈/여포/장료) × {battle_start, outcome_loss} 8 슬롯 인지 — round 1 player banter 후 2.0s staggered (§3.5)
 
-전부 통과 시 본 문서에 `Status: PASS — attested YYYY-MM-DD by <user>` 헤더 추가하고 milestone `mvp-demo-16ch.md` 의 S16 attestation log 에 cross-link.
+전부 통과 시 본 문서에 `Status: PASS — attested YYYY-MM-DD by <user>` 헤더 추가하고 milestone `mvp-demo-16ch.md` 의 S16/S17/S18 attestation log 에 cross-link.
 
 ---
 
