@@ -35,7 +35,7 @@
 ##   ADR-0017 §BattleConfig + ADR-0016 Migration Plan §1. IN-6/7/8/9 drift
 ##   notes preserved for traceability to grid_battle_controller / unit-role /
 ##   map-grid contracts. In standalone-launch mode (no SceneManager), BattleScene
-##   bootstraps shu_canon_full.json scenario itself for sprint-7 +1 playable-surface delta.
+##   bootstraps shu_canon_main.json scenario itself for sprint-7 +1 playable-surface delta.
 
 class_name BattleScene
 extends Node2D
@@ -628,7 +628,7 @@ func _exit_tree() -> void:
 ## Walks ScenarioRunner forward to BEAT_5_BATTLE for the chapter it's currently on.
 ##
 ## - First launch ever (also after _restart_scenario): no scenario loaded
-##   (index == -1) → load shu_canon_full.json (→ CHAPTER_START → BEAT_1_ANCHOR), then walk.
+##   (index == -1) → load shu_canon_main.json (→ CHAPTER_START → BEAT_1_ANCHOR), then walk.
 ##   (load_scenario in _restart_scenario re-loads, so index is briefly -1-equivalent —
 ##    actually load_scenario resets directly to CHAPTER_START; covered below.)
 ## - Reload after a chapter transition: _proceed_scenario already advanced
@@ -666,7 +666,7 @@ func _advance_scenario_to_battle() -> void:
 # ─── Story beat presentation (windowed; headless skips it) ───────────────────
 
 ## Story beat narrative content, keyed by beat_*_text_key (mirrors the keys in
-## assets/data/scenarios/shu_canon_full.json). Loaded once and cached; {} if the file
+## assets/data/scenarios/shu_canon_main.json). Loaded once and cached; {} if the file
 ## is missing or malformed (in which case no story screen is shown — the battle
 ## still plays). See assets/data/story/story_content.json.
 var _story_content_cache: Dictionary = {}
@@ -675,7 +675,7 @@ var _story_content_loaded: bool = false
 
 ## Ensures a scenario is loaded so get_current_chapter() works. The very first
 ## launch (and a "처음부터" restart) finds no scenario (index == -1) and loads
-## shu_canon_full.json (→ CHAPTER_START → BEAT_1_ANCHOR). Returns false on load failure.
+## shu_canon_main.json (→ CHAPTER_START → BEAT_1_ANCHOR). Returns false on load failure.
 func _bootstrap_scenario_if_needed() -> bool:
 	if ScenarioRunner.get_current_chapter_index() == -1:
 		var scenario_path: String = ScenarioRunner.get_active_scenario_path()

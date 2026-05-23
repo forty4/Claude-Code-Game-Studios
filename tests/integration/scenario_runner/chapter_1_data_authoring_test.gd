@@ -4,14 +4,14 @@
 ## Phase A — first chapter is now 도원결의·황건적 토벌 (ch01_taoyuan_yellow_turban);
 ## previous "장판파" target moved to ch06 (post Phase 0 index shift).
 ##
-## Validates the first-chapter shu_canon_full.json fixture surfaces all 4 archetypes
+## Validates the first-chapter shu_canon_main.json fixture surfaces all 4 archetypes
 ## with valid hero IDs, declares chokepoints in the schema, and remains
 ## structurally loadable by ScenarioRunner. This is the integration target
 ## that exercises ScenarioRunner + DestinyBranchJudge + AISystem coordination.
 extends GdUnitTestSuite
 
 
-const SCENARIO_JSON: String = "res://assets/data/scenarios/shu_canon_full.json"
+const SCENARIO_JSON: String = "res://assets/data/scenarios/shu_canon_main.json"
 
 
 # ─── AC-S7-05-1: chapter loads cleanly ────────────────────────────────────────
@@ -22,7 +22,7 @@ func test_chapter_1_loads_via_scenario_runner_without_fault() -> void:
 	auto_free(runner)
 	var loaded: bool = runner.load_scenario(SCENARIO_JSON)
 	assert_bool(loaded).override_failure_message(
-		"chapter-1 shu_canon_full.json must pass EC-SP-8 7-key validation"
+		"chapter-1 shu_canon_main.json must pass EC-SP-8 7-key validation"
 	).is_true()
 	var chapter: ChapterDefinition = runner.get_current_chapter()
 	assert_object(chapter).is_not_null()

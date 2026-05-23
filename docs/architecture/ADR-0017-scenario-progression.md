@@ -15,7 +15,7 @@ Accepted (2026-05-04 via /architecture-review delta #12)
 | **Knowledge Risk** | LOW (uses only stable Godot APIs: `Node` autoload, `Resource` `@export`, `JSON.parse`, `FileAccess.get_file_as_string`, `signal` declarations, `class_name`. No post-cutoff API surface introduced.) |
 | **References Consulted** | `docs/engine-reference/godot/VERSION.md`, `design/gdd/scenario-progression.md` (CR-1..CR-16, F-SP-1..F-SP-5, EC-SP-1..EC-SP-9, AC-SP-1..AC-SP-19), `design/gdd/destiny-branch.md`, `docs/architecture/ADR-0001-gamebus-autoload.md` (Scenario domain §1), `docs/architecture/ADR-0002-scene-manager.md` (Overworld↔BattleScene transition lifecycle), `docs/architecture/ADR-0003-save-load.md` (SaveContext + 3-CP policy), `docs/architecture/ADR-0014-grid-battle-controller.md` (battle_outcome_resolved emission), `docs/architecture/ADR-0016-battle-scene-wiring.md` (sprint-6 mock encoder Migration Plan §1) |
 | **Post-Cutoff APIs Used** | None |
-| **Verification Required** | (1) Confirm autoload boot order: GameBus → SceneManager → SaveManager → ScenarioRunner (ScenarioRunner depends on first 3). (2) Verify `JSON.parse_string` performance on 5-chapter `scenarios/shu_canon_full.json` (expected <50ms cold load on Snapdragon 7-gen reference). (3) Confirm `Resource.duplicate_deep(Resource.DEEP_DUPLICATE_ALL)` semantics on `ChapterDefinition` for sprint-7+ retry-loop snapshot pattern (used to preserve original branch_table across runtime). Note: Godot 4.5+ deprecates `duplicate(true)` for nested-Resource cases in favor of `duplicate_deep` per `docs/engine-reference/godot/deprecated-apis.md`; same precedent already shipped at `src/core/map_grid.gd:233`. |
+| **Verification Required** | (1) Confirm autoload boot order: GameBus → SceneManager → SaveManager → ScenarioRunner (ScenarioRunner depends on first 3). (2) Verify `JSON.parse_string` performance on 5-chapter `scenarios/shu_canon_main.json` (expected <50ms cold load on Snapdragon 7-gen reference). (3) Confirm `Resource.duplicate_deep(Resource.DEEP_DUPLICATE_ALL)` semantics on `ChapterDefinition` for sprint-7+ retry-loop snapshot pattern (used to preserve original branch_table across runtime). Note: Godot 4.5+ deprecates `duplicate(true)` for nested-Resource cases in favor of `duplicate_deep` per `docs/engine-reference/godot/deprecated-apis.md`; same precedent already shipped at `src/core/map_grid.gd:233`. |
 
 ## ADR Dependencies
 
@@ -363,8 +363,8 @@ class_name ScenarioResult extends Resource
 
 ```json
 {
-  "scenario_id": "shu_canon_full",
-  "scenario_title_key": "scenario.shu_canon_full.title",
+  "scenario_id": "shu_canon_main",
+  "scenario_title_key": "scenario.shu_canon_main.title",
   "chapters": [
     {
       "chapter_id": "ch01_taoyuan_oath",
@@ -510,7 +510,7 @@ class_name ScenarioResult extends Resource
 2. **Create `src/core/payloads/chapter_definition.gd`** — class_name ChapterDefinition extends Resource; 13 @export fields per §Decision.
 3. **EchoMark already shipped at `src/core/payloads/echo_mark.gd`** — 3-field schema (beat_index / outcome / tag) ratified by ADR-0003 §Schema Stability. ADR-0017 does NOT redefine EchoMark; ScenarioRunner emits `scenario_beat_retried(EchoMark)` per the shipped schema. If sprint-7+ design surfaces a need for additional EchoMark fields (e.g., chapter_id, retry_count), the change goes through SaveMigrationRegistry per ADR-0003 — NOT inline schema rewrite. Coordinate with Save/Load epic owner.
 4. **Create `src/core/payloads/scenario_result.gd`** — class_name ScenarioResult extends Resource.
-5. **Create `assets/data/scenarios/shu_canon_full.json`** — 3-5 chapter MVP authored content; coordinate with Balance/Data #27 author for schema lock + canonical_branch_key Pillar 4 enforcement.
+5. **Create `assets/data/scenarios/shu_canon_main.json`** — 3-5 chapter MVP authored content; coordinate with Balance/Data #27 author for schema lock + canonical_branch_key Pillar 4 enforcement.
 6. **Register `ScenarioRunner` autoload** — add to `project.godot` `[autoload]` after `BuildModeSentinel`, before any future autoloads. Boot order: GameBus → SceneManager → SaveManager → GameBusDiagnostics → BuildModeSentinel → **ScenarioRunner**.
 7. **Revert ADR-0016 sprint-6 mock encoder** — `src/feature/battle_scene/battle_scene.gd` lines between `# === SPRINT-6 MOCK ENCOUNTER ===` markers replaced with `var battle_config = ScenarioRunner.get_active_battle_config()`. Delete entire `# === SPRINT-6 MOCK ENCOUNTER HELPERS ===` block (~50 LoC). Update doc-comment block IN-N entries.
 8. **Revert `project.godot` `run/main_scene`** — change to title-screen / overworld entry per ADR-0017's chosen post-flip target (likely `scenes/main_menu/main_menu.tscn` or `scenes/overworld/overworld.tscn` — to be determined at implementation time per current Main Menu / Overworld epic state).

@@ -150,7 +150,7 @@ func test_play_music_method_exists_on_autoload() -> void:
 # ─── S60 chapter-specific BGM ────────────────────────────────────────────────
 
 
-## Maps every authored chapter_id (per shu_canon_full.json) to its chapter-specific
+## Maps every authored chapter_id (per shu_canon_main.json) to its chapter-specific
 ## music slug. Catches the case where a new chapter is added but the music
 ## switch in music_id_for_chapter() doesn't get the new case → would silently
 ## fall through to MUSIC_BATTLE_AMBIENT (audible regression: chapter has no
@@ -161,7 +161,7 @@ func test_music_id_for_chapter_resolves_distinct_slugs_per_mvp_chapter() -> void
 	assert_bool(sm.has_method("music_id_for_chapter")).override_failure_message(
 		"S60: SoundManager.music_id_for_chapter() must exist"
 	).is_true()
-	# Production chapter_ids per assets/data/scenarios/shu_canon_full.json — Phase A+B+C+D+E 25 chapters
+	# Production chapter_ids per assets/data/scenarios/shu_canon_main.json — Phase A+B+C+D+E 25 chapters
 	# 영걸전식 풀 캠페인 완성 (도원결의 → 오장원). Each must resolve to an authored (non-ambient) theme.
 	# All extension phases reuse 5 main themes by thematic match — distinctness only required for main 5.
 	var all_chapters: Array[StringName] = [
@@ -221,7 +221,7 @@ func test_music_id_for_chapter_resolves_distinct_slugs_per_mvp_chapter() -> void
 	).is_equal(5)
 
 
-## Wei scenario chapters resolve to authored themes (reuse the 5 shu_canon_full slugs
+## Wei scenario chapters resolve to authored themes (reuse the 5 shu_canon_main slugs
 ## by thematic match — none should fall through to MUSIC_BATTLE_AMBIENT). This
 ## is the parallel guard for the Wei line; the music_id_for_chapter switch must
 ## carry a case for every chapter_id in mvp_wei.json.

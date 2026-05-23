@@ -102,7 +102,7 @@ are absolute. Overuse risk is real (see Repetition Awareness section).
 
 ## Chapter Mapping (25 chapters)
 
-### MVP-scope (ch01-16, shu_canon_full)
+### MVP-scope (ch01-16, shu_canon_main)
 
 | chapter_id | 전투 beat | Phase | Theme | Thematic match rationale |
 |------------|-----------|-------|-------|--------------------------|
@@ -123,7 +123,7 @@ are absolute. Overuse risk is real (see Repetition Awareness section).
 | ch15_fushui_pass | 부수관 — 산악 관문·방통 합류 | C | CH02 | 단단한 결의 — 산악 관문을 전진 목표 지점까지 통과하는 결의. |
 | ch16_luofeng_slope | 낙봉파 — 방통 위기·시그니처 ★ #1 | C | CH01 | 비탄·절박 — 매복·하강. 시리즈 최대 위기. scout_first ≥ 2 시 방통 생존 ★. |
 
-### Out-of-scope (ch17-25, shu_canon_full)
+### Out-of-scope (ch17-25, shu_canon_main)
 
 | chapter_id | 전투 beat 요약 | Phase | Theme | Thematic match rationale |
 |------------|---------------|-------|-------|--------------------------|
@@ -244,5 +244,5 @@ out-of-scope 챕터 9개는 참조 프레임으로 포함되어 있으므로 Ful
 - 합성 모델 docstring: `src/feature/audio/sound_manager.gd:698-730`
 - Sentinel tests: `tests/unit/feature/audio/sound_manager_music_test.gd`
 - Milestone criterion (Visual & Audio section): `production/milestones/mvp-demo-16ch.md`
-- MVP scenario: `assets/data/scenarios/shu_canon_full.json`
+- MVP scenario: `assets/data/scenarios/shu_canon_main.json`
 - Wei scenario: `assets/data/scenarios/mvp_wei.json`

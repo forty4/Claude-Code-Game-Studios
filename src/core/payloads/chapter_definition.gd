@@ -231,6 +231,6 @@ extends Resource
 ## no per-branch ending screen authored (BattleScene falls back to its
 ## hardcoded "시나리오 클리어" generic card).
 ##
-## Runtime shape: { branch_path_id: i18n_text_key }. Designed for shu_canon_full ch25
+## Runtime shape: { branch_path_id: i18n_text_key }. Designed for shu_canon_main ch25
 ## 4-tier ending (canonical / hidden / legendary / loss).
 @export var ending_screen_text_keys: Dictionary = {}

@@ -16,7 +16,7 @@ extends Control
 signal closed
 
 
-# Hardcoded signature catalog — order = cascade event chronology in shu_canon_full.
+# Hardcoded signature catalog — order = cascade event chronology in shu_canon_main.
 # (signature_key, hero_name_ko, chapter_label, blurb, hero_id)
 # hero_id maps to heroes.json for portrait lookup via HeroDatabase.get_portrait_texture().
 # B2.1 ships portrait_shu_wei_yan.png only; other 4 fall back to text-only until B2.2-5.

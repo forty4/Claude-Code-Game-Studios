@@ -73,7 +73,7 @@ func test_make_battle_unit_falls_back_to_infantry_when_hero_unknown() -> void:
 
 
 func test_build_battle_units_propagates_class_for_full_chapter_1_roster() -> void:
-	# Mirrors shu_canon_full.json chapter 1: player 유비+장비 + 4 Wei generals across
+	# Mirrors shu_canon_main.json chapter 1: player 유비+장비 + 4 Wei generals across
 	# all four AI archetypes.
 	var scene: BattleScene = _instantiate_battle_scene()
 	var chapter: ChapterDefinition = _make_test_chapter(

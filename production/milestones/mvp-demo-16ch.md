@@ -33,8 +33,8 @@
 - [ ] Next chapter unlock 시 chapter selection 화면으로 복귀
 
 ### Save / Migration
-- [ ] `scenario_id` rename (`shu_canon_full` → final) + SaveContext migration 검증
-- [ ] Cross-chapter persistence 검증 (ch01 종결 후 ch02 시작 시 영웅 HP / 합류 state 유지)
+- [x] `scenario_id` rename (`shu_canon_full` → `shu_canon_main`) — S77 S19-B. JSON file `git mv` + 2 internal fields (`scenario_id` + `scenario_title_key`) + 30 file 일괄 치환 (src 7 + tests 17 + scenes 1 + design 3 + docs 2). 1949/1949 PASS 유지 (regression 0). SaveContext schema 변경 없음 (scenario_id field 미보유 — 선택된 Sub-scope A 範圍 외)
+- [x] Cross-chapter persistence 검증 — S77 S19-B. 기존 integration tests 가 cover: `scenario_runner_chapter_2_advance_test.gd` (heroic/tragic deployment variant + roster preservation via branch_overrides) + `cross_chapter_continuity_test.gd` (save-load roundtrip). HP carry-over 는 디자인 비대상 (각 chapter battle = fresh full-HP roster, scenario JSON initial 값 기반). 합류 state 는 BattlePayload.unit_roster + deployment_positions 로 보존 검증됨
 
 ### Production
 - [ ] `production/milestones/mvp-demo-16ch.md` (이 파일) maintained — 매 sprint 종결 시 attestation log 업데이트

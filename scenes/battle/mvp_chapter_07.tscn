@@ -8,7 +8,7 @@
 ;
 ; TILE_SIZE = 64. Unit position formula: (col * 64 + 32, row * 64 + 32).
 ;
-; Branch wiring (per assets/data/scenarios/shu_canon_full.json branch_table):
+; Branch wiring (per assets/data/scenarios/shu_canon_main.json branch_table):
 ;   - LOSS_changbanpo_retreat (default): no 유비 deployed; 장비 at [3,3] on bridge.
 ;   - WIN_changbanpo_default: 유비 at [2,3] BEHIND 장비 (heroic stand variant).
 ;

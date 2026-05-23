@@ -25,7 +25,7 @@ const BATTLE_SCENE_PATH: String = "res://scenes/battle/battle_scene.tscn"
 const BATTLE_SCENE_SOURCE: String = "res://src/feature/battle_scene/battle_scene.gd"
 
 # Chapter-1 (장판파) roster heroes — must cover all hero_ids resolved by
-# BattleScene._build_battle_units_from_chapter() against shu_canon_full.json.
+# BattleScene._build_battle_units_from_chapter() against shu_canon_main.json.
 # S7-05 expansion (2026-05-05): added shu_001_liu_bei (player 0) + 3 new Wei
 # enemies (wei_006/007/008) per chapter-1 4-archetype enemy_roster.
 const HERO_LIU_BEI: StringName = &"shu_001_liu_bei"

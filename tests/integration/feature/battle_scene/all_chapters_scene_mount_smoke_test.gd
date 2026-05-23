@@ -116,13 +116,13 @@ func test_all_25_chapter_scenes_instantiate_with_chapter_visuals_root() -> void:
 		).is_not_null()
 
 
-## G-30 — chapter scene map_id matches shu_canon_full.json chapter map_id. Catches:
+## G-30 — chapter scene map_id matches shu_canon_main.json chapter map_id. Catches:
 ## wrapper authored with the wrong .tres path (e.g., ch15.tscn pointing at
 ## ch14.tres). Currently caught at higher granularity by map_grid_test +
 ## scenario hydration tests, but this assertion is the structural link between
 ## the .tscn ExtResource and the JSON chapter record.
 func test_each_chapter_scene_map_id_matches_scenario_chapter_record() -> void:
-	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/shu_canon_full.json")
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/shu_canon_main.json")
 	var data: Dictionary = JSON.parse_string(json_text) as Dictionary
 	var chapters: Array = data["chapters"] as Array
 	var map_id_to_chapter: Dictionary = {}
@@ -137,7 +137,7 @@ func test_each_chapter_scene_map_id_matches_scenario_chapter_record() -> void:
 		var map_res: MapResource = scene.get("map_resource") as MapResource
 		var map_id: String = String(map_res.map_id)
 		assert_bool(map_id_to_chapter.has(map_id)).override_failure_message(
-			("Phase F: chapter scene %s loads map_id '%s' but shu_canon_full.json has no "
+			("Phase F: chapter scene %s loads map_id '%s' but shu_canon_main.json has no "
 				+ "chapter referencing that map_id (wrapper authored with wrong ExtResource?)")
 				% [path, map_id]
 		).is_true()

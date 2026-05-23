@@ -40,7 +40,7 @@ const _CHAPTER_SELECT_SCENE_PATH: String = "res://scenes/chapter_select/chapter_
 ## Production scenarios surfaced in the DEV chapter-jump menu. Pairs of
 ## (display_name, res_path). Keep in sync with /assets/data/scenarios/.
 const _DEV_JUMP_SCENARIOS: Array[Array] = [
-	["촉 (蜀)", "res://assets/data/scenarios/shu_canon_full.json"],
+	["촉 (蜀)", "res://assets/data/scenarios/shu_canon_main.json"],
 	["위 (魏)", "res://assets/data/scenarios/mvp_wei.json"],
 ]
 
@@ -196,7 +196,7 @@ func _on_dev_jump_item_selected(id: int) -> void:
 		return
 	# Reset cleans out any previous scenario state; set the active path so a
 	# subsequent _restart_scenario inside BattleScene reloads THIS scenario,
-	# not the default shu_canon_full.
+	# not the default shu_canon_main.
 	runner.reset_for_tests()
 	runner.set_active_scenario_path(path)
 	if not runner.dev_jump_to_chapter(path, idx):

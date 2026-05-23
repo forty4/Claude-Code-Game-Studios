@@ -1,12 +1,12 @@
 ## scenario_runner_chapter_2_advance_test.gd
 ##
-## Integration test: chapter 1 -> chapter 2 automatic advance via shu_canon_full.json
+## Integration test: chapter 1 -> chapter 2 automatic advance via shu_canon_main.json
 ## fixture. Verifies that adding a second chapter entry to the scenario JSON
 ## drives the multi-chapter pipeline end-to-end without code changes.
 extends GdUnitTestSuite
 
 
-const SCENARIO_JSON: String = "res://assets/data/scenarios/shu_canon_full.json"
+const SCENARIO_JSON: String = "res://assets/data/scenarios/shu_canon_main.json"
 
 
 func _drive_chapter_to_beat_9(runner: Node, chapter_id: String, result: BattleOutcome.Result = BattleOutcome.Result.WIN) -> void:
@@ -27,7 +27,7 @@ func test_scenario_advances_from_chapter_1_to_chapter_2_after_win() -> void:
 	auto_free(runner)
 	var loaded: bool = runner.load_scenario(SCENARIO_JSON)
 	assert_bool(loaded).override_failure_message(
-		"shu_canon_full.json must load with 2 chapters cleanly"
+		"shu_canon_main.json must load with 2 chapters cleanly"
 	).is_true()
 	assert_int(runner.get_current_chapter_index()).is_equal(0)
 	assert_str(runner.get_current_chapter().chapter_id).is_equal("ch01_taoyuan_yellow_turban")
@@ -43,7 +43,7 @@ func test_scenario_advances_from_chapter_1_to_chapter_2_after_win() -> void:
 
 
 func test_scenario_completes_after_final_chapter_win() -> void:
-	# Drives all chapters in shu_canon_full.json (ch1 장판파 → ch2 장판교 → ch3 강하
+	# Drives all chapters in shu_canon_main.json (ch1 장판파 → ch2 장판교 → ch3 강하
 	# 외곽 → ch4 적벽 prelude → ch5 적벽 본전) to a canonical-WIN finish and
 	# asserts scenario_complete fires exactly once with every chapter outcome
 	# archived. Updated as new chapters land — the semantic ("scenario ends

@@ -1,7 +1,7 @@
-# 영걸전식 Shu 라인 마스터 플랜 (shu_canon_full 풀 캠페인)
+# 영걸전식 Shu 라인 마스터 플랜 (shu_canon_main 풀 캠페인)
 
 > **상태**: ✅ **COMPLETE — Phase 0 / A / B / C / D / E + F (fate tracking) all shipped 2026-05-18**.
-> **목표**: 현재 5챕터(장판~적벽)인 `shu_canon_full` 시나리오를 영걸전식 25챕터 풀 캠페인으로 확장 (도원결의 → 오장원).
+> **목표**: 현재 5챕터(장판~적벽)인 `shu_canon_main` 시나리오를 영걸전식 25챕터 풀 캠페인으로 확장 (도원결의 → 오장원).
 > **범위**: 데이터 레이어 (JSON + .tres 맵 + story_content + heroes.json + 회귀 테스트). 시나리오 선택 UI / 기존 메뉴는 별건.
 
 ## 진행 상태 요약 (2026-05-18 attested)
@@ -29,7 +29,7 @@
 - **Manual windowed attestation**: `production/qa/evidence/phase-f-windowed-boot-attestation-25-chapters.md` 체크리스트 — 25 챕터 windowed boot 시각/입력/음악 검증 (~13분).
 - **시그니처 5/5 in-windowed trigger 검증**: ch21 `discipline_turns >= 4` 가장 쉬운 시도 (친군 손실 없이 4턴).
 - **Multi-step survival cascade**: 단일 step branch_overrides 한계 — 관우/장비/유비 모두 ch25까지 살리려면 ScenarioState memory + chained branch keys 필요. polish 후보.
-- **`scenario_id` rename**: `shu_canon_full` → `shu_canon_full` or `yeong_geol_jeon_shu`. SaveContext 마이그레이션.
+- **`scenario_id` rename**: `shu_canon_main` → `shu_canon_main` or `yeong_geol_jeon_shu`. SaveContext 마이그레이션.
 - **음악 다양성**: 5 procedural 테마 25챕터 mapping — 반복감 polish 후보.
 - **DEV 챕터 점프 메뉴 UX**: 25 행 PopupMenu — submenu (5 phase × 5 ch) 또는 scroll 가능성.
 
@@ -67,7 +67,7 @@
 | 24  | `ch24_jieting_pass`                 | 가정 (1차 북벌)         | REACH_TILE          | 강유 (jiang_wei)       | masu_supervised → **마속 생존** (영걸전 시그니처) |
 | 25  | `ch25_wuzhang_plains`               | 오장원 (제갈량 최후)    | SURVIVE 8           | —                     | qixing_turns ≥ 6 → **제갈량 회생** (영걸전 최종) |
 
-**Hidden destiny 총 14개** (현재 shu_canon_full 2개 → 14개). 그 중 **시그니처 영걸전 분기 5개** (방통/관우/장비/유비/마속 생환 + 제갈량 회생).
+**Hidden destiny 총 14개** (현재 shu_canon_main 2개 → 14개). 그 중 **시그니처 영걸전 분기 5개** (방통/관우/장비/유비/마속 생환 + 제갈량 회생).
 
 ---
 
@@ -143,17 +143,17 @@ default (5/5 모두 fail) 시 → `ENDING_canonical_loyal` (정사 기반 — Sh
 ## 6. 구현 단계 (Phase plan)
 
 ### Phase 0 — 현재 5챕터 index shift (ch01~ch05 → ch06~ch10) ★ 충돌 방지 선행
-1. `shu_canon_full.json` 챕터 ID rename
+1. `shu_canon_main.json` 챕터 ID rename
 2. `story_content.json` 키 rename (`shu.ch01.*` → `shu.ch06.*` 등 — 기존 키 prefix 확인 후 일괄)
 3. `sound_manager.gd::music_id_for_chapter` switch case 5 lines update
 4. 회귀 테스트 expectation update (scenario_runner_victory_conditions_hydration_test 등)
-5. 맵 .tres 파일명도 `shu_canon_full_chapter_0[1-5].tres` → `..._0[6-10].tres` (rename + 참조 업데이트)
+5. 맵 .tres 파일명도 `shu_canon_main_chapter_0[1-5].tres` → `..._0[6-10].tres` (rename + 참조 업데이트)
 6. DEV 챕터 점프 UI 의 ch_id label 자동 반영 (코드 변경 X — JSON 읽음)
 7. 1783 그린 유지 + 헤드리스 boot 검증 (ch06~ch10 chain)
 
 ### Phase A — Prequel 5챕터 신규 작성 (ch01~ch05, 황건적~신야)
 1. 새 영웅 2명 데이터 (`shu_005_zhao_yun`, `shu_006_zhuge_liang`) — heroes.json
-2. 5 챕터 entry (shu_canon_full.json) + 5 .tres 맵 (`shu_canon_full_chapter_0[1-5].tres` 신규)
+2. 5 챕터 entry (shu_canon_main.json) + 5 .tres 맵 (`shu_canon_main_chapter_0[1-5].tres` 신규)
 3. story_content.json 한국어 prose (각 5~9 beat × 5챕터)
 4. SoundManager.music_id_for_chapter 5 새 챕터 매핑 (기존 5 테마 재활용)
 5. 회귀 테스트 +N (scenario hydration / map .tres load / story coverage / BGM coverage)
@@ -191,7 +191,7 @@ default (5/5 모두 fail) 시 → `ENDING_canonical_loyal` (정사 기반 — Sh
 1. **음악 다양성**: 25챕터를 5개 procedural 테마만으로 thematic mapping 하면 반복감 강할 수 있음. polish phase 에서 외부 OGG 도입 또는 +5 테마 procedural 추가 후보.
 2. **밸런스**: 8~10인 풀 로스터 + 적 8~12명 챕터의 turn-order 처리 부담. `TurnOrderRunner` perf 회귀 가능 — polish phase 에서 perf-analyst 측정.
 3. **방통/관우/장비/유비/마속/제갈량 생존 hidden 동시 달성** 시 ending text가 너무 보너스 위주가 될 수 있음. 영걸전 원작에서도 perfect ending 은 별도 보상 — narrative-director 위임 후 텍스트 결정.
-4. **scenario_id="shu_canon_full"** 이름 — 5챕터 시절엔 적절했지만 25챕터 풀 캠페인이라 `mvp_*` prefix 어색. 향후 rename 후보 (`shu_canon_full` 또는 `yeong_geol_jeon_shu`). 후방 호환은 SaveContext.scenario_id 마이그레이션 필요. Phase F 정리.
+4. **scenario_id="shu_canon_main"** 이름 — 5챕터 시절엔 적절했지만 25챕터 풀 캠페인이라 `mvp_*` prefix 어색. 향후 rename 후보 (`shu_canon_main` 또는 `yeong_geol_jeon_shu`). 후방 호환은 SaveContext.scenario_id 마이그레이션 필요. Phase F 정리.
 5. **DEV 챕터 점프** 현재 5챕터 JSON 파싱 — 25챕터로 늘면 메뉴 너무 김. submenu (5 phase × 5 ch) 또는 scroll 필요. main_menu.gd 의 PopupMenu 조정.
 
 ---
@@ -199,7 +199,7 @@ default (5/5 모두 fail) 시 → `ENDING_canonical_loyal` (정사 기반 — Sh
 ## 8. 승인 후 시작 시점
 
 사용자 승인 시 **Phase 0 (인덱스 시프트)** 부터 즉시 진행 — 충돌 방지 선행 작업.
-1. shu_canon_full.json 의 ch01~ch05 chapter_id 를 ch06~ch10 으로 rename
+1. shu_canon_main.json 의 ch01~ch05 chapter_id 를 ch06~ch10 으로 rename
 2. 맵 .tres 5개 파일명 rename + JSON 참조 업데이트
 3. story_content.json 키 rename (ch01.* → ch06.* 등)
 4. sound_manager.gd switch case rename

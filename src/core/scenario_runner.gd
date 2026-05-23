@@ -104,9 +104,9 @@ var _test_mode: bool = false
 var _dev_arm_hidden_branch: bool = false
 
 # Currently-selected scenario file (set by MainMenu before scene change, or by a
-# future scenario-selector UI). Defaults to shu_canon_full — the canonical MVP campaign.
+# future scenario-selector UI). Defaults to shu_canon_main — the canonical MVP campaign.
 # BattleScene's bootstrap + restart paths read this rather than hardcoding the path.
-const DEFAULT_SCENARIO_PATH: String = "res://assets/data/scenarios/shu_canon_full.json"
+const DEFAULT_SCENARIO_PATH: String = "res://assets/data/scenarios/shu_canon_main.json"
 var _active_scenario_path: String = DEFAULT_SCENARIO_PATH
 
 
@@ -233,7 +233,7 @@ func get_state() -> State:
 
 
 ## Returns the path to the scenario file BattleScene will bootstrap on the next
-## fresh start. Defaults to shu_canon_full.json. Set via `set_active_scenario_path()`
+## fresh start. Defaults to shu_canon_main.json. Set via `set_active_scenario_path()`
 ## by MainMenu (or a future scenario-selector screen) before changing to
 ## battle_scene.tscn. Reset to DEFAULT_SCENARIO_PATH by `reset_for_tests()`.
 func get_active_scenario_path() -> String:
@@ -540,7 +540,7 @@ func _dev_seed_cascade_state(chapter_index: int) -> void:
 ## Loads a scenario JSON file and transitions LOADING -> CHAPTER_START on success.
 ## Emits scenario_fault on parse / validation failure; remains in LOADING.
 ##
-## [param json_path] res:// path to scenarios JSON, e.g. assets/data/scenarios/shu_canon_full.json
+## [param json_path] res:// path to scenarios JSON, e.g. assets/data/scenarios/shu_canon_main.json
 ## [return] true on success.
 func load_scenario(json_path: String) -> bool:
 	_state = State.LOADING
