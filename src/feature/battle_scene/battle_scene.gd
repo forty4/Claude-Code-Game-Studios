@@ -2030,6 +2030,10 @@ func _on_battle_outcome_resolved(outcome: StringName, _fate_data: Dictionary) ->
 		if result_kind == BattleOutcome.Result.WIN:
 			_trigger_outcome_victory_drama()
 			_fire_player_roster_banter("outcome_win")
+			# S18 — enemy commander's defeat line voices the loser's side of
+			# the same moment. 2.0s start_delay defers enemy voice until after
+			# player celebration banter window.
+			_fire_enemy_roster_banter("outcome_loss", 2.0)
 		elif result_kind == BattleOutcome.Result.LOSS:
 			_trigger_outcome_defeat_drama()
 			_fire_player_roster_banter("outcome_loss")
@@ -2782,8 +2786,12 @@ func _on_round_started_visual(round_num: int) -> void:
 		return
 	# S72 Hero banter — battle_start event fires on round 1 only (per-battle
 	# climax). Later rounds run round-start visual cleanup only.
+	# S18 — also fires enemy roster battle_start 2.0s after player roster
+	# starts (~post player stagger window for 4-hero rosters) so enemy voices
+	# land cleanly after the player commander's opening line.
 	if round_num == 1:
 		_fire_player_roster_banter("battle_start")
+		_fire_enemy_roster_banter("battle_start", 2.0)
 	for parent_name: String in ["PlayerUnits", "EnemyUnits"]:
 		var parent: Node = visuals.get_node_or_null(parent_name)
 		if parent == null:
@@ -3335,6 +3343,47 @@ func _fire_player_roster_banter(event_key: String) -> void:
 		if event_key == "outcome_win" and _hp_controller != null \
 				and not _hp_controller.is_alive(uid):
 			continue
+		var captured_uid: int = uid
+		if stagger > 0.0:
+			get_tree().create_timer(stagger).timeout.connect(
+				func() -> void: _spawn_banter(captured_uid, event_key)
+			)
+		else:
+			_spawn_banter(captured_uid, event_key)
+		stagger += _BANTER_STAGGER_S
+
+
+## S18 — Iterate enemy roster polygons + fire event-specific banter staggered.
+## Sibling to _fire_player_roster_banter; only difference is the parent node
+## name + side filter. Initial scope (S18): battle_start (post player roster
+## fire) + outcome_loss (when player wins, enemy chibi voices "we lost").
+## start_delay lets the orchestrator stagger the entire enemy roster after the
+## player roster has finished its own staggered fire.
+func _fire_enemy_roster_banter(event_key: String, start_delay: float = 0.0) -> void:
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null or _grid_controller == null:
+		return
+	var parent: Node = visuals.get_node_or_null("EnemyUnits")
+	if parent == null:
+		return
+	var stagger: float = start_delay
+	for child: Node in parent.get_children():
+		if not (child is Node2D):
+			continue
+		var poly: Node2D = child as Node2D
+		var uid: int = _extract_unit_id_from_polygon_name(poly.name)
+		if uid == -1:
+			continue
+		var unit: BattleUnit = _grid_controller.get_battle_unit(uid)
+		if unit == null or unit.side != 1:
+			continue
+		# Skip unmapped enemies (graceful — minor enemies stay silent).
+		if HeroDatabase.get_banter(unit.hero_id, event_key, _active_chapter_id()).is_empty():
+			continue
+		# outcome_loss is only authored for enemies, but mirror the player-side
+		# discipline: skip dead enemies on celebration-style events. For the
+		# initial scope (battle_start + outcome_loss) every line is "still
+		# present at the table" so include all.
 		var captured_uid: int = uid
 		if stagger > 0.0:
 			get_tree().create_timer(stagger).timeout.connect(

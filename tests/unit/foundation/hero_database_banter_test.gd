@@ -174,6 +174,71 @@ func test_get_banter_voice_distinction_no_dupe_battle_start() -> void:
 		lines[line] = hero
 
 
+# ── S18 — 4 enemy 영웅 × 2 event regression sentinel ──
+
+func test_get_banter_4_enemy_heroes_battle_start_and_outcome_loss_authored() -> void:
+	# Real JSON load. Sentinel: S18 4 적장 (조조/하후돈/여포/장료) ×
+	# {battle_start, outcome_loss} = 8 lines, all non-empty. Enforces the S18
+	# authoring contract; catches regressions where an enemy line is deleted.
+	var enemies: Array[StringName] = [
+		&"wei_001_cao_cao",
+		&"wei_005_xiahou_dun",
+		&"qun_001_lu_bu",
+		&"wei_006_zhang_liao",
+	]
+	var events: Array[String] = ["battle_start", "outcome_loss"]
+	var missing: Array[String] = []
+	for hero: StringName in enemies:
+		for event: String in events:
+			var line: String = HeroDatabase.get_banter(hero, event)
+			if line.is_empty():
+				missing.append("%s × %s" % [hero, event])
+	assert_int(missing.size()).override_failure_message(
+		("S18 enemy banter contract violated — 4 enemy 영웅 × 2 events = 8 lines"
+		+ " required, missing: %s") % str(missing)
+	).is_equal(0)
+
+
+func test_get_banter_enemy_voice_distinction_no_dupe_battle_start() -> void:
+	# Cross-enemy voice distinction sentinel: 4 적장 의 battle_start 가 모두 달라야
+	# — same design rule as the player roster. Voice merge regression catcher.
+	var enemies: Array[StringName] = [
+		&"wei_001_cao_cao",
+		&"wei_005_xiahou_dun",
+		&"qun_001_lu_bu",
+		&"wei_006_zhang_liao",
+	]
+	var lines: Dictionary[String, StringName] = {}
+	for hero: StringName in enemies:
+		var line: String = HeroDatabase.get_banter(hero, "battle_start")
+		if lines.has(line):
+			assert_bool(false).override_failure_message(
+				"S18 enemy battle_start voice collision: %s and %s both say '%s'"
+				% [lines[line], hero, line]
+			).is_true()
+		lines[line] = hero
+
+
+func test_get_banter_enemy_voice_distinction_no_dupe_outcome_loss() -> void:
+	# Same distinction rule for outcome_loss across 4 enemies — each commander's
+	# defeat-moment voice must read distinct from the others.
+	var enemies: Array[StringName] = [
+		&"wei_001_cao_cao",
+		&"wei_005_xiahou_dun",
+		&"qun_001_lu_bu",
+		&"wei_006_zhang_liao",
+	]
+	var lines: Dictionary[String, StringName] = {}
+	for hero: StringName in enemies:
+		var line: String = HeroDatabase.get_banter(hero, "outcome_loss")
+		if lines.has(line):
+			assert_bool(false).override_failure_message(
+				"S18 enemy outcome_loss voice collision: %s and %s both say '%s'"
+				% [lines[line], hero, line]
+			).is_true()
+		lines[line] = hero
+
+
 # ── S18 — by_chapter override semantics ──
 
 func _inject_synthetic_banter_with_chapter_override() -> void:

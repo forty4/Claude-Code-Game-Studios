@@ -1,13 +1,13 @@
 {
 	"_schema": "Hero banter lines — short personality dialogue triggered at battle events. Keyed by hero_id, then event_key. Optional by_chapter override: hero_id.by_chapter[chapter_id][event_key] takes precedence over default event_key when active chapter matches. Unmapped hero × event returns empty silently.",
 	"_events": [
-		"battle_start — fired once per player chibi hero at battle init",
+		"battle_start — fired once per chibi hero at battle init (player roster at round 1; enemy roster +2.0s delay if S18 enemy banter wired)",
 		"player_kill — fired on the unit that landed killing blow (player side only)",
-		"low_hp — fired on the unit that dropped below ~30% HP",
+		"low_hp — fired on the player unit that dropped below ~30% HP (player side only by design — adversary low-HP is player momentum, not tension)",
 		"outcome_win — fired on each surviving player chibi hero at battle WIN",
-		"outcome_loss — fired on each player chibi hero at battle LOSS"
+		"outcome_loss — fired on each player chibi hero at battle LOSS; ALSO fires on enemy chibi (with S18 enemy banter wired) when player WINS — same event_key, opposite-side fire path encodes the enemy commander's defeat voice"
 	],
-	"_authoring_notes": "Korean. Single short sentence per line (≤20 chars optimal). Voice contrast required across heroes — see character spec docs (design/art/characters/*.md) for personality anchors. by_chapter override (S18): chapter-specific variant for context-rich beats (ch01 도원결의 / ch05 신야 화공 / ch13 장사 / ch16 낙봉파). Override falls through to default when chapter unknown.",
+	"_authoring_notes": "Korean. Single short sentence per line (≤20 chars optimal). Voice contrast required across heroes — see character spec docs (design/art/characters/*.md) for personality anchors. by_chapter override (S18): chapter-specific variant for context-rich beats (ch01 도원결의 / ch05 신야 화공 / ch13 장사 / ch16 낙봉파). Override falls through to default when chapter unknown. Enemy voices (S18): 4 적장 (wei_001 조조 / wei_005 하후돈 / qun_001 여포 / wei_006 장료) author battle_start + outcome_loss; battle_scene fires enemy roster banter via _fire_enemy_roster_banter sibling helper.",
 	"shu_002_guan_yu": {
 		"battle_start": "운명이 다하기 전엔 물러나지 않는다.",
 		"player_kill": "한 명 줄었군.",
@@ -102,5 +102,21 @@
 				"outcome_win": "정찰 2턴이 이 결과를 만들었다."
 			}
 		}
+	},
+	"wei_001_cao_cao": {
+		"battle_start": "천하는 내 시(詩)의 소재일 뿐.",
+		"outcome_loss": "패배도 한 편의 시가 되겠지."
+	},
+	"wei_005_xiahou_dun": {
+		"battle_start": "주공의 길을 막는 자, 쓰러져라.",
+		"outcome_loss": "내가 막지 못했다. 주공께 면목 없다."
+	},
+	"qun_001_lu_bu": {
+		"battle_start": "천하에 나를 막을 자는 없다.",
+		"outcome_loss": "오늘은 하늘이 내 편이 아니었을 뿐."
+	},
+	"wei_006_zhang_liao": {
+		"battle_start": "부하의 뜻이 모인 곳, 우리는 진다.",
+		"outcome_loss": "내 명령이 부족했다. 부하의 잘못 아니다."
 	}
 }
