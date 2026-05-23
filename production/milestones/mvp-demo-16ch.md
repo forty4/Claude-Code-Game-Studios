@@ -20,7 +20,7 @@
 ### Content & Narrative
 - [x] Beat 8 revelation prose 16 챕터 win-side 모두 작성 (default 16/16 + alt-win 8/8 + ★ headline 6/6; loss-side deferred — ROI 낮음)
 - [ ] ch16 방통 생존 trigger windowed-attested (scout_first ≥ 2 → 방통 살아남음 → Beat 8 revelation 발화)
-- [ ] Banter per-chapter context — 최소 ch01/05/13/16 변형 (반복감 완화)
+- [x] Banter per-chapter context — ch01/05/13/16 × battle_start+outcome_win 변형 26 lines 적용 (S18 session 76)
 - [ ] 적측 voice minimal — 최소 조조 / 하후돈 / 여포 / 방통 적측 (ch01-16 등장 적장)
 
 ### Visual & Audio
@@ -146,9 +146,13 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - [ ] Beat 8 default-loss prose 16/16 — 우선순위 낮음 (loss outcome 회로 사용자 미관통 가능성 큼, alt-loss register 정의 필요)
 - [ ] ch16 방통 생존 trigger windowed-attested (scout_first ≥ 2) — 코드 path 완성, **사용자 windowed 실행 대기**
 
-### S18 — Content Polish (예정)
+### S18 — Content Polish (in progress, 2026-05-23 session 76 ~)
+
+**Completed**:
+- [x] Banter per-chapter context — ch01/05/13/16 × {battle_start, outcome_win} = 26 lines, 4 heroes (liu_bei/guan_yu/zhang_fei/pang_tong) — session 76. Schema extension: `hero_id.by_chapter[chapter_id][event_key]` optional override, default fallback path 보존. `HeroDatabase.get_banter()` signature → optional `chapter_id` 인자; `battle_scene._active_chapter_id()` 헬퍼가 active chapter 전달. +8 unit tests for chapter-override semantics (1946/1946 PASS).
+
+**Remaining**:
 - [ ] World/environment 첫 tile set (Phase A-B 분위기, 신야/형주 ambient)
-- [ ] Banter per-chapter context (ch01/05/13/16 최소 4 변형)
 - [ ] 적측 voice minimal (조조 / 하후돈 / 여포 / 방통 적측)
 - [ ] 5 procedural music 16 챕터 mapping
 
