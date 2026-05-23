@@ -21,7 +21,7 @@
 - [x] Beat 8 revelation prose 16 챕터 win-side 모두 작성 (default 16/16 + alt-win 8/8 + ★ headline 6/6; loss-side deferred — ROI 낮음)
 - [ ] ch16 방통 생존 trigger windowed-attested (scout_first ≥ 2 → 방통 살아남음 → Beat 8 revelation 발화)
 - [x] Banter per-chapter context — ch01/05/13/16 × battle_start+outcome_win 변형 26 lines 적용 (S18 session 76)
-- [ ] 적측 voice minimal — 최소 조조 / 하후돈 / 여포 / 방통 적측 (ch01-16 등장 적장)
+- [x] 적측 voice minimal — 조조 / 하후돈 / 여포 / 장료 4 적장 × {battle_start, outcome_loss} = 8 lines (S18 session 76). "방통 적측" milestone 문구 ambiguous → 4번째 적장은 ch01-16 등장 빈도 2위 + ch16 ★ 챕터 primary 적장인 장료 채택.
 
 ### Visual & Audio
 - [ ] World/environment 첫 tile set ship (Phase A-B 분위기 — 신야/형주 ambient)
@@ -151,10 +151,10 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 **Completed**:
 - [x] Banter per-chapter context — ch01/05/13/16 × {battle_start, outcome_win} = 26 lines, 4 heroes (liu_bei/guan_yu/zhang_fei/pang_tong) — session 76. Schema extension: `hero_id.by_chapter[chapter_id][event_key]` optional override, default fallback path 보존. `HeroDatabase.get_banter()` signature → optional `chapter_id` 인자; `battle_scene._active_chapter_id()` 헬퍼가 active chapter 전달. +8 unit tests for chapter-override semantics (1946/1946 PASS).
 - [x] 5 procedural music 16 챕터 mapping 명시적 — `design/audio/music-themes.md` 신규 작성 (session 76, 248 lines). 5-theme palette (CH01-05) + 25-chapter mapping table (16 MVP-scope + 9 out-of-scope + 5 Wei line) + Repetition Awareness 분포 분석 (CH01×3 / CH02×4 / CH03×3 / CH04×3 / CH05×3) + playtest-watch 2개 flag (ch04→ch05 CH05 연속, ch13→ch16 CH01 proximity) + synthesis-layer mitigation 옵션. 코드 코멘트 산재 rationale 을 designer-facing canonical doc 으로 통합. 기존 5 sentinel tests (sound_manager_music_test.gd) 그대로 보호.
+- [x] 적측 voice minimal — 4 적장 (wei_001 조조 / wei_005 하후돈 / qun_001 여포 / wei_006 장료) × {battle_start, outcome_loss} = 8 default lines (session 76). battle_scene `_fire_enemy_roster_banter()` 신규 sibling helper, EnemyUnits parent iterate + side==1 필터. Wire: round 1 battle_start (player 발화 후 2.0s start_delay) + outcome WIN 시 outcome_loss (player 발화 후 2.0s start_delay). +3 sentinel tests (8-line authored / battle_start no-dupe / outcome_loss no-dupe). "방통 적측" milestone 문구 ambiguous → 장료 채택 (16ch 등장 빈도 2위 + ch16 ★ primary). 1949/1949 PASS.
 
 **Remaining**:
 - [ ] World/environment 첫 tile set (Phase A-B 분위기, 신야/형주 ambient)
-- [ ] 적측 voice minimal (조조 / 하후돈 / 여포 / 방통 적측)
 
 ### S19 — Ship (예정)
 - [ ] Full windowed playthrough ch01 → ch16
