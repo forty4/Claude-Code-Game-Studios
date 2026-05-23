@@ -577,13 +577,30 @@ static func _load_banter() -> void:
 
 ## Returns the banter line for hero_id × event_key, or empty string if
 ## unmapped. Events: battle_start / player_kill / low_hp / outcome_win /
-## outcome_loss. Pilot scope (S72): 관우 + 장비 only; other heroes return ""
+## outcome_loss. Pilot scope (S72): 5 cascade 영웅; other heroes return ""
 ## (caller skips popup).
-static func get_banter(hero_id: StringName, event_key: String) -> String:
+##
+## chapter_id (S18): optional active chapter context. When non-empty AND the
+## hero's by_chapter[chapter_id][event_key] entry exists, that override wins.
+## Otherwise falls through to the default event_key entry. Unknown chapter_id
+## or missing override is silent — fallback is the safe path.
+static func get_banter(
+	hero_id: StringName,
+	event_key: String,
+	chapter_id: String = ""
+) -> String:
 	_load_banter()
 	if not _banter.has(hero_id):
 		return ""
 	var hero_banter: Dictionary = _banter[hero_id]
+	if not chapter_id.is_empty() and hero_banter.has("by_chapter"):
+		var by_chapter: Variant = hero_banter["by_chapter"]
+		if by_chapter is Dictionary:
+			var by_chapter_dict: Dictionary = by_chapter as Dictionary
+			if by_chapter_dict.has(chapter_id):
+				var ch_block: Variant = by_chapter_dict[chapter_id]
+				if ch_block is Dictionary and (ch_block as Dictionary).has(event_key):
+					return (ch_block as Dictionary)[event_key] as String
 	if not hero_banter.has(event_key):
 		return ""
 	return hero_banter[event_key] as String

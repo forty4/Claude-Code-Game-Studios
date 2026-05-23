@@ -172,3 +172,121 @@ func test_get_banter_voice_distinction_no_dupe_battle_start() -> void:
 				% [lines[line], hero, line]
 			).is_true()
 		lines[line] = hero
+
+
+# ── S18 — by_chapter override semantics ──
+
+func _inject_synthetic_banter_with_chapter_override() -> void:
+	var banter: Dictionary[StringName, Dictionary] = {
+		&"shu_001_liu_bei": {
+			"battle_start": "기본 라인.",
+			"outcome_win": "기본 승리 라인.",
+			"by_chapter": {
+				"ch01_taoyuan_yellow_turban": {
+					"battle_start": "ch01 전용 출진 라인.",
+				},
+				"ch16_luofeng_slope": {
+					"battle_start": "ch16 전용 출진 라인.",
+					"outcome_win": "ch16 전용 승리 라인.",
+				},
+			},
+		},
+		&"shu_002_guan_yu": {
+			"battle_start": "관우 기본.",
+		},
+	}
+	_hd_script.set("_banter", banter)
+	_hd_script.set("_banter_loaded", true)
+
+
+func test_get_banter_chapter_override_wins_when_match() -> void:
+	_inject_synthetic_banter_with_chapter_override()
+	var line: String = HeroDatabase.get_banter(
+		&"shu_001_liu_bei", "battle_start", "ch01_taoyuan_yellow_turban"
+	)
+	assert_str(line).is_equal("ch01 전용 출진 라인.")
+
+
+func test_get_banter_chapter_override_only_replaces_matching_event() -> void:
+	# ch01 override defines battle_start only; outcome_win must fall through
+	# to the default outcome_win line.
+	_inject_synthetic_banter_with_chapter_override()
+	var win: String = HeroDatabase.get_banter(
+		&"shu_001_liu_bei", "outcome_win", "ch01_taoyuan_yellow_turban"
+	)
+	assert_str(win).is_equal("기본 승리 라인.")
+
+
+func test_get_banter_falls_back_to_default_when_chapter_id_empty() -> void:
+	_inject_synthetic_banter_with_chapter_override()
+	var line: String = HeroDatabase.get_banter(&"shu_001_liu_bei", "battle_start", "")
+	assert_str(line).is_equal("기본 라인.")
+
+
+func test_get_banter_falls_back_to_default_when_chapter_id_unknown() -> void:
+	_inject_synthetic_banter_with_chapter_override()
+	var line: String = HeroDatabase.get_banter(
+		&"shu_001_liu_bei", "battle_start", "ch99_unknown_chapter"
+	)
+	assert_str(line).is_equal("기본 라인.")
+
+
+func test_get_banter_falls_back_to_default_when_hero_has_no_by_chapter_key() -> void:
+	# shu_002_guan_yu in this fixture has no by_chapter block — lookup with
+	# a chapter_id must not crash + must return the default event line.
+	_inject_synthetic_banter_with_chapter_override()
+	var line: String = HeroDatabase.get_banter(
+		&"shu_002_guan_yu", "battle_start", "ch01_taoyuan_yellow_turban"
+	)
+	assert_str(line).is_equal("관우 기본.")
+
+
+func test_get_banter_chapter_override_picks_correct_chapter() -> void:
+	# Same hero, same event — different chapter_id → different override.
+	_inject_synthetic_banter_with_chapter_override()
+	var ch01: String = HeroDatabase.get_banter(
+		&"shu_001_liu_bei", "battle_start", "ch01_taoyuan_yellow_turban"
+	)
+	var ch16: String = HeroDatabase.get_banter(
+		&"shu_001_liu_bei", "battle_start", "ch16_luofeng_slope"
+	)
+	assert_str(ch01).is_not_equal(ch16)
+	assert_str(ch01).is_equal("ch01 전용 출진 라인.")
+	assert_str(ch16).is_equal("ch16 전용 출진 라인.")
+
+
+func test_get_banter_chapter_override_returns_empty_when_default_also_missing() -> void:
+	# Hero exists, has by_chapter, but neither override nor default has the event.
+	var banter: Dictionary[StringName, Dictionary] = {
+		&"shu_001_liu_bei": {
+			"battle_start": "default.",
+			"by_chapter": {
+				"ch01_taoyuan_yellow_turban": {
+					"battle_start": "ch01 override.",
+				},
+			},
+		},
+	}
+	_hd_script.set("_banter", banter)
+	_hd_script.set("_banter_loaded", true)
+	var line: String = HeroDatabase.get_banter(
+		&"shu_001_liu_bei", "low_hp", "ch01_taoyuan_yellow_turban"
+	)
+	assert_str(line).is_equal("")
+
+
+func test_get_banter_malformed_by_chapter_non_dict_falls_through_safely() -> void:
+	# Defensive: malformed by_chapter value (e.g., string) must not crash —
+	# get_banter falls through to default event lookup.
+	var banter: Dictionary[StringName, Dictionary] = {
+		&"shu_001_liu_bei": {
+			"battle_start": "default.",
+			"by_chapter": "this_is_not_a_dict",
+		},
+	}
+	_hd_script.set("_banter", banter)
+	_hd_script.set("_banter_loaded", true)
+	var line: String = HeroDatabase.get_banter(
+		&"shu_001_liu_bei", "battle_start", "ch01_taoyuan_yellow_turban"
+	)
+	assert_str(line).is_equal("default.")

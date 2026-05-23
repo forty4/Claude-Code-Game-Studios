@@ -1,5 +1,5 @@
 {
-	"_schema": "Hero banter lines — short personality dialogue triggered at battle events. Keyed by hero_id, then event_key. Unmapped hero × event returns empty silently.",
+	"_schema": "Hero banter lines — short personality dialogue triggered at battle events. Keyed by hero_id, then event_key. Optional by_chapter override: hero_id.by_chapter[chapter_id][event_key] takes precedence over default event_key when active chapter matches. Unmapped hero × event returns empty silently.",
 	"_events": [
 		"battle_start — fired once per player chibi hero at battle init",
 		"player_kill — fired on the unit that landed killing blow (player side only)",
@@ -7,27 +7,81 @@
 		"outcome_win — fired on each surviving player chibi hero at battle WIN",
 		"outcome_loss — fired on each player chibi hero at battle LOSS"
 	],
-	"_authoring_notes": "Korean. Single short sentence per line (≤20 chars optimal). Voice contrast required across heroes — see character spec docs (design/art/characters/*.md) for personality anchors.",
+	"_authoring_notes": "Korean. Single short sentence per line (≤20 chars optimal). Voice contrast required across heroes — see character spec docs (design/art/characters/*.md) for personality anchors. by_chapter override (S18): chapter-specific variant for context-rich beats (ch01 도원결의 / ch05 신야 화공 / ch13 장사 / ch16 낙봉파). Override falls through to default when chapter unknown.",
 	"shu_002_guan_yu": {
 		"battle_start": "운명이 다하기 전엔 물러나지 않는다.",
 		"player_kill": "한 명 줄었군.",
 		"low_hp": "...아직 멀었다.",
 		"outcome_win": "이번도 천운이로다.",
-		"outcome_loss": "이 죄, 사후에 갚으리라."
+		"outcome_loss": "이 죄, 사후에 갚으리라.",
+		"by_chapter": {
+			"ch01_taoyuan_yellow_turban": {
+				"battle_start": "황건의 검은 깃발이 눈앞에 있다.",
+				"outcome_win": "천운이 첫 맹세를 지켜주었다."
+			},
+			"ch05_xinye_fire": {
+				"battle_start": "신야를 불태울 시간이 왔다.",
+				"outcome_win": "불길 속에서도 운명이 형제를 지켰다."
+			},
+			"ch13_changsha_veteran": {
+				"battle_start": "황충, 그 검은 운명이 허락하지 않는다.",
+				"outcome_win": "노장의 혼은 거두었다. 천운에 감사한다."
+			},
+			"ch16_luofeng_slope": {
+				"battle_start": "좁은 길, 하지만 운명은 막히지 않는다.",
+				"outcome_win": "봉추의 책략이 좁은 길을 열었다."
+			}
+		}
 	},
 	"shu_003_zhang_fei": {
 		"battle_start": "와하하! 다 덤벼라!",
 		"player_kill": "이게 끝이냐!",
 		"low_hp": "이 정도로는!",
 		"outcome_win": "별 거 아니었군!",
-		"outcome_loss": "...형님, 죄송합니다."
+		"outcome_loss": "...형님, 죄송합니다.",
+		"by_chapter": {
+			"ch01_taoyuan_yellow_turban": {
+				"battle_start": "황건 놈들아, 장비가 왔다!",
+				"outcome_win": "형님들, 도원의 약속 지켰습니다!"
+			},
+			"ch05_xinye_fire": {
+				"battle_start": "신야야, 잘 타거라!",
+				"outcome_win": "조조 놈도 연기만 들이마셨군!"
+			},
+			"ch13_changsha_veteran": {
+				"battle_start": "노장이라도 칼은 칼이다, 덤벼라!",
+				"outcome_win": "와하하! 장사도 형님 손에 넘어왔다!"
+			},
+			"ch16_luofeng_slope": {
+				"battle_start": "좁은 길이면 어때! 다 밀어버려라!",
+				"outcome_win": "봉추 선생 덕분이군! 살았다!"
+			}
+		}
 	},
 	"shu_001_liu_bei": {
 		"battle_start": "물러서지 마라, 형제들이여.",
 		"player_kill": "어쩔 수 없었다.",
 		"low_hp": "...아직 할 일이 남았다.",
 		"outcome_win": "오늘도 무사하구나.",
-		"outcome_loss": "내 부덕의 소치다."
+		"outcome_loss": "내 부덕의 소치다.",
+		"by_chapter": {
+			"ch01_taoyuan_yellow_turban": {
+				"battle_start": "도원에서 맺은 뜻, 오늘 첫 칼을 든다.",
+				"outcome_win": "황건을 물리쳤다. 백성이 살았다."
+			},
+			"ch05_xinye_fire": {
+				"battle_start": "백성이 다 빠져나갈 때까지 버텨라.",
+				"outcome_win": "백성이 무사히 후퇴했다. 그것이 승리다."
+			},
+			"ch13_changsha_veteran": {
+				"battle_start": "황충은 노장이지만 적이다. 잊지 마라.",
+				"outcome_win": "장사를 얻었다. 형주가 완성된다."
+			},
+			"ch16_luofeng_slope": {
+				"battle_start": "낙봉파 능선, 익주의 문이 보인다.",
+				"outcome_win": "봉추가 살았다. 그것만으로 충분하다."
+			}
+		}
 	},
 	"shu_009_wei_yan": {
 		"battle_start": "내 길은 내가 정한다.",
@@ -41,6 +95,12 @@
 		"player_kill": "흠, 의외였군.",
 		"low_hp": "...계산 외였군.",
 		"outcome_win": "역시 책략이 으뜸이다.",
-		"outcome_loss": "...이 또한 운명인가."
+		"outcome_loss": "...이 또한 운명인가.",
+		"by_chapter": {
+			"ch16_luofeng_slope": {
+				"battle_start": "능선 지형은 이미 계산에 있었다.",
+				"outcome_win": "정찰 2턴이 이 결과를 만들었다."
+			}
+		}
 	}
 }

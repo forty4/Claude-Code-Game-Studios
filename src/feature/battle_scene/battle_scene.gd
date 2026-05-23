@@ -3268,13 +3268,23 @@ const _BANTER_STAGGER_S: float = 0.5
 var _banter_cooldown: Dictionary = {}
 
 
+## S18 — resolve active chapter_id for banter by_chapter override lookup.
+## Returns "" when scenario is between chapters or unloaded; HeroDatabase
+## treats "" as "no override, use default" so this is the safe fallback path.
+func _active_chapter_id() -> String:
+	var chapter: ChapterDefinition = ScenarioRunner.get_current_chapter()
+	if chapter == null:
+		return ""
+	return chapter.chapter_id
+
+
 func _spawn_banter(unit_id: int, event_key: String) -> void:
 	if _grid_controller == null:
 		return
 	var unit: BattleUnit = _grid_controller.get_battle_unit(unit_id)
 	if unit == null:
 		return
-	var line: String = HeroDatabase.get_banter(unit.hero_id, event_key)
+	var line: String = HeroDatabase.get_banter(unit.hero_id, event_key, _active_chapter_id())
 	if line.is_empty():
 		return  # graceful: unmapped hero × event (non-pilot heroes silent)
 	var key: String = "%d:%s" % [unit_id, event_key]
@@ -3318,7 +3328,7 @@ func _fire_player_roster_banter(event_key: String) -> void:
 		if unit == null or unit.side != 0:
 			continue
 		# Skip unmapped heroes early to avoid scheduling empty timers.
-		if HeroDatabase.get_banter(unit.hero_id, event_key).is_empty():
+		if HeroDatabase.get_banter(unit.hero_id, event_key, _active_chapter_id()).is_empty():
 			continue
 		# outcome_win: surviving heroes only celebrate. outcome_loss + battle_start
 		# include all (dead heroes still mourn / cheer pre-fight).
