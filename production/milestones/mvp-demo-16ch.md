@@ -25,7 +25,7 @@
 
 ### Visual & Audio
 - [ ] World/environment 첫 tile set ship (Phase A-B 분위기 — 신야/형주 ambient)
-- [ ] 5 procedural music 테마 16 챕터 mapping 명시적 (반복 인식 polish)
+- [x] 5 procedural music 테마 16 챕터 mapping 명시적 — `design/audio/music-themes.md` (S18 session 76, 248 lines, 25-ch table + repetition-awareness + playtest-watch)
 
 ### Macro-loop UI
 - [ ] Chapter selection 화면 (user-facing, DEV menu 졸업)
@@ -150,11 +150,11 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 
 **Completed**:
 - [x] Banter per-chapter context — ch01/05/13/16 × {battle_start, outcome_win} = 26 lines, 4 heroes (liu_bei/guan_yu/zhang_fei/pang_tong) — session 76. Schema extension: `hero_id.by_chapter[chapter_id][event_key]` optional override, default fallback path 보존. `HeroDatabase.get_banter()` signature → optional `chapter_id` 인자; `battle_scene._active_chapter_id()` 헬퍼가 active chapter 전달. +8 unit tests for chapter-override semantics (1946/1946 PASS).
+- [x] 5 procedural music 16 챕터 mapping 명시적 — `design/audio/music-themes.md` 신규 작성 (session 76, 248 lines). 5-theme palette (CH01-05) + 25-chapter mapping table (16 MVP-scope + 9 out-of-scope + 5 Wei line) + Repetition Awareness 분포 분석 (CH01×3 / CH02×4 / CH03×3 / CH04×3 / CH05×3) + playtest-watch 2개 flag (ch04→ch05 CH05 연속, ch13→ch16 CH01 proximity) + synthesis-layer mitigation 옵션. 코드 코멘트 산재 rationale 을 designer-facing canonical doc 으로 통합. 기존 5 sentinel tests (sound_manager_music_test.gd) 그대로 보호.
 
 **Remaining**:
 - [ ] World/environment 첫 tile set (Phase A-B 분위기, 신야/형주 ambient)
 - [ ] 적측 voice minimal (조조 / 하후돈 / 여포 / 방통 적측)
-- [ ] 5 procedural music 16 챕터 mapping
 
 ### S19 — Ship (예정)
 - [ ] Full windowed playthrough ch01 → ch16
