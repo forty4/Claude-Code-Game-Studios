@@ -182,11 +182,18 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 **Remaining**:
 - [ ] World/environment 첫 tile set (Phase A-B 분위기, 신야/형주 ambient)
 
-### S19 — Ship (예정)
-- [ ] Full windowed playthrough ch01 → ch16
-- [ ] Save migration (scenario_id rename)
-- [ ] Bug bash
-- [ ] Polish backlog 최종 cull
+### S19 — Ship (in progress, 2026-05-24 session 77 ~)
+
+**Completed**:
+- [x] Polish backlog ship-blocker triage (S19-A) — `f998280` (inline 절 "Polish Backlog Ship-Blocker Triage", 15 entries 3 분류, 0 net new blocker, 4 EFFECTIVELY-RESOLVED pending S19-D)
+- [x] Save migration / scenario_id rename `shu_canon_full` → `shu_canon_main` (S19-B) — `7d1f01c` (JSON `git mv` + 2 internal fields + 30 file 일괄 치환, 1949/1949 PASS 유지, Sub-scope A: SaveContext schema 미변경)
+- [x] Cross-chapter persistence 검증 (S19-B) — 기존 integration tests cover (`scenario_runner_chapter_2_advance_test` heroic/tragic deployment variant + `cross_chapter_continuity_test` save-load roundtrip)
+- [x] S19-D evidence prep (S19-D 준비) — `a124871` (phase-f-windowed-boot-attestation-16-chapters.md §3.5 신규 + §0 baseline + §6 종료 조건 갱신, +49 lines)
+
+**Remaining**:
+- [ ] Full windowed playthrough ch01 → ch16 (S19-D 사용자 실행) — evidence 파일 ready, 사용자 ~8분 실행 대기
+- [ ] Bug bash (S19-E) — S19-D 결과 의존
+- [ ] Polish backlog 최종 cull (S19-C 선택적) — Build mode POLISH-NNN dormant 원칙 고려 시 ROI 낮음, S19-A triage 가 ship-relevant view 만 추출했으므로 sufficient
 
 ## Reference
 
