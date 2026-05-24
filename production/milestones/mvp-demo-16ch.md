@@ -215,6 +215,20 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - [ ] Bug bash (S19-E) — S19-D 결과 의존
 - [ ] Polish backlog 최종 cull (S19-C 선택적) — Build mode POLISH-NNN dormant 원칙 고려 시 ROI 낮음, S19-A triage 가 ship-relevant view 만 추출했으므로 sufficient
 
+### S78 — Branch architecture + ch01 vertical-slice (2026-05-24 session 78)
+
+> **Driver**: 사용자 "긴장감 / 운명을 바꾸는 묘미 / 역사를 만드는 매력 이 첫판부터 안 felt" 진단 → ch01 redesign.
+
+**Completed (7 commits, 1954/1954 PASS, push 완료)**:
+- [x] **Branch distribution plan** (`d26da92`) — `design/narrative/branch-distribution-plan.md` 신규 (286 lines, 11 sections): 4 Core Principles (Scarcity / Tragedy preservation / Decisive-moment signaling / ch01 priming-null) + MVP 16ch ★ 5 distribution (ch05/08/10/13/16) + Full Vision ch20-22 cascade-block + ch24/25 brief. `design/quick-specs/ch01-vertical-slice-uplift.md` 신규 (143 lines, 8 sections). 본 milestone 의 "Branch Distribution Anchor" 절 신규 +20 lines.
+- [x] **ch01 황건적 hero records** (`2ac776f`) — yel_001 정원지 / yel_002 등무 / yel_003 손중 / yel_004 황소 4 records (HeroFaction.QUNXIONG=3, innate_skill_ids 비어있음, portrait/sprite placeholder). spec UnitClass enum (0=CAVALRY, 1=INFANTRY, 2=ARCHER) 정정.
+- [x] **ch01 roster swap + tuning** (`99fcee9`) — 위 4 장수 → yel_001-004 (archetype aggressor/holder/skirmisher/coordinator 4 distinct 보존), `enemy_atk_mult` 0.7→0.95, chokepoints 2→4 칸 [[5,4],[6,4],[7,4],[8,4]] (도로 일렬, 형세의 흐름).
+- [x] **ch01 Beat 8 ch05 seed** (`4b4f6a4`) — `ch01.beat8.win_taoyuan_oath_held` body 마지막에 1 sentence append: "그리고 — 이 형제의 칼이 백성을 지킬 날이, 신야의 흙길 위에서 따로 찾아올 것임도 그들은 아직 알지 못했다." (ch05 ★ trigger emotional anchor 미리 sourced).
+- [x] **Regression fix** (`79ca4b1`) — yel_002 growth_intellect 0.4→0.5 (CR-2 `[0.5, 2.0]` 위반 fix, HeroDatabase 22→23 records 회복), archetype 4 distinct 복원, 3 test 갱신 (chokepoint 2→4 expectation / MVP roster 상한 20→25 / battle_scene 2개 test 의 MOCK_HERO_IDS 에 yel_001-004 추가).
+- [x] **ch01 sentinel tests** (`769e52f`) — `tests/unit/feature/story_event/ch01_vertical_slice_sentinel_test.gd` 신규 (5 tests, 143 lines): 황건 hero records 존재 / roster yel_ prefix / tuning 값 / branch_table priming-null regression / Beat 8 ch05 seed substring. 1949 baseline +5 = 1954 PASS.
+
+**Outcome**: ch01 = "약속의 무게" 챕터로 격상. Pillar 1 (긴장감 mechanical), Pillar 2 (Beat 8 seed로 ch05 ★ foreshadow, priming-null 유지), Pillar 4 (황건적 lore 정합) 셋 다 첫판에서 felt. **분기 추가 X** — `branch_table = {WIN_default, LOSS_default}` 보존 (sentinel test 가 미래 ★ leak 차단).
+
 ## Reference
 
 - 6-lens assessment 원본: 2026-05-22 S73 session (Producer / Game Designer / QA Lead / Technical Director / Art Director / Narrative Director 병렬 spawn)
