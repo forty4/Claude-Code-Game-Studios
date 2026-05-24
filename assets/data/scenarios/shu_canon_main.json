@@ -83,26 +83,34 @@
       "enemy_roster": [
         {
           "unit_id": 2,
-          "hero_id": "wei_005_xiahou_dun",
+          "hero_id": "yel_001_cheng_yuanzhi",
           "archetype": "aggressor"
         },
         {
           "unit_id": 3,
-          "hero_id": "wei_007_yu_jin",
-          "archetype": "holder"
-        },
-        {
-          "unit_id": 4,
-          "hero_id": "wei_006_zhang_liao",
+          "hero_id": "yel_002_deng_mao",
           "archetype": "skirmisher"
         },
         {
+          "unit_id": 4,
+          "hero_id": "yel_003_sun_zhong",
+          "archetype": "holder"
+        },
+        {
           "unit_id": 5,
-          "hero_id": "wei_008_xu_chu",
-          "archetype": "coordinator"
+          "hero_id": "yel_004_huang_shao",
+          "archetype": "skirmisher"
         }
       ],
       "chokepoints": [
+        [
+          5,
+          4
+        ],
+        [
+          6,
+          4
+        ],
         [
           7,
           4
@@ -112,7 +120,7 @@
           4
         ]
       ],
-      "enemy_atk_mult": 0.7,
+      "enemy_atk_mult": 0.95,
       "victory_conditions": {
         "primary_condition_type": 0
       },
