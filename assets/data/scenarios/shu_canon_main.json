@@ -965,9 +965,9 @@
       "hidden_branch_key": "WIN_hidden",
       "hidden_condition": {
         "type": "fate_threshold",
-        "field": "formation_turns",
-        "op": ">=",
-        "value": 3
+        "field": "win_within_turns",
+        "op": "<=",
+        "value": 6
       },
       "beat_1_text_key": "ch08.beat1.anchor",
       "beat_2_fragment": {

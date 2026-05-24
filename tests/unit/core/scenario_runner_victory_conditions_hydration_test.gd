@@ -244,10 +244,15 @@ func test_shu_canon_main_ch05_carries_survive_5_rounds() -> void:
 
 
 ## S59 — ch08 hidden destiny authoring sanity. ch08 declares
-## hidden_branch_key + hidden_condition (formation_turns >= 3). ch09
-## branch_overrides carries the corresponding WIN_xiakou_united_advance
-## key with 초선 (unit 8 / qun_004_diao_chan) added to the alliance roster.
-## Pillar 2 second realization — mirrors ch06 → ch07 chain authored at S57.
+## hidden_branch_key + hidden_condition. ch09 branch_overrides carries the
+## corresponding WIN_xiakou_united_advance key with 초선 (unit 8 /
+## qun_004_diao_chan) added to the alliance roster. Pillar 2 second realization
+## — mirrors ch06 → ch07 chain authored at S57.
+##
+## S82 amendment (2026-05-25): hidden_condition field renamed from
+## `formation_turns >= 3` (hypothetical, never wired) to
+## `win_within_turns <= 6` (substrate-aligned with grid_battle_controller.gd:3362
+## VICTORY auto-set). See design/quick-specs/ch08-alliance-timing.md §2 + §3.1.
 func test_shu_canon_main_ch03_authors_hidden_destiny_with_ch04_override() -> void:
 	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/shu_canon_main.json")
 	assert_bool(json_text.is_empty()).is_false()
@@ -273,10 +278,11 @@ func test_shu_canon_main_ch03_authors_hidden_destiny_with_ch04_override() -> voi
 	var hc: Dictionary = ch08_record.get("hidden_condition", {}) as Dictionary
 	assert_str(hc.get("type", "") as String).is_equal("fate_threshold")
 	assert_str(hc.get("field", "") as String).override_failure_message(
-		"S59: ch08 hidden condition must key on formation_turns"
-	).is_equal("formation_turns")
-	assert_str(hc.get("op", "") as String).is_equal(">=")
-	assert_int(hc.get("value", -1) as int).is_equal(3)
+		"S82: ch08 hidden condition must key on win_within_turns (substrate-aligned with "
+		+ "grid_battle_controller.gd:3362 VICTORY-outcome auto-set)"
+	).is_equal("win_within_turns")
+	assert_str(hc.get("op", "") as String).is_equal("<=")
+	assert_int(hc.get("value", -1) as int).is_equal(6)
 	# ch08 branch_table maps WIN_hidden to the new branch key.
 	var bt: Dictionary = ch08_record.get("branch_table", {}) as Dictionary
 	assert_str(bt.get("WIN_hidden", "") as String).is_equal("WIN_xiakou_united_advance")
