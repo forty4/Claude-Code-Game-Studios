@@ -289,5 +289,61 @@
     "innate_skill_ids": ["skill_charm", "skill_dance"], "skill_unlock_levels": [1, 5],
     "join_chapter": 1, "join_condition_tag": "", "is_available_mvp": true,
     "relationships": []
+  },
+  "yel_001_cheng_yuanzhi": {
+    "hero_id": "yel_001_cheng_yuanzhi",
+    "name_ko": "정원지", "name_zh": "程遠志", "name_courtesy": "",
+    "faction": 3,
+    "portrait_id": "portrait_yel_cheng_yuanzhi", "battle_sprite_id": "sprite_yel_cheng_yuanzhi",
+    "stat_might": 70, "stat_intellect": 35, "stat_command": 55, "stat_agility": 60,
+    "base_hp_seed": 75, "base_initiative_seed": 50,
+    "move_range": 3,
+    "default_class": 1, "equipment_slot_override": [],
+    "growth_might": 0.8, "growth_intellect": 0.5, "growth_command": 0.7, "growth_agility": 0.7,
+    "innate_skill_ids": [], "skill_unlock_levels": [],
+    "join_chapter": 1, "join_condition_tag": "", "is_available_mvp": true,
+    "relationships": []
+  },
+  "yel_002_deng_mao": {
+    "hero_id": "yel_002_deng_mao",
+    "name_ko": "등무", "name_zh": "鄧茂", "name_courtesy": "",
+    "faction": 3,
+    "portrait_id": "portrait_yel_deng_mao", "battle_sprite_id": "sprite_yel_deng_mao",
+    "stat_might": 65, "stat_intellect": 30, "stat_command": 50, "stat_agility": 65,
+    "base_hp_seed": 70, "base_initiative_seed": 55,
+    "move_range": 4,
+    "default_class": 0, "equipment_slot_override": [],
+    "growth_might": 0.8, "growth_intellect": 0.4, "growth_command": 0.6, "growth_agility": 0.8,
+    "innate_skill_ids": [], "skill_unlock_levels": [],
+    "join_chapter": 1, "join_condition_tag": "", "is_available_mvp": true,
+    "relationships": []
+  },
+  "yel_003_sun_zhong": {
+    "hero_id": "yel_003_sun_zhong",
+    "name_ko": "손중", "name_zh": "孫仲", "name_courtesy": "",
+    "faction": 3,
+    "portrait_id": "portrait_yel_sun_zhong", "battle_sprite_id": "sprite_yel_sun_zhong",
+    "stat_might": 60, "stat_intellect": 40, "stat_command": 60, "stat_agility": 50,
+    "base_hp_seed": 80, "base_initiative_seed": 45,
+    "move_range": 3,
+    "default_class": 1, "equipment_slot_override": [],
+    "growth_might": 0.7, "growth_intellect": 0.6, "growth_command": 0.8, "growth_agility": 0.6,
+    "innate_skill_ids": [], "skill_unlock_levels": [],
+    "join_chapter": 1, "join_condition_tag": "", "is_available_mvp": true,
+    "relationships": []
+  },
+  "yel_004_huang_shao": {
+    "hero_id": "yel_004_huang_shao",
+    "name_ko": "황소", "name_zh": "黃邵", "name_courtesy": "",
+    "faction": 3,
+    "portrait_id": "portrait_yel_huang_shao", "battle_sprite_id": "sprite_yel_huang_shao",
+    "stat_might": 55, "stat_intellect": 45, "stat_command": 55, "stat_agility": 70,
+    "base_hp_seed": 70, "base_initiative_seed": 60,
+    "move_range": 3,
+    "default_class": 2, "equipment_slot_override": [],
+    "growth_might": 0.7, "growth_intellect": 0.7, "growth_command": 0.7, "growth_agility": 0.9,
+    "innate_skill_ids": [], "skill_unlock_levels": [],
+    "join_chapter": 1, "join_condition_tag": "", "is_available_mvp": true,
+    "relationships": []
   }
 }

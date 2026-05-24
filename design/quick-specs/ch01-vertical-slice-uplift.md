@@ -56,12 +56,12 @@ ch01 (도원결의·황건적 토벌) 의 enemy roster 를 위(魏) 4 장수 →
 
 ### 4.1 황건적 hero records (신규 4 개)
 
-| hero_id | name_ko | 표 anchor (三國演義) | might | hp_seed | command | agility | default_class |
-|---------|---------|----------------------|-------|---------|---------|---------|---------------|
-| `yel_001_cheng_yuanzhi` | 정원지 | 제1회 — 관우 표적 (도원결의 후 첫 적장) | 70 | 75 | 55 | 60 | 0 (보병) |
-| `yel_002_deng_mao` | 등무 | 제1회 — 장비 표적 (정원지의 부장) | 65 | 70 | 50 | 65 | 1 (창병) |
-| `yel_003_sun_zhong` | 손중 | 제2회 — 황건 잔당 두목 | 60 | 80 | 60 | 50 | 2 (방패) |
-| `yel_004_huang_shao` | 황소 | 제2회 — 황건 잔당 | 55 | 70 | 55 | 70 | 3 (궁병) |
+| hero_id | name_ko | 표 anchor (三國演義) | might | hp_seed | command | agility | default_class (UnitClass enum) |
+|---------|---------|----------------------|-------|---------|---------|---------|--------------------------------|
+| `yel_001_cheng_yuanzhi` | 정원지 | 제1회 — 관우 표적 (도원결의 후 첫 적장) | 70 | 75 | 55 | 60 | 1 (INFANTRY) — 보병 두목 |
+| `yel_002_deng_mao` | 등무 | 제1회 — 장비 표적 (정원지의 부장) | 65 | 70 | 50 | 65 | 0 (CAVALRY) — 기마 부장 |
+| `yel_003_sun_zhong` | 손중 | 제2회 — 황건 잔당 두목 | 60 | 80 | 60 | 50 | 1 (INFANTRY) — 방패 보병 |
+| `yel_004_huang_shao` | 황소 | 제2회 — 황건 잔당 | 55 | 70 | 55 | 70 | 2 (ARCHER) — 궁병 |
 
 - **Faction**: `HeroFaction.QUNXIONG` (3) 재사용 — 별도 enum 추가 없음 (palette 도 QUN 색조 사용 가능). 만약 황건 separate enum 필요 시 §8 OQ-1.
 - **Stat 수준**: 위 4 장수 (might 75-92) 대비 *낮음* (might 55-70). 황건은 잡병 — 무위가 아닌 *수* 와 *지형 활용* 으로 위협. canonical 정합.
