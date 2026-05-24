@@ -123,6 +123,13 @@ jobs:
       - name: 'Lint Grid Battle Controller BalanceConstants keys present (ADR-0014 §7 + §8)'
         run: bash tools/ci/lint_balance_entities_grid_battle_controller.sh
 
+      - name: 'Lint CivilianToken extends RefCounted only (ADR-0022 §4 #1 / civilian_token_node_subclass)'
+        run: bash tools/ci/lint_civilian_token_no_node_subclass.sh
+      - name: 'Lint CivilianToken + GridBattleController civilian fields no static var (ADR-0022 §4 #2 / civilian_token_static_var)'
+        run: bash tools/ci/lint_civilian_token_no_static_var.sh
+      - name: 'Lint _fate_civilians_escorted single mutator = _civilian_commit_save (ADR-0022 §4 #3 / civilian_escorted_counter_direct_mutation)'
+        run: bash tools/ci/lint_fate_civilians_escorted_single_mutator.sh
+
       - name: 'Battle Scene lints — pre-instanced children (ADR-0016 §2 R-2 / battle_scene_pre_instanced_children)'
         run: bash tools/ci/lint_battle_scene_pre_instanced_children.sh
       - name: 'Battle Scene lints — no GameBus subscriptions (ADR-0016 R-7 / battle_scene_root_signal_subscription)'
