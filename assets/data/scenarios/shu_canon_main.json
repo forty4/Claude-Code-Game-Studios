@@ -1296,9 +1296,17 @@
       "echo_threshold": 2,
       "branch_table": {
         "WIN_default": "WIN_chibi_main_burn",
+        "WIN_hidden": "WIN_chibi_perfect_southeast_wind",
         "LOSS_default": "LOSS_chibi_main_wind_fails"
       },
       "canonical_branch_key": "WIN_chibi_main_burn",
+      "hidden_branch_key": "WIN_hidden",
+      "hidden_condition": {
+        "type": "fate_threshold",
+        "field": "player_casualties",
+        "op": "<=",
+        "value": 0
+      },
       "beat_1_text_key": "ch10.beat1.anchor",
       "beat_2_fragment": {
         "variant": "silent_visual",
