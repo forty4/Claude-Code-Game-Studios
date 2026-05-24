@@ -328,6 +328,36 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Sentinel-only path 의 ROI**: 기존 impl + substrate 둘 다 wired 인 chapter 의 sentinel-only 작업 = 1 commit / 13 tests / +0 production code. 가장 가벼운 ★ ship-ready 가시화 방법. ch10 외 ch04/06/07/09/11/12/14/15 (default-only chapters, 8개) 도 sentinel 의 가치는 있으나 ★ 아니므로 명시적 priority 낮음 — branch_table 의 default-only regression sentinel 만 가능.
 - **Substrate 3-layer grep pattern**: sentinel test 가 production source 의 declaration + increment + emit 3-layer 를 grep-style 검증. future refactor 가 어떤 layer 라도 drop 시 즉시 fail. ch08 의 `win_within_turns substrate present` test + ch13/16 의 `<field> substrate present` 모두 동일 패턴 — codification candidate (`tests/helpers/` 의 reusable substrate-check 헬퍼?).
 
+### S84 — ch10 적벽 동남풍 perfect wind ★ — 🎯 MVP 5/5 ★ SHIP-READY 달성 (2026-05-25 session 84)
+
+> **Driver**: S83 핸드오프 vector "ch10 ★ design + impl" — MVP 5/5 ★ ship-ready 의 마지막 step. 단일 권장 path (substrate 새 field `_fate_player_casualties` add + ch08 model entity-less impl) batch 잠금 + 4-commit arc 완성.
+
+**Completed (4 commits, 1989→1996 PASS, push 완료)**:
+- [x] **ch10 quick-spec** (`3cb91bd`) — `design/quick-specs/ch10-chibi-perfect-wind.md` 신규 (165 lines, 8 sections). Plan §4.3 "동남풍 perfect timing — 전원 생존" mechanical lock. 핵심 design 결정 single-batch 잠금: substrate `_fate_player_casualties` 신규 add / hidden_condition `player_casualties <= 0` / victory_conditions SURVIVE_N_ROUNDS+survive_rounds=5 유지 / ADR 신규 불필요 (ADR-0014 additive minor amendment). §8 OQ-8 — ch08 codification series 의 3번째 instance (ch05 §4.3 Pillar lock + ch08 §3.3 substrate verification + ch10 §3.1 substrate add 의 inverse case).
+- [x] **Substrate 3-layer add** (`2f9beef`) — `grid_battle_controller.gd` +13 lines: declaration line 425+ / increment site in `_on_unit_died` BEFORE `unit_visual_died.emit` (`side==0` filter) / fate_data emit 17번째 entry. ch10 외 chapter 영향 0 (substrate expose 단 hidden_condition.field 가 chapter 별 다르므로 routing 영향 없음). 1989 PASS / 0 regression.
+- [x] **ch10 ★ entry author + sentinel** (`05014c3`) — chapter JSON 의 branch_table 에 `WIN_hidden: "WIN_chibi_perfect_southeast_wind"` + `hidden_branch_key` + `hidden_condition` 신규 author. canonical_branch_key + echo_threshold=2 + victory_conditions 모두 변경 없음. 신규 sentinel test (4 tests, 120 lines, ch13/16 pattern reuse). 1993 PASS.
+- [x] **ch10 integration e2e** (`e1fa181`) — `tests/integration/destiny_branch/ch10_chibi_perfect_wind_branch_routing_test.gd` 신규 (3 tests, 90 lines). player_casualties=0 + WIN → `WIN_chibi_perfect_southeast_wind` (★) / =1 + WIN → canonical / LOSS → loss. ch08/ch13/ch16 e2e pattern reuse (5th instance of entity-less recipe). 1996 PASS.
+
+**Outcome**: 🎯 **MVP 5/5 ★ SHIP-READY 달성**. Plan §4 의 MVP ★ 5 모두 mechanically reachable + lint/sentinel-locked + e2e mechanical proof + (ch05) player-felt visualized. Pillar 2 의 "운명은 바꿀 수 있다" 의 핵심 mechanical substrate 완성.
+
+**★ ship-ready 최종 표 (S84 close)**:
+  - ✅ ch05 신야 백성 evacuation (4-layer: mechanical + lint + e2e + visualization, S79-S81 8 commits)
+  - ✅ ch08 하구 적의동맹 timing (2-layer: substrate-aligned + e2e, S82 3 commits)
+  - ✅ ch10 적벽 동남풍 perfect wind (substrate add + 2-layer, S84 4 commits)
+  - ✅ ch13 장사 위연 합류 (sentinel-only, S83)
+  - ✅ ch16 낙봉파 방통 생존 (sentinel-only, S83)
+
+**S84 → S85+ carry-over** (사용자 합의 필요):
+- **#4 Manual playtest** (사용자, ~10-15 min) — 5 ★ trigger 모두 felt validation. **가장 시급한 next**.
+- **#6 S19-D windowed playthrough** (사용자, ~8분 + Bug bash) — 전체 vertical-slice 재 attest.
+- **Codification work** — `.claude/rules/design-docs.md` amendment (spec authoring pre-flight check, S82+ codification series 3 instances 안정 base) + `tests/helpers/` reusable substrate-check 헬퍼 (`assert_fate_field_substrate(field_name)`). ~45분 합산.
+- **Full Vision** — ch20-22 cascade-block ADR / hero balance / banter 확장 / Wei line / etc.
+
+**Operational observation (S84)**:
+- **Entity-less recipe pattern stable at 5 instances**: ch05 outlier (entity heavy) + ch08/10/13/16 모두 entity-less e2e (programmatic ChapterDefinition fixture + DefaultDestinyBranchJudge.resolve, no controller wiring). 5번째 invocation 으로 pattern strongly stable — `tests/helpers/` 의 `_make_chN_fixture` reusable helper 후보 (codification work 의 일부).
+- **Substrate add pattern stable at 2 instances** (S79 civilian + S84 player_casualties): 3-layer (declaration + increment site + fate_data emit) 추가 + sentinel 3-layer grep. 둘 다 ch10 외 chapter 영향 0 (additive). 향후 Full Vision ch20-22 cascade-block 의 새 substrate (`_fate_brothers_lost: int` 같은) 도 same pattern 적용 가능.
+- **본 컨버세이션 cumulative weight (S80→S84)**: 22 commits. 1962→1996 PASS (+34 tests / 0 regressions). 4-layer ★ (ch05) + 2-layer ★ × 4 (ch08/10/13/16) = MVP Pillar 2 mechanical complete. 다음 큰 MVP work = manual playtest 후 balance tuning + ch01 같은 default chapter 의 narrative polish (S78 pattern 확대) + Full Vision design.
+
 ## Reference
 
 - 6-lens assessment 원본: 2026-05-22 S73 session (Producer / Game Designer / QA Lead / Technical Director / Art Director / Narrative Director 병렬 spawn)
