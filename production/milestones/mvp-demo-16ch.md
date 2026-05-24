@@ -52,6 +52,26 @@
 - **Choice flatness Phase 4** (S71 진단) — Full Vision 의 후속 polish, MVP 의 4 pillar 진단 중 1개만 light entry (synergy)
 - **Multi-step survival cascade** (관우/장비/유비 ch25 까지 chained) — single ch16 branch 만 시연
 
+## Branch Distribution Anchor
+
+> **Anchor doc**: `design/narrative/branch-distribution-plan.md` (2026-05-24). 본 milestone 의 ★ 분기 architecture 는 그 plan 의 4 Core Principles + 5 ★ distribution 에 종속.
+
+**MVP 16ch ★ enumeration** (총 5 개):
+
+| ch | ★ branch key | 상태 |
+|----|--------------|------|
+| 05 | `WIN_xinye_villagers_all_saved` — 백성 evacuation | **신규** (plan §4.1) — implementation pending |
+| 08 | `WIN_xiakou_alliance_perfect_timing` — 동맹 결의 timing | **신규** (plan §4.2) — implementation pending |
+| 10 | `WIN_chibi_perfect_southeast_wind` — 동남풍 perfect timing | **신규** (plan §4.3) — implementation pending |
+| 13 | `WIN_changsha_wei_yan_defects` — 위연 합류 | **기존** ship-ready (plan §4.4 reference) |
+| 16 | `WIN_luofeng_pang_tong_lives` — 방통 생존 | **기존** ship-ready (plan §4.5 reference, S19-D windowed attest 대상) |
+
+**MVP default-only 챕터** (11 개): ch01 / ch02 / ch03 / ch04 / ch06 / ch07 / ch09 / ch11 / ch12 / ch14 / ch15. 각 챕터 prose 의 무게는 default 만으로 충족되어야 함 — 분기 추가 거부 (plan §10).
+
+**Ship 영향**:
+- 본 milestone 의 ship-ready ★ 는 2 개 (ch13/16). 신규 3 개 (ch05/08/10) 는 별도 후속 milestone 또는 ship 후 follow-up. S19 Ship 결정은 이 분포 위에서.
+- ch01 vertical-slice uplift (plan §8 + 별도 `design/quick-specs/ch01-vertical-slice-uplift.md` — author pending) 는 본 milestone 안에 포함 가능 (분기 없음, lore + 긴장감 + Beat 8 seed 만).
+
 ## Polish Backlog Ship-Blocker Triage
 
 > **Decided**: 2026-05-23 (S77, S19-A). `production/polish-backlog.md` 의 15 Open entries 를 ship-blocker 기준 (= MVP demo ship = ch01-16 windowed-attested + 방통 ★ 작동) 으로 triage. polish-backlog.md 자체는 미수정 (Build mode 의 POLISH-NNN 추적 dormant 원칙 유지) — 이 표가 ship-relevant 단일 view.
