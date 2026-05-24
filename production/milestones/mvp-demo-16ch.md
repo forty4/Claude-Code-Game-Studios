@@ -279,6 +279,26 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **G-31 4번째 stable instance**: civilian SAVED fade tween 이 `get_tree().create_tween()` 사용. BattleScene 산하 (PROCESS_MODE_DISABLED 가능 노드 의 child) 의 tween 은 모두 tree-bound. SceneTreeTimer failsafe 동반 패턴 (death-fade 와 동일).
 - **Visualization 분리 구조 ROI**: 사용자 design choice (별도 sibling node) 가 향후 chibi asset 교체 시 clean swap 가능하게 함. chapter_visuals 통합 변경 시 한 곳에서 모두 처리되지만 _draw() 가 grow 함. polling 기반 + state diff 가 lifecycle hook 으로 자연 trigger.
 
+### S82 — Pillar 2 lock + ch08 ★ alliance timing impl (2026-05-25 session 82)
+
+> **Driver**: S81 핸드오프 vector "Counter HUD pulse" → critical Pillar 2 conflict 발견 + ch05 spec amendment + S82 새 vector "#5 ch08 ★ design" 진입. 결과: 본 세션 ch05 amendment + ch08 spec authoring + impl arc 의 3 sub-vector 동시 진행.
+
+**Completed (5 commits, 1969→1976 PASS, push 완료)**:
+- [x] **ch05 spec §4.3 amendment** (`3c10ee1`) — counter HUD pulse 항목 제거 (Pillar 2 정합). `lint_battle_hud_hidden_fate_non_subscription.sh` zero-tolerance grep 위반 발견 ("If HUD subscribes and renders any visual at Beat 6 results screen, Pillar 2 contrast collapses"). S79 spec authoring 시 ADR-0015 + Pillar 2 lock 검토 누락. §4.3 inline Amendment block 추가 + §8 OQ-9 codification (spec authoring rule strengthening — Pillar lock + critical lint 사전 검토). 코드 변경 0 (S81 visualization impl 이 우연히 정합).
+- [x] **ch08 spec authoring** (`cb53059`) — `design/quick-specs/ch08-alliance-timing.md` 신규 (151 lines, 8 sections). Plan §4.2 의 "결의의 timing" ★ entity-less light path. 핵심 design 결정 (turn-limit + REACH_TILE 유지 + echo_threshold 1 유지 + ★ branch name 유지) batch 잠금. ADR 신규 불필요 (ADR-0017/0018 재사용).
+- [x] **ch08 spec correction** (`b23d825`) — `turn_count` (hypothetical) → `win_within_turns` (substrate-aligned, grid_battle_controller.gd:3362 VICTORY-outcome auto-set field). impl 전 substrate 검증 으로 발견. §2/§3.1/§3.3/§4.1/§6/§7/§8 일괄 정정. §8 OQ-8 codification (spec authoring 시 fate_data emit shape 의 정확한 field name 사전 검증 — ch05 OQ-9 와 same family). 코드 변경 0.
+- [x] **ch08 data + sentinel + S59 test refresh** (`e8e3d1e`) — `assets/data/scenarios/shu_canon_main.json` ch08 hidden_condition 교체 (formation_turns >= 3 → win_within_turns <= 6). 신규 sentinel test (4 tests, 130 lines): hidden_condition exact shape / REACH_TILE [13,4] / branch_table+routing locks / `win_within_turns` substrate present in controller (grep-style). `scenario_runner_victory_conditions_hydration_test.gd:275` S59-era sentinel 도 amendment 반영 update (3 assertion 한꺼번에 refresh).
+- [x] **ch08 integration tests** (`e9b842e`) — `tests/integration/destiny_branch/ch08_alliance_timing_branch_routing_test.gd` 신규 (3 tests, 130 lines). win_within_turns=6 → `WIN_xiakou_united_advance` (★) / =7 → `WIN_xiakou_breakthrough` (canonical) / LOSS → `LOSS_xiakou_pursuit_continues`. ch05 e2e pattern reuse (programmatic ChapterDefinition fixture + DefaultDestinyBranchJudge.resolve). 1969 baseline + 7 = 1976 PASS.
+
+**Outcome**: **2 ★ trigger ship-ready** (out of MVP 5) — ch05 4-layer (mechanical + lint + e2e + visualization) + ch08 2-layer (substrate + e2e). ch08 는 entity-less 라 visualization 불필요 + lint 도 spec 변경 만 (forbidden_pattern 신규 없음). Pillar 2 lock 의 명시적 codification (ch05 §8 OQ-9 + ch08 §8 OQ-8) — 향후 spec authoring rule strengthening 의 2번째 instance.
+
+**S82 carry-over to S83+** (사용자 합의 필요): #4 manual playtest (ch05 visualization 으로 자연 felt + ch08 의 turn-limit 조건 검증) / #6 S19-D windowed playthrough / #5 다음 단계 ch10 또는 ch13 또는 ch16 ★ design (entity-less recipe 가 ch08 처럼 가벼움 보장).
+
+**Operational observation (codification value)**:
+- **Spec authoring rule strengthening — 2nd instance**: ch05 OQ-9 (Pillar lock 검토) + ch08 OQ-8 (fate_data field name 사전 검증) 가 같은 pattern family (spec authoring time 의 substrate / lock 검토 누락). 향후 `.claude/rules/design-docs.md` 의 amendment 후보 — 새 spec 첫 commit 전에 `grep -l "Pillar\|CRITICAL" docs/architecture/ADR-*.md tools/ci/lint_*.sh` + `grep -n '"<expected_field>":' src/` 의 standard sub-checklist.
+- **운 좋은 conflict 발견 cadence**: ch05 counter HUD pulse 가 S81 visualization 시점 not S79 spec authoring 시점에 발견 + ch08 substrate misalignment 가 impl 시점에 발견. 둘 다 *impl 전* 에 found 되어 silent bug 회피. spec authoring 의 design intent 와 substrate 의 정합은 manual review 가 아닌 codified pre-flight check 가 필요.
+- **★ trigger weight 계층**: ch05 (entity 신규 = 8 commits + visualization layer + lint cluster) vs ch08 (entity-less = 3 commits, no visualization, no lint). 3-5배 차이. Plan §4 의 ch10/13/16 ★ 가 ch08-style entity-less 면 MVP 5 ★ 완성 의 작업량 예측 가능 — ch05+ch20-cluster (Full Vision cascade-block) 만 heavy.
+
 ## Reference
 
 - 6-lens assessment 원본: 2026-05-22 S73 session (Producer / Game Designer / QA Lead / Technical Director / Art Director / Narrative Director 병렬 spawn)
