@@ -264,6 +264,21 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 **Operational observation (codification candidate)**:
 - **G-9 첫-run trap re-confirmed**: test #10 의 override_failure_message 가 `"...'%s'. " + "...%s,%s,%s,%d" % [args]` 패턴이라 `%` 연산자가 두번째 문자열에만 bind → 첫 `%s` 가 unmatched → `String formatting error: a number is required` stderr 폴루션 (assert pass 와 무관하지만 CI log 오염). 대응: concat 전체를 parens 로 감쌈. G-9 의 패턴이 1년 이상 stable — long string override_failure_message 작성 시 parens 디폴트 lint candidate.
 
+### S81 — Civilian visualization (3-state polygons + carrier escort overlay) (2026-05-24 session 81)
+
+> **Driver**: S80 핸드오프 vector #1 — ch05 ★ trigger 의 player-felt experience 가시화. mechanical + lint-locked + e2e proven invariants 위에 visual layer 추가 (counter HUD pulse 는 ADR-0015 BattleHUD 영역으로 S82+ deferred).
+
+**Completed (1 commit, 1969/1969 PASS, push 완료)**:
+- [x] **CivilianTokensVisuals + escort overlay + BattleScene wire** (`d602c11`) — 신규 `src/feature/battle_scene/civilian_tokens_visuals.gd` (Node2D, polling 기반, ChapterVisuals child mount). 3-state visuals 정합 (spec §4.3): IDLE = gray humanoid polygon visible at grid_cell / ESCORTED = polygon 숨김 (carrier overlay 인계) / SAVED = 0.3s alpha fade despawn (**G-31 tree-bound tween** + SceneTreeTimer failsafe — BattleScene PROCESS_MODE_DISABLED 대응). 4 새 unit tests (state-machine smoke + _ChapterVisualsStub 가 set_carrier_escort_overlay calls 기록). chapter_visuals.gd: `set_carrier_escort_overlay(carrier_unit_id, active)` 메소드 — EscortMarker child Polygon2D ~14px figure trailing on carrier polygon (warm-sand color, ~22px offset). battle_scene.gd: `_mount_civilian_tokens_visuals(visuals)` after `_mount_hp_bars`; refresh hooks on `_on_unit_turn_ended_visual` (controller pickup/save check runs before this re-emit) + `_on_unit_died_visual` (controller recovery runs before unit_visual_died.emit per grid_battle_controller.gd:1276). Empty civilian_config chapters get a cheap empty-visualization node (defensive). 1965 baseline + 4 = 1969 PASS / 0 errors / 0 failures / 0 regressions / 276 orphan baseline 유지.
+
+**Outcome**: ch05 ★ trigger 가 mechanical (S79) + lint-locked (S80-A) + e2e proven (S80-B) + **player-felt visualized (S81)** 4-layer 안정성 완성. Polygon placeholder 는 향후 chibi sprite asset 으로 clean swap 가능 (rendering 분리 구조). Counter HUD pulse 는 S82+ candidate (ADR-0015 BattleHUD 의 hidden_fate_condition_progressed subscription 함수 wiring 필요).
+
+**S81 carry-over to S82+** (사용자 합의 필요): #4 manual playtest (now with visualization — 자연 felt) / #5 ch08 ★ design (Plan §11 Step 4, entity-less) / #6 S19-D windowed playthrough / Counter HUD pulse (BattleHUD wiring).
+
+**Operational observation**:
+- **G-31 4번째 stable instance**: civilian SAVED fade tween 이 `get_tree().create_tween()` 사용. BattleScene 산하 (PROCESS_MODE_DISABLED 가능 노드 의 child) 의 tween 은 모두 tree-bound. SceneTreeTimer failsafe 동반 패턴 (death-fade 와 동일).
+- **Visualization 분리 구조 ROI**: 사용자 design choice (별도 sibling node) 가 향후 chibi asset 교체 시 clean swap 가능하게 함. chapter_visuals 통합 변경 시 한 곳에서 모두 처리되지만 _draw() 가 grow 함. polling 기반 + state diff 가 lifecycle hook 으로 자연 trigger.
+
 ## Reference
 
 - 6-lens assessment 원본: 2026-05-22 S73 session (Producer / Game Designer / QA Lead / Technical Director / Art Director / Narrative Director 병렬 spawn)
