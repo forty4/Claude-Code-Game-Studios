@@ -431,6 +431,11 @@ var _fate_counter_fire_turns: int = 0
 var _fate_menghuo_captures: int = 0
 var _fate_masu_supervised_turns: int = 0
 var _fate_qixing_turns: int = 0
+# ch10 ★ Plan §4.3 "동남풍 perfect timing — 전원 생존" mechanical lock per
+# design/quick-specs/ch10-chibi-perfect-wind.md. Counts player-side unit
+# deaths during the battle. ★ trigger = SURVIVE WIN + player_casualties == 0.
+# Incremented in _on_unit_died for player-side (battle_unit.side == 0).
+var _fate_player_casualties: int = 0
 # Internal: friendly-alive snapshot for discipline_turns. -1 = uninitialized.
 var _fate_friendly_alive_at_last_round: int = -1
 
@@ -1274,6 +1279,13 @@ func _on_unit_died(unit_id: int) -> void:
 	# ADR-0022 Civilian System — ESCORTED token bound to the dead unit returns
 	# to IDLE at the death cell. Short-circuits when civilian system inactive.
 	_civilian_recover_on_carrier_death(unit_id)
+	# ch10 ★ Plan §4.3 mechanical lock per design/quick-specs/ch10-chibi-perfect-wind.md
+	# — player-side casualty counter (side==0 filter; enemy deaths不 increment).
+	# Counted BEFORE unit_visual_died so the fate_data emit at battle resolution
+	# reflects the up-to-date count regardless of when the resolution check runs.
+	if _units.has(unit_id) and (_units[unit_id] as BattleUnit).side == 0:
+		_fate_player_casualties += 1
+		hidden_fate_condition_progressed.emit(&"player_casualties", _fate_player_casualties)
 	# Re-emit as a controller-scoped signal for scene-tier visual handlers
 	# (BattleScene polygon hide). Fires before _check_battle_end so the visual
 	# update lands even if this death resolves the battle.
@@ -3370,6 +3382,7 @@ func _emit_battle_outcome(outcome: StringName) -> void:
 		"menghuo_captures": _fate_menghuo_captures,
 		"masu_supervised_turns": _fate_masu_supervised_turns,
 		"qixing_turns": _fate_qixing_turns,
+		"player_casualties": _fate_player_casualties,
 	}
 	battle_outcome_resolved.emit(outcome, fate_data)
 
