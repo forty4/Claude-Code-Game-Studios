@@ -401,6 +401,60 @@ func set_high_ground_ready_coord(coord: Vector2i) -> void:
 	queue_redraw()
 
 
+## ADR-0022 escort overlay — attaches a small "EscortMarker" Polygon2D child to
+## the carrier unit polygon when the carrier is ESCORTED, removes it when not.
+## Driven by CivilianTokensVisuals.refresh() diff of get_civilian_tokens().
+## Idempotent on the active=true side (re-call no-op when marker already exists).
+const _ESCORT_OVERLAY_NAME: StringName = &"EscortMarker"
+const _COLOR_ESCORT_OVERLAY: Color = Color(0.85, 0.75, 0.50, 0.95)
+const _ESCORT_OVERLAY_OFFSET: Vector2 = Vector2(18, -18)
+
+
+func set_carrier_escort_overlay(carrier_unit_id: int, active: bool) -> void:
+	var polygon: Node2D = _find_carrier_polygon(carrier_unit_id)
+	if polygon == null:
+		return
+	var existing: Node = polygon.get_node_or_null(String(_ESCORT_OVERLAY_NAME))
+	if active:
+		if existing != null:
+			return
+		var marker: Polygon2D = Polygon2D.new()
+		marker.name = String(_ESCORT_OVERLAY_NAME)
+		marker.polygon = _make_escort_marker_shape()
+		marker.color = _COLOR_ESCORT_OVERLAY
+		marker.position = _ESCORT_OVERLAY_OFFSET
+		polygon.add_child(marker)
+	else:
+		if existing != null:
+			existing.queue_free()
+
+
+func _find_carrier_polygon(unit_id: int) -> Node2D:
+	# Mirrors BattleScene._find_unit_polygon's "Unit{id}_*" prefix scan.
+	var prefix: String = "Unit%d_" % unit_id
+	for parent_name: String in ["PlayerUnits", "EnemyUnits"]:
+		var parent: Node = get_node_or_null(parent_name)
+		if parent == null:
+			continue
+		for child: Node in parent.get_children():
+			if (child.name as String).begins_with(prefix) and child is Node2D:
+				return child as Node2D
+	return null
+
+
+func _make_escort_marker_shape() -> PackedVector2Array:
+	# Smaller humanoid silhouette (~14px tall) — trailing the carrier per
+	# spec §4.3 OQ-5. Color = warm sand for visible contrast against player
+	# blue + enemy charcoal unit fills.
+	return PackedVector2Array([
+		Vector2(-4, -6),
+		Vector2(0, -8),
+		Vector2(4, -6),
+		Vector2(5, 6),
+		Vector2(-5, 6),
+	])
+
+
 ## Spawns one Polygon2D per roster unit under PlayerUnits/EnemyUnits, replacing
 ## any pre-authored or previously-spawned polygons.
 ##

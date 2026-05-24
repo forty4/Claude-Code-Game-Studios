@@ -82,6 +82,11 @@ var _chapter_visuals: Node = null
 ## on each grid_controller.active_unit_changed emit. Lazy-init on first emit
 ## so we don't allocate before ChapterVisuals' unit polygons are spawned.
 var _turn_indicator: TurnIndicator = null
+## ADR-0022 civilian visualization — mounted as child of ChapterVisuals after
+## unit polygons spawn. Refreshed on _on_unit_turn_ended_visual + _on_unit_died_visual
+## (the only events where civilian state can change). Null when chapter has no
+## civilian_config (controller short-circuits in that case anyway).
+var _civilian_visuals: CivilianTokensVisuals = null
 
 ## Slide tween reference held to prevent local-scope GC from dropping the
 ## completion callback under certain windowed scheduler timings. Overwritten
@@ -1361,6 +1366,7 @@ func _spawn_unit_polygons_async(roster: Array[BattleUnit]) -> void:
 				(visuals as CanvasItem).modulate = Color.WHITE
 			visuals.spawn_unit_polygons(roster)
 			_mount_hp_bars(visuals, roster)
+			_mount_civilian_tokens_visuals(visuals)
 			_refresh_synergy_badges()
 			# S59 windowed UX — when chapter is REACH_TILE, mark the target
 			# tile with a persistent gold-flag overlay so the player can see
@@ -1382,6 +1388,23 @@ func _spawn_unit_polygons_async(roster: Array[BattleUnit]) -> void:
 		root_names.append(c.name)
 	push_warning("BattleScene: ChapterVisuals not mounted within 300 frames; "
 		+ "root children: " + str(root_names))
+
+
+## ADR-0022 — mounts CivilianTokensVisuals as child of ChapterVisuals (inherits
+## grid-space transform). First refresh() spawns polygon-per-token from the
+## controller's get_civilian_tokens() snapshot. No-op chapters (empty
+## civilian_config) get an empty visualization node — cheap, safe to mount
+## unconditionally. Subsequent refresh()es fire from _on_unit_turn_ended_visual
+## and _on_unit_died_visual hooks (the only events where civilian state changes).
+func _mount_civilian_tokens_visuals(visuals: Node) -> void:
+	if _grid_controller == null:
+		return
+	if _civilian_visuals != null and is_instance_valid(_civilian_visuals):
+		_civilian_visuals.queue_free()
+	_civilian_visuals = CivilianTokensVisuals.new()
+	_civilian_visuals.name = "CivilianTokensVisuals"
+	visuals.add_child(_civilian_visuals)
+	_civilian_visuals.set_controller(_grid_controller, visuals)
 
 
 ## Attaches a UnitHpBar Node2D child to each spawned unit polygon, seeded from
@@ -1708,6 +1731,13 @@ func _on_fire_damage_applied(defender_id: int, damage: int) -> void:
 ## flash recedes. Final visible=false guards via is_instance_valid in case
 ## the polygon is freed mid-tween (scene transition).
 func _on_unit_died_visual(unit_id: int) -> void:
+	# ADR-0022 civilian visualization — controller's _civilian_recover_on_carrier_death
+	# fires BEFORE unit_visual_died.emit (see grid_battle_controller.gd:1276), so by
+	# the time this handler runs, any ESCORTED token bound to `unit_id` is already
+	# IDLE at the death cell. Refresh repaints the recovered token + clears the
+	# stale EscortMarker overlay on the (about-to-be-hidden) carrier polygon.
+	if _civilian_visuals != null and is_instance_valid(_civilian_visuals):
+		_civilian_visuals.refresh()
 	var visuals: Node = _find_chapter_visuals()
 	if visuals == null:
 		return
@@ -2764,6 +2794,13 @@ func _on_active_unit_changed(unit_id: int) -> void:
 ## death-fade tween owns modulate.a — running this on a corpse would lift
 ## alpha back up mid-fade.
 func _on_unit_turn_ended_visual(unit_id: int, acted: bool) -> void:
+	# ADR-0022 civilian visualization refresh — pickup/save state may have
+	# changed inside controller._on_unit_turn_ended (which runs BEFORE this
+	# visual re-emit). Fires regardless of `acted` because civilian hooks run
+	# on any turn-end (carrier ending turn in evacuate-zone still triggers a
+	# SAVED transition even if the player didn't spend an action this turn).
+	if _civilian_visuals != null and is_instance_valid(_civilian_visuals):
+		_civilian_visuals.refresh()
 	if not acted:
 		return
 	if _hp_controller != null and not _hp_controller.is_alive(unit_id):
