@@ -127,9 +127,11 @@ static func make(id: int, initial_cell: Vector2i) -> CivilianToken:
 
 - IDLE token: small civilian icon (placeholder polygon — 회색 figure) at grid cell. Gemini chibi 천장 제약으로 polygon placeholder 만 (asset spec deferred).
 - ESCORTED token: carrier unit 위에 small overlay marker (e.g., 작은 figure trailing).
-- SAVED token: despawn animation (~0.3s fade) + counter HUD pulse.
+- SAVED token: despawn animation (~0.3s fade) — **Pillar 2 정합으로 counter HUD pulse 제거** (S81 amendment, 본 §8 참조).
 
 본 spec 은 visualization 의 *behaviour* 만 specify. Pixel-level art 는 art-director domain (deferred).
+
+> **§4.3 Amendment 2026-05-24 (S81)** — 원안 SAVED token 항목 의 "counter HUD pulse" 가 **ADR-0015 §Decision §8 + game-concept.md Pillar 2 lock 위반**. `lint_battle_hud_hidden_fate_non_subscription.sh` (zero-tolerance literal token grep) 이 build fail trigger — "If HUD subscribes and renders any visual at Beat 6 results screen, Pillar 2 contrast collapses." Pillar 2 = "운명은 바꿀 수 있다" = battle 중 fate counter 는 *HIDDEN*, Beat 8 results screen 에서만 reveal. 따라서 SAVED visualization 은 token polygon fade 만 — player 가 token 사라지는 것을 통해 implicit 으로 진행 인지. counter 숫자 자체 는 Beat 8 results 가 source of truth (운명 재구성 reveal moment). 본 발견 은 spec authoring 시 fundamental Pillar lock + critical lint 검토 누락의 instance — §8 OQ-9 codify.
 
 ### 4.4 fate_data wiring (no schema change)
 
@@ -195,6 +197,7 @@ static func make(id: int, initial_cell: Vector2i) -> CivilianToken:
 | OQ-6 | Multi-civilian SAVED 동시 (한 turn 에 carrier 가 col 0 도달 후 다른 carrier 도 도달) — emit order? | **unit_id ascending order, separate increments** — deterministic | Spec 확정 시 — 본 spec 으로 잠금 |
 | OQ-7 | Enemy unit 이 IDLE token cell 진입 시 처리 — pickup blocked? OR token "lost" (counter cap 감소)? | **Pickup blocked only** — enemy 는 token 영향 없음 (passive). LOST 거부 (§OQ-2 일치) | Spec 확정 시 — 본 spec 으로 잠금 |
 | OQ-8 | 5 token positions tuning — playtest 후 조정 가능? | **Yes — Open**, balance-tuning candidate post-impl manual test | Commit 4 후 manual playtest 시 |
+| OQ-9 | (S81 amendment) SAVED visualization — counter HUD pulse 포함? | **No — Pillar 2 lock 위반** | ADR-0015 §Decision §8 + game-concept.md Pillar 2 + `lint_battle_hud_hidden_fate_non_subscription.sh` zero-tolerance grep. battle 중 fate counter HIDDEN, Beat 8 results 가 reveal source of truth. SAVED feedback = token polygon fade 만 (implicit progress 인지). 본 spec authoring (S79) 시 검토 누락 → S81 amendment 로 closure. **Codification**: 향후 spec authoring 시 fundamental Pillar lock + critical lint script 의 forbidden_pattern 검토 사항 (`grep -l "Pillar\|lint_.*_critical" docs/architecture/ADR-*.md tools/ci/lint_*.sh` 같은 사전 체크). |
 
 ---
 
