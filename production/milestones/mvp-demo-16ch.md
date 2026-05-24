@@ -299,6 +299,35 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **운 좋은 conflict 발견 cadence**: ch05 counter HUD pulse 가 S81 visualization 시점 not S79 spec authoring 시점에 발견 + ch08 substrate misalignment 가 impl 시점에 발견. 둘 다 *impl 전* 에 found 되어 silent bug 회피. spec authoring 의 design intent 와 substrate 의 정합은 manual review 가 아닌 codified pre-flight check 가 필요.
 - **★ trigger weight 계층**: ch05 (entity 신규 = 8 commits + visualization layer + lint cluster) vs ch08 (entity-less = 3 commits, no visualization, no lint). 3-5배 차이. Plan §4 의 ch10/13/16 ★ 가 ch08-style entity-less 면 MVP 5 ★ 완성 의 작업량 예측 가능 — ch05+ch20-cluster (Full Vision cascade-block) 만 heavy.
 
+### S83 — ch13 + ch16 sentinel-only ★ verification (2026-05-25 session 83)
+
+> **Driver**: S82 핸드오프 vector "ch13/ch16 sentinel-only ★ trigger verification" (가장 light progress). 둘 다 기존 impl + chapter data + substrate 모두 wired — sentinel + integration tests 만 추가하여 ship-ready 가시화.
+
+**Completed (1 commit, 1976→1989 PASS, push 완료)**:
+- [x] **ch13 + ch16 sentinel + e2e routing** (`a94443d`) — 8 files / 308 lines / 13 tests:
+  - **ch13 위연 합류** (Plan §4.4 reference ★) — 3 sentinel + 3 integration. hidden_condition `{wei_yan_spared_turns >= 3}` exact / branch_table+routing locks (echo_threshold=2) / substrate 3-layer grep in controller (decl + increment + emit). e2e: at 3 → `WIN_changsha_wei_yan_defects` (★) / at 2 → `WIN_changsha_taken` (canonical) / LOSS → `LOSS_changsha_repelled`.
+  - **ch16 방통 생존** (Plan §4.5 reference ★) — 4 sentinel + 3 integration. hidden_condition `{scout_first_turns >= 2}` / branch_table+routing (echo_threshold=3, highest scarcity) / victory_conditions SURVIVE_N_ROUNDS+survive_rounds=4 unchanged / substrate 3-layer grep. e2e: at 2 → `WIN_luofeng_pang_tong_lives` / at 1 → `WIN_luofeng_kongming_arrives` / LOSS → `LOSS_luofeng_ambush_complete`.
+  - **Substrate 정합 사전 검증** (S82 trap 재발 방지): 둘 다 `_fate_wei_yan_spared_turns` + `_fate_scout_first_turns` 의 3-layer (declaration / increment / fate_data emit) 완전 wired 확인 후 작업. S82 ch08 의 hypothetical field name 함정 회피.
+
+**Outcome**: **MVP 4/5 ★ ship-ready 가시화 완성**.
+  - ✅ ch05 (4-layer: mechanical + lint + e2e + visualization, S79-S81 8 commits 누적)
+  - ✅ ch08 (2-layer: substrate-aligned + e2e, S82 3 commits)
+  - ✅ ch13 (sentinel + e2e, existing impl verified, S83)
+  - ✅ ch16 (sentinel + e2e, existing impl verified, S83)
+  - ⏳ ch10 (Plan §4.3 동남풍, substrate 부재 — `_fate_all_player_units_alive` 또는 design simplification 필요)
+
+**Entity-less e2e recipe pattern stable at 4 instances**: ch05 + ch08 + ch13 + ch16. programmatic ChapterDefinition fixture + DefaultDestinyBranchJudge.resolve, no controller wiring 필요. ch10 spec authoring + impl 시 같은 recipe 적용 (substrate 새 field 추가 후).
+
+**S83 carry-over to S84+** (사용자 합의 필요):
+- **ch10 ★ design** (마지막 ★, ~3-4 commits) — spec + new substrate field `_fate_all_player_units_alive` (또는 design simplification: turn-limit only, Plan §4.3 의 "전원 생존" drop). chapter data 의 branch_table + hidden_condition 신규 author 필요. 가장 큰 progress next.
+- **#4 Manual playtest** (사용자, ~10-15 min) — ch05 visualization felt + ch08/13/16 ★ trigger 검증.
+- **#6 S19-D windowed playthrough** (사용자, ~8분 + Bug bash) — 전체 vertical-slice 재 attest.
+- **Codification work** — `.claude/rules/design-docs.md` 의 spec authoring pre-flight check sub-checklist amendment (S82 운영 관찰 #1 codify). ~30분.
+
+**Operational observation**:
+- **Sentinel-only path 의 ROI**: 기존 impl + substrate 둘 다 wired 인 chapter 의 sentinel-only 작업 = 1 commit / 13 tests / +0 production code. 가장 가벼운 ★ ship-ready 가시화 방법. ch10 외 ch04/06/07/09/11/12/14/15 (default-only chapters, 8개) 도 sentinel 의 가치는 있으나 ★ 아니므로 명시적 priority 낮음 — branch_table 의 default-only regression sentinel 만 가능.
+- **Substrate 3-layer grep pattern**: sentinel test 가 production source 의 declaration + increment + emit 3-layer 를 grep-style 검증. future refactor 가 어떤 layer 라도 drop 시 즉시 fail. ch08 의 `win_within_turns substrate present` test + ch13/16 의 `<field> substrate present` 모두 동일 패턴 — codification candidate (`tests/helpers/` 의 reusable substrate-check 헬퍼?).
+
 ## Reference
 
 - 6-lens assessment 원본: 2026-05-22 S73 session (Producer / Game Designer / QA Lead / Technical Director / Art Director / Narrative Director 병렬 spawn)
