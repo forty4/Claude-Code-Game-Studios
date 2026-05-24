@@ -411,12 +411,17 @@ var _fate_boss_killed: bool = false
 #                             정찰 forward positioning (ch16 방통 생존 시그니처).
 #
 # Aspirational (counter declared, NOT incremented — needs system extension):
-#   civilians_escorted      — TODO ch05; needs civilian system
 #   menghuo_captures        — TODO ch23; needs capture-and-release mechanic
+# civilians_escorted is wired via ADR-0022 Civilian System (ch05) — see
+# _civilian_commit_save below for the SOLE mutator (lint-enforced).
 var _fate_dmg_to_lubu: int = 0
 var _fate_escort_alive_turns: int = 0
 var _fate_win_within_turns: int = 9999
 var _fate_civilians_escorted: int = 0
+# ADR-0022 Civilian System (ch05 백성 evacuation). Empty collection + -1 sentinel
+# = no civilian system active for this chapter. Populated via set_civilian_config.
+var _civilian_tokens: Array[CivilianToken] = []
+var _civilian_evacuate_zone_max_col: int = -1
 var _fate_wei_yan_spared_turns: int = 0
 var _fate_scout_first_turns: int = 0
 var _fate_huang_zhong_xiahou_yuan_kill: int = 0
@@ -1266,6 +1271,9 @@ func _on_input_action_fired(action: String, ctx: InputContext) -> void:
 func _on_unit_died(unit_id: int) -> void:
 	if _battle_over:
 		return  # AC-7 terminal-state guard — no further outcome processing
+	# ADR-0022 Civilian System — ESCORTED token bound to the dead unit returns
+	# to IDLE at the death cell. Short-circuits when civilian system inactive.
+	_civilian_recover_on_carrier_death(unit_id)
 	# Re-emit as a controller-scoped signal for scene-tier visual handlers
 	# (BattleScene polygon hide). Fires before _check_battle_end so the visual
 	# update lands even if this death resolves the battle.
@@ -1430,6 +1438,112 @@ func set_chokepoints(chokepoints: Array[Vector2i]) -> void:
 	_chokepoints = chokepoints.duplicate()
 
 
+## ADR-0022 — DI surface for ChapterDefinition.civilian_config. Called by
+## BattleScene at chapter init adjacent to set_chokepoints. Empty Dictionary =
+## no civilian system active for this chapter (default for ch01-ch04, ch06-ch16,
+## Wei ch01-ch05, mvp_wei chapters). Idempotent: re-calling with the same config
+## yields an identical token collection (token_id assigned sequentially 0..N-1).
+func set_civilian_config(config: Dictionary) -> void:
+	_civilian_tokens.clear()
+	_civilian_evacuate_zone_max_col = -1
+	if config.is_empty():
+		return
+	_civilian_evacuate_zone_max_col = int(config.get("evacuate_zone_max_col", -1))
+	var positions: Array = config.get("positions", []) as Array
+	for i in range(positions.size()):
+		var pos_var: Variant = positions[i]
+		if not (pos_var is Array) or (pos_var as Array).size() < 2:
+			continue
+		var pos_arr: Array = pos_var as Array
+		var cell: Vector2i = Vector2i(int(pos_arr[0]), int(pos_arr[1]))
+		_civilian_tokens.append(CivilianToken.make(i, cell))
+
+
+## Read-only snapshot of the civilian token collection. Returned array is a
+## duplicate (mutation does not affect controller state). Used by tests and
+## (future) visualization layer for per-redraw token state polling.
+func get_civilian_tokens() -> Array[CivilianToken]:
+	var out: Array[CivilianToken] = []
+	out.assign(_civilian_tokens)
+	return out
+
+
+## ADR-0022 §4 forbidden_pattern `civilian_escorted_counter_direct_mutation` —
+## this method is the SOLE mutator of `_fate_civilians_escorted`. Lint-enforced.
+## Called by `_civilian_check_save_for_unit` upon SAVED-transition; do NOT call
+## from elsewhere.
+func _civilian_commit_save(token_id: int) -> void:
+	_fate_civilians_escorted += 1
+	hidden_fate_condition_progressed.emit(&"civilians_escorted", _fate_civilians_escorted)
+
+
+## Pickup adjacency check at player turn-end (called from _on_unit_turn_ended).
+## 8-neighbor scan for IDLE token; first found (token_id ascending) → ESCORTED
+## bind. Capacity 1/carrier (skip if carrier already has ESCORTED token).
+func _civilian_check_pickup_for_unit(player_unit_id: int) -> void:
+	if _civilian_evacuate_zone_max_col < 0:
+		return
+	if not _units.has(player_unit_id):
+		return
+	var unit: BattleUnit = _units[player_unit_id]
+	if unit.side != 0:
+		return
+	# Capacity 1/carrier — skip if already escorting
+	for t: CivilianToken in _civilian_tokens:
+		if t.state == CivilianToken.State.ESCORTED and t.carrier_unit_id == player_unit_id:
+			return
+	var unit_cell: Vector2i = unit.position
+	for t: CivilianToken in _civilian_tokens:
+		if t.state != CivilianToken.State.IDLE:
+			continue
+		var dx: int = absi(t.grid_cell.x - unit_cell.x)
+		var dy: int = absi(t.grid_cell.y - unit_cell.y)
+		if dx <= 1 and dy <= 1 and not (dx == 0 and dy == 0):
+			t.bind_to_carrier(player_unit_id)
+			return
+
+
+## Save-zone check at player turn-end (called from _on_unit_turn_ended). If
+## carrier ends turn at col <= evacuate_zone_max_col with an ESCORTED token,
+## token transitions to SAVED + counter +1 via _civilian_commit_save.
+func _civilian_check_save_for_unit(carrier_unit_id: int) -> void:
+	if _civilian_evacuate_zone_max_col < 0:
+		return
+	if not _units.has(carrier_unit_id):
+		return
+	var unit: BattleUnit = _units[carrier_unit_id]
+	if unit.side != 0:
+		return
+	if unit.position.x > _civilian_evacuate_zone_max_col:
+		return
+	for t: CivilianToken in _civilian_tokens:
+		if t.state != CivilianToken.State.ESCORTED:
+			continue
+		if t.carrier_unit_id != carrier_unit_id:
+			continue
+		t.commit_save()
+		_civilian_commit_save(t.token_id)
+		return
+
+
+## Carrier-death recovery — called from _on_unit_died. ESCORTED token bound to
+## the dead unit transitions to IDLE at the carrier's last position (their death
+## cell). Per ADR-0022 R-1, fallback to non-occupied non-FIRE 4-neighbor is
+## deferred to next session — first-arc impl uses death cell directly.
+func _civilian_recover_on_carrier_death(dead_unit_id: int) -> void:
+	if _civilian_evacuate_zone_max_col < 0:
+		return
+	var recovery_cell: Vector2i = Vector2i.ZERO
+	if _units.has(dead_unit_id):
+		recovery_cell = _units[dead_unit_id].position
+	for t: CivilianToken in _civilian_tokens:
+		if t.state != CivilianToken.State.ESCORTED:
+			continue
+		if t.carrier_unit_id != dead_unit_id:
+			continue
+		t.recover_to_idle(recovery_cell)
+
+
 ## Session-28 — sets per-chapter victory_conditions. Called by BattleScene
 ## after ScenarioRunner hydrates the active ChapterDefinition. Null is
 ## valid (chapter omitted the resource entirely) and falls through to the
@@ -1446,6 +1560,11 @@ func set_victory_conditions(vc: VictoryConditions) -> void:
 func _on_unit_turn_ended(unit_id: int, acted: bool) -> void:
 	if _battle_over:
 		return
+	# ADR-0022 Civilian System hooks — save check first (carrier ending turn in
+	# evacuate-zone commits the SAVED), then pickup (idle token in 8-neighbor).
+	# Both short-circuit when _civilian_evacuate_zone_max_col == -1.
+	_civilian_check_save_for_unit(unit_id)
+	_civilian_check_pickup_for_unit(unit_id)
 	unit_turn_ended_visual.emit(unit_id, acted)
 
 

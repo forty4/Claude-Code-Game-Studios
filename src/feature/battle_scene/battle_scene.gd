@@ -480,6 +480,9 @@ func _start_battle() -> void:
 	)
 	# S7-05: plumb chapter-authored chokepoints to AISystem holder-archetype scoring.
 	_grid_controller.set_chokepoints(chapter.chokepoints)
+	# ADR-0022: plumb chapter-authored civilian_config (ch05 only; empty Dictionary
+	# = no civilian system active for this chapter).
+	_grid_controller.set_civilian_config(chapter.civilian_config)
 	# Session-28: plumb chapter-authored victory_conditions for the
 	# _check_battle_end + _on_round_started SURVIVE dispatchers. Null is
 	# valid (chapter omitted the resource) and falls through to the
