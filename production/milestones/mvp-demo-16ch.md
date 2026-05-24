@@ -249,6 +249,21 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - Manual playtest 후 token positions tuning (spec OQ-8)
 - Plan §11 Step 4 진입 — ch08 적의동맹 ★ design (HiddenConditionEvaluator 재사용)
 
+### S80 — ADR-0022 invariant lock + ★ trigger e2e mechanical proof (2026-05-24 session 80)
+
+> **Driver**: S79 unlocked vector #3 (lint scripts ~30-50 min) + vector #2 (integration tests ~1 session). 사용자 결정 via AskUserQuestion 2회 — sequential vector pick. ADR-0022 의 invariant 가 lint-locked 되고 ★ trigger 가 mechanical 으로 e2e 증명된 상태로 S80 종결.
+
+**Completed (3 commits, 1965/1965 PASS, push 완료)**:
+- [x] **3 forbidden_pattern lint scripts + CI wire** (`726655d`) — ADR-0022 §4 의 모든 invariant 가 이제 CI gate. (1) `lint_civilian_token_no_node_subclass.sh` (bash grep — `extends Node/Node2D/Control/CanvasItem` 금지 + positive `extends RefCounted` assert). (2) `lint_civilian_token_no_static_var.sh` (bash grep 2-scope — civilian_token.gd 의 어떤 static var 도 금지 + grid_battle_controller.gd 의 `_civilian_*`/`_fate_civilians_*` static var 금지). (3) `lint_fate_civilians_escorted_single_mutator.sh` (**awk function-scope tracker, TG-3 family**) — `_fate_civilians_escorted = / += / -=` 는 `_civilian_commit_save()` body 안에서만; declaration line (`:` between name+`=`) / reads (`,`/`)`/etc.) / equality (`==`) 모두 정확히 excluded. 3 lint 모두 positive + negative test 통과 (synthetic violation injection → exit 1 + accurate `line:function:body` 컨텍스트 → revert PASS). `.github/workflows/tests.yml:127/129/131` 의 GBC lint cluster 에 wire.
+- [x] **Civilian system e2e integration tests #8/9/10** (`a00a43e`) — `tests/integration/feature/grid_battle/grid_battle_controller_civilian_system_test.gd` 신규 (179 lines, 3 tests, spec §7 명세 그대로). (#8) `pickup_on_player_end_turn_adjacency` — 자연 turn-end pickup path 통과 (IDLE→ESCORTED + carrier_unit_id bind). (#9) `save_on_carrier_reaches_evacuate_zone` — two-phase (pickup→save) 로 `_on_unit_turn_ended` 의 save-before-pickup 순서 + SOLE mutator counter +1 path 검증. (#10) `ch05_three_civilians_saved_triggers_hidden_branch` — 3 force-SAVED → fate_data 의 controller-actual emit shape ↔ DefaultDestinyBranchJudge.resolve 의 HiddenConditionEvaluator fate_threshold 통과 → `WIN_xinye_civilians_saved` branch_key 정확히 routed. 1962 baseline + 3 = 1965 PASS / 0 errors / 0 failures / 0 regressions / 276 orphan baseline 유지.
+
+**Outcome**: Pillar 2 의 "운명은 바꿀 수 있다" 가 **mechanical 증명 + lint-locked invariant** 양쪽 모두 확보. ADR-0022 §4 의 3 forbidden_patterns (Node 서브클래스 / static var / counter direct mutation) 가 CI gate 가 되어 미래 refactor / 다른 chapter civilian 재사용 시 invariants 가 자동 enforce. ★ trigger end-to-end mechanical proof (`_civilian_commit_save` → `_fate_civilians_escorted` → fate_data dict → HiddenConditionEvaluator → DestinyBranchJudge → `WIN_xinye_civilians_saved`) 가 1 integration test 로 결정. ch05 player 가 5 token 중 3+ escort 시 hidden ★ branch 가 mechanically reachable + 그 path 가 향후 regression 자동 차단됨.
+
+**S79→S80 핸드오프 vector status**: #3 (lint) 종결 ✅ + #2 (integration) 종결 ✅. 잔존 4 vector — #1 visualization / #4 manual playtest / #5 ch08 ★ design / #6 S19 잔존 — S80→S81 핸드오프로 이관.
+
+**Operational observation (codification candidate)**:
+- **G-9 첫-run trap re-confirmed**: test #10 의 override_failure_message 가 `"...'%s'. " + "...%s,%s,%s,%d" % [args]` 패턴이라 `%` 연산자가 두번째 문자열에만 bind → 첫 `%s` 가 unmatched → `String formatting error: a number is required` stderr 폴루션 (assert pass 와 무관하지만 CI log 오염). 대응: concat 전체를 parens 로 감쌈. G-9 의 패턴이 1년 이상 stable — long string override_failure_message 작성 시 parens 디폴트 lint candidate.
+
 ## Reference
 
 - 6-lens assessment 원본: 2026-05-22 S73 session (Producer / Game Designer / QA Lead / Technical Director / Art Director / Narrative Director 병렬 spawn)
