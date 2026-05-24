@@ -138,8 +138,8 @@ func test_record_count_within_mvp_bounds_8_to_10() -> void:
 		"AC-2: record count %d must be >= 8" % count
 	).is_true()
 
-	assert_bool(count <= 20).override_failure_message(
-		"AC-2: record count %d must be <= 20 (Phase B bumped from 16 — added 위연 + headroom for 방통/마초/강유)" % count
+	assert_bool(count <= 25).override_failure_message(
+		"AC-2: record count %d must be <= 25 (Phase C bumped from 20 — added 황건 4 적장 yel_001-004 per design/quick-specs/ch01-vertical-slice-uplift.md §4.1)" % count
 	).is_true()
 
 

@@ -37,11 +37,19 @@ const HERO_XIAHOU_DUN: StringName = &"wei_005_xiahou_dun"
 const HERO_ZHANG_LIAO: StringName = &"wei_006_zhang_liao"
 const HERO_YU_JIN: StringName = &"wei_007_yu_jin"
 const HERO_XU_CHU: StringName = &"wei_008_xu_chu"
+# ch01 황건적 4 적장 — design/quick-specs/ch01-vertical-slice-uplift.md §4.1.
+# ch01 enemy_roster 는 wei_* 가 아닌 yel_* 를 가리킴. 두 set 모두 seed (wei_* 는
+# 다른 챕터 enemy roster 에서 사용; 테스트 fixture 호환성을 위해 둘 다 유지).
+const HERO_CHENG_YUANZHI: StringName = &"yel_001_cheng_yuanzhi"
+const HERO_DENG_MAO: StringName = &"yel_002_deng_mao"
+const HERO_SUN_ZHONG: StringName = &"yel_003_sun_zhong"
+const HERO_HUANG_SHAO: StringName = &"yel_004_huang_shao"
 
 # Phase A — first chapter is ch01_taoyuan_yellow_turban, which includes 관우 (uid=6).
 const MOCK_HERO_IDS: Array[StringName] = [
 	HERO_LIU_BEI, HERO_GUAN_YU, HERO_ZHANG_FEI, HERO_ZHOU_YU, HERO_CAO_CAO,
 	HERO_XIAHOU_DUN, HERO_ZHANG_LIAO, HERO_YU_JIN, HERO_XU_CHU,
+	HERO_CHENG_YUANZHI, HERO_DENG_MAO, HERO_SUN_ZHONG, HERO_HUANG_SHAO,
 ]
 
 # AC-9: ×5 permissive gate over the 50ms wall-clock headline target.

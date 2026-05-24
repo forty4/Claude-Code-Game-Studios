@@ -76,9 +76,9 @@ ch01 (도원결의·황건적 토벌) 의 enemy roster 를 위(魏) 4 장수 →
 {
   "enemy_roster": [
     {"unit_id": 2, "hero_id": "yel_001_cheng_yuanzhi", "archetype": "aggressor"},
-    {"unit_id": 3, "hero_id": "yel_002_deng_mao",      "archetype": "skirmisher"},
-    {"unit_id": 4, "hero_id": "yel_003_sun_zhong",     "archetype": "holder"},
-    {"unit_id": 5, "hero_id": "yel_004_huang_shao",    "archetype": "skirmisher"}
+    {"unit_id": 3, "hero_id": "yel_002_deng_mao",      "archetype": "holder"},
+    {"unit_id": 4, "hero_id": "yel_003_sun_zhong",     "archetype": "skirmisher"},
+    {"unit_id": 5, "hero_id": "yel_004_huang_shao",    "archetype": "coordinator"}
   ],
   "enemy_atk_mult": 0.95,
   "chokepoints": [[5,4],[6,4],[7,4],[8,4]]

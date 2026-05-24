@@ -68,14 +68,17 @@ func test_chapter_1_enemy_hero_ids_all_exist_in_hero_database() -> void:
 # ─── AC-S7-05-4: chokepoints flow through schema ─────────────────────────────
 
 
-func test_chapter_1_chokepoints_loaded_as_3_grid_coords() -> void:
-	# Phase A first chapter (ch01_taoyuan_yellow_turban) has 2 chokepoints
-	# at [7,4] [8,4] — narrow valley before 황건적 진영.
+func test_chapter_1_chokepoints_loaded_as_4_grid_coords() -> void:
+	# Phase A first chapter (ch01_taoyuan_yellow_turban) has 4 chokepoints
+	# at [5,4] [6,4] [7,4] [8,4] — 도로 4 칸 일렬, 형세의 흐름을 만들 수 있는 길이
+	# (design/quick-specs/ch01-vertical-slice-uplift.md §3.2 긴장감 tuning).
 	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
 	auto_free(runner)
 	runner.load_scenario(SCENARIO_JSON)
 	var chapter: ChapterDefinition = runner.get_current_chapter()
-	assert_int(chapter.chokepoints.size()).is_equal(2)
+	assert_int(chapter.chokepoints.size()).is_equal(4)
+	assert_bool(Vector2i(5, 4) in chapter.chokepoints).is_true()
+	assert_bool(Vector2i(6, 4) in chapter.chokepoints).is_true()
 	assert_bool(Vector2i(7, 4) in chapter.chokepoints).is_true()
 	assert_bool(Vector2i(8, 4) in chapter.chokepoints).is_true()
 

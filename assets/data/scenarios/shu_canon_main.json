@@ -89,17 +89,17 @@
         {
           "unit_id": 3,
           "hero_id": "yel_002_deng_mao",
-          "archetype": "skirmisher"
+          "archetype": "holder"
         },
         {
           "unit_id": 4,
           "hero_id": "yel_003_sun_zhong",
-          "archetype": "holder"
+          "archetype": "skirmisher"
         },
         {
           "unit_id": 5,
           "hero_id": "yel_004_huang_shao",
-          "archetype": "skirmisher"
+          "archetype": "coordinator"
         }
       ],
       "chokepoints": [
