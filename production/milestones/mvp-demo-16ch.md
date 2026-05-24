@@ -229,6 +229,26 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 
 **Outcome**: ch01 = "약속의 무게" 챕터로 격상. Pillar 1 (긴장감 mechanical), Pillar 2 (Beat 8 seed로 ch05 ★ foreshadow, priming-null 유지), Pillar 4 (황건적 lore 정합) 셋 다 첫판에서 felt. **분기 추가 X** — `branch_table = {WIN_default, LOSS_default}` 보존 (sentinel test 가 미래 ★ leak 차단).
 
+### S79 — ch05 ★ design + first impl arc (2026-05-24 session 79)
+
+> **Driver**: S78 unlocked vector #1 — plan §11 Step 3 의 design portion + first impl arc (ch05 신야 화공 ★ "백성 evacuation" mechanical substrate).
+
+**Completed (5 commits, 1962/1962 PASS, push 완료)**:
+- [x] **ch05 quick-spec** (`0bb7308`) — `design/quick-specs/ch05-civilian-evacuation.md` 신규 (201 lines, 8 sections): Stranded Escort Token model (autonomous NPC + terrain feature 둘 다 거부) + 5 token positions `[[3,2],[5,3],[4,5],[4,7],[6,6]]` + ★ trigger 3+ save + 8 OQ (5 spec-잠금 + 3 deferred).
+- [x] **ADR-0022 Civilian System** (`26c1a6b`) — `docs/architecture/ADR-0022-civilian-system.md` 신규 (284 lines, Proposed per Build mode): CivilianToken = `class_name X extends RefCounted` + 3-state machine + assert-guard mutators (bind_to_carrier / commit_save / recover_to_idle). GridBattleController owns `_civilian_tokens` collection (battle-scoped, RefCounted RAII). ADR-0017 §Amendment 2026-05-24 (#1) inline (civilian_config field, Evolution Rule #4 minor amendment, 0 chapters require JSON update). 3 net-new forbidden_patterns: civilian_token_node_subclass / civilian_token_static_var / civilian_escorted_counter_direct_mutation. 6 alternatives rejected.
+- [x] **Schema + JSON + hydration + validation** (`2e7dc88`) — `ChapterDefinition.civilian_config: Dictionary = {}` field 추가 + ScenarioRunner `_hydrate_chapter` deep-copy hydration + `_validate_chapter_record` 4 fault-ids (civilian_config_not_dict / positions_not_array / positions_exceeds_cap / evacuate_zone_not_number|negative). JSON.parse 의 number→float 자동 coercion 대응 — int/float 둘 다 수용 + `as int` cast. ch05 chapter JSON: `civilian_config = {positions: [[3,2],[5,3],[4,5],[4,7],[6,6]], evacuate_zone_max_col: 0}`. 다른 22 chapters 영향 0.
+- [x] **CivilianToken entity + GridBattleController wiring** (`7151cd8`) — `src/feature/grid_battle/civilian_token.gd` 신규 (RefCounted + 3-state enum) + GridBattleController 6 methods: `set_civilian_config` (DI surface) / `get_civilian_tokens` (read-only snapshot) / `_civilian_commit_save` (SOLE mutator of `_fate_civilians_escorted`, lint-locked; emits `hidden_fate_condition_progressed`) / `_civilian_check_pickup_for_unit` (player turn-end 8-neighbor scan, capacity 1) / `_civilian_check_save_for_unit` (col ≤ zone_max_col → SAVED + counter) / `_civilian_recover_on_carrier_death` (ESCORTED → IDLE at death cell). 2 hooks: `_on_unit_turn_ended` fires save+pickup checks / `_on_unit_died` fires recovery. BattleScene chapter init 에 `set_civilian_config(chapter.civilian_config)` call 추가 (set_chokepoints 인접). 신규 `_fate_civilians_escorted` increment site — 이전 zero-stub `# TODO ch05; needs civilian system` 해소.
+- [x] **Civilian sentinel tests** (`17425fd`) — 2 신규 test files (8 tests, 202 lines): `civilian_token_test.gd` (4 state machine unit tests — factory + 3 transitions, pure RefCounted, no SceneTree) + `ch05_civilian_evacuation_sentinel_test.gd` (4 data sentinels — token positions exact / evacuate_zone_max_col 0 / other 22 chapters empty civilian_config (ADR-0022 scope lock regression) / ★ scaffold hidden_branch_key + hidden_condition intact). 1954 baseline + 8 = 1962 PASS.
+
+**Outcome**: ch05 ★ trigger (`WIN_xinye_civilians_saved`, `civilians_escorted >= 3`) 의 mechanical substrate 완성. Counter wiring + state machine + spawn-from-config + pickup/save/death hooks 모두 통과 (1962 PASS). Plan §11 Step 3 의 ~50% 진행 (4-6 sessions 중 본 세션 ~2 sessions 분량). **Pillar 2 의 첫 mechanical 증명** 의 substrate 완성 — 사용자가 ch05 도착 시 ★ branch 가 mechanically reachable.
+
+**Deferred to next session**:
+- Civilian visualization (Commit 5 — placeholder polygon + escort overlay, Gemini chibi 천장 제약으로 spec doc 까지만)
+- GridBattleController integration tests (#8 pickup-on-end-turn / #9 save-on-zone-reach / #10 ★ trigger e2e fixture)
+- 3 forbidden_pattern lint scripts (ADR-0022 §4 — 마지막은 awk flag/next TG-3 패턴)
+- Manual playtest 후 token positions tuning (spec OQ-8)
+- Plan §11 Step 4 진입 — ch08 적의동맹 ★ design (HiddenConditionEvaluator 재사용)
+
 ## Reference
 
 - 6-lens assessment 원본: 2026-05-22 S73 session (Producer / Game Designer / QA Lead / Technical Director / Art Director / Narrative Director 병렬 spawn)
