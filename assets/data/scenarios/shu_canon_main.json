@@ -675,6 +675,16 @@
           4
         ]
       ],
+      "civilian_config": {
+        "positions": [
+          [3, 2],
+          [5, 3],
+          [4, 5],
+          [4, 7],
+          [6, 6]
+        ],
+        "evacuate_zone_max_col": 0
+      },
       "enemy_atk_mult": 0.55,
       "victory_conditions": {
         "primary_condition_type": 1,

@@ -205,6 +205,27 @@ extends Resource
 @export var legendary_condition: Dictionary = {}
 
 
+# ─── Civilian system (ADR-0022 — ch05 백성 evacuation) ─────────────────────────
+
+## Optional civilian token config for chapters with stranded-escort ★ trigger.
+## Empty Dictionary = no civilian system active (default for all chapters except ch05).
+## Runtime shape:
+##   { "positions": Array[Array[int]] — each inner array is [col, row],
+##     "evacuate_zone_max_col": int — carrier reaches col <= this → token SAVED }
+##
+## Owned by ADR-0022 Civilian System. Read by
+## GridBattleController._civilian_spawn_from_config at chapter init. Validated by
+## ScenarioRunner EC-SP-8 (positions in-bounds, evacuate_zone_max_col in
+## [0, map.width), positions.length <= 16).
+##
+## Example (ch05 신야 화공):
+##   civilian_config = {
+##     "positions": [[3, 2], [5, 3], [4, 5], [4, 7], [6, 6]],
+##     "evacuate_zone_max_col": 0
+##   }
+@export var civilian_config: Dictionary = {}
+
+
 # ─── Cascade join announcement (S65+ — 5 영웅 fan service narrative) ──────────
 
 ## Optional per-signature cascade join text key. When a signature branch resolved

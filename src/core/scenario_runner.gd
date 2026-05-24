@@ -654,6 +654,26 @@ func _validate_chapter_record(record: Dictionary) -> String:
 	var legendary_key: String = (record.get("legendary_branch_key", "") as String)
 	if not legendary_key.is_empty() and not branch_table.has(legendary_key):
 		return "legendary_branch_key_not_in_table"
+	# Civilian system config (ADR-0022 — ch05 백성 evacuation). Optional;
+	# shape-only validation here (in-bounds positions checked at runtime by
+	# GridBattleController._civilian_spawn_from_config against actual map).
+	# JSON.parse() returns all numbers as float — accept both int and float for
+	# numeric fields and rely on `as int` cast at hydration/consumption time.
+	if record.has("civilian_config"):
+		if not (record["civilian_config"] is Dictionary):
+			return "civilian_config_not_dict"
+		var cc: Dictionary = record["civilian_config"] as Dictionary
+		if cc.has("positions"):
+			if not (cc["positions"] is Array):
+				return "civilian_config_positions_not_array"
+			if (cc["positions"] as Array).size() > 16:
+				return "civilian_config_positions_exceeds_cap"
+		if cc.has("evacuate_zone_max_col"):
+			var zone_val: Variant = cc["evacuate_zone_max_col"]
+			if not (zone_val is int or zone_val is float):
+				return "civilian_config_evacuate_zone_not_number"
+			if int(zone_val) < 0:
+				return "civilian_config_evacuate_zone_negative"
 	return ""
 
 
@@ -731,6 +751,9 @@ func _hydrate_chapter(record: Dictionary) -> ChapterDefinition:
 	# Optional {signature_key: i18n_text_key} map. Emitted at CHAPTER_START when
 	# prior chapter resolved a matching signature key.
 	c.cascade_join_prose = (record.get("cascade_join_prose", {}) as Dictionary).duplicate(true)
+	# Civilian system config (ADR-0022). Optional Dictionary with positions +
+	# evacuate_zone_max_col; empty default = no civilian system active for chapter.
+	c.civilian_config = (record.get("civilian_config", {}) as Dictionary).duplicate(true)
 	# Ending screen text key map (S65+ — final chapter 3-tier ending). Optional
 	# {branch_path_id: i18n_text_key}. BattleScene._show_ending_screen consults
 	# this for per-branch epilogue prose at SCENARIO_END.
