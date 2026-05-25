@@ -96,6 +96,21 @@ window/size/resizable=true
 window/stretch/mode="canvas_items"
 window/stretch/aspect="keep"
 
+[internationalization]
+
+; S86 — registered en.po + ko.po so tr() calls in battle_hud.gd actually resolve.
+; Pre-S86: en.po existed on disk but was never referenced in project.godot, so
+; TranslationServer had zero translations loaded and tr() returned raw keys
+; (e.g., "hud.action.move" on the Move button). Korean is fallback because the
+; target audience is Korean-speaking; English is kept as a secondary fallback.
+; S86 — full i18n: en.po + ko.po both registered. ko_KR systems get Korean
+; HUD; other systems fall through to en.po. Affected tests (battle_hud_unit_info_test,
+; battle_hud_safe_tr_format_test, battle_hud_forecast_test) force locale via
+; TranslationServer.set_locale("en") in their before_test() so assertions stay
+; deterministic regardless of the host's system locale.
+locale/translations=PackedStringArray("res://assets/locale/en.po", "res://assets/locale/ko.po")
+locale/fallback="en"
+
 [input_devices.pointing]
 
 ; Story-008 verification #3 (ADR-0005 §Verification Required §3 + CR-2e + R-3):

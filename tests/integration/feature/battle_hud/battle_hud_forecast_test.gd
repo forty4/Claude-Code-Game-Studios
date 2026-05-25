@@ -42,16 +42,27 @@ const TEST_ATTACKER_ID: int = 42
 const TEST_DEFENDER_ID: int = 99
 
 
+var _saved_locale: String = ""
+
+
 func before_test() -> void:
 	# G-15: reset HeroDatabase static state per file-header obligation.
 	HeroDatabase._heroes_loaded = false
 	HeroDatabase._heroes = {}
+	# S86 — force "en" locale so the perf budget (80ms dismiss completion) is
+	# measured against deterministic translation resolution. Pre-S86 tests ran
+	# with no locale loaded (raw key fast-return); post-S86 ko.po + en.po are
+	# registered, and locale-resolution overhead is now part of the budget.
+	_saved_locale = TranslationServer.get_locale()
+	TranslationServer.set_locale("en")
 
 
 func after_test() -> void:
 	# Idempotent crash-safety net per G-6.
 	HeroDatabase._heroes_loaded = false
 	HeroDatabase._heroes = {}
+	if _saved_locale != "":
+		TranslationServer.set_locale(_saved_locale)
 
 
 # ─── Fixture builders ────────────────────────────────────────────────────────

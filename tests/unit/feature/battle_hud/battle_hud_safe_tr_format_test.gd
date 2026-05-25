@@ -40,11 +40,19 @@ const GridBattleControllerStubScript: GDScript = preload("res://tests/helpers/gr
 
 ## Per-test bag dictionary (keyed same as battle_hud_skeleton_test.gd).
 var _bag: Dictionary = {}
+var _saved_locale: String = ""
 
 
 # ─── Lifecycle ──────────────────────────────────────────────────────────────
 
 func before_test() -> void:
+	# S86 — force "zz" locale (no .po matches) so tr() falls back to the raw key,
+	# matching the assumptions of the format-fallback tests in this suite. en.po +
+	# ko.po are now registered in project.godot; without forcing an unmatched locale,
+	# tr() would resolve keys (e.g., "hud.results.surviving_units" → "...Survivors")
+	# and break the assertions on raw-key sigil presence.
+	_saved_locale = TranslationServer.get_locale()
+	TranslationServer.set_locale("zz")
 	# Build a fully-DI'd BattleHUD without add_child — _safe_tr_format / _format_fallback
 	# do NOT require tree membership. add_child would trigger _ready() asserts + PRESET_FULL_RECT.
 	var camera: BattleCameraStub = BattleCameraStubScript.new()
@@ -76,6 +84,9 @@ func before_test() -> void:
 
 
 func after_test() -> void:
+	# S86 — restore system locale before next test runs.
+	if _saved_locale != "":
+		TranslationServer.set_locale(_saved_locale)
 	# G-6: explicit free() (not queue_free) — orphan detector runs before after_test.
 	# Safety net; test bodies also free inline per G-6.
 	for key: String in ["hud", "camera", "hp_controller", "turn_runner",
@@ -244,6 +255,9 @@ func test_z_safe_tr_format_with_locale_substitution_path() -> void:
 	translation.locale = "en"
 	translation.add_message(&"hud.results.surviving_units", "%d Survivors")
 	TranslationServer.add_translation(translation)
+	# S86 — override before_test's "zz" locale so this test's injected "en"
+	# Translation actually matches at tr() resolution time.
+	TranslationServer.set_locale("en")
 
 	var hud: BattleHUD = _hud()
 

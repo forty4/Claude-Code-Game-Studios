@@ -46,17 +46,28 @@ const TEST_UNIT_RAW_DEF: int = 9
 const TEST_UNIT_FACING_E: int = 1
 
 
+var _saved_locale: String = ""
+
+
 func before_test() -> void:
 	# G-15 + hero_database.gd line 4-7 obligation: every test that calls any
 	# HeroDatabase static method MUST reset _heroes_loaded + _heroes.
 	HeroDatabase._heroes_loaded = false
 	HeroDatabase._heroes = {}
+	# S86 full i18n — force en locale so assertions on tr()-rendered text are
+	# deterministic regardless of host system locale. Pre-S86 these tests
+	# relied on "no translation loaded → tr returns raw key" which broke once
+	# en.po + ko.po were registered in project.godot.
+	_saved_locale = TranslationServer.get_locale()
+	TranslationServer.set_locale("en")
 
 
 func after_test() -> void:
 	# Idempotent crash-safety net per G-6 — actual cleanup happens in test bodies.
 	HeroDatabase._heroes_loaded = false
 	HeroDatabase._heroes = {}
+	if _saved_locale != "":
+		TranslationServer.set_locale(_saved_locale)
 
 
 # ─── Fixture builders ────────────────────────────────────────────────────────
@@ -199,30 +210,32 @@ func test_show_unit_info_populates_panel_from_backends() -> void:
 	).is_equal(1)
 
 	# AC-3: ClassLabel populated via _class_to_i18n_key(unit_class=0 → CAVALRY).
-	# tr() with no locale loaded returns the key verbatim — assertion locks the
-	# exact format string + literal i18n keys produced by show_unit_info().
+	# S86: locale forced to "en" in before_test — assertion locks the rendered
+	# English text ("Class: Cavalry"). Pre-S86 this asserted the raw i18n key
+	# ("hud.unit_info.class_label: hud.unit_info.class.cavalry") which only
+	# worked because no translation was loaded.
 	var class_label: Label = panel.get_node_or_null(^"ClassLabel") as Label
 	assert_str(class_label.text).override_failure_message(
-		"AC-3: ClassLabel must format '<class_label>: <class.cavalry>' via tr() literal keys"
-	).is_equal("hud.unit_info.class_label: hud.unit_info.class.cavalry")
+		"AC-3: ClassLabel must format '<Class>: <Cavalry>' via tr() resolution"
+	).is_equal("Class: Cavalry")
 
 	# AC-3: ATKLabel populated with battle_unit.raw_atk.
 	var atk_label: Label = panel.get_node_or_null(^"ATKLabel") as Label
 	assert_str(atk_label.text).override_failure_message(
-		"AC-3: ATKLabel must format '<atk_label> <raw_atk>' (got '%s')" % atk_label.text
-	).is_equal("hud.unit_info.atk_label %d" % TEST_UNIT_RAW_ATK)
+		"AC-3: ATKLabel must format '<ATK> <raw_atk>' (got '%s')" % atk_label.text
+	).is_equal("ATK %d" % TEST_UNIT_RAW_ATK)
 
 	# AC-3: DEFLabel populated with battle_unit.raw_def.
 	var def_label: Label = panel.get_node_or_null(^"DEFLabel") as Label
 	assert_str(def_label.text).override_failure_message(
-		"AC-3: DEFLabel must format '<def_label> <raw_def>' (got '%s')" % def_label.text
-	).is_equal("hud.unit_info.def_label %d" % TEST_UNIT_RAW_DEF)
+		"AC-3: DEFLabel must format '<DEF> <raw_def>' (got '%s')" % def_label.text
+	).is_equal("DEF %d" % TEST_UNIT_RAW_DEF)
 
 	# AC-3: FacingDirectionLabel populated via _facing_to_i18n_key(facing=1 → E).
 	var facing_label: Label = panel.get_node_or_null(^"FacingDirectionLabel") as Label
 	assert_str(facing_label.text).override_failure_message(
-		"AC-3: FacingDirectionLabel must format '<facing_label>: <facing.e>'"
-	).is_equal("hud.unit_info.facing_label: hud.unit_info.facing.e")
+		"AC-3: FacingDirectionLabel must format '<Facing>: <E>'"
+	).is_equal("Facing: E")
 
 	# UI-GB-11 should be visible because defend_stance is in status effects
 	var seal: Control = hud._ui_elements.get(&"UI-GB-11")
@@ -254,13 +267,12 @@ func test_show_unit_info_unknown_hero_renders_localized_placeholder() -> void:
 	var panel: Control = hud._ui_elements.get(&"UI-GB-03")
 	assert_bool(panel.visible).is_true()
 	var name_label: Label = panel.get_node_or_null(^"UnitNameLabel") as Label
-	# Per Godot 4.x tr() semantics with no locale loaded: returns the key string
-	# verbatim. Asserting against the exact key locks the fallback path —
-	# previously a length()>0 check passed for any non-empty text and would have
-	# missed accidental population from a different code path.
+	# S86: with en.po loaded + before_test forcing locale="en", the unknown-hero
+	# fallback resolves to "Unknown" (the en.po msgstr for hud.unit_info.unknown_unit).
+	# Pre-S86 this asserted the raw key because no translation was loaded.
 	assert_str(name_label.text).override_failure_message(
-		"AC-3 edge: unknown hero must route through tr(&\"hud.unit_info.unknown_unit\") fallback; got '%s'" % name_label.text
-	).is_equal("hud.unit_info.unknown_unit")
+		"AC-3 edge: unknown hero must route through tr(&\"hud.unit_info.unknown_unit\") → 'Unknown'; got '%s'" % name_label.text
+	).is_equal("Unknown")
 
 	hud.free()
 	_free_node_deps(bag)
