@@ -3081,6 +3081,24 @@ func _make_skill_particle(skill_id: StringName, accent: Color) -> SkillParticleE
 			return SkillParticleEffect.make_lone_lance(accent)
 		&"skill_inspire":
 			return SkillParticleEffect.make_inspire(accent)
+		&"skill_piercing_volley":
+			return SkillParticleEffect.make_piercing_volley(accent)
+		&"skill_charm":
+			return SkillParticleEffect.make_charm(accent)
+		&"skill_strategist":
+			return SkillParticleEffect.make_strategist(accent)
+		&"skill_naval_strategy":
+			return SkillParticleEffect.make_naval_strategy(accent)
+		&"skill_rebel_charge":
+			return SkillParticleEffect.make_rebel_charge(accent)
+		&"skill_blunt_strategy":
+			return SkillParticleEffect.make_blunt_strategy(accent)
+		&"skill_phoenix_chick":
+			return SkillParticleEffect.make_phoenix_chick(accent)
+		&"skill_xiliang_charge":
+			return SkillParticleEffect.make_xiliang_charge(accent)
+		&"skill_successor_strategy":
+			return SkillParticleEffect.make_successor_strategy(accent)
 		_:
 			return null
 

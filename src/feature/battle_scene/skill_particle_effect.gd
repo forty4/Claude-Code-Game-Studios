@@ -106,6 +106,140 @@ const INSPIRE_AURA_COLOR: Color = Color(0.66, 0.95, 0.62, 1.0)    # warm sage gl
 const INSPIRE_PULSE_CORE_COLOR: Color = Color(0.85, 1.00, 0.78, 1.0)  # mint highlight
 const INSPIRE_OUTLINE_COLOR: Color = Color(0.10, 0.30, 0.14, 1.0)  # forest ink
 
+## Piercing-volley — 황충 (ARCHER) 28 dmg × 3 nearest within attack_range. Visual
+## reads as "many arrows fanning outward". 8 radial arrow streaks at range-3
+## distance — covers all directions since target picking is "3 nearest" rather
+## than directional.
+const PIERCING_VOLLEY_ARROW_COUNT: int = 8
+const PIERCING_VOLLEY_INNER_R: float = 18.0
+const PIERCING_VOLLEY_OUTER_R: float = 188.0  # ~range 3
+const PIERCING_VOLLEY_WIDTH: float = 2.6
+const PIERCING_VOLLEY_HEAD_LEN: float = 10.0
+const PIERCING_VOLLEY_HEAD_HALF_W: float = 5.0
+const PIERCING_VOLLEY_DELAY: float = 0.04
+const PIERCING_VOLLEY_SPAN: float = 0.50
+const PIERCING_VOLLEY_CORE_COLOR: Color = Color(1.00, 0.92, 0.50, 1.0)
+const PIERCING_VOLLEY_GLOW_COLOR: Color = Color(0.98, 0.72, 0.22, 1.0)
+const PIERCING_VOLLEY_OUTLINE_COLOR: Color = Color(0.32, 0.18, 0.05, 1.0)
+
+## Charm — 초선 adjacent-enemy turn-waste. No damage; rose/pink palette + 4
+## adjacent pulse rings + center pink heart-pulse glow.
+const CHARM_CORE_R_MIN: float = 8.0
+const CHARM_CORE_R_MAX: float = 28.0
+const CHARM_PULSE_R_MIN: float = 5.0
+const CHARM_PULSE_R_MAX: float = 24.0
+const CHARM_TILE_SIZE: float = 64.0
+const CHARM_PULSE_WIDTH: float = 2.4
+const CHARM_DELAY: float = 0.10
+const CHARM_SPAN: float = 0.60
+const CHARM_CORE_COLOR: Color = Color(1.00, 0.74, 0.88, 1.0)
+const CHARM_PULSE_COLOR: Color = Color(0.96, 0.50, 0.78, 1.0)
+const CHARM_OUTLINE_COLOR: Color = Color(0.36, 0.10, 0.24, 1.0)
+
+## Strategist — 조조 battlefield-wide 15 dmg. Massive indigo expanding ring +
+## center flash so the wave reads as "the entire map ate it". Mirrors
+## AttackLine.COLOR_STRATEGIST family.
+const STRATEGIST_RING_R_MIN: float = 14.0
+const STRATEGIST_RING_R_MAX: float = 420.0
+const STRATEGIST_RING_WIDTH: float = 4.5
+const STRATEGIST_CORE_R_MIN: float = 8.0
+const STRATEGIST_CORE_R_MAX: float = 36.0
+const STRATEGIST_CORE_COLOR: Color = Color(0.92, 0.86, 1.00, 1.0)
+const STRATEGIST_GLOW_COLOR: Color = Color(0.78, 0.66, 0.95, 1.0)  # indigo violet
+const STRATEGIST_OUTLINE_COLOR: Color = Color(0.20, 0.12, 0.36, 1.0)
+
+## Naval-strategy — 주유 adjacent STUN. Soft blue water-ripple palette so the
+## visual differentiates from thunder_roar (sharp electric bolts to the same
+## adjacency). Three concentric ripples per cardinal neighbor.
+const NAVAL_TILE_SIZE: float = 64.0
+const NAVAL_RIPPLE_COUNT: int = 3
+const NAVAL_RIPPLE_STAGGER: float = 0.12
+const NAVAL_RIPPLE_R_MIN: float = 6.0
+const NAVAL_RIPPLE_R_MAX: float = 26.0
+const NAVAL_RIPPLE_WIDTH: float = 2.0
+const NAVAL_CORE_COLOR: Color = Color(0.78, 0.92, 1.00, 1.0)
+const NAVAL_GLOW_COLOR: Color = Color(0.36, 0.62, 0.92, 1.0)
+const NAVAL_OUTLINE_COLOR: Color = Color(0.06, 0.16, 0.36, 1.0)
+
+## Rebel-charge — 위연 self +50% + DEF pierce (dragon_blade mechanic, darker
+## palette). Single dark-red crescent slash + blood-red ring at caster. Same
+## visual silhouette as dragon_blade but the palette communicates "blade
+## waiting for the moment" rather than "righteous champion".
+const REBEL_CHARGE_RING_COUNT: int = 2
+const REBEL_CHARGE_RING_STAGGER: float = 0.18
+const REBEL_CHARGE_RING_R_MIN: float = 12.0
+const REBEL_CHARGE_RING_R_MAX: float = 34.0
+const REBEL_CHARGE_RING_WIDTH: float = 2.8
+const REBEL_CHARGE_SWEEP_RADIUS: float = 32.0
+const REBEL_CHARGE_SWEEP_ARC: float = 1.10
+const REBEL_CHARGE_SWEEP_WIDTH: float = 5.0
+const REBEL_CHARGE_SWEEP_DELAY: float = 0.05
+const REBEL_CHARGE_SWEEP_SPAN: float = 0.55
+const REBEL_CHARGE_SWEEP_FROM: float = -PI * 0.5
+const REBEL_CHARGE_SWEEP_TO: float = PI * 0.5
+const REBEL_CHARGE_RING_COLOR: Color = Color(0.78, 0.16, 0.20, 1.0)
+const REBEL_CHARGE_SWEEP_COLOR: Color = Color(0.92, 0.38, 0.30, 1.0)
+const REBEL_CHARGE_OUTLINE_COLOR: Color = Color(0.24, 0.04, 0.06, 1.0)
+
+## Blunt-strategy — 방통 range-2 AoE (12 dmg + slow). Indigo 2-tile reach ring
+## + 4 cardinal dashed strokes communicating "deception sweeps outward".
+const BLUNT_RING_RADII: Array[float] = [64.0, 128.0]
+const BLUNT_RING_WIDTH: float = 2.4
+const BLUNT_DASH_COUNT: int = 4   # cardinal directions
+const BLUNT_DASH_INNER_R: float = 20.0
+const BLUNT_DASH_OUTER_R: float = 120.0
+const BLUNT_DASH_SEGMENT_LEN: float = 9.0
+const BLUNT_DASH_GAP_LEN: float = 7.0
+const BLUNT_DASH_WIDTH: float = 2.6
+const BLUNT_DELAY: float = 0.08
+const BLUNT_SPAN: float = 0.62
+const BLUNT_CORE_COLOR: Color = Color(0.85, 0.78, 1.00, 1.0)
+const BLUNT_GLOW_COLOR: Color = Color(0.62, 0.50, 0.88, 1.0)
+const BLUNT_OUTLINE_COLOR: Color = Color(0.14, 0.08, 0.28, 1.0)
+
+## Phoenix-chick — 방통 adjacent heal 25 HP. Warm orange phoenix palette to
+## differentiate from inspire (sage green). Caster aura + 4 adjacent rising
+## feather pulses.
+const PHOENIX_TILE_SIZE: float = 64.0
+const PHOENIX_AURA_R_MIN: float = 10.0
+const PHOENIX_AURA_R_MAX: float = 28.0
+const PHOENIX_FEATHER_HEIGHT: float = 22.0
+const PHOENIX_FEATHER_WIDTH: float = 10.0
+const PHOENIX_DELAY: float = 0.10
+const PHOENIX_SPAN: float = 0.62
+const PHOENIX_HOT_COLOR: Color = Color(1.00, 0.86, 0.42, 1.0)
+const PHOENIX_MID_COLOR: Color = Color(1.00, 0.50, 0.18, 1.0)
+const PHOENIX_DARK_COLOR: Color = Color(0.62, 0.18, 0.06, 1.0)
+
+## Xiliang-charge — 마초 (CAVALRY) 20 dmg in 4 cardinal lines, Manhattan ≤ 3.
+## 4 long amber charge lines extending 3 tiles out + dust trail echo flanking
+## the main line (matches CAVALRY visual family from AttackLine).
+const XILIANG_LINE_INNER_R: float = 14.0
+const XILIANG_LINE_OUTER_R: float = 188.0  # ~3 tiles
+const XILIANG_LINE_WIDTH: float = 3.6
+const XILIANG_LINE_OUTLINE_WIDTH: float = 5.4
+const XILIANG_TRAIL_OFFSET: float = 5.0
+const XILIANG_DELAY: float = 0.04
+const XILIANG_SPAN: float = 0.55
+const XILIANG_CORE_COLOR: Color = Color(1.00, 0.92, 0.45, 1.0)
+const XILIANG_GLOW_COLOR: Color = Color(0.98, 0.80, 0.42, 1.0)  # CAVALRY amber
+const XILIANG_OUTLINE_COLOR: Color = Color(0.32, 0.16, 0.04, 1.0)
+
+## Successor-strategy — 강유 single-ally heal+refund within Manhattan ≤ 4.
+## Visual reads as "search-then-bless": indigo radial ring expanding to 4-tile
+## reach + center starburst at caster (the strategist scanning the field).
+const SUCCESSOR_RING_R_MIN: float = 18.0
+const SUCCESSOR_RING_R_MAX: float = 260.0  # ~4-tile reach
+const SUCCESSOR_RING_WIDTH: float = 2.8
+const SUCCESSOR_STAR_INNER_R: float = 6.0
+const SUCCESSOR_STAR_OUTER_R: float = 22.0
+const SUCCESSOR_STAR_POINTS: int = 6
+const SUCCESSOR_DELAY: float = 0.06
+const SUCCESSOR_SPAN: float = 0.70
+const SUCCESSOR_CORE_COLOR: Color = Color(0.92, 0.86, 1.00, 1.0)
+const SUCCESSOR_GLOW_COLOR: Color = Color(0.62, 0.50, 0.92, 1.0)
+const SUCCESSOR_OUTLINE_COLOR: Color = Color(0.18, 0.10, 0.32, 1.0)
+
 var _accent: Color = Color(1.00, 0.85, 0.32)
 var _kind: StringName = &""
 var _progress: float = 0.0
@@ -161,6 +295,86 @@ static func make_inspire(accent: Color) -> SkillParticleEffect:
 	return e
 
 
+## Piercing-volley factory — 황충 다중 화살. 8 radial arrow streaks fanning out.
+static func make_piercing_volley(accent: Color) -> SkillParticleEffect:
+	var e: SkillParticleEffect = SkillParticleEffect.new()
+	e._accent = accent
+	e._kind = &"piercing_volley"
+	return e
+
+
+## Charm factory — 초선 매혹. Adjacent enemies waste their turn. Rose-pink
+## pulse rings on cardinal neighbors + center heart-pink glow.
+static func make_charm(accent: Color) -> SkillParticleEffect:
+	var e: SkillParticleEffect = SkillParticleEffect.new()
+	e._accent = accent
+	e._kind = &"charm"
+	return e
+
+
+## Strategist factory — 조조 책략. Battlefield-wide 15 dmg. Massive indigo
+## shockwave expanding well past the visible tile grid.
+static func make_strategist(accent: Color) -> SkillParticleEffect:
+	var e: SkillParticleEffect = SkillParticleEffect.new()
+	e._accent = accent
+	e._kind = &"strategist"
+	return e
+
+
+## Naval-strategy factory — 주유 수전책. STUN every Manhattan-1 enemy. Soft
+## blue water-ripple palette differentiates from thunder_roar.
+static func make_naval_strategy(accent: Color) -> SkillParticleEffect:
+	var e: SkillParticleEffect = SkillParticleEffect.new()
+	e._accent = accent
+	e._kind = &"naval_strategy"
+	return e
+
+
+## Rebel-charge factory — 위연 반골일도. dragon_blade-class self-buff (+50% +
+## DEF pierce). Dark-red palette + single crescent slash.
+static func make_rebel_charge(accent: Color) -> SkillParticleEffect:
+	var e: SkillParticleEffect = SkillParticleEffect.new()
+	e._accent = accent
+	e._kind = &"rebel_charge"
+	return e
+
+
+## Blunt-strategy factory — 방통 기만전략. Range-2 AoE (12 dmg + slow). Indigo
+## 2-tile reach ring + 4 cardinal dashed strokes.
+static func make_blunt_strategy(accent: Color) -> SkillParticleEffect:
+	var e: SkillParticleEffect = SkillParticleEffect.new()
+	e._accent = accent
+	e._kind = &"blunt_strategy"
+	return e
+
+
+## Phoenix-chick factory — 방통 봉추. Adjacent ally heal 25. Warm orange
+## phoenix palette + 4 adjacent rising feather pulses.
+static func make_phoenix_chick(accent: Color) -> SkillParticleEffect:
+	var e: SkillParticleEffect = SkillParticleEffect.new()
+	e._accent = accent
+	e._kind = &"phoenix_chick"
+	return e
+
+
+## Xiliang-charge factory — 마초 서량돌격. 4 cardinal lines × 3 tiles (20 dmg
+## each). Amber CAVALRY palette + dust trail echo flanking each charge line.
+static func make_xiliang_charge(accent: Color) -> SkillParticleEffect:
+	var e: SkillParticleEffect = SkillParticleEffect.new()
+	e._accent = accent
+	e._kind = &"xiliang_charge"
+	return e
+
+
+## Successor-strategy factory — 강유 후계자 책략. Single-ally heal 25 + action
+## refund within Manhattan ≤ 4. Indigo radial scan-ring + center starburst.
+static func make_successor_strategy(accent: Color) -> SkillParticleEffect:
+	var e: SkillParticleEffect = SkillParticleEffect.new()
+	e._accent = accent
+	e._kind = &"successor_strategy"
+	return e
+
+
 func _ready() -> void:
 	if _kind == &"thunder_roar":
 		_roll_thunder_roar_jitter()
@@ -207,6 +421,24 @@ func _draw() -> void:
 			_draw_lone_lance()
 		&"inspire":
 			_draw_inspire()
+		&"piercing_volley":
+			_draw_piercing_volley()
+		&"charm":
+			_draw_charm()
+		&"strategist":
+			_draw_strategist()
+		&"naval_strategy":
+			_draw_naval_strategy()
+		&"rebel_charge":
+			_draw_rebel_charge()
+		&"blunt_strategy":
+			_draw_blunt_strategy()
+		&"phoenix_chick":
+			_draw_phoenix_chick()
+		&"xiliang_charge":
+			_draw_xiliang_charge()
+		&"successor_strategy":
+			_draw_successor_strategy()
 		_:
 			pass
 
@@ -457,3 +689,307 @@ func _draw_inspire() -> void:
 		for n: Vector2 in neighbors:
 			draw_arc(n, pulse_radius + 1.0, 0.0, TAU, 20, pulse_outline, INSPIRE_PULSE_WIDTH + 1.2, true)
 			draw_arc(n, pulse_radius, 0.0, TAU, 20, pulse_core, INSPIRE_PULSE_WIDTH, true)
+
+
+func _draw_piercing_volley() -> void:
+	# 8 radial arrow streaks growing inner_R → outer_R across the sweep
+	# window. Each arrow gets a shaft (3-pass: outline+glow+core) + a small
+	# arrowhead triangle at the tip.
+	var sweep: float = clampf((_progress - PIERCING_VOLLEY_DELAY) / PIERCING_VOLLEY_SPAN, 0.0, 1.0)
+	if sweep <= 0.0 or sweep >= 1.0:
+		return
+	var alpha: float = sin(sweep * PI) * 0.95
+	var tip_r: float = lerp(PIERCING_VOLLEY_INNER_R + 12.0, PIERCING_VOLLEY_OUTER_R, sweep)
+	var outline_c: Color = PIERCING_VOLLEY_OUTLINE_COLOR
+	outline_c.a = alpha * 0.85
+	var glow_c: Color = PIERCING_VOLLEY_GLOW_COLOR
+	glow_c.a = alpha * 0.80
+	var core_c: Color = PIERCING_VOLLEY_CORE_COLOR
+	core_c.a = alpha
+	for arrow_idx: int in PIERCING_VOLLEY_ARROW_COUNT:
+		var theta: float = TAU * float(arrow_idx) / float(PIERCING_VOLLEY_ARROW_COUNT)
+		var dir: Vector2 = Vector2(cos(theta), sin(theta))
+		var perp: Vector2 = dir.rotated(PI * 0.5)
+		var inner: Vector2 = dir * PIERCING_VOLLEY_INNER_R
+		var tip: Vector2 = dir * tip_r
+		draw_line(inner, tip, outline_c, PIERCING_VOLLEY_WIDTH + 2.0, true)
+		draw_line(inner, tip, glow_c, PIERCING_VOLLEY_WIDTH + 1.0, true)
+		draw_line(inner, tip, core_c, PIERCING_VOLLEY_WIDTH, true)
+		# Arrowhead triangle at the tip
+		var head_base: Vector2 = tip - dir * PIERCING_VOLLEY_HEAD_LEN
+		var head_l: Vector2 = head_base + perp * PIERCING_VOLLEY_HEAD_HALF_W
+		var head_r: Vector2 = head_base - perp * PIERCING_VOLLEY_HEAD_HALF_W
+		draw_polygon(PackedVector2Array([tip, head_l, head_r]), PackedColorArray([core_c, glow_c, glow_c]))
+
+
+func _draw_charm() -> void:
+	# Caster center pink glow.
+	var core_p: float = clampf(_progress / 0.50, 0.0, 1.0)
+	if core_p > 0.0:
+		var r: float = lerp(CHARM_CORE_R_MIN, CHARM_CORE_R_MAX, core_p)
+		var a: float = sin(core_p * PI) * 0.95
+		var outer: Color = CHARM_PULSE_COLOR
+		outer.a = a * 0.55
+		var inner: Color = CHARM_CORE_COLOR
+		inner.a = a
+		draw_circle(Vector2.ZERO, r + 6.0, outer)
+		draw_circle(Vector2.ZERO, r, inner)
+	# 4 cardinal adjacent pink pulse rings (Manhattan-1 victims).
+	var pulse_p: float = clampf((_progress - CHARM_DELAY) / CHARM_SPAN, 0.0, 1.0)
+	if pulse_p > 0.0 and pulse_p < 1.0:
+		var alpha: float = sin(pulse_p * PI) * 0.95
+		var radius: float = lerp(CHARM_PULSE_R_MIN, CHARM_PULSE_R_MAX, pulse_p)
+		var t: float = CHARM_TILE_SIZE
+		var positions: Array[Vector2] = [
+			Vector2(t, 0.0), Vector2(-t, 0.0), Vector2(0.0, t), Vector2(0.0, -t)
+		]
+		var outline_c: Color = CHARM_OUTLINE_COLOR
+		outline_c.a = alpha * 0.7
+		var core_c: Color = CHARM_CORE_COLOR
+		core_c.a = alpha
+		for p: Vector2 in positions:
+			draw_arc(p, radius + 1.0, 0.0, TAU, 20, outline_c, CHARM_PULSE_WIDTH + 1.2, true)
+			draw_arc(p, radius, 0.0, TAU, 20, core_c, CHARM_PULSE_WIDTH, true)
+
+
+func _draw_strategist() -> void:
+	# Layer 1: center indigo flash (R_MIN → R_MAX in first ~25%).
+	var core_p: float = clampf(_progress / 0.30, 0.0, 1.0)
+	if core_p > 0.0:
+		var r: float = lerp(STRATEGIST_CORE_R_MIN, STRATEGIST_CORE_R_MAX, core_p)
+		var a: float = sin(core_p * PI) * 0.95
+		var glow: Color = STRATEGIST_GLOW_COLOR
+		glow.a = a * 0.7
+		var core: Color = STRATEGIST_CORE_COLOR
+		core.a = a
+		draw_circle(Vector2.ZERO, r + 8.0, glow)
+		draw_circle(Vector2.ZERO, r, core)
+	# Layer 2: massive expanding indigo ring covering the whole battlefield.
+	var ring_p: float = _progress  # full duration
+	if ring_p > 0.0 and ring_p < 1.0:
+		var radius: float = lerp(STRATEGIST_RING_R_MIN, STRATEGIST_RING_R_MAX, ring_p)
+		var alpha: float = (1.0 - ring_p) * 0.85
+		var ring_outline: Color = STRATEGIST_OUTLINE_COLOR
+		ring_outline.a = alpha * 0.8
+		var ring_glow: Color = STRATEGIST_GLOW_COLOR
+		ring_glow.a = alpha
+		draw_arc(Vector2.ZERO, radius, 0.0, TAU, 64, ring_outline, STRATEGIST_RING_WIDTH + 2.0, true)
+		draw_arc(Vector2.ZERO, radius, 0.0, TAU, 64, ring_glow, STRATEGIST_RING_WIDTH, true)
+
+
+func _draw_naval_strategy() -> void:
+	# 4 cardinal positions, each with 3 staggered concentric ripples that
+	# expand outward + fade. Reads as "water ripples spreading from each
+	# stunned target". Distinct from thunder_roar's sharp bolts.
+	var t: float = NAVAL_TILE_SIZE
+	var positions: Array[Vector2] = [
+		Vector2(t, 0.0), Vector2(-t, 0.0), Vector2(0.0, t), Vector2(0.0, -t)
+	]
+	for ripple_idx: int in NAVAL_RIPPLE_COUNT:
+		var stagger: float = float(ripple_idx) * NAVAL_RIPPLE_STAGGER
+		var span: float = 1.0 - stagger
+		if span <= 0.0:
+			continue
+		var ripple_p: float = clampf((_progress - stagger) / span, 0.0, 1.0)
+		if ripple_p <= 0.0 or ripple_p >= 1.0:
+			continue
+		var radius: float = lerp(NAVAL_RIPPLE_R_MIN, NAVAL_RIPPLE_R_MAX, ripple_p)
+		var alpha: float = (1.0 - ripple_p) * 0.85
+		var glow: Color = NAVAL_GLOW_COLOR
+		glow.a = alpha
+		var core: Color = NAVAL_CORE_COLOR
+		core.a = alpha * 0.9
+		for p: Vector2 in positions:
+			draw_arc(p, radius + 1.0, 0.0, TAU, 24, glow, NAVAL_RIPPLE_WIDTH + 1.0, true)
+			draw_arc(p, radius, 0.0, TAU, 24, core, NAVAL_RIPPLE_WIDTH, true)
+
+
+func _draw_rebel_charge() -> void:
+	# Layer 1: 2 staggered dark-red rings (mirror of dragon_blade but darker
+	# palette + only 2 rings — leaner silhouette communicates "a single
+	# deliberate moment", not the multi-pulse champion glow).
+	for i: int in REBEL_CHARGE_RING_COUNT:
+		var stagger: float = float(i) * REBEL_CHARGE_RING_STAGGER
+		var span: float = 1.0 - stagger
+		if span <= 0.0:
+			continue
+		var p: float = clampf((_progress - stagger) / span, 0.0, 1.0)
+		if p <= 0.0:
+			continue
+		var radius: float = lerp(REBEL_CHARGE_RING_R_MIN, REBEL_CHARGE_RING_R_MAX, p)
+		var alpha: float = (1.0 - p) * 0.90
+		var ring_c: Color = REBEL_CHARGE_RING_COLOR
+		ring_c.a = alpha
+		draw_arc(Vector2.ZERO, radius, 0.0, TAU, 32, ring_c, REBEL_CHARGE_RING_WIDTH, true)
+	# Layer 2: single dark-red crescent slash — mirror of dragon_blade sweep
+	# but tighter angular range (vertical sweep, top → bottom).
+	var sweep_p: float = clampf((_progress - REBEL_CHARGE_SWEEP_DELAY) / REBEL_CHARGE_SWEEP_SPAN, 0.0, 1.0)
+	if sweep_p > 0.0 and sweep_p < 1.0:
+		var center: float = lerp(REBEL_CHARGE_SWEEP_FROM, REBEL_CHARGE_SWEEP_TO, sweep_p)
+		var s_start: float = center - REBEL_CHARGE_SWEEP_ARC * 0.5
+		var s_end: float = center + REBEL_CHARGE_SWEEP_ARC * 0.5
+		var alpha: float = sin(sweep_p * PI) * 0.95
+		var outline_c: Color = REBEL_CHARGE_OUTLINE_COLOR
+		outline_c.a = alpha * 0.85
+		var sweep_c: Color = REBEL_CHARGE_SWEEP_COLOR
+		sweep_c.a = alpha
+		draw_arc(Vector2.ZERO, REBEL_CHARGE_SWEEP_RADIUS, s_start, s_end, 24, outline_c, REBEL_CHARGE_SWEEP_WIDTH + 1.6, true)
+		draw_arc(Vector2.ZERO, REBEL_CHARGE_SWEEP_RADIUS, s_start, s_end, 24, sweep_c, REBEL_CHARGE_SWEEP_WIDTH, true)
+
+
+func _draw_blunt_strategy() -> void:
+	# Layer 1: 2 concentric indigo rings at radii 1 + 2 tiles. Both share
+	# the same timing window — appear together, fade together. Reads as
+	# "the deception envelopes the field within 2 tiles".
+	var p: float = clampf((_progress - BLUNT_DELAY) / BLUNT_SPAN, 0.0, 1.0)
+	if p <= 0.0 or p >= 1.0:
+		return
+	var alpha: float = sin(p * PI) * 0.92
+	var outline_c: Color = BLUNT_OUTLINE_COLOR
+	outline_c.a = alpha * 0.8
+	var glow_c: Color = BLUNT_GLOW_COLOR
+	glow_c.a = alpha
+	for radius: float in BLUNT_RING_RADII:
+		draw_arc(Vector2.ZERO, radius, 0.0, TAU, 48, outline_c, BLUNT_RING_WIDTH + 1.4, true)
+		draw_arc(Vector2.ZERO, radius, 0.0, TAU, 48, glow_c, BLUNT_RING_WIDTH, true)
+	# Layer 2: 4 cardinal dashed strokes from inner_R to outer_R. Each stroke
+	# is a series of short segments + gaps along the radial direction.
+	var step: float = BLUNT_DASH_SEGMENT_LEN + BLUNT_DASH_GAP_LEN
+	var stroke_len: float = BLUNT_DASH_OUTER_R - BLUNT_DASH_INNER_R
+	var dash_count: int = int(stroke_len / step)
+	var core_c: Color = BLUNT_CORE_COLOR
+	core_c.a = alpha
+	for dash_idx: int in BLUNT_DASH_COUNT:
+		var theta: float = TAU * float(dash_idx) / float(BLUNT_DASH_COUNT)
+		var dir: Vector2 = Vector2(cos(theta), sin(theta))
+		for seg_idx: int in (dash_count + 1):
+			var seg_start_d: float = BLUNT_DASH_INNER_R + float(seg_idx) * step
+			var seg_end_d: float = minf(seg_start_d + BLUNT_DASH_SEGMENT_LEN, BLUNT_DASH_OUTER_R)
+			if seg_start_d >= BLUNT_DASH_OUTER_R:
+				break
+			var a: Vector2 = dir * seg_start_d
+			var b: Vector2 = dir * seg_end_d
+			draw_line(a, b, outline_c, BLUNT_DASH_WIDTH + 1.4, true)
+			draw_line(a, b, core_c, BLUNT_DASH_WIDTH, true)
+
+
+func _draw_phoenix_chick() -> void:
+	# Layer 1: caster center warm-orange aura.
+	var aura_p: float = clampf(_progress / 0.60, 0.0, 1.0)
+	if aura_p > 0.0:
+		var r: float = lerp(PHOENIX_AURA_R_MIN, PHOENIX_AURA_R_MAX, aura_p)
+		var a: float = sin(aura_p * PI) * 0.90
+		var dark: Color = PHOENIX_DARK_COLOR
+		dark.a = a * 0.5
+		var mid: Color = PHOENIX_MID_COLOR
+		mid.a = a * 0.9
+		var hot: Color = PHOENIX_HOT_COLOR
+		hot.a = a
+		draw_circle(Vector2.ZERO, r + 7.0, dark)
+		draw_circle(Vector2.ZERO, r + 2.0, mid)
+		draw_circle(Vector2.ZERO, r, hot)
+	# Layer 2: 4 adjacent phoenix-feather pulses — tear-drop triangles
+	# pointing UP (rising flame motif) at each cardinal Manhattan-1 tile.
+	var pulse_p: float = clampf((_progress - PHOENIX_DELAY) / PHOENIX_SPAN, 0.0, 1.0)
+	if pulse_p > 0.0 and pulse_p < 1.0:
+		var alpha: float = sin(pulse_p * PI) * 0.95
+		var scale: float = sin(pulse_p * PI) * 1.0
+		if scale > 0.0:
+			var t: float = PHOENIX_TILE_SIZE
+			var positions: Array[Vector2] = [
+				Vector2(t, 0.0), Vector2(-t, 0.0), Vector2(0.0, t), Vector2(0.0, -t)
+			]
+			for pos: Vector2 in positions:
+				_draw_phoenix_feather(pos, scale, alpha)
+
+
+func _draw_phoenix_feather(pos: Vector2, scale: float, alpha: float) -> void:
+	# Tear-drop pointing UP. Up = negative Y in screen space.
+	var tip: Vector2 = pos + Vector2(0.0, -PHOENIX_FEATHER_HEIGHT * scale)
+	var base_l: Vector2 = pos + Vector2(-PHOENIX_FEATHER_WIDTH * 0.5 * scale, 0.0)
+	var base_r: Vector2 = pos + Vector2(PHOENIX_FEATHER_WIDTH * 0.5 * scale, 0.0)
+	var inner_tip: Vector2 = pos + Vector2(0.0, -PHOENIX_FEATHER_HEIGHT * scale * 0.70)
+	var inner_l: Vector2 = pos + Vector2(-PHOENIX_FEATHER_WIDTH * 0.22 * scale, 0.0)
+	var inner_r: Vector2 = pos + Vector2(PHOENIX_FEATHER_WIDTH * 0.22 * scale, 0.0)
+	var dark: Color = PHOENIX_DARK_COLOR
+	dark.a = alpha * 0.65
+	var mid: Color = PHOENIX_MID_COLOR
+	mid.a = alpha
+	var hot: Color = PHOENIX_HOT_COLOR
+	hot.a = alpha
+	draw_polygon(PackedVector2Array([tip, base_r, base_l]), PackedColorArray([mid, dark, dark]))
+	draw_polygon(PackedVector2Array([inner_tip, inner_r, inner_l]), PackedColorArray([hot, mid, mid]))
+
+
+func _draw_xiliang_charge() -> void:
+	# 4 cardinal CAVALRY charge lines extending 3 tiles. Each line: outline
+	# + glow + core + 2 dust trail echoes flanking the main line (mirrors
+	# AttackLine CAVALRY style — speed-trail metaphor).
+	var sweep: float = clampf((_progress - XILIANG_DELAY) / XILIANG_SPAN, 0.0, 1.0)
+	if sweep <= 0.0 or sweep >= 1.0:
+		return
+	var alpha: float = sin(sweep * PI) * 0.95
+	var tip_r: float = lerp(XILIANG_LINE_INNER_R + 16.0, XILIANG_LINE_OUTER_R, sweep)
+	var outline_c: Color = XILIANG_OUTLINE_COLOR
+	outline_c.a = alpha * 0.85
+	var glow_c: Color = XILIANG_GLOW_COLOR
+	glow_c.a = alpha * 0.80
+	var core_c: Color = XILIANG_CORE_COLOR
+	core_c.a = alpha
+	var echo_c: Color = XILIANG_GLOW_COLOR
+	echo_c.a = alpha * 0.55
+	var cardinals: Array[Vector2] = [
+		Vector2(1.0, 0.0), Vector2(-1.0, 0.0), Vector2(0.0, 1.0), Vector2(0.0, -1.0)
+	]
+	for dir: Vector2 in cardinals:
+		var perp: Vector2 = dir.rotated(PI * 0.5) * XILIANG_TRAIL_OFFSET
+		var inner: Vector2 = dir * XILIANG_LINE_INNER_R
+		var tip: Vector2 = dir * tip_r
+		# Dust trail echoes flanking the main strike
+		draw_line(inner + perp, tip + perp, echo_c, XILIANG_LINE_WIDTH * 0.55, true)
+		draw_line(inner - perp, tip - perp, echo_c, XILIANG_LINE_WIDTH * 0.55, true)
+		# Main charge line
+		draw_line(inner, tip, outline_c, XILIANG_LINE_OUTLINE_WIDTH, true)
+		draw_line(inner, tip, glow_c, XILIANG_LINE_WIDTH + 1.2, true)
+		draw_line(inner, tip, core_c, XILIANG_LINE_WIDTH, true)
+
+
+func _draw_successor_strategy() -> void:
+	# Layer 1: expanding indigo ring up to 4-tile reach. Reads as "search
+	# wave looking for the most-wounded ally". Lighter indigo than 조조
+	# strategist to differentiate.
+	var ring_p: float = _progress  # full duration
+	if ring_p > 0.0 and ring_p < 1.0:
+		var radius: float = lerp(SUCCESSOR_RING_R_MIN, SUCCESSOR_RING_R_MAX, ring_p)
+		var alpha: float = (1.0 - ring_p) * 0.85
+		var outline_c: Color = SUCCESSOR_OUTLINE_COLOR
+		outline_c.a = alpha * 0.8
+		var glow_c: Color = SUCCESSOR_GLOW_COLOR
+		glow_c.a = alpha
+		draw_arc(Vector2.ZERO, radius, 0.0, TAU, 48, outline_c, SUCCESSOR_RING_WIDTH + 1.6, true)
+		draw_arc(Vector2.ZERO, radius, 0.0, TAU, 48, glow_c, SUCCESSOR_RING_WIDTH, true)
+	# Layer 2: 6-pointed starburst at caster (the strategist's signature
+	# inflection point) — alternating inner + outer radii forms star shape.
+	var star_p: float = clampf((_progress - SUCCESSOR_DELAY) / SUCCESSOR_SPAN, 0.0, 1.0)
+	if star_p > 0.0 and star_p < 1.0:
+		var alpha: float = sin(star_p * PI) * 0.95
+		var scale: float = sin(star_p * PI)
+		if scale > 0.0:
+			var inner_r: float = SUCCESSOR_STAR_INNER_R * scale
+			var outer_r: float = SUCCESSOR_STAR_OUTER_R * scale
+			var points: PackedVector2Array = PackedVector2Array()
+			var samples: int = SUCCESSOR_STAR_POINTS * 2
+			for i: int in samples:
+				var theta: float = TAU * float(i) / float(samples) - PI * 0.5
+				var r: float = outer_r if (i % 2 == 0) else inner_r
+				points.append(Vector2(cos(theta), sin(theta)) * r)
+			points.append(points[0])  # close shape
+			var outline_c: Color = SUCCESSOR_OUTLINE_COLOR
+			outline_c.a = alpha * 0.85
+			var glow_c: Color = SUCCESSOR_GLOW_COLOR
+			glow_c.a = alpha
+			var core_c: Color = SUCCESSOR_CORE_COLOR
+			core_c.a = alpha
+			draw_polyline(points, outline_c, 3.6, true)
+			draw_polyline(points, glow_c, 2.4, true)
+			draw_polyline(points, core_c, 1.4, true)
