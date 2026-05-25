@@ -8,6 +8,12 @@
 Indie game development managed through 48 coordinated Claude Code subagents.
 Each agent owns a specific domain, enforcing separation of concerns and quality.
 
+## North Star
+
+> **Lighthouse**. Read this first. 모든 design / code / agent 결정의 기준점.
+
+@design/NORTH-STAR.md
+
 ## Technology Stack
 
 - **Engine**: Godot 4.6

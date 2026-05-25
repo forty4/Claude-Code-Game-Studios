@@ -467,6 +467,21 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Layered UX gap diagnosis**: "재미없음" 같은 단일 사용자 보고가 actually 여러 layer 의 root cause 조합. 진단 시 surface-level fix 만 시도하면 underlying issue 누락 위험. mechanical + discoverability + visual + balance 의 4 layer 모두 inspect 필요.
 - **Selection-less fallback pattern**: 사용자 UX flow 가 "click then key" 이 아닌 "key directly" 일 수도. controller handler 들에 active turn unit fallback 추가 = UX simplification + felt 향상 — 다른 systems 도 같은 pattern 가능 (예: 미리보기 dismiss, 카메라 control).
 
+### S88 — North Star lighthouse codification (2026-05-25 session 88)
+
+> **Driver**: S87 close 후 첫 turn (cold-start). 사용자 progression: "내가 말한 이 게임의 가장 중요한 것을 다시 정리해줘" → 4 pillar + anti-pillar + ship target + raw feedback 정리. 사용자 follow-up: "이 부분을 등대처럼 계속 고려할 수 있도록 문서에 반영" → lighthouse doc 위치 confirm (`design/NORTH-STAR.md` + `CLAUDE.md` @-include).
+
+**Completed (1 commit, docs-only, 1996 PASS 유지)**:
+
+- [x] **docs: North Star lighthouse — game identity + 4 pillar + anti-pillar + raw feedback** — 신규 `design/NORTH-STAR.md` (91 lines, 6 섹션) + `CLAUDE.md` +6 lines (## North Star section + @-include). 모든 세션의 system prompt 에 lighthouse 91 lines 자동 로드 → agent / skill / future session 이 4 pillar + anti-pillar 인지. Design Test 5 질문 (pillar 1-4 + anti-pillar) instant reference. code/test 영향 0.
+
+**S88 — Why now / 의미**:
+
+- S86 raw feedback "재미없음" 의 layered diagnosis → S87 의 3 player-facing arc (visual + codify + balance) 가 모두 4 Pillar 의 직접 응용. 의사결정의 anchor 가 명시화되어 있지 않으면 다음 layered gap 진단 시 다시 흔들릴 위험. lighthouse codification 으로 anchor 가 매 세션 system prompt 의 일부가 됨.
+- Future value: 새 agent spawn / new feature proposal / scope creep risk 시점의 design test 가 instant accessible. 흔들릴 때 돌아오는 정점.
+
+**S88 → S89 핸드오프**: S87 carry-over (#1-#6) 그대로. #1 Windowed verify 가 여전히 가장 시급한 next.
+
 ### S87 — Particle wave 14/14 + G-32 codification + atk_mult 1.50 bump (2026-05-25 session 87)
 
 > **Driver**: S86 핸드오프 #1, #2, #3 모두 단일 세션 closed. 사용자 progression: "관우 dragon_blade 부터" → "바로 commit + 다음 skill 이어서" → "나머지 9개 모두 이어서 작업" → "active.md + milestone log 업데이트 후 push" → "2, 3 진행". S86 layered UX gap 의 마지막 3 layer (visual feedback + process improvement + balance) 모두 닫힘.
