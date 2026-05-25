@@ -2070,17 +2070,25 @@ func _apply_defend_stance_status(unit_id: int) -> void:
 ## guards in _handle_player_defend would catch the latter, but we'd rather
 ## fail-quietly than push_warning on every misplaced D press).
 func _handle_defend_stance_input() -> void:
-	if _state != BattleState.UNIT_SELECTED:
-		return
-	if _selected_unit_id == -1 or not _units.has(_selected_unit_id):
-		return
-	var unit: BattleUnit = _units[_selected_unit_id]
+	# S86 — selection-less fallback: if no unit is currently selected, target the
+	# active turn unit (must be player-side). Playtest revealed users press D
+	# without first clicking their unit; pre-S86 that silent-returned and
+	# looked like a dead key.
+	var target_id: int = _selected_unit_id
+	if _state != BattleState.UNIT_SELECTED or target_id == -1 or not _units.has(target_id):
+		target_id = _active_turn_unit_id
+		if target_id == -1 or not _units.has(target_id):
+			return
+		var active: BattleUnit = _units[target_id]
+		if active.side != 0:
+			return  # active turn belongs to enemy — D is a no-op
+	var unit: BattleUnit = _units[target_id]
 	if unit.side != 0:
 		return  # don't let players defend with enemy units
 	# Cancel any armed attack preview before committing to defend — the player
 	# changed their mind. Mirrors the move-cancels-preview pattern.
 	_clear_attack_preview(&"defend_chosen")
-	_handle_player_defend(_selected_unit_id)
+	_handle_player_defend(target_id)
 	# After the action declares, the turn ends naturally via _maybe_defer_turn_completion.
 	# Deselect to remove the unit overlay since it can no longer act this turn.
 	_deselect()
@@ -2159,12 +2167,19 @@ var _lone_lance_pending: Dictionary[int, bool] = {}
 
 ## S-key entry point. Mirrors _handle_defend_stance_input — routes the use_skill
 ## input action to the selected unit if a skill is wired AND not yet used.
+## S86 — selection-less fallback (same rationale as _handle_defend_stance_input):
+## active turn unit is used when no manual selection is in place. Playtest
+## showed users press S immediately on turn-start without selecting first.
 func _handle_use_skill_input() -> void:
-	if _state != BattleState.UNIT_SELECTED:
-		return
-	if _selected_unit_id == -1 or not _units.has(_selected_unit_id):
-		return
-	use_skill(_selected_unit_id)
+	var target_id: int = _selected_unit_id
+	if _state != BattleState.UNIT_SELECTED or target_id == -1 or not _units.has(target_id):
+		target_id = _active_turn_unit_id
+		if target_id == -1 or not _units.has(target_id):
+			return
+		var active: BattleUnit = _units[target_id]
+		if active.side != 0:
+			return  # active turn belongs to enemy — S is a no-op
+	use_skill(target_id)
 
 
 ## Public skill-firing API. Returns true on success, false when the skill is

@@ -1002,6 +1002,13 @@ func _handle_action_in_s0(action: StringName, ctx: InputContext) -> void:
 			# S0 undo path: player can undo from observation state (AC-4 S0 path).
 			# _apply_undo handles _did_visible_work internally (set on success only).
 			_apply_undo(ctx.target_unit_id)
+		&"use_skill", &"defend_stance":
+			# S86 — same gate-fix as S1 (see _handle_action_in_s1 comment). S0
+			# accepts these actions too so the player can press S/D/1/2 the
+			# moment their turn starts, without first clicking the unit. The
+			# controller's selection-less fallback (_handle_use_skill_input,
+			# _handle_defend_stance_input) takes over from there.
+			_did_visible_work = true
 		# All other actions in S0: silent no-op
 
 
@@ -1053,6 +1060,15 @@ func _handle_action_in_s1(action: StringName, ctx: InputContext) -> void:
 			# S1 undo path: player can undo from unit-selected state too (AC-4 S1 path).
 			# _apply_undo handles _did_visible_work internally (set on success only).
 			_apply_undo(ctx.target_unit_id)
+		&"use_skill", &"defend_stance":
+			# S86 — gate-fix: pre-S86 these actions were declared in _GRID_ACTIONS
+			# and matched at InputMap level (logs showed [KEY-DIAG] MATCH ...) but
+			# they had no per-state arm here, so `_did_visible_work` stayed false
+			# and the GameBus.input_action_fired.emit gate at line 935 dropped
+			# them silently — controller never saw the skill/defend press.
+			# Setting the flag lets the emit fire; controller's _on_input_action_fired
+			# routes use_skill / defend_stance to their respective handlers.
+			_did_visible_work = true
 		# All other actions in S1: silent no-op
 
 

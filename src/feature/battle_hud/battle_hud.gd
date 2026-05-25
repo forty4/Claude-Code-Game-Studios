@@ -207,6 +207,10 @@ var _btn_end_turn: Button
 var _btn_undo: Button
 var _btn_skill_slot_0: Button
 var _btn_skill_slot_1: Button
+## S86 — prominent active-turn banner at top-center. Surfaces hero name + skill
+## name + key hints (S/D/Tab) so players don't need to read the bottom hint label
+## (which playtest showed they don't notice). Updated on every unit_turn_started.
+var _turn_banner: Label
 
 
 # ─── DI seam ─────────────────────────────────────────────────────────────────
@@ -489,6 +493,26 @@ func _ready() -> void:
 		_grid_layer_overlays[&"UI-GB-12"] = ui_gb_12
 		_grid_layer_overlays[&"UI-GB-13"] = ui_gb_13
 		_grid_layer_overlays[&"UI-GB-14"] = ui_gb_14
+
+	# ── S86 — Active-turn banner (top-center) ─────────────────────────────────
+	# Surfaces hero name + current skill name + key hints. Mounted after the rest
+	# of the HUD so it draws on top. Pre-S86 the existing "Turn: 조운" label at
+	# UI-GB-07 (top-left, font_size 14) was too small to be noticed during play;
+	# the user explicitly reported missing the active-turn signal in 2 sessions.
+	_turn_banner = Label.new()
+	_turn_banner.name = "TurnBanner"
+	_turn_banner.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_turn_banner.offset_top = 8.0
+	_turn_banner.offset_bottom = 56.0
+	_turn_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_turn_banner.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_turn_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_turn_banner.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4, 1.0))
+	_turn_banner.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.05, 1.0))
+	_turn_banner.add_theme_constant_override("outline_size", 6)
+	_turn_banner.add_theme_font_size_override("font_size", 22)
+	_turn_banner.text = ""
+	add_child(_turn_banner)
 
 	# Instantiate two-tap timer — shared for ATTACK + DEFEND flows.
 	_two_tap_timer = Timer.new()
@@ -1815,17 +1839,42 @@ func _on_unit_turn_started(unit_id: int) -> void:
 		show_unit_info(unit_id)
 	# UI-GB-07 turn label
 	var counter: Control = _ui_elements.get(&"UI-GB-07")
+	var hero_name: String = "Unit %d" % unit_id
+	var skill_id: StringName = &""
+	if _hero_db != null:
+		var battle_unit: BattleUnit = _grid_controller.get_battle_unit(unit_id) if _grid_controller != null else null
+		if battle_unit != null:
+			var hero: HeroData = HeroDatabase.get_hero(battle_unit.hero_id)
+			if hero != null and hero.name_ko != "":
+				hero_name = hero.name_ko
+			skill_id = battle_unit.skill_id
 	if counter != null:
 		var turn_label: Label = counter.get_node_or_null("TurnLabel") as Label
 		if turn_label != null:
-			var hero_name: String = "Unit %d" % unit_id
-			if _hero_db != null:
-				var battle_unit: BattleUnit = _grid_controller.get_battle_unit(unit_id) if _grid_controller != null else null
-				if battle_unit != null:
-					var hero: HeroData = HeroDatabase.get_hero(battle_unit.hero_id)
-					if hero != null and hero.name_ko != "":
-						hero_name = hero.name_ko
 			turn_label.text = "Turn: %s" % hero_name
+	# S86 — prominent active-turn banner update. Only shown for player-side units
+	# so the keyboard hint stays accurate (S/D only fire on player turn). On enemy
+	# turn the banner clears so the AI's hidden moves don't look like the player
+	# missing inputs.
+	if _turn_banner != null:
+		var unit_for_side: BattleUnit = _grid_controller.get_battle_unit(unit_id) if _grid_controller != null else null
+		if unit_for_side != null and unit_for_side.side == 0:
+			var skill_name: String = tr(&"skill.unknown")
+			var skill_desc: String = tr(&"skill.unknown.desc")
+			if skill_id != &"":
+				var skill_key: StringName = StringName("skill.%s" % String(skill_id))
+				var translated: String = tr(skill_key)
+				if translated != String(skill_key):
+					skill_name = translated
+				else:
+					skill_name = String(skill_id)
+				var desc_key: StringName = StringName("skill.%s.desc" % String(skill_id))
+				var translated_desc: String = tr(desc_key)
+				if translated_desc != String(desc_key):
+					skill_desc = translated_desc
+			_turn_banner.text = tr(&"hud.turn_banner") % [hero_name, skill_name, skill_desc]
+		else:
+			_turn_banner.text = ""
 	# UI-GB-01 highlight
 	_set_initiative_queue_highlight(unit_id)
 	# Session-24 — extracted to _refresh_action_buttons so post-action handlers

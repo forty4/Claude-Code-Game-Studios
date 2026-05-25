@@ -99,7 +99,11 @@ func test_player_defend_rejected_when_already_acted_this_turn() -> void:
 # ─── Keyboard routing ─────────────────────────────────────────────────────────
 
 
-func test_defend_stance_input_no_op_when_no_unit_selected() -> void:
+func test_defend_stance_input_falls_back_to_active_turn_unit_when_no_selection() -> void:
+	# S86: was test_defend_stance_input_no_op_when_no_unit_selected — design
+	# intent flipped after playtest showed users pressing D without selecting
+	# first looked like a dead key. Now D falls back to the active-turn unit
+	# (player-side) so the press always lands on the unit whose turn it is.
 	var attacker: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
 	var bag: Dictionary = _setup([attacker])
 	var controller: GridBattleController = bag["controller"]
@@ -108,9 +112,10 @@ func test_defend_stance_input_no_op_when_no_unit_selected() -> void:
 
 	controller._handle_defend_stance_input()
 
-	assert_int(controller._selected_unit_id).is_equal(-1)
-	# acted_this_turn untouched
-	assert_bool(controller._acted_this_turn.get(1, false)).is_false()
+	# acted_this_turn flipped on the active turn unit (fallback consumed the press).
+	assert_bool(controller._acted_this_turn.get(1, false)).override_failure_message(
+		"S86 fallback: D press with no selection must declare DEFEND for the active turn unit"
+	).is_true()
 
 
 func test_defend_stance_input_no_op_when_selected_unit_is_enemy() -> void:

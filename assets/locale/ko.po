@@ -88,3 +88,124 @@ msgstr "방어 — 다시 눌러 확정"
 
 msgid "hud.undo.label"
 msgstr "되돌리기"
+
+# S86 — Turn banner skill display names. Surfaced via the new active-turn
+# banner at top-center so players know what S key fires for the current hero.
+msgid "skill.skill_dragon_blade"
+msgstr "청룡의 칼날"
+
+msgid "skill.skill_thunder_roar"
+msgstr "천둥 포효"
+
+msgid "skill.skill_inspire"
+msgstr "격려"
+
+msgid "skill.skill_piercing_volley"
+msgstr "관통 일제"
+
+msgid "skill.skill_lone_lance"
+msgstr "단신 돌격"
+
+msgid "skill.skill_fire_strategy"
+msgstr "화공 전략"
+
+msgid "skill.skill_blunt_strategy"
+msgstr "기만 전략"
+
+msgid "skill.skill_phoenix_chick"
+msgstr "봉추의 불꽃"
+
+msgid "skill.skill_xiliang_charge"
+msgstr "서량 돌파"
+
+msgid "skill.skill_successor_strategy"
+msgstr "후계자 전략"
+
+msgid "skill.skill_rebel_charge"
+msgstr "반역의 칼날"
+
+msgid "skill.skill_charm"
+msgstr "매혹"
+
+msgid "skill.skill_strategist"
+msgstr "병법가"
+
+msgid "skill.skill_naval_strategy"
+msgstr "수전 책략"
+
+msgid "skill.skill_command_aura"
+msgstr "호령"
+
+msgid "skill.skill_iron_grip"
+msgstr "철권"
+
+msgid "skill.skill_swift_strike"
+msgstr "신속 일격"
+
+msgid "skill.skill_disciplined_line"
+msgstr "군기"
+
+msgid "skill.unknown"
+msgstr "없음"
+
+# S86 — Turn banner template: hero_name + skill_name + skill_desc.
+msgid "hud.turn_banner"
+msgstr "▶ %s의 턴   |   스킬: %s — %s [S/1]   |   방어 [D/2]   |   턴 종료 [Tab]"
+
+# S86 — Skill effect descriptions (short, banner-friendly).
+msgid "skill.skill_dragon_blade.desc"
+msgstr "다음 공격 +50%"
+
+msgid "skill.skill_thunder_roar.desc"
+msgstr "인접 적 25피해"
+
+msgid "skill.skill_inspire.desc"
+msgstr "인접 ally 행동 환급"
+
+msgid "skill.skill_piercing_volley.desc"
+msgstr "가까운 적 3명 28피해"
+
+msgid "skill.skill_lone_lance.desc"
+msgstr "단신시 다음 공격 +75%"
+
+msgid "skill.skill_fire_strategy.desc"
+msgstr "주변 3칸 적 20피해+둔화"
+
+msgid "skill.skill_blunt_strategy.desc"
+msgstr "주변 2칸 적 12피해+둔화"
+
+msgid "skill.skill_phoenix_chick.desc"
+msgstr "인접 ally 25회복"
+
+msgid "skill.skill_xiliang_charge.desc"
+msgstr "십자 3칸 적 20피해"
+
+msgid "skill.skill_successor_strategy.desc"
+msgstr "최약 ally 25회복+행동환급"
+
+msgid "skill.skill_rebel_charge.desc"
+msgstr "다음 공격 DEF무시+50%"
+
+msgid "skill.skill_charm.desc"
+msgstr "인접 적 행동 봉인"
+
+msgid "skill.skill_strategist.desc"
+msgstr "모든 적 15피해"
+
+msgid "skill.skill_naval_strategy.desc"
+msgstr "인접 적 기절"
+
+msgid "skill.skill_command_aura.desc"
+msgstr "(미구현)"
+
+msgid "skill.skill_iron_grip.desc"
+msgstr "(미구현)"
+
+msgid "skill.skill_swift_strike.desc"
+msgstr "(미구현)"
+
+msgid "skill.skill_disciplined_line.desc"
+msgstr "(미구현)"
+
+msgid "skill.unknown.desc"
+msgstr ""

@@ -91,3 +91,123 @@ msgstr "Defend — Tap again to confirm"
 
 msgid "hud.undo.label"
 msgstr "Undo"
+
+# S86 — Turn banner skill display names (top-center banner).
+msgid "skill.skill_dragon_blade"
+msgstr "Dragon Blade"
+
+msgid "skill.skill_thunder_roar"
+msgstr "Thunder Roar"
+
+msgid "skill.skill_inspire"
+msgstr "Inspire"
+
+msgid "skill.skill_piercing_volley"
+msgstr "Piercing Volley"
+
+msgid "skill.skill_lone_lance"
+msgstr "Lone Lance"
+
+msgid "skill.skill_fire_strategy"
+msgstr "Fire Strategy"
+
+msgid "skill.skill_blunt_strategy"
+msgstr "Blunt Strategy"
+
+msgid "skill.skill_phoenix_chick"
+msgstr "Phoenix Chick"
+
+msgid "skill.skill_xiliang_charge"
+msgstr "Xiliang Charge"
+
+msgid "skill.skill_successor_strategy"
+msgstr "Successor Strategy"
+
+msgid "skill.skill_rebel_charge"
+msgstr "Rebel Charge"
+
+msgid "skill.skill_charm"
+msgstr "Charm"
+
+msgid "skill.skill_strategist"
+msgstr "Strategist"
+
+msgid "skill.skill_naval_strategy"
+msgstr "Naval Strategy"
+
+msgid "skill.skill_command_aura"
+msgstr "Command Aura"
+
+msgid "skill.skill_iron_grip"
+msgstr "Iron Grip"
+
+msgid "skill.skill_swift_strike"
+msgstr "Swift Strike"
+
+msgid "skill.skill_disciplined_line"
+msgstr "Disciplined Line"
+
+msgid "skill.unknown"
+msgstr "None"
+
+# S86 — Turn banner template: hero_name + skill_name + skill_desc.
+msgid "hud.turn_banner"
+msgstr "▶ %s's turn   |   Skill: %s — %s [S/1]   |   Defend [D/2]   |   End turn [Tab]"
+
+# S86 — Skill effect descriptions (short).
+msgid "skill.skill_dragon_blade.desc"
+msgstr "Next attack +50%"
+
+msgid "skill.skill_thunder_roar.desc"
+msgstr "Adjacent foes 25 dmg"
+
+msgid "skill.skill_inspire.desc"
+msgstr "Adjacent allies refund"
+
+msgid "skill.skill_piercing_volley.desc"
+msgstr "3 nearest foes 28 dmg"
+
+msgid "skill.skill_lone_lance.desc"
+msgstr "Alone: next attack +75%"
+
+msgid "skill.skill_fire_strategy.desc"
+msgstr "Range-3 foes 20 dmg+slow"
+
+msgid "skill.skill_blunt_strategy.desc"
+msgstr "Range-2 foes 12 dmg+slow"
+
+msgid "skill.skill_phoenix_chick.desc"
+msgstr "Adjacent allies heal 25"
+
+msgid "skill.skill_xiliang_charge.desc"
+msgstr "Cross-3 foes 20 dmg"
+
+msgid "skill.skill_successor_strategy.desc"
+msgstr "Weakest ally 25 heal+refund"
+
+msgid "skill.skill_rebel_charge.desc"
+msgstr "Next atk: DEF pierce +50%"
+
+msgid "skill.skill_charm.desc"
+msgstr "Adjacent foes locked"
+
+msgid "skill.skill_strategist.desc"
+msgstr "All foes 15 dmg"
+
+msgid "skill.skill_naval_strategy.desc"
+msgstr "Adjacent foes stunned"
+
+msgid "skill.skill_command_aura.desc"
+msgstr "(unwired)"
+
+msgid "skill.skill_iron_grip.desc"
+msgstr "(unwired)"
+
+msgid "skill.skill_swift_strike.desc"
+msgstr "(unwired)"
+
+msgid "skill.skill_disciplined_line.desc"
+msgstr "(unwired)"
+
+msgid "skill.unknown.desc"
+msgstr ""

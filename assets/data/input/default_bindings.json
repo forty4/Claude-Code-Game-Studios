@@ -39,10 +39,12 @@
         {"type": "screen_touch"}
     ],
     "defend_stance": [
-        {"type": "key", "keycode": 68}
+        {"type": "key", "keycode": 68},
+        {"type": "key", "keycode": 50}
     ],
     "use_skill": [
-        {"type": "key", "keycode": 83}
+        {"type": "key", "keycode": 83},
+        {"type": "key", "keycode": 49}
     ],
     "camera_pan": [
         {"type": "screen_drag"},

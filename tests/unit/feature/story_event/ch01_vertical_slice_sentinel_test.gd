@@ -77,13 +77,15 @@ func test_ch01_roster_is_yellow_turban() -> void:
 		).is_true()
 
 
-# AC-3 — tuning values: enemy_atk_mult 0.95 + chokepoint 4 칸 정확값
+# AC-3 — tuning values: enemy_atk_mult 1.15 + chokepoint 4 칸 정확값
+# S86 bumped from 0.95 → 1.15 after playtest reported "여전히 너무 쉬움" — see
+# 2026-05-25 session, this value is now the global baseline for ch01-ch25.
 func test_ch01_tuning_values_aligned() -> void:
 	var ch01: Dictionary = _ch01_record()
 	var atk_mult: float = ch01.get("enemy_atk_mult", 0.0) as float
 	assert_float(atk_mult).override_failure_message(
-		"ch01 enemy_atk_mult != 0.95 (긴장감 tuning regression)"
-	).is_equal_approx(0.95, 0.0001)
+		"ch01 enemy_atk_mult != 1.15 (긴장감 tuning regression — S86 baseline)"
+	).is_equal_approx(1.15, 0.0001)
 	var chokepoints: Array = ch01.get("chokepoints", []) as Array
 	assert_int(chokepoints.size()).override_failure_message(
 		"ch01 chokepoints size != 4 (도로 4칸 일렬 regression)"
