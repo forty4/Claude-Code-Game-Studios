@@ -3077,6 +3077,8 @@ func _make_skill_particle(skill_id: StringName, accent: Color) -> SkillParticleE
 			return SkillParticleEffect.make_thunder_roar(accent)
 		&"skill_fire_strategy":
 			return SkillParticleEffect.make_fire_strategy(accent)
+		&"skill_lone_lance":
+			return SkillParticleEffect.make_lone_lance(accent)
 		_:
 			return null
 

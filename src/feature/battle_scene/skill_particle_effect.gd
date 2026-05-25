@@ -72,6 +72,24 @@ const FIRE_STRATEGY_FLAME_HOT: Color = Color(1.00, 0.92, 0.45, 1.0)   # bright t
 const FIRE_STRATEGY_FLAME_MID: Color = Color(0.98, 0.55, 0.18, 1.0)   # body
 const FIRE_STRATEGY_FLAME_DARK: Color = Color(0.62, 0.20, 0.08, 1.0)  # base shadow
 
+## Lone-lance — 조운 단신 돌격. Conditional buff (+75% IF no adjacent allies);
+## visual reads as "isolated charge". Cyan/silver palette mirrors SCOUT class
+## color (matches AttackLine.COLOR_SCOUT family). Solo-position indicator:
+## wide cyan ring at the 8-neighbor boundary + 8 radial lance segments
+## pointing outward to communicate "alone, ready to charge in any direction".
+const LONE_LANCE_RING_RADIUS: float = 44.0    # just outside caster polygon
+const LONE_LANCE_RING_WIDTH: float = 2.4
+const LONE_LANCE_LANCE_COUNT: int = 8
+const LONE_LANCE_LANCE_INNER_R: float = 16.0  # lance inner end
+const LONE_LANCE_LANCE_OUTER_R: float = 40.0  # lance tip
+const LONE_LANCE_LANCE_WIDTH: float = 3.2
+const LONE_LANCE_LANCE_OUTLINE_WIDTH: float = 4.8
+const LONE_LANCE_SWEEP_DELAY: float = 0.10
+const LONE_LANCE_SWEEP_SPAN: float = 0.65
+const LONE_LANCE_CORE_COLOR: Color = Color(0.85, 0.98, 1.00, 1.0)   # icy white
+const LONE_LANCE_GLOW_COLOR: Color = Color(0.45, 0.92, 0.96, 1.0)   # cyan flash
+const LONE_LANCE_OUTLINE_COLOR: Color = Color(0.08, 0.20, 0.30, 1.0)  # ink stroke
+
 var _accent: Color = Color(1.00, 0.85, 0.32)
 var _kind: StringName = &""
 var _progress: float = 0.0
@@ -105,6 +123,16 @@ static func make_fire_strategy(accent: Color) -> SkillParticleEffect:
 	var e: SkillParticleEffect = SkillParticleEffect.new()
 	e._accent = accent
 	e._kind = &"fire_strategy"
+	return e
+
+
+## Lone-lance factory — 조운 단신 돌격. Solo-position indicator (cyan ring) +
+## 8 radial lance segments. Buff fires only IF caster has no adjacent allies
+## at attack-resolution time, so the visual communicates "isolated, ready".
+static func make_lone_lance(accent: Color) -> SkillParticleEffect:
+	var e: SkillParticleEffect = SkillParticleEffect.new()
+	e._accent = accent
+	e._kind = &"lone_lance"
 	return e
 
 
@@ -150,6 +178,8 @@ func _draw() -> void:
 			_draw_thunder_roar()
 		&"fire_strategy":
 			_draw_fire_strategy()
+		&"lone_lance":
+			_draw_lone_lance()
 		_:
 			pass
 
@@ -320,3 +350,42 @@ func _draw_flame_mote(pos: Vector2, tip_angle: float, alpha: float, progress: fl
 	hot.a = alpha
 	draw_polygon(PackedVector2Array([tip, base_r, base_l]), PackedColorArray([mid, dark, dark]))
 	draw_polygon(PackedVector2Array([inner_tip, inner_r, inner_l]), PackedColorArray([hot, mid, mid]))
+
+
+func _draw_lone_lance() -> void:
+	# Layer 1: cyan "solo position" ring at the 8-neighbor boundary. Quick
+	# punch in (first ~25%), holds visible, then fades with the lances. Two
+	# passes (outline + glow) so the ring reads against grass + stone tiles.
+	var ring_progress: float = clampf(_progress / 0.85, 0.0, 1.0)
+	if ring_progress > 0.0 and ring_progress < 1.0:
+		var ring_alpha: float = sin(ring_progress * PI) * 0.95
+		var ring_outline: Color = LONE_LANCE_OUTLINE_COLOR
+		ring_outline.a = ring_alpha * 0.8
+		var ring_glow: Color = LONE_LANCE_GLOW_COLOR
+		ring_glow.a = ring_alpha
+		draw_arc(Vector2.ZERO, LONE_LANCE_RING_RADIUS, 0.0, TAU, 48, ring_outline, LONE_LANCE_RING_WIDTH + 1.6, true)
+		draw_arc(Vector2.ZERO, LONE_LANCE_RING_RADIUS, 0.0, TAU, 48, ring_glow, LONE_LANCE_RING_WIDTH, true)
+
+	# Layer 2: 8 radial lance segments. Each lance grows outward from inner_R
+	# to outer_R across the sweep window — reads as "charging outward in
+	# every direction simultaneously" (solo strike potential). Sin alpha for
+	# flash + fade. Three passes (outline + glow + core) per lance for
+	# readability over any terrain palette.
+	var sweep_progress: float = clampf((_progress - LONE_LANCE_SWEEP_DELAY) / LONE_LANCE_SWEEP_SPAN, 0.0, 1.0)
+	if sweep_progress > 0.0 and sweep_progress < 1.0:
+		var lance_alpha: float = sin(sweep_progress * PI) * 0.95
+		var outer_r: float = lerp(LONE_LANCE_LANCE_INNER_R + 6.0, LONE_LANCE_LANCE_OUTER_R, sweep_progress)
+		for lance_idx: int in LONE_LANCE_LANCE_COUNT:
+			var theta: float = TAU * float(lance_idx) / float(LONE_LANCE_LANCE_COUNT)
+			var dir: Vector2 = Vector2(cos(theta), sin(theta))
+			var inner: Vector2 = dir * LONE_LANCE_LANCE_INNER_R
+			var outer: Vector2 = dir * outer_r
+			var outline_c: Color = LONE_LANCE_OUTLINE_COLOR
+			outline_c.a = lance_alpha * 0.85
+			var glow_c: Color = LONE_LANCE_GLOW_COLOR
+			glow_c.a = lance_alpha * 0.80
+			var core_c: Color = LONE_LANCE_CORE_COLOR
+			core_c.a = lance_alpha
+			draw_line(inner, outer, outline_c, LONE_LANCE_LANCE_OUTLINE_WIDTH, true)
+			draw_line(inner, outer, glow_c, LONE_LANCE_LANCE_WIDTH + 1.2, true)
+			draw_line(inner, outer, core_c, LONE_LANCE_LANCE_WIDTH, true)
