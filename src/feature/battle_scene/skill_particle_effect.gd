@@ -90,6 +90,22 @@ const LONE_LANCE_CORE_COLOR: Color = Color(0.85, 0.98, 1.00, 1.0)   # icy white
 const LONE_LANCE_GLOW_COLOR: Color = Color(0.45, 0.92, 0.96, 1.0)   # cyan flash
 const LONE_LANCE_OUTLINE_COLOR: Color = Color(0.08, 0.20, 0.30, 1.0)  # ink stroke
 
+## Inspire — 유비 격려. Adjacent player allies get a free action token. Visual
+## reads as "warm supportive pulse spreading to neighbors". Caster center aura
+## + 8 small ring pulses at the 8-neighbor positions (TILE_SIZE = 64 cardinal
+## + diagonal). Sage-green palette for the buff/heal feel.
+const INSPIRE_TILE_SIZE: float = 64.0
+const INSPIRE_AURA_R_MIN: float = 10.0
+const INSPIRE_AURA_R_MAX: float = 30.0
+const INSPIRE_PULSE_R_MIN: float = 4.0
+const INSPIRE_PULSE_R_MAX: float = 22.0
+const INSPIRE_PULSE_WIDTH: float = 2.4
+const INSPIRE_PULSE_DELAY: float = 0.12
+const INSPIRE_PULSE_SPAN: float = 0.55
+const INSPIRE_AURA_COLOR: Color = Color(0.66, 0.95, 0.62, 1.0)    # warm sage glow
+const INSPIRE_PULSE_CORE_COLOR: Color = Color(0.85, 1.00, 0.78, 1.0)  # mint highlight
+const INSPIRE_OUTLINE_COLOR: Color = Color(0.10, 0.30, 0.14, 1.0)  # forest ink
+
 var _accent: Color = Color(1.00, 0.85, 0.32)
 var _kind: StringName = &""
 var _progress: float = 0.0
@@ -133,6 +149,15 @@ static func make_lone_lance(accent: Color) -> SkillParticleEffect:
 	var e: SkillParticleEffect = SkillParticleEffect.new()
 	e._accent = accent
 	e._kind = &"lone_lance"
+	return e
+
+
+## Inspire factory — 유비 격려. Adjacent allies get a free action token. Soft
+## sage-green pulse spreading from caster to all 8 neighbor cells.
+static func make_inspire(accent: Color) -> SkillParticleEffect:
+	var e: SkillParticleEffect = SkillParticleEffect.new()
+	e._accent = accent
+	e._kind = &"inspire"
 	return e
 
 
@@ -180,6 +205,8 @@ func _draw() -> void:
 			_draw_fire_strategy()
 		&"lone_lance":
 			_draw_lone_lance()
+		&"inspire":
+			_draw_inspire()
 		_:
 			pass
 
@@ -389,3 +416,44 @@ func _draw_lone_lance() -> void:
 			draw_line(inner, outer, outline_c, LONE_LANCE_LANCE_OUTLINE_WIDTH, true)
 			draw_line(inner, outer, glow_c, LONE_LANCE_LANCE_WIDTH + 1.2, true)
 			draw_line(inner, outer, core_c, LONE_LANCE_LANCE_WIDTH, true)
+
+
+func _draw_inspire() -> void:
+	# Layer 1: caster center sage aura — soft green glow expanding then
+	# fading. Two passes (outer translucent + inner brighter) so the glow
+	# feels warm rather than harsh.
+	var aura_progress: float = clampf(_progress / 0.70, 0.0, 1.0)
+	if aura_progress > 0.0:
+		var aura_radius: float = lerp(INSPIRE_AURA_R_MIN, INSPIRE_AURA_R_MAX, aura_progress)
+		var aura_alpha: float = sin(aura_progress * PI) * 0.85
+		var outer: Color = INSPIRE_AURA_COLOR
+		outer.a = aura_alpha * 0.55
+		var inner: Color = INSPIRE_PULSE_CORE_COLOR
+		inner.a = aura_alpha
+		draw_circle(Vector2.ZERO, aura_radius + 6.0, outer)
+		draw_circle(Vector2.ZERO, aura_radius, inner)
+
+	# Layer 2: 8 small pulse rings appearing at the 8-neighbor positions
+	# (4 cardinal + 4 diagonal at TILE_SIZE). All 8 pulses share timing
+	# (the buff applies to all adjacent allies simultaneously). Ring grows
+	# R_MIN → R_MAX with sin alpha. Cardinal positions get full TILE_SIZE
+	# distance; diagonals are at TILE_SIZE/sqrt(2)·sqrt(2) = TILE_SIZE
+	# euclidean — close enough since the grid uses adjacency by tile, not
+	# pixel distance (visual reads as "8 neighbors touched").
+	var pulse_progress: float = clampf((_progress - INSPIRE_PULSE_DELAY) / INSPIRE_PULSE_SPAN, 0.0, 1.0)
+	if pulse_progress > 0.0 and pulse_progress < 1.0:
+		var pulse_alpha: float = sin(pulse_progress * PI) * 0.95
+		var pulse_radius: float = lerp(INSPIRE_PULSE_R_MIN, INSPIRE_PULSE_R_MAX, pulse_progress)
+		var t: float = INSPIRE_TILE_SIZE
+		var d: float = INSPIRE_TILE_SIZE * 0.7071  # diagonal at ~1-tile euclidean
+		var neighbors: Array[Vector2] = [
+			Vector2(t, 0.0), Vector2(-t, 0.0), Vector2(0.0, t), Vector2(0.0, -t),
+			Vector2(d, d), Vector2(-d, d), Vector2(d, -d), Vector2(-d, -d),
+		]
+		var pulse_outline: Color = INSPIRE_OUTLINE_COLOR
+		pulse_outline.a = pulse_alpha * 0.7
+		var pulse_core: Color = INSPIRE_PULSE_CORE_COLOR
+		pulse_core.a = pulse_alpha
+		for n: Vector2 in neighbors:
+			draw_arc(n, pulse_radius + 1.0, 0.0, TAU, 20, pulse_outline, INSPIRE_PULSE_WIDTH + 1.2, true)
+			draw_arc(n, pulse_radius, 0.0, TAU, 20, pulse_core, INSPIRE_PULSE_WIDTH, true)
