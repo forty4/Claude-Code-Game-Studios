@@ -467,6 +467,77 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Layered UX gap diagnosis**: "재미없음" 같은 단일 사용자 보고가 actually 여러 layer 의 root cause 조합. 진단 시 surface-level fix 만 시도하면 underlying issue 누락 위험. mechanical + discoverability + visual + balance 의 4 layer 모두 inspect 필요.
 - **Selection-less fallback pattern**: 사용자 UX flow 가 "click then key" 이 아닌 "key directly" 일 수도. controller handler 들에 active turn unit fallback 추가 = UX simplification + felt 향상 — 다른 systems 도 같은 pattern 가능 (예: 미리보기 dismiss, 카메라 control).
 
+### S87 — Per-skill particle wave (14/14 skills wired) (2026-05-25 session 87)
+
+> **Driver**: S86 핸드오프 #1 "Particle effect per skill (사용자 명시적 선택, multi-session, ~5-10h total)" 실행. S86 의 layered UX gap 분석에서 visual feedback layer (`damage popup 만, skill 특별감 0`) 가 유일하게 미해결 항목 — 본 세션이 그 layer 전체를 닫음. 6 commits 로 14 skill 의 unique procedural visual identity 확립.
+
+**Completed (6 commits, 1996 PASS 유지, +1042 LoC)**:
+
+- [x] **vfx: dragon_blade particle (관우 청룡언월도)** (`d630a5a`) — first per-skill particle 의 baseline pattern 확정:
+  - 신규 `src/feature/battle_scene/skill_particle_effect.gd` (class_name SkillParticleEffect) — AttackLine / SkillPopup / DamagePopup 패밀리에 합류. Procedural `_draw()` 로 3 expanding golden rings + yellow crescent sweep. Tree-bound tween per G-31.
+  - battle_scene `_on_unit_skill_used` 의 SkillPopup mount 뒤 `_make_skill_particle(skill_id, accent)` dispatch 추가. unwired skill_ids 는 null fallback (popup + SFX + shake 정상 동작).
+
+- [x] **vfx: thunder_roar particle (장비 천둥 포효)** (`970f40e`) — adjacency-shape AoE visual pattern:
+  - 중앙 burst (백색+청색 동심원) + 4 cardinal jagged lightning bolts (TILE_SIZE = 64). 8-segment polyline with pre-rolled jitter (`_roll_thunder_roar_jitter()` in `_ready`) 로 redraw 사이클 안정. 3-pass outline+glow+core 패턴 첫 도입.
+
+- [x] **vfx: fire_strategy particle (제갈량 박망파/적벽 화공)** (`a584aaf`) — ring-staggered AoE visual pattern:
+  - 3 concentric tile rings (Manhattan ≤ 3 = 64/128/192px) × 8/14/20 motes per ring. Outward stagger 0.12s/ring → 사용자에게 "spreading outward, not erupting at once" 의 felt 차별화. 각 mote = tear-drop triangle (`_draw_flame_mote` helper).
+
+- [x] **vfx: lone_lance particle (조운 단신 돌격)** (`8caeb89`) — radial-spoke visual pattern (cyan SCOUT palette):
+  - 8-neighbor boundary ring (R=44px) + 8 radial lance segments. Conditional buff (only +75% if alone) 의 visual semantics = "ready in every direction".
+
+- [x] **vfx: inspire particle (유비 격려)** (`71c862a`) — center-aura + 8-neighbor pulse 패턴 (sage green):
+  - Caster sage-green aura + 8 cardinal+diagonal pulse rings sharing timing (buff applies to all adjacent allies simultaneously). 첫 batch (5/5) 완료 — S86 핸드오프의 명시적 5 candidate.
+
+- [x] **vfx: 9 remaining particles — S87 batch close** (`d93c34f`) — single commit 로 14/14 wired 달성:
+  - **piercing_volley (황충)** — 8 radial gold arrow streaks with arrowhead triangles, range-3 (188px). ARCHER palette.
+  - **charm (초선)** — rose-pink center pulse + 4 cardinal pink rings. 0-damage tempo skill 의 warm pink palette.
+  - **strategist (조조)** — massive expanding indigo ring (R_MAX = 420px ≈ 6+ tiles, battlefield-wide) + center indigo flash. Mirrors AttackLine.COLOR_STRATEGIST.
+  - **naval_strategy (주유)** — 4 cardinal positions × 3 staggered concentric blue water-ripples. Soft water palette differentiates from thunder_roar's sharp bolts (같은 adjacency shape, 다른 mechanic semantics).
+  - **rebel_charge (위연)** — dragon_blade silhouette mirror with dark-blood-red palette ("blade waiting for the moment"). dragon_blade vs rebel_charge 의 visual sibling 관계.
+  - **blunt_strategy (방통)** — 2 concentric indigo rings at radii 1+2 tiles + 4 cardinal dashed strokes. Range-2 AoE 의 indigo deception 톤.
+  - **phoenix_chick (방통)** — 동일 hero 의 alternate signature visual — warm orange phoenix aura + 4 rising feather tear-drops (`_draw_phoenix_feather` helper). 방통의 2 skill 이 indigo vs orange 로 시각적 구분.
+  - **xiliang_charge (마초)** — 4 long amber CAVALRY charge lines (188px) + dust trail echoes flanking each main line. AttackLine CAVALRY style mirror.
+  - **successor_strategy (강유)** — expanding indigo scan-ring up to 4-tile reach (260px) + 6-pointed starburst at caster. 조조 strategist 와 lighter indigo 로 구분 (스승-제자 hierarchy 의 시각 표현).
+
+**Outcome**: 14/14 wired skill_id 모두 unique procedural visual identity 보유. S86 layered UX gap 의 마지막 layer (visual feedback) 단힘. **★ ship-ready mechanical 은 그대로 유지** (S84 5/5 ★). `skill_particle_effect.gd` 가 ~930 LoC per-skill catalog 파일로 확립 — future skill addition 의 reference template.
+
+**S87 — design 결정 / 패턴 (잠금)**:
+
+1. **Procedural `_draw()` + tween-driven `_progress` 패턴**: CPUParticles2D 대신 procedural 선택. 이유: (a) AttackLine / Popup 패밀리와 동일 — 일관성. (b) 각 skill 의 visual semantic 이 unique → 단일 particle config 로 표현 불가. (c) tween_property 가 var `_progress` 0→1 으로 진행 + `_process` 가 `queue_redraw()` 호출 = 모든 sub-effect 가 동일 progress 축에서 staggered overlap.
+
+2. **3-pass rendering (outline + glow + core)**: thunder_roar 부터 정착된 패턴. 어떤 terrain palette (잔디/돌/물/모래) 위에서도 readability 보장. 단일 line/arc 가 아닌 3 stroke 로 visual depth + contrast.
+
+3. **Visual-vs-mechanic mapping discipline**: 각 visual 이 mechanic 의 정확한 shape 을 표현 — strategist 가 battlefield-wide 면 ring 도 battlefield-wide (R_MAX=420), fire_strategy 가 Manhattan ≤ 3 이면 ring radii 도 64/128/192. 사용자가 visual 을 보면 mechanic 의 reach 를 추론 가능. visual = mechanic teaching tool.
+
+4. **Sibling palette discipline**: 같은 mechanic 패밀리 의 visual sibling — dragon_blade vs rebel_charge (yellow vs blood-red, 같은 silhouette) / inspire vs charm (sage green vs rose pink, 같은 +adj shape, 다른 semantic) / thunder_roar vs naval_strategy (electric blue bolts vs soft water ripples, 같은 adjacency reach). 사용자가 visual 만으로 "같은 class, 다른 mood" 인식.
+
+5. **Single-file catalog vs per-skill file 결정**: `skill_particle_effect.gd` 단일 파일에 14 skill 모두 — class_name SkillParticleEffect + _kind StringName dispatch. 이유: (a) shared rendering primitives (`_draw_flame_mote`, `_draw_phoenix_feather`, `_draw_bolt`) 활용. (b) factory pattern 일관성. (c) ~930 LoC 도 잘 organized. 향후 30+ skill 까지 확장 시 splitter (per-faction) 고려.
+
+**S87 → S88 (next session) 핸드오프**:
+
+1. **#1 Windowed verify (~10분 사용자)** — **가장 시급한 next**. headless 1996 PASS 가 windowed visual 을 gate 하지 않음 (G-30). 사용자가 windowed boot → ch01-04 의 14 skill 모두 S 키 발동하며 visual 적정성 + readability 검증. 잘 안 보이는 / 어색한 effect 는 tuning (radius / color / duration / alpha) 필요.
+
+2. **#2 InputRouter codification (~15분)** — S86 핸드오프 #2 carry-over. `_did_visible_work` gate gotcha entry + lint script. 본 세션 미실행.
+
+3. **#3 추가 atk_mult bump candidate** (data fix, ~5분) — S86 핸드오프 #3 carry-over. 사용자 last battle DRAW = 1.15 부족 가능. 1.3 또는 1.5 후보. windowed verify (#1) 결과와 결합 권장.
+
+4. **#4 UI-GB-02 button click verify** — S86 핸드오프 #4 carry-over. 사용자 verify 시 동시 inspect 가능.
+
+5. **#5 ch05 ★ manual playtest** — S85+S86 핸드오프 잔존. civilians_escorted ≥ 3 trigger 시도.
+
+6. **#6 Full Vision** (multi-session) — S85 핸드오프 #4 그대로.
+
+**Critical path ranking**:
+- 가장 시급한 next: **#1 Windowed verify** (S87 작업 모두 visual 이라 사용자 confirm 없이는 effort 의 ROI 미확정)
+- 가장 light next: **#2 codification + #3 atk_mult bump** (~20분 combo)
+- 가장 큰 future work: **#6 Full Vision**
+
+**Operational observation (S87)**:
+- **Headless 1996 PASS ≠ visual 검증**: G-30 의 강력한 instance. particle effect 가 `_draw()` 호출 안 되어도 / wrong color render 해도 / off-screen 위치되어도 headless test 는 모두 PASS. windowed verify 가 유일한 ground truth. 본 commit 전에 사용자 verify 못 한 책임 인정 — 사용자 명시적 "push first, verify after" 결정에 따랐지만 G-30 위험 noted.
+- **Per-skill catalog file 의 scaling pattern**: 14 skill 의 visual config 가 단일 파일로 organized 가능 (~930 LoC). 향후 30+ skill 시 per-faction split 또는 SkillVisualDefinition resource 패턴 (visual constants를 .tres 로 outsource) 후보.
+- **Visual sibling discipline 의 future value**: dragon_blade ↔ rebel_charge 같은 visual sibling pairing 이 사용자에게 "같은 mechanic class" 시각 학습 효과 — class-aware AttackLine 의 확장 가능 (PASSIVE-aware SkillParticleEffect 등). future hero balance work 의 reference.
+
 ## Reference
 
 - 6-lens assessment 원본: 2026-05-22 S73 session (Producer / Game Designer / QA Lead / Technical Director / Art Director / Narrative Director 병렬 spawn)
