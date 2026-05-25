@@ -2991,6 +2991,14 @@ func _on_unit_skill_used(unit_id: int, skill_id: StringName) -> void:
 	var popup: SkillPopup = SkillPopup.make(display_name, accent)
 	popup.position = caster_node.position + Vector2(0.0, -8.0)
 	visuals.add_child(popup)
+	# (2b) Per-skill particle effect — caster-centered procedural flourish.
+	# Session-87 — dragon_blade is the first wired candidate; further skills
+	# will get their own _kind branches as they're authored. Returns null for
+	# unwired skill_ids so the rest of the visual stack remains intact.
+	var particle: SkillParticleEffect = _make_skill_particle(skill_id, accent)
+	if particle != null:
+		particle.position = caster_node.position
+		visuals.add_child(particle)
 	# (3) Camera shake — offensive skills kick the screen; utility skills don't.
 	if _battle_camera != null and _battle_camera.has_method("shake"):
 		var shake_params: Vector2 = _shake_for_skill(skill_id)
@@ -3055,6 +3063,18 @@ func _shake_for_skill(skill_id: StringName) -> Vector2:
 		&"skill_rebel_charge":    return Vector2(6.0, 0.20)  # 위연 — 압축된 충격, between dragon_blade and thunder_roar
 		&"skill_blunt_strategy":  return Vector2(5.0, 0.18)  # 방통 — AoE control, moderate (dragon_blade tier)
 		_:                        return Vector2.ZERO  # utility / heal — no shake (phoenix_chick included)
+
+
+## Session-87 — per-skill particle effect factory dispatch. Returns null for
+## skill_ids that don't yet have a particle branch (graceful fallback — popup
+## + SFX + shake continue to fire). First wired: dragon_blade (관우). Further
+## skills (~17 more) land one at a time per the S86 handoff queue.
+func _make_skill_particle(skill_id: StringName, accent: Color) -> SkillParticleEffect:
+	match skill_id:
+		&"skill_dragon_blade":
+			return SkillParticleEffect.make_dragon_blade(accent)
+		_:
+			return null
 
 
 ## Session-16: mid-battle kill notification. Spawns "X 처치!" popup at the
