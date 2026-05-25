@@ -467,11 +467,11 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Layered UX gap diagnosis**: "재미없음" 같은 단일 사용자 보고가 actually 여러 layer 의 root cause 조합. 진단 시 surface-level fix 만 시도하면 underlying issue 누락 위험. mechanical + discoverability + visual + balance 의 4 layer 모두 inspect 필요.
 - **Selection-less fallback pattern**: 사용자 UX flow 가 "click then key" 이 아닌 "key directly" 일 수도. controller handler 들에 active turn unit fallback 추가 = UX simplification + felt 향상 — 다른 systems 도 같은 pattern 가능 (예: 미리보기 dismiss, 카메라 control).
 
-### S87 — Per-skill particle wave (14/14 skills wired) (2026-05-25 session 87)
+### S87 — Particle wave 14/14 + G-32 codification + atk_mult 1.50 bump (2026-05-25 session 87)
 
-> **Driver**: S86 핸드오프 #1 "Particle effect per skill (사용자 명시적 선택, multi-session, ~5-10h total)" 실행. S86 의 layered UX gap 분석에서 visual feedback layer (`damage popup 만, skill 특별감 0`) 가 유일하게 미해결 항목 — 본 세션이 그 layer 전체를 닫음. 6 commits 로 14 skill 의 unique procedural visual identity 확립.
+> **Driver**: S86 핸드오프 #1, #2, #3 모두 단일 세션 closed. 사용자 progression: "관우 dragon_blade 부터" → "바로 commit + 다음 skill 이어서" → "나머지 9개 모두 이어서 작업" → "active.md + milestone log 업데이트 후 push" → "2, 3 진행". S86 layered UX gap 의 마지막 3 layer (visual feedback + process improvement + balance) 모두 닫힘.
 
-**Completed (6 commits, 1996 PASS 유지, +1042 LoC)**:
+**Completed (9 commits, 1996 PASS 유지, +1373 LoC total)**:
 
 - [x] **vfx: dragon_blade particle (관우 청룡언월도)** (`d630a5a`) — first per-skill particle 의 baseline pattern 확정:
   - 신규 `src/feature/battle_scene/skill_particle_effect.gd` (class_name SkillParticleEffect) — AttackLine / SkillPopup / DamagePopup 패밀리에 합류. Procedural `_draw()` 로 3 expanding golden rings + yellow crescent sweep. Tree-bound tween per G-31.
@@ -500,7 +500,19 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
   - **xiliang_charge (마초)** — 4 long amber CAVALRY charge lines (188px) + dust trail echoes flanking each main line. AttackLine CAVALRY style mirror.
   - **successor_strategy (강유)** — expanding indigo scan-ring up to 4-tile reach (260px) + 6-pointed starburst at caster. 조조 strategist 와 lighter indigo 로 구분 (스승-제자 hierarchy 의 시각 표현).
 
-**Outcome**: 14/14 wired skill_id 모두 unique procedural visual identity 보유. S86 layered UX gap 의 마지막 layer (visual feedback) 단힘. **★ ship-ready mechanical 은 그대로 유지** (S84 5/5 ★). `skill_particle_effect.gd` 가 ~930 LoC per-skill catalog 파일로 확립 — future skill addition 의 reference template.
+- [x] **docs: S87 milestone Attestation log** (`1435228`) — arc A+B 의 6 commit narrative + 5 design 결정 잠금 + 핸드오프 prepare.
+
+- [x] **codify: G-32 InputRouter emit-gate gotcha + arm-coverage lint** (`9d3113b`) — S86 핸드오프 #2 closed:
+  - **`.claude/rules/godot-4x-gotchas.md` +G-32 entry** (~140 LoC): S86 의 `use_skill` + `defend_stance` arm 부재 → `_did_visible_work=false` → emit gate silent drop trap 의 full narrative. Symptom checklist 5-layer (InputMap MATCH / dispatch / arm / emit / subscriber) + 3차 hypothesis sequence (IME → input trace → controller trace → source read of emit gate) + 3-hour diagnostic cost 정직 기록. Codified at pattern stability 1 (eager codification) — 진단 비용 vs. 재발 비용 ROI 가 single-instance 도 정당화. Cross-refs: G-30 (headless≠windowed META-pattern instance) + G-4 (lambda capture) + TG-3 (awk flag/next).
+  - **`tools/ci/lint_input_router_action_arm_coverage.sh`** (100 LoC): awk flag/next state machine (TG-3 적용) 으로 `ACTIONS_BY_CATEGORY["grid"]` vocabulary 추출 + 모든 `_handle_action_in_sN` body 의 match arm reference cross-check. PASS criteria = 모든 grid action 이 최소 한 state arm 에 매칭. KNOWN_EXCEPTIONS = `grid_hover` (PC-only synthesized per CR-1c — 명시적 documented). Exit code 0/1/2 triage. Current state PASS (12 grid actions / 11 dispatched / 1 documented exception). Future-proofing: 새 grid action 추가 시 자동으로 arm 누락 catch.
+
+- [x] **tune: shu_canon_main enemy_atk_mult 1.15 → 1.50** (`54fa94b`) — S86 핸드오프 #3 closed:
+  - 25/25 chapter entries in `shu_canon_main.json` bumped via sed. +30% from 1.15, +57% from 0.95 (S86 c1 baseline), +172% from pre-S86 0.55 floor.
+  - `tests/unit/feature/story_event/ch01_vertical_slice_sentinel_test.gd` AC-3 expected 1.15 → 1.50 + comment 의 S86 baseline 기록 옆에 S88 next-iteration 기록 추가.
+  - `mvp_wei.json` (Wei 5-chapter mini scenario, separate values 0.55-0.85) **미수정** — 사용자 playtest 는 shu_canon-only.
+  - Trajectory: 0.55-0.80 (pre-S86) → 0.95 (S86 c1 통일) → 1.15 (S86 c3) → 1.50 (S88). 사용자 last battle TURN_LIMIT_REACHED DRAW + "전반적으로 난이도가 너무 낮음" raw report 의 decisive response. Over-tuned 면 다음 세션 1.30 또는 1.40 으로 sed 한 줄 roll-back 가능.
+
+**Outcome**: 14/14 wired skill_id 모두 unique procedural visual identity 보유. S86 layered UX gap 의 마지막 3 layer (visual feedback + process improvement + balance) 모두 닫힘. **★ ship-ready mechanical 은 그대로 유지** (S84 5/5 ★). `skill_particle_effect.gd` 가 ~930 LoC per-skill catalog 파일로 확립. G-32 + lint 가 InputRouter 의 silent emit gate trap 의 재발 방지망 확립.
 
 **S87 — design 결정 / 패턴 (잠금)**:
 
@@ -516,27 +528,31 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 
 **S87 → S88 (next session) 핸드오프**:
 
-1. **#1 Windowed verify (~10분 사용자)** — **가장 시급한 next**. headless 1996 PASS 가 windowed visual 을 gate 하지 않음 (G-30). 사용자가 windowed boot → ch01-04 의 14 skill 모두 S 키 발동하며 visual 적정성 + readability 검증. 잘 안 보이는 / 어색한 effect 는 tuning (radius / color / duration / alpha) 필요.
+S86 핸드오프 #1 (particle visual) + #2 (codification) + #3 (atk_mult bump) 모두 본 세션에 closed. 남은 carry-over:
 
-2. **#2 InputRouter codification (~15분)** — S86 핸드오프 #2 carry-over. `_did_visible_work` gate gotcha entry + lint script. 본 세션 미실행.
+1. **#1 Windowed verify (~10-15분 사용자)** — **가장 시급한 next**. headless 1996 PASS 가 windowed 의 visual + balance 둘 다 gate 하지 않음 (G-30). 사용자 windowed boot → ch01-04 → 14 skill 모두 S 키 발동 → visual readability 검증 + 1.50 atk_mult felt 난이도 검증 (이번엔 enemy wipe 가능? 또는 너무 빡센가?). 잘 안 보이는 effect / 너무 빡센 atk_mult 는 tuning 필요.
 
-3. **#3 추가 atk_mult bump candidate** (data fix, ~5분) — S86 핸드오프 #3 carry-over. 사용자 last battle DRAW = 1.15 부족 가능. 1.3 또는 1.5 후보. windowed verify (#1) 결과와 결합 권장.
+2. **#2 UI-GB-02 button click verify** — S86 핸드오프 #4 carry-over. 사용자가 자기 unit click 시 하단 6 button 실제 visible 인지 windowed inspect (#1 verify 시 동시 가능).
 
-4. **#4 UI-GB-02 button click verify** — S86 핸드오프 #4 carry-over. 사용자 verify 시 동시 inspect 가능.
+3. **#3 ch05 ★ manual playtest** — S85+S86 핸드오프 잔존. civilians_escorted ≥ 3 trigger. 사용자 ch01-04 만 시도 → ch05+ 진행 시점.
 
-5. **#5 ch05 ★ manual playtest** — S85+S86 핸드오프 잔존. civilians_escorted ≥ 3 trigger 시도.
+4. **#4 atk_mult roll-back candidate** (만약 1.50 이 over-tuned 면) — 1.30 또는 1.40 candidate. windowed verify (#1) 후 결정. 25 entries sed 한 줄 fix.
 
-6. **#6 Full Vision** (multi-session) — S85 핸드오프 #4 그대로.
+5. **#5 Particle visual tuning** (만약 일부 effect 가 안 보이거나 잘못 보이면) — radius / color / duration / alpha 조정. skill 별 `_draw_<skill>` 함수의 constants 조정.
+
+6. **#6 Full Vision** (multi-session) — S85 핸드오프 #4 그대로. ch20-22 cascade-block ADR / hero balance / banter / Wei line / ch24-25 salvage.
 
 **Critical path ranking**:
-- 가장 시급한 next: **#1 Windowed verify** (S87 작업 모두 visual 이라 사용자 confirm 없이는 effort 의 ROI 미확정)
-- 가장 light next: **#2 codification + #3 atk_mult bump** (~20분 combo)
+- 가장 시급한 next: **#1 Windowed verify** (S87 의 3 player-facing arc — particle + balance + button visibility — 의 ROI confirm)
+- 가장 light next: tuning candidates (#4 atk_mult roll-back 또는 #5 particle tuning) — windowed feedback 후 ~5분 fix
 - 가장 큰 future work: **#6 Full Vision**
 
 **Operational observation (S87)**:
-- **Headless 1996 PASS ≠ visual 검증**: G-30 의 강력한 instance. particle effect 가 `_draw()` 호출 안 되어도 / wrong color render 해도 / off-screen 위치되어도 headless test 는 모두 PASS. windowed verify 가 유일한 ground truth. 본 commit 전에 사용자 verify 못 한 책임 인정 — 사용자 명시적 "push first, verify after" 결정에 따랐지만 G-30 위험 noted.
+- **Headless 1996 PASS ≠ visual + balance 검증**: G-30 의 강력한 instance. particle effect 가 `_draw()` 호출 안 되어도 / wrong color render 해도 / off-screen 위치되어도 headless test 는 모두 PASS. 1.50 atk_mult 도 마찬가지 — headless test 가 적정 vs over-tuned 판단 불가. windowed verify 가 유일한 ground truth. 본 commit 전에 사용자 verify 못 한 책임 인정 — 사용자 명시적 "push first, verify after" 결정에 따랐지만 G-30 위험 noted.
 - **Per-skill catalog file 의 scaling pattern**: 14 skill 의 visual config 가 단일 파일로 organized 가능 (~930 LoC). 향후 30+ skill 시 per-faction split 또는 SkillVisualDefinition resource 패턴 (visual constants를 .tres 로 outsource) 후보.
 - **Visual sibling discipline 의 future value**: dragon_blade ↔ rebel_charge 같은 visual sibling pairing 이 사용자에게 "같은 mechanic class" 시각 학습 효과 — class-aware AttackLine 의 확장 가능 (PASSIVE-aware SkillParticleEffect 등). future hero balance work 의 reference.
+- **Eager codification 의 ROI**: G-32 가 pattern stability 1 instance 만에 codified — 정상은 2-3 instance 후 codify. 결정 이유 = single-instance 의 diagnostic cost (3 hours, 3 incorrect hypotheses) 가 codification cost (~15분) 의 ~12배 → 재발 시 break-even immediate. high-cost / low-frequency trap class 는 eager codify 가 정당화. 향후 similar high-cost-low-freq trap 발견 시 같은 cadence 적용.
+- **Decisive balance bump 의 가능성**: 0.95 → 1.15 (+21%) 가 충분치 않았던 trajectory — incremental bump 의 학습. 1.15 → 1.50 (+30%) 는 decisive 선택. 만약 over-tuned 면 1.30 도 가능. 어느 쪽이든 single-step decisive bump 가 multi-step incremental 보다 felt baseline 학습 빠름.
 
 ## Reference
 
