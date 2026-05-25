@@ -56,6 +56,22 @@ const THUNDER_ROAR_CORE_COLOR: Color = Color(0.96, 0.98, 1.00, 1.0)
 const THUNDER_ROAR_GLOW_COLOR: Color = Color(0.55, 0.78, 1.00, 1.0)
 const THUNDER_ROAR_OUTLINE_COLOR: Color = Color(0.10, 0.18, 0.36, 1.0)
 
+## Fire-strategy — 제갈량 박망파/적벽 화공. AoE fire over Manhattan ≤ 3 cells.
+## Caster glow + ring of flame motes at radii 1, 2, 3 tiles. Wave staggered
+## outward so the fire reads as spreading from the caster.
+const FIRE_STRATEGY_TILE_SIZE: float = 64.0
+const FIRE_STRATEGY_RING_RADII: Array[float] = [64.0, 128.0, 192.0]
+const FIRE_STRATEGY_MOTES_PER_RING: Array[int] = [8, 14, 20]
+const FIRE_STRATEGY_RING_STAGGER: float = 0.12
+const FIRE_STRATEGY_FLAME_HEIGHT: float = 14.0
+const FIRE_STRATEGY_FLAME_WIDTH: float = 6.0
+const FIRE_STRATEGY_CORE_R_MIN: float = 8.0
+const FIRE_STRATEGY_CORE_R_MAX: float = 26.0
+const FIRE_STRATEGY_CORE_COLOR: Color = Color(1.00, 0.82, 0.30, 1.0)
+const FIRE_STRATEGY_FLAME_HOT: Color = Color(1.00, 0.92, 0.45, 1.0)   # bright tip
+const FIRE_STRATEGY_FLAME_MID: Color = Color(0.98, 0.55, 0.18, 1.0)   # body
+const FIRE_STRATEGY_FLAME_DARK: Color = Color(0.62, 0.20, 0.08, 1.0)  # base shadow
+
 var _accent: Color = Color(1.00, 0.85, 0.32)
 var _kind: StringName = &""
 var _progress: float = 0.0
@@ -80,6 +96,15 @@ static func make_thunder_roar(accent: Color) -> SkillParticleEffect:
 	var e: SkillParticleEffect = SkillParticleEffect.new()
 	e._accent = accent
 	e._kind = &"thunder_roar"
+	return e
+
+
+## Fire-strategy factory — 제갈량 박망파/적벽 화공. AoE flame motes in 3
+## concentric tile rings (Manhattan ≤ 3) staggered outward from the caster.
+static func make_fire_strategy(accent: Color) -> SkillParticleEffect:
+	var e: SkillParticleEffect = SkillParticleEffect.new()
+	e._accent = accent
+	e._kind = &"fire_strategy"
 	return e
 
 
@@ -123,6 +148,8 @@ func _draw() -> void:
 			_draw_dragon_blade()
 		&"thunder_roar":
 			_draw_thunder_roar()
+		&"fire_strategy":
+			_draw_fire_strategy()
 		_:
 			pass
 
@@ -226,3 +253,70 @@ func _draw_bolt(start: Vector2, end: Vector2, bolt_idx: int, alpha: float) -> vo
 	draw_polyline(points, outline_c, THUNDER_ROAR_BOLT_OUTLINE_WIDTH, true)
 	draw_polyline(points, glow_c, THUNDER_ROAR_BOLT_WIDTH + 1.2, true)
 	draw_polyline(points, core_c, THUNDER_ROAR_BOLT_WIDTH, true)
+
+
+func _draw_fire_strategy() -> void:
+	# Layer 1: caster core flame — orange glow expanding from R_MIN → R_MAX
+	# in the first ~30% of DURATION. Holds bright then fades with the rings.
+	var core_progress: float = clampf(_progress / 0.35, 0.0, 1.0)
+	if core_progress > 0.0:
+		var radius: float = lerp(FIRE_STRATEGY_CORE_R_MIN, FIRE_STRATEGY_CORE_R_MAX, core_progress)
+		var core_alpha: float = sin(core_progress * PI) * 0.95
+		var glow_c: Color = FIRE_STRATEGY_FLAME_MID
+		glow_c.a = core_alpha * 0.7
+		var hot_c: Color = FIRE_STRATEGY_CORE_COLOR
+		hot_c.a = core_alpha
+		draw_circle(Vector2.ZERO, radius + 4.0, glow_c)
+		draw_circle(Vector2.ZERO, radius, hot_c)
+
+	# Layer 2: 3 concentric rings of flame motes at radii 1, 2, 3 tiles.
+	# Each ring's motes appear staggered outward so the fire reads as
+	# spreading from caster. Inside each ring all motes share the same
+	# timing window.
+	for ring_idx: int in FIRE_STRATEGY_RING_RADII.size():
+		var stagger: float = float(ring_idx) * FIRE_STRATEGY_RING_STAGGER
+		var span: float = 1.0 - stagger
+		if span <= 0.0:
+			continue
+		var ring_progress: float = clampf((_progress - stagger) / span, 0.0, 1.0)
+		if ring_progress <= 0.0 or ring_progress >= 1.0:
+			continue
+		var ring_alpha: float = sin(ring_progress * PI) * 0.95
+		var radius: float = FIRE_STRATEGY_RING_RADII[ring_idx]
+		var mote_count: int = FIRE_STRATEGY_MOTES_PER_RING[ring_idx]
+		# Slight per-ring rotation offset so the motes don't align radially
+		# across rings (reads as natural fire, not a clock face).
+		var phase_offset: float = float(ring_idx) * 0.5
+		for mote_idx: int in mote_count:
+			var theta: float = TAU * float(mote_idx) / float(mote_count) + phase_offset
+			var pos: Vector2 = Vector2(cos(theta), sin(theta)) * radius
+			_draw_flame_mote(pos, theta + PI * 0.5, ring_alpha, ring_progress)
+
+
+## Single flame-shape mote: tear-drop triangle pointing along `tip_angle`.
+## `progress` 0..1 used to scale the flame size — small at start, peaks
+## mid-window, shrinks at end (same sin curve as alpha so the flame
+## "breathes" once before fading).
+func _draw_flame_mote(pos: Vector2, tip_angle: float, alpha: float, progress: float) -> void:
+	var scale: float = sin(progress * PI) * 1.0
+	if scale <= 0.0:
+		return
+	# Build a 3-point flame: tip + 2 base corners, oriented along tip_angle.
+	# tip_angle = angle TOWARDS the flame tip (radial outward).
+	var tip_dir: Vector2 = Vector2(cos(tip_angle - PI * 0.5), sin(tip_angle - PI * 0.5))
+	var tip: Vector2 = pos + tip_dir * (FIRE_STRATEGY_FLAME_HEIGHT * scale)
+	var perp: Vector2 = tip_dir.rotated(PI * 0.5)
+	var base_l: Vector2 = pos - perp * (FIRE_STRATEGY_FLAME_WIDTH * 0.5 * scale)
+	var base_r: Vector2 = pos + perp * (FIRE_STRATEGY_FLAME_WIDTH * 0.5 * scale)
+	# Inner hot tip — a smaller triangle inside for the bright core.
+	var inner_tip: Vector2 = pos + tip_dir * (FIRE_STRATEGY_FLAME_HEIGHT * scale * 0.7)
+	var inner_l: Vector2 = pos - perp * (FIRE_STRATEGY_FLAME_WIDTH * 0.25 * scale)
+	var inner_r: Vector2 = pos + perp * (FIRE_STRATEGY_FLAME_WIDTH * 0.25 * scale)
+	var dark: Color = FIRE_STRATEGY_FLAME_DARK
+	dark.a = alpha * 0.65
+	var mid: Color = FIRE_STRATEGY_FLAME_MID
+	mid.a = alpha
+	var hot: Color = FIRE_STRATEGY_FLAME_HOT
+	hot.a = alpha
+	draw_polygon(PackedVector2Array([tip, base_r, base_l]), PackedColorArray([mid, dark, dark]))
+	draw_polygon(PackedVector2Array([inner_tip, inner_r, inner_l]), PackedColorArray([hot, mid, mid]))
