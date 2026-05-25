@@ -390,6 +390,83 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Refactor commit 의 anatomical cleanness**: codification 의 refactor 가 단일 commit 으로 3 file behavior 변화 0, production code 변화 0, full suite PASS 유지. 안전한 infrastructure work 의 reference pattern — 향후 helper extraction / standardization work 도 같은 cadence (helper 신규 + 사용처 refactor + rule amendment + verify + commit) 가능.
 - **Codification 의 ROI 명시**: design-docs.md amendment 의 pre-flight check 3개가 모두 본 컨버세이션의 spec authoring 실수 historical cost (30-90분 × 3 instance ≈ 1.5-4.5 hour debt) 위에 세워졌음. 본 amendment 작성에 ~10분 — 향후 1 instance 만 catch 해도 break-even, 그 이후는 모두 ROI.
 
+### S86 — Manual playtest + gameplay depth pivot + input gate fix (2026-05-25 session 86)
+
+> **Driver**: S85 핸드오프 #1 "Manual playtest 5 ★ trigger felt validation" 실행. 사용자 raw report 가 "재미없음 / 난이도 너무 낮음 / 공격수단 평타뿐 / S 키 차이 없음" — 단일 issue 가 아닌 layered UX gap. 3차 진단 끝에 critical root cause (InputRouter `_did_visible_work` gate) 확정 + fix. ★ ship-ready mechanical 은 유지 (S84 그대로), player-felt fun gap 정직히 인정.
+
+**Completed (3 commits, 1996 PASS 유지, push 완료)**:
+
+- [x] **gameplay: Shu 4 skill wire + ch02-25 atk_mult 0.95 + 제갈량 mobility** (`e987ac3`):
+  - heroes.json: shu_006_zhuge_liang.move_range 3 → 4
+  - shu_canon_main.json: ch02-25 enemy_atk_mult 0.55-0.8 → 0.95 통일 (ch01 baseline)
+  - grid_battle_controller.gd: 4 Shu skill wire — skill_fire_strategy (제갈량, Manhattan ≤ 3 적 20 dmg + slow) / skill_lone_lance (조운, pending +75% if alone) / skill_xiliang_charge (마초, cardinal axis 20 dmg) / skill_successor_strategy (강유, 최저 HP ally 25 heal + action refund). 새 _lone_lance_pending var + _resolve_attack hook for lone-ness check.
+  - 진단: 사용자 보고 "공격수단 평타뿐" root cause = 9 skill unwired (이번에 4 추가; Wei 5 남음).
+
+- [x] **hud: i18n 활성 + ko.po + UI-GB-02 강조** (`f1779ff`):
+  - assets/locale/ko.po 신규 (27 keys 완전 한국어 번역) + assets/locale/en.po 동일 keys
+  - project.godot `[internationalization]` section + en.po + ko.po 등록 + fallback=en. **Pre-S86 nothing registered** → tr() 가 raw key 반환 → button "hud.action.move" 같은 invisible text 표시.
+  - scenes/battle/elements/ui_gb_02_action_menu.tscn: anchors_preset 7 (bottom-center) + button 96×56 + grow_horizontal=2. **Pre-S86 layout 이 좌상단 (0,0) tiny** — 사용자 시선 안 닿음.
+  - tests 3 file fix (battle_hud_unit_info / battle_hud_safe_tr_format / battle_hud_forecast): TranslationServer.set_locale 강제로 deterministic. unit_info 의 raw-key assertion 들 영문 expected ("Class: Cavalry", "ATK 17") 으로 변경.
+
+- [x] **fix(input): use_skill/defend_stance emit gate + banner + 1.15 atk_mult** (`879dd2f`) — **🔴 Critical root cause fix**:
+  - **InputRouter `_did_visible_work` emit gate**: `_handle_action_in_s0` + `_handle_action_in_s1` 의 match arm 에 use_skill + defend_stance arm **부재** → `_did_visible_work=false` → GameBus.input_action_fired.emit() gate (line 935) 가 silently 차단 → controller `_on_input_action_fired` 가 받지 못함. S0 + S1 arm 둘 다 추가하여 `_did_visible_work = true` set.
+  - S/D 키 selection-less fallback (controller `_handle_use_skill_input` + `_handle_defend_stance_input`): unit click 없이 active turn unit (player) 의 skill/defend 발동.
+  - 숫자 키 1/2 alternative binding (default_bindings.json): macOS IME 우회 대비 (실제 IME 영향 없음 confirmed via [KEY-DIAG] trace).
+  - 화면 상단 큰 노란 turn banner (battle_hud.gd `_turn_banner: Label`): 활성 unit + skill name + skill desc + key hints `[S/1] [D/2] [Tab]`. Pre-S86 UI-GB-07 turn label (좌상단, font 14, "Turn: 조운") 가 사용자 시선 안 닿음.
+  - ko.po + en.po: 18 skill display name keys + 18 skill desc keys + banner template `▶ %s의 턴   |   스킬: %s — %s [S/1]   |   방어 [D/2]   |   턴 종료 [Tab]`.
+  - ch01-25 atk_mult 0.95 → 1.15 (추가 강화 +21%). ch01_vertical_slice_sentinel_test 도 1.15 expected 로 update.
+  - test 1 update: grid_battle_controller_player_defend_test 의 "no-op when no selection" → "fallback to active turn unit" (design intent flip).
+
+**Outcome**: **3차 진단 끝에 S/D/1/2 키 routing fix 확정**. user verify 로 관우 dragon_blade / 유비 inspire / 장비 thunder_roar 발동 확인 (console log: `[USE_SKILL] dispatching ... unit.skill_used=false → true`). 사용자 last battle 결과: TURN_LIMIT_REACHED (DRAW) — 1.15 도 부족 가능, 추가 bump candidate.
+
+**S86 — 사용자 raw report 의 layered nature (codification candidate)**:
+
+| Layer | Root cause | Status |
+|---|---|---|
+| Mechanical | 9 skill unwired + S 키 routing broken (emit gate) | ✅ 4 wire + gate fix 완료 |
+| Discoverability | i18n raw key + UI-GB-02 좌상단 tiny + UI-GB-07 작은 글자 | ✅ ko.po + bottom anchor + 큰 banner |
+| Visual feedback | damage popup 만, skill 특별감 0 (no particle / no SFX-specific) | ⏳ multi-session particle work (S87+) |
+| Balance | atk_mult 0.55-0.8 (5 chapter) + 일관성 부재 | ✅ 1.15 통일 (추가 bump candidate 남음) |
+
+**3차 진단 timeline** (S 키 routing fix 의 painstaking trace):
+1. 1차 가설: macOS 한국어 IME 가 S 키 가로챔 → 숫자 1/2 alternative key 추가
+2. user verify: 1/2 도 작동 안 함 → IME 반증
+3. 2차 진단: input_router 에 `[KEY-DIAG]` trace 추가 → keycode 정상 도달 + InputMap MATCH 정상 → controller routing 문제 추정
+4. 3차 진단: controller 에 `[USE_SKILL]` trace 추가 → handler 진입 trace 0건 → InputRouter 의 emit gate 가 silent block 추정
+5. Source 읽기: `_handle_action` line 934 `if _did_visible_work: emit(...)` 발견 → `_handle_action_in_s1` match arm 에 use_skill 없음 확인 → root cause 확정
+
+**S86 → S87 (next session) 핸드오프**:
+
+1. **#1 Particle effect per skill** (multi-session, ~5-10h total, 사용자 명시적 선택) — 14+ skill 의 unique visual:
+   - 화공 전략 (제갈량): Manhattan ≤ 3 cells 의 fire particle
+   - 천둥 포효 (장비): adjacent cell lightning burst
+   - 청룡의 칼날 (관우): caster yellow glow + sword swing trail
+   - 단신 돌격 (조운): caster lone-position indicator + lance line
+   - 격려 (유비): adjacent ally green pulse
+   - 그 외 9+ skill. ~30-60min/skill.
+
+2. **#2 InputRouter codification (~15분)** — process improvement:
+   - `.claude/rules/godot-4x-gotchas.md` 의 새 G-N entry: "InputRouter emit gate — `_did_visible_work` flag must be set in per-state action arm OR action silently drops at line 935"
+   - lint script `tools/ci/lint_input_router_action_arm_coverage.sh` — _GRID_ACTIONS 의 모든 action 이 _handle_action_in_s0/s1 match arm 에 표현되는지 검증
+
+3. **#3 추가 atk_mult bump candidate** (data fix, ~5분) — 사용자 last battle TURN_LIMIT_REACHED (DRAW) = enemy wipe 못 함. 1.15 → 1.3 또는 1.5 후보. windowed verify 후 결정.
+
+4. **#4 UI-GB-02 button click verify** — banner + S 키 작동 확인됨, 그러나 사용자가 자기 unit click 시 화면 하단 button 6개 실제 보이는지 미보고. anchor 좌상단 → bottom-center 변경 효과 verify 필요.
+
+5. **#5 ch05 ★ manual playtest** (S85 핸드오프 #1 잔존) — civilians_escorted >= 3 trigger 시도. 사용자가 ch01-04 만 시도, ch05+ 미진행.
+
+6. **#6 Full Vision** (multi-session) — S85 핸드오프 #4 그대로.
+
+**Critical path ranking**:
+- 가장 시급한 next: **#1 Particle effect** (사용자 명시적 선택)
+- 가장 light next: **#2 codification + #3 atk_mult 1.5 bump**
+- 가장 큰 future work: **#6 Full Vision**
+
+**Operational observation (S86)**:
+- **User telemetry > developer hypothesis**: IME 가설이 plausible 했지만 사용자 console log 의 정확한 [KEY-DIAG] data 가 그것 반증. user-reported reality 가 first-class. 첫 가설에 매몰되지 말고 user 가 직접 보낸 data 우선.
+- **Layered UX gap diagnosis**: "재미없음" 같은 단일 사용자 보고가 actually 여러 layer 의 root cause 조합. 진단 시 surface-level fix 만 시도하면 underlying issue 누락 위험. mechanical + discoverability + visual + balance 의 4 layer 모두 inspect 필요.
+- **Selection-less fallback pattern**: 사용자 UX flow 가 "click then key" 이 아닌 "key directly" 일 수도. controller handler 들에 active turn unit fallback 추가 = UX simplification + felt 향상 — 다른 systems 도 같은 pattern 가능 (예: 미리보기 dismiss, 카메라 control).
+
 ## Reference
 
 - 6-lens assessment 원본: 2026-05-22 S73 session (Producer / Game Designer / QA Lead / Technical Director / Art Director / Narrative Director 병렬 spawn)
