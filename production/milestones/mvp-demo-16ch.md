@@ -358,6 +358,38 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Substrate add pattern stable at 2 instances** (S79 civilian + S84 player_casualties): 3-layer (declaration + increment site + fate_data emit) 추가 + sentinel 3-layer grep. 둘 다 ch10 외 chapter 영향 0 (additive). 향후 Full Vision ch20-22 cascade-block 의 새 substrate (`_fate_brothers_lost: int` 같은) 도 same pattern 적용 가능.
 - **본 컨버세이션 cumulative weight (S80→S84)**: 22 commits. 1962→1996 PASS (+34 tests / 0 regressions). 4-layer ★ (ch05) + 2-layer ★ × 4 (ch08/10/13/16) = MVP Pillar 2 mechanical complete. 다음 큰 MVP work = manual playtest 후 balance tuning + ch01 같은 default chapter 의 narrative polish (S78 pattern 확대) + Full Vision design.
 
+### S85 — Codification work (FateSubstrateAssertions + design-docs pre-flight) (2026-05-25 session 85)
+
+> **Driver**: S84 운영관찰 #1 "Codification work 의 stability 형성 완료" 시점 활용. 4 stable patterns 중 가장 명확 ROI 2개 (substrate 3-layer grep + spec authoring pre-flight check) 잠금. Refactor 만 (production behavior 0 change).
+
+**Completed (1 commit, 1996 PASS 유지, push 완료)**:
+- [x] **FateSubstrateAssertions helper + design-docs pre-flight checklist** (`013061e`) — 7 files / +143/-61:
+  - `tests/helpers/fate_substrate_assertions.gd` 신규 (84 lines, `class_name FateSubstrateAssertions extends RefCounted`) — `assert_substrate_present(suite, field_name, var_name, chapter_label)` static method 가 production source 의 3-layer grep (declaration / `<var> += 1` increment / `"<field>": <var>` fate_data emit). chapter_label 가 failure message 에 포함 → cross-chapter 진단 명확.
+  - ch10/ch13/ch16 sentinel test 의 3-layer grep tests refactor — 18-23 lines/test → 4 lines/test. unused `GRID_CONTROLLER_PATH` const 3 file 모두 제거. ch08 는 `_fate_win_within_turns = ` (`=` set 가 아닌 `+=` 패턴) 라 generic helper 적용 불가 — inline 유지 + comment cross-ref.
+  - `.claude/rules/design-docs.md` amendment: paths 에 `design/quick-specs/**` 추가 (기존은 gdd/만 cover, 본 컨버세이션의 ch05/ch08/ch10 spec 들은 quick-specs/) + §"Pre-Flight Checklist" 신규 (50 lines, 3 checks before drafting):
+    1. Pillar lock + critical lint inventory (`grep 'Pillar|CRITICAL|KEEP forever' ADR + lint`) — ch05 §8 OQ-9 codification
+    2. fate_data emit substrate verification (`grep '"<field>":' grid controller`) — ch08 §8 OQ-8 codification
+    3. Recommended path framing for design questions (single recommended + 3-option confirm, avoid stacked AskUserQuestion grids) — S82 mid-session feedback codification
+  - 각 instance 의 historical cost 명시 (~30-90 min/instance vs ~2-5 min pre-flight). ROI heavily favors pre-flight discipline.
+
+**Outcome**: 4 stable patterns 중 2개 codification 잠금 완료. 향후 spec authoring 작업 + chapter ★ sentinel work 모두 reusable helper + standardized pre-flight 활용 가능. Production behavior 0 change — pure infrastructure investment.
+
+**Codification series status**:
+- ✅ Spec authoring pre-flight checklist (3 instances → design-docs.md amendment)
+- ✅ Substrate 3-layer grep sentinel (4 instances → FateSubstrateAssertions helper)
+- ⏳ Entity-less e2e recipe (5 instances stable, helper extraction deferred — 5 file refactor 가 substantial work, S86 candidate)
+- ⏳ Substrate add 3-layer pattern (2 instances, 3rd 가 lands 시 ADR template subsection)
+
+**S85 → S86+ carry-over**:
+- **#4 Manual playtest** (사용자, ~10-15 min) — 5 ★ trigger 모두 felt validation. **가장 시급한 next** — 본 컨버세이션 24 commits 의 player-felt 검증.
+- **#6 S19-D windowed playthrough** (사용자, ~8분 + Bug bash) — 전체 vertical-slice 재 attest.
+- **Entity-less e2e recipe helper extraction** (~30분, 5 file refactor) — `tests/helpers/destiny_branch_fixtures.gd` 의 `make_ch05_fixture` / `make_ch08_fixture` / ... 같은 reusable factory. ch05+ch08+ch10+ch13+ch16 e2e test 들 refactor.
+- **Full Vision** — ch20-22 cascade-block ADR / hero balance / banter 확장 / Wei line / ch24/25 salvage register.
+
+**Operational observation (S85)**:
+- **Refactor commit 의 anatomical cleanness**: codification 의 refactor 가 단일 commit 으로 3 file behavior 변화 0, production code 변화 0, full suite PASS 유지. 안전한 infrastructure work 의 reference pattern — 향후 helper extraction / standardization work 도 같은 cadence (helper 신규 + 사용처 refactor + rule amendment + verify + commit) 가능.
+- **Codification 의 ROI 명시**: design-docs.md amendment 의 pre-flight check 3개가 모두 본 컨버세이션의 spec authoring 실수 historical cost (30-90분 × 3 instance ≈ 1.5-4.5 hour debt) 위에 세워졌음. 본 amendment 작성에 ~10분 — 향후 1 instance 만 catch 해도 break-even, 그 이후는 모두 ROI.
+
 ## Reference
 
 - 6-lens assessment 원본: 2026-05-22 S73 session (Producer / Game Designer / QA Lead / Technical Director / Art Director / Narrative Director 병렬 spawn)
