@@ -2109,6 +2109,24 @@ func _handle_defend_stance_input() -> void:
 #                                    so their NEXT turn force-WAITs (cross-round
 #                                    lock). Does NOT spend caster ATK (tempo skill).
 #
+# S86 G2 — Shu 명장 4 skill wired (2026-05-25):
+#   - skill_fire_strategy   (제갈량): 20 damage + slow status to all enemies within
+#                                    Manhattan ≤ 3 (spends ATK). 박망파/적벽 화공 narrative.
+#   - skill_lone_lance      (조운):  next attack +75% damage IF caster has no
+#                                    adjacent allies at attack resolution time
+#                                    (8-neighbor check). Differs from dragon_blade
+#                                    by being conditional (alone) + stronger
+#                                    multiplier. ATK token NOT spent. 단신 돌격
+#                                    narrative.
+#   - skill_xiliang_charge  (마초):  20 damage to enemies in any of 4 cardinal-
+#                                    direction lines (Manhattan ≤ 3) from caster.
+#                                    Cross-shape AoE; spends ATK. 서량 기병 돌파.
+#   - skill_successor_strategy (강유): pick highest-damage (lowest HP) ally within
+#                                    Manhattan ≤ 4 → 25 HP heal + refund action
+#                                    token (free attack/move this round). Differs
+#                                    from inspire (adjacent-all) by single-target +
+#                                    heal. ATK token NOT spent. 후계자 strategy.
+#
 # Design notes:
 #  - dragon_blade does NOT spend the ATK token — the player still has to attack
 #    after activating it. Combo: select 관우 → S → click enemy → big damage.
@@ -2129,6 +2147,14 @@ var _dragon_blade_pending: Dictionary[int, bool] = {}
 ## (one-shot, no ATK token consumed by skill itself — player must follow with
 ## an attack to cash in). Cinematic intent: ignored defenses, devastating strike.
 var _rebel_charge_pending: Dictionary[int, bool] = {}
+
+## S86 G2 — 조운 (SCOUT/CAVALRY) skill_lone_lance: 단신 돌격 narrative. Mirrors
+## dragon_blade pattern (pending flag → consumed by next _resolve_attack) but
+## with a CONDITIONAL trigger: only fires when the caster has zero adjacent
+## allies (8-neighbor check) AT attack resolution time. If the lone-ness
+## condition fails, the pending flag is consumed silently with no bonus —
+## one-shot is gone, player must position 조운 alone for the +75% payout.
+var _lone_lance_pending: Dictionary[int, bool] = {}
 
 
 ## S-key entry point. Mirrors _handle_defend_stance_input — routes the use_skill
@@ -2186,6 +2212,14 @@ func use_skill(unit_id: int) -> bool:
 			fired = _skill_strategist(unit)
 		&"skill_naval_strategy":
 			fired = _skill_naval_strategy(unit)
+		&"skill_fire_strategy":
+			fired = _skill_fire_strategy(unit)
+		&"skill_lone_lance":
+			fired = _skill_lone_lance(unit)
+		&"skill_xiliang_charge":
+			fired = _skill_xiliang_charge(unit)
+		&"skill_successor_strategy":
+			fired = _skill_successor_strategy(unit)
 		_:
 			push_warning("GridBattleController.use_skill: unwired skill_id '%s' on unit %d — no-op"
 				% [String(unit.skill_id), unit_id])
@@ -2508,6 +2542,119 @@ func _skill_naval_strategy(unit: BattleUnit) -> bool:
 		else:
 			# Already acted — lock their NEXT turn via _pending_stun gate
 			_pending_stun[victim.unit_id] = true
+	return true
+
+
+## S86 G2 — 제갈량 (STRATEGIST) skill_fire_strategy: 박망파/적벽 화공 narrative.
+## 20 fixed damage + slow status to every alive enemy within Manhattan ≤ 3 of
+## caster. Spends ATK token (terminal action). Differs from skill_strategist
+## (조조, battlefield-wide 15 damage no status) by trading map-coverage for
+## range-3 + slow debuff — strategists with positional flair.
+func _skill_fire_strategy(unit: BattleUnit) -> bool:
+	var fire_damage: int = 20
+	var fire_range: int = 3
+	var any_hit: bool = false
+	for victim: BattleUnit in _units.values():
+		if victim.side == unit.side:
+			continue
+		if not _hp_controller.is_alive(victim.unit_id):
+			continue
+		var dx: int = absi(victim.position.x - unit.position.x)
+		var dy: int = absi(victim.position.y - unit.position.y)
+		if dx + dy > fire_range:
+			continue
+		_last_attacker_id = unit.unit_id
+		_hp_controller.apply_damage(victim.unit_id, fire_damage,
+			ResolveModifiers.AttackType.MAGICAL, [&"skill"] as Array[StringName])
+		_damage_dealt_by_unit[unit.unit_id] = \
+			_damage_dealt_by_unit.get(unit.unit_id, 0) + fire_damage
+		damage_applied.emit(unit.unit_id, victim.unit_id, fire_damage)
+		_apply_status_with_signal(victim.unit_id, &"slow", unit.unit_id)
+		any_hit = true
+	_acted_this_turn[unit.unit_id] = true
+	if _turn_runner != null and _turn_runner.has_method("declare_action"):
+		_turn_runner.declare_action(unit.unit_id,
+			TurnOrderRunner.ActionType.ATTACK if any_hit else TurnOrderRunner.ActionType.WAIT,
+			null)
+	return true
+
+
+## S86 G2 — 조운 (SCOUT/CAVALRY) skill_lone_lance: 단신 돌격 narrative. Pending
+## flag pattern (mirror of dragon_blade) BUT conditional: +75% multiplier only
+## applies when 조운 has zero adjacent allies (8-neighbor) at attack resolution.
+## If lone-ness fails the pending is consumed silently. ATK token NOT spent.
+func _skill_lone_lance(unit: BattleUnit) -> bool:
+	_lone_lance_pending[unit.unit_id] = true
+	return true
+
+
+## S86 G2 — 마초 (CAVALRY) skill_xiliang_charge: 서량 기병 돌파 narrative.
+## Cross-shape AoE — 20 damage to enemies on any cardinal axis (dx == 0 OR
+## dy == 0) within Manhattan ≤ 3. Diagonal-only positions immune. Spends ATK.
+## Differs from thunder_roar (장비 adjacency ring) + fire_strategy (제갈량
+## full disc) by being axis-restricted line-shaped damage.
+func _skill_xiliang_charge(unit: BattleUnit) -> bool:
+	var charge_damage: int = 20
+	var charge_range: int = 3
+	var any_hit: bool = false
+	for victim: BattleUnit in _units.values():
+		if victim.side == unit.side:
+			continue
+		if not _hp_controller.is_alive(victim.unit_id):
+			continue
+		var dx: int = absi(victim.position.x - unit.position.x)
+		var dy: int = absi(victim.position.y - unit.position.y)
+		if dx != 0 and dy != 0:
+			continue
+		if dx + dy > charge_range or dx + dy < 1:
+			continue
+		_last_attacker_id = unit.unit_id
+		_hp_controller.apply_damage(victim.unit_id, charge_damage,
+			ResolveModifiers.AttackType.PHYSICAL, [&"skill"] as Array[StringName])
+		_damage_dealt_by_unit[unit.unit_id] = \
+			_damage_dealt_by_unit.get(unit.unit_id, 0) + charge_damage
+		damage_applied.emit(unit.unit_id, victim.unit_id, charge_damage)
+		any_hit = true
+	_acted_this_turn[unit.unit_id] = true
+	if _turn_runner != null and _turn_runner.has_method("declare_action"):
+		_turn_runner.declare_action(unit.unit_id,
+			TurnOrderRunner.ActionType.ATTACK if any_hit else TurnOrderRunner.ActionType.WAIT,
+			null)
+	return true
+
+
+## S86 G2 — 강유 (STRATEGIST) skill_successor_strategy: 제갈량 후계자 narrative.
+## Pick the lowest-HP alive ally within Manhattan ≤ 4 of caster (excluding
+## caster). Heal 25 HP + refund their action token. Differs from inspire
+## (유비 adjacent-all refund only) by trading width for depth — single target
+## gets BOTH heal + refund. Does NOT spend caster ATK token (tempo skill).
+func _skill_successor_strategy(unit: BattleUnit) -> bool:
+	var heal_amount: int = 25
+	var support_range: int = 4
+	var best_ally: BattleUnit = null
+	var best_hp_deficit: int = -1
+	for ally: BattleUnit in _units.values():
+		if ally.side != unit.side:
+			continue
+		if ally.unit_id == unit.unit_id:
+			continue
+		if not _hp_controller.is_alive(ally.unit_id):
+			continue
+		var dx: int = absi(ally.position.x - unit.position.x)
+		var dy: int = absi(ally.position.y - unit.position.y)
+		if dx + dy > support_range:
+			continue
+		var current_hp: int = _hp_controller.get_current_hp(ally.unit_id) if _hp_controller.has_method("get_current_hp") else 0
+		var max_hp: int = _hp_controller.get_max_hp(ally.unit_id) if _hp_controller.has_method("get_max_hp") else current_hp
+		var deficit: int = max_hp - current_hp
+		if deficit > best_hp_deficit:
+			best_hp_deficit = deficit
+			best_ally = ally
+	if best_ally == null:
+		return true
+	if _hp_controller.has_method("apply_heal"):
+		_hp_controller.apply_heal(best_ally.unit_id, heal_amount, unit.unit_id)
+	_acted_this_turn[best_ally.unit_id] = false
 	return true
 
 
@@ -3037,6 +3184,26 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 	if rebel_charge_active and result.kind == ResolveResult.Kind.HIT:
 		final_damage = roundi(float(final_damage) * 1.50)
 		_rebel_charge_pending[attacker.unit_id] = false
+	# S86 G2 조운 skill_lone_lance: +75% post-damage IF caster has zero adjacent
+	# allies at this resolution moment (8-neighbor). Pending consumed regardless
+	# of whether lone-ness gate passed — one-shot is gone after the swing.
+	if _lone_lance_pending.get(attacker.unit_id, false) and result.kind == ResolveResult.Kind.HIT:
+		var alone: bool = true
+		for ally: BattleUnit in _units.values():
+			if ally.side != attacker.side:
+				continue
+			if ally.unit_id == attacker.unit_id:
+				continue
+			if not _hp_controller.is_alive(ally.unit_id):
+				continue
+			var ady: int = absi(ally.position.y - attacker.position.y)
+			var adx: int = absi(ally.position.x - attacker.position.x)
+			if adx <= 1 and ady <= 1:
+				alone = false
+				break
+		if alone:
+			final_damage = roundi(float(final_damage) * 1.75)
+		_lone_lance_pending[attacker.unit_id] = false
 	if result.kind == ResolveResult.Kind.HIT and final_damage < 1:
 		final_damage = 1  # ensure HIT delivers minimum 1 damage post-rounding
 

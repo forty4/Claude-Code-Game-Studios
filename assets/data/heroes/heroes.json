@@ -89,7 +89,7 @@
     "portrait_id": "portrait_shu_zhuge_liang", "battle_sprite_id": "sprite_shu_zhuge_liang",
     "stat_might": 50, "stat_intellect": 99, "stat_command": 95, "stat_agility": 65,
     "base_hp_seed": 65, "base_initiative_seed": 72,
-    "move_range": 3,
+    "move_range": 4,
     "default_class": 3, "equipment_slot_override": [],
     "growth_might": 0.8, "growth_intellect": 1.6, "growth_command": 1.4, "growth_agility": 0.9,
     "innate_skill_ids": ["skill_fire_strategy", "skill_empty_fort"], "skill_unlock_levels": [1, 5],
