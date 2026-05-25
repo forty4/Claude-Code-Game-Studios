@@ -1239,6 +1239,121 @@ func _on_unit_moved(...) -> void:
 
 ---
 
+## G-32 — InputRouter `_did_visible_work` emit gate: action declared in vocabulary but missing from per-state arm silently drops via `input_action_fired` gate
+
+**Context**: adding a new grid action to the InputRouter's `ACTIONS_BY_CATEGORY["grid"]` (or `_GRID_ACTIONS_S5`) vocabulary. The action is bound in `default_bindings.json`, recognized by `_handle_event` at the InputMap layer ([KEY-DIAG] logs show MATCH), and dispatched into `_handle_action(action, ctx)`. But the per-state arm functions (`_handle_action_in_s0` / `_handle_action_in_s1` / etc.) have NO `&"<action>":` match arm for the new action. The action is mentioned ONLY in the vocabulary const, never in any arm body.
+
+**Broken**: `_handle_action` resets `_did_visible_work = false` at dispatch entry (line 904), calls the relevant `_handle_action_in_sN` arm, then gates the emit at the epilogue:
+
+```gdscript
+func _handle_action(action: StringName, ctx: InputContext) -> void:
+    var prev_state: InputState = _state
+    _did_visible_work = false  # reset per dispatch
+    match _state:
+        InputState.OBSERVATION:    _handle_action_in_s0(action, ctx)
+        InputState.UNIT_SELECTED:  _handle_action_in_s1(action, ctx)
+        # ... etc
+    if _state != prev_state:
+        _did_visible_work = true   # auto-set on state change
+        GameBus.input_state_changed.emit(int(prev_state), int(_state))
+    if _did_visible_work:                                    # ← THE GATE
+        GameBus.input_action_fired.emit(action, ctx)          # ← silently skipped
+```
+
+If the per-state arm has no `&"<action>":` match arm at all, the GDScript `match` falls through with no side-effect. `_did_visible_work` stays false. The state doesn't change (no auto-set). The emit at line ~925 is silently skipped. Subscribers (GridBattleController, BattleHUD, ...) NEVER receive `input_action_fired(&"<action>", ctx)` — the action is undiscoverable by every downstream consumer despite being a fully valid InputMap action with a working key binding.
+
+```gdscript
+# BROKEN — &"use_skill" in vocabulary, bound to "S" key, [KEY-DIAG] shows MATCH,
+# but no match arm in S0 or S1 → emit gate drops every press silently.
+func _handle_action_in_s1(action: StringName, ctx: InputContext) -> void:
+    match action:
+        &"unit_select":
+            _did_visible_work = true
+        &"move_target_select":
+            # ... state transition ...
+            _state = InputState.MOVEMENT_PREVIEW
+        # ... etc ...
+        # NO arm for &"use_skill" → falls through → _did_visible_work stays false
+        # → emit gate at _handle_action epilogue drops the press → controller
+        # _on_input_action_fired never sees it → skill never fires.
+```
+
+The bug is invisible at multiple diagnostic layers:
+1. **InputMap level**: action is registered + bound; [KEY-DIAG] trace shows `MATCH action=use_skill keycode=83`.
+2. **Dispatch level**: `_handle_action(&"use_skill", ctx)` runs; the match-on-state branch fires the correct arm.
+3. **Arm level**: arm function runs; `match action: ...` falls through with no matching arm.
+4. **Emit level**: gate at line ~925 sees `_did_visible_work=false`, drops.
+5. **Subscriber level**: controller never sees the action.
+
+The misleading trace at level 1 ("MATCH") makes the developer believe input is working. Level 2's correct dispatch makes the developer believe routing is working. The actual drop is at level 3-4, invisible without source-reading the arm body.
+
+**Correct**: every action declared in `ACTIONS_BY_CATEGORY["grid"]` must appear as a `&"<action>":` match arm in EITHER `_handle_action_in_s0` OR `_handle_action_in_s1` (the two player-facing states where grid actions originate). If the action is intentionally a no-op in a specific state (e.g. `move_confirm` makes no sense in S0), the action still needs to be DESIGNATED somewhere — either as an explicit no-op match arm with a comment OR with `_did_visible_work = true` if the action should produce a subscriber notification despite no state change.
+
+The S86 fix for `use_skill` + `defend_stance` (the gotcha-discovery commit):
+
+```gdscript
+# CORRECT — S0 arm now handles use_skill / defend_stance for selection-less fallback.
+func _handle_action_in_s0(action: StringName, ctx: InputContext) -> void:
+    match action:
+        # ... existing arms ...
+        &"use_skill", &"defend_stance":
+            # S86 — S0 accepts these actions too so the player can press S/D/1/2
+            # the moment their turn starts, without first clicking the unit. The
+            # controller's selection-less fallback handlers take over from there.
+            _did_visible_work = true
+        # All other actions in S0: silent no-op
+```
+
+```gdscript
+# CORRECT — S1 arm explicitly flips _did_visible_work for skill/defend press.
+func _handle_action_in_s1(action: StringName, ctx: InputContext) -> void:
+    match action:
+        # ... existing arms ...
+        &"use_skill", &"defend_stance":
+            # S86 — gate-fix: pre-S86 these actions were declared in _GRID_ACTIONS
+            # and matched at InputMap level ([KEY-DIAG] MATCH ...) but they had no
+            # per-state arm here, so `_did_visible_work` stayed false and the
+            # GameBus.input_action_fired.emit gate at line ~925 dropped them
+            # silently — controller never saw the skill/defend press.
+            _did_visible_work = true
+        # All other actions in S1: silent no-op
+```
+
+**Symptom checklist** — if a new grid action's binding is observably broken at the gameplay layer (key press has no effect) despite:
+1. The action being declared in `ACTIONS_BY_CATEGORY["grid"]`
+2. The key being bound in `default_bindings.json` (and possibly via PlayerBindings overrides)
+3. `[KEY-DIAG]` trace logs (or equivalent) showing the InputMap-level MATCH firing for the keycode → action
+4. The controller's `_on_input_action_fired` handler existing and being connected
+
+…then suspect G-32 and grep:
+
+```bash
+# Suspect action is missing from per-state arms — verify
+grep -nE '&"<action_name>"' src/foundation/input_router.gd
+# If the only matches are in vocabulary consts (ACTIONS_BY_CATEGORY / _GRID_ACTIONS_S5)
+# and the action does NOT appear in any _handle_action_in_sN body → G-32 confirmed.
+# Fix: add &"<action>": arm with _did_visible_work = true to the relevant state arm(s).
+```
+
+**Diagnostic cost**: 3 successive incorrect hypotheses before S86 root cause confirmed (per S86 milestone log timeline):
+1. **Hypothesis 1**: macOS Korean IME intercepts S key → added numeric 1/2 alternative bindings → user verify: 1/2 also non-functional → IME hypothesis refuted.
+2. **Hypothesis 2**: input_router level — added `[KEY-DIAG]` trace → keycode arrives + InputMap MATCH fires → controller routing problem suspected.
+3. **Hypothesis 3**: controller level — added `[USE_SKILL]` trace → handler entry trace = 0 occurrences → InputRouter's emit gate silently blocking suspected.
+4. **Source read**: `_handle_action` line 924 `if _did_visible_work: emit(...)` discovered → `_handle_action_in_s1` match arm body inspected → no arm for `use_skill` → G-32 root cause confirmed.
+
+Total diagnostic time was ~3 hours across multiple sessions. The bug is structurally "easy to introduce + hard to spot": adding the action to the vocabulary const is the natural first step when wiring a new key, and the gap (missing arm) doesn't surface at parse time, compile time, headless test time, OR InputMap binding time. Only at runtime in windowed mode + only via subscriber-absence-of-handler-entry — exactly the trace-poorest layer.
+
+**Lint candidate**: `tools/ci/lint_input_router_action_arm_coverage.sh` (codified at S88) enumerates `ACTIONS_BY_CATEGORY["grid"]` entries and asserts each appears in at least one `_handle_action_in_sN` body. The lint catches the exact S86 trap pattern (action in vocabulary, absent from every arm). Suppressing intentional total-absence (rare — would mean "vocabulary-only registration for non-state-dispatched action") requires an inline comment or removal from `ACTIONS_BY_CATEGORY["grid"]`.
+
+**Cross-references**:
+- G-30 — META-pattern: headless PASS doesn't gate windowed lifecycle behavior. G-32 is a specific G-30 instance: every existing test pre-S86 passed because tests synthesize `input_action_fired` directly without exercising the `_handle_action` emit gate.
+- G-4 — GDScript lambda captures: indirectly relevant because the per-arm `_did_visible_work = true` MUST be a direct statement, not via a lambda capture (which would fail to propagate the write per G-4). Direct field assignment is fine.
+- TG-3 — awk range pattern self-closing: the lint script's awk extraction of grid actions uses the flag/next pattern (NOT range pattern) for this reason.
+
+**Discovered**: S86 (2026-05-25) input gate fix. Codified at S88 (2026-05-25) — pattern stable at 1 instance but high diagnostic cost (3 incorrect hypotheses + ~3 hours total) justifies eager codification rather than waiting for a 2nd occurrence. Cross-ref: S86 milestone log entry §"3차 진단 timeline" + S86 carry-over #2 "InputRouter codification candidate".
+
+---
+
 ## Verification Pattern Summary
 
 When testing changes that touch any of the above areas, always:
