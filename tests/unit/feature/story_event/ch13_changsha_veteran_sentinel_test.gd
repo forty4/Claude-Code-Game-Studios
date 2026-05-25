@@ -14,7 +14,6 @@ extends GdUnitTestSuite
 
 
 const SCENARIO_PATH: String = "res://assets/data/scenarios/shu_canon_main.json"
-const GRID_CONTROLLER_PATH: String = "res://src/feature/grid_battle/grid_battle_controller.gd"
 
 
 func _load_chapter() -> Dictionary:
@@ -60,21 +59,8 @@ func test_ch13_branch_table_and_routing_locks() -> void:
 
 
 func test_ch13_wei_yan_spared_turns_substrate_present_in_controller() -> void:
-	# AC — substrate guarantee for ★ trigger. ch13's ★ requires
-	# `_fate_wei_yan_spared_turns` declaration + increment site + fate_data emit.
-	# Future refactor 가 어떤 layer 라도 drop 시 본 test 즉시 fail.
-	var src: String = FileAccess.get_file_as_string(GRID_CONTROLLER_PATH)
-	assert_str(src).is_not_empty()
-	# 1. Declaration
-	assert_bool(src.contains("var _fate_wei_yan_spared_turns")).override_failure_message(
-		"grid_battle_controller.gd missing _fate_wei_yan_spared_turns declaration"
-	).is_true()
-	# 2. Increment site
-	assert_bool(src.contains("_fate_wei_yan_spared_turns += 1")).override_failure_message(
-		"grid_battle_controller.gd missing _fate_wei_yan_spared_turns increment site — "
-		+ "ch13 ★ trigger substrate broken (Plan §4.4)"
-	).is_true()
-	# 3. fate_data emit
-	assert_bool(src.contains('"wei_yan_spared_turns": _fate_wei_yan_spared_turns')).override_failure_message(
-		"grid_battle_controller.gd missing fate_data 'wei_yan_spared_turns' emit"
-	).is_true()
+	# AC — substrate 3-layer guarantee via FateSubstrateAssertions helper
+	# (S85 codification, 4-instance pattern extraction).
+	FateSubstrateAssertions.assert_substrate_present(
+		self, "wei_yan_spared_turns", "_fate_wei_yan_spared_turns", "13"
+	)

@@ -13,7 +13,6 @@ extends GdUnitTestSuite
 
 
 const SCENARIO_PATH: String = "res://assets/data/scenarios/shu_canon_main.json"
-const GRID_CONTROLLER_PATH: String = "res://src/feature/grid_battle/grid_battle_controller.gd"
 
 
 func _load_chapter() -> Dictionary:
@@ -71,15 +70,8 @@ func test_ch16_victory_conditions_survive_rounds_4_unchanged() -> void:
 
 
 func test_ch16_scout_first_turns_substrate_present_in_controller() -> void:
-	var src: String = FileAccess.get_file_as_string(GRID_CONTROLLER_PATH)
-	assert_str(src).is_not_empty()
-	assert_bool(src.contains("var _fate_scout_first_turns")).override_failure_message(
-		"grid_battle_controller.gd missing _fate_scout_first_turns declaration"
-	).is_true()
-	assert_bool(src.contains("_fate_scout_first_turns += 1")).override_failure_message(
-		"grid_battle_controller.gd missing _fate_scout_first_turns increment site — "
-		+ "ch16 ★ trigger substrate broken (Plan §4.5)"
-	).is_true()
-	assert_bool(src.contains('"scout_first_turns": _fate_scout_first_turns')).override_failure_message(
-		"grid_battle_controller.gd missing fate_data 'scout_first_turns' emit"
-	).is_true()
+	# substrate 3-layer guarantee via FateSubstrateAssertions helper
+	# (S85 codification, 4-instance pattern extraction).
+	FateSubstrateAssertions.assert_substrate_present(
+		self, "scout_first_turns", "_fate_scout_first_turns", "16"
+	)

@@ -17,7 +17,6 @@ extends GdUnitTestSuite
 
 
 const SCENARIO_PATH: String = "res://assets/data/scenarios/shu_canon_main.json"
-const GRID_CONTROLLER_PATH: String = "res://src/feature/grid_battle/grid_battle_controller.gd"
 
 
 func _load_chapter() -> Dictionary:
@@ -83,23 +82,8 @@ func test_ch10_victory_conditions_survive_5_unchanged() -> void:
 
 
 func test_ch10_player_casualties_substrate_present_in_controller() -> void:
-	# AC-5 — substrate guarantee for ★ trigger. ch10's ★ requires
-	# `_fate_player_casualties` declaration + increment site (in _on_unit_died,
-	# player-side filter) + fate_data emit. Future refactor 가 어떤 layer 라도
-	# drop 시 본 test 즉시 fail.
-	var src: String = FileAccess.get_file_as_string(GRID_CONTROLLER_PATH)
-	assert_str(src).is_not_empty()
-	# 1. Declaration
-	assert_bool(src.contains("var _fate_player_casualties")).override_failure_message(
-		"grid_battle_controller.gd missing _fate_player_casualties declaration "
-		+ "(S84 substrate add regression)"
-	).is_true()
-	# 2. Increment site
-	assert_bool(src.contains("_fate_player_casualties += 1")).override_failure_message(
-		"grid_battle_controller.gd missing _fate_player_casualties increment site — "
-		+ "ch10 ★ trigger substrate broken (Plan §4.3)"
-	).is_true()
-	# 3. fate_data emit
-	assert_bool(src.contains('"player_casualties": _fate_player_casualties')).override_failure_message(
-		"grid_battle_controller.gd missing fate_data 'player_casualties' emit"
-	).is_true()
+	# AC-5 — substrate 3-layer guarantee via FateSubstrateAssertions helper
+	# (S85 codification, 4-instance pattern extraction).
+	FateSubstrateAssertions.assert_substrate_present(
+		self, "player_casualties", "_fate_player_casualties", "10"
+	)

@@ -125,18 +125,15 @@ func test_ch08_branch_table_and_routing_locks() -> void:
 
 
 func test_ch08_win_within_turns_substrate_present_in_controller() -> void:
-	# AC-6 — substrate 정합 검증. ch08 ★ trigger 의 substrate guarantee 는
-	# grid_battle_controller.gd 가 fate_data 에 `win_within_turns` field 를
-	# emit 한다는 것. spec §3.3 의 검증 완료 사항을 lint-style sentinel 로
-	# lock — production source 가 future refactor 에서 emit 라인을 drop 시
-	# 본 test 가 즉시 fail.
+	# AC-6 — substrate 정합 검증 via FateSubstrateAssertions (S85 helper, 4-instance
+	# pattern extraction). NOTE: ch08 uses `_fate_win_within_turns = ` (auto-set
+	# at VICTORY, NOT `+= 1`) — so we cannot use the generic 3-layer helper as-is.
+	# Direct grep for the 2 critical layers (declaration + emit; set-site is
+	# `=` not `+=`).
 	var src: String = FileAccess.get_file_as_string(GRID_CONTROLLER_PATH)
 	assert_str(src).override_failure_message(
 		"grid_battle_controller.gd not loadable: %s" % GRID_CONTROLLER_PATH
 	).is_not_empty()
-	# Substring guarantees:
-	#   1. fate_data dict literal contains `"win_within_turns": _fate_win_within_turns,`
-	#   2. `_fate_win_within_turns =` set site exists (VICTORY outcome auto-set)
 	assert_bool(src.contains('"win_within_turns": _fate_win_within_turns')).override_failure_message(
 		"grid_battle_controller.gd missing fate_data 'win_within_turns' emit — "
 		+ "ch08 ★ trigger substrate broken (spec §3.3 / AC-6)"
