@@ -1,8 +1,9 @@
 # Strategy Systems — 도구 · 책략권 · 행동 연쇄
 
-> **Status**: In Design — **v0.2 (S89 close — narrow re-review applied)**
-> **Author**: claude (S89 user-driver collaborative draft + 3-specialist narrow re-review fix application)
-> **Last Updated**: 2026-05-26 (S89 close — v0.2 narrow re-review close-out)
+> **Status**: In Design — **v0.3 (S89 close — INT scale alignment + INT_BASELINE lock)**
+> **Author**: claude (S89 user-driver collaborative draft + 3-specialist narrow re-review fix + INT_BASELINE adjudication)
+> **Last Updated**: 2026-05-26 (S89 close — v0.3 INT alignment with heroes.json stat_intellect)
+> **Change log (v0.2 → v0.3)**: hero-database.md INT sweep audit revealed `stat_intellect` field already exists for all 19 named heroes (0-100 scale per ADR-0007). v0.2 의 INT 5-9 abstract scale 표기를 v0.3 에서 stat_intellect 0-100 직접 매핑으로 변경 — 데이터 중복 제거 + cross-doc grep 가능. User adjudicated INT_BASELINE = **60** (보더라인): 장비/허저/여포 (stat_intellect=50) 거부 + 관우/황충/마초 (60) 통과 + 위연/우금 (65) 통과 + 조운/유비/초선 (75) 이상 통과. Pillar #3 보호 (무력형 극단 차단) + 대부분 hero cross-class 책략 가능성 균형.
 > **Change log (v0.1 → v0.2)**: 3-specialist narrow re-review (godot-gdscript-specialist + ux-designer + qa-lead) returned NEEDS REVISION × 2 + CONCERNS × 1 with 11 blocking findings. All 11 resolved via specialist-authored fix language. 2 user adjudications (binding): (A) Inventory panel anchor = Option B (bottom-center modal); (B) `command_scroll` DEFERRED to Phase 4+ — Phase B MVP item set reduced to 4 (heal_potion / strength_scroll / march_scroll / fire_scroll). Review log: `design/gdd/reviews/strategy-systems-review-log.md`.
 > **Implements Pillar**: **Pillar 5 (전략적 조합 — Strategic Combinations)** primary; Pillar 1 (형세의 전술 — 책략권의 적정 사용은 적 형세 와해의 도구) supporting; Pillar 3 (역할 차별화 — 책략권 class 제한으로 강화) supporting
 > **Depends on**: Turn Order (`ActionType` enum + `declare_action`), Grid Battle (per-unit context + adjacency), Damage Calc (`ResolveModifiers` field extension — see §6.1 cross-doc obligation), Hero Database (per-hero starting inventory + class + **INT sweep required pre-Phase-B**), Save/Load (per-chapter inventory state), Scenario Progression (chapter loot bundles)
@@ -14,6 +15,7 @@
 > (5) **Pillar #3 보호**: 책략권 = class 제한 + 일회성 + 휴대 한계. "강캐 한 명 모든 책 들고 무쌍" 차단.
 > (6) **v0.2 inventory panel anchor**: Option B (bottom-center modal) — UI-GB-02 action menu 과 동일 bottom-HUD vocabulary 통일 (ux-designer 추천 + user adjudicated).
 > (7) **v0.2 command_scroll defer**: turn-queue mid-round mutation 은 TurnOrderRunner hard invariant. Phase 4+ 로 defer. 4 MVP item 으로 Pillar #5 입증.
+> (8) **v0.3 INT_BASELINE = 60**: stat_intellect 0-100 scale 의 보더라인. 무력형 극단 (장비/허저/여포 50) 거부 + 중급 (관우/황충/마초 60) 통과. Pillar #3 보호 + cross-class 책략 가능성 균형. `INT_BASELINE` 상수는 `damage-calc.md` rev 2.9.4 에 등재 (cross-doc obligation §6.3).
 
 ---
 
@@ -69,9 +71,9 @@ Strategy Systems는 영걸전 (KOEI Heroes Saga) 의 핵심 전략적 재미 —
 
 #### 3.2.3 Scroll / 책 / 책략권 (Cross-class skill grant)
 - 사용 시 hero 의 평소 class 가 사용할 수 없는 skill 1회 발화.
-- **Class 제한**: 각 책은 사용 가능 class 제한 + 일부는 INT 스탯 ≥ 임계치 (Pillar #3 보호).
+- **Class 제한**: 각 책은 사용 가능 class 제한 + 일부는 `stat_intellect` ≥ 임계치 (Pillar #3 보호). **v0.3**: INT scale 은 heroes.json 의 `stat_intellect` field 직접 사용 (0-100 scale). v0.2 의 abstract 5-9 scale 폐기.
 - 사용 시 그 skill 의 일반 발화 로직 그대로 사용 — particle / SFX / damage 계산 모두 동일.
-- 예: 화공권 (fire_strategy 1회, INT ≥ 5 만), 회복권 (heal scroll, 누구나), 책략권 일반 (strategist 1회, INT ≥ 7 만).
+- 예: 화공권 (fire_strategy 1회, `stat_intellect` ≥ 60), 회복권 (heal scroll, 누구나), 책략권 일반 (strategist 1회, `stat_intellect` ≥ 85 만 — Phase C+).
 
 ### 3.3 Action Token Integration
 
@@ -196,8 +198,8 @@ All UI strings use this naming convention:
 
 Pillar 3 ("모든 무장에게 자리가 있다") 가 책략권 시스템의 가장 큰 risk. 다음 4개 mechanism 으로 보호:
 
-1. **Class 제한**: 모든 책은 `usable_by_class: Array[UnitClass]` 명시. e.g. 화공권은 [STRATEGIST, COMMANDER] 만. 무력형 (INFANTRY, CAVALRY) 은 들 수도 없음 (chapter inventory 에 distribute 시점 부터).
-2. **INT 임계**: 일부 강력한 책은 `int_requirement: int` 추가. e.g. 천공 (天工) 책은 INT ≥ 9 — 제갈량 / 방통 / 강유만.
+1. **Class 제한**: 모든 책은 `usable_by_class: Array[UnitClass]` 명시. e.g. 화공권은 [INFANTRY, CAVALRY, COMMANDER] 만 (STRATEGIST 와 SCOUT 는 native fire_strategy 보유 또는 차별화 정책 — 강유의 후계자 책략 STRATEGIST 가 화공권 사용 못함은 의도).
+2. **INT 임계 (v0.3 — 0-100 stat_intellect scale)**: 일부 강력한 책은 `int_requirement: int` (stat_intellect 비교). e.g. 화공권은 `stat_intellect ≥ 60` — 장비/허저/여포 (50) 거부 + 관우/황충/마초 (60) 통과. 천공 (天工) 책은 `stat_intellect ≥ 90` 만 — 제갈량 (99) / 방통 (95) / 강유 (90) 만 (Phase C+ 후보).
 3. **휴대 한계 3 slot**: 한 hero 가 모든 책을 휴대 불가. "이 hero 에게 어떤 책 줄지" 의 선택 압박.
 4. **Stacking 금지**: 동일 turn 에 multi-buff carry 불가 (위 §3.2.2). 새 buff 사용 시 기존 carry 덮어쓰기.
 
@@ -210,7 +212,7 @@ Pillar 3 ("모든 무장에게 자리가 있다") 가 책략권 시스템의 가
 | `heal_potion` | 회복초 | immediate | SELF | HP +25 | none | none | **B 필수** |
 | `strength_scroll` | 강공권 | buff | SELF | next attack/skill +50% | none | none | **B 필수** |
 | `march_scroll` | 행군초 | immediate | SELF | 즉시 +2 movement (이번 turn 의 잔여 move 한정) | none | none | **B 필수** |
-| `fire_scroll` | 화공권 | scroll | ALLY/ENEMY pos | fire_strategy skill 1회 발화 | INFANTRY, CAVALRY, COMMANDER 만 (STRATEGIST/SCOUT 불가 — STRATEGIST 는 native fire_strategy 보유) | INT ≥ 5 | **B 필수** |
+| `fire_scroll` | 화공권 | scroll | ALLY/ENEMY pos | fire_strategy skill 1회 발화 | INFANTRY, CAVALRY, COMMANDER 만 (STRATEGIST/SCOUT 불가 — STRATEGIST 는 native fire_strategy 보유) | `stat_intellect ≥ 60` | **B 필수** |
 | `revive_pill` | 부활단 | immediate | ALLY (downed) | HP 50% 부활 | none | none | C extension |
 | `accuracy_scroll` | 정확권 | buff | SELF | next attack accuracy +30 (또는 crit +25%) | none | none | C extension |
 | ~~`command_scroll`~~ | ~~작전권~~ | — | — | **DEFERRED to Phase 4+** per S89 user adjudication (turn-queue mid-round mutation = TurnOrderRunner hard invariant; ADR required). | — | — | **Phase 4+** |
@@ -252,16 +254,22 @@ if attacker.pending_buff.get(&"kind", &"") == &"strength" \
 
 ### 4.3 Scroll: `fire_scroll`
 ```
-# Validation
+# Validation (v0.3 — stat_intellect 0-100 scale)
 require attacker.unit_class in usable_by_class  # INFANTRY, CAVALRY, COMMANDER only
-require attacker.INT >= int_requirement  # default 5
+require attacker.stat_intellect >= int_requirement  # default 60 (= INT_BASELINE)
 # Effect — caster substituted into native fire_strategy resolve path
 call _resolve_skill_fire_strategy(caster=attacker, target_pos=ctx.target_pos)
 # Token: action_token_spent = true (이미 declare_action 에서 처리됨)
 ```
-**INT scaling clarification (godot R-2 fix)**: native fire_strategy 는 `damage_per_tile = base × (1 + (caster.INT - INT_BASELINE) × 0.05)` 형식이라고 가정 (damage-calc.md F-DC-X 참조 — Phase B 시작 시 정확한 native 공식 cross-doc 검증 필요). scroll 사용 시 동일 native 공식 그대로 적용 — 별도 multiplier 없음. 즉 INT 5 INFANTRY 관우가 fire_scroll 쓰면 native fire_strategy 와 동일하게 INT=5 baseline damage, INT 9 제갈량 native 사용 시 (9-5)×5% = +20% bonus. **No double counting** — scroll 은 단지 cross-class skill grant, INT scaling 은 native skill formula 의 일부.
+**INT scaling — v0.3 reference (godot R-2 fix)**: native fire_strategy 는 `damage_per_tile = base × (1 + (caster.stat_intellect - INT_BASELINE) × INT_SCALING_RATE)` 형식 (damage-calc.md rev 2.9.4 §F-DC-X 명시). **`INT_BASELINE = 60`** (v0.3 user adjudication). `INT_SCALING_RATE ≈ 0.005` (1 stat point = +0.5% — exact 값은 damage-calc.md rev 2.9.4 의 cross-doc obligation 으로 systems-designer 가 확정). scroll 사용 시 동일 native 공식 그대로 적용 — 별도 multiplier 없음. **No double counting** — scroll 은 단지 cross-class skill grant, INT scaling 은 native skill formula 의 일부.
 
-**Cross-doc obligation**: damage-calc.md 의 fire_strategy 공식 baseline (`INT_BASELINE` 상수) 이 명시되어야 함. 미명시 시 Phase B implementer 가 fire_scroll 사용 시 INT scaling 의 reference point 결정 못 함 — strategy-systems.md Phase B kickoff 전 damage-calc.md narrow re-review 권장.
+**예시** (stat_intellect 0-100 scale):
+- 관우 (INFANTRY, stat_intellect=60): 통과 → damage = base × 1.00 (baseline)
+- 황충 (ARCHER → fire_scroll 거부 class), 마초 (CAVALRY, 60): 통과 → base × 1.00
+- 위연 (INFANTRY, 65): 통과 → base × 1.025 (+2.5%)
+- 조운 (SCOUT → fire_scroll 거부 class — class 보호)
+- 제갈량 (STRATEGIST → fire_scroll 거부 class; native fire_strategy 사용 시 base × (1 + (99-60)×0.005) = base × 1.195)
+- **장비 (INFANTRY, stat_intellect=50): int_requirement 미달 → 거부** (Pillar #3 보호 — 무력형 극단 차단)
 
 ### 4.4 `march_scroll` (운동량)
 ```
@@ -332,7 +340,7 @@ Phase B 는 이 item 우회 가능 — 4 MVP items (heal/strength/march/fire) �
 | `damage-calc.md` §6.3 + §CR-1 | Add `pending_buff_magnitude: float = 1.0` field to ResolveModifiers + F-DC-5 P_mult product extension + §6.3 bidirectional ref to strategy-systems.md. Rev N (likely 2.9.4) | **YES — same rev-N patch as Phase B code** |
 | `design/ux/battle-hud.md` | Add 3 new UI-GB rows: UI-GB-15 (Inventory Panel anchor + dimensions + animation), UI-GB-16 (Active Buff Indicator — upper-right 16×16pt glyph), UI-GB-17 (Item Target Selection Overlay — 3 target_type palettes). Update §6.3 Touch Target Minimums table with 44pt inventory slot. | **YES — UI ADVISORY gate** |
 | `design/ux/accessibility-requirements.md` | Add R-6 token (Item use UI accessibility — touch ≥44pt + shape-distinct icons + reduce-motion + tooltip secondary). §7 System Dependencies add Strategy Systems row. | **YES — accessibility advisory** |
-| `hero-database.md` | **INT stat sweep across all 14+ heroes** — currently only partial. AC-SS-6 requires hero with INT=4 (위연 example), INT=5 (관우 example), INT=9 (제갈량 example). | **YES — Phase B AC-SS-6 blocker** |
+| `hero-database.md` | **RESOLVED v0.3 audit**: `stat_intellect` field 가 heroes.json 의 모든 19 named heroes 에 이미 존재 (0-100 scale, ADR-0007 per `Resource.set` reflection). 별도 sweep 불필요. v0.3 에서 GDD INT 표기를 stat_intellect 직접 매핑으로 통일. AC-SS-6 fixture 는 실제 stat_intellect 값 (관우 60 / 장비 50 / 제갈량 99 등) 사용. | **RESOLVED v0.3** |
 | `scenario-progression.md` | Add `starting_inventory_by_hero: Dictionary[StringName, Array]` field to ChapterDefinition resource. G-25 fix: inner Array untyped at field declaration, element type enforced at loader. | **YES — Phase B AC-SS-2 blocker** |
 | `save-load.md` | Extend SaveData schema with per-hero inventory snapshot + per-hero pending_buff snapshot. Round-trip test required. | **YES — Phase B AC-SS-2 EC-SS-9 blocker** |
 | `turn-order.md` | If separate doc, mention USE_ITEM action type addition. (turn_order.md is GDD #13 per systems-index; check whether ActionType enum doc lives there or in grid-battle.md) | **ADVISORY** — code edit on turn_order_runner.gd is the binding contract |
@@ -348,10 +356,11 @@ Phase B 는 이 item 우회 가능 — 4 MVP items (heal/strength/march/fire) �
 | `HEAL_POTION_AMOUNT` | 25 | [15, 40] | heal_potion HP 회복량. max_hp 기준 ~25% baseline. |
 | `STRENGTH_SCROLL_MULT` | 1.50 | [1.25, 2.00] | 강공권 attack multiplier. 1.50 = 의미있는 boost / 무쌍 안 됨 균형. |
 | `MARCH_SCROLL_BONUS` | 2 | [1, 4] | march_scroll 추가 move tile. 2 = 1 tile attack range 회피 / 적 진입 마무리. |
-| `FIRE_SCROLL_INT_BONUS` | 0.05 | [0.02, 0.10] | INT 1점 당 화공권 damage bonus 비율. 0.05 = INT 9 제갈량 의 책 사용이 INT 5 hero 보다 +20% 효과. |
+| `INT_SCALING_RATE` (damage-calc.md rev 2.9.4) | 0.005 | [0.002, 0.010] | stat_intellect 1점 당 화공권 / native fire_strategy damage bonus 비율. 0.005 = stat_intellect 99 제갈량 native 가 60 baseline 보다 +19.5% 효과. |
 | `BUFF_EXPIRY_TURNS` | 1 | [1, 2] | buff carry 지속. 1 = 다음 turn 의 첫 attack 까지만. 2 = future scope. |
-| `COMMAND_SCROLL_PER_ROUND_LIMIT_PER_HERO` | 1 | [1, 2] | hero 당 round 당 작전권 수신 한계. 1 = 영걸전 reference. |
-| `INT_REQUIREMENT_THRESHOLDS` | {fire_scroll: 5, sky_book: 9} | per-item tuning | 책 별 INT 임계. 9 = 제갈량/방통/강유 한정. 5 = 중간 (관우/장비 등 무력형 도 일부 가능). |
+| `COMMAND_SCROLL_PER_ROUND_LIMIT_PER_HERO` | 1 | [1, 2] | hero 당 round 당 작전권 수신 한계. 1 = 영걸전 reference. **Phase 4+ DEFER**. |
+| `INT_BASELINE` (damage-calc.md rev 2.9.4) | **60** (v0.3 user adjudication) | [50, 70] | fire_strategy / fire_scroll 의 stat_intellect baseline. 60 = 보더라인 (장비/허저/여포 50 거부 + 관우/황충/마초 60 통과). 50 = 무력형 극단 포함 모두 통과 (Pillar #3 약화); 70 = 관우/마초 등 거부 (cross-class 의미 축소). |
+| `INT_REQUIREMENT_THRESHOLDS` | {fire_scroll: 60, sky_book: 90 (Phase C+)} | per-item tuning | 책 별 stat_intellect 임계. 60 = MVP fire_scroll. 90 = 제갈량 (99) / 방통 (95) / 강유 (90) 한정 — 천공 책 Phase C+. |
 
 ---
 
@@ -403,11 +412,12 @@ Phase B 는 이 item 우회 가능 — 4 MVP items (heal/strength/march/fire) �
 
 > **v0.2 fix (qa B-3)**: class restriction direction was inverted in v0.1. Correct list of **rejecting** classes: STRATEGIST + SCOUT (per §3.7 usable_by_class = INFANTRY/CAVALRY/COMMANDER only).
 
-- [ ] INFANTRY hero (관우 INT=5) `use_item("fire_scroll")` succeeds (class + INT both met).
-- [ ] STRATEGIST hero (제갈량 any-INT) `use_item("fire_scroll")` returns class-reject — reason code `wrong_class` (제갈량 uses native fire_strategy).
-- [ ] SCOUT hero (조운 any-INT) `use_item("fire_scroll")` returns class-reject — `wrong_class`.
-- [ ] INFANTRY hero with INT=4 (위연) `use_item("fire_scroll")` returns int-reject — `int_insufficient`.
-- [ ] Damage formula identity (godot R-2): INT=9 caster native fire_strategy damage vs INT=5 caster fire_scroll damage — both call `_resolve_skill_fire_strategy`; native vs scroll path produces same damage given identical caster INT. Damage scaling owned by native fire_strategy formula (INT_BASELINE TBD per damage-calc.md cross-doc dependency).
+- [ ] INFANTRY hero (관우 stat_intellect=60) `use_item("fire_scroll")` succeeds (class + INT both met).
+- [ ] STRATEGIST hero (제갈량 stat_intellect=99) `use_item("fire_scroll")` returns class-reject — reason code `wrong_class` (제갈량 uses native fire_strategy).
+- [ ] SCOUT hero (조운 stat_intellect=75) `use_item("fire_scroll")` returns class-reject — `wrong_class`.
+- [ ] INFANTRY hero with `stat_intellect < 60` (장비, stat_intellect=50) `use_item("fire_scroll")` returns int-reject — `int_insufficient`.
+- [ ] Damage formula identity (godot R-2): identical-caster (e.g. 관우 stat_intellect=60) native fire_strategy damage = fire_scroll damage — both call `_resolve_skill_fire_strategy` with same `attacker` argument; scroll path = native path. INT scaling owned by native formula per damage-calc.md rev 2.9.4 (INT_BASELINE=60, INT_SCALING_RATE≈0.005).
+- [ ] Damage scaling sentinel: 제갈량 native fire_strategy (stat_intellect=99) damage = base × (1 + (99-60)×0.005) = base × 1.195. 관우 fire_scroll (stat_intellect=60) damage = base × 1.000.
 - [ ] Range check (EC-SS-7): fire_scroll target_pos beyond Manhattan 3 from any valid origin asserts out-of-range reject identical to native fire_strategy reject.
 - Required fixture: `tests/fixtures/strategy_systems/scroll_class_matrix.yaml`.
 
@@ -463,4 +473,4 @@ Phase B 는 이 item 우회 가능 — 4 MVP items (heal/strength/march/fire) �
 
 ---
 
-*Last updated: 2026-05-26 (S89 close — **v0.2 narrow re-review close-out**). 3-specialist narrow re-review applied: godot-gdscript-specialist (NEEDS REVISION → all 4 B + 3 R + 3 A fix language applied), ux-designer (NEEDS REVISION → 4 B + 4 R + 3 A applied), qa-lead (CONCERNS → 3 B + 4 R + 4 A applied). 2 user adjudications: panel = Option B (bottom-center modal); command_scroll DEFERRED to Phase 4+. Phase B 진입 가능. Review log: `design/gdd/reviews/strategy-systems-review-log.md`.*
+*Last updated: 2026-05-26 (S89 close — **v0.3 INT scale alignment + INT_BASELINE=60 lock**). v0.2 narrow re-review + v0.3 INT alignment 완료. 3 user adjudications (binding): panel = Option B; command_scroll = Phase 4+ DEFER; INT_BASELINE = 60. cross-doc obligations 6 → 5 (hero-database INT sweep RESOLVED v0.3). 남은 4 cross-doc obligations: damage-calc rev 2.9.4 (systems-designer in flight) / battle-hud UI-GB-15/16/17 (ux-designer completed) / accessibility R-6 (ux-designer completed) / scenario-progression starting_inventory_by_hero (Phase B implementation 시). Phase B 진입 가능 — damage-calc rev N landing 후 즉시 implementation. Review log: `design/gdd/reviews/strategy-systems-review-log.md`.*

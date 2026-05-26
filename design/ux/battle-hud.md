@@ -269,6 +269,9 @@ experience while logs flag the issue for debugging.
 | UI-GB-12 | **TacticalRead Extended Range** *(v1.1 — Strategist-only per grid-battle.md CR-14 v5.0)* | Extends the natural attack-range overlay for Strategist units. Natural attack range: 황토 25% opacity (current UI-GB-02 treatment). **TR-extended tiles** (those within `tactical_read_extension_tiles = 1` beyond natural range per registry): 황토 70% opacity with a 讀 (read) micro-glyph 8px, upper-left anchor, per extended tile in 묵 ink. Hovering a TR-extended target displays UI-GB-04 with a `[TR]` chip adjacent to the direction badge (§4.1 Section 5) so the player can distinguish TR-sourced forecasts from natural-range ones. TR does NOT extend attack range — the chip on a TR-tile communicates "you need to move 1 tile to attack here" visually via the natural-range vs TR-range opacity split. Commander units do NOT render UI-GB-12 (Commander's v5.0 passive is `passive_rally` per `design/gdd/unit-role.md` CR-2, not TR). | Strategist unit selected (S1), `unit_turn_started` | MVP |
 | UI-GB-13 | **Rally Aura Visual** *(pass-11b — B-10; per grid-battle.md CR-15)* | While a Commander unit is alive on the grid, each allied unit within Manhattan distance ≤ 1 (4-orthogonal only) renders a persistent low-opacity 황금(#C9A84C) tile overlay beneath the unit sprite. Opacity scales with stack count: 1 Commander adjacent (5%) → 20% opacity; 2 Commanders (10%) → 30%; 3+ Commanders (15% cap) → 40%. The Commander itself does NOT render the overlay (does not Rally itself per CR-15 rule 2); instead a 독전(獨戰) micro-seal at 8px upper-right of the Commander's tile frame in 황금 ink at 60% opacity indicates active aura projection (renders only when ≥1 ally is in range). **Forecast tooltip line**: in UI-GB-04 §4.1 Section 6 (Passives list), when the attacking unit has `rally_bonus_active > 0`, insert a Rally line before other passives: `[Commander → Rally → +X% ATK]` (X = integer percentage). i18n key `"forecast.passive.rally"` with `{bonus}` parameter (default EN: "Rally +{bonus}% ATK from adjacent Cmdr"). Counts toward the 3-line visible cap. **No animation** in v5.0 — overlay is a static per-frame render derived from current Commander positions; on Commander death the overlay disappears on next render frame. **Colorblind accessibility (pass-11c — ux B-1 correction)**: per `design/ux/accessibility-requirements.md` and WCAG 2.1 SC 1.4.11 (non-text contrast, 3:1 minimum), the 황금 overlay additionally renders a **2px logical** (≈4–6 physical px on Pixel 7-class 2.625x density) dashed border in 황금 at 80% opacity around each affected tile. The 2px logical width is the minimum that resolves to ≥4 physical pixels at the project's mobile reference density, ensuring the dashed pattern is visually distinguishable rather than appearing as a solid sub-pixel line. This border is visible regardless of fill opacity and serves as the shape-based colorblind indicator complementing the 독전 micro-seal on the Commander tile. *(Open follow-up: `design/ux/accessibility-requirements.md` should publish the measured 황금 #C9A84C contrast ratio against the project's standard tile background colors so that the WCAG 1.4.11 conformance is verified rather than asserted; tracked as advisory pass-11c R-3.)* | Commander present on grid; allied unit within Manhattan distance ≤ 1; `unit_died(commander_id)` triggers re-evaluation | MVP |
 | UI-GB-14 | **Formation Aura Visual** *(v1.1 — per formation-bonus.md CR-FB-1 through CR-FB-14)* | While a unit participates in an active formation snapshot (pattern role OR relationship bond, per `formation_bonuses_updated` signal), the tile receives a persistent Formation Aura overlay — pulsing octagonal outline in 청록(#3A7D6E) for pattern participation, plus a 緣 (yeon) bond glyph at midpoint between relationship-adjacent pairs. MVP fallback: flat 청록 tile tint at 15% opacity + 陣 corner glyph. See §3.1 UI-GB-14 detailed spec. | `formation_bonuses_updated(snapshot: Dictionary)` | MVP (fallback tier) |
+| UI-GB-15 | **Inventory Panel** *(v1.2 — per strategy-systems.md §3.5.1, user adjudication Option B)* | Bottom-center modal above UI-GB-02 action menu strip. 3 slot tiles arrayed horizontally, 44×44pt minimum per tile (mobile touch) / 32×32pt (desktop mouse-only). Panel height ≈ 64pt; width auto-fits to 3 slot tiles + tooltip surface. **Open**: action menu (UI-GB-02) stacks behind; UI-GB-02 restored on panel close. **Z-order**: above grid overlays (move-range / attack-range / formation / rally), above class emblems and HP bars; below outcome banner and critical popup. **Open/close animation**: ink-wash fade over 0.15s (same style as §2.1 movement range reveal). Reduce-motion alternative: instant appear/dismiss (no animation). **Triggered by**: I key (PC) or dedicated inventory button (mobile/PC tap surface); toggle behaviour. **Read-only state** (when `action_token_spent == true`): panel opens but slot tiles render with spent-action greyed overlay; slot select disabled; tooltips remain accessible (planning preview only). A `ui.inventory.read_only_label` banner renders across the top of the panel. **No-active-hero state**: panel does NOT open (I key / button is no-op per strategy-systems.md §3.5.1 R-3 guard). See §3.2 UI-GB-15 detailed slot-flow spec. | `unit_turn_started`, `action_token_spent`, inventory state changes | Phase B |
+| UI-GB-16 | **Active Buff Indicator** *(v1.2 — per strategy-systems.md §3.5.7)* | Small glyph icon at hero polygon **upper-right corner** (upper-left claimed by status seals, §2.8). Icon footprint: 16×16pt. **Glyph**: weapon-swing character (e.g. `刃`) or `▶` arrow — communicates "fires on next attack/skill", NOT a numeric counter (a counter showing "1" would be misleading since the buff fires at attack resolve time, not after a full turn count). Glyph selection is implementation-author choice; must be shape-distinct from existing seals (毒/喪/守/昂/疲). **Overwrite transition**: when a new buff replaces an active one (§3.2.2 stacking forbidden), glyph performs a brief 200ms fade-blink (opacity 1.0 → 0.0 → 1.0) to signal overwrite. Reduce-motion alternative: instant glyph swap (no blink). **Appears on**: `pending_buff` non-empty; **dismisses on**: `pending_buff` cleared (buff consumed or expired). Does NOT appear when `pending_buff == {}`. | `pending_buff` field state changes; `unit_turn_started` (buff expire check) | Phase B |
+| UI-GB-17 | **Item Target Selection Overlay** *(v1.2 — per strategy-systems.md §3.5.3)* | Active when player selects a slot tile in UI-GB-15 and item requires target selection (target_type ALLY / ENEMY / GROUND). Renders per-tile tint over valid target tiles. **Three palettes, one per target_type** — must be distinguishable from all four existing overlays (move-range 청회 #5C7A8A 25–30% / attack-range 황토 #C8874A 25% / formation 청록 #3A7D6E 15% fallback / rally 황금 #C9A84C 5–30%):<br>• **ALLY** — 금록(#D4E8A0) at 30% opacity. Warm green distinct from formation 청록 by hue shift toward yellow. No crosshair glyph (ally tile readable by tile occupant icon alone).<br>• **ENEMY** — 황토(#C8874A) at **50% opacity** (more saturated than normal attack-range 25%) — communicates "item target" vs "normal attack range" through opacity step-up alone.<br>• **GROUND** — 청회(#5C7A8A) at **50% opacity** + crosshair glyph (✚ or ∴) at tile center in 묵(#1C1A17) at 80% opacity — distinguishable from move-range 청회 25% by both opacity contrast and shape glyph.<br>**Differentiation principle (locked)**: opacity contrast + shape glyph is the color-independent discriminator. Exact hex values above are provisional — **art-director sign-off required before implementation lock**. Only the differentiation principle (opacity contrast + shape, NOT hue-only) is bound here per strategy-systems.md §3.5.3.<br>**Self-target items** (heal_potion, strength_scroll, march_scroll, accuracy_scroll): no overlay rendered — SELF target auto-resolves to the active unit per §3.5.4 two-tap confirm flow. | Slot tile selected in UI-GB-15; `target_type` on item | Phase B |
 
 ---
 
@@ -318,6 +321,45 @@ The fallback is still Pillar-1-compliant: it communicates "this unit has an acti
 | `FORMATION_AURA_TINT_FALLBACK` | 0.15 | 0.08–0.25 | Tile tint opacity in MVP fallback mode. Below 0.08: invisible on grass. Above 0.25: competes with unit sprite. |
 | `FORMATION_BOND_ICON_PX` | 10 | 8–14 | Bond 緣 glyph rendered size. |
 | `FORMATION_CORNER_GLYPH_PX` | 8 | 6–10 | 陣 corner glyph size in fallback mode. |
+
+---
+
+### 3.2 UI-GB-15 — Inventory Panel (detailed spec, v1.2)
+
+The Inventory Panel is the primary UI surface for Strategy Systems (`design/gdd/strategy-systems.md` §3.5). It shares the bottom-HUD anchor vocabulary with the DEFEND two-tap flow (§5.2), and must co-exist with the action menu (UI-GB-02) without mutual obstruction.
+
+**Anchor and stacking.** Panel anchors to the bottom-center of the viewport, positioned immediately above UI-GB-02. When UI-GB-15 opens, UI-GB-02 slides behind it (Z-order below) and is restored when the panel closes. Both panels do NOT share screen space simultaneously — the inventory panel replaces the action menu in the bottom-HUD vocabulary for the duration it is open. If the active unit has already spent their action token, UI-GB-02 was already greyed; the panel opens over it regardless, in read-only mode.
+
+**Slot tile dimensions.** Three slot tiles arrayed horizontally. Mobile touch minimum: 44×44pt per tile (enforced per CLAUDE.md technical preferences). Desktop mouse-only: 32×32pt minimum. Tile gap: 4pt. Total panel width: auto-fit to 3 tiles + gap + tooltip surface (≥ 160pt typical). Panel height: ≈ 64pt (accommodates slot tile + item name text label beneath). Slot tiles are numbered left-to-right (1, 2, 3) with 1/2/3 keyboard shortcuts on PC.
+
+**Slot tile states.**
+- **Filled + available**: normal opacity; item icon + `item.<id>.name` text label; interactive.
+- **Empty**: greyed placeholder tile; `ui.inventory.empty_slot` i18n label centered.
+- **Filled + read-only** (action_token_spent): greyed-out overlay on tile; tooltip accessible; not selectable.
+
+**Slot tile icon.** Each item renders a shape-distinct icon per R-6 (accessibility-requirements.md §4): heal_potion = drop outline; strength_scroll = star outline; fire_scroll = flame outline; march_scroll = arrow. Icon must be distinguishable by shape without color reliance. Placeholder: text glyph on 색 square (OQ-SS-5 resolution pending).
+
+**Open/close trigger.** I key (PC) OR dedicated inventory button (mobile/PC surface). Toggle: first press opens, second press closes. ESC during target-selection mode returns to panel open (slot can be reselected); double-ESC closes panel entirely. On mobile: tap outside panel area OR press inventory button again to close (§3.5.5 of strategy-systems.md cancel pattern).
+
+**Two-beat SELF-target confirm.** Items with `target_type == SELF` use a two-beat confirm flow (strategy-systems.md §3.5.4): slot tap/click (Beat 1) shows forecast-style cost preview (action_token spend + effect delta); second slot tap/click within `TWO_TAP_TIMEOUT_S` confirms. ESC / tap-outside cancels at Beat 1 without spending token. This mirrors DEFEND two-tap (§5.2) to keep the mobile interaction surface unified.
+
+**Tooltip surface.** PC: hover ≥ 300ms → floating tooltip above slot (secondary info path; hover is NOT primary). Mobile: tap-and-hold ≥ 400ms → floating tooltip card (secondary; primary info reachable post-select via panel state). Tooltip content: item name (`item.<id>.name`) / effect (`item.<id>.effect`) / target type / restriction (`item.<id>.restriction_label` if class- or INT-gated, else omitted). No hover-only information — all content accessible post-select (per CLAUDE.md technical preferences and R-6).
+
+**Reject feedback.** When `declare_action(USE_ITEM, ctx)` returns a reject code, UI surfaces localized reason per `item.reject.<reason_code>` key (strategy-systems.md §3.5.9 locale key convention). Reject codes: `wrong_class`, `int_insufficient`, `action_spent`, `inventory_full`, `target_invalid`, `no_active_hero`. Feedback surface: brief ink-wash error flash on slot tile (0.2s) + text label below tile (max 1 line).
+
+**Screen-reader / TalkBack hints.** Slot tile focus announcement: `[item name] · [effect] · [target type] · [restriction if any]`. Empty slot announcement: `ui.inventory.empty_slot`. Read-only panel announcement: `ui.inventory.read_only_label`. Reject reason codes announced as localized text via `item.reject.<reason_code>`.
+
+**UI-GB-15 Tuning Knobs.**
+
+| Knob | Default | Safe Range | Affects |
+|------|---------|------------|---------|
+| `INVENTORY_PANEL_FADE_S` | 0.15 | 0.05–0.30 | Open/close ink-wash fade duration. Matches §2.1 movement range reveal timing. |
+| `INVENTORY_SLOT_SIZE_PT_MOBILE` | 44 | 44–64 | Slot tile touch target on mobile. 44 = project minimum floor. |
+| `INVENTORY_SLOT_SIZE_PT_DESKTOP` | 32 | 32–44 | Slot tile size on desktop mouse-only. |
+| `INVENTORY_TOOLTIP_HOVER_MS` | 300 | 200–500 | PC hover delay before tooltip appears. |
+| `INVENTORY_TOOLTIP_HOLD_MS` | 400 | 300–600 | Mobile tap-and-hold threshold for tooltip. |
+
+**Cross-references.** `design/gdd/strategy-systems.md` §3.5.1 (anchor decision), §3.5.2 (trigger + slot select flow), §3.5.4 (SELF-target confirm), §3.5.5 (cancel pattern), §3.5.6 (tooltip surface), §3.5.8 (accessibility), §3.5.9 (locale keys). `design/ux/accessibility-requirements.md` R-6.
 
 ---
 
@@ -592,6 +634,7 @@ confirm button (A/Cross). Full gamepad spec deferred to
 - Chevron (§4.3): 44×44pt hit area regardless of visible glyph size.
 - Initiative Queue entries: 44pt tall.
 - Undo button (UI-GB-10): 44×44pt.
+- **Inventory slot tiles (UI-GB-15)**: 44×44pt minimum on mobile (touch); 32×32pt on desktop with mouse-only input. Inventory open/close button: 44×44pt on all platforms. (Per `design/gdd/strategy-systems.md` §3.5.1 and `design/ux/accessibility-requirements.md` R-6.)
 
 ### 6.4 Text Sizing
 
@@ -711,10 +754,11 @@ detection MUST NOT be wired to DEFEND.
 
 | System | Status | What this spec provides |
 |--------|--------|-------------------------|
-| Battle UI implementation | Not yet started | All of UI-GB-01..13, the 13 visual/audio specs, §4 forecast contract |
-| Accessibility requirements spec | Not yet authored | Colorblind shape-distinction rules, screen-reader order |
+| Battle UI implementation | Not yet started | All of UI-GB-01..17, the 13 visual/audio specs, §4 forecast contract |
+| Accessibility requirements spec | In progress (v1.2) | Colorblind shape-distinction rules, screen-reader order; R-6 cross-references UI-GB-15..17 |
 | Animation system | Not yet started | Animation durations and triggers from §2 |
 | Audio system | Not yet started | SFX/music cues from §2 |
+| Strategy Systems (`design/gdd/strategy-systems.md`) | In Design (v0.2) | UI-GB-15 Inventory Panel + UI-GB-16 Active Buff Indicator + UI-GB-17 Item Target Selection Overlay — implements §3.5.1–3.5.7 UI surfaces |
 
 ---
 

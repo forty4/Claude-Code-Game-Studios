@@ -467,6 +467,45 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Layered UX gap diagnosis**: "재미없음" 같은 단일 사용자 보고가 actually 여러 layer 의 root cause 조합. 진단 시 surface-level fix 만 시도하면 underlying issue 누락 위험. mechanical + discoverability + visual + balance 의 4 layer 모두 inspect 필요.
 - **Selection-less fallback pattern**: 사용자 UX flow 가 "click then key" 이 아닌 "key directly" 일 수도. controller handler 들에 active turn unit fallback 추가 = UX simplification + felt 향상 — 다른 systems 도 같은 pattern 가능 (예: 미리보기 dismiss, 카메라 control).
 
+### S89 — Phase B pre-flight COMPLETE + v0.3 INT alignment (2026-05-26 session 89, arc-F)
+
+> **Driver**: arc-E v0.2 close-out 직후 사용자 "이어서 진행" → Phase B mandatory pre-flight 4 item 동시 진행 (damage-calc rev N + battle-hud UI-GB + accessibility R-6 + hero-database INT sweep). Parallel agent spawn 2개 + 직접 work 2개. 5 of 6 cross-doc obligations RESOLVED/COMPLETED.
+
+**Completed (1 commit, 1996/1996 PASS 유지, docs only)**:
+
+- [x] **3 parallel work tracks** (parallel agent + direct):
+  - ux-designer spawn → battle-hud UI-GB-15/16/17 + accessibility R-6 token. cross-doc bidirectional 닫힘.
+  - systems-designer spawn → damage-calc.md rev 2.9.3 → 2.9.4 (+109 LoC): pending_buff_magnitude field + F-DC-5 P_mult + new §F-DC-8 INT_BASELINE=60 + OQ-DC-11 (fire_strategy fixed-dmg desync flagged).
+  - hero-database INT audit → `stat_intellect` field 이미 모든 19 hero 에 존재 (ADR-0007). Sweep 불필요.
+- [x] **strategy-systems v0.2 → v0.3** patch: INT scale 0-100 통일 (abstract 5-9 폐기), INT_BASELINE=60 user adjudicated, §3.2.3 / §3.6 / §3.7 / §4.3 / §6.3 / §7 / §8 AC-SS-6 / footer update.
+- [x] **2 post-spawn inconsistency fix**: damage-calc agent 가 v0.2 abstract 5-9 scale 보고 작업 → v0.3 0-100 scale alignment fix (worked example + TK-DC-10 description).
+- [x] **review log v0.3 entry**: +34 LoC, cross-doc obligation count update (6 → 1 remaining).
+- [x] **systems-index #15** → APPROVED v0.3 + Phase B pre-flight COMPLETE.
+
+**S89 arc-F — 핵심 design 결정 (잠금)**:
+
+1. **INT scale 0-100 (stat_intellect 직접)** — v0.2 abstract 5-9 폐기. Cross-doc grep 가능 + 데이터 중복 제거.
+2. **INT_BASELINE = 60** — fire_scroll int_requirement + fire_strategy native baseline. User adjudicated (보더라인 — 장비/허저/여포 50 거부 + 관우/황충/마초 60 통과).
+3. **OQ-DC-11**: 기존 fire_strategy 는 fixed 20 damage / no INT scaling. Phase B 진입 시 명시 선택 필요 — (a) defer fixed-20 / (b) INT scaling apply with base_damage=20 (no-behavior-change at INT_BASELINE).
+4. **UI-GB-15/16/17 + R-6** authored — Phase B UI/a11y spec source 완비. 2 art-director sign-off 대기 (UI-GB-17 hex 값, R-6-B icon 모양).
+5. **`pending_buff_magnitude: float = 1.0`** identity default in ResolveModifiers — G-21 safe (apex cell 178 보존).
+
+**S89 arc-F — Cross-doc obligation status**: 6 → 1 remaining
+- ✅ hero-database INT sweep (RESOLVED v0.3 — sweep 불필요)
+- ✅ damage-calc rev 2.9.4 (systems-designer completed)
+- ✅ battle-hud UI-GB-15/16/17 (ux-designer completed)
+- ✅ accessibility R-6 (ux-designer completed)
+- ⏳ scenario-progression starting_inventory_by_hero (Phase B impl 시 — ChapterDefinition field 추가, 작은 변경)
+
+**S89 arc-F → S90 Phase B 진입**:
+
+Phase B implementation order locked (v0.2 godot recommendation preserved):
+1. BattleUnit field 추가
+2. ActionType.USE_ITEM
+3. InputRouter S0+S1 arm
+4. heal_potion → strength_scroll → fire_scroll (OQ-DC-11 resolution 후) → march_scroll
+5. command_scroll DEFER Phase 4+
+
 ### S89 — Strategy Systems GDD v0.2 narrow re-review close-out (2026-05-26 session 89, arc-E)
 
 > **Driver**: arc-D v0.1 GDD draft 직후 사용자 "권장 순서대로 진행" → 3 specialist (godot-gdscript-specialist + ux-designer + qa-lead) narrow re-review parallel spawn → 11 blocking findings 도출 → 모든 specialist-authored fix language 적용 + 2 user adjudication.

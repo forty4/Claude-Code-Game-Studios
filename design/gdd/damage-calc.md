@@ -1,8 +1,8 @@
 # Damage / Combat Calculation
 
-> **Status**: Designed (APPROVED post-ninth-pass + rev 2.9.3 narrow re-review close-out 2026-04-20)
+> **Status**: Designed (APPROVED post-ninth-pass + rev 2.9.4 strategy-systems cross-doc patch 2026-05-26)
 > **Author**: systems-designer + user
-> **Last Updated**: 2026-04-20 (**rev 2.9.3 — narrow re-review close-out**: 3-spec context-isolated re-review of rev 2.9.2 (game-designer APPROVED / systems-designer NEEDS REVISION / qa-lead APPROVED) caught 2 stale-value residuals + 2 advisories that rev 2.9.2 sweep missed ("change the cell, forget the citer" pattern — same as rev 2.8.1 precedent). Fixes: TK-DC-1 gameplay impact D_mult 1.80→1.64 + base saturation threshold 70→80; V-1 HIT_DEVASTATING Cavalry REAR 1.80→1.64; EC-DC-9 synthetic-ceiling-probe qualifier added ("D_mult=1.80 is synthetic; real-path Cavalry REAR D_mult is 1.64 post rev 2.8"); unit-role.md EC-7 worked example refreshed to rev 2.8 values (×1.5 × 1.09 × 1.2 ≈ ×1.96; additive counter-case ×1.79). Standing discipline reinforced: sweep + narrow re-review is the minimum safe unit for numeric changes touching 2+ documents. Prior: **rev 2.9.2 — ninth-pass close-out**: 5-spec adversarial review of rev 2.9.1 returned NEEDS REVISION (13 blockers across 6 clusters, 3-way convergent on Pillar-1 apex honesty + D-7/D-8 missing consumer ACs). 4 user design decisions applied up-front: (1) eff_def documented range [1,100]→[1,105]; (2) Pillar-1 apex honesty via Option (a) text amendments (Player Fantasy Formation-as-non-apex-modifier + UI-2 "absorbed by combined cap" annotation + V-2 `▲` CAPPED affordance + UI-4 TalkBack Formation provenance); (3) formation_def trust boundary kept upstream-only with new EC-DC-26; (4) cross-doc audit discipline added ("change the cell, forget the citer" process fix). Cluster B: unit-role.md §CR-6a Cavalry REAR ×1.2→×1.09 LIVE DESYNC resolved + Tuning Knobs guideline updated. Cluster C: AC-DC-52 + AC-DC-53 authored (F-DC-5 Formation block consumer + F-DC-3 formation_def_bonus consumer; Coverage Matrix 51→53). Cluster D: BLK-S-1 Infantry Pillar-3 peak 157→158 arithmetic fix; BLK-S-3 F-DC-5 expected range rewrite [1.00, 1.31] continuous post-cap; TK-DC-3 rationale stale D_mult 1.80→1.64. Cluster E: AC-DC-21/28 engine-ref verification note + AC-DC-51(b) GdUnitTestSuite extends Node clarification. Cluster F: battle-hud.md UI-GB-14 Reduce Motion override + 청록/청회 palette conflict check. Prior: **rev 2.9.1 close-out** + **rev 2.9 — Formation Bonus #3 v1.0 cross-doc obligation**: ResolveModifiers gains `formation_atk_bonus: float` (range [0.0, 0.05]) + `formation_def_bonus: float` (range [0.0, 0.05]) fields, plus `make()` factory signature update. F-DC-5 adds Formation block (after Rally, before final cap) with counter guard mirroring Charge/Ambush/Rally pattern. F-DC-3 adds formation_def_bonus to eff_def calculation (mirrors terrain DEF pattern). New constant `P_MULT_COMBINED_CAP = 1.31` enforced in F-DC-5 AFTER all multiplicative composition; absorbs Formation+Rally+Charge stack into a damage-ceiling-safe envelope. Apex arithmetic verification: Cavalry REAR+Charge+Rally(+10%)+Formation(+5%) = pre-cap P_mult 1.39 → clamped to 1.31 → raw 178 (was 179 pre rev 2.9; 1pt regression on pure-Cavalry-apex no-Formation case = user-adjudicated trade-off for Formation visibility on non-apex units). Pillar-1 differentiation 30pt → 29pt. Cross-doc references: design/gdd/formation-bonus.md F-FB-5, CR-FB-3 rule 5. Prior: **rev 2.8 — eighth-pass BLK-8-1 Rally ceiling fix**: rev 2.7 (F-DC-5 rally_bonus extension) introduced Pillar-1+3 regression at max Rally; eighth-pass review (5 specialists) caught it via convergent game-designer + systems-designer arithmetic verification. Fix: CLASS_DIRECTION_MULT[CAVALRY][REAR] 1.20→1.09 (D_mult 1.80→1.64) AND Rally cap (Grid Battle CR-15 rule 4) +15%/3 commanders → +10%/2 commanders. All 12 apex cells (4 classes × 3 Rally states) preserved <180; Cavalry leads by ≥5pt at all states; ceiling never fires on primary path. Cross-doc: grid-battle.md CR-15 rule 4 + AC-GB-27 + UI-GB-12 strategist-affordance ref + Pillar-3 purpose updated; unit-role.md CR-2 + EC-12 + Tuning Knob row + Charge×REAR multiplier annotation updated. Prior: rev 2.7 — F-DC-5 passive_multiplier extended to accept rally_bonus via ResolveModifiers.rally_bonus per Grid Battle pass-11c CR-15 named obligation. Prior: rev 2.6 — seventh-pass BLK-7-1..10 resolution: direction_rel canonical type StringName per BLK-7-2; Archer FLANK class-mod 1.15→1.375 for Pillar-3 parity with Infantry REAR + HIT_DEVASTATING tier reach per BLK-7-9/10; Cross-System Patches #2 Archer row updated to current rev 2.6 endpoint per BLK-7-1; V-2 multiplier annotation extended to HIT_DIRECTIONAL per BLK-7-8; V-3 queue rule Reduce-Motion exception per BLK-7-7; AC-DC-46 frame-count→wall-clock deltas per BLK-7-3; AC-DC-47 opacity threshold 15%→10% with non-monotonic rationale per BLK-7-6; AC-DC-51(b) direct-call bypass-seam per BLK-7-4; AC-DC-21/28 bypass-seam via test-only RefCounted subclass per BLK-7-5)
+> **Last Updated**: 2026-05-26 (**rev 2.9.4 — strategy-systems cross-doc patch**: 4 changes to satisfy `strategy-systems.md` v0.2 §6.3 bidirectional obligation. (1) §CR-1 ResolveModifiers gains `pending_buff_magnitude: float = 1.0` field + `make()` factory extended; (2) F-DC-5 P_mult product extended to include `pending_buff_magnitude`, with sub-apex worked example showing strength_scroll capped at P_MULT_COMBINED_CAP=1.31; (3) new §F-DC-8 sub-section defines `INT_BASELINE = 60` constant + documents fire_strategy INT scaling desync OQ (existing implementation uses fixed 20-damage, no INT scaling — flagged as OQ-DC-11); (4) §6 Downstream Dependents gains `strategy-systems.md` v0.2+ row. Apex cell sentinel: P_mult default=1.0 is the multiplicative identity — existing apex arithmetic (floori(83 × 1.64 × 1.31) = 178) unchanged.) Prior: **rev 2.9.3 — narrow re-review close-out**: 3-spec context-isolated re-review of rev 2.9.2 (game-designer APPROVED / systems-designer NEEDS REVISION / qa-lead APPROVED) caught 2 stale-value residuals + 2 advisories that rev 2.9.2 sweep missed ("change the cell, forget the citer" pattern — same as rev 2.8.1 precedent). Fixes: TK-DC-1 gameplay impact D_mult 1.80→1.64 + base saturation threshold 70→80; V-1 HIT_DEVASTATING Cavalry REAR 1.80→1.64; EC-DC-9 synthetic-ceiling-probe qualifier added ("D_mult=1.80 is synthetic; real-path Cavalry REAR D_mult is 1.64 post rev 2.8"); unit-role.md EC-7 worked example refreshed to rev 2.8 values (×1.5 × 1.09 × 1.2 ≈ ×1.96; additive counter-case ×1.79). Standing discipline reinforced: sweep + narrow re-review is the minimum safe unit for numeric changes touching 2+ documents. Prior: **rev 2.9.2 — ninth-pass close-out**: 5-spec adversarial review of rev 2.9.1 returned NEEDS REVISION (13 blockers across 6 clusters, 3-way convergent on Pillar-1 apex honesty + D-7/D-8 missing consumer ACs). 4 user design decisions applied up-front: (1) eff_def documented range [1,100]→[1,105]; (2) Pillar-1 apex honesty via Option (a) text amendments (Player Fantasy Formation-as-non-apex-modifier + UI-2 "absorbed by combined cap" annotation + V-2 `▲` CAPPED affordance + UI-4 TalkBack Formation provenance); (3) formation_def trust boundary kept upstream-only with new EC-DC-26; (4) cross-doc audit discipline added ("change the cell, forget the citer" process fix). Cluster B: unit-role.md §CR-6a Cavalry REAR ×1.2→×1.09 LIVE DESYNC resolved + Tuning Knobs guideline updated. Cluster C: AC-DC-52 + AC-DC-53 authored (F-DC-5 Formation block consumer + F-DC-3 formation_def_bonus consumer; Coverage Matrix 51→53). Cluster D: BLK-S-1 Infantry Pillar-3 peak 157→158 arithmetic fix; BLK-S-3 F-DC-5 expected range rewrite [1.00, 1.31] continuous post-cap; TK-DC-3 rationale stale D_mult 1.80→1.64. Cluster E: AC-DC-21/28 engine-ref verification note + AC-DC-51(b) GdUnitTestSuite extends Node clarification. Cluster F: battle-hud.md UI-GB-14 Reduce Motion override + 청록/청회 palette conflict check. Prior: **rev 2.9.1 close-out** + **rev 2.9 — Formation Bonus #3 v1.0 cross-doc obligation**: ResolveModifiers gains `formation_atk_bonus: float` (range [0.0, 0.05]) + `formation_def_bonus: float` (range [0.0, 0.05]) fields, plus `make()` factory signature update. F-DC-5 adds Formation block (after Rally, before final cap) with counter guard mirroring Charge/Ambush/Rally pattern. F-DC-3 adds formation_def_bonus to eff_def calculation (mirrors terrain DEF pattern). New constant `P_MULT_COMBINED_CAP = 1.31` enforced in F-DC-5 AFTER all multiplicative composition; absorbs Formation+Rally+Charge stack into a damage-ceiling-safe envelope. Apex arithmetic verification: Cavalry REAR+Charge+Rally(+10%)+Formation(+5%) = pre-cap P_mult 1.39 → clamped to 1.31 → raw 178 (was 179 pre rev 2.9; 1pt regression on pure-Cavalry-apex no-Formation case = user-adjudicated trade-off for Formation visibility on non-apex units). Pillar-1 differentiation 30pt → 29pt. Cross-doc references: design/gdd/formation-bonus.md F-FB-5, CR-FB-3 rule 5. Prior: **rev 2.8 — eighth-pass BLK-8-1 Rally ceiling fix**: rev 2.7 (F-DC-5 rally_bonus extension) introduced Pillar-1+3 regression at max Rally; eighth-pass review (5 specialists) caught it via convergent game-designer + systems-designer arithmetic verification. Fix: CLASS_DIRECTION_MULT[CAVALRY][REAR] 1.20→1.09 (D_mult 1.80→1.64) AND Rally cap (Grid Battle CR-15 rule 4) +15%/3 commanders → +10%/2 commanders. All 12 apex cells (4 classes × 3 Rally states) preserved <180; Cavalry leads by ≥5pt at all states; ceiling never fires on primary path. Cross-doc: grid-battle.md CR-15 rule 4 + AC-GB-27 + UI-GB-12 strategist-affordance ref + Pillar-3 purpose updated; unit-role.md CR-2 + EC-12 + Tuning Knob row + Charge×REAR multiplier annotation updated. Prior: rev 2.7 — F-DC-5 passive_multiplier extended to accept rally_bonus via ResolveModifiers.rally_bonus per Grid Battle pass-11c CR-15 named obligation. Prior: rev 2.6 — seventh-pass BLK-7-1..10 resolution: direction_rel canonical type StringName per BLK-7-2; Archer FLANK class-mod 1.15→1.375 for Pillar-3 parity with Infantry REAR + HIT_DEVASTATING tier reach per BLK-7-9/10; Cross-System Patches #2 Archer row updated to current rev 2.6 endpoint per BLK-7-1; V-2 multiplier annotation extended to HIT_DIRECTIONAL per BLK-7-8; V-3 queue rule Reduce-Motion exception per BLK-7-7; AC-DC-46 frame-count→wall-clock deltas per BLK-7-3; AC-DC-47 opacity threshold 15%→10% with non-monotonic rationale per BLK-7-6; AC-DC-51(b) direct-call bypass-seam per BLK-7-4; AC-DC-21/28 bypass-seam via test-only RefCounted subclass per BLK-7-5)
 > **Implements Pillar**: Pillar 1 (형세의 전술), Pillar 3 (Every Hero Has a Role)
 > **Source Brief**: design/gdd/damage-calc-design-brief.md
 
@@ -262,6 +262,20 @@ var formation_atk_bonus: float = 0.0             # rev 2.9 — Formation Bonus #
 var formation_def_bonus: float = 0.0             # rev 2.9 — Formation Bonus #3 v1.0 cross-doc obligation
                                                  # value range [0.0, 0.05]; consumed in F-DC-3
                                                  # eff_def computation (mirror terrain DEF pattern)
+var pending_buff_magnitude: float = 1.0          # rev 2.9.4 — Strategy Systems cross-doc obligation
+                                                 # (strategy-systems.md v0.2 §3.3.1 + §6.1).
+                                                 # Default = 1.0 (multiplicative identity) — G-21 safe;
+                                                 # existing tests do not shift when field is absent from
+                                                 # call sites (1.0 × anything = anything).
+                                                 # Value range [1.0, 2.0] (strategy-systems.md §7
+                                                 # STRENGTH_SCROLL_MULT safe range [1.25, 2.00]).
+                                                 # Source: GridBattleController reads
+                                                 # attacker.pending_buff.get(&"magnitude", 1.0) at
+                                                 # attack/skill resolve time, passes to make() here,
+                                                 # then clears attacker.pending_buff = {}.
+                                                 # Consumed in F-DC-5 P_mult composition (see below).
+                                                 # DamageCalc does NOT clear pending_buff — ownership
+                                                 # is GridBattleController exclusively.
 
 static func make(attack_type: AttackType, rng: RandomNumberGenerator,
                  direction_rel: StringName, round_number: int,
@@ -269,7 +283,8 @@ static func make(attack_type: AttackType, rng: RandomNumberGenerator,
                  source_flags: Array[StringName] = [],
                  rally_bonus: float = 0.0,
                  formation_atk_bonus: float = 0.0,
-                 formation_def_bonus: float = 0.0) -> ResolveModifiers: ...
+                 formation_def_bonus: float = 0.0,
+                 pending_buff_magnitude: float = 1.0) -> ResolveModifiers: ...
 ```
 
 **Phase-5 migration note — ratified by ADR-0012.** The switch from Dictionary to
@@ -691,12 +706,26 @@ passive_multiplier(attacker: AttackerContext,
        and not modifiers.is_counter:
         P_mult *= (1.0 + modifiers.formation_atk_bonus)
 
-    # Combined P_mult cap (rev 2.9 apex safety — Formation Bonus integration)
+    # Pending buff — strength_scroll or future buff item carry (rev 2.9.4 — Strategy Systems
+    # cross-doc obligation, strategy-systems.md v0.2 §3.3.1 + §4.2 + §6.1).
+    # GridBattleController supplies the magnitude (default 1.0 = no buff); DamageCalc trusts
+    # the upstream value and does NOT consume / clear pending_buff itself.
+    # Counter guard: buff does NOT apply on counter-attacks (consistent with Charge/Ambush/Rally
+    # counter guards — passives / buffs never echo on the counter path).
+    if modifiers.pending_buff_magnitude != 1.0 \
+       and not modifiers.is_counter:
+        P_mult *= modifiers.pending_buff_magnitude
+
+    # Combined P_mult cap (rev 2.9 apex safety — Formation Bonus integration;
+    # rev 2.9.4 — cap now also absorbs pending_buff_magnitude when stacked).
     # P_MULT_COMBINED_CAP = 1.31 ensures Cavalry REAR+Charge+Rally(+10%)+Formation(+5%) stays
     # under DAMAGE_CEILING=180. Math: floori(83 × 1.64 × 1.31) = floori(178.1) = 178 ≤ 179.
-    # Without this cap, Formation+Rally+Charge composition would push apex above 180 collapsing
-    # Pillar-1+3 hierarchies (same regression class as rev 2.7→2.8 Rally fix; this cap is the
-    # general-case version applied AFTER all multiplicative composition).
+    # strength_scroll (pending_buff_magnitude=1.50) sub-apex example: Cavalry+Charge only
+    # (no Rally, no Formation): pre-cap P_mult = snappedf(1.20 × 1.50, 0.01) = 1.80 → clamped
+    # to 1.31. Raw = floori(83 × 1.64 × 1.31) = 178. DAMAGE_CEILING does not fire.
+    # Sentinel: no buff active (pending_buff_magnitude=1.0) → P_mult product unchanged;
+    # existing apex table (Cavalry 178 / Archer+Scout 179 / Infantry 158) is preserved
+    # exactly — 1.0 × P_mult = P_mult (multiplicative identity; G-21 safe).
     P_mult = minf(P_mult, P_MULT_COMBINED_CAP)
 
     return snappedf(P_mult, 0.01)
@@ -731,7 +760,7 @@ Role / Grid Battle and resolved BEFORE the `passive_ambush` tag reaches the
 `attacker.passives` array. Damage Calc trusts the tag's presence as
 authoritative.
 
-**Expected range (rev 2.9.2 — updated for Formation Bonus integration)**: `P_mult ∈ [1.00, 1.31]` continuous post-cap.
+**Expected range (rev 2.9.4 — updated for pending_buff_magnitude; post-cap range unchanged)**: `P_mult ∈ [1.00, 1.31]` continuous post-cap. The cap absorbs any pending_buff_magnitude > 1.0 stack just as it absorbed Formation+Rally+Charge (see sub-apex worked example in the cap comment above).
 
 - **Base passive states** (no Rally, no Formation): `{1.00, 1.15, 1.20}` — no passive / Ambush only (1.15) / Charge only (1.20). Dual-passive {1.38} is unreachable per class-guard mutex (CR-8, EC-DC-9, AC-DC-27) and is preserved as a contract-violation guard sentinel only.
 - **With Rally (0–0.10)**: adds `(1.0 + rally_bonus)` multiplicative factor. Cavalry+Charge+Rally cap: pre-cap `snappedf(1.20 × 1.10, 0.01) = 1.32` → post-cap clamped to `P_MULT_COMBINED_CAP=1.31`. Scout/Archer+Ambush+Rally cap: pre-cap `snappedf(1.15 × 1.10, 0.01) = 1.27` (no clamp).
@@ -771,6 +800,58 @@ counter_reduction(raw) -> int:
 `COUNTER_ATTACK_MODIFIER = 0.5` halves the final post-cap damage. This is the
 final stage on the counter path (OQ-DC-3 resolution) — composes cleanly with
 Stage-2 ceiling, so a maxed-out counter caps at `floori(180 × 0.5) = 90`.
+
+### F-DC-8 — `INT_BASELINE` constant + fire_strategy INT scaling (rev 2.9.4)
+
+This sub-section exists solely to name `INT_BASELINE = 60` as an explicit constant so
+`strategy-systems.md` §4.3 can cite it. It does NOT change any existing behavior.
+
+**Constant definition:**
+
+| Constant | Value | Scale | Description |
+|----------|-------|-------|-------------|
+| `INT_BASELINE` | **60** | 0–100 (matches `stat_intellect` on `HeroData`) | The neutral INT reference point for fire_strategy (and potentially other INT-scaling skills). A caster with `stat_intellect = INT_BASELINE` receives zero INT bonus / penalty. Binds to `design/registry/entities.json` Phase 5 registration candidate. |
+
+**INT scaling formula (design intent, per strategy-systems.md §4.3 cross-doc obligation):**
+
+```
+damage_per_tile = base_damage × (1 + (caster.stat_intellect - INT_BASELINE) × INT_SCALING_RATE)
+where INT_BASELINE       = 60         # this section
+      INT_SCALING_RATE   = 0.005      # strategy-systems.md §7 FIRE_SCROLL_INT_BONUS default
+```
+
+| Symbol | Type | Range | Description |
+|--------|------|-------|-------------|
+| `base_damage` | int | [1, BASE_CEILING=83] | Fire_strategy base tile damage before INT scaling |
+| `caster.stat_intellect` | int | [1, 100] | Caster's intellect stat from HeroData |
+| `INT_BASELINE` | int | 60 (safe range [50, 70] — see Tuning Knobs) | Neutral reference; at this value the scaling factor = 1.0 |
+| `INT_SCALING_RATE` | float | 0.005 | +0.5% per stat_intellect point above/below baseline |
+| `damage_per_tile` | float | [≥1] | Tile damage before floori quantization |
+
+**Worked examples** (per strategy-systems.md v0.3 INT scale alignment — 0-100 `stat_intellect` direct, NOT abstract 1-9):
+- 제갈량 native fire_strategy `stat_intellect=99`: factor = 1 + (99 − 60) × 0.005 = 1 + 0.195 = **1.195** (+19.5%)
+- 관우 fire_scroll `stat_intellect=60` (= INT_BASELINE, INFANTRY 이 INT 최소 gate 통과): factor = 1 + (60 − 60) × 0.005 = **1.000** (no adjustment)
+- 위연 fire_scroll `stat_intellect=65`: factor = 1 + (65 − 60) × 0.005 = **1.025** (+2.5%)
+- 장비 fire_scroll `stat_intellect=50`: **GATE FAIL** — strategy-systems.md fire_scroll int_requirement ≥ INT_BASELINE=60. Scroll 사용 자체가 거부됨 (validation reject), formula 발화 안 됨. (만약 test seam 으로 gate 우회 시 factor = 1 + (50 − 60) × 0.005 = **0.950** = −5% — production 에서는 발생 안 함.)
+
+**OQ-DC-11 (NEW — INT scaling desync, ADVISORY): existing fire_strategy implementation uses fixed damage.**
+The current `_skill_fire_strategy()` in `grid_battle_controller.gd` (S86) applies a fixed
+`fire_damage: int = 20` with no INT scaling — the formula above represents the **design intent**
+documented here for the first time to satisfy `strategy-systems.md §4.3`. The implementation
+does not yet match this spec. Before Phase B of Strategy Systems begins, the implementer MUST
+choose one of:
+  - (a) Accept the existing fixed-20 as the interim behavior and defer INT scaling to a later pass
+    (OQ-DC-11 DEFERRED, to be resolved when fire_scroll Phase B AC-SS-6 is implemented).
+  - (b) Update `_skill_fire_strategy()` to read `stat_intellect` and apply the formula above,
+    with `base_damage = 20` (matching current fixed value at baseline). This is the
+    "no-behavior-change at INT=60" path.
+Do NOT silently reconcile by treating INT_BASELINE=60 as already implemented — it is not.
+This OQ must be resolved in the Phase B kickoff spec review before the fire_scroll AC-SS-6
+tests are authored, since AC-SS-6 §"Damage formula identity" asserts identical outputs from
+native vs scroll paths — if native path stays fixed-20, the assertion holds trivially; if native
+path gains INT scaling, the assertion must reflect the formula above.
+
+---
 
 ### Worked Examples (D-1 through D-10)
 
@@ -1183,6 +1264,7 @@ requires updating the cited GDD in the same patch (and vice versa).
 | 3 | **AI System** (#8) | `ai-system.md` (not yet written) | ⏳ Future | Will call `resolve()` through Grid Battle (no separate AI path) for threat scoring. Reads `resolved_damage` from `ResolveResult.HIT`. Same RNG snapshot semantics as production calls. |
 | 4 | **Battle VFX** (#23) | `battle-vfx.md` (not yet written) | ⏳ Future | Reads `vfx_tags: Array[StringName]` from `ResolveResult.HIT` (e.g., `"ambush"`, `"counter"`, `"terrain_penalty"`). Damage Calc labels; VFX interprets. Damage Calc never invokes VFX directly. |
 | 5 | **Save / Load** (#21) | `save-load.md` (provisional) | ⏳ Future | Indirect — Save/Load snapshots Grid Battle's RNG handle. Determinism contract (EC-DC-14) requires that Damage Calc's RNG call count is stable per path: 1 randi per non-counter attack, 0 per counter, 0 per skill stub. |
+| 6 | **Strategy Systems** | `design/gdd/strategy-systems.md` v0.2+ | ✅ In Design | Consumes `ResolveModifiers.pending_buff_magnitude` field (rev 2.9.4 — strategy-systems §3.3.1 + §6.1). Consumes `INT_BASELINE = 60` constant for fire_scroll INT validation (§4.3 + §6.3 row 1 obligation). Depends on F-DC-5 P_mult cap chain (P_MULT_COMBINED_CAP=1.31 + DAMAGE_CEILING=180) for strength_scroll Pillar 1 safety. GridBattleController is the sole intermediary: it reads `attacker.pending_buff.get(&"magnitude", 1.0)` at attack/skill resolve time, populates `pending_buff_magnitude` in the `make()` call, then clears `attacker.pending_buff = {}` — DamageCalc never mutates BattleUnit state. |
 
 ### F-GB-PROV Retirement (cross-system contract)
 
@@ -1213,6 +1295,7 @@ back-references:
   `referenced_by: [damage-calc.md]`.
 - `entities.json` — every `referenced_by` field on the 9 consumed constants
   MUST include `damage-calc.md` (Phase 5 task).
+- `design/gdd/strategy-systems.md` v0.2+ — cites `damage-calc.md` §CR-1 (ResolveModifiers.pending_buff_magnitude ABI); cites §F-DC-8 (INT_BASELINE constant); cites §F-DC-5 (P_MULT_COMBINED_CAP chain). Bidirectional citation established at rev 2.9.4 per §6 Downstream Dependents row 6 above.
 
 ### Cross-system Invariants Locked Here
 
@@ -1267,6 +1350,17 @@ knob lives in `entities.json` per Dependency invariant #5 — never hardcode.
 | Owner | Damage Calc (this GDD) |
 | Blast radius | Re-run D-9, EC-DC-9; re-evaluate Scout vs Cavalry FLANK damage parity per role-balance matrix. |
 | Registry status | Phase 5 candidate. |
+
+### TK-DC-10 — `INT_BASELINE` (NEW, rev 2.9.4 — Damage Calc-owned, fire_strategy INT scaling reference)
+
+| Field | Value |
+|---|---|
+| Current | 60 |
+| Safe range | [50, 70] |
+| Gameplay impact | Neutral INT reference for fire_strategy (and future INT-scaling skills). At INT_BASELINE, the scaling factor is exactly 1.0 — no bonus, no penalty. Below 50 (e.g. INT_BASELINE=40): low-INT heroes (장비 stat_intellect=50) would still receive small bonus — defeats Pillar #3 differentiation. Above 70 (e.g. INT_BASELINE=70): high-INT heroes (제갈량 stat_intellect=99) see diminishing bonus — at baseline=70 the bonus at 99 is only (99−70)×0.5%=14.5% vs 19.5% at baseline=60. Strategy-systems.md v0.3 user-adjudicated value = 60 (보더라인: 장비/허저/여포 stat_intellect=50 거부 + 관우/황충/마초=60 통과). |
+| Owner | Damage Calc (this GDD) — value must match `entities.json` INT_BASELINE entry (Phase 5 candidate) |
+| Blast radius | Re-run fire_strategy tests; re-evaluate fire_scroll AC-SS-6 "damage formula identity" assertion; notify strategy-systems.md §4.3 author of any change. |
+| Registry status | Phase 5 candidate. Pending OQ-DC-11 resolution. |
 
 ### Consumed knobs (read-only here — owners listed for blast tracing)
 

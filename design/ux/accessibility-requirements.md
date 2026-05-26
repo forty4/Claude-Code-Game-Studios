@@ -136,6 +136,35 @@ Already enforced via `camera_zoom_min = 0.70` (Input Handling TR-input-010). No 
 - **Latency**: ≤ 100 ms from audio onset
 - **Line limit**: 2 lines maximum; longer content pages with fade
 
+### R-6 — Item Use UI Accessibility *(v1.3 — Strategy Systems Phase B cross-doc obligation)*
+
+Applies to: Inventory Panel (UI-GB-15), Active Buff Indicator (UI-GB-16), Item Target Selection Overlay (UI-GB-17). All four requirements below are mandatory — not tier-dependent.
+
+**R-6-A — Touch target minimums.**
+- All inventory slot tiles (UI-GB-15): ≥ 44×44pt on mobile (touch). 32×32pt minimum on desktop mouse-only input. (Already enforced by the project-wide 44pt floor per §4 R-4; this requirement names the specific elements explicitly for implementer compliance.)
+- Inventory open/close button: ≥ 44×44pt on all platforms regardless of visual glyph size (same contract as §4.3 chevron).
+- Active buff indicator (UI-GB-16) at 16×16pt visual: NOT an interactive target — no touch-target minimum applies. However, the containing hero polygon tap zone must not shrink as a result of the indicator's presence.
+
+**R-6-B — Shape-distinct item icons (no color-only reliance).**
+All four Phase B MVP items MUST have icons distinguishable by shape alone, without color as a discriminator. Required icon shapes:
+- `heal_potion` — drop / teardrop outline
+- `strength_scroll` — star / radiant polygon outline
+- `fire_scroll` — flame / upward-tapered outline
+- `march_scroll` — directional arrow outline
+
+These shapes must be recognizable under deuteranopia / protanopia / tritanopia ColorPalette swaps (§2 Colorblind modes). Verification method: Coblis or equivalent simulator screenshot of inventory panel; each icon must be nameable by shape alone. Art-director confirms icon set pre-lock. Phase C extension items (`revive_pill`, `accuracy_scroll`) must follow the same shape-distinct contract when designed. Violating icons MUST be corrected before UI-GB-15 ships; this is a BLOCKING constraint per §2 Colorblind modes commitment.
+
+**R-6-C — Reduce-motion alternatives.**
+Two animation surfaces in Strategy Systems UI must have reduce-motion alternatives (per §2 Reduced motion toggle — already in Intermediate tier commitment):
+1. **Inventory Panel open/close** (UI-GB-15): default ink-wash fade 0.15s → reduce-motion: instant appear/dismiss (no animation, 0s).
+2. **Active Buff Indicator overwrite fade-blink** (UI-GB-16): default 200ms opacity cycle (1.0 → 0.0 → 1.0) → reduce-motion: instant glyph swap (no blink, 0s).
+Both alternatives must respect the `Reduced motion` toggle in Settings (#28) via `settings_changed("reduce_motion", true)` signal on GameBus. No separate toggle is introduced — this folds into the existing §2 Reduced motion contract.
+
+**R-6-D — Tooltip secondary-path only (no hover-only interactions).**
+Inventory slot tooltips (PC hover ≥ 300ms; mobile tap-and-hold ≥ 400ms) are a **secondary information path only**. The primary path is: select slot → view panel state (item name + effect + target + restriction visible in panel body post-select). This design satisfies the no-hover-only-interaction requirement per `.claude/docs/technical-preferences.md` (호버 전용 인터랙션 금지). Hover-only must never be the sole path to any item information needed for decision-making (effect, restriction, reject reason). Implementation contract: every piece of information in the tooltip MUST also be accessible post-select without hover. TalkBack / screen reader focus announcements for slot tiles must include: `[item name] · [effect] · [target type] · [restriction label if applicable]`. Reject reason announced immediately on reject event via `item.reject.<reason_code>` locale key (strategy-systems.md §3.5.9 convention). Empty slot announced as `ui.inventory.empty_slot`. Read-only panel announced as `ui.inventory.read_only_label`.
+
+**Cross-references.** `design/gdd/strategy-systems.md` §3.5.8 (Accessibility Requirements), §3.5.9 (i18n locale key convention `item.<item_id>.<aspect>`). `design/ux/battle-hud.md` §3.2 UI-GB-15, §6.3 touch target table (inventory slot row). Locale keys must follow the `item.<item_id>.<aspect>` convention established in strategy-systems.md §3.5.9 — do NOT introduce alternate naming patterns.
+
 ---
 
 ## 5. Engine Dependencies (Godot 4.6)
@@ -183,6 +212,7 @@ Accessibility requirements propagate into these systems. Each system's design do
 | Damage/Combat Calculation (#11) | Designed (rev 2.5) | Reduce Motion popup lifecycle + TalkBack announcements | REQ: `damage-calc.md` UI-4 cross-refs §4 R-3 + §2 Reduced motion row. In-game Settings toggle is MVP activation path (Vertical Slice via Settings #28 Alpha elevation); OS-flag bridging deferred to Full Vision AccessKit. WCAG SC 2.3.3 "Animation from Interactions" governs the 1.55s popup lifecycle under Reduce Motion. Bidirectional citation per damage-calc.md rev 2.5 BLK-6-8. |
 | Story Event (#10) | Not Started | R-1 destiny color encoding in story beats | REQ: R-1 folded into UX spec at first authoring |
 | Localization (#30) | Not Started (Full Vision) | Destiny glyph `[凶]` / `[吉]` locale behaviour | OQ-1 carried forward |
+| Strategy Systems (`design/gdd/strategy-systems.md`) | In Design (v0.2) | R-6 Item Use UI Accessibility — touch ≥ 44pt (R-6-A), shape-distinct item icons (R-6-B), reduce-motion alternatives for panel fade + buff blink (R-6-C), tooltip secondary-path only (R-6-D). Locale key convention `item.<item_id>.<aspect>` per §3.5.9. | REQ: R-6 BLOCKING constraint for UI-GB-15 ship. Implementer must satisfy all four R-6 sub-requirements before Story Done (Phase B). Art-director sign-off on icon shapes required pre-lock. |
 
 ---
 
@@ -205,5 +235,6 @@ Accessibility requirements propagate into these systems. Each system's design do
 | 2026-04-19 | 1.1 | Added back-reference row in §7 System Dependencies for Damage/Combat Calculation (#11) per damage-calc.md rev 2.5 BLK-6-8 bidirectional-citation fix. No tier change, no new commitments. |
 | 2026-04-19 | 1.1 (rev) | Added 7th Intermediate toggle `reduce_haptics` to §2 (rev 1.3 D1 decision on destiny-branch.md 2026-04-19 pass-9 — closes game-designer B-1 + ux B-UX-9-2 + a11y B-1 convergence). Updated §7 Settings/Options #28 toggle-count 6→7 and OQ-3 state to resolved. Added §7 Destiny Branch (#4) cross-reference row for A-DB-2 + UI-DB-4 + AC-DB-38 bindings. No tier change (Intermediate); Settings/Options #28 implementation-story scope expanded by one toggle. |
 | 2026-04-20 | 1.2 | Added R-2 Formation State Token spec (§4) per Formation Bonus v1.1 cross-doc obligation (ux-designer pass-1 BLOCKER). Added Formation color contrast obligation advisory (청록 #3A7D6E — parallels pass-11c 황금 #C9A84C tracking). No tier change. |
+| 2026-05-26 | 1.3 | Added R-6 — Item Use UI Accessibility (§4) per Strategy Systems v0.2 §6.3 cross-doc obligation (Phase B blocker). R-6-A: touch ≥ 44pt on inventory slot tiles. R-6-B: shape-distinct item icons (drop / star / flame / arrow — no color-only reliance). R-6-C: reduce-motion alternatives for panel fade + buff indicator blink. R-6-D: tooltip secondary-path only; TalkBack / screen reader announcement contract. Added Strategy Systems row to §7 System Dependencies. No tier change (Intermediate). |
 
 Next review: Pre-Production → Production gate. Tier upgrade to Advanced is possible only after AccessKit engine-reference verification and OQ-3 resolution.

@@ -6,6 +6,45 @@
 
 ---
 
+## v0.3 INT scale alignment + INT_BASELINE lock (S89 arc-F, 2026-05-26)
+
+**Driver**: Phase B pre-flight item #2 (hero-database INT sweep) audit. hero-database.md GDD specified per-hero INT field as "currently only partial" in v0.2 §6.3 cross-doc obligations. Direct audit of `assets/data/heroes/heroes.json` revealed `stat_intellect` field already exists for ALL 19 named heroes (0-100 scale, ADR-0007 per `Resource.set` reflection pattern). No sweep required — v0.2 의 "INT 5-9 abstract scale" 표기가 잘못된 추상화였고 0-100 stat_intellect 직접 사용이 정확.
+
+**Audit table** (existing stat_intellect values, hero-database.md heroes.json):
+- 제갈량 99, 방통 95, 주유 95, 강유 90, 조조 85
+- 유비 75, 조운 75, 초선 75
+- 손권 70, 장요 70
+- 위연 65, 우금 65
+- 황충 60, 관우 60, 마초 60
+- 하후돈 55
+- 장비 50, 허저 50, 여포 50
+- 황건적 30-45
+
+**User adjudication**: INT_BASELINE = **60** (보더라인). 무력형 극단 (50: 장비/허저/여포) 거부 + 중급 (60: 관우/황충/마초) 통과 + 위연/우금 (65) 통과 + 조운/유비/초선 (75) 이상 통과. Pillar #3 보호 (강캐 무력형 cross-class 차단) + 대부분 hero cross-class 책략 가능성 균형.
+
+**v0.3 patch applied to strategy-systems.md**:
+- Header status v0.2 → v0.3 + Change log
+- §0 frontmatter user adjudication (8): INT_BASELINE=60 binding
+- §3.2.3 Scroll: INT scale 0-100 통일 + 화공권 stat_intellect ≥ 60
+- §3.6 Pillar #3 보호 #1+#2: class 제한 + INT 임계 stat_intellect 표기로 변경
+- §3.7 prototype table fire_scroll INT req → `stat_intellect ≥ 60`
+- §4.3 fire_scroll formula: stat_intellect / INT_BASELINE=60 / INT_SCALING_RATE≈0.005 + 5 hero 별 example (관우/황충/마초 통과; 위연/조운/제갈량/장비 cases)
+- §6.3 cross-doc obligations: hero-database row → **RESOLVED v0.3** (sweep 불필요)
+- §7 Tuning Knobs: INT_BASELINE 신규 row + INT_SCALING_RATE / INT_REQUIREMENT_THRESHOLDS 0-100 scale 로 update
+- §8 AC-SS-6: fixture stat_intellect 실제 값 사용 (관우 60 / 장비 50 / 제갈량 99) + scaling sentinel 추가
+- Footer updated
+
+**Cross-doc obligation count v0.3 close-out**: v0.2 의 6 row → v0.3 의 1 active row remaining (5 of 6 RESOLVED/COMPLETED):
+- ✅ **hero-database INT sweep** — RESOLVED v0.3 (sweep 불필요, stat_intellect 이미 존재).
+- ✅ **damage-calc rev 2.9.4** — systems-designer spawn completed. 4 changes applied: §CR-1 ResolveModifiers `pending_buff_magnitude: float = 1.0` field + make() factory extension; F-DC-5 P_mult product extension (counter-guard added; cap chain preserved); new §F-DC-8 INT_BASELINE=60 constant + INT_SCALING_RATE=0.005 + worked examples; §6 Downstream Dependents row 6 added for strategy-systems.md v0.3+. New OQ-DC-11 flagged: existing fire_strategy uses fixed 20 dmg, no INT scaling — Phase B blocker (must choose: defer scaling OR apply formula with base_damage=20 preserving no-behavior-change at INT_BASELINE). Apex cell sentinel preserved (Cavalry 178 unchanged with default pending_buff_magnitude=1.0). 4 inconsistencies caught + fixed post-spawn (agent built on v0.2 spec; worked examples and TK-DC-10 description aligned to v0.3 0-100 scale).
+- ✅ **battle-hud UI-GB-15/16/17** — ux-designer spawn completed. Inventory Panel (UI-GB-15) bottom-center modal with 44pt slot tiles + 2-beat SELF confirm. Active Buff Indicator (UI-GB-16) upper-right 16×16pt with weapon-swing glyph. Item Target Selection Overlay (UI-GB-17) 3 distinct palettes (ALLY 금록 / ENEMY 황토 / GROUND 청회 + crosshair glyph). §6.3 Touch Target table + §9 downstream table updated. 2 art-director sign-off pending items flagged (UI-GB-17 hex values; R-6-B icon shapes).
+- ✅ **accessibility R-6 token** — ux-designer spawn completed. R-6-A through R-6-D sub-requirements (touch ≥44pt / shape-distinct icons / reduce-motion / tooltip secondary-path) + §7 Strategy Systems row + §9 v1.3 entry.
+- ⏳ **scenario-progression starting_inventory_by_hero** — Phase B impl 시 (small ChapterDefinition field 추가; v0.3 §6.3 row 5).
+
+**Outcome v0.3**: INT scale data 와 GDD spec 가 정확히 일치 (cross-doc grep 가능). Phase B fixture authoring 시 실제 stat_intellect 값 그대로 사용 가능. damage-calc rev 2.9.4 가 INT_BASELINE / INT_SCALING_RATE 상수 등재하면 Phase B 진입 가능.
+
+---
+
 ## v0.2 narrow re-review close-out (S89, 2026-05-26)
 
 **Reviewers**: 3 specialists in parallel via Agent subagent — all on v0.1 first draft.
