@@ -139,10 +139,10 @@ func test_actions_by_category_runtime_total_is_24() -> void:
 		"AC-1: ACTIONS_BY_CATEGORY must have exactly 4 categories"
 	).is_equal(4)
 
-	# Session-15 added use_skill → grid is now 12.
+	# Session-15 added use_skill → grid was 12. S90 Phase B added use_item → 13.
 	assert_int(InputRouter.ACTIONS_BY_CATEGORY[&"grid"].size()).override_failure_message(
-		"AC-1: grid category must have exactly 12 actions (11 + session-15 use_skill)"
-	).is_equal(12)
+		"AC-1: grid category must have exactly 13 actions (12 + S90 use_item)"
+	).is_equal(13)
 
 	# camera category was 4 actions through story-008; story-009 added +2 (camera_pinch_zoom,
 	# camera_two_finger_tap_cancel) per CR-1d additive evolution → 6 total.
@@ -158,13 +158,13 @@ func test_actions_by_category_runtime_total_is_24() -> void:
 		"AC-1: meta category must have exactly 3 actions"
 	).is_equal(3)
 
-	# Assert — total = 26 (12 grid + 6 camera + 5 menu + 3 meta) — session-15 +use_skill
+	# Assert — total = 27 (13 grid + 6 camera + 5 menu + 3 meta) — S90 +use_item
 	var total: int = 0
 	for category: StringName in InputRouter.ACTIONS_BY_CATEGORY.keys():
 		total += InputRouter.ACTIONS_BY_CATEGORY[category].size()
 	assert_int(total).override_failure_message(
-		"AC-1: ACTIONS_BY_CATEGORY total action count must be 26 (post-session-15 +use_skill); got %d" % total
-	).is_equal(26)
+		"AC-1: ACTIONS_BY_CATEGORY total action count must be 27 (post-S90 +use_item); got %d" % total
+	).is_equal(27)
 
 
 ## AC-1 (CR-1c): grid_hover is in the grid category (PC-only) and NOT in
@@ -193,12 +193,12 @@ func test_grid_hover_in_grid_category_and_absent_from_default_bindings() -> void
 # ── AC-2 default_bindings.json schema assertions ─────────────────────────────
 
 
-## AC-2: default_bindings.json exists, parses, contains exactly 25 action keys
-## (26 total minus grid_hover which is PC-only per CR-1c), plus 2 meta keys.
+## AC-2: default_bindings.json exists, parses, contains exactly 26 action keys
+## (27 total minus grid_hover which is PC-only per CR-1c), plus 2 meta keys.
 ## Story-009 CR-1d added 2 touch-only entries; session-13 added defend_stance
-## (PC-only D key); session-15 added use_skill (PC-only S key) — both count as
-## regular actions since neither is PC-restricted like grid_hover; touch-
-## fallback can come later via HUD buttons.
+## (PC-only D key); session-15 added use_skill (PC-only S key); S90 Phase B
+## added use_item (PC-only I/3 key) — all 3 count as regular actions since
+## neither is PC-restricted like grid_hover; touch-fallback comes via HUD buttons.
 func test_default_bindings_json_loads_and_has_23_action_keys() -> void:
 	# Arrange — load and parse production bindings
 	var content: String = FileAccess.get_file_as_string(_BINDINGS_PATH)
@@ -231,9 +231,9 @@ func test_default_bindings_json_loads_and_has_23_action_keys() -> void:
 			action_count += 1
 
 	assert_int(action_count).override_failure_message(
-		("AC-2: default_bindings.json must have exactly 25 action keys"
-		+ " (26 declared - 1 PC-only grid_hover); got %d") % action_count
-	).is_equal(25)
+		("AC-2: default_bindings.json must have exactly 26 action keys"
+		+ " (27 declared - 1 PC-only grid_hover); got %d") % action_count
+	).is_equal(26)
 
 	# Spot-check 5 specific action keys
 	assert_bool(bindings.has("action_confirm")).override_failure_message(
@@ -383,8 +383,8 @@ func test_set_binding_replaces_prior_event() -> void:
 ## AC-5: _validate_r5_parity returns 0 when given a correctly-sized 24-key dict.
 ## Return-value assertion verifies the parity check fired correctly (G-22:
 ## push_error is not capturable, so observable side effect is the int return).
-## Counts: production = 25 actions (26 declared - 1 PC-only grid_hover);
-## session-15 added use_skill bringing the declared total to 26.
+## Counts: production = 26 actions (27 declared - 1 PC-only grid_hover);
+## session-15 added use_skill; S90 Phase B added use_item bringing declared to 27.
 func test_validate_r5_parity_returns_zero_on_correct_21_key_dict() -> void:
 	# Arrange — load production bindings
 	var content: String = FileAccess.get_file_as_string(_BINDINGS_PATH)
@@ -399,7 +399,7 @@ func test_validate_r5_parity_returns_zero_on_correct_21_key_dict() -> void:
 
 	# Assert — parity holds (mismatch = 0)
 	assert_int(mismatch).override_failure_message(
-		"AC-5: _validate_r5_parity must return 0 for valid 25-key production bindings; got %d" % mismatch
+		"AC-5: _validate_r5_parity must return 0 for valid 26-key production bindings; got %d" % mismatch
 	).is_equal(0)
 
 
@@ -416,15 +416,15 @@ func test_validate_r5_parity_returns_nonzero_on_extra_key_mismatch() -> void:
 			malformed[String(action)] = [{"type": "key", "keycode": 32}]
 
 	assert_int(malformed.size()).override_failure_message(
-		"AC-5 pre-condition: malformed dict should have 28 total keys (26 actions + 2 meta) post session-15 use_skill"
-	).is_equal(28)
+		"AC-5 pre-condition: malformed dict should have 29 total keys (27 actions + 2 meta) post S90 use_item"
+	).is_equal(29)
 
 	# Act — exercise validator
 	var mismatch: int = InputRouter._validate_r5_parity(malformed)
 
-	# Assert — mismatch = |26 - 25| = 1 (one extra action; expected 25 = 26 declared - 1 PC-only)
+	# Assert — mismatch = |27 - 26| = 1 (one extra action; expected 26 = 27 declared - 1 PC-only)
 	assert_int(mismatch).override_failure_message(
-		"AC-5: _validate_r5_parity must return 1 when 26 non-meta vs 25 expected; got %d" % mismatch
+		"AC-5: _validate_r5_parity must return 1 when 27 non-meta vs 26 expected; got %d" % mismatch
 	).is_equal(1)
 
 
@@ -440,10 +440,10 @@ func test_validate_r5_parity_returns_nonzero_on_missing_key_mismatch() -> void:
 	# Act
 	var mismatch: int = InputRouter._validate_r5_parity(sparse)
 
-	# Assert — mismatch = |1 - 25| = 24 (post session-15: expected 25 = 26 declared - 1 PC-only)
+	# Assert — mismatch = |1 - 26| = 25 (post S90: expected 26 = 27 declared - 1 PC-only)
 	assert_int(mismatch).override_failure_message(
-		"AC-5: _validate_r5_parity must return 24 when 1 non-meta vs 25 expected; got %d" % mismatch
-	).is_equal(24)
+		"AC-5: _validate_r5_parity must return 25 when 1 non-meta vs 26 expected; got %d" % mismatch
+	).is_equal(25)
 
 
 # ── AC-8 + AC-9 structural source assertions ──────────────────────────────────

@@ -314,6 +314,10 @@ const _AC7_BATTLE_HUD_REACHABLE: PackedStringArray = [
 	# Session-15: use_skill is keyboard-first (S key) for PC, same pattern
 	# as defend_stance. HUD skill button is the planned touch path.
 	"use_skill",
+	# S90 Phase B: use_item is keyboard-first (I + 3 keys) for PC, same
+	# pattern as use_skill / defend_stance. UI-GB-15 inventory panel button
+	# (battle-hud.md, ux-designer S89 arc-F) is the planned touch path.
+	"use_item",
 ]
 
 

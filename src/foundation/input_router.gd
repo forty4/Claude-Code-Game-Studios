@@ -208,7 +208,7 @@ var _did_visible_work: bool = false
 const _GRID_ACTIONS_S5: Array[StringName] = [
 	&"unit_select", &"move_target_select", &"move_confirm", &"move_cancel",
 	&"attack_target_select", &"attack_confirm", &"attack_cancel",
-	&"undo_last_move", &"end_unit_turn", &"grid_hover",
+	&"undo_last_move", &"end_unit_turn", &"grid_hover", &"use_item",
 ]
 
 ## Camera + read actions permitted to pass through in S5 INPUT_BLOCKED (story-007 + AC-4).
@@ -223,9 +223,11 @@ const ACTIONS_BY_CATEGORY: Dictionary[StringName, Array] = {
 	&"grid": [
 		&"unit_select", &"move_target_select", &"move_confirm", &"move_cancel",
 		&"attack_target_select", &"attack_confirm", &"attack_cancel",
-		&"undo_last_move", &"end_unit_turn", &"defend_stance", &"use_skill", &"grid_hover",
+		&"undo_last_move", &"end_unit_turn", &"defend_stance", &"use_skill",
+		&"use_item", &"grid_hover",
 		# defend_stance = session-13 D key for player defend verb
 		# use_skill = session-15 S key for hero active skill (1×/battle)
+		# use_item = S90 Phase B — I key (73) + 3 key (51) for inventory item use
 		# grid_hover = PC-only per CR-1c
 	],
 	&"camera": [
@@ -1002,12 +1004,15 @@ func _handle_action_in_s0(action: StringName, ctx: InputContext) -> void:
 			# S0 undo path: player can undo from observation state (AC-4 S0 path).
 			# _apply_undo handles _did_visible_work internally (set on success only).
 			_apply_undo(ctx.target_unit_id)
-		&"use_skill", &"defend_stance":
+		&"use_skill", &"defend_stance", &"use_item":
 			# S86 — same gate-fix as S1 (see _handle_action_in_s1 comment). S0
 			# accepts these actions too so the player can press S/D/1/2 the
 			# moment their turn starts, without first clicking the unit. The
 			# controller's selection-less fallback (_handle_use_skill_input,
 			# _handle_defend_stance_input) takes over from there.
+			# S90 Phase B — use_item joins the same selection-less fallback
+			# family (I/3 keys). GridBattleController validates active unit +
+			# inventory state; InputRouter just relays per G-32 emit-gate fix.
 			_did_visible_work = true
 		# All other actions in S0: silent no-op
 
@@ -1060,14 +1065,15 @@ func _handle_action_in_s1(action: StringName, ctx: InputContext) -> void:
 			# S1 undo path: player can undo from unit-selected state too (AC-4 S1 path).
 			# _apply_undo handles _did_visible_work internally (set on success only).
 			_apply_undo(ctx.target_unit_id)
-		&"use_skill", &"defend_stance":
+		&"use_skill", &"defend_stance", &"use_item":
 			# S86 — gate-fix: pre-S86 these actions were declared in _GRID_ACTIONS
 			# and matched at InputMap level (logs showed [KEY-DIAG] MATCH ...) but
 			# they had no per-state arm here, so `_did_visible_work` stayed false
 			# and the GameBus.input_action_fired.emit gate at line 935 dropped
 			# them silently — controller never saw the skill/defend press.
 			# Setting the flag lets the emit fire; controller's _on_input_action_fired
-			# routes use_skill / defend_stance to their respective handlers.
+			# routes use_skill / defend_stance / use_item to their respective handlers.
+			# S90 Phase B — use_item routes to _handle_use_item_input.
 			_did_visible_work = true
 		# All other actions in S1: silent no-op
 

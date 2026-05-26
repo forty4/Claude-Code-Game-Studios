@@ -46,6 +46,10 @@
         {"type": "key", "keycode": 83},
         {"type": "key", "keycode": 49}
     ],
+    "use_item": [
+        {"type": "key", "keycode": 73},
+        {"type": "key", "keycode": 51}
+    ],
     "camera_pan": [
         {"type": "screen_drag"},
         {"type": "mouse_button", "button_index": 3}
