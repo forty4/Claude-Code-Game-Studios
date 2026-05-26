@@ -55,6 +55,7 @@ enum ActionType {
 	USE_SKILL,
 	DEFEND,
 	WAIT,
+	USE_ITEM,  # S90 Phase B — strategy-systems.md v0.3 §3.3. Spends action_token like ATTACK/USE_SKILL/DEFEND.
 }
 
 ## Victory result codes for victory_condition_detected signal payload.
@@ -401,8 +402,12 @@ func declare_action(unit_id: int, action: int, target: ActionTarget) -> ActionRe
 			_maybe_defer_turn_completion(unit_id)
 			return ActionResult.make_success()
 
-		ActionType.ATTACK, ActionType.USE_SKILL:
-			# CR-3: ACTION token re-spend check.
+		ActionType.ATTACK, ActionType.USE_SKILL, ActionType.USE_ITEM:
+			# CR-3: ACTION token re-spend check. S90 Phase B — USE_ITEM joins the
+			# same token category as ATTACK/USE_SKILL/DEFEND per strategy-systems.md
+			# v0.3 binding decision (2). Move+item OK, move+item+attack NOT OK.
+			# Slot/restriction/effect validation is in GridBattleController (caller
+			# responsibility); turn_order_runner enforces token economy only.
 			if state.action_token_spent:
 				return ActionResult.make_failure(ActionError.TOKEN_ALREADY_SPENT as int)
 			state.action_token_spent = true

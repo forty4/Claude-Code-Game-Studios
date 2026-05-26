@@ -131,3 +131,26 @@ extends Resource
 ## True once the active skill has fired this battle. Reset only at battle init —
 ## intentionally persists across rounds (skills are battle-scoped, not turn-scoped).
 @export var skill_used: bool = false
+
+
+# ── S90 Phase B fields (Strategy Systems v0.3 §3.3.1) ──────────────────────────
+
+## Per-hero inventory of consumable items. Each slot holds an item_id StringName
+## (e.g. &"heal_potion" / &"strength_scroll") or &"" for empty slot. Default
+## INVENTORY_SLOT_COUNT = 3 slots per strategy-systems.md §3.1. Loaded at battle
+## init from chapter.starting_inventory_by_hero; auto-cleared at battle end
+## (no permanent accumulation per §3.4 — Pillar 5 ship target rule).
+@export var inventory: Array[StringName] = []
+
+## Pending multi-turn buff from a strategy item (e.g. strength_scroll).
+## Empty Dictionary {} = no active buff (use {} as null-sentinel since
+## Dictionary var cannot hold null per G-25). When non-empty, must contain:
+##   { &"kind": StringName, &"magnitude": float, &"expires_at_turn": int }
+## Outer type intentionally untyped Dictionary (NOT `Dictionary[StringName, Variant]`)
+## to avoid G-25 nested-typed-collection parse error on value type.
+##
+## Consumed by GridBattleController at attack/skill resolve time:
+##   resolve_mods.pending_buff_magnitude = attacker.pending_buff.get(&"magnitude", 1.0)
+##   attacker.pending_buff = {}  # cleared by GridBattleController ONLY, not DamageCalc
+## See damage-calc.md rev 2.9.4 §CR-1 + §F-DC-5 for ABI contract.
+@export var pending_buff: Dictionary = {}

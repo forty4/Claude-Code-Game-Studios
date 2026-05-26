@@ -159,7 +159,7 @@ func test_declare_action_invalid_action_type_rejected_with_error_code() -> void:
 	_setup_single_unit_at_t4(uid)
 	var pre_snap: UnitTurnState = _runner._unit_states[uid].snapshot()
 
-	# Act — 99 is out of range [0, ActionType.size()-1] = [0, 4]
+	# Act — 99 is out of range [0, ActionType.size()-1] = [0, 5] (S90: added USE_ITEM)
 	var result: ActionResult = _runner.declare_action(uid, 99, null)
 
 	# Assert — rejected with INVALID_ACTION_TYPE
@@ -190,7 +190,7 @@ func test_declare_action_invalid_action_type_negative_int_rejected() -> void:
 	_setup_single_unit_at_t4(uid)
 	var pre_snap: UnitTurnState = _runner._unit_states[uid].snapshot()
 
-	# Act — -1 is out of range [0, ActionType.size()-1] = [0, 4]; covers the
+	# Act — -1 is out of range [0, ActionType.size()-1] = [0, 5] (S90: added USE_ITEM); covers the
 	# `action < 0` branch of the guard at runner.gd line 259 (the >=size branch
 	# is covered by the 99-input test above).
 	var result: ActionResult = _runner.declare_action(uid, -1, null)
@@ -305,6 +305,100 @@ func test_declare_action_use_skill_spends_action_token_only() -> void:
 	assert_bool(_runner._unit_states[uid].move_token_spent).override_failure_message(
 		"AC-3b: move_token_spent must remain false after declare_action(USE_SKILL)"
 	).is_false()
+
+
+# ── AC-SS-1: USE_ITEM spends action token only (S90 Phase B) ──────────────────
+
+
+## AC-SS-1 (strategy-systems.md v0.3 §3.3): USE_ITEM spends action_token_spent
+## only; move_token_spent unchanged. Mirrors AC-3b USE_SKILL pattern — Item use
+## joins the same token category per binding decision (2) (Move+item OK, but
+## Move+item+attack NOT OK).
+## Given: unit in ACTING state, both tokens FRESH.
+## When:  declare_action(uid, ActionType.USE_ITEM, null).
+## Then:  success=true; action_token_spent=true; move_token_spent unchanged (false).
+func test_declare_action_use_item_spends_action_token_only() -> void:
+	# Arrange
+	var uid: int = 1
+	_setup_single_unit_at_t4(uid)
+
+	# Act
+	var result: ActionResult = _runner.declare_action(
+		uid, TurnOrderRunner.ActionType.USE_ITEM as int, null)
+
+	# Assert
+	assert_bool(result.success).override_failure_message(
+		"AC-SS-1: declare_action(USE_ITEM) must succeed when ACTION token is FRESH"
+	).is_true()
+
+	assert_int(result.error_code).override_failure_message(
+		"AC-SS-1: error_code must be NONE on success; got %d" % result.error_code
+	).is_equal(TurnOrderRunner.ActionError.NONE as int)
+
+	assert_bool(_runner._unit_states[uid].action_token_spent).override_failure_message(
+		"AC-SS-1: action_token_spent must be true after declare_action(USE_ITEM)"
+	).is_true()
+
+	assert_bool(_runner._unit_states[uid].move_token_spent).override_failure_message(
+		"AC-SS-1: move_token_spent must remain false after declare_action(USE_ITEM) " +
+		"(item use does NOT consume move token — Move+item chain is allowed)"
+	).is_false()
+
+
+## AC-SS-1 (continued): USE_ITEM re-spend protected by TOKEN_ALREADY_SPENT.
+## Given: unit declared USE_ITEM once (action_token_spent=true).
+## When:  declare_action(uid, ActionType.USE_ITEM, null) second time.
+## Then:  success=false; error_code=TOKEN_ALREADY_SPENT; state unchanged.
+func test_declare_action_use_item_second_time_rejected_token_already_spent() -> void:
+	# Arrange
+	var uid: int = 1
+	_setup_single_unit_at_t4(uid)
+	var first_result: ActionResult = _runner.declare_action(
+		uid, TurnOrderRunner.ActionType.USE_ITEM as int, null)
+	assert_bool(first_result.success).is_true()  # pre-condition
+
+	# Act
+	var second_result: ActionResult = _runner.declare_action(
+		uid, TurnOrderRunner.ActionType.USE_ITEM as int, null)
+
+	# Assert
+	assert_bool(second_result.success).override_failure_message(
+		"AC-SS-1: second declare_action(USE_ITEM) must fail (TOKEN_ALREADY_SPENT)"
+	).is_false()
+
+	assert_int(second_result.error_code).override_failure_message(
+		("AC-SS-1: second declare_action(USE_ITEM) error_code must be " +
+		"TOKEN_ALREADY_SPENT (%d); got %d") %
+		[(TurnOrderRunner.ActionError.TOKEN_ALREADY_SPENT as int), second_result.error_code]
+	).is_equal(TurnOrderRunner.ActionError.TOKEN_ALREADY_SPENT as int)
+
+
+## AC-SS-1 (continued): USE_ITEM after ATTACK rejected (shared action token).
+## Validates that ATTACK + USE_ITEM are mutually exclusive in the same turn —
+## strategy-systems.md v0.3 binding decision (2): Move+item+attack NOT OK.
+## Given: unit declared ATTACK first (action_token_spent=true).
+## When:  declare_action(uid, ActionType.USE_ITEM, null).
+## Then:  success=false; error_code=TOKEN_ALREADY_SPENT.
+func test_declare_action_use_item_after_attack_rejected() -> void:
+	# Arrange
+	var uid: int = 1
+	_setup_single_unit_at_t4(uid)
+	var attack_result: ActionResult = _runner.declare_action(
+		uid, TurnOrderRunner.ActionType.ATTACK as int, null)
+	assert_bool(attack_result.success).is_true()  # pre-condition
+
+	# Act
+	var item_result: ActionResult = _runner.declare_action(
+		uid, TurnOrderRunner.ActionType.USE_ITEM as int, null)
+
+	# Assert
+	assert_bool(item_result.success).override_failure_message(
+		"AC-SS-1: USE_ITEM after ATTACK must fail (shared action token economy)"
+	).is_false()
+
+	assert_int(item_result.error_code).override_failure_message(
+		"AC-SS-1: error_code must be TOKEN_ALREADY_SPENT (shared action token)"
+	).is_equal(TurnOrderRunner.ActionError.TOKEN_ALREADY_SPENT as int)
 
 
 # ── AC-4 + AC-12: DEFEND spends ACTION token + locks MOVE ────────────────────
