@@ -220,12 +220,12 @@ func test_use_item_enemy_side_rejected() -> void:
 
 ## AC-SS-4 (regression): unwired item_id triggers push_warning + reject without
 ## consuming slot. Validates the dispatch match default arm.
-## S90 step 5 update: strength_scroll moved to "wired" list; use march_scroll
-## (Phase B step 7+ pending) as the unwired test fixture.
+## S90 step 7 update: march_scroll moved to "wired" list; use fire_scroll
+## (Phase B step 6 pending OQ-DC-11) as the unwired test fixture.
 func test_use_item_unwired_item_id_rejected_with_warning() -> void:
 	# Arrange
 	var unit: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
-	unit.inventory = [&"march_scroll", &"", &""]  # Phase B step 7 — unwired in steps 4-5
+	unit.inventory = [&"fire_scroll", &"", &""]  # Phase B step 6 — unwired through step 7
 	var bag: Dictionary = _setup([unit])
 	var controller: GridBattleController = bag["controller"]
 	var hp_stub: HPStatusControllerStub = bag["hp_controller"]
@@ -241,8 +241,8 @@ func test_use_item_unwired_item_id_rejected_with_warning() -> void:
 		"AC-SS-4: use_item on unwired item_id must return false (slot intact, token unconsumed)"
 	).is_false()
 	assert_str(String(controller._units[1].inventory[0])).override_failure_message(
-		"AC-SS-4: inventory[0] must remain &\"march_scroll\" on unwired reject"
-	).is_equal("march_scroll")
+		"AC-SS-4: inventory[0] must remain &\"fire_scroll\" on unwired reject"
+	).is_equal("fire_scroll")
 
 
 # ─── AC-SS-5 strength_scroll buff multi-turn carry ────────────────────────────
@@ -388,3 +388,193 @@ func test_resolve_pending_buff_magnitude_no_buff_returns_identity() -> void:
 	# Assert
 	assert_float(magnitude).is_equal_approx(1.0, 0.001)
 	assert_bool(controller._units[1].pending_buff.is_empty()).is_true()
+
+
+# ─── AC-SS-4 b-variant march_scroll move-token re-grant (S90 step 7) ──────────
+
+
+## Helper — builds a UnitTurnState fixture in ACTING phase with both tokens fresh.
+func _make_acting_state(unit_id: int) -> UnitTurnState:
+	var state: UnitTurnState = UnitTurnState.new()
+	state.unit_id = unit_id
+	state.turn_state = TurnOrderRunner.TurnState.ACTING
+	state.move_token_spent = false
+	state.action_token_spent = false
+	return state
+
+
+## S90 step 7: march_scroll on fresh turn (no action_token spent) succeeds.
+## Bonus added to move_range_bonus, refresh_move_token invoked, slot decremented,
+## declare_action(USE_ITEM) called for action_token spend, signal emits.
+func test_use_item_march_scroll_grants_bonus_and_refreshes_move_token() -> void:
+	# Arrange
+	var unit: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	unit.inventory = [&"march_scroll", &"", &""]
+	unit.move_range = 3
+	var bag: Dictionary = _setup([unit])
+	var controller: GridBattleController = bag["controller"]
+	var hp_stub: HPStatusControllerStub = bag["hp_controller"]
+	var turn_stub: TurnOrderRunnerStub = bag["turn_runner"]
+	hp_stub.set_test_max_hp(1, 100)
+	hp_stub.set_test_current_hp(1, 100)
+	turn_stub.set_unit_turn_state_for_test(1, _make_acting_state(1))
+	controller._active_turn_unit_id = 1
+
+	var emitted: Array = []
+	controller.unit_item_used.connect(func(uid: int, item_id: StringName, slot_idx: int, effect: int) -> void:
+		emitted.append({"uid": uid, "item": item_id, "slot": slot_idx, "effect": effect})
+	)
+
+	# Act
+	var fired: bool = controller.use_item(1, 0)
+
+	# Assert
+	assert_bool(fired).override_failure_message(
+		"AC-SS-4b: march_scroll on fresh turn must succeed (action_token free)"
+	).is_true()
+	# Bonus applied additively (3 + 2 effective range)
+	assert_int(controller._units[1].move_range_bonus).override_failure_message(
+		"AC-SS-4b: move_range_bonus must equal MARCH_SCROLL_BONUS (2) after first use"
+	).is_equal(2)
+	# refresh_move_token invoked
+	assert_int(turn_stub.refresh_move_token_calls.size()).override_failure_message(
+		"AC-SS-4b: refresh_move_token must be called exactly once on success"
+	).is_equal(1)
+	assert_int(turn_stub.refresh_move_token_calls[0]).is_equal(1)
+	# Slot decremented
+	assert_str(String(controller._units[1].inventory[0])).is_equal("")
+	# action_token spent via declare_action(USE_ITEM)
+	assert_int(turn_stub.declared_actions.size()).is_equal(1)
+	assert_int(turn_stub.declared_actions[0]["action"] as int).is_equal(
+		TurnOrderRunner.ActionType.USE_ITEM as int
+	)
+	# Signal emit
+	assert_int(emitted.size()).is_equal(1)
+	assert_str(String(emitted[0]["item"] as StringName)).is_equal("march_scroll")
+
+
+## S90 step 7: march_scroll on a unit whose action_token is already spent is
+## rejected per strategy-systems v0.3 §4.4 Edge (book use IS an action;
+## cannot use book after attack). Slot NOT decremented, bonus NOT applied,
+## refresh_move_token NOT invoked.
+func test_use_item_march_scroll_after_attack_rejected_no_side_effect() -> void:
+	# Arrange
+	var unit: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	unit.inventory = [&"march_scroll", &"", &""]
+	unit.move_range = 3
+	var bag: Dictionary = _setup([unit])
+	var controller: GridBattleController = bag["controller"]
+	var hp_stub: HPStatusControllerStub = bag["hp_controller"]
+	var turn_stub: TurnOrderRunnerStub = bag["turn_runner"]
+	hp_stub.set_test_max_hp(1, 100)
+	hp_stub.set_test_current_hp(1, 100)
+	# State with action_token already spent (simulates "unit already attacked").
+	var state: UnitTurnState = _make_acting_state(1)
+	state.action_token_spent = true
+	turn_stub.set_unit_turn_state_for_test(1, state)
+	controller._active_turn_unit_id = 1
+
+	# Act
+	var fired: bool = controller.use_item(1, 0)
+
+	# Assert
+	assert_bool(fired).override_failure_message(
+		"AC-SS-4b: march_scroll must reject when action_token already spent (§4.4 Edge)"
+	).is_false()
+	# Bonus NOT applied
+	assert_int(controller._units[1].move_range_bonus).override_failure_message(
+		"AC-SS-4b: rejected march_scroll must NOT mutate move_range_bonus"
+	).is_equal(0)
+	# Slot intact
+	assert_str(String(controller._units[1].inventory[0])).is_equal("march_scroll")
+	# refresh_move_token NOT invoked
+	assert_int(turn_stub.refresh_move_token_calls.size()).override_failure_message(
+		"AC-SS-4b: refresh_move_token must NOT be called on reject"
+	).is_equal(0)
+	# declare_action NOT invoked (token preserved)
+	assert_int(turn_stub.declared_actions.size()).is_equal(0)
+
+
+## S90 step 7: march_scroll is additive — two consecutive uses (in same turn)
+## stack the bonus to +4. EC-SS-2 (Dictionary overwrite) does NOT apply here
+## because move_range_bonus is a numeric field, not a Dictionary.
+func test_use_item_march_scroll_stacks_additively_on_second_use() -> void:
+	# Arrange
+	var unit: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	unit.inventory = [&"march_scroll", &"march_scroll", &""]
+	unit.move_range = 3
+	var bag: Dictionary = _setup([unit])
+	var controller: GridBattleController = bag["controller"]
+	var hp_stub: HPStatusControllerStub = bag["hp_controller"]
+	var turn_stub: TurnOrderRunnerStub = bag["turn_runner"]
+	hp_stub.set_test_max_hp(1, 100)
+	hp_stub.set_test_current_hp(1, 100)
+	turn_stub.set_unit_turn_state_for_test(1, _make_acting_state(1))
+	controller._active_turn_unit_id = 1
+
+	# Act — first use
+	var first: bool = controller.use_item(1, 0)
+	assert_bool(first).is_true()
+	assert_int(controller._units[1].move_range_bonus).is_equal(2)
+
+	# Act — second use (stacks additively)
+	var second: bool = controller.use_item(1, 1)
+
+	# Assert
+	assert_bool(second).is_true()
+	assert_int(controller._units[1].move_range_bonus).override_failure_message(
+		"AC-SS-4b: second march_scroll must add additively (2 + 2 = 4)"
+	).is_equal(4)
+	# Both slots empty
+	assert_str(String(controller._units[1].inventory[0])).is_equal("")
+	assert_str(String(controller._units[1].inventory[1])).is_equal("")
+	# refresh_move_token invoked twice (once per use)
+	assert_int(turn_stub.refresh_move_token_calls.size()).is_equal(2)
+
+
+## S90 step 7: is_tile_in_move_range respects move_range_bonus. A unit with
+## move_range=3 + bonus=2 can reach Manhattan distance 5 tiles. Without the
+## bonus, the same tile would be out-of-range.
+func test_is_tile_in_move_range_respects_march_scroll_bonus() -> void:
+	# Arrange
+	var unit: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	unit.move_range = 3
+	var bag: Dictionary = _setup([unit])
+	var controller: GridBattleController = bag["controller"]
+	# Tile at Manhattan 5 from origin (2,2): (2,7) → dx=0, dy=5 → distance 5.
+
+	# Assert — without bonus, distance-5 tile is out of range
+	assert_bool(controller.is_tile_in_move_range(Vector2i(2, 7), 1)).override_failure_message(
+		"AC-SS-4b: baseline move_range=3 must reject Manhattan-5 tile"
+	).is_false()
+
+	# Apply bonus directly (simulates post-march_scroll state)
+	controller._units[1].move_range_bonus = 2
+
+	# Assert — with bonus, distance-5 tile now in range
+	assert_bool(controller.is_tile_in_move_range(Vector2i(2, 7), 1)).override_failure_message(
+		"AC-SS-4b: move_range_bonus=2 must lift Manhattan-5 tile into range"
+	).is_true()
+	# Distance-6 tile must still be out of range (bonus is +2, not unlimited)
+	assert_bool(controller.is_tile_in_move_range(Vector2i(2, 8), 1)).override_failure_message(
+		"AC-SS-4b: move_range_bonus does not exceed base + bonus ceiling"
+	).is_false()
+
+
+## S90 step 7: move_range_bonus is cleared at the start of THIS unit's next
+## turn. Simulates the bonus surviving through subsequent enemy turns and
+## resetting when the unit's own _on_unit_turn_started handler fires.
+func test_on_unit_turn_started_clears_march_scroll_bonus() -> void:
+	# Arrange
+	var unit: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	unit.move_range_bonus = 2  # leftover from prior turn's march_scroll
+	var bag: Dictionary = _setup([unit])
+	var controller: GridBattleController = bag["controller"]
+
+	# Act — simulate the turn-started handler firing for this unit
+	controller._on_unit_turn_started(1)
+
+	# Assert
+	assert_int(controller._units[1].move_range_bonus).override_failure_message(
+		"AC-SS-4b: _on_unit_turn_started must clear move_range_bonus to 0 (bonus expires)"
+	).is_equal(0)

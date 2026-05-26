@@ -154,3 +154,12 @@ extends Resource
 ##   attacker.pending_buff = {}  # cleared by GridBattleController ONLY, not DamageCalc
 ## See damage-calc.md rev 2.9.4 §CR-1 + §F-DC-5 for ABI contract.
 @export var pending_buff: Dictionary = {}
+
+## Transient move_range bonus granted by march_scroll (strategy-systems v0.3 §4.4).
+## Added to `move_range` for the current turn's reachability checks. Cleared back
+## to 0 at the start of this unit's next turn (GridBattleController._on_unit_turn_started)
+## so the bonus only lives within the turn it was purchased. Default 0 = no bonus.
+## Additive on re-use — a hero with 2× march_scroll could stack +4 within one turn
+## (EC-SS-2 design intent: items overwrite without warning, but march_scroll's
+## effect is a numeric addition, not a Dictionary replacement).
+@export var move_range_bonus: int = 0

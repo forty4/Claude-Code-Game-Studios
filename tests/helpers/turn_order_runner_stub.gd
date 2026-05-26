@@ -94,3 +94,21 @@ func set_unit_turn_state_for_test(unit_id: int, state: UnitTurnState) -> void:
 ## "unknown unit_id" return).
 func get_unit_turn_state(unit_id: int) -> UnitTurnState:
 	return _test_unit_states.get(unit_id, null)
+
+
+# ─── S90 Phase B step 7 — march_scroll refresh_move_token test seam ──────────
+
+
+## Captured refresh_move_token call list (unit_id per call). Tests assert
+## against this to verify GridBattleController._use_item_march_scroll invoked
+## the API.
+var refresh_move_token_calls: Array[int] = []
+
+
+## Override of TurnOrderRunner.refresh_move_token — production resets
+## state.move_token_spent = false for the ACTING unit. Stub captures the call
+## without enforcing the ACTING-state precondition (controller-side validation
+## is exercised via set_unit_turn_state_for_test).
+func refresh_move_token(unit_id: int) -> bool:
+	refresh_move_token_calls.append(unit_id)
+	return true

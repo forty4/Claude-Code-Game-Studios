@@ -364,6 +364,34 @@ func retract_move(unit_id: int, movement_cost: int) -> bool:
 	return true
 
 
+## S90 Phase B step 7 — march_scroll API. Resets state.move_token_spent = false
+## for the specified unit so it may declare another MOVE within the same turn.
+## Distinct from retract_move: refresh_move_token does NOT roll back
+## accumulated_move_cost (the prior move's distance is preserved for charge
+## eligibility) and does NOT require move_token_spent to currently be true
+## (a unit that hasn't moved yet may still receive refresh_move_token as a no-op
+## token grant — additive bonus alongside the still-fresh move token).
+##
+## Validation:
+##   - UNIT_NOT_FOUND — unit_id not in _unit_states → returns false
+##   - NOT_UNIT_TURN  — unit.turn_state != ACTING → returns false (book use
+##     outside the unit's own turn is structurally impossible per use_item gate)
+##
+## Returns true on successful reset, false otherwise.
+##
+## Used by GridBattleController._use_item_march_scroll (strategy-systems v0.3
+## §4.4). Does NOT touch action_token — the caller's subsequent
+## declare_action(USE_ITEM) handles action_token spend.
+func refresh_move_token(unit_id: int) -> bool:
+	if not _unit_states.has(unit_id):
+		return false
+	var state: UnitTurnState = _unit_states[unit_id]
+	if state.turn_state != TurnState.ACTING:
+		return false
+	state.move_token_spent = false
+	return true
+
+
 func declare_action(unit_id: int, action: int, target: ActionTarget) -> ActionResult:
 	# Validation 1: UNIT_NOT_FOUND — guard before any state read.
 	if not _unit_states.has(unit_id):

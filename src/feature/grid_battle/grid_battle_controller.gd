@@ -831,11 +831,14 @@ func is_tile_in_move_range(tile: Vector2i, unit_id: int) -> bool:
 	if not _units.has(unit_id):
 		return false
 	var unit: BattleUnit = _units[unit_id]
-	# Manhattan distance check (MVP per AC-2)
+	# Manhattan distance check (MVP per AC-2). S90 Phase B step 7: effective
+	# range = base move_range + transient move_range_bonus (march_scroll grant
+	# per strategy-systems v0.3 §4.4). Bonus cleared at unit_turn_started.
 	var dx: int = absi(tile.x - unit.position.x)
 	var dy: int = absi(tile.y - unit.position.y)
 	var manhattan: int = dx + dy
-	if manhattan == 0 or manhattan > unit.move_range:
+	var effective_range: int = unit.move_range + unit.move_range_bonus
+	if manhattan == 0 or manhattan > effective_range:
 		return false  # zero-distance (current tile) or out-of-range
 	# Passability + occupancy via MapGrid.get_tile (single source of truth)
 	var tile_data: MapTileData = _map_grid.get_tile(tile)
@@ -885,9 +888,13 @@ func get_movable_tiles(unit_id: int) -> PackedVector2Array:
 	if not _units.has(unit_id):
 		return result
 	var unit: BattleUnit = _units[unit_id]
-	for dx: int in range(-unit.move_range, unit.move_range + 1):
-		for dy: int in range(-unit.move_range, unit.move_range + 1):
-			if absi(dx) + absi(dy) > unit.move_range:
+	# S90 Phase B step 7: iterate the Manhattan diamond expanded by
+	# move_range_bonus (march_scroll grant). is_tile_in_move_range applies the
+	# same effective range as gate, so the preview cannot drift from click-time.
+	var effective_range: int = unit.move_range + unit.move_range_bonus
+	for dx: int in range(-effective_range, effective_range + 1):
+		for dy: int in range(-effective_range, effective_range + 1):
+			if absi(dx) + absi(dy) > effective_range:
 				continue
 			var coord: Vector2i = unit.position + Vector2i(dx, dy)
 			if is_tile_in_move_range(coord, unit_id):
@@ -1359,6 +1366,10 @@ func _on_unit_turn_started(unit_id: int) -> void:
 	# Track the active turn unit so click handlers can reject input on other own
 	# units (only the active unit may move/attack on a given turn).
 	_active_turn_unit_id = unit_id
+	# S90 Phase B step 7: march_scroll bonus expires at the start of THIS unit's
+	# next turn. Cleared here so the bonus only lives within the turn it was
+	# purchased (strategy-systems v0.3 §4.4 — "이번 turn 의 잔여 move 범위에 +2").
+	unit.move_range_bonus = 0
 	_trace("[TURN] active unit changed to %d (side=%d, player=%s)" %
 		[unit_id, unit.side, unit.is_player_controlled])
 	# Auto-deselect a stale selection if the new active unit differs — keeps
@@ -2217,9 +2228,10 @@ func _handle_use_item_input() -> void:
 ## Returns true on success, false when blocked (no item / wrong side / active
 ## token spent / item-specific reject).
 ##
-## Per strategy-systems.md v0.3 §3.3 + AC-SS-4. S90 Phase B MVP scope: heal_potion
-## only (immediate self-target HP restore). Future items (strength_scroll buff
-## carry, fire_scroll cross-class, march_scroll movement extension) land in
+## Per strategy-systems.md v0.3 §3.3 + AC-SS-4. S90 Phase B wired items:
+## heal_potion (step 4 immediate HP restore), strength_scroll (step 5 multi-turn
+## buff carry), march_scroll (step 7 move_range +2 + move_token refresh). Future
+## items (fire_scroll cross-class — step 6 pending OQ-DC-11 resolution) land in
 ## subsequent commits per Phase B implementation order.
 func use_item(unit_id: int, slot_idx: int) -> bool:
 	if _battle_over:
@@ -2240,10 +2252,10 @@ func use_item(unit_id: int, slot_idx: int) -> bool:
 	var item_id: StringName = unit.inventory[slot_idx]
 	if item_id == &"":
 		return false  # empty slot
-	# Item dispatch — heal_potion (step 4) + strength_scroll (step 5) wired.
-	# Other prototype items (march_scroll step 7, fire_scroll step 6 pending
-	# OQ-DC-11 resolution) land in subsequent steps per strategy-systems.md
-	# v0.3 Phase B implementation order.
+	# Item dispatch — heal_potion (step 4) + strength_scroll (step 5) +
+	# march_scroll (step 7) wired. Other prototype items (fire_scroll step 6
+	# pending OQ-DC-11 resolution) land in subsequent steps per
+	# strategy-systems.md v0.3 Phase B implementation order.
 	var fired: bool = false
 	var actual_effect: int = 0
 	match item_id:
@@ -2252,6 +2264,9 @@ func use_item(unit_id: int, slot_idx: int) -> bool:
 			fired = actual_effect > 0
 		&"strength_scroll":
 			actual_effect = _use_item_strength_scroll(unit)
+			fired = actual_effect > 0
+		&"march_scroll":
+			actual_effect = _use_item_march_scroll(unit)
 			fired = actual_effect > 0
 		_:
 			push_warning("GridBattleController.use_item: unwired item_id '%s' on unit %d slot %d — no-op"
@@ -2317,6 +2332,50 @@ func _use_item_strength_scroll(unit: BattleUnit) -> int:
 		&"expires_at_turn": current_round + 1,
 	}
 	return 1  # success — "1 buff stored" for signal payload
+
+
+## march_scroll handler — strategy-systems.md v0.3 §4.4.
+## Grants MARCH_SCROLL_BONUS (+2) to caster.move_range_bonus for this turn AND
+## refreshes turn_runner's move_token_spent flag so the caster may declare a
+## second MOVE within the same turn. Returns 1 on success; 0 on reject.
+##
+## Reject conditions:
+##   - dead unit (no actor to march)
+##   - turn_runner unavailable (defensive — never happens in production)
+##   - action_token already spent (book use IS an action; cannot use a book
+##     AFTER attack — strategy-systems §4.4 Edge: "이미 attack 함이면 거부")
+##
+## Side effects on success:
+##   - unit.move_range_bonus += MARCH_SCROLL_BONUS (additive; stacks if hero
+##     has 2× march_scroll — purchase order preserved as numeric sum since
+##     the field is int, not a Dictionary subject to EC-SS-2 overwrite)
+##   - _turn_runner.refresh_move_token(unit.unit_id) — move_token_spent = false
+##
+## NOTE: The caller (use_item) calls declare_action(USE_ITEM) AFTER this returns
+## success, which spends the action_token. A successful march_scroll therefore
+## burns the unit's action for the turn (book = action) while unlocking a
+## fresh move via the refresh. action_token is checked BEFORE the bonus is
+## applied so a rejected march_scroll does not leak a partial side effect.
+const MARCH_SCROLL_BONUS: int = 2
+
+func _use_item_march_scroll(unit: BattleUnit) -> int:
+	if _hp_controller == null:
+		return 0
+	if not _hp_controller.is_alive(unit.unit_id):
+		return 0  # dead unit cannot march (revive_pill is Phase C+)
+	if _turn_runner == null:
+		return 0
+	# Action-token pre-check per strategy-systems v0.3 §4.4 Edge.
+	# `get_unit_turn_state` returns null for unknown unit_id (matches production
+	# semantics); defensive check before reading action_token_spent.
+	var state: UnitTurnState = _turn_runner.get_unit_turn_state(unit.unit_id)
+	if state == null:
+		return 0
+	if state.action_token_spent:
+		return 0  # already attacked — book use rejected (§4.4 Edge)
+	unit.move_range_bonus += MARCH_SCROLL_BONUS
+	_turn_runner.refresh_move_token(unit.unit_id)
+	return 1
 
 
 ## S90 Phase B step 5 — buff consumption helper. Called by _resolve_attack
