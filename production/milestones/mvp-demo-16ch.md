@@ -467,6 +467,41 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Layered UX gap diagnosis**: "재미없음" 같은 단일 사용자 보고가 actually 여러 layer 의 root cause 조합. 진단 시 surface-level fix 만 시도하면 underlying issue 누락 위험. mechanical + discoverability + visual + balance 의 4 layer 모두 inspect 필요.
 - **Selection-less fallback pattern**: 사용자 UX flow 가 "click then key" 이 아닌 "key directly" 일 수도. controller handler 들에 active turn unit fallback 추가 = UX simplification + felt 향상 — 다른 systems 도 같은 pattern 가능 (예: 미리보기 dismiss, 카메라 control).
 
+### S90 — Strategy Systems Phase B steps 1-5 implementation (2026-05-26 session 90)
+
+> **Driver**: S89 arc-F (Phase B pre-flight complete) 후 사용자 "이어서 진행" → Phase B steps 1-5 단일 세션 implementation. 마지막에 사용자 "진행된 내용 문서에 반영 + commit push + 세션 클리어" 요청.
+
+**Completed (5 commits, 2010/2010 PASS 유지, code + tests)**:
+
+- [x] **Step 1+2 BattleUnit fields + ActionType.USE_ITEM (commit `c137894`, +3 AC-SS-1 tests)** — `inventory: Array[StringName] = []` + `pending_buff: Dictionary = {}` (G-25 safe) added to BattleUnit. ActionType enum extended (5 → 6 values). declare_action arm: USE_ITEM joins ATTACK/USE_SKILL/DEFEND action_token category (shared economy — move+item OK, move+item+attack NOT OK).
+- [x] **Step 3 InputRouter use_item arm + I/3 keys (commit `989aef2`)** — ACTIONS_BY_CATEGORY["grid"] +use_item (13 total). default_bindings.json use_item = I(73)+3(51). _handle_action_in_s0 + _s1 triple-action arm (use_skill, defend_stance, use_item) with `_did_visible_work = true`. G-32 lint passes (13/12 grid actions + grid_hover PC-only). 6 test count fixes + AC-7 reachability exempt list +use_item.
+- [x] **Step 4 heal_potion immediate-effect (commit `4bdfc73`, +6 AC-SS-4 tests)** — Public API `use_item(unit_id, slot_idx) -> bool`. `_handle_use_item_input()` selection-less fallback (mirrors use_skill pattern). HEAL_POTION_AMOUNT=25 via HPStatusController.apply_heal. Reject at max HP (slot NOT consumed). New `unit_item_used` signal: (unit_id, item_id, slot_idx, actual_effect). End-to-end action chain validated.
+- [x] **Step 5 strength_scroll buff multi-turn carry (commit `a2ddbea`, +5 AC-SS-5 tests)** — ResolveModifiers ABI extended: `pending_buff_magnitude: float = 1.0` field + factory positional param (G-21 safe identity). DamageCalc._passive_multiplier folds buff into pre-cap product with counter guard. STRENGTH_SCROLL_MULT=1.50. `_use_item_strength_scroll` sets pending_buff with expires_at_turn = current_round+1. `_resolve_pending_buff_magnitude` helper: read+clear (consume) or stale+clear (identity). 2 call sites: _resolve_attack CONSUMES, preview_attack PEEKS (forecast must not burn scroll).
+
+**S90 — 핵심 design 결정 (잠금)**:
+
+1. **Buff gate `expires_at_turn >= current_round`** (strict) — spec v0.3 text `>` was a bug; EC-SS-3 worked example requires `>=`. Implemented per example, spec text correction filed as v0.3.1 carry-over.
+2. **Buff consumption ownership**: GridBattleController.`_resolve_pending_buff_magnitude` 명시적으로 clear. DamageCalc 는 BattleUnit 상태 mutate 안 함 (strategy-systems §3.3 마지막 bullet 준수).
+3. **Preview vs Resolve dichotomy**: forecast = PEEK (read-only), resolve = CONSUME (clear). Player friendly — scroll 안 burned on preview.
+4. **Counter guard**: pending_buff_magnitude 는 is_counter=true 경로에서 차단 (DamageCalc 내부, Charge/Ambush/Rally pattern 일관성).
+5. **G-21 safe identity default 1.0**: 기존 damage_calc tests retroactive shift 없음. Apex cell Cavalry 178 보존.
+
+**S90 — 결과 / Pillar 별 felt 변화**:
+
+- **Pillar #5 (전략적 조합)**: 기초 mechanism 완성. 4 MVP items 중 2개 wired (heal_potion + strength_scroll). 행동 chain "move + item" 작동 검증. Multi-turn buff carry pattern 작동.
+- **Pillar #3 (역할 차별화)**: 보호 4-mechanism (class 제한 + INT 임계 + 휴대 한계 + buff stacking 금지) 의 4번째 (buff stacking 금지) 가 EC-SS-2 + strength_scroll overwrite 로 작동 입증.
+- **Test count progression**: S87 1996 → S88 1996 → S89 1996 → **S90 2010** (+14 across 5 commits all green).
+
+**S90 → S91 (next session) 핸드오프**:
+
+Phase B remaining order (locked):
+1. **step 6 fire_scroll** — **OQ-DC-11 사용자 결정 필요** (defer fixed-20 / apply INT scaling)
+2. **step 7 march_scroll** — no OQ blocker, mechanical only, G-30 windowed verify required
+3. **step 8 chapter_resource** — last cross-doc obligation closing
+4. **step 9 UI implementation** — UI-GB-15/16/17 view-layer (spec authored S89 arc-F)
+
+Critical path: step 7 가장 light (mechanical-only, no decision pending) → step 8 (data wire-up) → step 6 (OQ resolution) → step 9 (UI).
+
 ### S89 — Phase B pre-flight COMPLETE + v0.3 INT alignment (2026-05-26 session 89, arc-F)
 
 > **Driver**: arc-E v0.2 close-out 직후 사용자 "이어서 진행" → Phase B mandatory pre-flight 4 item 동시 진행 (damage-calc rev N + battle-hud UI-GB + accessibility R-6 + hero-database INT sweep). Parallel agent spawn 2개 + 직접 work 2개. 5 of 6 cross-doc obligations RESOLVED/COMPLETED.
