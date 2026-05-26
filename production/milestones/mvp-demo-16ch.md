@@ -467,6 +467,35 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Layered UX gap diagnosis**: "재미없음" 같은 단일 사용자 보고가 actually 여러 layer 의 root cause 조합. 진단 시 surface-level fix 만 시도하면 underlying issue 누락 위험. mechanical + discoverability + visual + balance 의 4 layer 모두 inspect 필요.
 - **Selection-less fallback pattern**: 사용자 UX flow 가 "click then key" 이 아닌 "key directly" 일 수도. controller handler 들에 active turn unit fallback 추가 = UX simplification + felt 향상 — 다른 systems 도 같은 pattern 가능 (예: 미리보기 dismiss, 카메라 control).
 
+### S89 — Strategy Systems GDD v0.2 narrow re-review close-out (2026-05-26 session 89, arc-E)
+
+> **Driver**: arc-D v0.1 GDD draft 직후 사용자 "권장 순서대로 진행" → 3 specialist (godot-gdscript-specialist + ux-designer + qa-lead) narrow re-review parallel spawn → 11 blocking findings 도출 → 모든 specialist-authored fix language 적용 + 2 user adjudication.
+
+**Completed (1 commit, 1996/1996 PASS 유지, docs only)**:
+
+- [x] **3-specialist narrow re-review** (parallel background spawn): godot NEEDS REVISION (4 B + 3 R + 3 A) + ux NEEDS REVISION (4 B + 4 R + 3 A) + qa CONCERNS (3 B + 4 R + 4 A). 11 blocking findings 종합.
+- [x] **2 user adjudications (binding)**: (A) Inventory panel = Option B (bottom-center modal) per ux 추천. (B) command_scroll DEFERRED to Phase 4+ per godot B-3 + qa R-3 convergent.
+- [x] **strategy-systems.md v0.1 → v0.2** (~600 LoC 변경): §3.3 신규 sub-sections (BattleUnit field + G-32 arm coverage) / §3.5 9 sub-section 완전 rewrite (panel + flow + palette + SELF confirm + cancel + tooltip + buff indicator + a11y + i18n) / §4.2 cap fix (MAX_RAW_DAMAGE desync 제거) / §4.3 fire INT clarification / §4.5 command DEFER / §5 EC-SS-3 revive lifecycle + EC-SS-6 DEFER / §6 ResolveModifiers ABI obligation + G-32 explicit + 6-row cross-doc obligations checklist / §8 all AC rewrite per qa enhancement table / OQ-SS-6 RESOLVED / footer.
+- [x] **신규 review log**: `design/gdd/reviews/strategy-systems-review-log.md` (~140 lines) — v0.1 entry + v0.2 close-out 완전.
+- [x] **systems-index.md row #15**: In Design v0.1 → APPROVED v0.2 close-out.
+
+**S89 arc-E — 핵심 design 결정 (잠금)**:
+
+1. **command_scroll Phase 4+ defer**: TurnOrderRunner hard invariant 충돌 회피. 4 MVP items 으로 Pillar #5 입증.
+2. **Buff multi-turn carry**: `expires_at_turn > current_turn` strict gate (same-turn 보호) + revive 재계산 안 함.
+3. **ResolveModifiers.pending_buff_magnitude: float = 1.0** identity default + damage-calc.md rev N cross-doc obligation binding.
+4. **G-32 use_item arm S0+S1 both** mandatory + lint enforcement.
+5. **Panel = Option B (bottom-center modal)**: UI-GB-15/16/17 = battle-hud.md 신규 row obligation.
+
+**S89 arc-E → S90 (next session) Phase B 진입 mandatory action**:
+
+1. damage-calc.md narrow re-review (INT_BASELINE + pending_buff_magnitude field)
+2. hero-database.md INT sweep (14+ hero)
+3. battle-hud.md UI-GB-15/16/17 authoring (ux-designer follow-up)
+4. accessibility-requirements.md R-6 token (ux-designer follow-up)
+
+Phase B implementation order locked: BattleUnit fields → USE_ITEM enum → InputRouter arms → heal → strength (+damage-calc patch) → fire (+INT_BASELINE 확정) → march → ~~command~~ DEFER.
+
 ### S89 — Strategic depth pivot — Pillar #5 신설 + Strategy Systems GDD (2026-05-26 session 89, arc-D)
 
 > **Driver**: S89 arc-A/B/C (hero attack frame 5명) 직후 사용자 raw feedback (강도 높음): "이동 이후 공격이나 책략이나 도구(아이템)를 사용해서 ... 영걸전에서 제공하는 재미있고 전략적인 것들이 ... 현재 이 게임에서는 그런 부분이 거의 없는 것과 같다. 이 부분이 제일 중요한 부분이고, 이런 것들이 조합이 되어서 게임 난이도와 밸런스가 결정된다." → 영걸전 핵심 전략 시스템의 전면 부재 자백 + ship target 재정의 명령. Explore agent audit 결과 정확 확인: Q3 Move→Item ❌ / Q4 Inventory ❌ / Q5 Scroll ❌ / Q6 Ally support ⚠ 14중 3개만.
