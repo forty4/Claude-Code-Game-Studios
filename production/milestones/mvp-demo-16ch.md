@@ -467,6 +467,29 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Layered UX gap diagnosis**: "재미없음" 같은 단일 사용자 보고가 actually 여러 layer 의 root cause 조합. 진단 시 surface-level fix 만 시도하면 underlying issue 누락 위험. mechanical + discoverability + visual + balance 의 4 layer 모두 inspect 필요.
 - **Selection-less fallback pattern**: 사용자 UX flow 가 "click then key" 이 아닌 "key directly" 일 수도. controller handler 들에 active turn unit fallback 추가 = UX simplification + felt 향상 — 다른 systems 도 같은 pattern 가능 (예: 미리보기 dismiss, 카메라 control).
 
+### S89 — Hero attack frame Phase 4 — 5 main heroes (2026-05-26 session 89)
+
+> **Driver**: S88 close 후 첫 turn (cold-start). 사용자 "다음 중요한 게임 요소 진행하자" → AskUserQuestion (4 옵션 — Full Vision / ★ #2-5 branch / **Hero attack frame** / CombatResolver refactor) → "Hero attack frame (Phase 4)" 선택. 본 항목은 North Star "Out of scope for this ship" 명시 Phase 4 진입 — ship target 외 polish-track 의 선언적 진행. Scope follow-up: 5명 주용 hero 선택 (유비/관우/장비/조운/제갈량).
+
+**Completed (1 commit, 1996 PASS 유지, +~380 LoC)**:
+
+- [x] **feat: hero attack frame — 5 main heroes (Shu trio + Zhao Yun + Zhuge Liang)** — 신규 `src/feature/battle_scene/hero_attack_frame.gd` (~370 LoC) + battle_scene.gd `_on_damage_applied` wire (+12 LoC). 5 hero kinds: `twin_blade_cross` (유비 雙股劍 X cross) / `crescent_arc` (관우 청룡언월도 황금 sweep) / `spear_thrust` (장비 장팔사모 진홍 thrust + impact star) / `lance_dash` (조운 龍膽槍 cyan 3-slash flurry + cross-spark) / `fan_glyph` (제갈량 羽扇 indigo glyph + 4 diagonal sparks). Per-attack DURATION 0.30s (skill 0.70s 의 절반). `make_for_hero` dispatch returns null for unsupported hero_id → class-line attack visual 그대로 fallback. Position semantic: node anchored at defender; `_from_local` 으로 attacker offset 보존 → at-defender + from→to 두 패턴 동일 좌표계.
+
+**S89 — 핵심 design 결정 (잠금)**:
+
+1. **Sibling separation**: skill_particle = caster-centered (rings at 관우, sage at 유비, indigo wave at 제갈량), hero_attack_frame = defender-centered / from→to (X at target, sweep at target, glyph at target). 같은 hero 의 skill 과 basic attack 시각이 자연 구분.
+2. **Position pivot**: defender world position 을 node anchor 채택 + `_from_local = attacker - defender` 로 방향 보존. 모든 _draw_<hero> 함수가 동일 좌표계 사용.
+3. **DURATION 0.30s**: basic attack 빈도 (turn 마다 여러 번) 고려한 cap. 향후 hero 추가 시도 같은 budget 준수.
+4. **3-pass rendering 재사용** (S87 lock #2): outline + glow + core 모든 5 kind 동일. terrain palette 무관 readability.
+5. **null fallback in dispatch**: 14 hero / non-named enemy / 향후 추가 hero 모두 안전 — class-line attack 만 남음.
+
+**S89 — Why now / 의미**:
+
+- North Star Pillar #3 ("모든 무장에게 자리가 있다") + #4 ("삼국지의 숨결") 의 직접 응용 — hero 마다 weapon-specific signature 부여로 "이 적은 누구다" 시각 인지 강화. S87 의 skill particle wave 가 active ability 의 hero 차별화였다면 S89 는 basic attack 의 hero 차별화.
+- S86 raw feedback "공격수단 평타뿐" 의 partial 보완: 평타가 hero 별로 시각상 differentiation 되면 "같은 공격" 단조로움이 5 main hero 한정 완화. 나머지 9 hero 는 S88 → S89 핸드오프 #6 으로 carry.
+
+**S89 → S90 핸드오프**: S88 carry-over (#1-#6) + 신규 #6 (나머지 9 hero attack frame, S89 와 동일 패턴). #1 Windowed verify 가 여전히 가장 시급 — particle wave 14/14 + atk_mult 1.50 + UI-GB-02 + 5 hero frame 모두 windowed 동시 확인.
+
 ### S88 — North Star lighthouse codification (2026-05-25 session 88)
 
 > **Driver**: S87 close 후 첫 turn (cold-start). 사용자 progression: "내가 말한 이 게임의 가장 중요한 것을 다시 정리해줘" → 4 pillar + anti-pillar + ship target + raw feedback 정리. 사용자 follow-up: "이 부분을 등대처럼 계속 고려할 수 있도록 문서에 반영" → lighthouse doc 위치 confirm (`design/NORTH-STAR.md` + `CLAUDE.md` @-include).

@@ -1677,6 +1677,18 @@ func _on_damage_applied(attacker_id: int, defender_id: int, damage: int) -> void
 		var line: AttackLine = AttackLine.make_for_class(origin, unit_node.position,
 			attacker_class)
 		visuals.add_child(line)
+		# Session-89 — Phase 4 hero attack frame. Hero-specific visual signature
+		# overlaying the class line. Currently 5 supported heroes (Shu trio +
+		# Zhao Yun + Zhuge Liang); make_for_hero returns null for the rest so
+		# the visual stack stays intact. Frame is parented at defender position
+		# with attacker offset in node-local space.
+		var attacker_unit: BattleUnit = _grid_controller.get_battle_unit(attacker_id)
+		if attacker_unit != null:
+			var frame: HeroAttackFrame = HeroAttackFrame.make_for_hero(
+				origin - unit_node.position, attacker_unit.hero_id)
+			if frame != null:
+				frame.position = unit_node.position
+				visuals.add_child(frame)
 
 
 ## Session-23 — FIRE tile round-start damage view feedback. Distinct from
