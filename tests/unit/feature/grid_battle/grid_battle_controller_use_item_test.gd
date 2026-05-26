@@ -220,10 +220,12 @@ func test_use_item_enemy_side_rejected() -> void:
 
 ## AC-SS-4 (regression): unwired item_id triggers push_warning + reject without
 ## consuming slot. Validates the dispatch match default arm.
+## S90 step 5 update: strength_scroll moved to "wired" list; use march_scroll
+## (Phase B step 7+ pending) as the unwired test fixture.
 func test_use_item_unwired_item_id_rejected_with_warning() -> void:
 	# Arrange
 	var unit: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
-	unit.inventory = [&"strength_scroll", &"", &""]  # Phase B step 5+ — unwired in step 4
+	unit.inventory = [&"march_scroll", &"", &""]  # Phase B step 7 — unwired in steps 4-5
 	var bag: Dictionary = _setup([unit])
 	var controller: GridBattleController = bag["controller"]
 	var hp_stub: HPStatusControllerStub = bag["hp_controller"]
@@ -239,5 +241,150 @@ func test_use_item_unwired_item_id_rejected_with_warning() -> void:
 		"AC-SS-4: use_item on unwired item_id must return false (slot intact, token unconsumed)"
 	).is_false()
 	assert_str(String(controller._units[1].inventory[0])).override_failure_message(
-		"AC-SS-4: inventory[0] must remain &\"strength_scroll\" on unwired reject"
-	).is_equal("strength_scroll")
+		"AC-SS-4: inventory[0] must remain &\"march_scroll\" on unwired reject"
+	).is_equal("march_scroll")
+
+
+# ─── AC-SS-5 strength_scroll buff multi-turn carry ────────────────────────────
+
+
+## AC-SS-5: strength_scroll use sets pending_buff (no immediate damage),
+## spends action_token, decrements slot, emits signal. Buff payload format:
+## {&"kind": &"strength", &"magnitude": STRENGTH_SCROLL_MULT, &"expires_at_turn": current_round + 1}.
+func test_use_item_strength_scroll_sets_pending_buff_and_decrements_slot() -> void:
+	# Arrange
+	var unit: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	unit.inventory = [&"strength_scroll", &"", &""]
+	var bag: Dictionary = _setup([unit])
+	var controller: GridBattleController = bag["controller"]
+	var hp_stub: HPStatusControllerStub = bag["hp_controller"]
+	hp_stub.set_test_max_hp(1, 100)
+	hp_stub.set_test_current_hp(1, 100)  # full HP — buff use unaffected by HP state
+	controller._active_turn_unit_id = 1
+
+	var emitted: Array = []
+	controller.unit_item_used.connect(func(uid: int, item_id: StringName, slot_idx: int, effect: int) -> void:
+		emitted.append({"uid": uid, "item": item_id, "slot": slot_idx, "effect": effect})
+	)
+
+	# Act
+	var fired: bool = controller.use_item(1, 0)
+
+	# Assert
+	assert_bool(fired).is_true()
+	# pending_buff stored on unit
+	var pb: Dictionary = controller._units[1].pending_buff
+	assert_bool(pb.is_empty()).override_failure_message(
+		"AC-SS-5: pending_buff must be NON-empty after strength_scroll use"
+	).is_false()
+	assert_str(String(pb.get(&"kind", &"") as StringName)).is_equal("strength")
+	assert_float(pb.get(&"magnitude", 0.0) as float).is_equal_approx(1.50, 0.001)
+	# Slot decremented
+	assert_str(String(controller._units[1].inventory[0])).is_equal("")
+	# Signal emitted
+	assert_int(emitted.size()).is_equal(1)
+	assert_str(String(emitted[0]["item"] as StringName)).is_equal("strength_scroll")
+	# apply_heal NOT called (buff stored, no immediate effect)
+	assert_int(hp_stub.apply_heal_calls.size()).override_failure_message(
+		"AC-SS-5: strength_scroll must NOT call apply_heal (buff stored, no immediate effect)"
+	).is_equal(0)
+
+
+## AC-SS-5: buff overwrite (EC-SS-2) — second strength_scroll while buff active
+## REPLACES the existing buff. No popup, no warning (design-intent per §3.6 #4).
+func test_use_item_strength_scroll_overwrite_existing_buff() -> void:
+	# Arrange
+	var unit: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	unit.inventory = [&"strength_scroll", &"strength_scroll", &""]
+	var bag: Dictionary = _setup([unit])
+	var controller: GridBattleController = bag["controller"]
+	var hp_stub: HPStatusControllerStub = bag["hp_controller"]
+	hp_stub.set_test_max_hp(1, 100)
+	hp_stub.set_test_current_hp(1, 100)
+	controller._active_turn_unit_id = 1
+
+	# Act — first use sets buff with expires_at_turn=2 (current_round=1+1)
+	var first: bool = controller.use_item(1, 0)
+	var first_pb: Dictionary = controller._units[1].pending_buff.duplicate()
+	assert_bool(first).is_true()
+	assert_bool(first_pb.is_empty()).is_false()
+
+	# Act — second use overwrites
+	var second: bool = controller.use_item(1, 1)
+
+	# Assert — second succeeds; pending_buff still present (new buff, same shape)
+	assert_bool(second).is_true()
+	var second_pb: Dictionary = controller._units[1].pending_buff
+	assert_bool(second_pb.is_empty()).is_false()
+	assert_str(String(second_pb.get(&"kind", &"") as StringName)).is_equal("strength")
+	# Both slots decremented
+	assert_str(String(controller._units[1].inventory[0])).is_equal("")
+	assert_str(String(controller._units[1].inventory[1])).is_equal("")
+
+
+## AC-SS-5: _resolve_pending_buff_magnitude consumption — when buff is fresh
+## (expires_at_turn >= current_round), helper returns magnitude AND clears
+## the buff. Default round_number=1 from turn_runner stub.
+func test_resolve_pending_buff_magnitude_consumes_fresh_buff() -> void:
+	# Arrange
+	var unit: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	unit.pending_buff = {
+		&"kind": &"strength",
+		&"magnitude": 1.50,
+		&"expires_at_turn": 2,  # >= 1 (default round_number)
+	}
+	var bag: Dictionary = _setup([unit])
+	var controller: GridBattleController = bag["controller"]
+
+	# Act
+	var magnitude: float = controller._resolve_pending_buff_magnitude(1)
+
+	# Assert — magnitude returned, buff cleared
+	assert_float(magnitude).is_equal_approx(1.50, 0.001)
+	assert_bool(controller._units[1].pending_buff.is_empty()).override_failure_message(
+		"AC-SS-5: pending_buff must be cleared after _resolve_pending_buff_magnitude consumption"
+	).is_true()
+
+
+## AC-SS-5: stale buff (expires_at_turn < current_round) cleared without
+## consumption — helper returns 1.0 (identity) + clears buff. Simulates
+## EC-SS-3 scenario: buff used round 7 (expires=8), no attack until round 10.
+## Uses expires_at_turn=-1 to guarantee staleness regardless of stub's
+## get_current_round_number() return value (typically 1 in fresh setup).
+func test_resolve_pending_buff_magnitude_clears_stale_buff_returns_identity() -> void:
+	# Arrange
+	var unit: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	unit.pending_buff = {
+		&"kind": &"strength",
+		&"magnitude": 1.50,
+		&"expires_at_turn": -1,  # unambiguously stale (< any valid round)
+	}
+	var bag: Dictionary = _setup([unit])
+	var controller: GridBattleController = bag["controller"]
+
+	# Act
+	var magnitude: float = controller._resolve_pending_buff_magnitude(1)
+
+	# Assert — identity returned (buff did NOT fire), pending_buff cleared
+	assert_float(magnitude).override_failure_message(
+		"AC-SS-5: stale buff must return identity magnitude 1.0"
+	).is_equal_approx(1.0, 0.001)
+	assert_bool(controller._units[1].pending_buff.is_empty()).override_failure_message(
+		"AC-SS-5: stale buff must be cleared (no carryover risk)"
+	).is_true()
+
+
+## AC-SS-5: no buff active → helper returns identity 1.0 + no side effects.
+func test_resolve_pending_buff_magnitude_no_buff_returns_identity() -> void:
+	# Arrange
+	var unit: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	unit.pending_buff = {}  # explicitly empty
+	var bag: Dictionary = _setup([unit])
+	var controller: GridBattleController = bag["controller"]
+
+	# Act
+	var magnitude: float = controller._resolve_pending_buff_magnitude(1)
+
+	# Assert
+	assert_float(magnitude).is_equal_approx(1.0, 0.001)
+	assert_bool(controller._units[1].pending_buff.is_empty()).is_true()

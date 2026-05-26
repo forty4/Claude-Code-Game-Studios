@@ -15,6 +15,16 @@ var round_number: int = 1                  # >= 1; gate asserts in DamageCalc.re
 var rally_bonus: float = 0.0               # [0.0, 0.10] — upstream-capped in Grid Battle CR-15
 var formation_atk_bonus: float = 0.0       # [0.0, 0.20] under ADR-0014 §5 controller-MVP usage; [0.0, 0.05] under future Formation Bonus ADR. P_MULT_COMBINED_CAP (1.31) provides DamageCalc-side safety.
 var formation_def_bonus: float = 0.0       # [0.0, 0.05] — upstream-capped in Formation Bonus F-FB-3
+## S90 Phase B step 5 — strategy-systems.md v0.3 §3.3.1 + damage-calc.md
+## rev 2.9.4 §CR-1. pending_buff_magnitude is set by GridBattleController from
+## `attacker.pending_buff.get("magnitude", 1.0)` IF buff still valid; else 1.0.
+## Default 1.0 = multiplicative identity (G-21 safe — existing damage_calc tests
+## that don't construct ResolveModifiers with this field are unaffected). Range
+## [1.0, 2.0] in MVP (STRENGTH_SCROLL_MULT default 1.50 per strategy-systems §7).
+## Consumed by DamageCalc._passive_multiplier with counter guard (rev 2.9.4
+## F-DC-5 — buff does NOT fire on counter-attack path, consistent with Charge /
+## Ambush / Rally counter suppression).
+var pending_buff_magnitude: float = 1.0
 ## NEW per story-005 + ADR-0014 §5 same-patch obligation. Consumed by
 ## GridBattleController._resolve_attack POST-DamageCalc as a controller-side
 ## post-multiplier (NOT consumed by DamageCalc). Future Formation Bonus ADR may
@@ -45,7 +55,8 @@ static func make(
 		rally_bonus: float = 0.0,
 		formation_atk_bonus: float = 0.0,
 		formation_def_bonus: float = 0.0,
-		acted_this_turn_callable: Callable = Callable()) -> ResolveModifiers:
+		acted_this_turn_callable: Callable = Callable(),
+		pending_buff_magnitude: float = 1.0) -> ResolveModifiers:
 	var result := ResolveModifiers.new()
 	result.attack_type = attack_type
 	result.rng = rng
@@ -60,4 +71,5 @@ static func make(
 	result.formation_atk_bonus = formation_atk_bonus
 	result.formation_def_bonus = formation_def_bonus
 	result.acted_this_turn_callable = acted_this_turn_callable
+	result.pending_buff_magnitude = pending_buff_magnitude
 	return result

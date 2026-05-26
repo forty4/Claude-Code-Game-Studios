@@ -266,11 +266,12 @@ static func _direction_multiplier(unit_class: int, direction_rel: StringName) ->
 # Stage 2.5 — passive multiplier composition + P_MULT_COMBINED_CAP (CR-8, F-DC-5, story-005)
 # ---------------------------------------------------------------------------
 
-## Orchestrates P_mult: Charge × Ambush × (1+rally) × (1+formation_atk_bonus).
+## Orchestrates P_mult: Charge × Ambush × (1+rally) × (1+formation_atk_bonus) × pending_buff.
 ## Applies minf(P_MULT_COMBINED_CAP, pre_cap) after full composition.
 ## Applies snappedf(value, 0.01) to the final post-cap result for cross-platform
 ## IEEE-754 residue control per AC-DC-50.
-## Ordering is non-negotiable per ADR-0012 §7 + F-DC-5 line ordering.
+## Ordering is non-negotiable per ADR-0012 §7 + F-DC-5 line ordering (damage-calc.md
+## rev 2.9.4 — pending_buff_magnitude folded as last multiplicative factor before cap).
 static func _passive_multiplier(
 		attacker: AttackerContext,
 		modifiers: ResolveModifiers,
@@ -280,6 +281,12 @@ static func _passive_multiplier(
 	var high_ground: float = _high_ground_factor(attacker, modifiers)
 	var pre_cap: float = charge * ambush * high_ground \
 		* (1.0 + modifiers.rally_bonus) * (1.0 + modifiers.formation_atk_bonus)
+	# S90 Phase B step 5 — strategy-systems.md v0.3 §4.2 + damage-calc.md rev 2.9.4
+	# F-DC-5 pending_buff_magnitude integration. Counter guard mirrors Charge/Ambush/
+	# Rally pattern: buff does NOT echo on the counter-attack path. Default 1.0 keeps
+	# existing apex arithmetic (Cavalry 178) unchanged.
+	if modifiers.pending_buff_magnitude != 1.0 and not modifiers.is_counter:
+		pre_cap *= modifiers.pending_buff_magnitude
 	var p_mult_combined_cap: float = BalanceConstants.get_const("P_MULT_COMBINED_CAP") as float
 	var post_cap: float = minf(p_mult_combined_cap, pre_cap)
 	return snappedf(post_cap, 0.01)

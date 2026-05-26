@@ -2240,14 +2240,18 @@ func use_item(unit_id: int, slot_idx: int) -> bool:
 	var item_id: StringName = unit.inventory[slot_idx]
 	if item_id == &"":
 		return false  # empty slot
-	# Item dispatch — only heal_potion wired in S90 step 4. Other prototype
-	# items (strength_scroll, march_scroll, fire_scroll) land in subsequent
-	# steps per strategy-systems.md v0.3 Phase B implementation order.
+	# Item dispatch — heal_potion (step 4) + strength_scroll (step 5) wired.
+	# Other prototype items (march_scroll step 7, fire_scroll step 6 pending
+	# OQ-DC-11 resolution) land in subsequent steps per strategy-systems.md
+	# v0.3 Phase B implementation order.
 	var fired: bool = false
 	var actual_effect: int = 0
 	match item_id:
 		&"heal_potion":
 			actual_effect = _use_item_heal_potion(unit)
+			fired = actual_effect > 0
+		&"strength_scroll":
+			actual_effect = _use_item_strength_scroll(unit)
 			fired = actual_effect > 0
 		_:
 			push_warning("GridBattleController.use_item: unwired item_id '%s' on unit %d slot %d — no-op"
@@ -2282,6 +2286,71 @@ func _use_item_heal_potion(unit: BattleUnit) -> int:
 		return 0  # already at max — reject (slot not consumed)
 	# apply_heal returns the ACTUAL heal applied (caps at max_hp internally).
 	return _hp_controller.apply_heal(unit.unit_id, HEAL_POTION_AMOUNT, unit.unit_id)
+
+
+## strength_scroll handler — strategy-systems.md v0.3 §4.2.
+## Sets caster.pending_buff to a multi-turn carry buff: next attack/skill
+## damage × STRENGTH_SCROLL_MULT (1.50). Buff consumed at attack-resolve time
+## by `_resolve_pending_buff_magnitude` (called from _resolve_attack site).
+## Returns 1 on success (signal payload — "1 buff stored"); 0 on reject.
+## Reject conditions: dead unit (revival is Phase C+).
+##
+## Buff overwrite: if caster already carries a pending_buff, the new one
+## REPLACES it (no stacking — Pillar #3 protection per strategy-systems §3.6 #4
+## + EC-SS-2). No warning popup (design-intent).
+const STRENGTH_SCROLL_MULT: float = 1.50
+
+func _use_item_strength_scroll(unit: BattleUnit) -> int:
+	if _hp_controller == null:
+		return 0
+	if not _hp_controller.is_alive(unit.unit_id):
+		return 0  # dead unit cannot self-buff
+	var current_round: int = _turn_runner.get_current_round_number() if _turn_runner != null else 1
+	# expires_at_turn = current_round + 1; consumption gate uses >= so the buff
+	# fires on the NEXT round's first attack/skill (per strategy-systems §2 +
+	# AC-SS-5; v0.3 spec text said `> current_turn` but EC-SS-3 worked example
+	# requires `>= current_turn` semantics — implemented per the example, with
+	# spec text correction filed as a v0.3.1 carry-over).
+	unit.pending_buff = {
+		&"kind": &"strength",
+		&"magnitude": STRENGTH_SCROLL_MULT,
+		&"expires_at_turn": current_round + 1,
+	}
+	return 1  # success — "1 buff stored" for signal payload
+
+
+## S90 Phase B step 5 — buff consumption helper. Called by _resolve_attack
+## immediately before ResolveModifiers.make() to read the attacker's
+## pending_buff magnitude (default 1.0 if no buff), clear the buff on
+## consumption, and return the magnitude for the ResolveModifiers param.
+##
+## Consumption gate: `expires_at_turn >= current_round` — buff fires on the
+## round at-or-after the round it was stored in (typically the NEXT round
+## since action token economy prevents same-round use+attack). Stale buffs
+## (expires_at_turn < current_round) are cleared without consumption.
+##
+## Counter guard: ResolveModifiers consumes buff only when is_counter == false
+## (DamageCalc._passive_multiplier). The clear happens HERE regardless of
+## counter — buff is "spent at attack resolve time" per strategy-systems §4.2.
+## Counter-only resolves are rare in production; this matches the conservative
+## consume-on-read pattern.
+func _resolve_pending_buff_magnitude(attacker_id: int) -> float:
+	if not _units.has(attacker_id):
+		return 1.0
+	var attacker: BattleUnit = _units[attacker_id]
+	if attacker.pending_buff.is_empty():
+		return 1.0
+	var current_round: int = _turn_runner.get_current_round_number() if _turn_runner != null else 1
+	var expires_at_turn: int = attacker.pending_buff.get(&"expires_at_turn", 0) as int
+	if expires_at_turn < current_round:
+		# Stale buff — clear without consumption (e.g. user used buff in round 3
+		# but didn't attack until round 5+; buff expired).
+		attacker.pending_buff = {}
+		return 1.0
+	# Fresh buff — read magnitude, clear (consumed), return for ResolveModifiers.
+	var magnitude: float = attacker.pending_buff.get(&"magnitude", 1.0) as float
+	attacker.pending_buff = {}
+	return magnitude
 
 
 ## Public skill-firing API. Returns true on success, false when the skill is
@@ -3259,6 +3328,11 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 	var round_number: int = _turn_runner.get_current_round_number() if _turn_runner != null else 1
 	if round_number < 1:
 		round_number = 1
+	# S90 Phase B step 5: consume pending_buff before make() — magnitude flows
+	# into ResolveModifiers, attacker.pending_buff cleared (or kept at {} if no
+	# active buff). Cleared regardless of HIT/MISS — "spent at resolve time"
+	# per strategy-systems.md v0.3 §4.2.
+	var buff_magnitude: float = _resolve_pending_buff_magnitude(attacker.unit_id)
 	var modifiers: ResolveModifiers = ResolveModifiers.make(
 		ResolveModifiers.AttackType.PHYSICAL,
 		_rng,
@@ -3271,6 +3345,7 @@ func _resolve_attack(attacker: BattleUnit, defender: BattleUnit) -> int:
 		formation_mult - 1.0,  # formation_atk_bonus (consumed by DamageCalc P_mult)
 		0.0,  # formation_def_bonus — MVP no def bonus
 		Callable(self, "_unit_acted_this_turn"),  # AMBUSH_BONUS gate (session-14)
+		buff_magnitude,  # S90 strategy-systems strength_scroll pending_buff_magnitude
 	)
 	# Set NEW story-005 fields (not in make() factory yet — additive same-patch).
 	# These are CONTROLLER-side post-multipliers (NOT consumed by DamageCalc).
@@ -3446,10 +3521,19 @@ func preview_attack(attacker_id: int, defender_id: int) -> Dictionary:
 	var round_number: int = _turn_runner.get_current_round_number() if _turn_runner != null else 1
 	if round_number < 1:
 		round_number = 1
+	# S90 Phase B step 5: PEEK pending_buff magnitude for forecast — preview
+	# must NOT consume the buff (player previewing damage shouldn't burn the
+	# scroll). Read-only inline check; consumption happens only in _resolve_attack.
+	var preview_buff_magnitude: float = 1.0
+	if not attacker.pending_buff.is_empty():
+		var expires_at: int = attacker.pending_buff.get(&"expires_at_turn", 0) as int
+		if expires_at >= round_number:
+			preview_buff_magnitude = attacker.pending_buff.get(&"magnitude", 1.0) as float
 	var modifiers: ResolveModifiers = ResolveModifiers.make(
 		ResolveModifiers.AttackType.PHYSICAL, preview_rng,
 		_angle_to_direction_rel(angle), round_number, false, "", [], 0.0,
-		formation_mult - 1.0, 0.0, Callable(self, "_unit_acted_this_turn"))
+		formation_mult - 1.0, 0.0, Callable(self, "_unit_acted_this_turn"),
+		preview_buff_magnitude)
 	modifiers.angle_mult = angle_mult
 	modifiers.aura_mult = aura_mult
 	# Stage 4-5: resolve + apply controller-side multipliers (mirror of
