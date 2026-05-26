@@ -239,6 +239,12 @@ signal unit_defend_stance_applied(unit_id: int)
 ## visual feedback + HUD button state refresh.
 signal unit_skill_used(unit_id: int, skill_id: StringName)
 
+## S90 Phase B: emitted when a unit successfully uses an inventory item via
+## use_item(). View-layer subscribes for SFX + visual feedback + HUD inventory
+## panel state refresh. `actual_effect` carries effect-specific magnitude (e.g.
+## heal amount, buff magnitude × 100 for display, march tile count).
+signal unit_item_used(unit_id: int, item_id: StringName, slot_idx: int, actual_effect: int)
+
 
 # ─── DI dependencies (ADR-0014 §3) ──────────────────────────────────────────
 
@@ -1259,6 +1265,12 @@ func _on_input_action_fired(action: String, ctx: InputContext) -> void:
 	if action == "use_skill":
 		_handle_use_skill_input()
 		return
+	# S90 Phase B: use_item mirrors use_skill — I/3 key, unit-scoped, no
+	# coordinate required. Uses slot 0 of the selected unit's inventory (MVP
+	# default; future Phase C+ adds slot-selection UI via numeric keys 1/2/3).
+	if action == "use_item":
+		_handle_use_item_input()
+		return
 	var coord: Vector2i = ctx.target_coord
 	if coord == Vector2i.ZERO and _camera != null:
 		# Camera fallback per ADR-0014 §4 — re-resolve via viewport mouse position.
@@ -2180,6 +2192,96 @@ func _handle_use_skill_input() -> void:
 		if active.side != 0:
 			return  # active turn belongs to enemy — S is a no-op
 	use_skill(target_id)
+
+
+## S90 Phase B — I/3-key entry point. Mirrors _handle_use_skill_input —
+## selection-less fallback to active turn unit when no manual selection in
+## place. Routes the use_item action to slot 0 of the selected unit's
+## inventory (MVP default per strategy-systems.md §3.5.2 — I/3 key uses the
+## first item; future slot-selection UI deferred to Phase C+).
+func _handle_use_item_input() -> void:
+	var target_id: int = _selected_unit_id
+	if _state != BattleState.UNIT_SELECTED or target_id == -1 or not _units.has(target_id):
+		target_id = _active_turn_unit_id
+		if target_id == -1 or not _units.has(target_id):
+			return
+		var active: BattleUnit = _units[target_id]
+		if active.side != 0:
+			return  # active turn belongs to enemy — I/3 is a no-op
+	use_item(target_id, 0)
+
+
+## Public item-firing API. Validates slot contents + item-specific conditions
+## (e.g. heal_potion requires HP < max_hp), applies the effect, decrements the
+## slot, spends the action token via TurnOrderRunner.declare_action(USE_ITEM).
+## Returns true on success, false when blocked (no item / wrong side / active
+## token spent / item-specific reject).
+##
+## Per strategy-systems.md v0.3 §3.3 + AC-SS-4. S90 Phase B MVP scope: heal_potion
+## only (immediate self-target HP restore). Future items (strength_scroll buff
+## carry, fire_scroll cross-class, march_scroll movement extension) land in
+## subsequent commits per Phase B implementation order.
+func use_item(unit_id: int, slot_idx: int) -> bool:
+	if _battle_over:
+		return false
+	if not _units.has(unit_id):
+		return false
+	var unit: BattleUnit = _units[unit_id]
+	# Side gate: only player units consume items in MVP (enemy inventory =
+	# Phase 4+ per strategy-systems §3.1).
+	if unit.side != 0:
+		return false
+	# Turn gate: must be this unit's active turn (mirrors use_skill).
+	if _active_turn_unit_id != -1 and unit_id != _active_turn_unit_id:
+		return false
+	# Slot validation
+	if slot_idx < 0 or slot_idx >= unit.inventory.size():
+		return false  # out-of-range slot
+	var item_id: StringName = unit.inventory[slot_idx]
+	if item_id == &"":
+		return false  # empty slot
+	# Item dispatch — only heal_potion wired in S90 step 4. Other prototype
+	# items (strength_scroll, march_scroll, fire_scroll) land in subsequent
+	# steps per strategy-systems.md v0.3 Phase B implementation order.
+	var fired: bool = false
+	var actual_effect: int = 0
+	match item_id:
+		&"heal_potion":
+			actual_effect = _use_item_heal_potion(unit)
+			fired = actual_effect > 0
+		_:
+			push_warning("GridBattleController.use_item: unwired item_id '%s' on unit %d slot %d — no-op"
+				% [String(item_id), unit_id, slot_idx])
+			return false
+	if not fired:
+		# Item-specific reject (e.g. heal_potion when HP at max). Slot NOT
+		# decremented; token NOT spent — per strategy-systems §4.1 EC.
+		return false
+	# Success path: decrement slot, spend action token, emit signal.
+	unit.inventory[slot_idx] = &""
+	if _turn_runner != null:
+		_turn_runner.declare_action(unit_id, TurnOrderRunner.ActionType.USE_ITEM, null)
+	unit_item_used.emit(unit_id, item_id, slot_idx, actual_effect)
+	return true
+
+
+## heal_potion handler — strategy-systems.md v0.3 §4.1.
+## Restores HEAL_POTION_AMOUNT (25) HP to caster (self-target). Returns the
+## actual HP healed (clamped to max_hp - current_hp). Returns 0 if HP already
+## at max (caller treats 0 as item-rejected → slot NOT decremented).
+const HEAL_POTION_AMOUNT: int = 25
+
+func _use_item_heal_potion(unit: BattleUnit) -> int:
+	if _hp_controller == null:
+		return 0
+	if not _hp_controller.is_alive(unit.unit_id):
+		return 0  # dead unit cannot self-heal (revive_pill is a different item, Phase C+)
+	var current_hp: int = _hp_controller.get_current_hp(unit.unit_id)
+	var max_hp: int = _hp_controller.get_max_hp(unit.unit_id)
+	if current_hp >= max_hp:
+		return 0  # already at max — reject (slot not consumed)
+	# apply_heal returns the ACTUAL heal applied (caps at max_hp internally).
+	return _hp_controller.apply_heal(unit.unit_id, HEAL_POTION_AMOUNT, unit.unit_id)
 
 
 ## Public skill-firing API. Returns true on success, false when the skill is
