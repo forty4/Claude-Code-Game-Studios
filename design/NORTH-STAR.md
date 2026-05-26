@@ -22,12 +22,13 @@
 
 ---
 
-## 🏛️ 4 Pillar — 양보 불가
+## 🏛️ 5 Pillar — 양보 불가
 
 1. **형세의 전술 (Tactics of Formation)** — 개별 능력치보다 진형과 위치의 우위. 레벨 99 여포도 포위당하면 위험.
 2. **운명은 바꿀 수 있다 (Destiny Can Be Rewritten)** — 비극이 디폴트, 치밀한 전략가만 거스를 수 있음. 분기 조건은 **숨겨져 있고 어렵다**.
 3. **모든 무장에게 자리가 있다 (Every Hero Has a Role)** — 만능 캐릭터 없음. 역할 차별화 필수.
 4. **삼국지의 숨결 (Spirit of Three Kingdoms)** — 전투는 역사 맥락 속에 존재. 스토리 이벤트가 의미를 부여.
+5. **전략적 조합 (Strategic Combinations)** — 매 turn 의 결정 단위는 **단일 action 이 아닌 chain**: (이동 → 행동) × (아이템 / 책략권 / cross-hero 지원). KOEI 영걸전의 핵심 재미 — "이번 turn 에 누구를 누구로 어떻게 도울지" — 의 **조합 puzzle**. action 종류와 cross-hero 지원의 다양성이 곧 게임의 깊이. **이 layer 의 부재 = 평타뿐 = 재미없음** (S89 사용자 raw feedback). Anchor GDD: `design/gdd/strategy-systems.md`.
 
 ---
 
@@ -40,16 +41,17 @@
 
 ---
 
-## 🎯 현재 Ship Target — MVP Demo (ch01-16)
+## 🎯 현재 Ship Target — MVP Demo (ch01-16 + Strategic depth foundation)
 
 **Anchor**: `production/milestones/mvp-demo-16ch.md`
 
 - ch01 (도원결의·황건적) → ch16 (낙봉파·방통 생존) **16 챕터 windowed-attested**
 - 5대 ★ 시그니처 destiny branch 중 첫 번째 = **ch16 방통 생존** (`scout_first ≥ 2`)
 - 입증 목표: **"player 의 선택이 史記를 바꾼다"** 의 demo 단계 작동
-- 현재 상태: **MVP 5/5 ★ SHIP-READY mechanical 유지** (1996/1996 tests PASS, S87 기준)
+- **Strategic depth foundation (S90 부터 추가, 2026-05-26)**: Pillar #5 의 작동 — **Item / Scroll / cross-hero 지원** action chain 이 mechanical 으로 작동. minimum bar = 5-7 종 아이템 + 1-2 종 책략권 + UI + chapter-별 inventory + 모든 14 skill wired 상태에서 strategic chain combo 가 windowed 에서 의도대로 발화. (Phase 4 hero attack frame 은 S89 이미 5명 완료.)
+- 현재 상태: **MVP 5/5 ★ SHIP-READY mechanical 유지** (1996/1996 tests PASS, S87 기준) — **단, S90 부터 strategic depth 추가로 ship-ready bar 가 raised**.
 
-**Out of scope for this ship**: ch17-25 / 5대 ★ 중 #2-#5 (관우·장비·유비·마속·제갈량) / Phase 4 hero attack frames / CombatResolver 추출 / Multi-step survival cascade.
+**Out of scope for this ship**: ch17-25 / 5대 ★ 중 #2-#5 (관우·장비·유비·마속·제갈량) / **나머지 9 hero attack frame** (S89 carry-over) / CombatResolver 추출 / Multi-step survival cascade / 아이템 영구 강화 시스템 (RPG progression) / 아이템 상점 / 아이템 크래프팅.
 
 ---
 
@@ -62,6 +64,7 @@ S86 manual playtest 에서 사용자가 직접 던진 단어들. **이게 게임
 3. **"재미없음"** (raw) → root cause = layered UX gap (mechanical + discoverability + visual feedback). 단일 layer fix 로 해소 불가.
 4. **"S 키 눌러도 차이 없음"** → InputRouter `_did_visible_work` gate silent drop. 3차 진단 끝에 fix (S86) + G-32 codify (S87).
 5. **Visual feedback 부족** → "damage popup 만 보이고 skill 특별감 0" → S87 particle wave 14/14 완성.
+6. **"전략적 조합이 없음"** (S89 명시) → "이동 이후 공격이나 책략이나 도구(아이템)를 사용해서 나의 공격력을 강화하거나 다른 장수를 도와주거나 본인 병종으로서는 불가능한 책략을 쓸 수 있게 되거나 하는 등 영걸전에서 제공하는 재미있고 전략적인 것들이 많이 있는데, 현재 이 게임에서는 그런 부분이 거의 없는 것과 같다. 이 부분이 제일 중요한 부분이고, 이런 것들이 조합이 되어서 게임 난이도와 밸런스가 결정된다." → audit 결과 정확: **아이템 시스템 0 / 책략권 시스템 0 / cross-class 책략 0**. Move-then-action chain 은 S86 부터 작동하나 action 종류가 제한적 (skill 14/14 wired 이지만 모두 class-locked). → Pillar #5 신설 + ship target 재정의 + `design/gdd/strategy-systems.md` GDD 신규.
 
 **원칙**: 사용자 raw feedback 은 hypothesis 보다 우선. console log 의 정확한 telemetry > developer 추론.
 
@@ -73,9 +76,10 @@ S86 manual playtest 에서 사용자가 직접 던진 단어들. **이게 게임
 
 1. **Pillar 1 test**: "강력한 무장 한 명을 더 강하게 할까, 진형 시스템을 더 깊게 할까?" → **진형 시스템을 깊게 한다.**
 2. **Pillar 2 test**: "운명 분기 조건을 쉽게 달성 가능하게 할까, 어렵지만 가능하게 할까?" → **어렵지만 가능하게 한다.** 쉬우면 드라마가 없다.
-3. **Pillar 3 test**: "인기 무장에게 특별한 강화를 줄까, 모든 무장의 역할 차별화를 강화할까?" → **역할 차별화를 강화한다.**
+3. **Pillar 3 test**: "인기 무장에게 특별한 강화를 줄까, 모든 무장의 역할 차별화를 강화할까?" → **역할 차별화를 강화한다.** *책략권 도입 시도 class 제한으로 보호.*
 4. **Pillar 4 test**: "전투 수를 늘릴까, 전투 사이의 스토리 이벤트를 풍부하게 할까?" → **스토리 이벤트를 풍부하게 한다.**
-5. **Anti-pillar test**: 제안이 anti-pillar 4개 중 하나라도 위반하면 → **reject 또는 redesign.**
+5. **Pillar 5 test**: "단일 강력한 action 을 추가할까, action 의 조합을 깊게 할까?" → **조합을 깊게 한다.** 새 action 단독 효과보다 기존 action 들과의 chain 가능성이 우선. **\"이동+아이템 vs 이동+공격 vs 이동+책략권 vs cross-hero 지원\" 의 선택 압박**이 매 turn 발생해야 함.
+6. **Anti-pillar test**: 제안이 anti-pillar 4개 중 하나라도 위반하면 → **reject 또는 redesign.**
 
 ---
 
@@ -88,4 +92,4 @@ S86 manual playtest 에서 사용자가 직접 던진 단어들. **이게 게임
 
 ---
 
-*Last updated: 2026-05-25 (S87 close). 변경은 사용자 명시적 결정 후에만.*
+*Last updated: 2026-05-26 (S89 close — Pillar #5 신설 + Strategic depth ship target 재정의 + raw feedback #6). 변경은 사용자 명시적 결정 후에만.*

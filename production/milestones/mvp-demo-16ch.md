@@ -467,9 +467,47 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Layered UX gap diagnosis**: "재미없음" 같은 단일 사용자 보고가 actually 여러 layer 의 root cause 조합. 진단 시 surface-level fix 만 시도하면 underlying issue 누락 위험. mechanical + discoverability + visual + balance 의 4 layer 모두 inspect 필요.
 - **Selection-less fallback pattern**: 사용자 UX flow 가 "click then key" 이 아닌 "key directly" 일 수도. controller handler 들에 active turn unit fallback 추가 = UX simplification + felt 향상 — 다른 systems 도 같은 pattern 가능 (예: 미리보기 dismiss, 카메라 control).
 
-### S89 — Hero attack frame Phase 4 — 5 main heroes (2026-05-26 session 89)
+### S89 — Strategic depth pivot — Pillar #5 신설 + Strategy Systems GDD (2026-05-26 session 89, arc-D)
 
-> **Driver**: S88 close 후 첫 turn (cold-start). 사용자 "다음 중요한 게임 요소 진행하자" → AskUserQuestion (4 옵션 — Full Vision / ★ #2-5 branch / **Hero attack frame** / CombatResolver refactor) → "Hero attack frame (Phase 4)" 선택. 본 항목은 North Star "Out of scope for this ship" 명시 Phase 4 진입 — ship target 외 polish-track 의 선언적 진행. Scope follow-up: 5명 주용 hero 선택 (유비/관우/장비/조운/제갈량).
+> **Driver**: S89 arc-A/B/C (hero attack frame 5명) 직후 사용자 raw feedback (강도 높음): "이동 이후 공격이나 책략이나 도구(아이템)를 사용해서 ... 영걸전에서 제공하는 재미있고 전략적인 것들이 ... 현재 이 게임에서는 그런 부분이 거의 없는 것과 같다. 이 부분이 제일 중요한 부분이고, 이런 것들이 조합이 되어서 게임 난이도와 밸런스가 결정된다." → 영걸전 핵심 전략 시스템의 전면 부재 자백 + ship target 재정의 명령. Explore agent audit 결과 정확 확인: Q3 Move→Item ❌ / Q4 Inventory ❌ / Q5 Scroll ❌ / Q6 Ally support ⚠ 14중 3개만.
+
+**Completed (3 docs commit, code 0)**:
+
+- [x] **docs: North Star Pillar #5 신설** — `design/NORTH-STAR.md` 5번째 Pillar "전략적 조합 (Strategic Combinations)" 추가. 4 Pillar → 5 Pillar 헤더 update. raw feedback #6 verbatim 정직히 등재. ship target 재정의 ("MVP Demo (ch01-16 + Strategic depth foundation)") + out-of-scope 명시. Design Test 5번째 질문 추가 ("단일 강력한 action vs 조합 깊이 → 조합").
+- [x] **docs: Strategy Systems GDD v0.1 first draft** — 신규 `design/gdd/strategy-systems.md` (8 section 완비 / ~700 lines). 5 user adjudications binding: MVP 재정의 / Pillar #5 신설 / Item use = Action token 공유 (move+item OK, move+item+attack NOT OK) / per-hero 3-slot inventory / 챕터 단위 자동 회수. 7 prototype items + 1 scroll specified (heal_potion / revive_pill / strength_scroll / accuracy_scroll / march_scroll / fire_scroll / command_scroll). Pillar #3 (역할 차별화) 보호 4-mechanism (class 제한 + INT 임계 + 휴대 한계 + buff stacking 금지) 명문화. 9 AC cluster + 10 EC + 8 tuning knob + 7 OQ.
+- [x] **docs: systems-index #15 row update** — Equipment/Item System (Alpha, Not Started) → Strategy Systems (MVP, In Design v0.1). Cross-doc obligations 명시 (damage-calc rev 2.9.3 / turn_order_runner / hero-database INT sweep / scenario-progression / save-load).
+
+**S89 arc-D — Why now / 의미**:
+
+- **Raw feedback intensity**: 사용자가 "이 부분이 제일 중요한 부분" 으로 명시. S86 "재미없음" raw feedback 의 진짜 layered root cause 의 마지막 layer 발견 (S86 visual + S86 discoverability + S86 mechanical hot-fix + S87 visual particle + S88 lighthouse + S89 hero attack frame ... 모두 surface). **진짜 root cause = 영걸전식 전략 조합의 부재**.
+- **Pillar tension 정직 directive**: Pillar #3 "역할 차별화" 가 책략권 시스템으로 위반될 risk. GDD §3.6 에 4-mechanism 보호 명시 — Pillar #3 와 양립 가능하게 설계.
+- **MVP scope upgrade**: ship target 재정의 — 1-2 세션 늦어지지만 진짜 ship-worthy 됨. "MVP 5/5 ★ ship-ready" 의 의미 자체가 strategic depth 포함하도록 raised.
+
+**S89 arc-D — 핵심 design 결정 (잠금)**:
+
+1. **Pillar #5 신설**: "전략적 조합 (Strategic Combinations)" — 매 turn 의 결정 단위가 단일 action 이 아닌 **chain**. (이동 → 행동) × (아이템 / 책략권 / cross-hero 지원) 의 조합 puzzle.
+2. **Item use = Action token 공유**: USE_ITEM 이 attack/skill/defend 와 동일 token category. 이동+아이템 OK / 이동+아이템+공격 NOT OK / buff item 은 multi-turn carry (next attack 까지).
+3. **Per-hero 3-slot inventory**: 영걸전 reference. Per-army shared bag 대신 per-hero 선택 — Pillar #3 강화 ("이 hero 에게 어떤 책을 들려줄지").
+4. **챕터 단위 자동 회수**: 챕터 시작 보급 + 종료 회수. 영구 누적 없음. RPG progression 안 됨 (anti-pillar "밸런스 붕괴" 보호).
+5. **Pillar #3 4-mechanism 보호**: class 제한 + INT 임계 + 휴대 한계 + buff stacking 금지. 책략권 도입 후도 "강캐 모든 책 spam 무쌍" 차단.
+
+**S89 → S90 핸드오프 (재구성, strategic depth 우선)**:
+
+1. **#1 Strategy Systems Phase B (next session — 가장 시급)** — `ActionType.USE_ITEM` enum + turn_order_runner arm + per-hero inventory data + UI scaffold + 첫 prototype 아이템 1-2개 (heal_potion + strength_scroll). 1-2 세션 work. AC-SS-1 ~ AC-SS-5 충족 목표.
+2. **#2 Strategy Systems Phase B 계속** — fire_scroll (cross-class) + UI 완성 + chapter resource extension. AC-SS-6 ~ AC-SS-9 충족.
+3. **#3 Windowed verify (사용자 ~15-20분)** — S87 particle + S88 atk_mult + S89 hero attack frame + S90 strategy systems 통합 verify. Pillar #5 작동 입증 (AC-SS-8): "turn 마다 선택할 게 있다" 가 "공격수단 평타뿐" 대체.
+4. **#4 나머지 9 hero attack frame** (S89 carry-over) — strategy systems 와 평행 진행 가능.
+5. **#5 atk_mult / particle / hero frame tuning** — windowed feedback 후.
+6. **#6 Full Vision** (multi-session) — S85 핸드오프.
+
+**Critical path**:
+- 가장 시급한 next: **#1 Strategy Systems Phase B** (Pillar #5 mechanical 입증 위해 필수).
+- ROI 최고: 강공권 + 화공권 둘만 작동해도 user playtest 변화 큰 가능성.
+- 가장 큰 risk: Pillar #3 violation. Phase B 시작 시 narrow re-review (godot-gdscript + ux-designer + qa-lead) 권장.
+
+### S89 — Hero attack frame Phase 4 — 5 main heroes (2026-05-26 session 89, arc-A/B/C)
+
+> **Driver**: S88 close 후 첫 turn (cold-start). 사용자 "다음 중요한 게임 요소 진행하자" → AskUserQuestion (4 옵션 — Full Vision / ★ #2-5 branch / **Hero attack frame** / CombatResolver refactor) → "Hero attack frame (Phase 4)" 선택. 본 항목은 North Star "Out of scope for this ship" 명시 Phase 4 진입 — ship target 외 polish-track 의 선언적 진행. Scope follow-up: 5명 주용 hero 선택 (유비/관우/장비/조운/제갈량). **단, 본 arc 직후 사용자가 strategic depth feedback 던짐 → arc-D 로 이어짐** (위 entry 참조).
 
 **Completed (1 commit, 1996 PASS 유지, +~380 LoC)**:
 
