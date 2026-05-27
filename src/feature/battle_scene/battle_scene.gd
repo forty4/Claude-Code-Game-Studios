@@ -541,6 +541,15 @@ func _start_battle() -> void:
 	# Defensive has_signal: stub controllers without the signal stay green.
 	if _grid_controller.has_signal(&"item_target_selection_updated"):
 		_grid_controller.item_target_selection_updated.connect(_on_item_target_selection_updated)
+	# S91+ Phase B step 9 follow-up — UI-GB-16 per-polygon multi-unit
+	# attachment. Subscribe to unit_pending_buff_changed so the polygon-level
+	# BuffBadge glyph can appear/disappear per unit (in addition to the
+	# HUD-level single active-unit glyph in BattleHUD). Strategy-systems v0.3
+	# §3.5.7 + battle-hud.md §3 UI-GB-16 — multiple units can carry buffs
+	# simultaneously (strength_scroll on hero A + strength_scroll on hero B);
+	# per-polygon attachment is the spec design.
+	if _grid_controller.has_signal(&"unit_pending_buff_changed"):
+		_grid_controller.unit_pending_buff_changed.connect(_on_unit_pending_buff_changed)
 
 	# === STEP 5.5: AISystem (ADR-0019) — battle-scoped Node 6th invocation ===
 	# Inserted via /architecture-review delta #14 2026-05-05 per ADR-0016 §3 R-3
@@ -3049,6 +3058,51 @@ func _on_item_target_selection_updated(tiles: PackedVector2Array, palette: Strin
 		return
 	if visuals.has_method("set_item_target_tiles"):
 		visuals.set_item_target_tiles(tiles, palette)
+
+
+## S91+ Phase B step 9 follow-up — UI-GB-16 per-polygon Active Buff Indicator.
+## Mirrors _on_unit_defend_stance_applied / _on_unit_status_applied pattern:
+## add/remove a named child Label ("BuffBadge") on the unit's polygon when the
+## controller signals a pending_buff transition. Idempotent — multiple
+## emissions for the same unit don't stack duplicate badges. Glyph: ▶ chevron
+## (matches the HUD-level UI-GB-16 scene), upper-right corner of the polygon
+## (status seals own upper-left per §2.8, so upper-right is the open slot).
+##
+## Position: Vector2(18, -34) matches the DefendBadge top-right slot in
+## _on_unit_defend_stance_applied. Counter-rotates polygon rotation so the
+## glyph stays upright.
+func _on_unit_pending_buff_changed(unit_id: int, has_buff: bool) -> void:
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null:
+		return
+	var poly: Node2D = _find_unit_polygon(visuals, unit_id)
+	if poly == null:
+		return
+	var existing: Node = poly.get_node_or_null("BuffBadge")
+	if has_buff:
+		if existing != null:
+			return  # idempotent — badge already shown
+		var badge: Label = Label.new()
+		badge.name = "BuffBadge"
+		badge.text = "▶"
+		# High-contrast on the faction fill — gold border with white inner,
+		# same palette family as DefendBadge for HUD vocabulary consistency.
+		badge.add_theme_color_override("font_color", Color(1.0, 0.95, 0.78, 1.0))
+		badge.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.05, 1.0))
+		badge.add_theme_constant_override("outline_size", 6)
+		badge.add_theme_font_size_override("font_size", 16)
+		# Counter polygon facing rotation so the glyph stays upright.
+		badge.rotation = -poly.rotation
+		# Upper-right corner — DefendBadge owns Vector2(18, -34); buff badge
+		# offsets slightly inward to allow co-existence on the same polygon
+		# (a unit could be both defending AND carrying a buff after move).
+		badge.position = Vector2(18, -18)
+		badge.size = Vector2(16, 16)
+		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		poly.add_child(badge)
+	else:
+		if existing != null:
+			existing.queue_free()
 
 
 func _on_unit_status_applied(unit_id: int, effect_id: StringName) -> void:
