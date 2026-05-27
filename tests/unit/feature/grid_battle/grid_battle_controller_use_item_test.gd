@@ -220,12 +220,14 @@ func test_use_item_enemy_side_rejected() -> void:
 
 ## AC-SS-4 (regression): unwired item_id triggers push_warning + reject without
 ## consuming slot. Validates the dispatch match default arm.
-## S90 step 7 update: march_scroll moved to "wired" list; use fire_scroll
-## (Phase B step 6 pending OQ-DC-11) as the unwired test fixture.
+## S91 step 6 update: fire_scroll moved to "wired" list (AC-SS-6); use
+## command_scroll (Phase 4+ DEFERRED per strategy-systems.md v0.2 user
+## adjudication — turn-queue mid-round mutation is a TurnOrderRunner hard
+## invariant) as the unwired test fixture.
 func test_use_item_unwired_item_id_rejected_with_warning() -> void:
 	# Arrange
 	var unit: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
-	unit.inventory = [&"fire_scroll", &"", &""]  # Phase B step 6 — unwired through step 7
+	unit.inventory = [&"command_scroll", &"", &""]  # Phase 4+ deferred — guaranteed unwired
 	var bag: Dictionary = _setup([unit])
 	var controller: GridBattleController = bag["controller"]
 	var hp_stub: HPStatusControllerStub = bag["hp_controller"]
@@ -241,8 +243,8 @@ func test_use_item_unwired_item_id_rejected_with_warning() -> void:
 		"AC-SS-4: use_item on unwired item_id must return false (slot intact, token unconsumed)"
 	).is_false()
 	assert_str(String(controller._units[1].inventory[0])).override_failure_message(
-		"AC-SS-4: inventory[0] must remain &\"fire_scroll\" on unwired reject"
-	).is_equal("fire_scroll")
+		"AC-SS-4: inventory[0] must remain &\"command_scroll\" on unwired reject"
+	).is_equal("command_scroll")
 
 
 # ─── AC-SS-5 strength_scroll buff multi-turn carry ────────────────────────────
@@ -578,3 +580,271 @@ func test_on_unit_turn_started_clears_march_scroll_bonus() -> void:
 	assert_int(controller._units[1].move_range_bonus).override_failure_message(
 		"AC-SS-4b: _on_unit_turn_started must clear move_range_bonus to 0 (bonus expires)"
 	).is_equal(0)
+
+
+# ─── AC-SS-6 fire_scroll cross-class (S91 step 6, OQ-DC-11 = option (b)) ─────
+
+
+## AC-SS-6 happy path: INFANTRY caster at INT_BASELINE (60) with one enemy
+## within FIRE_RANGE (3) fires the scroll, damages the enemy, decrements the
+## slot, spends USE_ITEM token, emits unit_item_used. Self-cast default (no
+## target_pos passed → resolves to caster.position).
+func test_use_item_fire_scroll_infantry_int60_self_cast_hits_adjacent_enemy() -> void:
+	# Arrange — caster at (2,2), enemy at (3,2) (Manhattan 1)
+	var caster: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	caster.unit_class = UnitRole.UnitClass.INFANTRY
+	caster.stat_intellect = 60  # = INT_BASELINE → factor 1.0 → 20 damage
+	caster.inventory = [&"fire_scroll", &"", &""]
+	var enemy: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	var bag: Dictionary = _setup([caster, enemy] as Array[BattleUnit])
+	var controller: GridBattleController = bag["controller"]
+	var hp_stub: HPStatusControllerStub = bag["hp_controller"]
+	var turn_stub: TurnOrderRunnerStub = bag["turn_runner"]
+	hp_stub.set_test_max_hp(1, 100)
+	hp_stub.set_test_current_hp(1, 100)
+	hp_stub.set_test_max_hp(2, 100)
+	hp_stub.set_test_current_hp(2, 100)
+	controller._active_turn_unit_id = 1
+
+	var emitted: Array = []
+	controller.unit_item_used.connect(func(uid: int, item_id: StringName, slot_idx: int, effect: int) -> void:
+		emitted.append({"uid": uid, "item": item_id, "slot": slot_idx, "effect": effect})
+	)
+
+	# Act
+	var fired: bool = controller.use_item(1, 0)
+
+	# Assert
+	assert_bool(fired).override_failure_message(
+		"AC-SS-6: INFANTRY caster at INT_BASELINE must fire fire_scroll successfully"
+	).is_true()
+	# Damage applied — INT=60 → factor=1.0 → floori(20×1.0)=20
+	assert_int(hp_stub.apply_damage_calls.size()).override_failure_message(
+		"AC-SS-6: fire_scroll must apply damage to exactly 1 enemy in range"
+	).is_equal(1)
+	assert_int(hp_stub.apply_damage_calls[0]["unit_id"] as int).is_equal(2)
+	assert_int(hp_stub.apply_damage_calls[0]["resolved_damage"] as int).override_failure_message(
+		"AC-SS-6: at INT_BASELINE (60), per-tile damage = FIRE_BASE_DAMAGE (20)"
+	).is_equal(20)
+	# Slot decremented
+	assert_str(String(controller._units[1].inventory[0])).is_equal("")
+	# USE_ITEM token spent (not ATTACK — scroll is item use, not skill)
+	assert_int(turn_stub.declared_actions.size()).is_equal(1)
+	assert_int(turn_stub.declared_actions[0]["action"] as int).is_equal(
+		TurnOrderRunner.ActionType.USE_ITEM as int
+	)
+	# Signal emit
+	assert_int(emitted.size()).is_equal(1)
+	assert_str(String(emitted[0]["item"] as StringName)).is_equal("fire_scroll")
+
+
+## AC-SS-6: STRATEGIST class rejected (wrong_class — STRATEGIST owns native
+## fire_strategy; no need for scroll). Slot intact, no damage, no token spend.
+func test_use_item_fire_scroll_strategist_caster_rejected_wrong_class() -> void:
+	# Arrange — STRATEGIST with high INT (99) but still wrong class
+	var caster: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	caster.unit_class = UnitRole.UnitClass.STRATEGIST
+	caster.stat_intellect = 99  # 제갈량 INT — high but irrelevant to class gate
+	caster.inventory = [&"fire_scroll", &"", &""]
+	var enemy: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	var bag: Dictionary = _setup([caster, enemy] as Array[BattleUnit])
+	var controller: GridBattleController = bag["controller"]
+	var hp_stub: HPStatusControllerStub = bag["hp_controller"]
+	var turn_stub: TurnOrderRunnerStub = bag["turn_runner"]
+	hp_stub.set_test_max_hp(1, 100)
+	hp_stub.set_test_current_hp(1, 100)
+	hp_stub.set_test_max_hp(2, 100)
+	hp_stub.set_test_current_hp(2, 100)
+	controller._active_turn_unit_id = 1
+
+	# Act
+	var fired: bool = controller.use_item(1, 0)
+
+	# Assert — full reject path
+	assert_bool(fired).override_failure_message(
+		"AC-SS-6: STRATEGIST caster must be rejected (wrong_class — owns native)"
+	).is_false()
+	assert_int(hp_stub.apply_damage_calls.size()).is_equal(0)
+	assert_str(String(controller._units[1].inventory[0])).is_equal("fire_scroll")
+	assert_int(turn_stub.declared_actions.size()).is_equal(0)
+
+
+## AC-SS-6: SCOUT class rejected. Mirrors STRATEGIST case but for the second
+## excluded class (SCOUT/ARCHER excluded per spec §4.3 table).
+func test_use_item_fire_scroll_scout_caster_rejected_wrong_class() -> void:
+	# Arrange — SCOUT with INT=75 (조운 baseline) — still wrong class
+	var caster: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	caster.unit_class = UnitRole.UnitClass.SCOUT
+	caster.stat_intellect = 75
+	caster.inventory = [&"fire_scroll", &"", &""]
+	var enemy: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	var bag: Dictionary = _setup([caster, enemy] as Array[BattleUnit])
+	var controller: GridBattleController = bag["controller"]
+	var hp_stub: HPStatusControllerStub = bag["hp_controller"]
+	hp_stub.set_test_max_hp(2, 100)
+	hp_stub.set_test_current_hp(2, 100)
+	controller._active_turn_unit_id = 1
+
+	# Act
+	var fired: bool = controller.use_item(1, 0)
+
+	# Assert
+	assert_bool(fired).override_failure_message(
+		"AC-SS-6: SCOUT caster must be rejected (wrong_class)"
+	).is_false()
+	assert_int(hp_stub.apply_damage_calls.size()).is_equal(0)
+	assert_str(String(controller._units[1].inventory[0])).is_equal("fire_scroll")
+
+
+## AC-SS-6: INT gate reject — INFANTRY caster with stat_intellect < INT_BASELINE
+## (60). Simulates 장비 (stat_intellect=50) trying to use fire_scroll: class OK
+## but INT insufficient. Pillar #3 cross-class protection — 무력형 극단 must NOT
+## get a free fire scroll. Slot intact, no damage.
+func test_use_item_fire_scroll_int_below_baseline_rejected_int_insufficient() -> void:
+	# Arrange — INFANTRY with INT=50 (장비)
+	var caster: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	caster.unit_class = UnitRole.UnitClass.INFANTRY
+	caster.stat_intellect = 50  # < INT_BASELINE (60)
+	caster.inventory = [&"fire_scroll", &"", &""]
+	var enemy: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	var bag: Dictionary = _setup([caster, enemy] as Array[BattleUnit])
+	var controller: GridBattleController = bag["controller"]
+	var hp_stub: HPStatusControllerStub = bag["hp_controller"]
+	hp_stub.set_test_max_hp(2, 100)
+	hp_stub.set_test_current_hp(2, 100)
+	controller._active_turn_unit_id = 1
+
+	# Act
+	var fired: bool = controller.use_item(1, 0)
+
+	# Assert
+	assert_bool(fired).override_failure_message(
+		"AC-SS-6: stat_intellect < INT_BASELINE must reject (int_insufficient gate)"
+	).is_false()
+	assert_int(hp_stub.apply_damage_calls.size()).is_equal(0)
+	assert_str(String(controller._units[1].inventory[0])).is_equal("fire_scroll")
+
+
+## AC-SS-6 damage scaling sentinel: STRATEGIST native fire_strategy at INT=99
+## (제갈량) produces per-tile damage = floori(20 × 1.195) = 23. This regression
+## guard ensures the rev-2.9.4 INT scaling path is wired — pre-S91 the value
+## would have been a fixed 20.
+func test_skill_fire_strategy_int99_scales_damage_to_23() -> void:
+	# Arrange — STRATEGIST 제갈량 with INT=99 + 1 enemy at Manhattan 1
+	var caster: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	caster.unit_class = UnitRole.UnitClass.STRATEGIST
+	caster.stat_intellect = 99
+	var enemy: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	var bag: Dictionary = _setup([caster, enemy] as Array[BattleUnit])
+	var controller: GridBattleController = bag["controller"]
+	var hp_stub: HPStatusControllerStub = bag["hp_controller"]
+	hp_stub.set_test_max_hp(2, 100)
+	hp_stub.set_test_current_hp(2, 100)
+
+	# Act
+	var fired: bool = controller._skill_fire_strategy(caster)
+
+	# Assert — INT=99 → factor = 1 + (99-60)*0.005 = 1.195 → floori(20×1.195) = 23
+	assert_bool(fired).is_true()
+	assert_int(hp_stub.apply_damage_calls.size()).is_equal(1)
+	assert_int(hp_stub.apply_damage_calls[0]["resolved_damage"] as int).override_failure_message(
+		"AC-SS-6 / OQ-DC-11(b): _skill_fire_strategy at INT=99 must apply floori(20 × 1.195) = 23"
+	).is_equal(23)
+
+
+## AC-SS-6 damage scaling sentinel: STRATEGIST native fire_strategy at
+## INT_BASELINE (60) produces per-tile damage = floori(20 × 1.0) = 20 — the
+## no-behavior-change at baseline guarantee. This sentinel proves the refactor
+## (extracted _apply_fire_aoe + INT scaling) leaves baseline-INT callers
+## untouched, satisfying OQ-DC-11 option (b) "no-behavior-change at INT=60".
+func test_skill_fire_strategy_int60_baseline_keeps_fixed_20_damage() -> void:
+	# Arrange — STRATEGIST with INT=60 (= INT_BASELINE) + 1 enemy at Manhattan 1
+	var caster: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	caster.unit_class = UnitRole.UnitClass.STRATEGIST
+	caster.stat_intellect = 60
+	var enemy: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	var bag: Dictionary = _setup([caster, enemy] as Array[BattleUnit])
+	var controller: GridBattleController = bag["controller"]
+	var hp_stub: HPStatusControllerStub = bag["hp_controller"]
+	hp_stub.set_test_max_hp(2, 100)
+	hp_stub.set_test_current_hp(2, 100)
+
+	# Act
+	var fired: bool = controller._skill_fire_strategy(caster)
+
+	# Assert — INT=60 → factor=1.0 → damage = floori(20×1.0) = 20 (pre-S91 value)
+	assert_bool(fired).is_true()
+	assert_int(hp_stub.apply_damage_calls.size()).is_equal(1)
+	assert_int(hp_stub.apply_damage_calls[0]["resolved_damage"] as int).override_failure_message(
+		"OQ-DC-11(b) no-behavior-change at INT=60: damage must remain at FIRE_BASE_DAMAGE (20)"
+	).is_equal(20)
+
+
+## AC-SS-6 EC-SS-7: enemies outside Manhattan FIRE_RANGE (3) from the AoE
+## origin are NOT damaged. Caster at (0,0), in-range enemy at (3,0) hit
+## (Manhattan 3 = inclusive), out-of-range enemy at (4,0) not hit.
+func test_use_item_fire_scroll_range_check_excludes_out_of_range_enemies() -> void:
+	# Arrange — INFANTRY caster + 2 enemies (one in range, one out)
+	var caster: BattleUnit = _make_unit(1, Vector2i(0, 0), 0)
+	caster.unit_class = UnitRole.UnitClass.INFANTRY
+	caster.stat_intellect = 60
+	caster.inventory = [&"fire_scroll", &"", &""]
+	var in_range: BattleUnit = _make_unit(2, Vector2i(3, 0), 1)   # Manhattan 3 — included
+	var out_of_range: BattleUnit = _make_unit(3, Vector2i(4, 0), 1)  # Manhattan 4 — excluded
+	var bag: Dictionary = _setup([caster, in_range, out_of_range] as Array[BattleUnit])
+	var controller: GridBattleController = bag["controller"]
+	var hp_stub: HPStatusControllerStub = bag["hp_controller"]
+	hp_stub.set_test_max_hp(2, 100)
+	hp_stub.set_test_current_hp(2, 100)
+	hp_stub.set_test_max_hp(3, 100)
+	hp_stub.set_test_current_hp(3, 100)
+	controller._active_turn_unit_id = 1
+
+	# Act
+	var fired: bool = controller.use_item(1, 0)
+
+	# Assert
+	assert_bool(fired).is_true()
+	assert_int(hp_stub.apply_damage_calls.size()).override_failure_message(
+		"AC-SS-6 EC-SS-7: only the in-range enemy (Manhattan 3) must be damaged"
+	).is_equal(1)
+	assert_int(hp_stub.apply_damage_calls[0]["unit_id"] as int).is_equal(2)
+
+
+## AC-SS-6 damage formula identity: INFANTRY fire_scroll caster at INT=60 vs
+## STRATEGIST native fire_strategy caster at INT=60 produce identical per-tile
+## damage. Both call the shared _apply_fire_aoe helper so the assertion is
+## structural — if either path drifts from the helper, this test catches it.
+func test_fire_scroll_and_fire_strategy_produce_identical_damage_at_int_baseline() -> void:
+	# Arrange — two identical-stat casters, one INFANTRY (scroll), one STRATEGIST (skill)
+	var scroll_caster: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	scroll_caster.unit_class = UnitRole.UnitClass.INFANTRY
+	scroll_caster.stat_intellect = 60
+	scroll_caster.inventory = [&"fire_scroll", &"", &""]
+	var scroll_victim: BattleUnit = _make_unit(2, Vector2i(3, 2), 1)
+	var skill_caster: BattleUnit = _make_unit(3, Vector2i(6, 6), 0)
+	skill_caster.unit_class = UnitRole.UnitClass.STRATEGIST
+	skill_caster.stat_intellect = 60
+	var skill_victim: BattleUnit = _make_unit(4, Vector2i(7, 6), 1)
+	var bag: Dictionary = _setup([scroll_caster, scroll_victim, skill_caster, skill_victim] as Array[BattleUnit])
+	var controller: GridBattleController = bag["controller"]
+	var hp_stub: HPStatusControllerStub = bag["hp_controller"]
+	for vid: int in [2, 4]:
+		hp_stub.set_test_max_hp(vid, 100)
+		hp_stub.set_test_current_hp(vid, 100)
+
+	# Act — fire scroll first (records 1 damage call on victim 2)
+	controller._active_turn_unit_id = 1
+	controller.use_item(1, 0)
+	# Then native skill (records 1 damage call on victim 4)
+	controller._active_turn_unit_id = 3
+	controller._skill_fire_strategy(skill_caster)
+
+	# Assert — both calls land identical damage values
+	assert_int(hp_stub.apply_damage_calls.size()).is_equal(2)
+	var scroll_damage: int = hp_stub.apply_damage_calls[0]["resolved_damage"] as int
+	var skill_damage: int = hp_stub.apply_damage_calls[1]["resolved_damage"] as int
+	assert_int(scroll_damage).override_failure_message(
+		"AC-SS-6 identity: fire_scroll damage (%d) must equal fire_strategy damage (%d) at same INT" %
+		[scroll_damage, skill_damage]
+	).is_equal(skill_damage)

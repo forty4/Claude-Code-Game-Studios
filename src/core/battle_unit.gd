@@ -108,6 +108,14 @@ extends Resource
 ## clampi(raw_def, 1, DEF_CAP) per AC-DC-11/15). Story-005 addition.
 @export var raw_def: int = 5
 
+## Cached `stat_intellect` (0-100) from HeroData. Populated at battle init from
+## HeroDatabase + chapter roster; default INT_BASELINE=60 = formula identity for
+## fire_strategy / fire_scroll INT scaling (damage-calc.md rev 2.9.4 §F-DC-8).
+## Falling back to 60 keeps fire damage at base_damage × 1.0 for any unit whose
+## hero record is missing (mirrors the raw_atk=10 fallback discipline at
+## BattleScene._make_battle_unit).
+@export var stat_intellect: int = 60
+
 ## AI archetype identifier — `&"aggressor"` / `&"skirmisher"` / `&"holder"` /
 ## `&"coordinator"` per ADR-0019 §4 dispatch table. Distinct from `tag` field
 ## above: `tag` carries the FATE-COUNTER role (`tank`/`assassin`/`boss`) while

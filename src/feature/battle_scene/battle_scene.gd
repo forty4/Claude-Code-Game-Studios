@@ -1042,6 +1042,11 @@ func _make_battle_unit(
 		var def_coeff: float = BalanceConstants.get_const("HERO_DEF_COEFF") as float
 		unit.raw_atk = int(hero_data.stat_might * atk_coeff)
 		unit.raw_def = int(hero_data.stat_command * def_coeff)
+		# Cached INT for fire_strategy / fire_scroll INT scaling (damage-calc rev
+		# 2.9.4 §F-DC-8). Mirrors raw_atk/raw_def caching pattern — DamageCalc +
+		# GridBattleController read from BattleUnit, not from HeroDatabase, so the
+		# fire damage formula stays self-contained at attack-resolve time.
+		unit.stat_intellect = hero_data.stat_intellect
 		# Class from the hero's default — without this every unit defaulted to 0
 		# (CAVALRY) and rendered as a triangle, hiding both the per-class shape
 		# and the per-class HP/multiplier behavior. Fallback to INFANTRY (1) when

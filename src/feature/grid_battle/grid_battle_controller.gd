@@ -2228,12 +2228,19 @@ func _handle_use_item_input() -> void:
 ## Returns true on success, false when blocked (no item / wrong side / active
 ## token spent / item-specific reject).
 ##
-## Per strategy-systems.md v0.3 §3.3 + AC-SS-4. S90 Phase B wired items:
-## heal_potion (step 4 immediate HP restore), strength_scroll (step 5 multi-turn
-## buff carry), march_scroll (step 7 move_range +2 + move_token refresh). Future
-## items (fire_scroll cross-class — step 6 pending OQ-DC-11 resolution) land in
-## subsequent commits per Phase B implementation order.
-func use_item(unit_id: int, slot_idx: int) -> bool:
+## `target_pos` is consumed by AoE-target items (currently fire_scroll). When
+## the caller passes `Vector2i(-1, -1)` (the default sentinel — also what the
+## I/3-key entry point passes), AoE-target items resolve target_pos to the
+## caster's own tile. The MVP Phase B path keeps the I/3-key "self-cast at
+## current tile" semantics; Phase B step 9 wires the Item Target Selection
+## Overlay (UI-GB-17) that lets the player click a target_pos.
+##
+## Per strategy-systems.md v0.3 §3.3 + AC-SS-4 / AC-SS-6. S90 Phase B wired
+## items: heal_potion (step 4 immediate HP restore), strength_scroll (step 5
+## multi-turn buff carry), march_scroll (step 7 move_range +2 + move_token
+## refresh), fire_scroll (step 6 cross-class AoE fire damage with INT scaling,
+## OQ-DC-11 resolution = option (b)).
+func use_item(unit_id: int, slot_idx: int, target_pos: Vector2i = Vector2i(-1, -1)) -> bool:
 	if _battle_over:
 		return false
 	if not _units.has(unit_id):
@@ -2252,10 +2259,10 @@ func use_item(unit_id: int, slot_idx: int) -> bool:
 	var item_id: StringName = unit.inventory[slot_idx]
 	if item_id == &"":
 		return false  # empty slot
-	# Item dispatch — heal_potion (step 4) + strength_scroll (step 5) +
-	# march_scroll (step 7) wired. Other prototype items (fire_scroll step 6
-	# pending OQ-DC-11 resolution) land in subsequent steps per
-	# strategy-systems.md v0.3 Phase B implementation order.
+	# Item dispatch — Phase B 4 MVP items wired (heal_potion / strength_scroll /
+	# march_scroll / fire_scroll). Remaining authored items (command_scroll,
+	# Phase 4+ deferred per strategy-systems.md v0.2 user adjudication; sky_book
+	# Phase C+ candidate) fall through the default arm.
 	var fired: bool = false
 	var actual_effect: int = 0
 	match item_id:
@@ -2267,6 +2274,9 @@ func use_item(unit_id: int, slot_idx: int) -> bool:
 			fired = actual_effect > 0
 		&"march_scroll":
 			actual_effect = _use_item_march_scroll(unit)
+			fired = actual_effect > 0
+		&"fire_scroll":
+			actual_effect = _use_item_fire_scroll(unit, target_pos)
 			fired = actual_effect > 0
 		_:
 			push_warning("GridBattleController.use_item: unwired item_id '%s' on unit %d slot %d — no-op"
@@ -2357,6 +2367,102 @@ func _use_item_strength_scroll(unit: BattleUnit) -> int:
 ## fresh move via the refresh. action_token is checked BEFORE the bonus is
 ## applied so a rejected march_scroll does not leak a partial side effect.
 const MARCH_SCROLL_BONUS: int = 2
+
+## fire_scroll / fire_strategy shared constants — damage-calc rev 2.9.4 §F-DC-8
+## (OQ-DC-11 resolution = option (b), Phase B step 6 user adjudication).
+## INT_BASELINE marks the neutral reference for the INT scaling curve; a caster
+## with stat_intellect = 60 receives factor = 1.0 (no bonus, no penalty), so the
+## refactor is no-behavior-change for any unit at baseline INT.
+## INT_SCALING_RATE = +0.5% per stat_intellect point above/below baseline.
+## FIRE_BASE_DAMAGE replaces the hardcoded "20 fixed damage" from the pre-rev-2.9.4
+## fire_strategy implementation; identical at INT=60 (20 × 1.0 = 20).
+const INT_BASELINE: int = 60
+const INT_SCALING_RATE: float = 0.005
+const FIRE_BASE_DAMAGE: int = 20
+const FIRE_RANGE: int = 3
+## fire_scroll allowlist per strategy-systems.md v0.3 §4.3 — STRATEGIST owns the
+## native fire_strategy (no need for a scroll); SCOUT + ARCHER excluded so the
+## "cross-class 책략권" framing protects Pillar #3 role differentiation.
+## Format: UnitRole.UnitClass int values (CAVALRY=0, INFANTRY=1, ARCHER=2,
+## STRATEGIST=3, SCOUT=4, COMMANDER=5).
+const FIRE_SCROLL_ALLOWED_CLASSES: Array[int] = [
+	UnitRole.UnitClass.INFANTRY,
+	UnitRole.UnitClass.CAVALRY,
+	UnitRole.UnitClass.COMMANDER,
+]
+
+
+## fire_scroll handler — strategy-systems.md v0.3 §4.3 + AC-SS-6.
+## Validates class allowlist + INT gate, then invokes the same AoE helper used
+## by the native fire_strategy skill (damage formula identity per AC-SS-6).
+## Returns the count of enemies hit on success; 0 on reject. Reject conditions:
+##   - dead unit
+##   - caster.unit_class not in FIRE_SCROLL_ALLOWED_CLASSES (wrong_class)
+##   - caster.stat_intellect < INT_BASELINE (int_insufficient)
+## `target_pos = Vector2i(-1, -1)` (the default sentinel from use_item) resolves
+## to the caster's own tile — keeps the I/3-key "self-cast" flow alive until the
+## Phase B step 9 target-selection overlay (UI-GB-17) lands.
+##
+## NOTE: Unlike the native _skill_fire_strategy, this handler does NOT spend the
+## ATK token or mark _acted_this_turn — use_item dispatches USE_ITEM token via
+## declare_action after this returns. The unit "acted via item" not "attacked".
+func _use_item_fire_scroll(unit: BattleUnit, target_pos: Vector2i) -> int:
+	if _hp_controller == null:
+		return 0
+	if not _hp_controller.is_alive(unit.unit_id):
+		return 0
+	if not FIRE_SCROLL_ALLOWED_CLASSES.has(unit.unit_class):
+		return 0  # wrong_class — strategist owns native; scout/archer excluded
+	if unit.stat_intellect < INT_BASELINE:
+		return 0  # int_insufficient — Pillar #3 cross-class gate
+	var origin_pos: Vector2i = target_pos
+	if origin_pos == Vector2i(-1, -1):
+		origin_pos = unit.position  # MVP self-cast default until UI-GB-17 lands
+	var hit_count: int = _apply_fire_aoe(unit, origin_pos, FIRE_BASE_DAMAGE, FIRE_RANGE)
+	# Return at least 1 on a successful fire even with zero hits, so the caller
+	# treats the scroll as "fired" (slot decremented, action token spent). The
+	# strategy-systems §3.5 design intent: cast IS the action regardless of who
+	# the AoE caught — mirrors native skill_fire_strategy which always spends
+	# ATK_TOKEN even if any_hit == false.
+	return maxi(hit_count, 1)
+
+
+## Shared fire AoE applicator — both _skill_fire_strategy (native skill) and
+## _use_item_fire_scroll (cross-class scroll) call into this helper so AC-SS-6
+## "damage formula identity" holds structurally. Applies INT-scaled fire damage
+## per damage-calc.md rev 2.9.4 §F-DC-8 to every alive enemy within Manhattan
+## ≤ fire_range from origin_pos, plus the slow status. Returns the count of
+## enemies hit. Does NOT mark _acted_this_turn / declare_action / spend tokens —
+## the caller owns turn-state mutation (skill spends ATK; item spends USE_ITEM).
+##
+## INT scaling: factor = 1 + (caster.stat_intellect - INT_BASELINE) × INT_SCALING_RATE.
+## Per-tile int damage = floori(base_damage × factor). Identity at INT=60 keeps
+## existing fire_strategy fixed-20 behavior intact for any caster at baseline.
+func _apply_fire_aoe(caster: BattleUnit, origin_pos: Vector2i, base_damage: int, fire_range: int) -> int:
+	var int_delta: int = caster.stat_intellect - INT_BASELINE
+	var scaling_factor: float = 1.0 + float(int_delta) * INT_SCALING_RATE
+	var per_tile_damage: int = floori(float(base_damage) * scaling_factor)
+	per_tile_damage = maxi(per_tile_damage, 1)  # damage-calc convention: min 1
+	var hit_count: int = 0
+	for victim: BattleUnit in _units.values():
+		if victim.side == caster.side:
+			continue
+		if not _hp_controller.is_alive(victim.unit_id):
+			continue
+		var dx: int = absi(victim.position.x - origin_pos.x)
+		var dy: int = absi(victim.position.y - origin_pos.y)
+		if dx + dy > fire_range:
+			continue
+		_last_attacker_id = caster.unit_id
+		_hp_controller.apply_damage(victim.unit_id, per_tile_damage,
+			ResolveModifiers.AttackType.MAGICAL, [&"skill"] as Array[StringName])
+		_damage_dealt_by_unit[caster.unit_id] = \
+			_damage_dealt_by_unit.get(caster.unit_id, 0) + per_tile_damage
+		damage_applied.emit(caster.unit_id, victim.unit_id, per_tile_damage)
+		_apply_status_with_signal(victim.unit_id, &"slow", caster.unit_id)
+		hit_count += 1
+	return hit_count
+
 
 func _use_item_march_scroll(unit: BattleUnit) -> int:
 	if _hp_controller == null:
@@ -2791,35 +2897,21 @@ func _skill_naval_strategy(unit: BattleUnit) -> bool:
 
 
 ## S86 G2 — 제갈량 (STRATEGIST) skill_fire_strategy: 박망파/적벽 화공 narrative.
-## 20 fixed damage + slow status to every alive enemy within Manhattan ≤ 3 of
-## caster. Spends ATK token (terminal action). Differs from skill_strategist
-## (조조, battlefield-wide 15 damage no status) by trading map-coverage for
-## range-3 + slow debuff — strategists with positional flair.
+## INT-scaled damage + slow status to every alive enemy within Manhattan ≤
+## FIRE_RANGE (3) of caster. Spends ATK token (terminal action). Differs from
+## skill_strategist (조조, battlefield-wide 15 damage no status) by trading
+## map-coverage for range-3 + slow debuff — strategists with positional flair.
+## S91 Phase B step 6 (OQ-DC-11 resolution = option (b)): per-tile damage now
+## scales with caster.stat_intellect per damage-calc rev 2.9.4 §F-DC-8.
+## At INT_BASELINE=60 the formula collapses to the pre-S91 fixed-20 behavior,
+## so no regression for any baseline-INT caster. The native skill and the
+## fire_scroll item share `_apply_fire_aoe` to satisfy AC-SS-6 damage identity.
 func _skill_fire_strategy(unit: BattleUnit) -> bool:
-	var fire_damage: int = 20
-	var fire_range: int = 3
-	var any_hit: bool = false
-	for victim: BattleUnit in _units.values():
-		if victim.side == unit.side:
-			continue
-		if not _hp_controller.is_alive(victim.unit_id):
-			continue
-		var dx: int = absi(victim.position.x - unit.position.x)
-		var dy: int = absi(victim.position.y - unit.position.y)
-		if dx + dy > fire_range:
-			continue
-		_last_attacker_id = unit.unit_id
-		_hp_controller.apply_damage(victim.unit_id, fire_damage,
-			ResolveModifiers.AttackType.MAGICAL, [&"skill"] as Array[StringName])
-		_damage_dealt_by_unit[unit.unit_id] = \
-			_damage_dealt_by_unit.get(unit.unit_id, 0) + fire_damage
-		damage_applied.emit(unit.unit_id, victim.unit_id, fire_damage)
-		_apply_status_with_signal(victim.unit_id, &"slow", unit.unit_id)
-		any_hit = true
+	var hit_count: int = _apply_fire_aoe(unit, unit.position, FIRE_BASE_DAMAGE, FIRE_RANGE)
 	_acted_this_turn[unit.unit_id] = true
 	if _turn_runner != null and _turn_runner.has_method("declare_action"):
 		_turn_runner.declare_action(unit.unit_id,
-			TurnOrderRunner.ActionType.ATTACK if any_hit else TurnOrderRunner.ActionType.WAIT,
+			TurnOrderRunner.ActionType.ATTACK if hit_count > 0 else TurnOrderRunner.ActionType.WAIT,
 			null)
 	return true
 
