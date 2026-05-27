@@ -999,6 +999,82 @@ func _apply_starting_inventory(unit: BattleUnit, chapter: ChapterDefinition) -> 
 	unit.inventory = copy
 
 
+## S91 Phase B step 8b follow-up — exposes the active battle's per-unit
+## Strategy Systems state for SaveContext snapshot population by ScenarioRunner.
+## Returns Dictionary with two sub-Dictionaries:
+##   "inventory": {unit_id_int -> Array[StringName] inventory slots}
+##   "pending_buff": {unit_id_int -> pending_buff Dictionary}
+## Only PLAYER units (side == 0) are included — enemy inventory is Phase 4+
+## per strategy-systems.md §3.1, mirroring the _apply_starting_inventory side gate.
+## Returns empty sub-dicts when no grid controller / no units yet — call site
+## should treat empty as "no in-flight battle state" (matches SaveContext default).
+func get_per_unit_strategy_snapshot() -> Dictionary:
+	var result: Dictionary = {
+		"inventory": {},
+		"pending_buff": {},
+	}
+	if _grid_controller == null:
+		return result
+	for unit_id_var: Variant in _grid_controller._units.keys():
+		var unit: BattleUnit = _grid_controller._units[unit_id_var]
+		if unit == null or unit.side != 0:
+			continue
+		# Inventory: only snapshot non-empty inventories so the saved size
+		# matches the spec's "no permanent accumulation" rule — units with
+		# empty inventories don't need a row.
+		var has_any_item: bool = false
+		for slot: StringName in unit.inventory:
+			if slot != &"":
+				has_any_item = true
+				break
+		if has_any_item:
+			var inv_copy: Array[StringName] = []
+			inv_copy.assign(unit.inventory)  # G-2 — preserves Array[StringName]
+			(result["inventory"] as Dictionary)[unit.unit_id] = inv_copy
+		# Pending buff: only snapshot non-empty buffs (null-sentinel rule per
+		# BattleUnit.pending_buff doc).
+		if not unit.pending_buff.is_empty():
+			(result["pending_buff"] as Dictionary)[unit.unit_id] = unit.pending_buff.duplicate()
+	return result
+
+
+## S91 Phase B step 8b follow-up — applies a previously-captured snapshot back
+## to the current battle's BattleUnits. Used by mid-battle save resume (future)
+## OR by integration tests verifying the round-trip data path. Both arguments
+## are Dictionaries with int keys (unit_id) and Array[StringName] (inventory) /
+## Dictionary (pending_buff) values, matching the get_per_unit_strategy_snapshot
+## return shape + SaveContext field types.
+##
+## Snapshot OVERRIDES chapter-authored starting_inventory (apply chapter first
+## then snapshot — this is the call-order documented contract). For a fresh
+## chapter-boundary load (no mid-battle save), pass empty Dictionaries and the
+## chapter inventory stays untouched.
+func apply_per_unit_strategy_snapshot(inventory_snapshot: Dictionary, pending_buff_snapshot: Dictionary) -> void:
+	if _grid_controller == null:
+		return
+	for unit_id_var: Variant in inventory_snapshot.keys():
+		var unit_id: int = unit_id_var as int
+		if not _grid_controller._units.has(unit_id):
+			continue
+		var unit: BattleUnit = _grid_controller._units[unit_id]
+		if unit == null or unit.side != 0:
+			continue
+		var saved_inv: Array = inventory_snapshot[unit_id_var] as Array
+		var inv_copy: Array[StringName] = []
+		for item_var: Variant in saved_inv:
+			inv_copy.append(item_var as StringName)
+		unit.inventory = inv_copy
+	for unit_id_var: Variant in pending_buff_snapshot.keys():
+		var unit_id: int = unit_id_var as int
+		if not _grid_controller._units.has(unit_id):
+			continue
+		var unit: BattleUnit = _grid_controller._units[unit_id]
+		if unit == null or unit.side != 0:
+			continue
+		var saved_buff: Dictionary = pending_buff_snapshot[unit_id_var] as Dictionary
+		unit.pending_buff = saved_buff.duplicate()
+
+
 ## Constructs a single BattleUnit. Replaces the deleted _make_mock_unit helper.
 ## archetype param (S13-12) carries the AI behaviour bucket — distinct from `tag`
 ## which carries the fate-counter role. See BattleUnit.archetype docstring for the

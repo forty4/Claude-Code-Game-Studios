@@ -1210,7 +1210,39 @@ func _make_save_context(cp_kind: SaveCheckpoint) -> SaveContext:
 	# v2 — Multi-step survival cascade snapshot.
 	ctx.branch_history = _chapter_outcomes.duplicate(true)
 	ctx.persistent_branch_flags = _persistent_branch_flags.duplicate()
+	# S91 Phase B step 8b follow-up — pull per-unit Strategy Systems snapshot
+	# from the active BattleScene if one exists (mid-battle save trigger
+	# scenario). At chapter-boundary checkpoints (CP_1 = pre-battle, CP_3 =
+	# scenario transition) no battle scene is live; snapshots stay empty as
+	# per the SaveContext default. At CP_2 (post-battle) the inventory is
+	# usually empty per the "no permanent accumulation" rule but snapshot
+	# still pulls — get_per_unit_strategy_snapshot internally skips empty
+	# inventories so the saved Dictionary stays minimal.
+	var battle_snapshot: Dictionary = _collect_active_battle_strategy_snapshot()
+	ctx.per_hero_inventory_snapshot = battle_snapshot.get("inventory", {})
+	ctx.per_hero_pending_buff_snapshot = battle_snapshot.get("pending_buff", {})
 	return ctx
+
+
+## S91 Phase B step 8b follow-up — queries the active BattleScene (via
+## SceneManager._battle_scene_ref) for its per-unit Strategy Systems snapshot.
+## Returns the same {"inventory": {}, "pending_buff": {}} shape that
+## BattleScene.get_per_unit_strategy_snapshot returns; empty sub-dicts when
+## no battle scene is live OR when the scene doesn't expose the helper
+## (defensive against test stubs that bypass BattleScene). Pull pattern picked
+## over push so SaveContext construction stays the single SaveContext.new()
+## site per TR-011 + lint_scenario_runner_save_context_complete.sh.
+func _collect_active_battle_strategy_snapshot() -> Dictionary:
+	var empty: Dictionary = {"inventory": {}, "pending_buff": {}}
+	var battle_scene: Node = SceneManager._battle_scene_ref
+	if not is_instance_valid(battle_scene):
+		return empty
+	if not battle_scene.has_method("get_per_unit_strategy_snapshot"):
+		return empty
+	var snapshot: Dictionary = battle_scene.get_per_unit_strategy_snapshot()
+	if snapshot == null:
+		return empty
+	return snapshot
 
 
 ## Builds BattlePayload from ChapterDefinition (consumed by BattleScene + listeners).
