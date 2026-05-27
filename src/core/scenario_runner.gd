@@ -760,6 +760,30 @@ func _hydrate_chapter(record: Dictionary) -> ChapterDefinition:
 	c.ending_screen_text_keys = (
 		record.get("ending_screen_text_keys", {}) as Dictionary
 	).duplicate(true)
+	# S91 Phase B step 8 — Strategy Systems per-hero starting inventory
+	# (strategy-systems.md v0.3 §3.4 + AC-SS-2). JSON has {hero_id_string ->
+	# Array[String]} ; normalize to {StringName -> Array[StringName]} so
+	# BattleScene can index by BattleUnit.hero_id directly. Surplus items
+	# beyond INVENTORY_SLOT_COUNT (3) are dropped with a push_warning per
+	# EC-SS-1 ("inventory full"). Empty slot sentinel = &"".
+	var inv_raw: Dictionary = (record.get("starting_inventory_by_hero", {}) as Dictionary)
+	var inv: Dictionary = {}
+	for k in inv_raw.keys():
+		var hero_key: StringName = StringName(k as String)
+		var items_raw: Array = inv_raw[k] as Array
+		var items: Array[StringName] = []
+		for item_var: Variant in items_raw:
+			items.append(StringName(item_var as String))
+		# EC-SS-1: drop surplus beyond INVENTORY_SLOT_COUNT (3) with a warning.
+		# The cap is hard-coded here to avoid a runtime BalanceConstants read in
+		# the chapter-hydration path (which runs once at scenario load); the
+		# value matches strategy-systems §3.1 INVENTORY_SLOT_COUNT default.
+		if items.size() > 3:
+			push_warning("ScenarioRunner._hydrate_chapter: starting_inventory_by_hero[%s] has %d entries (cap 3); dropping surplus"
+				% [String(hero_key), items.size()])
+			items = items.slice(0, 3)
+		inv[hero_key] = items
+	c.starting_inventory_by_hero = inv
 	# enemy_atk_mult — sentinel -1.0 when absent so BattleScene falls back to
 	# BalanceConstants global. Float cast handles JSON int (1) or float (0.85).
 	if record.has("enemy_atk_mult"):

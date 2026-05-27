@@ -918,7 +918,14 @@ func _build_battle_units_from_chapter(chapter: ChapterDefinition) -> Array[Battl
 		# Player units default to &"aggressor" archetype (S13-12); chapter fixtures
 		# do not currently author player_unit archetypes — extend ChapterDefinition
 		# if AI-driven player units are introduced post-MVP.
-		roster.append(_make_battle_unit(uid, hero, true, pos, tag, &"aggressor"))
+		var pu: BattleUnit = _make_battle_unit(uid, hero, true, pos, tag, &"aggressor")
+		# S91 Phase B step 8 — apply chapter starting inventory to player units.
+		# Key the lookup by BattleUnit.hero_id (already a StringName) against the
+		# hydrated Dictionary[StringName, Array[StringName]] on the chapter.
+		# Enemy units do NOT consume starting_inventory_by_hero (MVP enemy =
+		# no inventory per strategy-systems §3.1 OQ-SS-2).
+		_apply_starting_inventory(pu, chapter)
+		roster.append(pu)
 	# Enemy units from chapter.enemy_roster Dictionary entries.
 	for entry in chapter.enemy_roster:
 		var d: Dictionary = entry as Dictionary
@@ -960,6 +967,30 @@ func _resolve_player_hero_id_with_override(
 	if PLAYER_HERO_BY_UNIT_ID.has(uid):
 		return PLAYER_HERO_BY_UNIT_ID[uid] as StringName
 	return &"shu_003_zhang_fei"
+
+
+## S91 Phase B step 8 — applies the chapter's per-hero starting inventory to a
+## freshly-constructed player BattleUnit. Strategy Systems v0.3 §3.4 + AC-SS-2.
+##
+## Lookup: chapter.starting_inventory_by_hero[unit.hero_id] (StringName key).
+## When the chapter authored a matching entry, the unit's `inventory` field is
+## SET to a duplicate of the authored array. Otherwise unit.inventory remains
+## the BattleUnit default (empty []) — strategy-systems §3.1 OQ-SS-2: enemies
+## never receive inventory.
+##
+## Inner array is duplicated so per-battle slot mutations (use_item decrement)
+## don't leak back into the chapter resource (which would corrupt the per-run
+## state on retry / load).
+func _apply_starting_inventory(unit: BattleUnit, chapter: ChapterDefinition) -> void:
+	if chapter == null:
+		return
+	if not chapter.starting_inventory_by_hero.has(unit.hero_id):
+		return
+	var src: Array = chapter.starting_inventory_by_hero[unit.hero_id] as Array
+	var copy: Array[StringName] = []
+	for item_var: Variant in src:
+		copy.append(item_var as StringName)
+	unit.inventory = copy
 
 
 ## Constructs a single BattleUnit. Replaces the deleted _make_mock_unit helper.

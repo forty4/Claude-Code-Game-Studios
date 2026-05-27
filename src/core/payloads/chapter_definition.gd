@@ -255,3 +255,31 @@ extends Resource
 ## Runtime shape: { branch_path_id: i18n_text_key }. Designed for shu_canon_main ch25
 ## 4-tier ending (canonical / hidden / legendary / loss).
 @export var ending_screen_text_keys: Dictionary = {}
+
+
+# ─── S91 Phase B step 8 — Strategy Systems starting inventory ────────────────
+
+## Per-hero starting inventory for this chapter (strategy-systems.md v0.3 §3.4 +
+## AC-SS-2). When non-empty, BattleScene applies the per-hero entry to the
+## matching player BattleUnit.inventory at chapter init. Empty Dictionary = no
+## starting items authored (BattleUnit.inventory defaults to [] = all slots empty).
+##
+## Runtime shape: { hero_id_string → Array[StringName] of length up to 3 }.
+## Each inner array MUST hold ≤ INVENTORY_SLOT_COUNT (3) item_ids; surplus
+## entries are dropped by the loader with a push_warning (EC-SS-1 inventory full).
+## Empty slot sentinel = &"" (preserves slot ordering when a hero has fewer than
+## 3 items but downstream UI / save_load expects a stable per-index addressing).
+##
+## Outer Dictionary intentionally untyped at @export — GDScript 4.6 does NOT
+## permit nested-typed declarations (Dictionary[StringName, Array[StringName]]
+## parses as G-25 "Nested typed collections are not supported"). Element-type
+## enforcement happens at the loader (ScenarioRunner._hydrate_chapter coerces
+## JSON String → StringName for both keys and inner array elements).
+##
+## Authoring convention — JSON example for ch01 도원결의:
+##   "starting_inventory_by_hero": {
+##     "shu_001_liu_bei":  ["heal_potion", "", ""],
+##     "shu_003_zhang_fei": ["heal_potion", "strength_scroll", ""],
+##     "shu_002_guan_yu":  ["strength_scroll", "march_scroll", ""]
+##   }
+@export var starting_inventory_by_hero: Dictionary = {}
