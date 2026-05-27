@@ -467,6 +467,50 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Layered UX gap diagnosis**: "재미없음" 같은 단일 사용자 보고가 actually 여러 layer 의 root cause 조합. 진단 시 surface-level fix 만 시도하면 underlying issue 누락 위험. mechanical + discoverability + visual + balance 의 4 layer 모두 inspect 필요.
 - **Selection-less fallback pattern**: 사용자 UX flow 가 "click then key" 이 아닌 "key directly" 일 수도. controller handler 들에 active turn unit fallback 추가 = UX simplification + felt 향상 — 다른 systems 도 같은 pattern 가능 (예: 미리보기 dismiss, 카메라 control).
 
+### S91 (continued) — Strategy Systems Phase B steps 6 + 9 finalization (2026-05-27 session 91 cont'd)
+
+> **Driver**: After step 7+8+8b push + session-end request, the user resumed with "다음 진행" → AskUserQuestion step 6 선택 → OQ-DC-11 사용자 결정 (option b INT scaling) → step 6 완료 → step 9 (UI) 선택 → "세개 모두 한꺼번에" scope → step 9 완료 → 핸드오프 + 세션 종료. 5 total commits this continuous session; Phase B mechanical layer ends here.
+
+**Completed (2 additional commits, 2028 → 2051/2051 PASS / 0 errors)**:
+
+- [x] **Step 6 fire_scroll cross-class + INT scaling (commit `60f0526`, +8 AC-SS-6 + INT regression tests)** — OQ-DC-11 resolution = option (b): apply INT scaling formula per damage-calc rev 2.9.4 §F-DC-8. BattleUnit gains cached `stat_intellect: int = 60` (identity default at INT_BASELINE); BattleScene `_make_battle_unit` populates from hero_data. GridBattleController adds `INT_BASELINE=60` / `INT_SCALING_RATE=0.005` / `FIRE_BASE_DAMAGE=20` / `FIRE_RANGE=3` / `FIRE_SCROLL_ALLOWED_CLASSES=[INFANTRY, CAVALRY, COMMANDER]` constants + new `_apply_fire_aoe(caster, origin_pos, base_damage, range) -> int` shared helper consumed by both `_skill_fire_strategy` (native) and new `_use_item_fire_scroll(unit, target_pos)` — AC-SS-6 damage formula identity structural guarantee. `use_item` extended with optional `target_pos = Vector2i(-1, -1)` sentinel → fire_scroll resolves to caster.position when sentinel (MVP self-cast until UI-GB-17 click lands). Unwired-fixture rotation: fire_scroll → command_scroll (Phase 4+ DEFERRED per v0.2 user adjudication).
+- [x] **Step 9 UI-GB-15/16/17 view layer (commit `571210a`, +15 tests: 5 controller + 10 HUD integration)** — Three new view-layer surfaces mounted into BattleHUD:
+  - **UI-GB-15 Inventory Panel** (`scenes/battle/elements/ui_gb_15_inventory_panel.tscn`): bottom-center PanelContainer + 3 slot buttons (≥44pt R-6-A) + ReadOnlyBanner + FeedbackLabel. I-key toggles via `GameBus.input_action_fired(&"use_item")` subscription. Shape-distinct slot glyphs per R-6-B: heal=● str=★ fire=▲ march=→. Slot click for SELF item fires immediately; non-SELF (fire_scroll GROUND) arms target overlay.
+  - **UI-GB-16 Active Buff Indicator** (`scenes/battle/elements/ui_gb_16_active_buff_indicator.tscn`): small ▶ Label top-right; visibility binds to new signal `GridBattleController.unit_pending_buff_changed(uid, has_buff)`. MVP active-unit only (per-polygon multi-unit attachment deferred per ADR-0015 §2 mirror of UI-GB-11 defend seal MVP).
+  - **UI-GB-17 Item Target Selection Overlay**: ChapterVisuals extension — `set_item_target_tiles(tiles, palette)` + draw block + 3 palette constants (ALLY 금록 30% / ENEMY 황토 50% / GROUND 청회 50% + crosshair). Controller `begin_item_target_selection / clear_item_target_selection` emits `item_target_selection_updated(tiles, palette)` → BattleScene forwarder.
+  - **`unit_pending_buff_changed` emission**: strength_scroll apply / fresh consume / stale clear all emit. **`get_item_target_tiles(unit, item_id)` helper**: returns Manhattan FIRE_RANGE disc for fire_scroll (gated by class + INT).
+  - Lint update: `lint_battle_hud_connect_deferred.sh` EXPECTED_COUNT 15 → 18. `_exit_tree` block extended with 6 new disconnects (3 signals + 3 button pressed) per `battle_hud_missing_exit_tree_disconnect` lint (32 disconnects total).
+
+**S91 (continued) — 핵심 design 결정 (잠금)**:
+
+1. **OQ-DC-11 resolution = option (b)**: INT scaling formula `damage = floori(base × (1 + (INT - 60) × 0.005))` applied. No-behavior-change at INT_BASELINE=60 (factor=1.0 → 20 = pre-S91 fixed-20). 제갈량 INT=99 native fire_strategy → floori(20×1.195)=23 damage.
+2. **fire_scroll target_pos sentinel**: `Vector2i(-1, -1)` from default 2-arg `use_item` call resolves to caster.position. MVP self-cast; full UI-GB-17 tile-click confirmation = Phase B step 9 follow-up TODO inline.
+3. **UI-GB-16 MVP scope**: active-turn unit's buff only (single HUD-level glyph). Per-polygon multi-unit attachment migration target = ADR-0015 §2.
+4. **UI-GB-17 palette differentiation**: opacity contrast + (GROUND only) crosshair glyph is the color-independent discriminator. Exact hex values provisional pending art-director sign-off.
+5. **I-key behavior change**: was "fast-fire slot 0", now "toggle inventory panel". The `_handle_use_item_input` direct-fire path is kept for backward compat; production flow now goes panel → slot click → use_item.
+6. **3 new signal subscriptions** (CONNECT_DEFERRED per ADR-0001 §5): `GameBus.input_action_fired` + `_grid_controller.unit_pending_buff_changed` + `_grid_controller.unit_item_used`. Explicit `_exit_tree` disconnects per lint.
+
+**S91 (continued) — 결과 / Pillar 별 felt 변화**:
+
+- **Pillar #5 (전략적 조합)**: VIEW LAYER COMPLETE. Player 가 inventory panel 을 열 수 있고, slot 을 클릭해 item 을 발화할 수 있고, buff 가 활성화되면 작은 glyph 으로 indicate, fire_scroll 의 AoE 범위 가 grid 에 visualized — Phase B 전체 mechanical loop "이동 + item + 다시 이동/공격" 이 UX 통해 작동.
+- **Phase B 9/9 mechanical complete** — `design/gdd/strategy-systems.md` v0.3 의 모든 Phase B steps 구현 + 테스트.
+- **G-30 windowed verify outstanding**: visual rendering (panel glyphs, buff indicator placement, fire-scroll target tint+crosshair) cannot be exercised headlessly. User to confirm in windowed mode that (a) I-key opens panel, (b) heal/strength/march slot click fires + closes panel, (c) strength buff glyph appears top-right post-fire, (d) fire_scroll slot click shows radius-3 Manhattan disc tint.
+- **Test count progression (cumulative S91)**: S87 1996 → S90 2010 → S91 step 7 2015 → step 8 2024 → step 8b 2028 → step 6 2036 → step 9 **2051** (+55 cumulative S87→S91 across 7 commits across 2 sessions, all green).
+
+**S91 (continued) → S92 (next session) 핸드오프**:
+
+**Phase B = MECHANICAL COMPLETE 9/9.** All design/gdd/strategy-systems.md v0.3 Phase B steps implemented + tested.
+
+Optional follow-up (NOT strict Phase B blockers):
+
+1. **G-30 windowed verify** (user action, highest priority) — boot windowed game + verify the 4 UI behaviors above.
+2. **UI-GB-17 target tile-click confirmation** (~80 LoC; narrow scope) — InputRouter `item_target_select` action + controller routing → `use_item(uid, slot, clicked_tile)`. Completes fire_scroll end-to-end.
+3. **8b-followup SaveContext snapshot population/restore wiring** (architectural; needs design pass) — BattleScene ↔ ScenarioRunner cross-system query for per-unit inventory + pending_buff. EC-SS-9 actual round-trip.
+4. **UI-GB-16 per-polygon multi-unit attachment** (post-MVP) — multi-unit buff visibility.
+5. **Phase B i18n + tooltips** (R-6-D polish) — `item.<id>.name / effect / restriction / reject.<code>` keys.
+
+---
+
 ### S91 — Strategy Systems Phase B steps 7 + 8 + 8b implementation (2026-05-27 session 91)
 
 > **Driver**: S90 핸드오프 후 사용자 "이어서 진행" → AskUserQuestion step 7 선택 → 완료 후 step 8 → 완료 후 step 8b → 완료 후 세션 종료 요청 ("진행된 내용 문서에 반영 + commit push + 세션 클리어"). 매 step push 후 다음 결정 패턴 (S90 와 동일). 사용자 결정 의존 step (#6 OQ-DC-11) 회피하고 mechanical/data-layer step 만 batch.
