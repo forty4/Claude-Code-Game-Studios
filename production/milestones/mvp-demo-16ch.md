@@ -467,6 +467,40 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Layered UX gap diagnosis**: "재미없음" 같은 단일 사용자 보고가 actually 여러 layer 의 root cause 조합. 진단 시 surface-level fix 만 시도하면 underlying issue 누락 위험. mechanical + discoverability + visual + balance 의 4 layer 모두 inspect 필요.
 - **Selection-less fallback pattern**: 사용자 UX flow 가 "click then key" 이 아닌 "key directly" 일 수도. controller handler 들에 active turn unit fallback 추가 = UX simplification + felt 향상 — 다른 systems 도 같은 pattern 가능 (예: 미리보기 dismiss, 카메라 control).
 
+### S91 (follow-up arc) — Phase B view-layer + save wiring polish (2026-05-27 session 91 follow-up)
+
+> **Driver**: After step 6+9 push + session-end request, the user resumed with "다음 진행" + AskUserQuestion-picked sequence: UI-GB-17 tile-click → 8b save side → UI-GB-16 per-polygon → i18n + tooltips. 4 follow-up commits in this continuous arc; Phase B follow-up 4/5 closed (G-30 windowed verify + 8b LOAD side both deferred for user action / mid-battle save trigger).
+
+**Completed (4 commits, 2051 → 2068/2068 PASS / 0 errors)**:
+
+- [x] **UI-GB-17 target tile-click confirmation (commit `a89879d`, +6 tests)** — Closes the Phase B step 9 follow-up TODO inlined in 571210a. Controller `_item_target_armed: bool` field + `set_item_target_armed(armed)` setter + `_TILE_CLICK_ACTIONS` const (unit_select / move_target_select / move_confirm / attack_target_select / attack_confirm). When armed, `_on_input_action_fired` silently skips tile-click actions so HUD owns the click. Unit-scoped key actions (use_item / use_skill / defend_stance) stay live. BattleHUD `_handle_item_target_click(ctx)` validates ctx.target_coord against `get_item_target_tiles` whitelist + calls `use_item(uid, slot, coord)`. Out-of-range click flashes `item.reject.target_invalid`. Slot click arms; close/success disarms. GridBattleControllerStub extended with 4 spy recorders.
+- [x] **8b SaveContext snapshot wiring — save side (commit `9656cad`, +10 tests)** — Closes the SAVE half of EC-SS-9 round-trip. BattleScene `get_per_unit_strategy_snapshot()` collects player-only (side==0) non-empty inventory + pending_buff from `_grid_controller._units` (G-2 safe copy via assign). Returns `{"inventory":{uid → Array}, "pending_buff":{uid → Dict}}`. BattleScene `apply_per_unit_strategy_snapshot()` restore-side helper for future mid-battle save resume — skips unknown unit_ids + enemy-side defensively. ScenarioRunner `_collect_active_battle_strategy_snapshot()` pull pattern queries `SceneManager._battle_scene_ref` (defensive has_method). `_make_save_context` populates `ctx.per_hero_inventory_snapshot` + `per_hero_pending_buff_snapshot`. LOAD side deferred (no mid-battle save trigger). New `FakeBattleSceneWithSnapshot` test helper.
+- [x] **UI-GB-16 per-polygon multi-unit attachment (commit `cda5f94`, no new tests)** — Extends UI-GB-16 from single HUD-level glyph (active-unit-only) to per-polygon attachment per strategy-systems v0.3 §3.5.7 + battle-hud.md §3 UI-GB-16 spec. BattleScene subscribes to `_grid_controller.unit_pending_buff_changed`; handler `_on_unit_pending_buff_changed(uid, has_buff)` mirrors `_on_unit_defend_stance_applied` pattern — add/remove idempotent "BuffBadge" Label child with ▶ chevron, gold/black contrast, counter-rotated, Vector2(18, -18) upper-right corner (inward from DefendBadge's Vector2(18, -34) so they coexist). HUD-level UI-GB-16 stays as active-unit-emphasis hint. No round_started auto-clear (buffs persist across rounds until consumed/expired). G-30 windowed verify pattern (shared with all existing badge handlers).
+- [x] **i18n + tooltips polish R-6-D (commit `8079d2f`, +1 test)** — Closes R-6-D from Phase B view-layer commit. 20 new locale keys in ko.po + en.po: `ui.inventory.empty_slot` + `read_only_label` + `item.<id>.name` + `effect` + `restriction_label` for 4 MVP items (heal/strength/march/fire) + `item.reject.<code>` for 6 reject codes. BattleHUD `_tooltip_for_item(item_id)` composes `name\neffect[\nrestriction]` body. `_refresh_inventory_panel` sets `Button.tooltip_text` per slot. R-6-D secondary path: Godot built-in tooltip (PC hover + mobile tap-and-hold). before_test forces `TranslationServer.set_locale("en")` per existing pattern.
+
+**S91 (follow-up arc) — 핵심 design 결정 (잠금)**:
+
+1. **Armed-state gate at controller**: HUD owns tile-click semantics when inventory panel armed; controller silently skips tile-actions via `_item_target_armed` flag. Unit-scoped key actions stay live so I-key cancel works while armed.
+2. **8b LOAD side deferred**: production CP_1/CP_2/CP_3 checkpoints fire at chapter boundaries where snapshots are naturally empty (battle scene not live). Mid-battle save trigger needs separate design. apply_per_unit_strategy_snapshot helper is wired + tested so the LOAD hook lands cleanly when trigger added.
+3. **UI-GB-16 two-tier visibility**: HUD-level glyph = "active unit has buff" (emphasis hint), per-polygon = "this specific unit has buff" (multi-unit visibility). Both update from same signal. Distinct purposes — both kept.
+4. **R-6-D tooltip via Godot built-in**: Button.tooltip_text + built-in hover surface. No custom Control needed at MVP tier — built-in honors PC hover + mobile tap-and-hold both.
+5. **Locale key naming**: `item.<id>.<aspect>` strictly per strategy-systems v0.3 §3.5.9. No alternate patterns.
+
+**S91 (follow-up arc) — 결과 / Pillar 별 felt 변화**:
+
+- **Pillar #5 (전략적 조합)**: VIEW LAYER FULLY POLISHED. Player 가 inventory panel 을 열어 슬롯 클릭으로 item 발화 → fire_scroll target 지정 → tile 클릭으로 AoE 정확한 위치에 떨어뜨림 → 버프 활성화 시 본인 폴리곤 위에 ▶ glyph + HUD top-right 에도 활성-단위 hint → tooltip 으로 item 효과 즉시 학습 가능. 4-layer UX gap (mechanical + discoverability + visual + balance) 모두 본 commit chain 으로 완비.
+- **Phase B follow-up 4/5 CLOSED** — outstanding: G-30 windowed verify (user action) + 8b LOAD side (no trigger).
+- **Test count progression (cumulative S91)**: S87 1996 → S90 2010 → S91 step 7 2015 → step 8 2024 → step 8b 2028 → step 6 2036 → step 9 2051 → UI-GB-17 follow-up 2057 → 8b save 2067 → i18n + tooltip **2068** (+72 cumulative S87→S91 across 9 commits, all green).
+
+**S91 (follow-up arc) → S92 (next session) 핸드오프**:
+
+Outstanding (NOT strict Phase B blockers):
+
+1. **G-30 windowed verify** (highest priority, user action) — boot windowed game + verify the 4 UI behaviors (I-key panel open, slot click fires SELF items, fire_scroll target overlay + tile click commits, strength buff glyph appears HUD + polygon).
+2. **8b LOAD side wiring** (deferred until mid-battle save trigger exists) — BattleScene subscribes to GameBus.save_loaded + caches snapshot + applies to BattleUnits after `_build_battle_units_from_chapter`. Needs design: when to apply (resume same chapter vs new chapter)? snapshot precedence vs chapter starting_inventory?
+
+---
+
 ### S91 (continued) — Strategy Systems Phase B steps 6 + 9 finalization (2026-05-27 session 91 cont'd)
 
 > **Driver**: After step 7+8+8b push + session-end request, the user resumed with "다음 진행" → AskUserQuestion step 6 선택 → OQ-DC-11 사용자 결정 (option b INT scaling) → step 6 완료 → step 9 (UI) 선택 → "세개 모두 한꺼번에" scope → step 9 완료 → 핸드오프 + 세션 종료. 5 total commits this continuous session; Phase B mechanical layer ends here.
