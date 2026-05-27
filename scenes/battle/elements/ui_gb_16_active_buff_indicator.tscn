@@ -1,0 +1,26 @@
+[gd_scene format=3]
+
+;; UI-GB-16 Active Buff Indicator — strategy-systems.md v0.3 §3.5.7 +
+;; battle-hud.md §3 row UI-GB-16. Phase B step 9 (S91+).
+;;
+;; Small 16×16pt glyph that appears when the active unit carries a non-empty
+;; pending_buff (e.g. strength_scroll's multi-turn carry). Visibility binds to
+;; GridBattleController.unit_pending_buff_changed signal. Glyph: ▶ arrow
+;; chevron — implementation-author choice per spec "communicates 'fires on
+;; next attack/skill', NOT a numeric counter".
+;;
+;; World-space tile positioning deferred (mirrors UI-GB-11 defend_seal MVP
+;; pattern): rendered at HUD-level as the active-unit's buff indicator. A
+;; per-polygon multi-unit indicator is the future-pass migration target
+;; per ADR-0015 §2.
+;;
+;; R-6-A: not an interactive target (display-only) so no 44×44pt touch
+;; minimum applies. R-6-C reduce-motion: fade-blink animation is skipped on
+;; the reduce_motion path (instant glyph swap instead). Toggled by BattleHUD.
+
+[node name="UI_GB_16_ActiveBuffIndicator" type="Label"]
+tooltip_text = "Active buff"
+custom_minimum_size = Vector2(16, 16)
+text = "▶"
+horizontal_alignment = 1
+vertical_alignment = 1

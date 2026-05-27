@@ -110,6 +110,10 @@ const _UI_GB_09_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb
 const _UI_GB_12_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_12_tactical_read_extended_range.tscn")
 const _UI_GB_13_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_13_rally_aura.tscn")
 const _UI_GB_14_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_14_formation_aura.tscn")
+## S91+ Phase B step 9 — UI-GB-15 Inventory Panel + UI-GB-16 Active Buff Indicator
+## (strategy-systems v0.3 §3.5, battle-hud.md §3.2 + §3 UI-GB-16/17).
+const _UI_GB_15_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_15_inventory_panel.tscn")
+const _UI_GB_16_SCENE: PackedScene = preload("res://scenes/battle/elements/ui_gb_16_active_buff_indicator.tscn")
 
 ## Locale-independent em-dash placeholder for forecast counter "no counter" preview.
 ## Hoisted from inline literal to keep Lint 5 (battle_hud_hardcoded_localized_strings)
@@ -207,6 +211,30 @@ var _btn_end_turn: Button
 var _btn_undo: Button
 var _btn_skill_slot_0: Button
 var _btn_skill_slot_1: Button
+## S91+ Phase B step 9 — UI-GB-15 Inventory Panel slot button refs cached at
+## mount time (parallel to skill slot caching). Three slots per inventory per
+## strategy-systems.md v0.3 §3.5.1. Click handlers route to use_item via the
+## controller or trigger UI-GB-17 target selection for non-SELF items.
+var _btn_inventory_slot_0: Button
+var _btn_inventory_slot_1: Button
+var _btn_inventory_slot_2: Button
+## S91+ Phase B step 9 — Inventory panel state machine.
+##   _inventory_unit_id: the unit whose inventory is currently displayed
+##                       (-1 = panel hidden); set on panel open.
+##   _inventory_pending_slot: when player picks a non-SELF item, the slot index
+##                       remains pending until the player clicks a target tile.
+##                       -1 = no pending selection.
+var _inventory_unit_id: int = -1
+var _inventory_pending_slot: int = -1
+## Item target_type lookup keyed by item_id. Used by UI-GB-15 slot click to
+## decide between immediate use (SELF) vs UI-GB-17 target overlay (ALLY/ENEMY/
+## GROUND). Single source-of-truth — additions land here as new items wire.
+const _ITEM_TARGET_TYPE: Dictionary[StringName, StringName] = {
+	&"heal_potion": &"SELF",
+	&"strength_scroll": &"SELF",
+	&"march_scroll": &"SELF",
+	&"fire_scroll": &"GROUND",
+}
 ## S86 — prominent active-turn banner at top-center. Surfaces hero name + skill
 ## name + key hints (S/D/Tab) so players don't need to read the bottom hint label
 ## (which playtest showed they don't notice). Updated on every unit_turn_started.
@@ -460,6 +488,49 @@ func _ready() -> void:
 		if sts_panel != null: _forecast_subpanels[&"status_effects"] = sts_panel
 		if psv_panel != null: _forecast_subpanels[&"passives"] = psv_panel
 
+	# ── S91+ Phase B step 9: UI-GB-15 Inventory Panel + UI-GB-16 Active Buff ─────
+	# Inventory panel anchors bottom-center per Anchor Option B (user adjudicated
+	# S89 arc-E v0.2). Buff indicator anchors top-right of panel for the active-
+	# unit's pending buff (single-unit MVP; per-polygon attachment deferred per
+	# ADR-0015 §2). Both start hidden; show_inventory_panel + UI-GB-16 visibility
+	# routed via _on_input_action_fired + _on_unit_pending_buff_changed handlers.
+	var ui_gb_15: PanelContainer = _UI_GB_15_SCENE.instantiate() as PanelContainer
+	var ui_gb_16: Label = _UI_GB_16_SCENE.instantiate() as Label
+	ui_gb_15.visible = false
+	ui_gb_16.visible = false
+	ui_gb_15.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	ui_gb_15.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	ui_gb_15.offset_bottom = -84  # sit above UI-GB-02 action menu
+	ui_gb_15.offset_top = -148    # = offset_bottom - panel height (64)
+	ui_gb_16.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	ui_gb_16.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	ui_gb_16.offset_left = -32    # 16pt glyph + 16pt margin
+	ui_gb_16.offset_top = 56      # below the UI-GB-08 victory condition strip
+	ui_gb_16.offset_right = -16
+	add_child(ui_gb_15)
+	add_child(ui_gb_16)
+	_ui_elements[&"UI-GB-15"] = ui_gb_15
+	_ui_elements[&"UI-GB-16"] = ui_gb_16
+	# Cache slot button refs for O(1) handler binding.
+	_btn_inventory_slot_0 = ui_gb_15.get_node_or_null("VBoxContainer/SlotsHBox/Slot0Button") as Button
+	_btn_inventory_slot_1 = ui_gb_15.get_node_or_null("VBoxContainer/SlotsHBox/Slot1Button") as Button
+	_btn_inventory_slot_2 = ui_gb_15.get_node_or_null("VBoxContainer/SlotsHBox/Slot2Button") as Button
+	if _btn_inventory_slot_0 != null:
+		_btn_inventory_slot_0.pressed.connect(_on_inventory_slot_pressed.bind(0))
+	if _btn_inventory_slot_1 != null:
+		_btn_inventory_slot_1.pressed.connect(_on_inventory_slot_pressed.bind(1))
+	if _btn_inventory_slot_2 != null:
+		_btn_inventory_slot_2.pressed.connect(_on_inventory_slot_pressed.bind(2))
+	# Subscribe to GameBus.input_action_fired so the I key (mapped to &"use_item"
+	# at the InputRouter level) toggles the panel visibility. Subscribe to
+	# unit_pending_buff_changed for UI-GB-16 glyph visibility tracking; subscribe
+	# to unit_item_used for slot tile re-render after consumption.
+	GameBus.input_action_fired.connect(_on_input_action_fired, Object.CONNECT_DEFERRED)
+	if _grid_controller.has_signal(&"unit_pending_buff_changed"):
+		_grid_controller.unit_pending_buff_changed.connect(_on_unit_pending_buff_changed, Object.CONNECT_DEFERRED)
+	if _grid_controller.has_signal(&"unit_item_used"):
+		_grid_controller.unit_item_used.connect(_on_unit_item_used, Object.CONNECT_DEFERRED)
+
 	# ── Story-007: UI-GB-06 + UI-GB-09 mount as HUD-root children ─────────────
 	# UI-GB-06 (tile info tooltip) + UI-GB-09 (battle results screen) — both
 	# start hidden; shown by show_tile_info() / _on_battle_outcome_resolved().
@@ -604,6 +675,33 @@ func _exit_tree() -> void:
 		var callable_s1: Callable = _on_skill_slot_pressed.bind(1)
 		if _btn_skill_slot_1.pressed.is_connected(callable_s1):
 			_btn_skill_slot_1.pressed.disconnect(callable_s1)
+
+	# S91+ Phase B step 9 — UI-GB-15 / UI-GB-16 / item-use signal disconnects.
+	# Mirrors the 3 connect calls in _ready() (input_action_fired + the two
+	# has_signal-gated controller signals) plus 3 inventory slot button click
+	# disconnects. Per the same explicit-disconnect discipline above (lint
+	# `battle_hud_missing_exit_tree_disconnect`).
+	if GameBus.input_action_fired.is_connected(_on_input_action_fired):
+		GameBus.input_action_fired.disconnect(_on_input_action_fired)
+	if is_instance_valid(_grid_controller):
+		if _grid_controller.has_signal(&"unit_pending_buff_changed") \
+				and _grid_controller.unit_pending_buff_changed.is_connected(_on_unit_pending_buff_changed):
+			_grid_controller.unit_pending_buff_changed.disconnect(_on_unit_pending_buff_changed)
+		if _grid_controller.has_signal(&"unit_item_used") \
+				and _grid_controller.unit_item_used.is_connected(_on_unit_item_used):
+			_grid_controller.unit_item_used.disconnect(_on_unit_item_used)
+	if is_instance_valid(_btn_inventory_slot_0):
+		var callable_i0: Callable = _on_inventory_slot_pressed.bind(0)
+		if _btn_inventory_slot_0.pressed.is_connected(callable_i0):
+			_btn_inventory_slot_0.pressed.disconnect(callable_i0)
+	if is_instance_valid(_btn_inventory_slot_1):
+		var callable_i1: Callable = _on_inventory_slot_pressed.bind(1)
+		if _btn_inventory_slot_1.pressed.is_connected(callable_i1):
+			_btn_inventory_slot_1.pressed.disconnect(callable_i1)
+	if is_instance_valid(_btn_inventory_slot_2):
+		var callable_i2: Callable = _on_inventory_slot_pressed.bind(2)
+		if _btn_inventory_slot_2.pressed.is_connected(callable_i2):
+			_btn_inventory_slot_2.pressed.disconnect(callable_i2)
 
 	# Story-006: kill active forecast dismiss Tween to prevent post-free callback.
 	# Tween auto-frees in Godot 4.6 but kill() prevents any pending callbacks
@@ -2078,6 +2176,218 @@ func _on_skill_slot_pressed(slot_index: int) -> void:
 ## without firing confirm event. Per ADR-0015 §OQ-4 two-tap cancel path.
 func _on_two_tap_timeout() -> void:
 	_cancel_two_tap_arm()
+
+
+# ─── S91+ Phase B step 9: UI-GB-15/16/17 Inventory + Buff Indicator + Overlay ──
+
+
+## _on_input_action_fired — GameBus subscription handler. The I key (and the
+## numeric `3` alt — see input_router default bindings) emits action `&"use_item"`
+## via InputRouter; this handler interprets that as "toggle inventory panel"
+## per battle-hud.md §3.2 ("first press opens, second press closes").
+##
+## Other actions arriving via the same signal are ignored — this handler is the
+## inventory toggle hook only. Move/attack/skill/defend actions reach their own
+## subscribers (controller, action menu) through the same signal independently.
+##
+## Cancel-target side-effect: if the panel is currently mid target-selection
+## (a non-SELF item is armed), pressing `I` again clears the target overlay
+## and closes the panel (matches the strategy-systems v0.3 §3.5.5 cancel pattern
+## "ESC / I-double = panel close + selection abort").
+func _on_input_action_fired(action: StringName, _ctx: InputContext) -> void:
+	if action != &"use_item":
+		return
+	var panel: Control = _ui_elements.get(&"UI-GB-15")
+	if panel == null:
+		return
+	if panel.visible:
+		_close_inventory_panel()
+	else:
+		_open_inventory_panel()
+
+
+## Show the panel for the currently-active player unit. No-op if no active
+## player turn (strategy-systems v0.3 §3.5.1 R-3 guard — I key is a no-op when
+## the active turn belongs to an enemy or no unit is selected).
+func _open_inventory_panel() -> void:
+	if _grid_controller == null:
+		return
+	var unit_id: int = _grid_controller.get_active_turn_unit_id() if _grid_controller.has_method("get_active_turn_unit_id") else -1
+	if unit_id == -1:
+		unit_id = _grid_controller.get_selected_unit_id()
+	if unit_id == -1:
+		return  # R-3 guard
+	var unit: BattleUnit = _grid_controller.get_battle_unit(unit_id)
+	if unit == null or unit.side != 0:
+		return  # enemy side or unknown — no-op
+	_inventory_unit_id = unit_id
+	_inventory_pending_slot = -1
+	_refresh_inventory_panel(unit)
+	var panel: Control = _ui_elements.get(&"UI-GB-15")
+	if panel != null:
+		panel.visible = true
+
+
+## Close the panel + clear any pending target-selection overlay. Idempotent.
+func _close_inventory_panel() -> void:
+	var panel: Control = _ui_elements.get(&"UI-GB-15")
+	if panel != null:
+		panel.visible = false
+	if _inventory_pending_slot != -1 and _grid_controller != null \
+			and _grid_controller.has_method("clear_item_target_selection"):
+		_grid_controller.clear_item_target_selection()
+	_inventory_unit_id = -1
+	_inventory_pending_slot = -1
+
+
+## Refresh slot labels + read-only banner. Called on open + after a successful
+## use_item consumes a slot. Uses shape-distinct glyphs per R-6-B:
+##   heal_potion = ● (drop)  /  strength_scroll = ★ (star)
+##   fire_scroll = ▲ (flame) /  march_scroll = → (arrow)
+## Glyphs ascend from the same colorblind-safe shape set codified in
+## accessibility-requirements.md §6.2.
+func _refresh_inventory_panel(unit: BattleUnit) -> void:
+	var btns: Array[Button] = [_btn_inventory_slot_0, _btn_inventory_slot_1, _btn_inventory_slot_2]
+	var inventory: Array[StringName] = unit.inventory
+	var state: UnitTurnState = null
+	if _turn_runner != null and _turn_runner.has_method("get_unit_turn_state"):
+		state = _turn_runner.get_unit_turn_state(unit.unit_id)
+	var read_only: bool = state != null and state.action_token_spent
+	for i: int in range(3):
+		var btn: Button = btns[i]
+		if btn == null:
+			continue
+		var item_id: StringName = inventory[i] if i < inventory.size() else &""
+		btn.text = _glyph_for_item(item_id)
+		btn.disabled = (item_id == &"") or read_only
+	var banner: Label = _read_only_banner_node()
+	if banner != null:
+		banner.visible = read_only
+		banner.text = tr(&"ui.inventory.read_only_label") if read_only else ""
+	# Clear stale feedback label from any prior reject.
+	var feedback: Label = _feedback_label_node()
+	if feedback != null:
+		feedback.visible = false
+		feedback.text = ""
+
+
+func _glyph_for_item(item_id: StringName) -> String:
+	match item_id:
+		&"heal_potion": return "●"
+		&"strength_scroll": return "★"
+		&"fire_scroll": return "▲"
+		&"march_scroll": return "→"
+		&"": return tr(&"ui.inventory.empty_slot")
+		_: return String(item_id)
+
+
+func _read_only_banner_node() -> Label:
+	var panel: Control = _ui_elements.get(&"UI-GB-15")
+	if panel == null:
+		return null
+	return panel.get_node_or_null("VBoxContainer/ReadOnlyBanner") as Label
+
+
+func _feedback_label_node() -> Label:
+	var panel: Control = _ui_elements.get(&"UI-GB-15")
+	if panel == null:
+		return null
+	return panel.get_node_or_null("VBoxContainer/FeedbackLabel") as Label
+
+
+## Slot button handler — routes per item target_type:
+##   - SELF item (heal/strength/march): immediate use_item call; close panel on success.
+##   - Non-SELF (fire_scroll GROUND): record _inventory_pending_slot + invoke
+##     controller.begin_item_target_selection so the player picks a target tile
+##     via UI-GB-17. Click on tile is handled via _on_input_action_fired GROUND
+##     action (handled in tile-confirm flow — Phase B step 9 partial — full
+##     target-confirm input wiring deferred when fire_scroll keyboard target
+##     picking lands).
+##
+## Phase B MVP simplification: until the target-tile click flow is wired through
+## InputRouter, fire_scroll fires at the caster's own tile (default sentinel).
+## The overlay visually informs the player of the range; the actual tile-click
+## confirmation is a Phase B step 9 follow-up TODO. Tests cover the begin/clear
+## signal flow.
+func _on_inventory_slot_pressed(slot_index: int) -> void:
+	if _grid_controller == null or _inventory_unit_id == -1:
+		return
+	var unit: BattleUnit = _grid_controller.get_battle_unit(_inventory_unit_id)
+	if unit == null:
+		_close_inventory_panel()
+		return
+	if slot_index < 0 or slot_index >= unit.inventory.size():
+		return
+	var item_id: StringName = unit.inventory[slot_index]
+	if item_id == &"":
+		return  # empty slot — disabled button protects, but defensive
+	var target_type: StringName = _ITEM_TARGET_TYPE.get(item_id, &"SELF")
+	if target_type == &"SELF":
+		var ok: bool = _grid_controller.use_item(_inventory_unit_id, slot_index)
+		if ok:
+			_close_inventory_panel()
+		else:
+			_flash_inventory_feedback(&"item.reject.action_spent")
+		return
+	# Non-SELF: arm target selection. Panel stays open; UI-GB-17 overlay
+	# renders via controller.begin_item_target_selection emit.
+	_inventory_pending_slot = slot_index
+	if _grid_controller.has_method("begin_item_target_selection"):
+		_grid_controller.begin_item_target_selection(_inventory_unit_id, item_id, target_type)
+
+
+## Flash a reject reason on the panel's FeedbackLabel (~0.2s visible). Caller
+## passes a translation key from `item.reject.<reason_code>` — strategy-systems
+## v0.3 §3.5.9 locale key contract.
+func _flash_inventory_feedback(reason_key: StringName) -> void:
+	var label: Label = _feedback_label_node()
+	if label == null:
+		return
+	label.text = tr(reason_key)
+	label.visible = true
+	# Defer hide via SceneTreeTimer per G-31 (binds to tree, not self).
+	get_tree().create_timer(0.2).timeout.connect(func() -> void:
+		if is_instance_valid(label):
+			label.visible = false
+			label.text = "")
+
+
+## UI-GB-16 visibility handler — toggle glyph on pending_buff transitions.
+## When `has_buff == true` for the currently-active inventory/turn unit, show
+## the glyph. When false, hide. Per spec UI-GB-16 fade-blink (200ms opacity
+## cycle on overwrite) is a polish item — MVP uses instant visibility.
+func _on_unit_pending_buff_changed(unit_id: int, has_buff: bool) -> void:
+	# Track only the active-turn unit's buff in MVP (per-polygon multi-unit
+	# attachment deferred per ADR-0015 §2). If the change is for a non-active
+	# unit, ignore — their buff still ticks correctly in the model layer.
+	var active_id: int = _grid_controller.get_active_turn_unit_id() if _grid_controller.has_method("get_active_turn_unit_id") else -1
+	if unit_id != active_id and active_id != -1:
+		return
+	var glyph: Control = _ui_elements.get(&"UI-GB-16")
+	if glyph != null:
+		glyph.visible = has_buff
+
+
+## Refresh slot tile labels after a successful item use (slot decrement →
+## the panel must show the new empty state). Close panel on the typical
+## one-shot-per-press flow; if the player still has slots they want to use,
+## I-key re-opens.
+func _on_unit_item_used(unit_id: int, _item_id: StringName, _slot_idx: int, _actual_effect: int) -> void:
+	if unit_id != _inventory_unit_id:
+		return
+	var panel: Control = _ui_elements.get(&"UI-GB-15")
+	if panel == null or not panel.visible:
+		return
+	var unit: BattleUnit = _grid_controller.get_battle_unit(unit_id)
+	if unit == null:
+		_close_inventory_panel()
+		return
+	# Refresh slot text (slot just consumed shows empty). Clear any pending
+	# target-selection overlay since the action completed.
+	_refresh_inventory_panel(unit)
+	if _inventory_pending_slot != -1 and _grid_controller.has_method("clear_item_target_selection"):
+		_grid_controller.clear_item_target_selection()
+	_inventory_pending_slot = -1
 
 
 ## Safely formats a translatable string with positional args.

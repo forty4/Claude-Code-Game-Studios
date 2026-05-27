@@ -811,6 +811,138 @@ func test_use_item_fire_scroll_range_check_excludes_out_of_range_enemies() -> vo
 	assert_int(hp_stub.apply_damage_calls[0]["unit_id"] as int).is_equal(2)
 
 
+# ─── S91+ Phase B step 9 — unit_pending_buff_changed signal + UI target API ───
+
+
+## strength_scroll use_item emits unit_pending_buff_changed(uid, true) so the
+## UI-GB-16 Active Buff Indicator can show the glyph immediately.
+func test_strength_scroll_emits_pending_buff_changed_true_on_apply() -> void:
+	# Arrange
+	var unit: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	unit.inventory = [&"strength_scroll", &"", &""]
+	var bag: Dictionary = _setup([unit])
+	var controller: GridBattleController = bag["controller"]
+	var hp_stub: HPStatusControllerStub = bag["hp_controller"]
+	hp_stub.set_test_max_hp(1, 100)
+	hp_stub.set_test_current_hp(1, 100)
+	controller._active_turn_unit_id = 1
+
+	var emitted: Array = []
+	controller.unit_pending_buff_changed.connect(func(uid: int, has_buff: bool) -> void:
+		emitted.append({"uid": uid, "has_buff": has_buff})
+	)
+
+	# Act
+	var fired: bool = controller.use_item(1, 0)
+
+	# Assert
+	assert_bool(fired).is_true()
+	assert_int(emitted.size()).override_failure_message(
+		"step 9: strength_scroll must emit unit_pending_buff_changed once on buff apply"
+	).is_equal(1)
+	assert_int(emitted[0]["uid"] as int).is_equal(1)
+	assert_bool(emitted[0]["has_buff"] as bool).is_true()
+
+
+## _resolve_pending_buff_magnitude emits unit_pending_buff_changed(uid, false)
+## on fresh consumption so UI-GB-16 can hide the glyph.
+func test_resolve_pending_buff_emits_pending_buff_changed_false_on_consume() -> void:
+	# Arrange — buff already stored, ready for consumption
+	var unit: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	unit.pending_buff = {
+		&"kind": &"strength",
+		&"magnitude": 1.50,
+		&"expires_at_turn": 2,  # >= 1 (default round)
+	}
+	var bag: Dictionary = _setup([unit])
+	var controller: GridBattleController = bag["controller"]
+
+	var emitted: Array = []
+	controller.unit_pending_buff_changed.connect(func(uid: int, has_buff: bool) -> void:
+		emitted.append({"uid": uid, "has_buff": has_buff})
+	)
+
+	# Act
+	var magnitude: float = controller._resolve_pending_buff_magnitude(1)
+
+	# Assert
+	assert_float(magnitude).is_equal_approx(1.50, 0.001)
+	assert_int(emitted.size()).override_failure_message(
+		"step 9: buff consumption must emit unit_pending_buff_changed(false)"
+	).is_equal(1)
+	assert_bool(emitted[0]["has_buff"] as bool).is_false()
+
+
+## get_item_target_tiles(unit, &"fire_scroll") returns the Manhattan FIRE_RANGE
+## disc tile set for a valid caster. Sanity: 25 tiles for a radius-3 diamond
+## minus map clipping (no clipping at center of 8x8 grid).
+func test_get_item_target_tiles_fire_scroll_returns_manhattan_disc() -> void:
+	# Arrange — INFANTRY caster centered at (4,4) on 8x8 grid (no clipping)
+	var caster: BattleUnit = _make_unit(1, Vector2i(4, 4), 0)
+	caster.unit_class = UnitRole.UnitClass.INFANTRY
+	caster.stat_intellect = 60
+	var bag: Dictionary = _setup([caster])
+	var controller: GridBattleController = bag["controller"]
+
+	# Act
+	var tiles: PackedVector2Array = controller.get_item_target_tiles(1, &"fire_scroll")
+
+	# Assert — Manhattan ≤ 3 disc = 25 tiles (1 + 4 + 8 + 12 = 25)
+	assert_int(tiles.size()).override_failure_message(
+		"step 9: fire_scroll target tiles must form a Manhattan-3 disc (25 tiles uncllpped); got %d"
+		% tiles.size()
+	).is_equal(25)
+
+
+## get_item_target_tiles returns empty for an invalid caster (wrong class) so
+## UI-GB-17 overlay never paints when fire_scroll can't fire.
+func test_get_item_target_tiles_fire_scroll_returns_empty_for_strategist() -> void:
+	# Arrange — STRATEGIST caster: native fire_strategy owner, scroll rejected
+	var caster: BattleUnit = _make_unit(1, Vector2i(4, 4), 0)
+	caster.unit_class = UnitRole.UnitClass.STRATEGIST
+	caster.stat_intellect = 99
+	var bag: Dictionary = _setup([caster])
+	var controller: GridBattleController = bag["controller"]
+
+	# Act
+	var tiles: PackedVector2Array = controller.get_item_target_tiles(1, &"fire_scroll")
+
+	# Assert
+	assert_int(tiles.size()).override_failure_message(
+		"step 9: STRATEGIST caster on fire_scroll must return 0 target tiles (class reject)"
+	).is_equal(0)
+
+
+## begin_item_target_selection emits item_target_selection_updated(tiles, palette)
+## so UI-GB-17 overlay can render. clear_item_target_selection emits empty
+## tiles + empty palette for cancel.
+func test_begin_and_clear_item_target_selection_emit_overlay_signals() -> void:
+	# Arrange
+	var caster: BattleUnit = _make_unit(1, Vector2i(4, 4), 0)
+	caster.unit_class = UnitRole.UnitClass.INFANTRY
+	caster.stat_intellect = 60
+	var bag: Dictionary = _setup([caster])
+	var controller: GridBattleController = bag["controller"]
+
+	var emitted: Array = []
+	controller.item_target_selection_updated.connect(func(tiles: PackedVector2Array, palette: StringName) -> void:
+		emitted.append({"tiles": tiles, "palette": palette})
+	)
+
+	# Act — begin then clear
+	controller.begin_item_target_selection(1, &"fire_scroll", &"GROUND")
+	controller.clear_item_target_selection()
+
+	# Assert
+	assert_int(emitted.size()).is_equal(2)
+	# First emit: 25-tile Manhattan disc, GROUND palette
+	assert_int((emitted[0]["tiles"] as PackedVector2Array).size()).is_equal(25)
+	assert_str(String(emitted[0]["palette"] as StringName)).is_equal("GROUND")
+	# Second emit: empty tiles + empty palette (clear convention)
+	assert_int((emitted[1]["tiles"] as PackedVector2Array).size()).is_equal(0)
+	assert_str(String(emitted[1]["palette"] as StringName)).is_equal("")
+
+
 ## AC-SS-6 damage formula identity: INFANTRY fire_scroll caster at INT=60 vs
 ## STRATEGIST native fire_strategy caster at INT=60 produce identical per-tile
 ## damage. Both call the shared _apply_fire_aoe helper so the assertion is

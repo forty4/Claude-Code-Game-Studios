@@ -161,6 +161,15 @@ var _reach_tile_target: Vector2i = Vector2i(-1, -1)
 ## opening the forecast. Vector2i(-1, -1) sentinel = no charge ready.
 var _charge_ready_coord: Vector2i = Vector2i(-1, -1)
 
+## UI-GB-17 (S91+ Phase B step 9) — item target tile set + palette key.
+## Empty tile array = no overlay drawn. Palette key drives the fill color +
+## glyph rendered at draw time (battle-hud.md §3 UI-GB-17). Distinct from
+## move/attack overlays: this overlay only appears AFTER the player picks
+## an item from UI-GB-15 with non-SELF target_type.
+var _item_target_tiles: PackedVector2Array = PackedVector2Array()
+var _item_target_palette: StringName = &""
+
+
 ## Selected unit's grid coord IF that unit currently meets the HIGH GROUND
 ## SHOT bonus conditions (session-15 ARCHER) — ARCHER class, passive_high_ground_shot,
 ## standing on HILLS terrain. Drawn as a forest-green halo ring around the tile
@@ -203,6 +212,22 @@ const COLOR_MOVE_PREVIEW_DISFAVORED: Color = Color(0.78, 0.32, 0.22, 0.34)
 const _FAVOR_GLYPH_COLOR:   Color   = Color(1.0, 1.0, 1.0, 0.85)
 const _FAVOR_GLYPH_HALF:    float   = 5.5
 const _FAVOR_GLYPH_INSET:   Vector2 = Vector2(9.0, 9.0)
+
+## UI-GB-17 Item Target Selection Overlay palettes (battle-hud.md §3
+## UI-GB-17, S91+ Phase B step 9). Three target_type variants, each picked
+## to read distinct from the four existing overlays via opacity step + (for
+## GROUND) crosshair glyph per the differentiation principle:
+##   ALLY   — 금록 warm green, distinct from formation 청록 by hue shift toward yellow
+##   ENEMY  — 황토 same hue as attack-range but at 50% (vs 25%) so opacity carries the signal
+##   GROUND — 청회 same hue as movement preview but at 50% (vs 30%) + crosshair glyph
+## Exact hex values provisional pending art-director sign-off (battle-hud.md
+## UI-GB-17 "differentiation principle locked"); only the principle (opacity
+## contrast + shape, NOT hue-only) is contractual.
+const COLOR_ITEM_TARGET_ALLY:   Color = Color(0.83, 0.91, 0.63, 0.30)  # 금록 #D4E8A0 30%
+const COLOR_ITEM_TARGET_ENEMY:  Color = Color(0.78, 0.53, 0.29, 0.50)  # 황토 #C8874A 50%
+const COLOR_ITEM_TARGET_GROUND: Color = Color(0.36, 0.48, 0.54, 0.50)  # 청회 #5C7A8A 50%
+const COLOR_ITEM_TARGET_CROSSHAIR: Color = Color(0.11, 0.10, 0.09, 0.80)  # 묵 #1C1A17 80%
+
 
 ## Attack-range preview fill: translucent red on enemy-occupied tiles within
 ## attack reach. Distinct hue from movement preview so both can be read at
@@ -353,6 +378,18 @@ func set_movable_favors(favors: PackedInt32Array) -> void:
 ## GridBattleController.get_attackable_tiles).
 func set_attackable_tiles(tiles: PackedVector2Array) -> void:
 	_attackable_tiles = tiles
+	queue_redraw()
+
+
+## UI-GB-17 Item Target Selection Overlay (strategy-systems v0.3 §3.5.3 +
+## battle-hud.md §3 row UI-GB-17). Phase B step 9 (S91+).
+## `palette` is the target_type category: `&"ALLY"` / `&"ENEMY"` / `&"GROUND"`.
+## Each palette renders distinct fill + glyph per spec. Pass an empty tile
+## array (any palette) to clear. Self-target items skip this overlay entirely
+## (BattleHUD never invokes for SELF target_type).
+func set_item_target_tiles(tiles: PackedVector2Array, palette: StringName) -> void:
+	_item_target_tiles = tiles
+	_item_target_palette = palette
 	queue_redraw()
 
 
@@ -875,6 +912,33 @@ func _draw() -> void:
 			Vector2(TILE_SIZE, TILE_SIZE),
 		)
 		draw_rect(atk_rect, COLOR_ATTACK_PREVIEW, true)
+
+	# UI-GB-17 Item Target Selection Overlay (S91+ Phase B step 9). Drawn AFTER
+	# attack preview so the item-target tint reads as the active mode when both
+	# happen to co-exist (rare — the inventory panel cancels attack-target
+	# selection at open). Palette dispatch picks the per-target_type color +
+	# (GROUND only) crosshair glyph at tile center.
+	if _item_target_tiles.size() > 0 and _item_target_palette != &"":
+		var item_fill: Color = COLOR_ITEM_TARGET_GROUND
+		match _item_target_palette:
+			&"ALLY":
+				item_fill = COLOR_ITEM_TARGET_ALLY
+			&"ENEMY":
+				item_fill = COLOR_ITEM_TARGET_ENEMY
+			_:
+				item_fill = COLOR_ITEM_TARGET_GROUND
+		for v: Vector2 in _item_target_tiles:
+			var item_rect: Rect2 = Rect2(
+				Vector2(int(v.x) * TILE_SIZE, int(v.y) * TILE_SIZE),
+				Vector2(TILE_SIZE, TILE_SIZE),
+			)
+			draw_rect(item_rect, item_fill, true)
+			if _item_target_palette == &"GROUND":
+				var cx: float = item_rect.position.x + TILE_SIZE * 0.5
+				var cy: float = item_rect.position.y + TILE_SIZE * 0.5
+				var arm: float = TILE_SIZE * 0.18
+				draw_line(Vector2(cx - arm, cy), Vector2(cx + arm, cy), COLOR_ITEM_TARGET_CROSSHAIR, 2.0)
+				draw_line(Vector2(cx, cy - arm), Vector2(cx, cy + arm), COLOR_ITEM_TARGET_CROSSHAIR, 2.0)
 
 	# Ambush-window overlay (session-15) — drawn on TOP of the attack preview
 	# so ambush-eligible targets read as a red+indigo chord that pops against

@@ -245,6 +245,20 @@ signal unit_skill_used(unit_id: int, skill_id: StringName)
 ## heal amount, buff magnitude × 100 for display, march tile count).
 signal unit_item_used(unit_id: int, item_id: StringName, slot_idx: int, actual_effect: int)
 
+## S91 Phase B step 9: emitted whenever a unit's `pending_buff` transitions
+## empty<->non-empty (set via strength_scroll, cleared via attack-resolve
+## consumption / stale expiry). UI-GB-16 Active Buff Indicator subscribes
+## to toggle the glyph visibility.
+signal unit_pending_buff_changed(unit_id: int, has_buff: bool)
+
+## S91 Phase B step 9: emitted by GridBattleController.begin_item_target_selection /
+## clear_item_target_selection so UI-GB-17 (per-tile tint overlay) can render
+## valid item-target tiles. `palette` carries the target_type category
+## (`&"ALLY"` / `&"ENEMY"` / `&"GROUND"`) — view layer maps to per-palette
+## color + glyph per battle-hud.md UI-GB-17. `tiles` empty + palette &"" means
+## "cancel overlay" (clear render). See strategy-systems.md §3.5.3.
+signal item_target_selection_updated(tiles: PackedVector2Array, palette: StringName)
+
 
 # ─── DI dependencies (ADR-0014 §3) ──────────────────────────────────────────
 
@@ -2341,6 +2355,10 @@ func _use_item_strength_scroll(unit: BattleUnit) -> int:
 		&"magnitude": STRENGTH_SCROLL_MULT,
 		&"expires_at_turn": current_round + 1,
 	}
+	# Emit transition (empty→non-empty) so UI-GB-16 can show the active-buff glyph.
+	# Overwrite case (already non-empty before): re-emit anyway; view layer treats
+	# it as a refresh trigger for the fade-blink animation per battle-hud.md §3 UI-GB-16.
+	unit_pending_buff_changed.emit(unit.unit_id, true)
 	return 1  # success — "1 buff stored" for signal payload
 
 
@@ -2427,6 +2445,55 @@ func _use_item_fire_scroll(unit: BattleUnit, target_pos: Vector2i) -> int:
 	return maxi(hit_count, 1)
 
 
+## Returns the per-target-type valid tile set for an item's target selection
+## overlay (UI-GB-17). For fire_scroll (GROUND target_type), returns every tile
+## within Manhattan FIRE_RANGE (3) from the caster — the player can drop the
+## fire-strategy AoE on any tile in that radius. Future ALLY / ENEMY items
+## extend this dispatch. Empty PackedVector2Array means "no overlay" (item
+## either rejected or self-target).
+func get_item_target_tiles(unit_id: int, item_id: StringName) -> PackedVector2Array:
+	var tiles: PackedVector2Array = PackedVector2Array()
+	if not _units.has(unit_id):
+		return tiles
+	var caster: BattleUnit = _units[unit_id]
+	if item_id == &"fire_scroll":
+		if not FIRE_SCROLL_ALLOWED_CLASSES.has(caster.unit_class):
+			return tiles
+		if caster.stat_intellect < INT_BASELINE:
+			return tiles
+		# Build the Manhattan FIRE_RANGE disc around caster. MapGrid is the
+		# bounds authority — tiles outside the grid are excluded by check below.
+		if _map_grid == null:
+			return tiles
+		var dims: Vector2i = _map_grid.get_map_dimensions()
+		for dx: int in range(-FIRE_RANGE, FIRE_RANGE + 1):
+			for dy: int in range(-FIRE_RANGE, FIRE_RANGE + 1):
+				if absi(dx) + absi(dy) > FIRE_RANGE:
+					continue
+				var tx: int = caster.position.x + dx
+				var ty: int = caster.position.y + dy
+				if tx < 0 or ty < 0 or tx >= dims.x or ty >= dims.y:
+					continue
+				tiles.append(Vector2(tx, ty))
+	return tiles
+
+
+## Begin / clear item target selection overlay (UI-GB-17). View layer subscribes
+## to `item_target_selection_updated` to render the per-tile tint. Caller (HUD)
+## invokes begin_item_target_selection() when player picks a non-SELF item from
+## UI-GB-15; clear_item_target_selection() on cancel OR after use_item() commits.
+##
+## `palette` must match an item's target_type: `&"ALLY"` / `&"ENEMY"` / `&"GROUND"`.
+## For fire_scroll the palette is `&"GROUND"`.
+func begin_item_target_selection(unit_id: int, item_id: StringName, palette: StringName) -> void:
+	var tiles: PackedVector2Array = get_item_target_tiles(unit_id, item_id)
+	item_target_selection_updated.emit(tiles, palette)
+
+
+func clear_item_target_selection() -> void:
+	item_target_selection_updated.emit(PackedVector2Array(), &"")
+
+
 ## Shared fire AoE applicator — both _skill_fire_strategy (native skill) and
 ## _use_item_fire_scroll (cross-class scroll) call into this helper so AC-SS-6
 ## "damage formula identity" holds structurally. Applies INT-scaled fire damage
@@ -2511,10 +2578,12 @@ func _resolve_pending_buff_magnitude(attacker_id: int) -> float:
 		# Stale buff — clear without consumption (e.g. user used buff in round 3
 		# but didn't attack until round 5+; buff expired).
 		attacker.pending_buff = {}
+		unit_pending_buff_changed.emit(attacker_id, false)
 		return 1.0
 	# Fresh buff — read magnitude, clear (consumed), return for ResolveModifiers.
 	var magnitude: float = attacker.pending_buff.get(&"magnitude", 1.0) as float
 	attacker.pending_buff = {}
+	unit_pending_buff_changed.emit(attacker_id, false)
 	return magnitude
 
 

@@ -1,0 +1,46 @@
+[gd_scene format=3]
+
+;; UI-GB-15 Inventory Panel — strategy-systems.md v0.3 §3.5 + battle-hud.md §3.2.
+;; Phase B step 9 (S91+). Bottom-center modal anchor: parent BattleHUD positions
+;; this PanelContainer at the bottom-center after instantiate per Anchor Option B
+;; (user-adjudicated S89 arc-E v0.2 decision).
+;;
+;; Structure: PanelContainer root → HBoxContainer with 3 SlotButton children
+;; (44x44pt touch-target floor per accessibility-requirements.md R-6-A) + a
+;; banner Label above the slots for read-only state messaging + a tooltip
+;; Label below for slot focus reveal.
+;;
+;; tooltip_text values set for AccessKit per ADR-0015 — TalkBack reads each
+;; slot's tooltip on focus. Production text gets populated by BattleHUD via
+;; the localization layer.
+
+[node name="UI_GB_15_InventoryPanel" type="PanelContainer"]
+tooltip_text = "Inventory panel"
+custom_minimum_size = Vector2(160, 64)
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+
+[node name="ReadOnlyBanner" type="Label" parent="VBoxContainer"]
+text = ""
+visible = false
+
+[node name="SlotsHBox" type="HBoxContainer" parent="VBoxContainer"]
+
+[node name="Slot0Button" type="Button" parent="VBoxContainer/SlotsHBox"]
+tooltip_text = "Inventory slot 1"
+custom_minimum_size = Vector2(44, 44)
+text = ""
+
+[node name="Slot1Button" type="Button" parent="VBoxContainer/SlotsHBox"]
+tooltip_text = "Inventory slot 2"
+custom_minimum_size = Vector2(44, 44)
+text = ""
+
+[node name="Slot2Button" type="Button" parent="VBoxContainer/SlotsHBox"]
+tooltip_text = "Inventory slot 3"
+custom_minimum_size = Vector2(44, 44)
+text = ""
+
+[node name="FeedbackLabel" type="Label" parent="VBoxContainer"]
+text = ""
+visible = false

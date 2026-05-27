@@ -535,6 +535,12 @@ func _start_battle() -> void:
 	# badge channel so multiple status types can stack visually on one polygon.
 	if _grid_controller.has_signal(&"unit_status_applied"):
 		_grid_controller.unit_status_applied.connect(_on_unit_status_applied)
+	# S91+ Phase B step 9 — UI-GB-17 Item Target Selection Overlay routing.
+	# Controller emits valid tile set + palette → BattleScene forwards to
+	# ChapterVisuals.set_item_target_tiles for the per-tile tint render.
+	# Defensive has_signal: stub controllers without the signal stay green.
+	if _grid_controller.has_signal(&"item_target_selection_updated"):
+		_grid_controller.item_target_selection_updated.connect(_on_item_target_selection_updated)
 
 	# === STEP 5.5: AISystem (ADR-0019) — battle-scoped Node 6th invocation ===
 	# Inserted via /architecture-review delta #14 2026-05-05 per ADR-0016 §3 R-3
@@ -2957,6 +2963,18 @@ func _on_unit_defend_stance_applied(unit_id: int) -> void:
 ## Different badge_name + position per effect_id so multiple statuses stack
 ## visually without overlapping. Cleared at round_started_visual (TURN-BASED
 ## effects re-emit if they persist via apply_turn_start_tick).
+## S91+ Phase B step 9 — UI-GB-17 Item Target Selection Overlay router.
+## Forwards the controller signal to ChapterVisuals' per-tile draw block.
+## Empty tile array + empty palette = clear overlay (caller pattern, mirrors
+## the existing set_movable_tiles(empty) clear convention).
+func _on_item_target_selection_updated(tiles: PackedVector2Array, palette: StringName) -> void:
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null:
+		return
+	if visuals.has_method("set_item_target_tiles"):
+		visuals.set_item_target_tiles(tiles, palette)
+
+
 func _on_unit_status_applied(unit_id: int, effect_id: StringName) -> void:
 	var visuals: Node = _find_chapter_visuals()
 	if visuals == null:
