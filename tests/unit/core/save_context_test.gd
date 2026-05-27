@@ -8,6 +8,8 @@ const GAME_BUS_PATH: String = "res://src/core/game_bus.gd"
 
 ## Expected @export field names for SaveContext (AC-3).
 ## v2 added branch_history + persistent_branch_flags (multi-step survival cascade, S65).
+## S91 step 8b added per_hero_inventory_snapshot + per_hero_pending_buff_snapshot
+## (strategy-systems v0.3 §6.1 + EC-SS-9 mid-chapter save round-trip).
 const SAVE_CONTEXT_EXPORT_FIELDS: Array[String] = [
 	"schema_version",
 	"slot_id",
@@ -23,6 +25,8 @@ const SAVE_CONTEXT_EXPORT_FIELDS: Array[String] = [
 	"play_time_seconds",
 	"branch_history",
 	"persistent_branch_flags",
+	"per_hero_inventory_snapshot",
+	"per_hero_pending_buff_snapshot",
 ]
 
 ## Expected @export field names for EchoMark (AC-5).
@@ -67,12 +71,12 @@ func test_save_context_defaults_match_adr_spec() -> void:
 	assert_bool(ctx.flags_to_set == PackedStringArray()).is_true()
 
 
-## AC-3: SaveContext has exactly 14 @export fields (v2 since S65), verified via
-## dynamic baseline subtraction (same pattern as G-1 signal baseline). Catches
-## BOTH missing fields AND undeclared additions — if a developer adds a 15th
-## @export without updating SAVE_CONTEXT_EXPORT_FIELDS, user_fields.size() == 15
-## and the test FAILS.
-func test_save_context_has_14_export_fields() -> void:
+## AC-3: SaveContext has exactly 16 @export fields (v2 + S91 step 8b strategy
+## snapshots), verified via dynamic baseline subtraction (same pattern as G-1
+## signal baseline). Catches BOTH missing fields AND undeclared additions — if
+## a developer adds a 17th @export without updating SAVE_CONTEXT_EXPORT_FIELDS,
+## user_fields.size() == 17 and the test FAILS.
+func test_save_context_has_16_export_fields() -> void:
 	# Arrange / Act
 	var ctx := SaveContext.new()
 	var user_fields: Array[String] = _get_user_storage_fields(ctx)
@@ -84,13 +88,13 @@ func test_save_context_has_14_export_fields() -> void:
 			"Found: %s") % [expected_name, str(user_fields)]
 		).is_true()
 
-	# Assert — user-declared field count is exactly 14 (catches undeclared extras).
+	# Assert — user-declared field count is exactly 16 (catches undeclared extras).
 	assert_int(user_fields.size()).override_failure_message(
-		("SaveContext expected 14 user @export fields; got %d. " +
+		("SaveContext expected 16 user @export fields; got %d. " +
 		"Full user fields: %s. If this is an intentional schema change, " +
 		"update SAVE_CONTEXT_EXPORT_FIELDS + bump CURRENT_SCHEMA_VERSION " +
 		"per ADR-0003 §Schema Stability.") % [user_fields.size(), str(user_fields)]
-	).is_equal(14)
+	).is_equal(16)
 
 
 ## AC-4: EchoMark class_name resolves globally; script path is correct.

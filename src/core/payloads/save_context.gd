@@ -77,3 +77,40 @@ extends Resource
 ## of the campaign. Restored to _persistent_branch_flags so cascade survives
 ## save/load roundtrip.
 @export var persistent_branch_flags: PackedStringArray = PackedStringArray()
+
+
+# ─── S91 Phase B step 8b — Strategy Systems per-hero state snapshots ─────────
+
+## Per-unit inventory snapshot for mid-chapter save/load (strategy-systems.md
+## v0.3 §3.4 + AC-SS-2 EC-SS-9). Restored to BattleUnit.inventory at battle
+## resume (per-unit, indexed by unit_id). Empty Dictionary = no snapshot
+## captured (chapter starting_inventory_by_hero re-applies on fresh load).
+##
+## Runtime shape: { unit_id_int -> Array[StringName] of length INVENTORY_SLOT_COUNT }.
+## Outer Dictionary intentionally untyped at @export — Godot 4.6 does NOT permit
+## nested-typed declarations (Dictionary[int, Array[StringName]] parses as G-25
+## "Nested typed collections are not supported"). Element-type enforcement
+## happens at the writer (BattleScene._capture_battle_state_for_save) and the
+## reader (BattleScene._restore_inventory_from_snapshot) — see Phase B follow-up
+## step (snapshot population is data-layer-ready in this commit; wiring lives in
+## a separate step alongside mid-chapter save trigger).
+##
+## EC-SS-9 (mid-chapter save round-trip): use one item (slot 0 → empty), save,
+## load, assert slot 0 empty + slots 1-2 intact. This field carries the post-
+## decrement state across the round-trip.
+@export var per_hero_inventory_snapshot: Dictionary = {}
+
+## Per-unit pending_buff snapshot for mid-chapter save/load (strategy-systems.md
+## v0.3 §3.6 + EC-SS-3 buff revive lifecycle). Restored to BattleUnit.pending_buff
+## at battle resume. Empty Dictionary = no active buffs in any unit (default).
+##
+## Runtime shape: { unit_id_int -> Dictionary }. Inner Dictionary mirrors
+## BattleUnit.pending_buff (typically { &"kind": StringName, &"magnitude": float,
+## &"expires_at_turn": int }). Outer Dictionary untyped at @export per G-25.
+##
+## EC-SS-3 round-trip: a strength_scroll buff fired on round 7 (expires_at_turn=8)
+## with caster killed before next attack — the buff stays in pending_buff on
+## the dead unit; if save+load happens between death and revive, the buff
+## survives the snapshot. Resolution gate at attack time (expires_at_turn vs
+## current_round comparison) still clears stale buffs on first read.
+@export var per_hero_pending_buff_snapshot: Dictionary = {}
