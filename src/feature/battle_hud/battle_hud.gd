@@ -2297,12 +2297,18 @@ func _close_inventory_panel() -> void:
 	_inventory_pending_slot = -1
 
 
-## Refresh slot labels + read-only banner. Called on open + after a successful
-## use_item consumes a slot. Uses shape-distinct glyphs per R-6-B:
+## Refresh slot labels + tooltip + read-only banner. Called on open + after a
+## successful use_item consumes a slot. Uses shape-distinct glyphs per R-6-B:
 ##   heal_potion = ● (drop)  /  strength_scroll = ★ (star)
 ##   fire_scroll = ▲ (flame) /  march_scroll = → (arrow)
 ## Glyphs ascend from the same colorblind-safe shape set codified in
 ## accessibility-requirements.md §6.2.
+##
+## Tooltip (R-6-D secondary path): each filled slot's Button.tooltip_text is
+## set to a multi-line `[name]\n[effect]\n[restriction]` string using the
+## `item.<id>.<aspect>` locale keys per strategy-systems.md v0.3 §3.5.9. The
+## tooltip is the secondary information surface (primary = slot click); hover
+## is NOT a primary interaction path (R-6-D).
 func _refresh_inventory_panel(unit: BattleUnit) -> void:
 	var btns: Array[Button] = [_btn_inventory_slot_0, _btn_inventory_slot_1, _btn_inventory_slot_2]
 	var inventory: Array[StringName] = unit.inventory
@@ -2316,6 +2322,7 @@ func _refresh_inventory_panel(unit: BattleUnit) -> void:
 			continue
 		var item_id: StringName = inventory[i] if i < inventory.size() else &""
 		btn.text = _glyph_for_item(item_id)
+		btn.tooltip_text = _tooltip_for_item(item_id)
 		btn.disabled = (item_id == &"") or read_only
 	var banner: Label = _read_only_banner_node()
 	if banner != null:
@@ -2326,6 +2333,23 @@ func _refresh_inventory_panel(unit: BattleUnit) -> void:
 	if feedback != null:
 		feedback.visible = false
 		feedback.text = ""
+
+
+## Compose the tooltip body for an item slot. Empty item → empty-slot label.
+## Filled item → `[name]\n[effect]` and optionally `\n[restriction]` when the
+## restriction label is non-empty (heal/strength/march have no restrictions;
+## fire_scroll has the class + INT gate restriction text).
+func _tooltip_for_item(item_id: StringName) -> String:
+	if item_id == &"":
+		return tr(&"ui.inventory.empty_slot")
+	var name_key: StringName = StringName("item.%s.name" % String(item_id))
+	var effect_key: StringName = StringName("item.%s.effect" % String(item_id))
+	var restriction_key: StringName = StringName("item.%s.restriction_label" % String(item_id))
+	var tooltip: String = "%s\n%s" % [tr(name_key), tr(effect_key)]
+	var restriction: String = tr(restriction_key)
+	if restriction != "" and restriction != String(restriction_key):
+		tooltip += "\n" + restriction
+	return tooltip
 
 
 func _glyph_for_item(item_id: StringName) -> String:

@@ -211,3 +211,65 @@ msgstr "(unwired)"
 
 msgid "skill.unknown.desc"
 msgstr ""
+
+# ─── S91+ Phase B step 9 follow-up — Strategy Systems items (UI-GB-15) ────────
+
+msgid "ui.inventory.empty_slot"
+msgstr "(Empty)"
+
+msgid "ui.inventory.read_only_label"
+msgstr "Action used"
+
+msgid "item.heal_potion.name"
+msgstr "Healing Potion"
+
+msgid "item.heal_potion.effect"
+msgstr "Restore 25 HP to self"
+
+msgid "item.heal_potion.restriction_label"
+msgstr ""
+
+msgid "item.strength_scroll.name"
+msgstr "Strength Scroll"
+
+msgid "item.strength_scroll.effect"
+msgstr "Next attack x1.5 damage"
+
+msgid "item.strength_scroll.restriction_label"
+msgstr ""
+
+msgid "item.march_scroll.name"
+msgstr "March Scroll"
+
+msgid "item.march_scroll.effect"
+msgstr "Refresh move +2 range"
+
+msgid "item.march_scroll.restriction_label"
+msgstr ""
+
+msgid "item.fire_scroll.name"
+msgstr "Fire Scroll"
+
+msgid "item.fire_scroll.effect"
+msgstr "Range-3 fire AoE (INT scaling)"
+
+msgid "item.fire_scroll.restriction_label"
+msgstr "INT >= 60, no Strategist/Scout/Archer"
+
+msgid "item.reject.action_spent"
+msgstr "Action already used"
+
+msgid "item.reject.wrong_class"
+msgstr "Wrong class"
+
+msgid "item.reject.int_insufficient"
+msgstr "Intellect too low"
+
+msgid "item.reject.target_invalid"
+msgstr "Invalid target"
+
+msgid "item.reject.inventory_full"
+msgstr "Inventory full"
+
+msgid "item.reject.no_active_hero"
+msgstr "No active hero"

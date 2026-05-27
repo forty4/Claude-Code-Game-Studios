@@ -31,14 +31,24 @@ const HeroDatabaseStubScript: GDScript = preload("res://tests/helpers/hero_datab
 const TEST_UNIT_ID: int = 7
 
 
+var _saved_locale: String
+
+
 func before_test() -> void:
 	HeroDatabase._heroes_loaded = false
 	HeroDatabase._heroes = {}
+	# Force "en" locale so tooltip translation assertions stay stable across
+	# CI runs regardless of system locale (mirrors battle_hud_forecast_test
+	# + battle_hud_unit_info_test pattern).
+	_saved_locale = TranslationServer.get_locale()
+	TranslationServer.set_locale("en")
 
 
 func after_test() -> void:
 	HeroDatabase._heroes_loaded = false
 	HeroDatabase._heroes = {}
+	if _saved_locale != "":
+		TranslationServer.set_locale(_saved_locale)
 
 
 func _make_hud_with_stubs() -> Dictionary:
@@ -426,6 +436,45 @@ func test_armed_tile_click_at_invalid_coord_no_use_item_shows_feedback() -> void
 	).is_true()
 	# Arm state preserved — player can re-click
 	assert_int(hud._inventory_pending_slot).is_equal(1)
+
+	hud.free()
+	_free_bag(bag)
+
+
+# ─── Tooltip / i18n integration ──────────────────────────────────────────────
+
+
+## Slot button tooltip_text is set per-item with the formatted name + effect.
+## Tooltip is the R-6-D secondary-info path; primary remains slot click.
+func test_inventory_slot_tooltip_renders_translated_name_and_effect() -> void:
+	var bag: Dictionary = _make_hud_with_stubs()
+	var hud: BattleHUD = bag["hud"]
+	var grid: GridBattleControllerStub = bag["grid_controller"]
+	add_child(hud)
+
+	var unit: BattleUnit = _make_unit(0, [&"heal_potion", &"fire_scroll", &""])
+	grid.set_test_unit(TEST_UNIT_ID, unit)
+	grid.set_test_active_turn_unit_id(TEST_UNIT_ID)
+	hud._on_input_action_fired(&"use_item", null)
+
+	# heal_potion slot tooltip (no restriction)
+	var tip_0: String = hud._btn_inventory_slot_0.tooltip_text
+	assert_str(tip_0).override_failure_message(
+		"R-6-D: heal_potion slot tooltip must include translated item name"
+	).contains("Healing Potion")
+	assert_str(tip_0).contains("Restore 25 HP")
+	# fire_scroll slot tooltip (HAS a restriction label)
+	var tip_1: String = hud._btn_inventory_slot_1.tooltip_text
+	assert_str(tip_1).override_failure_message(
+		"R-6-D: fire_scroll slot tooltip must include translated item name"
+	).contains("Fire Scroll")
+	assert_str(tip_1).contains("Range-3 fire AoE")
+	assert_str(tip_1).override_failure_message(
+		"R-6-D: fire_scroll tooltip must include restriction text when non-empty"
+	).contains("INT >= 60")
+	# Empty slot tooltip — just the empty-slot label
+	var tip_2: String = hud._btn_inventory_slot_2.tooltip_text
+	assert_str(tip_2).is_equal("(Empty)")
 
 	hud.free()
 	_free_bag(bag)

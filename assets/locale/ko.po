@@ -209,3 +209,65 @@ msgstr "(미구현)"
 
 msgid "skill.unknown.desc"
 msgstr ""
+
+# ─── S91+ Phase B step 9 follow-up — Strategy Systems items (UI-GB-15) ────────
+
+msgid "ui.inventory.empty_slot"
+msgstr "(빈 칸)"
+
+msgid "ui.inventory.read_only_label"
+msgstr "행동 소진"
+
+msgid "item.heal_potion.name"
+msgstr "회복약"
+
+msgid "item.heal_potion.effect"
+msgstr "자신 HP 25 회복"
+
+msgid "item.heal_potion.restriction_label"
+msgstr ""
+
+msgid "item.strength_scroll.name"
+msgstr "맹공권"
+
+msgid "item.strength_scroll.effect"
+msgstr "다음 공격 ×1.5 피해"
+
+msgid "item.strength_scroll.restriction_label"
+msgstr ""
+
+msgid "item.march_scroll.name"
+msgstr "행군권"
+
+msgid "item.march_scroll.effect"
+msgstr "이동 재충전 +2 범위"
+
+msgid "item.march_scroll.restriction_label"
+msgstr ""
+
+msgid "item.fire_scroll.name"
+msgstr "화공권"
+
+msgid "item.fire_scroll.effect"
+msgstr "범위 3 화공 (지력 비례)"
+
+msgid "item.fire_scroll.restriction_label"
+msgstr "지력 60 이상, 책사·정찰·궁수 불가"
+
+msgid "item.reject.action_spent"
+msgstr "이미 행동했습니다"
+
+msgid "item.reject.wrong_class"
+msgstr "병종 제한"
+
+msgid "item.reject.int_insufficient"
+msgstr "지력 부족"
+
+msgid "item.reject.target_invalid"
+msgstr "잘못된 대상"
+
+msgid "item.reject.inventory_full"
+msgstr "보관함 꽉 참"
+
+msgid "item.reject.no_active_hero"
+msgstr "활성 영웅 없음"
