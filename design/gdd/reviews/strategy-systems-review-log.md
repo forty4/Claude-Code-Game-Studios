@@ -6,6 +6,51 @@
 
 ---
 
+## Phase B implementation progress entry (S91, 2026-05-27)
+
+**Driver**: S91 session — 3 mechanical/data-layer steps shipped on top of S90's foundation (steps 1-5). Closes the last 2 active cross-doc obligations from v0.3 §6.3.
+
+**Phase B step completion table** (post-S91):
+
+| Step | Description | Status | Commit |
+|------|-------------|--------|--------|
+| 1+2 | BattleUnit fields + ActionType.USE_ITEM | ✅ S90 | c137894 |
+| 3 | InputRouter use_item arm + I/3 keys | ✅ S90 | 989aef2 |
+| 4 | heal_potion immediate-effect (AC-SS-4) | ✅ S90 | 4bdfc73 |
+| 5 | strength_scroll buff multi-turn carry (AC-SS-5) | ✅ S90 | a2ddbea |
+| 6 | fire_scroll cross-class (AC-SS-6) | ⏳ OQ-DC-11 sessile blocker | — |
+| 7 | march_scroll move-token re-grant (AC-SS-4b) | ✅ S91 | **428e334** |
+| 8 | chapter starting_inventory_by_hero (AC-SS-2) | ✅ S91 | **2b9f9c5** |
+| 8b | SaveContext per-hero snapshot fields | ✅ S91 | **0bdb6ff** |
+| 9 | UI-GB-15/16/17 view-layer | ⏳ pending (windowed verify) | — |
+
+**Cross-doc obligations FULLY CLOSED** (6/6):
+- ✅ hero-database INT sweep (S89 arc-F) — RESOLVED no-op
+- ✅ damage-calc rev 2.9.4 (S89 arc-F)
+- ✅ battle-hud UI-GB-15/16/17 (S89 arc-F)
+- ✅ accessibility R-6 (S89 arc-F)
+- ✅ **scenario-progression starting_inventory_by_hero** (S91 step 8) — ChapterDefinition field + ScenarioRunner hydration + BattleScene `_apply_starting_inventory` helper
+- ✅ **save-load schema** (S91 step 8b) — SaveContext `per_hero_inventory_snapshot` + `per_hero_pending_buff_snapshot` additive @export fields + 4 round-trip tests. Population/restore wiring deferred to follow-up.
+
+**S91 key design decisions (locked)**:
+
+1. march_scroll bonus expiry = next `_on_unit_turn_started` for THIS unit (turn-scoped, survives intervening enemy turns).
+2. march_scroll stacking = additive int (`move_range_bonus += MARCH_SCROLL_BONUS`), not Dict overwrite per EC-SS-2.
+3. march_scroll action_token pre-check rejects if already attacked (§4.4 Edge) — bonus + slot NOT consumed on reject.
+4. starting_inventory per-unit copy isolation — chapter resource never mutated by in-battle slot decrement (retry/load safe).
+5. EC-SS-1 surplus drop happens at hydration time (ScenarioRunner._hydrate_chapter), not battle init. Cap=3 hard-coded (avoids BalanceConstants read in scenario-load hot path).
+6. SaveContext schema additive at v1-stamped layer — same pattern as v2's branch_history landing. CURRENT_SCHEMA_VERSION bump deferred.
+
+**Test count progression**: S87 1996 → S90 2010 → S91 step 7 2015 → step 8 2024 → step 8b **2028** (+18 across 3 commits all green / 0 errors / 0 failures / 278 orphan baseline).
+
+**Phase B remaining (2/9)**:
+- step 6 fire_scroll — **OQ-DC-11 사용자 결정 필요** (defer fixed-20 / apply INT scaling base_damage=20)
+- step 9 UI view-layer (spec authored S89 arc-F)
+
+**Optional follow-up (deferred)**: 8b-followup — SaveContext snapshot population/restore wiring (ScenarioRunner ↔ BattleScene cross-system query pattern design needed for EC-SS-9 actual mid-chapter save round-trip).
+
+---
+
 ## v0.3 INT scale alignment + INT_BASELINE lock (S89 arc-F, 2026-05-26)
 
 **Driver**: Phase B pre-flight item #2 (hero-database INT sweep) audit. hero-database.md GDD specified per-hero INT field as "currently only partial" in v0.2 §6.3 cross-doc obligations. Direct audit of `assets/data/heroes/heroes.json` revealed `stat_intellect` field already exists for ALL 19 named heroes (0-100 scale, ADR-0007 per `Resource.set` reflection pattern). No sweep required — v0.2 의 "INT 5-9 abstract scale" 표기가 잘못된 추상화였고 0-100 stat_intellect 직접 사용이 정확.

@@ -467,6 +467,42 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Layered UX gap diagnosis**: "재미없음" 같은 단일 사용자 보고가 actually 여러 layer 의 root cause 조합. 진단 시 surface-level fix 만 시도하면 underlying issue 누락 위험. mechanical + discoverability + visual + balance 의 4 layer 모두 inspect 필요.
 - **Selection-less fallback pattern**: 사용자 UX flow 가 "click then key" 이 아닌 "key directly" 일 수도. controller handler 들에 active turn unit fallback 추가 = UX simplification + felt 향상 — 다른 systems 도 같은 pattern 가능 (예: 미리보기 dismiss, 카메라 control).
 
+### S91 — Strategy Systems Phase B steps 7 + 8 + 8b implementation (2026-05-27 session 91)
+
+> **Driver**: S90 핸드오프 후 사용자 "이어서 진행" → AskUserQuestion step 7 선택 → 완료 후 step 8 → 완료 후 step 8b → 완료 후 세션 종료 요청 ("진행된 내용 문서에 반영 + commit push + 세션 클리어"). 매 step push 후 다음 결정 패턴 (S90 와 동일). 사용자 결정 의존 step (#6 OQ-DC-11) 회피하고 mechanical/data-layer step 만 batch.
+
+**Completed (3 commits, 2028/2028 PASS 유지, code + tests)**:
+
+- [x] **Step 7 march_scroll move-token re-grant (commit `428e334`, +5 AC-SS-4b tests)** — BattleUnit `move_range_bonus: int = 0` (transient, cleared at unit_turn_started). TurnOrderRunner public API `refresh_move_token(unit_id) -> bool` (resets move_token_spent for ACTING unit; distinct from retract_move — no accumulated_move_cost rollback). GridBattleController `is_tile_in_move_range` + `get_movable_tiles` 이 `unit.move_range + unit.move_range_bonus` 사용. `_use_item_march_scroll`: action_token pre-check (§4.4 Edge), bonus 추가, refresh_move_token, return 1. Stub `refresh_move_token_calls: Array[int]` test seam. Unwired-test fixture rotation: march_scroll → fire_scroll (step 6 pending).
+- [x] **Step 8 chapter starting_inventory_by_hero (commit `2b9f9c5`, +9 tests: 4 hydration + 5 battle_scene)** — ChapterDefinition `@export var starting_inventory_by_hero: Dictionary = {}` (untyped per G-25). ScenarioRunner `_hydrate_chapter` JSON coerces String keys/values to StringName; EC-SS-1 surplus drop (>3 → discarded with push_warning). BattleScene `_apply_starting_inventory(unit, chapter)` helper called from `_build_battle_units_from_chapter`; copies (not aliases) authored array so in-battle decrements don't corrupt chapter resource. Enemy units 제외 (OQ-SS-2 MVP). Closes scenario-progression cross-doc obligation (row 5).
+- [x] **Step 8b SaveContext per-hero snapshot fields (commit `0bdb6ff`, +4 round-trip tests)** — SaveContext 2 new @export Dictionary fields: `per_hero_inventory_snapshot` (`{unit_id_int -> Array[StringName]}` for EC-SS-9) + `per_hero_pending_buff_snapshot` (`{unit_id_int -> pending_buff Dict}` for EC-SS-3). Both untyped at @export per G-25. save_context_test.gd field-count guard 14 → 16. No CURRENT_SCHEMA_VERSION bump (additive, backward-compat with v2's branch_history landing pattern). Resource @export discipline lint 통과. Closes save-load cross-doc obligation (row 6) at data layer; population/restore wiring deferred.
+
+**S91 — 핵심 design 결정 (잠금)**:
+
+1. **march_scroll bonus expiry**: cleared at `_on_unit_turn_started` for THIS unit (turn-scoped). Bonus survives intervening enemy turns but resets when the unit's own next turn starts. 일관성 — `unit.move_range_bonus = 0` next-activate semantics.
+2. **march_scroll stacking**: additive (`move_range_bonus += MARCH_SCROLL_BONUS`) — 2× march_scroll → +4. EC-SS-2 (Dictionary overwrite) 적용 안 함 — int field 이지 Dict 가 아니므로.
+3. **march_scroll action_token pre-check**: rejected if `action_token_spent == true` (§4.4 Edge "이미 attack 함이면 거부"). Bonus + slot NOT consumed on reject — partial-side-effect leak 없음.
+4. **starting_inventory per-unit copy isolation**: `_apply_starting_inventory` Array[StringName] copy 생성. In-battle mutations (slot decrement) chapter resource 까지 leak 안 됨 — retry/load 안전.
+5. **EC-SS-1 surplus drop at hydration time**: ScenarioRunner._hydrate_chapter 에서 처리 (battle init 아님). Cap (3) hard-coded — BalanceConstants read 를 scenario-load hot path 에서 회피.
+6. **SaveContext schema additive at v1-stamped layer**: per_hero_* fields 가 CURRENT_SCHEMA_VERSION bump 없이 land. v2's branch_history/persistent_branch_flags 동일 패턴 (CURRENT_SCHEMA_VERSION=1 stamped saves 안에 v2 fields 가 이미 살아있음). Drift acknowledged; 본 PR 범위에서 fix 안 함.
+
+**S91 — 결과 / Pillar 별 felt 변화**:
+
+- **Pillar #5 (전략적 조합)**: mechanism 확대. 4 MVP items 중 3개 wired (heal_potion + strength_scroll + march_scroll). "move + item + 다시 move" chain mechanically 작동. Chapter authoring layer 까지 완비 — designer 가 ch01-ch16 JSON 에 starting_inventory_by_hero 추가 가능.
+- **Cross-doc obligations FULLY CLOSED** (Phase B pre-flight 6/6): damage-calc rev 2.9.4 ✅ / battle-hud UI-GB-15/16/17 ✅ / accessibility R-6 ✅ / hero-database INT ✅ / scenario-progression starting_inventory ✅ (S91 step 8) / save-load schema ✅ (S91 step 8b data layer).
+- **Test count progression**: S87 1996 → S90 2010 → S91 step 7 2015 → step 8 2024 → step 8b **2028** (+18 across 3 commits all green).
+
+**S91 → S92 (next session) 핸드오프**:
+
+Phase B remaining (2/9):
+1. **step 6 fire_scroll** — **OQ-DC-11 사용자 결정 필요** (defer fixed-20 / apply INT scaling with base_damage=20)
+2. **step 9 UI view-layer** — UI-GB-15/16/17 implementation (spec authored S89 arc-F). windowed verify (G-30 risk).
+
+Optional follow-up (deferred):
+- **8b-followup SaveContext population/restore wiring** — `_make_save_context` 가 BattleScene 으로부터 active battle's per-unit inventory + pending_buff 수집 → ctx fields 채우기 + battle resume 시 BattleUnit 으로 복원. EC-SS-9 actual round-trip 작동을 위해 필요. ScenarioRunner ↔ BattleScene cross-system query pattern 설계 필요.
+
+Critical path: step 6 사용자 결정 → step 9 UI → 8b-followup (optional).
+
 ### S90 — Strategy Systems Phase B steps 1-5 implementation (2026-05-26 session 90)
 
 > **Driver**: S89 arc-F (Phase B pre-flight complete) 후 사용자 "이어서 진행" → Phase B steps 1-5 단일 세션 implementation. 마지막에 사용자 "진행된 내용 문서에 반영 + commit push + 세션 클리어" 요청.
