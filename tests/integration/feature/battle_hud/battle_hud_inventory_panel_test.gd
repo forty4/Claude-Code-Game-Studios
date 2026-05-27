@@ -308,3 +308,157 @@ func test_pending_buff_changed_non_active_unit_ignored() -> void:
 
 	hud.free()
 	_free_bag(bag)
+
+
+# ─── S91 step 9 follow-up: UI-GB-17 tile-click target confirmation ───────────
+
+
+## Helper — make a ctx with target_coord (mirrors what InputRouter produces).
+func _make_ctx_with_coord(coord: Vector2i) -> InputContext:
+	var ctx: InputContext = InputContext.new()
+	ctx.target_coord = coord
+	return ctx
+
+
+## Slot click for a non-SELF item (fire_scroll → GROUND target_type) arms the
+## controller via set_item_target_armed(true) + records the pending slot index +
+## triggers begin_item_target_selection so the UI-GB-17 overlay can render.
+func test_non_self_slot_click_arms_controller_and_overlay() -> void:
+	var bag: Dictionary = _make_hud_with_stubs()
+	var hud: BattleHUD = bag["hud"]
+	var grid: GridBattleControllerStub = bag["grid_controller"]
+	add_child(hud)
+
+	# Arrange — active player unit with fire_scroll in slot 1.
+	var unit: BattleUnit = _make_unit(0, [&"heal_potion", &"fire_scroll", &""])
+	grid.set_test_unit(TEST_UNIT_ID, unit)
+	grid.set_test_active_turn_unit_id(TEST_UNIT_ID)
+	# Open panel
+	hud._on_input_action_fired(&"use_item", null)
+
+	# Act — slot 1 click (fire_scroll)
+	hud._on_inventory_slot_pressed(1)
+
+	# Assert — controller armed, panel records pending slot, begin emit fired
+	assert_int(hud._inventory_pending_slot).override_failure_message(
+		"step 9 follow-up: non-SELF slot click must record pending slot index"
+	).is_equal(1)
+	assert_int(grid.set_item_target_armed_calls.size()).is_equal(1)
+	assert_bool(grid.set_item_target_armed_calls[0]).override_failure_message(
+		"step 9 follow-up: non-SELF slot click must call set_item_target_armed(true)"
+	).is_true()
+	assert_int(grid.begin_item_target_selection_calls.size()).is_equal(1)
+	assert_str(String(grid.begin_item_target_selection_calls[0]["palette"] as StringName)).is_equal("GROUND")
+	# Panel stays open during target-selection phase
+	var panel: Control = hud._ui_elements.get(&"UI-GB-15")
+	assert_bool(panel.visible).is_true()
+
+	hud.free()
+	_free_bag(bag)
+
+
+## Tile click while armed at a valid target tile → use_item(uid, slot, coord).
+## Panel + overlay clear via use_item completion (mocked here via stub return
+## true → _on_unit_item_used is normally signal-driven, not in this synchronous
+## test path — we verify the use_item invocation alone).
+func test_armed_tile_click_at_valid_coord_calls_use_item_with_target_pos() -> void:
+	var bag: Dictionary = _make_hud_with_stubs()
+	var hud: BattleHUD = bag["hud"]
+	var grid: GridBattleControllerStub = bag["grid_controller"]
+	add_child(hud)
+
+	# Arrange — armed state set up via slot click path
+	var unit: BattleUnit = _make_unit(0, [&"heal_potion", &"fire_scroll", &""])
+	grid.set_test_unit(TEST_UNIT_ID, unit)
+	grid.set_test_active_turn_unit_id(TEST_UNIT_ID)
+	grid.set_test_item_target_tiles(PackedVector2Array([Vector2(3, 2), Vector2(4, 4)]))
+	hud._on_input_action_fired(&"use_item", null)
+	hud._on_inventory_slot_pressed(1)
+	# Sanity — armed
+	assert_int(hud._inventory_pending_slot).is_equal(1)
+
+	# Act — tile click at a valid coord (move_target_select arrives with coord)
+	var ctx: InputContext = _make_ctx_with_coord(Vector2i(3, 2))
+	hud._on_input_action_fired(&"move_target_select", ctx)
+
+	# Assert — use_item called with (uid=7, slot=1, target_pos=(3,2))
+	assert_int(grid.use_item_calls.size()).override_failure_message(
+		"step 9 follow-up: armed tile click at valid coord must call use_item exactly once"
+	).is_equal(1)
+	assert_int(grid.use_item_calls[0]["unit_id"] as int).is_equal(TEST_UNIT_ID)
+	assert_int(grid.use_item_calls[0]["slot_idx"] as int).is_equal(1)
+	assert_vector(grid.use_item_calls[0]["target_pos"] as Vector2i).override_failure_message(
+		"step 9 follow-up: use_item must receive the clicked target_pos verbatim"
+	).is_equal(Vector2i(3, 2))
+
+	hud.free()
+	_free_bag(bag)
+
+
+## Tile click while armed at an OUT-OF-RANGE coord → use_item NOT called +
+## feedback label flashed. Player can re-click at a valid tile (arming stays).
+func test_armed_tile_click_at_invalid_coord_no_use_item_shows_feedback() -> void:
+	var bag: Dictionary = _make_hud_with_stubs()
+	var hud: BattleHUD = bag["hud"]
+	var grid: GridBattleControllerStub = bag["grid_controller"]
+	add_child(hud)
+
+	var unit: BattleUnit = _make_unit(0, [&"heal_potion", &"fire_scroll", &""])
+	grid.set_test_unit(TEST_UNIT_ID, unit)
+	grid.set_test_active_turn_unit_id(TEST_UNIT_ID)
+	# Only (3, 2) is valid; (9, 9) is out of range
+	grid.set_test_item_target_tiles(PackedVector2Array([Vector2(3, 2)]))
+	hud._on_input_action_fired(&"use_item", null)
+	hud._on_inventory_slot_pressed(1)
+
+	# Act — click at out-of-range coord
+	var ctx: InputContext = _make_ctx_with_coord(Vector2i(9, 9))
+	hud._on_input_action_fired(&"move_target_select", ctx)
+
+	# Assert — no use_item, feedback visible
+	assert_int(grid.use_item_calls.size()).override_failure_message(
+		"step 9 follow-up: out-of-range tile click must NOT call use_item"
+	).is_equal(0)
+	var panel: Control = hud._ui_elements.get(&"UI-GB-15")
+	var feedback: Label = panel.get_node_or_null("VBoxContainer/FeedbackLabel") as Label
+	assert_bool(feedback.visible).override_failure_message(
+		"step 9 follow-up: out-of-range click must show FeedbackLabel (target_invalid)"
+	).is_true()
+	# Arm state preserved — player can re-click
+	assert_int(hud._inventory_pending_slot).is_equal(1)
+
+	hud.free()
+	_free_bag(bag)
+
+
+## Closing the panel (e.g. second I-press) while armed disarms the controller.
+func test_closing_panel_while_armed_disarms_controller() -> void:
+	var bag: Dictionary = _make_hud_with_stubs()
+	var hud: BattleHUD = bag["hud"]
+	var grid: GridBattleControllerStub = bag["grid_controller"]
+	add_child(hud)
+
+	var unit: BattleUnit = _make_unit(0, [&"heal_potion", &"fire_scroll", &""])
+	grid.set_test_unit(TEST_UNIT_ID, unit)
+	grid.set_test_active_turn_unit_id(TEST_UNIT_ID)
+	hud._on_input_action_fired(&"use_item", null)
+	hud._on_inventory_slot_pressed(1)
+	# Sanity — armed
+	assert_int(grid.set_item_target_armed_calls.size()).is_equal(1)
+	assert_bool(grid.set_item_target_armed_calls[0]).is_true()
+
+	# Act — second I-press closes the panel
+	hud._on_input_action_fired(&"use_item", null)
+
+	# Assert — disarm call recorded
+	assert_int(grid.set_item_target_armed_calls.size()).override_failure_message(
+		"step 9 follow-up: closing armed panel must emit a 2nd set_item_target_armed call"
+	).is_equal(2)
+	assert_bool(grid.set_item_target_armed_calls[1]).override_failure_message(
+		"step 9 follow-up: second call on close must be set_item_target_armed(false)"
+	).is_false()
+	# Clear emit also fires
+	assert_int(grid.clear_item_target_selection_count).is_equal(1)
+
+	hud.free()
+	_free_bag(bag)

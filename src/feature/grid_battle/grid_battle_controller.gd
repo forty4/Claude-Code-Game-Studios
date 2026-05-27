@@ -1292,6 +1292,13 @@ func _on_input_action_fired(action: String, ctx: InputContext) -> void:
 	if action == "use_item":
 		_handle_use_item_input()
 		return
+	# S91 Phase B step 9 follow-up — when inventory panel is armed for item
+	# target selection, BattleHUD owns the tile-click. Silently skip the
+	# controller-side dispatch for tile-click actions so move/attack/select
+	# don't double-fire with the item target pick. Unit-scoped key actions
+	# (use_item / use_skill / defend_stance) above this guard still process.
+	if _item_target_armed and (StringName(action) in _TILE_CLICK_ACTIONS):
+		return
 	var coord: Vector2i = ctx.target_coord
 	if coord == Vector2i.ZERO and _camera != null:
 		# Camera fallback per ADR-0014 §4 — re-resolve via viewport mouse position.
@@ -2492,6 +2499,32 @@ func begin_item_target_selection(unit_id: int, item_id: StringName, palette: Str
 
 func clear_item_target_selection() -> void:
 	item_target_selection_updated.emit(PackedVector2Array(), &"")
+
+
+## S91 Phase B step 9 follow-up — item target selection armed-state gate.
+## When the inventory panel arms a non-SELF item, BattleHUD calls
+## `set_item_target_armed(true)` so the controller's grid-click dispatcher
+## stops acting on tile-clicks during target selection — otherwise the click
+## that's meant to pick the item target would ALSO get routed to e.g.
+## move_target_select, double-firing the click. Cleared on use_item completion
+## or panel cancel.
+var _item_target_armed: bool = false
+
+func set_item_target_armed(armed: bool) -> void:
+	_item_target_armed = armed
+
+
+## S91 Phase B step 9 follow-up — actions that carry a `ctx.target_coord` and
+## represent a tile click in S0 (OBSERVATION) / S1 (UNIT_SELECTED). When the
+## inventory panel is armed, these are interpreted as "item target select"
+## by BattleHUD instead — the controller silently ignores them. The use_item /
+## use_skill / defend_stance "unit-scoped key" actions are NOT in this set —
+## they remain active so the player can still close the panel via I-key,
+## defend, fire skill, etc., even while the panel is armed.
+const _TILE_CLICK_ACTIONS: Array[StringName] = [
+	&"unit_select", &"move_target_select", &"move_confirm",
+	&"attack_target_select", &"attack_confirm",
+]
 
 
 ## Shared fire AoE applicator — both _skill_fire_strategy (native skill) and

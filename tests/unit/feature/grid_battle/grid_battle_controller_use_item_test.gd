@@ -913,6 +913,64 @@ func test_get_item_target_tiles_fire_scroll_returns_empty_for_strategist() -> vo
 	).is_equal(0)
 
 
+# ─── S91 step 9 follow-up — set_item_target_armed gates tile-click dispatch ──
+
+
+## set_item_target_armed mutates the field; verified via direct field read.
+## The field is the gate that suppresses tile-click action dispatch when
+## BattleHUD owns the click for item target selection.
+func test_set_item_target_armed_mutates_gate_field() -> void:
+	var unit: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	var bag: Dictionary = _setup([unit])
+	var controller: GridBattleController = bag["controller"]
+
+	# Default state — not armed
+	assert_bool(controller._item_target_armed).is_false()
+
+	controller.set_item_target_armed(true)
+	assert_bool(controller._item_target_armed).override_failure_message(
+		"step 9 follow-up: set_item_target_armed(true) must flip _item_target_armed = true"
+	).is_true()
+
+	controller.set_item_target_armed(false)
+	assert_bool(controller._item_target_armed).override_failure_message(
+		"step 9 follow-up: set_item_target_armed(false) must reset _item_target_armed = false"
+	).is_false()
+
+
+## _TILE_CLICK_ACTIONS const inventory check — make sure all 5 tile-click
+## actions are gated (unit_select, move_target_select, move_confirm,
+## attack_target_select, attack_confirm). Unit-scoped key actions like
+## use_item / use_skill / defend_stance are NOT in this set so the player
+## can still close the panel via I-key while armed.
+func test_tile_click_actions_const_covers_all_grid_click_actions() -> void:
+	var unit: BattleUnit = _make_unit(1, Vector2i(2, 2), 0)
+	var bag: Dictionary = _setup([unit])
+	var controller: GridBattleController = bag["controller"]
+
+	# Direct access via stub script reflection (the const is file-scope).
+	var script: GDScript = (load("res://src/feature/grid_battle/grid_battle_controller.gd") as GDScript)
+	var tile_actions: Array = script.get_script_constant_map().get("_TILE_CLICK_ACTIONS", [])
+	assert_int(tile_actions.size()).override_failure_message(
+		"step 9 follow-up: _TILE_CLICK_ACTIONS must list all 5 tile-click actions"
+	).is_equal(5)
+	for action: StringName in [&"unit_select", &"move_target_select", &"move_confirm",
+			&"attack_target_select", &"attack_confirm"]:
+		assert_bool(action in tile_actions).override_failure_message(
+			"step 9 follow-up: _TILE_CLICK_ACTIONS missing expected action '%s'" % String(action)
+		).is_true()
+	# Unit-scoped keys MUST NOT be in the tile-click set (else I-key cancel
+	# during armed state would be suppressed).
+	for action: StringName in [&"use_item", &"use_skill", &"defend_stance"]:
+		assert_bool(action in tile_actions).override_failure_message(
+			"step 9 follow-up: '%s' must NOT be in _TILE_CLICK_ACTIONS (unit-scoped key)"
+			% String(action)
+		).is_false()
+	# Suppress unused-var warning for the controller fixture (we needed _setup
+	# to ensure script is loaded into the cache for the constant lookup above).
+	assert_object(controller).is_not_null()
+
+
 ## begin_item_target_selection emits item_target_selection_updated(tiles, palette)
 ## so UI-GB-17 overlay can render. clear_item_target_selection emits empty
 ## tiles + empty palette for cancel.

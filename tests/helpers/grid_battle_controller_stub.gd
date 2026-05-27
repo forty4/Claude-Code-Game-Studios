@@ -89,3 +89,72 @@ func can_use_skill(unit_id: int) -> bool:
 ## from stub-owned _test_active_turn_unit_id.
 func get_active_turn_unit_id() -> int:
 	return _test_active_turn_unit_id
+
+
+# ─── S91 Phase B step 9 follow-up — UI-GB-15 inventory + UI-GB-17 target ─────
+
+
+## use_item call recorder + return-value control for HUD integration tests.
+## Each entry: {unit_id, slot_idx, target_pos}. `_test_use_item_return` drives
+## the success/reject flag the panel sees.
+var use_item_calls: Array[Dictionary] = []
+var _test_use_item_return: bool = true
+
+
+func set_test_use_item_return(success: bool) -> void:
+	_test_use_item_return = success
+
+
+## Override use_item — production calls _units which is never populated by the
+## stub; recorder + test-controlled return lets HUD-level tests verify the
+## click flow without needing a full BattleUnit table.
+func use_item(unit_id: int, slot_idx: int, target_pos: Vector2i = Vector2i(-1, -1)) -> bool:
+	use_item_calls.append({
+		"unit_id": unit_id,
+		"slot_idx": slot_idx,
+		"target_pos": target_pos,
+	})
+	return _test_use_item_return
+
+
+## set_item_target_armed recorder so HUD tests can assert the controller
+## gate was armed/disarmed at the expected points.
+var set_item_target_armed_calls: Array[bool] = []
+
+
+func set_item_target_armed(armed: bool) -> void:
+	set_item_target_armed_calls.append(armed)
+	# Also actually flip the field so any production-side test that checks
+	# the gate works against this stub identically.
+	_item_target_armed = armed
+
+
+## begin_item_target_selection / clear_item_target_selection recorders. Each
+## entry on begin: {unit_id, item_id, palette}. Counters increment per call.
+var begin_item_target_selection_calls: Array[Dictionary] = []
+var clear_item_target_selection_count: int = 0
+
+
+func begin_item_target_selection(unit_id: int, item_id: StringName, palette: StringName) -> void:
+	begin_item_target_selection_calls.append({
+		"unit_id": unit_id,
+		"item_id": item_id,
+		"palette": palette,
+	})
+
+
+func clear_item_target_selection() -> void:
+	clear_item_target_selection_count += 1
+
+
+## get_item_target_tiles — stub returns the test-injected set so HUD tests
+## can validate the panel rejects out-of-range clicks deterministically.
+var _test_item_target_tiles: PackedVector2Array = PackedVector2Array()
+
+
+func set_test_item_target_tiles(tiles: PackedVector2Array) -> void:
+	_test_item_target_tiles = tiles
+
+
+func get_item_target_tiles(_unit_id: int, _item_id: StringName) -> PackedVector2Array:
+	return _test_item_target_tiles

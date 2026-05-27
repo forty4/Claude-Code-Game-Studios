@@ -2194,7 +2194,25 @@ func _on_two_tap_timeout() -> void:
 ## (a non-SELF item is armed), pressing `I` again clears the target overlay
 ## and closes the panel (matches the strategy-systems v0.3 §3.5.5 cancel pattern
 ## "ESC / I-double = panel close + selection abort").
-func _on_input_action_fired(action: StringName, _ctx: InputContext) -> void:
+## Tile-click action set — actions that carry ctx.target_coord representing a
+## click on a grid tile. Mirrors GridBattleController._TILE_CLICK_ACTIONS; when
+## the inventory panel is armed for non-SELF item target, BattleHUD intercepts
+## these actions and routes the target_coord into use_item(uid, slot, coord).
+const _TILE_CLICK_ACTIONS_FOR_ITEM_TARGET: Array[StringName] = [
+	&"unit_select", &"move_target_select", &"move_confirm",
+	&"attack_target_select", &"attack_confirm",
+]
+
+
+func _on_input_action_fired(action: StringName, ctx: InputContext) -> void:
+	# S91 Phase B step 9 follow-up — when the inventory panel is armed for a
+	# non-SELF item target, intercept tile-click actions and route the
+	# target_coord into use_item. The controller silently skips these same
+	# actions (gated by set_item_target_armed) so no double-dispatch.
+	if _inventory_pending_slot != -1 \
+			and (action in _TILE_CLICK_ACTIONS_FOR_ITEM_TARGET):
+		_handle_item_target_click(ctx)
+		return
 	if action != &"use_item":
 		return
 	var panel: Control = _ui_elements.get(&"UI-GB-15")
@@ -2204,6 +2222,42 @@ func _on_input_action_fired(action: StringName, _ctx: InputContext) -> void:
 		_close_inventory_panel()
 	else:
 		_open_inventory_panel()
+
+
+## Process a tile-click while inventory panel is armed for item target selection.
+## Validates the clicked coord is in the armed item's valid target tile set;
+## commits use_item on success. Reject on out-of-range click flashes feedback
+## but does NOT cancel arming (player can click again at a valid tile). Panel
+## + overlay clear via the use_item completion path (`_on_unit_item_used`) on
+## success.
+func _handle_item_target_click(ctx: InputContext) -> void:
+	if _grid_controller == null or ctx == null:
+		return
+	var coord: Vector2i = ctx.target_coord
+	# Off-grid sentinel — InputRouter may emit (-1, -1) when the click misses
+	# the grid (e.g. clicking on HUD chrome edge). Silent skip.
+	if coord == Vector2i(-1, -1):
+		return
+	if _inventory_unit_id == -1:
+		return
+	var unit: BattleUnit = _grid_controller.get_battle_unit(_inventory_unit_id)
+	if unit == null or _inventory_pending_slot >= unit.inventory.size():
+		_close_inventory_panel()
+		return
+	var item_id: StringName = unit.inventory[_inventory_pending_slot]
+	if item_id == &"":
+		_close_inventory_panel()
+		return
+	# Validate against the armed item's valid target tile set — prevents
+	# fire_scroll from landing outside its Manhattan FIRE_RANGE disc.
+	var valid_tiles: PackedVector2Array = _grid_controller.get_item_target_tiles(_inventory_unit_id, item_id)
+	if not (Vector2(coord.x, coord.y) in valid_tiles):
+		_flash_inventory_feedback(&"item.reject.target_invalid")
+		return
+	# Commit. Controller use_item route handles slot decrement + token spend +
+	# signal emit; _on_unit_item_used closes the panel + clears overlay +
+	# disarms via shared helper.
+	_grid_controller.use_item(_inventory_unit_id, _inventory_pending_slot, coord)
 
 
 ## Show the panel for the currently-active player unit. No-op if no active
@@ -2228,14 +2282,17 @@ func _open_inventory_panel() -> void:
 		panel.visible = true
 
 
-## Close the panel + clear any pending target-selection overlay. Idempotent.
+## Close the panel + clear any pending target-selection overlay + disarm the
+## controller-side tile-click gate. Idempotent.
 func _close_inventory_panel() -> void:
 	var panel: Control = _ui_elements.get(&"UI-GB-15")
 	if panel != null:
 		panel.visible = false
-	if _inventory_pending_slot != -1 and _grid_controller != null \
-			and _grid_controller.has_method("clear_item_target_selection"):
-		_grid_controller.clear_item_target_selection()
+	if _inventory_pending_slot != -1 and _grid_controller != null:
+		if _grid_controller.has_method("clear_item_target_selection"):
+			_grid_controller.clear_item_target_selection()
+		if _grid_controller.has_method("set_item_target_armed"):
+			_grid_controller.set_item_target_armed(false)
 	_inventory_unit_id = -1
 	_inventory_pending_slot = -1
 
@@ -2330,10 +2387,14 @@ func _on_inventory_slot_pressed(slot_index: int) -> void:
 			_flash_inventory_feedback(&"item.reject.action_spent")
 		return
 	# Non-SELF: arm target selection. Panel stays open; UI-GB-17 overlay
-	# renders via controller.begin_item_target_selection emit.
+	# renders via controller.begin_item_target_selection emit. The controller
+	# tile-click gate is also armed so move/attack/unit_select clicks don't
+	# double-fire while the player picks a target.
 	_inventory_pending_slot = slot_index
 	if _grid_controller.has_method("begin_item_target_selection"):
 		_grid_controller.begin_item_target_selection(_inventory_unit_id, item_id, target_type)
+	if _grid_controller.has_method("set_item_target_armed"):
+		_grid_controller.set_item_target_armed(true)
 
 
 ## Flash a reject reason on the panel's FeedbackLabel (~0.2s visible). Caller
@@ -2383,10 +2444,14 @@ func _on_unit_item_used(unit_id: int, _item_id: StringName, _slot_idx: int, _act
 		_close_inventory_panel()
 		return
 	# Refresh slot text (slot just consumed shows empty). Clear any pending
-	# target-selection overlay since the action completed.
+	# target-selection overlay since the action completed + disarm the
+	# controller tile-click gate.
 	_refresh_inventory_panel(unit)
-	if _inventory_pending_slot != -1 and _grid_controller.has_method("clear_item_target_selection"):
-		_grid_controller.clear_item_target_selection()
+	if _inventory_pending_slot != -1:
+		if _grid_controller.has_method("clear_item_target_selection"):
+			_grid_controller.clear_item_target_selection()
+		if _grid_controller.has_method("set_item_target_armed"):
+			_grid_controller.set_item_target_armed(false)
 	_inventory_pending_slot = -1
 
 
