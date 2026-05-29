@@ -186,6 +186,11 @@
         "1": "shu_003_zhang_fei",
         "6": "shu_002_guan_yu"
       },
+      "starting_inventory_by_hero": {
+        "shu_001_liu_bei": ["heal_potion", "", ""],
+        "shu_003_zhang_fei": ["strength_scroll", "", ""],
+        "shu_002_guan_yu": ["fire_scroll", "", ""]
+      },
       "enemy_unit_ids": [
         2,
         3,
@@ -307,6 +312,12 @@
         "1": "shu_003_zhang_fei",
         "6": "shu_002_guan_yu",
         "7": "shu_005_zhao_yun"
+      },
+      "starting_inventory_by_hero": {
+        "shu_001_liu_bei": ["heal_potion", "", ""],
+        "shu_003_zhang_fei": ["strength_scroll", "heal_potion", ""],
+        "shu_002_guan_yu": ["fire_scroll", "", ""],
+        "shu_005_zhao_yun": ["march_scroll", "", ""]
       },
       "enemy_unit_ids": [
         2,
@@ -448,6 +459,13 @@
         "6": "shu_002_guan_yu",
         "7": "shu_005_zhao_yun",
         "13": "shu_006_zhuge_liang"
+      },
+      "starting_inventory_by_hero": {
+        "shu_001_liu_bei": ["heal_potion", "strength_scroll", ""],
+        "shu_003_zhang_fei": ["strength_scroll", "heal_potion", ""],
+        "shu_002_guan_yu": ["fire_scroll", "strength_scroll", ""],
+        "shu_005_zhao_yun": ["march_scroll", "fire_scroll", ""],
+        "shu_006_zhuge_liang": ["heal_potion", "", ""]
       },
       "enemy_unit_ids": [
         2,
@@ -593,6 +611,13 @@
         "6": "shu_002_guan_yu",
         "7": "shu_005_zhao_yun",
         "13": "shu_006_zhuge_liang"
+      },
+      "starting_inventory_by_hero": {
+        "shu_001_liu_bei": ["heal_potion", "strength_scroll", ""],
+        "shu_003_zhang_fei": ["strength_scroll", "heal_potion", ""],
+        "shu_002_guan_yu": ["fire_scroll", "strength_scroll", ""],
+        "shu_005_zhao_yun": ["march_scroll", "fire_scroll", ""],
+        "shu_006_zhuge_liang": ["heal_potion", "march_scroll", ""]
       },
       "enemy_unit_ids": [
         2,
@@ -750,6 +775,10 @@
         "0": "shu_001_liu_bei",
         "1": "shu_003_zhang_fei"
       },
+      "starting_inventory_by_hero": {
+        "shu_001_liu_bei": ["heal_potion", "march_scroll", ""],
+        "shu_003_zhang_fei": ["heal_potion", "strength_scroll", ""]
+      },
       "enemy_unit_ids": [
         2,
         3,
@@ -864,6 +893,11 @@
       "player_hero_ids": {
         "0": "shu_001_liu_bei",
         "1": "shu_003_zhang_fei"
+      },
+      "starting_inventory_by_hero": {
+        "shu_001_liu_bei": ["heal_potion", "march_scroll", ""],
+        "shu_003_zhang_fei": ["strength_scroll", "heal_potion", ""],
+        "shu_002_guan_yu": ["fire_scroll", "strength_scroll", ""]
       },
       "enemy_unit_ids": [
         2,
@@ -1014,6 +1048,13 @@
         "8": "qun_004_diao_chan",
         "9": "shu_004_huang_zhong"
       },
+      "starting_inventory_by_hero": {
+        "shu_001_liu_bei": ["march_scroll", "heal_potion", ""],
+        "shu_003_zhang_fei": ["strength_scroll", "", ""],
+        "shu_002_guan_yu": ["fire_scroll", "march_scroll", ""],
+        "qun_004_diao_chan": ["march_scroll", "heal_potion", ""],
+        "shu_004_huang_zhong": ["strength_scroll", "heal_potion", ""]
+      },
       "enemy_unit_ids": [
         2,
         3,
@@ -1154,6 +1195,15 @@
         "9": "shu_004_huang_zhong",
         "10": "wu_001_sun_quan",
         "11": "wu_003_zhou_yu"
+      },
+      "starting_inventory_by_hero": {
+        "shu_001_liu_bei": ["heal_potion", "strength_scroll", ""],
+        "shu_003_zhang_fei": ["strength_scroll", "heal_potion", ""],
+        "shu_002_guan_yu": ["fire_scroll", "strength_scroll", ""],
+        "shu_004_huang_zhong": ["strength_scroll", "heal_potion", ""],
+        "wu_001_sun_quan": ["heal_potion", "fire_scroll", ""],
+        "wu_003_zhou_yu": ["strength_scroll", "heal_potion", ""],
+        "qun_004_diao_chan": ["march_scroll", "heal_potion", ""]
       },
       "enemy_unit_ids": [
         2,
@@ -1349,6 +1399,14 @@
         "10": "wu_001_sun_quan",
         "11": "wu_003_zhou_yu"
       },
+      "starting_inventory_by_hero": {
+        "shu_001_liu_bei": ["fire_scroll", "heal_potion", ""],
+        "shu_003_zhang_fei": ["strength_scroll", "heal_potion", ""],
+        "shu_002_guan_yu": ["fire_scroll", "strength_scroll", ""],
+        "shu_004_huang_zhong": ["strength_scroll", "heal_potion", ""],
+        "wu_001_sun_quan": ["fire_scroll", "heal_potion", ""],
+        "wu_003_zhou_yu": ["strength_scroll", "heal_potion", ""]
+      },
       "enemy_unit_ids": [
         2,
         3,
@@ -1502,6 +1560,14 @@
         "9": "shu_004_huang_zhong",
         "13": "shu_006_zhuge_liang"
       },
+      "starting_inventory_by_hero": {
+        "shu_001_liu_bei": ["heal_potion", "strength_scroll", ""],
+        "shu_003_zhang_fei": ["strength_scroll", "heal_potion", ""],
+        "shu_002_guan_yu": ["fire_scroll", "strength_scroll", ""],
+        "shu_005_zhao_yun": ["march_scroll", "fire_scroll", ""],
+        "shu_004_huang_zhong": ["strength_scroll", "march_scroll", ""],
+        "shu_006_zhuge_liang": ["heal_potion", "march_scroll", ""]
+      },
       "enemy_unit_ids": [
         2,
         3,
@@ -1635,6 +1701,14 @@
         "7": "shu_005_zhao_yun",
         "9": "shu_004_huang_zhong",
         "13": "shu_006_zhuge_liang"
+      },
+      "starting_inventory_by_hero": {
+        "shu_001_liu_bei": ["march_scroll", "heal_potion", ""],
+        "shu_003_zhang_fei": ["strength_scroll", "heal_potion", ""],
+        "shu_002_guan_yu": ["fire_scroll", "march_scroll", ""],
+        "shu_005_zhao_yun": ["march_scroll", "fire_scroll", ""],
+        "shu_004_huang_zhong": ["march_scroll", "strength_scroll", ""],
+        "shu_006_zhuge_liang": ["march_scroll", "heal_potion", ""]
       },
       "enemy_unit_ids": [
         2,
@@ -1783,6 +1857,14 @@
         "9": "shu_004_huang_zhong",
         "13": "shu_006_zhuge_liang"
       },
+      "starting_inventory_by_hero": {
+        "shu_001_liu_bei": ["heal_potion", "strength_scroll", ""],
+        "shu_003_zhang_fei": ["strength_scroll", "heal_potion", ""],
+        "shu_002_guan_yu": ["fire_scroll", "strength_scroll", ""],
+        "shu_005_zhao_yun": ["march_scroll", "fire_scroll", ""],
+        "shu_004_huang_zhong": ["strength_scroll", "heal_potion", ""],
+        "shu_006_zhuge_liang": ["heal_potion", "march_scroll", ""]
+      },
       "enemy_unit_ids": [
         2,
         3,
@@ -1916,6 +1998,15 @@
         "7": "shu_005_zhao_yun",
         "9": "shu_004_huang_zhong",
         "13": "shu_006_zhuge_liang"
+      },
+      "starting_inventory_by_hero": {
+        "shu_001_liu_bei": ["heal_potion", "strength_scroll", ""],
+        "shu_003_zhang_fei": ["strength_scroll", "heal_potion", ""],
+        "shu_002_guan_yu": ["fire_scroll", "strength_scroll", ""],
+        "shu_005_zhao_yun": ["march_scroll", "fire_scroll", ""],
+        "shu_004_huang_zhong": ["strength_scroll", "march_scroll", ""],
+        "shu_006_zhuge_liang": ["heal_potion", "march_scroll", ""],
+        "shu_009_wei_yan": ["strength_scroll", "fire_scroll", ""]
       },
       "enemy_unit_ids": [
         2,
@@ -2126,6 +2217,16 @@
         "9": "shu_004_huang_zhong",
         "13": "shu_006_zhuge_liang",
         "16": "shu_007_pang_tong"
+      },
+      "starting_inventory_by_hero": {
+        "shu_001_liu_bei": ["march_scroll", "heal_potion", ""],
+        "shu_003_zhang_fei": ["strength_scroll", "heal_potion", ""],
+        "shu_002_guan_yu": ["fire_scroll", "march_scroll", ""],
+        "shu_005_zhao_yun": ["march_scroll", "fire_scroll", ""],
+        "shu_004_huang_zhong": ["march_scroll", "strength_scroll", ""],
+        "shu_006_zhuge_liang": ["heal_potion", "march_scroll", ""],
+        "shu_007_pang_tong": ["heal_potion", "march_scroll", ""],
+        "shu_009_wei_yan": ["fire_scroll", "march_scroll", ""]
       },
       "enemy_unit_ids": [
         2,
@@ -2363,6 +2464,16 @@
         "9": "shu_004_huang_zhong",
         "13": "shu_006_zhuge_liang",
         "16": "shu_007_pang_tong"
+      },
+      "starting_inventory_by_hero": {
+        "shu_001_liu_bei": ["heal_potion", "strength_scroll", ""],
+        "shu_003_zhang_fei": ["strength_scroll", "heal_potion", ""],
+        "shu_002_guan_yu": ["fire_scroll", "strength_scroll", ""],
+        "shu_005_zhao_yun": ["march_scroll", "fire_scroll", ""],
+        "shu_004_huang_zhong": ["strength_scroll", "heal_potion", ""],
+        "shu_006_zhuge_liang": ["heal_potion", "march_scroll", ""],
+        "shu_007_pang_tong": ["heal_potion", "march_scroll", ""],
+        "shu_009_wei_yan": ["fire_scroll", "strength_scroll", ""]
       },
       "enemy_unit_ids": [
         2,
