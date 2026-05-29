@@ -367,6 +367,39 @@ func test_non_self_slot_click_arms_controller_and_overlay() -> void:
 	_free_bag(bag)
 
 
+## S94 — slot click for an ALLY item (aid_potion) arms target selection with the
+## ALLY palette (UI-GB-17 금록), mirroring the GROUND path. Proves the cross-hero
+## items route through the existing target-overlay flow with the correct palette.
+func test_ally_item_slot_click_arms_controller_with_ally_palette() -> void:
+	var bag: Dictionary = _make_hud_with_stubs()
+	var hud: BattleHUD = bag["hud"]
+	var grid: GridBattleControllerStub = bag["grid_controller"]
+	add_child(hud)
+
+	# Arrange — active player unit with aid_potion in slot 1.
+	var unit: BattleUnit = _make_unit(0, [&"heal_potion", &"aid_potion", &""])
+	grid.set_test_unit(TEST_UNIT_ID, unit)
+	grid.set_test_active_turn_unit_id(TEST_UNIT_ID)
+	hud._on_input_action_fired(&"use_item", null)
+
+	# Act — slot 1 click (aid_potion → ALLY target_type)
+	hud._on_inventory_slot_pressed(1)
+
+	# Assert — armed with ALLY palette, pending slot recorded
+	assert_int(hud._inventory_pending_slot).is_equal(1)
+	assert_int(grid.set_item_target_armed_calls.size()).is_equal(1)
+	assert_bool(grid.set_item_target_armed_calls[0]).is_true()
+	assert_int(grid.begin_item_target_selection_calls.size()).is_equal(1)
+	assert_str(String(grid.begin_item_target_selection_calls[0]["palette"] as StringName)).override_failure_message(
+		"S94: aid_potion slot click must arm target selection with the ALLY palette"
+	).is_equal("ALLY")
+	var panel: Control = hud._ui_elements.get(&"UI-GB-15")
+	assert_bool(panel.visible).is_true()
+
+	hud.free()
+	_free_bag(bag)
+
+
 ## Tile click while armed at a valid target tile → use_item(uid, slot, coord).
 ## Panel + overlay clear via use_item completion (mocked here via stub return
 ## true → _on_unit_item_used is normally signal-driven, not in this synchronous

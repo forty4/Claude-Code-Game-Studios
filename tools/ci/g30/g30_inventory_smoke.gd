@@ -44,7 +44,9 @@ var _feedback_flashed: bool = false
 ## "self" (default): click a heal/strength/march SELF item — verify it fires +
 ## flashes + closes (behaviors b/c). "fire": click fire_scroll — verify it ARMS
 ## a GROUND target overlay (panel stays open, range disc renders) — behavior d.
-## Select via:  godot --path . res://…/g30_inventory_smoke.tscn -- fire
+## "ally" (S94): click aid_potion / rally_scroll — verify it ARMS an ALLY target
+## overlay (금록 palette, panel stays open, ally-occupied tiles published).
+## Select via:  godot --path . res://…/g30_inventory_smoke.tscn -- ally
 var _mode: String = "self"
 ## 0-based chapter index to boot (default 0 = ch01). Pass a number after `--`.
 var _chapter_idx: int = 0
@@ -52,8 +54,8 @@ var _chapter_idx: int = 0
 
 func _ready() -> void:
 	for a: String in OS.get_cmdline_user_args():
-		if a == "fire":
-			_mode = "fire"
+		if a == "fire" or a == "ally":
+			_mode = a
 		elif a.is_valid_int():
 			_chapter_idx = a.to_int()
 	print("[G30] ===== inventory slot-click windowed smoke (mode=", _mode, " chapter_idx=", _chapter_idx, ") =====")
@@ -123,7 +125,11 @@ func _run() -> void:
 		var pu: Object = units[uid]
 		if int(pu.get("side")) == 0:
 			print("[G30]   uid=", uid, " ", pu.get("hero_id"), " inv=", pu.get("inventory"))
-	var wanted: Array = [&"fire_scroll"] if _mode == "fire" else [&"heal_potion", &"strength_scroll", &"march_scroll"]
+	var wanted: Array = [&"heal_potion", &"strength_scroll", &"march_scroll"]
+	if _mode == "fire":
+		wanted = [&"fire_scroll"]
+	elif _mode == "ally":
+		wanted = [&"aid_potion", &"rally_scroll"]
 	var puid: int = -1
 	var punit: Object = null
 	var slot_idx: int = -1
@@ -229,6 +235,41 @@ func _run() -> void:
 		verdict_ok = _slot_pressed_fired and panel.visible and pending_slot == slot_idx \
 			and armed and tiles.size() > 0 and not _item_used_fired
 		print("[G30] ===== VERDICT: ", ("PASS — fire_scroll arms GROUND overlay (range disc shown)" if verdict_ok else "FAIL"), " =====")
+		_finish(0 if verdict_ok else 1)
+		return
+
+	if _mode == "ally":
+		# S94 — aid_potion / rally_scroll are ALLY-target → clicking ARMS an ALLY
+		# overlay (금록 palette). Panel STAYS open; controller arms the tile-click
+		# gate; get_item_target_tiles publishes the reachable ally-occupied tiles.
+		var item_id_ally: StringName = punit.get("inventory")[slot_idx]
+		var pending_slot: int = int(hud.get("_inventory_pending_slot"))
+		var armed: bool = bool(controller.get("_item_target_armed")) if controller.has_method("set_item_target_armed") else false
+		var tiles: PackedVector2Array = controller.call("get_item_target_tiles", puid, item_id_ally)
+		var tiles_in_reach: bool = tiles.size() > 0
+		print("[G30] -------- RESULT (ally) --------")
+		print("[G30] item                          = ", item_id_ally)
+		print("[G30] CLICK_REACHED_BUTTON (pressed) = ", _slot_pressed_fired)
+		print("[G30] panel STILL open (arm)         = ", panel.visible)
+		print("[G30] _inventory_pending_slot        = ", pending_slot, " (== ", slot_idx, "?)")
+		print("[G30] controller _item_target_armed  = ", armed)
+		print("[G30] ALLY target tiles              = ", tiles.size(), " -> ", tiles)
+		print("[G30] ally in reach at deploy        = ", tiles_in_reach)
+		print("[G30] item_used (should be FALSE)    = ", _item_used_fired)
+		for _i in 4:
+			await get_tree().process_frame
+		await _shot("05_ally_armed_overlay")
+		# Core arm verdict does NOT depend on ally proximity (arming is geometry-
+		# independent). tiles_in_reach is reported + WARN-flagged but the overlay
+		# render correctness is what the screenshot attests.
+		verdict_ok = _slot_pressed_fired and panel.visible and pending_slot == slot_idx \
+			and armed and not _item_used_fired
+		var verdict_msg: String = "FAIL"
+		if verdict_ok:
+			verdict_msg = "PASS — ALLY item arms 금록 overlay"
+			if not tiles_in_reach:
+				verdict_msg += " (WARN: no ally within ALLY_SUPPORT_RANGE at deploy)"
+		print("[G30] ===== VERDICT: ", verdict_msg, " =====")
 		_finish(0 if verdict_ok else 1)
 		return
 

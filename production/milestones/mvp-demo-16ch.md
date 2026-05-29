@@ -467,6 +467,28 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Layered UX gap diagnosis**: "재미없음" 같은 단일 사용자 보고가 actually 여러 layer 의 root cause 조합. 진단 시 surface-level fix 만 시도하면 underlying issue 누락 위험. mechanical + discoverability + visual + balance 의 4 layer 모두 inspect 필요.
 - **Selection-less fallback pattern**: 사용자 UX flow 가 "click then key" 이 아닌 "key directly" 일 수도. controller handler 들에 active turn unit fallback 추가 = UX simplification + felt 향상 — 다른 systems 도 같은 pattern 가능 (예: 미리보기 dismiss, 카메라 control).
 
+### S94 — cross-hero ALLY 아이템 2종 (Pillar #5 "다른 장수를 도와주거나" 축 신설) (2026-05-29 session 94)
+
+> **Driver**: S93 머지 후 사용자 방향 선택 = "아이템/책략권 종류 확장 (Pillar #5 breadth)". 핵심 통찰: 기존 4종이 전부 SELF/GROUND → North-Star raw feedback #6 의 *"다른 장수를 도와주거나"* (cross-hero 지원) 축이 mechanical 0. ALLY target_mode 는 완전히 설계됐으나 (battle_unit.gd:257 + UI-GB-17 §3.5.3 금록 palette + chapter_visuals COLOR_ITEM_TARGET_ALLY) 작동시키는 아이템이 없어 dormant 상태였음.
+
+**상태: headless 2083/2083 PASS (0 errors / 0 failures / 298 orphans baseline, +15 from S93 2068). perf-test 1건은 load-induced flake (isolation 시 PASS).**
+
+**1. 2종 cross-hero ALLY 아이템 신설**:
+- `aid_potion` (구호약): immediate, ALLY, 사정거리(Manhattan ≤3) 내 아군 1명 HP +20. 제약 없음. `apply_heal(target, 20, caster)` 재사용.
+- `rally_scroll` (독려권): buff, ALLY, 사정거리 내 아군 1명에게 다음 공격 ×1.30 (기존 `pending_buff{kind:strength}` 소비 경로 그대로, 대상만 ally). 제약 없음. strength_scroll(1.50) 보다 약함 = 지원 flavor + Pillar #3.
+- **둘 다 self 제외** (heal_potion/strength_scroll 가 self 담당) → cross-hero 역할 차별화 sharp. damage-calc 변경 0, 새 BattleUnit 필드 0.
+- 의도적 제외: revive_pill (downed-unit lifecycle 부재 = 고위험), accuracy_scroll (crit substrate 미확인), command_scroll (Phase 4+ defer), ENEMY 디버프 (debuff substrate 부재).
+
+**2. 구현 범위** (grid_battle_controller.gd + battle_hud.gd + locale): use_item dispatch arm + `_use_item_aid_potion`/`_use_item_rally_scroll` + `_find_ally_target_at` helper (alive·same-side·non-self·in-range) + `get_item_target_tiles` ALLY arm + `_ITEM_TARGET_TYPE` ALLY 엔트리 + glyph (✚/⚑) + i18n ko/en. **view layer 변경 0** — UI-GB-17 ALLY 금록 palette 는 S91 arc-F 가 이미 author (ALLY/ENEMY 아이템 anticipate). HUD `_handle_item_target_click` 은 target-mode-agnostic → ALLY 가 GROUND 와 동일 경로.
+
+**3. 테스트 +15** (`grid_battle_controller_ally_items_test.gd` 14 + HUD ALLY-arming 1): happy path (heal/buff 대상 ally 적용, 슬롯 차감, USE_ITEM 토큰, 시그널, buff 는 TARGET 에) + reject (no ally / enemy / self / out-of-range / default sentinel / target max-HP / dead ally) + get_item_target_tiles ALLY 필터 (alive·same-side·non-self·in-range only).
+
+**4. 분배** (Pillar #3 role-coherent, `author_ally_items.py` line-level rewrite +24/-24, JSON round-trip OK): 유비(COMMANDER, 도원결의 맏형 = 지원 리더) → 전 16챕터 균일 `[heal_potion, aid_potion, rally_scroll]` (두 신규 아이템 campaign-wide 노출, self-buff 포기하고 지원 역할). 제갈량(STRATEGIST) → 8챕터 빈 슬롯에 rally_scroll addition-only.
+
+**5. G-30 windowed verify (ally mode, ch01)**: 유비 authored kit load 확인 → aid_potion 슬롯 실클릭 `CLICK_REACHED_BUTTON=true` → 패널 STAY open + `_inventory_pending_slot=1` + `_item_target_armed=true` + **ALLY tiles 2개 [(2,4),(1,3)]** (관우/장비 reach 내) + `item_used=false`. 스크린샷: 패널에 "✚ 구호약" / "⚑ 독려권" glyph+i18n 렌더 + 금록 overlay. 증거: `production/qa/evidence/s94_ally_items/`. 하니스 `-- ally <idx>` 모드 추가.
+
+**S94 → S95 핸드오프**: cross-hero 지원 축 mechanical+windowed 완료. 다음 fun 레버 후보 — (a) 난이도/밸런스 (atk_mult 1.50 windowed playtest — raw feedback "난이도 낮음" 미검증 잔존) (b) 아이템 추가 breadth (ENEMY 디버프 / accuracy buff — substrate 작업 필요) (c) fire_scroll AoE tile-click commit windowed 완전 클로즈 (잔존) (d) ch17-25 inventory (out of MVP scope). **rally_scroll arm 은 aid_potion 과 동일 경로라 별도 windowed 생략 — commit 로직은 unit test 커버.**
+
 ### S93 — S92 블로커 windowed-CONFIRMED (first windowed smoke harness) + ch02-16 inventory authoring (2026-05-29 session 93)
 
 > **Driver**: 사용자 "게임 좀 재미있게 만들어 보자" → 방향 선택 "전략 레이어 살리기" (이미 만든 Pillar #5 가 실전 작동 안 하면 재미를 만질 수 없음 = 가장 직접적 fun 경로).

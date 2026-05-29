@@ -2280,10 +2280,12 @@ func use_item(unit_id: int, slot_idx: int, target_pos: Vector2i = Vector2i(-1, -
 	var item_id: StringName = unit.inventory[slot_idx]
 	if item_id == &"":
 		return false  # empty slot
-	# Item dispatch — Phase B 4 MVP items wired (heal_potion / strength_scroll /
-	# march_scroll / fire_scroll). Remaining authored items (command_scroll,
-	# Phase 4+ deferred per strategy-systems.md v0.2 user adjudication; sky_book
-	# Phase C+ candidate) fall through the default arm.
+	# Item dispatch — Phase B 4 MVP items (heal_potion / strength_scroll /
+	# march_scroll / fire_scroll) + 2 cross-hero ALLY-target items (aid_potion /
+	# rally_scroll — strategy-systems §3.2.1/§3.2.2, the Pillar #5 "다른 장수를
+	# 도와주거나" axis). Remaining authored items (command_scroll, Phase 4+ deferred
+	# per strategy-systems.md v0.2 user adjudication; sky_book Phase C+ candidate)
+	# fall through the default arm.
 	var fired: bool = false
 	var actual_effect: int = 0
 	match item_id:
@@ -2298,6 +2300,12 @@ func use_item(unit_id: int, slot_idx: int, target_pos: Vector2i = Vector2i(-1, -
 			fired = actual_effect > 0
 		&"fire_scroll":
 			actual_effect = _use_item_fire_scroll(unit, target_pos)
+			fired = actual_effect > 0
+		&"aid_potion":
+			actual_effect = _use_item_aid_potion(unit, target_pos)
+			fired = actual_effect > 0
+		&"rally_scroll":
+			actual_effect = _use_item_rally_scroll(unit, target_pos)
 			fired = actual_effect > 0
 		_:
 			push_warning("GridBattleController.use_item: unwired item_id '%s' on unit %d slot %d — no-op"
@@ -2455,9 +2463,10 @@ func _use_item_fire_scroll(unit: BattleUnit, target_pos: Vector2i) -> int:
 ## Returns the per-target-type valid tile set for an item's target selection
 ## overlay (UI-GB-17). For fire_scroll (GROUND target_type), returns every tile
 ## within Manhattan FIRE_RANGE (3) from the caster — the player can drop the
-## fire-strategy AoE on any tile in that radius. Future ALLY / ENEMY items
-## extend this dispatch. Empty PackedVector2Array means "no overlay" (item
-## either rejected or self-target).
+## fire-strategy AoE on any tile in that radius. For ALLY items (aid_potion /
+## rally_scroll) returns only ally-occupied tiles within ALLY_SUPPORT_RANGE.
+## Future ENEMY items extend this dispatch. Empty PackedVector2Array means
+## "no overlay" (item rejected, self-target, or no valid target in reach).
 func get_item_target_tiles(unit_id: int, item_id: StringName) -> PackedVector2Array:
 	var tiles: PackedVector2Array = PackedVector2Array()
 	if not _units.has(unit_id):
@@ -2482,6 +2491,25 @@ func get_item_target_tiles(unit_id: int, item_id: StringName) -> PackedVector2Ar
 				if tx < 0 or ty < 0 or tx >= dims.x or ty >= dims.y:
 					continue
 				tiles.append(Vector2(tx, ty))
+	elif item_id == &"aid_potion" or item_id == &"rally_scroll":
+		# ALLY target overlay (UI-GB-17 금록 palette) — only tiles occupied by an
+		# alive, same-side, NON-self unit within Manhattan ALLY_SUPPORT_RANGE.
+		# Empty result = no reachable ally (overlay shows nothing; player cancels
+		# via I-key). Self excluded — cross-hero only, per _find_ally_target_at.
+		if _hp_controller == null:
+			return tiles
+		for ally: BattleUnit in _units.values():
+			if ally.unit_id == unit_id:
+				continue  # exclude self
+			if ally.side != caster.side:
+				continue  # enemy
+			if not _hp_controller.is_alive(ally.unit_id):
+				continue  # dead ally
+			var adx: int = absi(ally.position.x - caster.position.x)
+			var ady: int = absi(ally.position.y - caster.position.y)
+			if adx + ady > ALLY_SUPPORT_RANGE:
+				continue  # out of reach
+			tiles.append(Vector2(ally.position.x, ally.position.y))
 	return tiles
 
 
@@ -2491,7 +2519,7 @@ func get_item_target_tiles(unit_id: int, item_id: StringName) -> PackedVector2Ar
 ## UI-GB-15; clear_item_target_selection() on cancel OR after use_item() commits.
 ##
 ## `palette` must match an item's target_type: `&"ALLY"` / `&"ENEMY"` / `&"GROUND"`.
-## For fire_scroll the palette is `&"GROUND"`.
+## fire_scroll = `&"GROUND"`; aid_potion / rally_scroll = `&"ALLY"`.
 func begin_item_target_selection(unit_id: int, item_id: StringName, palette: StringName) -> void:
 	var tiles: PackedVector2Array = get_item_target_tiles(unit_id, item_id)
 	item_target_selection_updated.emit(tiles, palette)
@@ -2581,6 +2609,90 @@ func _use_item_march_scroll(unit: BattleUnit) -> int:
 		return 0  # already attacked — book use rejected (§4.4 Edge)
 	unit.move_range_bonus += MARCH_SCROLL_BONUS
 	_turn_runner.refresh_move_token(unit.unit_id)
+	return 1
+
+
+## Manhattan reach for ALLY-target cross-hero support items (aid_potion /
+## rally_scroll). Mirrors FIRE_RANGE so support is positioning-relevant
+## (Pillar #1 supporting — you must be near the ally to help, not snipe from
+## across the map). Tuning knob: strategy-systems §7 (ALLY_SUPPORT_RANGE).
+const ALLY_SUPPORT_RANGE: int = 3
+const AID_POTION_AMOUNT: int = 20
+const RALLY_SCROLL_MULT: float = 1.30
+
+## Resolve the ALLY-target unit at target_pos for cross-hero support items.
+## Returns the alive, same-side, NON-self BattleUnit standing on target_pos
+## within Manhattan ALLY_SUPPORT_RANGE of the caster, or null if no such unit
+## (off-grid sentinel, empty tile, enemy-occupied, the caster itself, dead, or
+## out of range). ALLY items EXCLUDE the caster by design — self-heal / self-buff
+## are owned by heal_potion / strength_scroll, keeping the cross-hero role
+## distinction sharp (strategy-systems §2 player-fantasy "누구를 도울지").
+## Caller must null-check `_hp_controller` before invoking (both handlers do).
+func _find_ally_target_at(caster: BattleUnit, target_pos: Vector2i) -> BattleUnit:
+	if target_pos == Vector2i(-1, -1):
+		return null  # default sentinel — ALLY items require an explicit target
+	var dx: int = absi(target_pos.x - caster.position.x)
+	var dy: int = absi(target_pos.y - caster.position.y)
+	if dx + dy > ALLY_SUPPORT_RANGE:
+		return null  # out of reach
+	for ally: BattleUnit in _units.values():
+		if ally.unit_id == caster.unit_id:
+			continue  # exclude self — cross-hero only
+		if ally.side != caster.side:
+			continue  # enemy-occupied tile
+		if ally.position != target_pos:
+			continue
+		if not _hp_controller.is_alive(ally.unit_id):
+			continue  # dead ally — revive is Phase C+ (separate revive_pill item)
+		return ally
+	return null
+
+
+## aid_potion handler — strategy-systems §3.2.1 cross-hero immediate heal.
+## Restores AID_POTION_AMOUNT (20) HP to a chosen ALLY (not self — heal_potion
+## owns self-heal). target_pos is the ally's tile (validated by the HUD against
+## get_item_target_tiles before commit; re-validated here for the direct-call
+## API path). Returns the actual HP healed; 0 on reject (no valid ally at tile,
+## ally at max HP, dead caster) → slot NOT decremented, token NOT spent.
+func _use_item_aid_potion(unit: BattleUnit, target_pos: Vector2i) -> int:
+	if _hp_controller == null:
+		return 0
+	if not _hp_controller.is_alive(unit.unit_id):
+		return 0  # dead caster cannot act
+	var target: BattleUnit = _find_ally_target_at(unit, target_pos)
+	if target == null:
+		return 0  # no valid ally at target tile (or out of range / self / dead)
+	var current_hp: int = _hp_controller.get_current_hp(target.unit_id)
+	var max_hp: int = _hp_controller.get_max_hp(target.unit_id)
+	if current_hp >= max_hp:
+		return 0  # ally already full — reject (slot not consumed), mirrors heal_potion
+	return _hp_controller.apply_heal(target.unit_id, AID_POTION_AMOUNT, unit.unit_id)
+
+
+## rally_scroll handler — strategy-systems §3.2.2 cross-hero buff. Grants a
+## chosen ALLY (not self — strength_scroll owns self-buff) a next-attack/skill
+## × RALLY_SCROLL_MULT (1.30) buff via the SAME pending_buff "strength" carry
+## consumed at the ally's next attack-resolve time (_resolve_pending_buff_magnitude).
+## Slightly weaker than strength_scroll's self-buff (1.50) — support flavor +
+## Pillar #3 ("강캐 한 명 무쌍" 차단). Returns 1 on success; 0 on reject (no valid
+## ally, dead caster). Overwrites any existing pending_buff on the target (no
+## stacking — Pillar #3 / EC-SS-2; no warning popup, design-intent).
+func _use_item_rally_scroll(unit: BattleUnit, target_pos: Vector2i) -> int:
+	if _hp_controller == null:
+		return 0
+	if not _hp_controller.is_alive(unit.unit_id):
+		return 0  # dead caster cannot rally
+	var target: BattleUnit = _find_ally_target_at(unit, target_pos)
+	if target == null:
+		return 0  # no valid ally at target tile
+	var current_round: int = _turn_runner.get_current_round_number() if _turn_runner != null else 1
+	target.pending_buff = {
+		&"kind": &"strength",
+		&"magnitude": RALLY_SCROLL_MULT,
+		&"expires_at_turn": current_round + 1,
+	}
+	# UI-GB-16 — surface the buff glyph on the TARGET ally (not the caster).
+	unit_pending_buff_changed.emit(target.unit_id, true)
 	return 1
 
 

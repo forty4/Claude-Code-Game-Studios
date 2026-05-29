@@ -254,6 +254,24 @@ msgstr "범위 3 화공 (지력 비례)"
 msgid "item.fire_scroll.restriction_label"
 msgstr "지력 60 이상, 책사·정찰·궁수 불가"
 
+msgid "item.aid_potion.name"
+msgstr "구호약"
+
+msgid "item.aid_potion.effect"
+msgstr "아군 HP 20 회복"
+
+msgid "item.aid_potion.restriction_label"
+msgstr ""
+
+msgid "item.rally_scroll.name"
+msgstr "독려권"
+
+msgid "item.rally_scroll.effect"
+msgstr "아군 다음 공격 ×1.3 피해"
+
+msgid "item.rally_scroll.restriction_label"
+msgstr ""
+
 msgid "item.reject.action_spent"
 msgstr "이미 행동했습니다"
 

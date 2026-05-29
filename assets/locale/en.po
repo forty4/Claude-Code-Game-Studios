@@ -256,6 +256,24 @@ msgstr "Range-3 fire AoE (INT scaling)"
 msgid "item.fire_scroll.restriction_label"
 msgstr "INT >= 60, no Strategist/Scout/Archer"
 
+msgid "item.aid_potion.name"
+msgstr "Aid Potion"
+
+msgid "item.aid_potion.effect"
+msgstr "Restore 20 HP to an ally"
+
+msgid "item.aid_potion.restriction_label"
+msgstr ""
+
+msgid "item.rally_scroll.name"
+msgstr "Rally Scroll"
+
+msgid "item.rally_scroll.effect"
+msgstr "Ally's next attack x1.3 damage"
+
+msgid "item.rally_scroll.restriction_label"
+msgstr ""
+
 msgid "item.reject.action_spent"
 msgstr "Action already used"
 
