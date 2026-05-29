@@ -298,7 +298,12 @@ func _ready() -> void:
 
 	# Cover the full viewport — child Controls use individual anchors per
 	# battle-hud.md §3 layout spec.
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	# set_anchors_AND_offsets_preset (not just set_anchors_preset) because the
+	# default keep_offsets=false re-derives offsets from the current visual rect.
+	# At instantiation that rect is (0,0,0,0), so the offsets get computed such
+	# that size stays 0 even after anchors change to FULL_RECT — every child's
+	# anchor calc then uses parent_size=(0,0) and renders off-screen.
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	# MUST be PASS, not the Control default STOP. With STOP, the full-rect HUD root
 	# absorbs every mouse click before _unhandled_input fires, so InputRouter never
 	# sees grid clicks and the player cannot interact with units (POLISH-011 root
@@ -498,10 +503,20 @@ func _ready() -> void:
 	var ui_gb_16: Label = _UI_GB_16_SCENE.instantiate() as Label
 	ui_gb_15.visible = false
 	ui_gb_16.visible = false
-	ui_gb_15.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	ui_gb_15.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	# Explicit anchors + offsets — set_anchors_preset() w/ keep_offsets=false (default)
+	# recomputes offsets from the Control's CURRENT visual rect which is (0,0,0,0)
+	# at instantiation, leading to stuck-at-(-80,-148) position when parent
+	# (BattleHUD root) hasn't propagated size yet. Setting both explicitly bypasses
+	# the keep-current-rect interpolation.
+	ui_gb_15.anchor_left = 0.5
+	ui_gb_15.anchor_right = 0.5
+	ui_gb_15.anchor_top = 1.0
+	ui_gb_15.anchor_bottom = 1.0
+	ui_gb_15.offset_left = -180   # custom_minimum_size.x / 2 (360 / 2)
+	ui_gb_15.offset_right = 180
 	ui_gb_15.offset_bottom = -84  # sit above UI-GB-02 action menu
-	ui_gb_15.offset_top = -148    # = offset_bottom - panel height (64)
+	ui_gb_15.offset_top = -204    # = offset_bottom - panel height (120)
+	ui_gb_15.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	ui_gb_16.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	ui_gb_16.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	ui_gb_16.offset_left = -32    # 16pt glyph + 16pt margin
@@ -515,6 +530,17 @@ func _ready() -> void:
 	_btn_inventory_slot_0 = ui_gb_15.get_node_or_null("VBoxContainer/SlotsHBox/Slot0Button") as Button
 	_btn_inventory_slot_1 = ui_gb_15.get_node_or_null("VBoxContainer/SlotsHBox/Slot1Button") as Button
 	_btn_inventory_slot_2 = ui_gb_15.get_node_or_null("VBoxContainer/SlotsHBox/Slot2Button") as Button
+	# Explicit mouse_filter on the panel chain — Godot 4.x Container subclasses
+	# default to MOUSE_FILTER_STOP which would swallow clicks before they reach
+	# the slot Buttons. PanelContainer STOP (claims panel background) + inner
+	# containers PASS (let the Button children receive the click).
+	ui_gb_15.mouse_filter = Control.MOUSE_FILTER_STOP
+	var inv_vbox: Control = ui_gb_15.get_node_or_null("VBoxContainer") as Control
+	if inv_vbox != null:
+		inv_vbox.mouse_filter = Control.MOUSE_FILTER_PASS
+	var inv_hbox: Control = ui_gb_15.get_node_or_null("VBoxContainer/SlotsHBox") as Control
+	if inv_hbox != null:
+		inv_hbox.mouse_filter = Control.MOUSE_FILTER_PASS
 	if _btn_inventory_slot_0 != null:
 		_btn_inventory_slot_0.pressed.connect(_on_inventory_slot_pressed.bind(0))
 	if _btn_inventory_slot_1 != null:
@@ -2353,13 +2379,30 @@ func _tooltip_for_item(item_id: StringName) -> String:
 
 
 func _glyph_for_item(item_id: StringName) -> String:
+	# Returns "<glyph> <localized name>" for filled slots so the player can
+	# read both the shape-distinct R-6-B glyph AND the item name at a glance
+	# (clarity pass S91 follow-up — single-glyph slot text was too cryptic
+	# per G-30 windowed verify user feedback).
+	if item_id == &"":
+		return tr(&"ui.inventory.empty_slot")
+	var glyph: String = _glyph_only_for_item(item_id)
+	var name_key: StringName = StringName("item.%s.name" % String(item_id))
+	var item_name: String = tr(name_key)
+	# tr() returns the key itself when no translation found — fall back to id.
+	if item_name == String(name_key):
+		item_name = String(item_id)
+	return "%s %s" % [glyph, item_name]
+
+
+## R-6-B shape-distinct glyph only (no name). Used internally by item-fire
+## feedback messages so the toast can include glyph + name + magnitude.
+func _glyph_only_for_item(item_id: StringName) -> String:
 	match item_id:
 		&"heal_potion": return "●"
 		&"strength_scroll": return "★"
 		&"fire_scroll": return "▲"
 		&"march_scroll": return "→"
-		&"": return tr(&"ui.inventory.empty_slot")
-		_: return String(item_id)
+		_: return "?"
 
 
 func _read_only_banner_node() -> Label:
@@ -2405,10 +2448,10 @@ func _on_inventory_slot_pressed(slot_index: int) -> void:
 	var target_type: StringName = _ITEM_TARGET_TYPE.get(item_id, &"SELF")
 	if target_type == &"SELF":
 		var ok: bool = _grid_controller.use_item(_inventory_unit_id, slot_index)
-		if ok:
-			_close_inventory_panel()
-		else:
+		if not ok:
 			_flash_inventory_feedback(&"item.reject.action_spent")
+		# Success path: _on_unit_item_used → _flash_inventory_success closes
+		# the panel after the success message displays (~0.6s dwell).
 		return
 	# Non-SELF: arm target selection. Panel stays open; UI-GB-17 overlay
 	# renders via controller.begin_item_target_selection emit. The controller
@@ -2457,7 +2500,7 @@ func _on_unit_pending_buff_changed(unit_id: int, has_buff: bool) -> void:
 ## the panel must show the new empty state). Close panel on the typical
 ## one-shot-per-press flow; if the player still has slots they want to use,
 ## I-key re-opens.
-func _on_unit_item_used(unit_id: int, _item_id: StringName, _slot_idx: int, _actual_effect: int) -> void:
+func _on_unit_item_used(unit_id: int, item_id: StringName, _slot_idx: int, actual_effect: int) -> void:
 	if unit_id != _inventory_unit_id:
 		return
 	var panel: Control = _ui_elements.get(&"UI-GB-15")
@@ -2477,6 +2520,38 @@ func _on_unit_item_used(unit_id: int, _item_id: StringName, _slot_idx: int, _act
 		if _grid_controller.has_method("set_item_target_armed"):
 			_grid_controller.set_item_target_armed(false)
 	_inventory_pending_slot = -1
+	# S91 follow-up clarity pass — flash success message so the player can
+	# tell that something happened (the visible HP bar change is a tile away
+	# and easy to miss). Message format: "<glyph> <name> 사용 (+N)" where N
+	# is the magnitude (heal HP, damage dealt, etc.) — 0 = no magnitude shown.
+	_flash_inventory_success(item_id, actual_effect)
+
+
+## Flash a localized success message on the panel's FeedbackLabel for ~0.6s
+## ("<glyph> <name> 사용 (+N)") then close the panel automatically. Magnitude
+## (+N) is omitted when actual_effect == 0 (e.g., strength_scroll only sets
+## a pending buff with no immediate effect to surface).
+func _flash_inventory_success(item_id: StringName, actual_effect: int) -> void:
+	var label: Label = _feedback_label_node()
+	if label == null:
+		_close_inventory_panel()
+		return
+	var glyph: String = _glyph_only_for_item(item_id)
+	var name_key: StringName = StringName("item.%s.name" % String(item_id))
+	var item_name: String = tr(name_key)
+	if item_name == String(name_key):
+		item_name = String(item_id)
+	var body: String = "%s %s 사용" % [glyph, item_name]
+	if actual_effect != 0:
+		body += " (+%d)" % actual_effect
+	label.text = body
+	label.modulate = Color(0.96, 0.88, 0.55, 1.0)  # gold = success (red = reject in _flash_inventory_feedback)
+	label.visible = true
+	get_tree().create_timer(0.6).timeout.connect(func() -> void:
+		if is_instance_valid(label):
+			label.visible = false
+			label.text = ""
+		_close_inventory_panel())
 
 
 ## Safely formats a translatable string with positional args.

@@ -1,46 +1,86 @@
-[gd_scene format=3]
+[gd_scene load_steps=2 format=3]
 
 ;; UI-GB-15 Inventory Panel — strategy-systems.md v0.3 §3.5 + battle-hud.md §3.2.
-;; Phase B step 9 (S91+). Bottom-center modal anchor: parent BattleHUD positions
-;; this PanelContainer at the bottom-center after instantiate per Anchor Option B
-;; (user-adjudicated S89 arc-E v0.2 decision).
+;; Phase B step 9 (S91+) + S91 follow-up clarity pass (S92 G-30 fix). Bottom-
+;; center modal anchor; parent BattleHUD positions this PanelContainer at the
+;; bottom-center after instantiate per Anchor Option B (user-adjudicated S89
+;; arc-E v0.2 decision).
 ;;
-;; Structure: PanelContainer root → HBoxContainer with 3 SlotButton children
-;; (44x44pt touch-target floor per accessibility-requirements.md R-6-A) + a
-;; banner Label above the slots for read-only state messaging + a tooltip
-;; Label below for slot focus reveal.
+;; Structure: PanelContainer root → VBoxContainer with:
+;;   - TitleLabel ("인벤토리")
+;;   - SlotsHBox: 3 Slot{0..2}Button children (≥44pt touch target per R-6-A)
+;;     — text format: "<glyph> <name>" e.g. "● 회복약" so player sees both
+;;       shape-distinct glyph AND localized item name.
+;;   - ReadOnlyBanner — visible when active unit has spent action token.
+;;   - FeedbackLabel — flashes on item use success (gold) or reject (red).
+;;
+;; StyleBoxFlat background ensures panel is visually distinct from terrain
+;; (default PanelContainer theme is largely transparent + nearly invisible
+;; against forest/grass tiles per S92 user feedback).
 ;;
 ;; tooltip_text values set for AccessKit per ADR-0015 — TalkBack reads each
-;; slot's tooltip on focus. Production text gets populated by BattleHUD via
-;; the localization layer.
+;; slot's tooltip on focus. Tooltip body is populated by BattleHUD at refresh
+;; time (item name + effect + restriction via item.<id>.<aspect> locale keys).
+
+[sub_resource type="StyleBoxFlat" id="bg_style"]
+bg_color = Color(0.06, 0.06, 0.08, 0.92)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.78, 0.66, 0.31, 0.9)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+content_margin_left = 10.0
+content_margin_top = 8.0
+content_margin_right = 10.0
+content_margin_bottom = 8.0
 
 [node name="UI_GB_15_InventoryPanel" type="PanelContainer"]
 tooltip_text = "Inventory panel"
-custom_minimum_size = Vector2(160, 64)
+custom_minimum_size = Vector2(360, 120)
+theme_override_styles/panel = SubResource("bg_style")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
+theme_override_constants/separation = 6
+
+[node name="TitleLabel" type="Label" parent="VBoxContainer"]
+text = "인벤토리"
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.96, 0.88, 0.55, 1.0)
+theme_override_font_sizes/font_size = 16
+
+[node name="SlotsHBox" type="HBoxContainer" parent="VBoxContainer"]
+theme_override_constants/separation = 6
+
+[node name="Slot0Button" type="Button" parent="VBoxContainer/SlotsHBox"]
+tooltip_text = "Inventory slot 1"
+custom_minimum_size = Vector2(104, 48)
+text = ""
+size_flags_horizontal = 3
+
+[node name="Slot1Button" type="Button" parent="VBoxContainer/SlotsHBox"]
+tooltip_text = "Inventory slot 2"
+custom_minimum_size = Vector2(104, 48)
+text = ""
+size_flags_horizontal = 3
+
+[node name="Slot2Button" type="Button" parent="VBoxContainer/SlotsHBox"]
+tooltip_text = "Inventory slot 3"
+custom_minimum_size = Vector2(104, 48)
+text = ""
+size_flags_horizontal = 3
 
 [node name="ReadOnlyBanner" type="Label" parent="VBoxContainer"]
 text = ""
 visible = false
-
-[node name="SlotsHBox" type="HBoxContainer" parent="VBoxContainer"]
-
-[node name="Slot0Button" type="Button" parent="VBoxContainer/SlotsHBox"]
-tooltip_text = "Inventory slot 1"
-custom_minimum_size = Vector2(44, 44)
-text = ""
-
-[node name="Slot1Button" type="Button" parent="VBoxContainer/SlotsHBox"]
-tooltip_text = "Inventory slot 2"
-custom_minimum_size = Vector2(44, 44)
-text = ""
-
-[node name="Slot2Button" type="Button" parent="VBoxContainer/SlotsHBox"]
-tooltip_text = "Inventory slot 3"
-custom_minimum_size = Vector2(44, 44)
-text = ""
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.82, 0.62, 0.38, 1.0)
 
 [node name="FeedbackLabel" type="Label" parent="VBoxContainer"]
 text = ""
 visible = false
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(0.96, 0.88, 0.55, 1.0)

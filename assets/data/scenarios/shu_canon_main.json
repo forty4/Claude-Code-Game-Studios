@@ -44,6 +44,11 @@
         "1": "shu_003_zhang_fei",
         "6": "shu_002_guan_yu"
       },
+      "starting_inventory_by_hero": {
+        "shu_001_liu_bei": ["heal_potion", "", ""],
+        "shu_003_zhang_fei": ["heal_potion", "strength_scroll", ""],
+        "shu_002_guan_yu": ["strength_scroll", "fire_scroll", ""]
+      },
       "enemy_unit_ids": [
         2,
         3,

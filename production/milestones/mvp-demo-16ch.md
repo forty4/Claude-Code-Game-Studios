@@ -467,6 +467,21 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Layered UX gap diagnosis**: "재미없음" 같은 단일 사용자 보고가 actually 여러 layer 의 root cause 조합. 진단 시 surface-level fix 만 시도하면 underlying issue 누락 위험. mechanical + discoverability + visual + balance 의 4 layer 모두 inspect 필요.
 - **Selection-less fallback pattern**: 사용자 UX flow 가 "click then key" 이 아닌 "key directly" 일 수도. controller handler 들에 active turn unit fallback 추가 = UX simplification + felt 향상 — 다른 systems 도 같은 pattern 가능 (예: 미리보기 dismiss, 카메라 control).
 
+### S92 — G-30 windowed verify → Inventory Panel 다층 버그 연쇄 fix (2026-05-29 session 92)
+
+> **Driver**: S91 핸드오프 #1 (G-30 windowed verify) 를 사용자가 직접 실행 → Inventory Panel 이 windowed 에서 작동 안 함 발견. 4-layer diagnostic (G-32 패턴) 으로 3개 연쇄 버그 추적. headless 2068/2068 PASS 인데 windowed 3중 실패 = G-30 교과서 사례. 세션 종료 시 button-click 1건 UNCONFIRMED 상태 핸드오프.
+
+**상태: 2068/2068 PASS 유지 (0 errors / 0 failures / orphan 296→298 non-blocking). view-layer fix 라 headless test count 변동 없음 (G-30 — windowed 에서만 검증 가능).**
+
+- [x] **버그 #1 — chapter starting_inventory_by_hero 미author (FIXED)** — Phase B step 8 loader 는 wired 됐으나 `assets/data/scenarios/shu_canon_main.json` 의 어떤 chapter 도 inventory field 미author → 모든 슬롯 빈 칸 (`inv_size=0`). ch01 에 추가: 유비 `[heal_potion]` / 장비 `[heal_potion, strength_scroll]` / 관우 `[strength_scroll, fire_scroll]` (사용자 결정 = fire_scroll 포함으로 G-30 (d) verify 가능). ch02-16 미author (후속 batch).
+- [x] **버그 #2 — BattleHUD root size (0,0) → panel 음수 좌표 (FIXED, 중대)** — `battle_hud.gd:_ready()` 의 `set_anchors_preset(PRESET_FULL_RECT)` 가 keep_offsets=false 디폴트 → 인스턴스 시점 (0,0,0,0) rect 유지하려 offsets 재계산 → size (0,0) stuck → child anchor 계산이 parent_size=(0,0) 사용 → panel_pos=(-80,-148) 화면 밖. Fix: `set_anchors_and_offsets_preset(PRESET_FULL_RECT)` → (780,876) 정상화. UI-GB-15 positioning 도 명시적 anchor/offset 으로 변경. **godot-4x-gotchas G-33 codify 후보.**
+- [ ] **버그 #3 — slot button click 무반응 (UNCONFIRMED — S93 BLOCKER)** — panel 보임 + button rect 정상인데 클릭 시 gui_input 자체 미수신 (grid unit click 은 정상). leading 가설 = Godot 4.x Container 디폴트 MOUSE_FILTER_STOP 가 자식 Button 전에 click swallow. 적용 fix (UNTESTED): UI-GB-15 PanelContainer=STOP, 내부 VBox/HBox=PASS 명시. **세션 종료 전 windowed 재검증 못 함 → S93 최우선.**
+- [x] **UX clarity 개선 (사용자 선택)** — `ui_gb_15_inventory_panel.tscn` 전면 개편: StyleBoxFlat 배경 (검정 0.92 + 금색 테두리) + "인벤토리" 제목 + 360×120 확대 + 슬롯 균등분배. `_glyph_for_item` 가 "● 회복약" (glyph+이름). `_flash_inventory_success` = SELF 발화 성공 시 "● 회복약 사용 (+25)" 0.6초 표시 후 자동 close (기존 silent close 대체).
+
+**S92 핵심 결정**: (1) CanvasLayer 자식 Control 풀-viewport 는 반드시 `set_anchors_and_offsets_preset` (set_anchors_preset 아님). (2) Container 자식에 click 통과는 컨테이너 PASS 명시 필요 (UNCONFIRMED). (3) ch01 fire_scroll 포함으로 G-30 (d) 즉시 검증. (4) 발화 0.6초 피드백 dwell = Pillar #5 작동 인지 최소 UX.
+
+**S92 → S93 핸드오프**: **최우선 = 버그 #3 button-click windowed re-verify** (mouse_filter PASS fix 가 정답인지). 그 후 버그 #2 fix 의 HUD-01~14 regression 확인 → G-30 verify 4 동작 완주 → ch02-16 inventory authoring batch. 상세는 `production/session-state/active.md` S92 섹션.
+
 ### S91 (follow-up arc) — Phase B view-layer + save wiring polish (2026-05-27 session 91 follow-up)
 
 > **Driver**: After step 6+9 push + session-end request, the user resumed with "다음 진행" + AskUserQuestion-picked sequence: UI-GB-17 tile-click → 8b save side → UI-GB-16 per-polygon → i18n + tooltips. 4 follow-up commits in this continuous arc; Phase B follow-up 4/5 closed (G-30 windowed verify + 8b LOAD side both deferred for user action / mid-battle save trigger).
