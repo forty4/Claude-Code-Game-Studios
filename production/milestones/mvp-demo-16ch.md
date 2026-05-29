@@ -467,6 +467,27 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Layered UX gap diagnosis**: "재미없음" 같은 단일 사용자 보고가 actually 여러 layer 의 root cause 조합. 진단 시 surface-level fix 만 시도하면 underlying issue 누락 위험. mechanical + discoverability + visual + balance 의 4 layer 모두 inspect 필요.
 - **Selection-less fallback pattern**: 사용자 UX flow 가 "click then key" 이 아닌 "key directly" 일 수도. controller handler 들에 active turn unit fallback 추가 = UX simplification + felt 향상 — 다른 systems 도 같은 pattern 가능 (예: 미리보기 dismiss, 카메라 control).
 
+### S95 — 난이도/밸런스 검증 (raw feedback #1) + 챕터별 atk_mult 램프 1.25→1.70 (2026-05-29 session 95)
+
+> **Driver**: S94 머지 후 사용자 방향 선택 = "난이도/밸런스 검증" (raw feedback #1 "전반적으로 난이도가 너무 낮음" = 가장 오래된 미해결 raw feedback, S88 의 atk_mult 1.50 상향이 실플레이/모델 미검증 잔존). North Star 원칙: Pillar #5 *"이런 것들이 조합이 되어서 난이도가 결정된다"* → 난이도 압박이 있어야 전략 아이템이 의미를 가짐.
+
+**상태: headless 2083/2083 PASS (0 errors / 0 failures / 298 orphans baseline 유지). production .gd code 변경 0건 (데이터 + 테스트 sync + 신규 balance 하니스).**
+
+**1. balance 검증 하니스 신설** (`tools/ci/balance/ttk_matrix.gd`, telemetry > 추론): 실제 production `DamageCalc.resolve` + 실제 영웅 스탯(HeroDatabase) + 실제 HP 공식(UnitRole.get_max_hp) + 실제 raw_atk/raw_def 도출(battle_scene 미러) 로 손계산 아닌 엔진 계산 데미지/TTK 매트릭스 + 16챕터 난이도 요약 + mult 민감도. 손검증과 일치 확인 (유비→정원지 70−11=59, REAR 69×1.65=113).
+
+**2. 핵심 발견**:
+- **1.50 은 raw feedback #1 을 정확히 해소**: ch01 소모전 margin 이 mult 1.00 에서 **+0.89**(안 써도 이김 = "난이도 낮음") → 1.50 에서 **−1.16**(전략 레이어 안 쓰면 짐) 으로 부호 역전. S88 상향은 모델상 옳았음.
+- **형세(Pillar #1) 강력 작동**: 정원지→유비 FRONT 62 / FLANK 82 / REAR 113 (4/3/2 hits). 포위·배후 = 치명. "여포도 포위당하면 위험" 수치 입증.
+- **(가장 actionable) 곡선이 평평 + 후반 역전**: flat 1.50 → 초반(ch01 튜토리얼)이 climax(ch16)만큼 가혹, 후반은 로스터 6~7명으로 *더 쉬워짐* (DEFEAT_ALL margin ch01 −1.16 → ch11~14 +1.3~+1.4).
+
+**3. 적용: 챕터별 enemy_atk_mult 램프** (사용자 승인, `shu_canon_main.json` ch01-16, addition-free 14줄 diff, JSON valid): ch01 **1.25**(도원결의 튜토리얼 onboarding) → ch02-07 1.30~1.45 → ch08-09 1.50 → ch10-16 1.55~**1.70**(낙봉파 ★ climax 최고난도). ch17-25 는 MVP scope 밖이라 1.50 유지. 승리 타입별 지표 검증: DEFEAT_ALL=소모전 margin, SURVIVE/BOSS/REACH=alpha_ratio(지휘관 집중사격 생존). 곡선 단조 상승 확인.
+
+**4. 테스트 sync**: `ch01_vertical_slice_sentinel_test.gd` AC-3 (`enemy_atk_mult == 1.50` → `1.25`) + 헤더/주석 S95 램프 근거. `battle_scene_unit_class_propagation_test.gd` 의 ENEMY_ATK_MULT 0.7 테스트는 글로벌 폴백 경로(챕터 override 미로드)라 무관 — 변경 불요.
+
+**한계 (정직히)**: ① 모델은 방어태세(−50%)·지형·반격(0.5×)·command_aura·아이템·AI불완전성·도달가능성 제외한 **최악 하한** — 실난이도는 더 관대. ② 후반 DEFEAT_ALL(ch11-14)은 6v4 로스터 비대칭으로 mult 1.65 에도 attrition-편함 (mult 로 불가, 적 수/강함 조정 = 별도 범위). ③ windowed 실플레이 telemetry 미수집 (골드 스탠다드).
+
+**S95 → S96 핸드오프**: raw feedback #1 모델-검증 완료 + 램프 적용. 다음 fun 레버 후보 — (a) windowed 실플레이 telemetry (램프 실전 검증, 골드 스탠다드) (b) 후반 로스터 비대칭 정면 대응 (적 수/강함 = 한계 #2) (c) 아이템 breadth — ENEMY 디버프 축 (substrate 작업) (d) fire_scroll AoE tile-click commit windowed 클로즈 (잔존). **커밋 상태**: 미커밋 — user 결정 대기.
+
 ### S94 — cross-hero ALLY 아이템 2종 (Pillar #5 "다른 장수를 도와주거나" 축 신설) (2026-05-29 session 94)
 
 > **Driver**: S93 머지 후 사용자 방향 선택 = "아이템/책략권 종류 확장 (Pillar #5 breadth)". 핵심 통찰: 기존 4종이 전부 SELF/GROUND → North-Star raw feedback #6 의 *"다른 장수를 도와주거나"* (cross-hero 지원) 축이 mechanical 0. ALLY target_mode 는 완전히 설계됐으나 (battle_unit.gd:257 + UI-GB-17 §3.5.3 금록 palette + chapter_visuals COLOR_ITEM_TARGET_ALLY) 작동시키는 아이템이 없어 dormant 상태였음.

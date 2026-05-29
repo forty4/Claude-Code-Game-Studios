@@ -59,7 +59,7 @@
 
 S86 manual playtest 에서 사용자가 직접 던진 단어들. **이게 게임의 약점이다.**
 
-1. **"전반적으로 난이도가 너무 낮음"** → atk_mult 0.55-0.80 → 0.95 → 1.15 → **1.50** (S88). 추가 verify 필요.
+1. **"전반적으로 난이도가 너무 낮음"** → atk_mult 0.55-0.80 → 0.95 → 1.15 → 1.50 (S88) → **S95 검증 + 챕터별 램프 1.25→1.70** (flat 1.50 폐기). S95 balance 하니스(`tools/ci/balance/ttk_matrix.gd`, 실제 `DamageCalc.resolve` 기반)로 입증: mult 1.00 에선 소모전 margin **+0.89**(안 써도 이김 = "난이도 낮음"), 1.50 에선 **−1.16**(전략 레이어 안 쓰면 짐) — Pillar #5 가 작동. flat 1.50 은 초반(튜토리얼)이 climax 만큼 가혹 + 후반 로스터 증가로 역전 → 램프로 교정(ch01 1.25 onboarding ↔ ch16 1.70 ★). **잔존**: ① 후반 DEFEAT_ALL 은 6v4 로스터 비대칭으로 여전히 attrition-편함(mult 로 불가, 적 수/강함 별도) ② windowed 실플레이 telemetry 미수집(모델은 최악 하한, 골드 스탠다드는 windowed).
 2. **"공격수단 평타뿐"** → S86 까지 14 skill 중 다수 unwired. S86-S87 에서 14/14 wire + S 키 routing fix (G-32 codify).
 3. **"재미없음"** (raw) → root cause = layered UX gap (mechanical + discoverability + visual feedback). 단일 layer fix 로 해소 불가.
 4. **"S 키 눌러도 차이 없음"** → InputRouter `_did_visible_work` gate silent drop. 3차 진단 끝에 fix (S86) + G-32 codify (S87).
