@@ -467,6 +467,30 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Layered UX gap diagnosis**: "재미없음" 같은 단일 사용자 보고가 actually 여러 layer 의 root cause 조합. 진단 시 surface-level fix 만 시도하면 underlying issue 누락 위험. mechanical + discoverability + visual + balance 의 4 layer 모두 inspect 필요.
 - **Selection-less fallback pattern**: 사용자 UX flow 가 "click then key" 이 아닌 "key directly" 일 수도. controller handler 들에 active turn unit fallback 추가 = UX simplification + felt 향상 — 다른 systems 도 같은 pattern 가능 (예: 미리보기 dismiss, 카메라 control).
 
+### S93 — S92 블로커 windowed-CONFIRMED (first windowed smoke harness) + ch02-16 inventory authoring (2026-05-29 session 93)
+
+> **Driver**: 사용자 "게임 좀 재미있게 만들어 보자" → 방향 선택 "전략 레이어 살리기" (이미 만든 Pillar #5 가 실전 작동 안 하면 재미를 만질 수 없음 = 가장 직접적 fun 경로).
+
+**상태: headless 2068/2068 PASS (0 errors / 0 failures / 298 orphans baseline). production .gd code 변경 0건. commit `a55693d` on branch `feat/strategy-ch02-16-inventory` (5 files / 636 insertions / addition-only).**
+
+**1. S92 BLOCKER 해소 + windowed 확정 — 프로젝트 최초 windowed smoke 하니스**:
+- `tools/ci/g30/g30_inventory_smoke.{gd,tscn}` — G-30 §Correct step 6 처방 그대로: `get_viewport().push_input(InputEventMouseButton, in_local_coords=true)` 로 슬롯 버튼 center 에 실제 클릭 합성 → 핸들러 발화 + `gui_get_hovered_control` + rect/z/mouse_filter 덤프 + 스크린샷. windowed boot (Metal 4.0) → ch01 dev_jump → StoryBeatScreen `advance()` dismiss → 패널 open → 클릭.
+- **4개 G-30 동작 전부 windowed-CONFIRMED**: (a) I-key open (패널 mount+렌더 정상, S92 bug #1/#2 시각 확인) (b) SELF 발화+success flash+auto-close (관우 strength_scroll → CLICK_REACHED_BUTTON=true + unit_item_used + "★ 맹공권 사용" + 0.6s close) (c) UI-GB-16 buff glyph visible (d) fire_scroll GROUND overlay (21-tile r3 disc + crosshair 렌더).
+- **결론**: S92 의 mouse_filter fix (panel=STOP / inner=PASS) 옳았음. button-click 무반응은 fix 후 해소됐고 미검증 상태였을 뿐. bug #3 CLOSED. **production code 수정 불필요 — 전략 레이어는 이미 작동 중이었음.**
+- 유일 미합성 sub-동작: fire_scroll AoE tile-click commit (grid-click 경로는 기존 windowed-OK + arc-F 6 test 커버). arming+overlay 는 windowed 확인됨.
+
+**2. ch02-16 starting_inventory_by_hero authoring — fun 을 데모 전체로 확산**:
+- S92 는 ch01 만 author → fun 이 ch01 에만 존재. S93 에서 ch02-16 전부 author (사용자 승인 draft).
+- **Pillar #3** hero 별 고정 kit: 유비 heal+strength / 관우 fire+strength / 장비 strength+heal / 조운 march+fire / 황충 strength+heal·march / 제갈량·방통 heal+march / 초선 march+heal / 손권 heal+fire / 주유 strength+heal.
+- **Pillar #5** fire_scroll cross-class 게이트 (INFANTRY/CAVALRY/COMMANDER + INT≥60): 적격 유비(75)·관우(60)·조운(75)·손권(70)·위연(65) / 부적격 장비(INF **50**)·황충(ARC)·제갈량·방통·주유(STRAT)·초선(SCOUT). 장비 INFANTRY 인데 INT 50 막힘 / 위연 INFANTRY INT 65 통과 = 의도된 차별화.
+- 난이도 공선: 초반 1개/명 → 후반 2개/명. 화공 챕터 테마 (박망파 ch04 / 신야 ch05 / **적벽 ch10 = peak 3 fire holders**). per-chapter fire holders: ch01-03:1, ch04-05:2, ch06:0(장판파 retreat), ch07-08:1, ch09:2, ch10:3, ch11-13:2, ch14-16:3.
+- **branch-override join heroes 커버** (하니스 verify 중 발견한 gap): 관우(ch07 WIN_changbanpo), 초선(ch09 WIN_xiakou), **위연(ch14-16 canonical WIN_changsha_wei_yan_defects)**. loader 가 hero_id 로 키잉 → 해당 chapter 블록에 hero 키 추가 = 등장 시 적용/부재 시 dormant. 위연 ch16 [] → [fire_scroll, strength_scroll] windowed 확인.
+- author 방식: `tools/ci/g30/author_inventory.py` targeted text insertion (ch01 inline-array style 매칭) → +111 lines / 0 deletions / JSON valid / round-trip 검증. json round-trip (배열 expand → noisy diff) 회피.
+
+**S93 → S94 핸드오프**: 다음 fun 레버 후보 — (a) fire_scroll tile-click commit windowed 완전 클로즈 (b) 아이템 종류 확장 (현 4종 → cross-class 책략권/지원 다양화, Pillar #5 breadth) (c) 난이도/밸런스 (atk_mult 1.50 verify, raw feedback "난이도 낮음") (d) ch17-25 inventory (out of MVP scope). **branch `feat/strategy-ch02-16-inventory` 미머지 — main merge 여부 user 결정.**
+
+---
+
 ### S92 — G-30 windowed verify → Inventory Panel 다층 버그 연쇄 fix (2026-05-29 session 92)
 
 > **Driver**: S91 핸드오프 #1 (G-30 windowed verify) 를 사용자가 직접 실행 → Inventory Panel 이 windowed 에서 작동 안 함 발견. 4-layer diagnostic (G-32 패턴) 으로 3개 연쇄 버그 추적. headless 2068/2068 PASS 인데 windowed 3중 실패 = G-30 교과서 사례. 세션 종료 시 button-click 1건 UNCONFIRMED 상태 핸드오프.
