@@ -1,8 +1,9 @@
 # Strategy Systems — 도구 · 책략권 · 행동 연쇄
 
-> **Status**: In Design — **v0.3 (S89 close — INT scale alignment + INT_BASELINE lock)**
-> **Author**: claude (S89 user-driver collaborative draft + 3-specialist narrow re-review fix + INT_BASELINE adjudication)
-> **Last Updated**: 2026-05-26 (S89 close — v0.3 INT alignment with heroes.json stat_intellect)
+> **Status**: Implemented (Phase B + S94 extension) — **v0.4 (S94 — cross-hero ALLY 축 신설)**
+> **Author**: claude (S89 user-driver collaborative draft + 3-specialist narrow re-review fix + INT_BASELINE adjudication; S94 ALLY items)
+> **Last Updated**: 2026-05-29 (S94 — aid_potion + rally_scroll cross-hero ALLY items implemented + windowed-verified)
+> **Change log (v0.3 → v0.4)**: S94 — raw feedback #6 의 cross-hero 지원 축 ("다른 장수를 도와주거나") 이 mechanical 0 이던 gap 해소. `aid_potion` (구호약, ALLY heal +20) + `rally_scroll` (독려권, ALLY next-attack ×1.30) 2종 구현 — 둘 다 self 제외 (cross-hero only). §3.7 item table + §7 tuning knobs (ALLY_SUPPORT_RANGE / AID_POTION_AMOUNT / RALLY_SCROLL_MULT) 반영. +15 test (2068→2083 PASS) + windowed G-30 verify PASS. damage-calc / BattleUnit 필드 / view-layer 변경 0 (기존 substrate 재사용; ALLY 금록 palette 는 S91 arc-F 가 이미 author).
 > **Change log (v0.2 → v0.3)**: hero-database.md INT sweep audit revealed `stat_intellect` field already exists for all 19 named heroes (0-100 scale per ADR-0007). v0.2 의 INT 5-9 abstract scale 표기를 v0.3 에서 stat_intellect 0-100 직접 매핑으로 변경 — 데이터 중복 제거 + cross-doc grep 가능. User adjudicated INT_BASELINE = **60** (보더라인): 장비/허저/여포 (stat_intellect=50) 거부 + 관우/황충/마초 (60) 통과 + 위연/우금 (65) 통과 + 조운/유비/초선 (75) 이상 통과. Pillar #3 보호 (무력형 극단 차단) + 대부분 hero cross-class 책략 가능성 균형.
 > **Change log (v0.1 → v0.2)**: 3-specialist narrow re-review (godot-gdscript-specialist + ux-designer + qa-lead) returned NEEDS REVISION × 2 + CONCERNS × 1 with 11 blocking findings. All 11 resolved via specialist-authored fix language. 2 user adjudications (binding): (A) Inventory panel anchor = Option B (bottom-center modal); (B) `command_scroll` DEFERRED to Phase 4+ — Phase B MVP item set reduced to 4 (heal_potion / strength_scroll / march_scroll / fire_scroll). Review log: `design/gdd/reviews/strategy-systems-review-log.md`.
 > **Implements Pillar**: **Pillar 5 (전략적 조합 — Strategic Combinations)** primary; Pillar 1 (형세의 전술 — 책략권의 적정 사용은 적 형세 와해의 도구) supporting; Pillar 3 (역할 차별화 — 책략권 class 제한으로 강화) supporting
@@ -213,11 +214,15 @@ Pillar 3 ("모든 무장에게 자리가 있다") 가 책략권 시스템의 가
 | `strength_scroll` | 강공권 | buff | SELF | next attack/skill +50% | none | none | **B 필수** |
 | `march_scroll` | 행군초 | immediate | SELF | 즉시 +2 movement (이번 turn 의 잔여 move 한정) | none | none | **B 필수** |
 | `fire_scroll` | 화공권 | scroll | ALLY/ENEMY pos | fire_strategy skill 1회 발화 | INFANTRY, CAVALRY, COMMANDER 만 (STRATEGIST/SCOUT 불가 — STRATEGIST 는 native fire_strategy 보유) | `stat_intellect ≥ 60` | **B 필수** |
+| `aid_potion` | 구호약 | immediate | **ALLY** (non-self) | 사정거리 Manhattan ≤3 아군 1명 HP +20 | none | none | **B+ 구현 (S94)** |
+| `rally_scroll` | 독려권 | buff | **ALLY** (non-self) | 사정거리 Manhattan ≤3 아군 1명에게 next attack/skill +30% (대상의 `pending_buff` carry) | none | none | **B+ 구현 (S94)** |
 | `revive_pill` | 부활단 | immediate | ALLY (downed) | HP 50% 부활 | none | none | C extension |
 | `accuracy_scroll` | 정확권 | buff | SELF | next attack accuracy +30 (또는 crit +25%) | none | none | C extension |
 | ~~`command_scroll`~~ | ~~작전권~~ | — | — | **DEFERRED to Phase 4+** per S89 user adjudication (turn-queue mid-round mutation = TurnOrderRunner hard invariant; ADR required). | — | — | **Phase 4+** |
 
 **Phase B 4 MVP items 으로 Pillar #5 입증 가능**: heal (생존 챕터의 자기 보호) + strength (다음 turn 공격 강화 — 2-turn plan) + march (이동 후 추가 이동 — 위치 puzzle) + fire (cross-class 책략 — INFANTRY 가 평소 못 쓰는 화공 사용).
+
+**v0.4 (S94) — cross-hero ALLY 축 신설**: MVP 4종이 전부 SELF/GROUND 라 raw feedback #6 의 *"다른 장수를 도와주거나"* 축이 mechanical 0 이었음. `aid_potion` (cross-hero heal) + `rally_scroll` (cross-hero next-attack buff) 2종으로 **ALLY target 축**을 작동시킴. 둘 다 **self 제외** (`_find_ally_target_at` 가 caster 본인 배제) — self 는 heal_potion/strength_scroll 가 담당 → 역할 차별화 sharp (Pillar #3). 사정거리 = caster Manhattan ≤ ALLY_SUPPORT_RANGE(3) 의 ally-occupied 타일만 (형세 관련성 = Pillar #1 supporting). UI-GB-17 ALLY 금록 palette 사용. 구현 위치: `grid_battle_controller.gd` (`_use_item_aid_potion` / `_use_item_rally_scroll` / `_find_ally_target_at` / `get_item_target_tiles` ALLY arm) + `battle_hud.gd` (`_ITEM_TARGET_TYPE` ALLY + glyph ✚/⚑). 분배: 유비(COMMANDER, 지원 리더) 전 16챕터 + 제갈량 8챕터. windowed G-30 verify PASS (`tools/ci/g30/g30_inventory_smoke.gd -- ally`).
 
 ---
 
@@ -356,6 +361,9 @@ Phase B 는 이 item 우회 가능 — 4 MVP items (heal/strength/march/fire) �
 | `HEAL_POTION_AMOUNT` | 25 | [15, 40] | heal_potion HP 회복량. max_hp 기준 ~25% baseline. |
 | `STRENGTH_SCROLL_MULT` | 1.50 | [1.25, 2.00] | 강공권 attack multiplier. 1.50 = 의미있는 boost / 무쌍 안 됨 균형. |
 | `MARCH_SCROLL_BONUS` | 2 | [1, 4] | march_scroll 추가 move tile. 2 = 1 tile attack range 회피 / 적 진입 마무리. |
+| `ALLY_SUPPORT_RANGE` (S94) | 3 | [2, 4] | aid_potion / rally_scroll 의 cross-hero 사정거리 (Manhattan). fire_scroll FIRE_RANGE 와 동일 = 형세 관련성 (Pillar #1). 2 = 인접 위주(빡셈) / 4 = 너무 관대(위치 압박 ↓). |
+| `AID_POTION_AMOUNT` (S94) | 20 | [15, 30] | 구호약 cross-hero 회복량. heal_potion(25) 보다 약간 낮음 = 원거리 지원 비용. |
+| `RALLY_SCROLL_MULT` (S94) | 1.30 | [1.20, 1.50] | 독려권 cross-hero attack multiplier. strength_scroll(1.50) 보다 약함 = 지원 flavor + Pillar #3 ("강캐 단독 무쌍" 차단). |
 | `INT_SCALING_RATE` (damage-calc.md rev 2.9.4) | 0.005 | [0.002, 0.010] | stat_intellect 1점 당 화공권 / native fire_strategy damage bonus 비율. 0.005 = stat_intellect 99 제갈량 native 가 60 baseline 보다 +19.5% 효과. |
 | `BUFF_EXPIRY_TURNS` | 1 | [1, 2] | buff carry 지속. 1 = 다음 turn 의 첫 attack 까지만. 2 = future scope. |
 | `COMMAND_SCROLL_PER_ROUND_LIMIT_PER_HERO` | 1 | [1, 2] | hero 당 round 당 작전권 수신 한계. 1 = 영걸전 reference. **Phase 4+ DEFER**. |
