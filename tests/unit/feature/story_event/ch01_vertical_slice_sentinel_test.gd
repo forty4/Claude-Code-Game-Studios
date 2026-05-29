@@ -5,7 +5,7 @@
 ## 1. 황건 4 hero records (yel_001-004) exist in heroes.json, faction = 3 (QUNXIONG),
 ##    innate_skill_ids empty.
 ## 2. ch01 enemy_roster references only `yel_*` hero_ids (no `wei_*`).
-## 3. ch01 tuning: enemy_atk_mult == 0.95, chokepoints length == 4 [[5,4],[6,4],[7,4],[8,4]].
+## 3. ch01 tuning: enemy_atk_mult == 1.25 (S95 ramp), chokepoints length == 4 [[5,4],[6,4],[7,4],[8,4]].
 ## 4. ch01 branch_table is priming-null: keys exactly {WIN_default, LOSS_default} per
 ##    destiny-branch.md CR-13. Regression sentinel against future ★ leak.
 ## 5. ch01 Beat 8 default-WIN body contains ch05 seed substrings (백성을 지킬 날 / 신야의 흙길).
@@ -77,16 +77,20 @@ func test_ch01_roster_is_yellow_turban() -> void:
 		).is_true()
 
 
-# AC-3 — tuning values: enemy_atk_mult 1.50 + chokepoint 4 칸 정확값
+# AC-3 — tuning values: enemy_atk_mult 1.25 + chokepoint 4 칸 정확값
 # S86 bumped 0.95 → 1.15 after "여전히 너무 쉬움". S88 bumped 1.15 → 1.50
 # after user last battle TURN_LIMIT_REACHED DRAW + "전반적으로 난이도가 너무 낮음"
-# raw report. 1.50 is the global baseline for ch01-ch25.
+# raw report. S95 balance-verification harness (tools/ci/balance/ttk_matrix.gd)
+# replaced the flat 1.50 with a per-chapter ramp 1.25→1.70: ch01 (도원결의
+# tutorial) eased 1.50 → 1.25 so the onboarding chapter teaches the strategic
+# layer instead of demanding it (attrition margin −1.16 → −0.43). Late chapters
+# raised to counter roster growth; ch16 (낙봉파 ★) hardest at 1.70.
 func test_ch01_tuning_values_aligned() -> void:
 	var ch01: Dictionary = _ch01_record()
 	var atk_mult: float = ch01.get("enemy_atk_mult", 0.0) as float
 	assert_float(atk_mult).override_failure_message(
-		"ch01 enemy_atk_mult != 1.50 (긴장감 tuning regression — S88 baseline)"
-	).is_equal_approx(1.50, 0.0001)
+		"ch01 enemy_atk_mult != 1.25 (S95 difficulty-ramp regression — ch01 tutorial ease)"
+	).is_equal_approx(1.25, 0.0001)
 	var chokepoints: Array = ch01.get("chokepoints", []) as Array
 	assert_int(chokepoints.size()).override_failure_message(
 		"ch01 chokepoints size != 4 (도로 4칸 일렬 regression)"

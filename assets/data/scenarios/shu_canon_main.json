@@ -125,7 +125,7 @@
           4
         ]
       ],
-      "enemy_atk_mult": 1.50,
+      "enemy_atk_mult": 1.25,
       "victory_conditions": {
         "primary_condition_type": 0
       },
@@ -249,7 +249,7 @@
           4
         ]
       ],
-      "enemy_atk_mult": 1.50,
+      "enemy_atk_mult": 1.30,
       "victory_conditions": {
         "primary_condition_type": 1,
         "survive_rounds": 5
@@ -395,7 +395,7 @@
           7
         ]
       ],
-      "enemy_atk_mult": 1.50,
+      "enemy_atk_mult": 1.35,
       "victory_conditions": {
         "primary_condition_type": 0
       },
@@ -547,7 +547,7 @@
           4
         ]
       ],
-      "enemy_atk_mult": 1.50,
+      "enemy_atk_mult": 1.40,
       "victory_conditions": {
         "primary_condition_type": 0
       },
@@ -715,7 +715,7 @@
         ],
         "evacuate_zone_max_col": 0
       },
-      "enemy_atk_mult": 1.50,
+      "enemy_atk_mult": 1.45,
       "victory_conditions": {
         "primary_condition_type": 1,
         "survive_rounds": 5
@@ -847,7 +847,7 @@
           4
         ]
       ],
-      "enemy_atk_mult": 1.50,
+      "enemy_atk_mult": 1.45,
       "victory_conditions": {
         "primary_condition_type": 1,
         "survive_rounds": 5
@@ -981,7 +981,7 @@
           }
         }
       },
-      "enemy_atk_mult": 1.50,
+      "enemy_atk_mult": 1.45,
       "victory_conditions": {
         "primary_condition_type": 2,
         "target_unit_ids": [
@@ -1505,7 +1505,7 @@
           6
         ]
       ],
-      "enemy_atk_mult": 1.50,
+      "enemy_atk_mult": 1.55,
       "victory_conditions": {
         "primary_condition_type": 1,
         "survive_rounds": 5
@@ -1648,7 +1648,7 @@
           4
         ]
       ],
-      "enemy_atk_mult": 1.50,
+      "enemy_atk_mult": 1.55,
       "victory_conditions": {
         "primary_condition_type": 0
       },
@@ -1790,7 +1790,7 @@
           4
         ]
       ],
-      "enemy_atk_mult": 1.50,
+      "enemy_atk_mult": 1.60,
       "victory_conditions": {
         "primary_condition_type": 0
       },
@@ -1945,7 +1945,7 @@
           5
         ]
       ],
-      "enemy_atk_mult": 1.50,
+      "enemy_atk_mult": 1.60,
       "victory_conditions": {
         "primary_condition_type": 0
       },
@@ -2160,7 +2160,7 @@
           }
         }
       },
-      "enemy_atk_mult": 1.50,
+      "enemy_atk_mult": 1.65,
       "victory_conditions": {
         "primary_condition_type": 0
       },
@@ -2316,7 +2316,7 @@
           5
         ]
       ],
-      "enemy_atk_mult": 1.50,
+      "enemy_atk_mult": 1.65,
       "victory_conditions": {
         "primary_condition_type": 3,
         "target_unit_ids": [
@@ -2563,7 +2563,7 @@
           5
         ]
       ],
-      "enemy_atk_mult": 1.50,
+      "enemy_atk_mult": 1.70,
       "victory_conditions": {
         "primary_condition_type": 1,
         "survive_rounds": 4
