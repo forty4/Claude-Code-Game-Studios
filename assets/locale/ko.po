@@ -272,6 +272,15 @@ msgstr "아군 다음 공격 ×1.3 피해"
 msgid "item.rally_scroll.restriction_label"
 msgstr ""
 
+msgid "item.intimidate_scroll.name"
+msgstr "협박권"
+
+msgid "item.intimidate_scroll.effect"
+msgstr "적 다음 공격 ×0.7 약화"
+
+msgid "item.intimidate_scroll.restriction_label"
+msgstr ""
+
 msgid "item.reject.action_spent"
 msgstr "이미 행동했습니다"
 

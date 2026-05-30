@@ -550,6 +550,11 @@ func _start_battle() -> void:
 	# per-polygon attachment is the spec design.
 	if _grid_controller.has_signal(&"unit_pending_buff_changed"):
 		_grid_controller.unit_pending_buff_changed.connect(_on_unit_pending_buff_changed)
+	# S97 — ENEMY-disrupt debuff (intimidate_scroll). Distinct red ▼ DebuffBadge
+	# so an intimidated enemy doesn't show the gold ▶ buff glyph (misreads as
+	# "enemy got stronger"). Mirrors the buff subscription above.
+	if _grid_controller.has_signal(&"unit_pending_debuff_changed"):
+		_grid_controller.unit_pending_debuff_changed.connect(_on_unit_pending_debuff_changed)
 
 	# === STEP 5.5: AISystem (ADR-0019) — battle-scoped Node 6th invocation ===
 	# Inserted via /architecture-review delta #14 2026-05-05 per ADR-0016 §3 R-3
@@ -3097,6 +3102,41 @@ func _on_unit_pending_buff_changed(unit_id: int, has_buff: bool) -> void:
 		# offsets slightly inward to allow co-existence on the same polygon
 		# (a unit could be both defending AND carrying a buff after move).
 		badge.position = Vector2(18, -18)
+		badge.size = Vector2(16, 16)
+		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		poly.add_child(badge)
+	else:
+		if existing != null:
+			existing.queue_free()
+
+
+## S97 — ENEMY-disrupt DebuffBadge (intimidate_scroll). Mirrors
+## _on_unit_pending_buff_changed but renders a RED ▼ "DebuffBadge" so an
+## intimidated enemy reads as weakened (the gold ▶ BuffBadge would misread as
+## "stronger"). Upper-right slot offset slightly below the buff badge so a unit
+## carrying both (rare cross-side edge) keeps them distinguishable.
+func _on_unit_pending_debuff_changed(unit_id: int, has_debuff: bool) -> void:
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null:
+		return
+	var poly: Node2D = _find_unit_polygon(visuals, unit_id)
+	if poly == null:
+		return
+	var existing: Node = poly.get_node_or_null("DebuffBadge")
+	if has_debuff:
+		if existing != null:
+			return  # idempotent — badge already shown
+		var badge: Label = Label.new()
+		badge.name = "DebuffBadge"
+		badge.text = "▼"
+		# Red glyph with dark outline — danger/weakened vocabulary, distinct from
+		# the gold BuffBadge.
+		badge.add_theme_color_override("font_color", Color(0.92, 0.30, 0.26, 1.0))
+		badge.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.05, 1.0))
+		badge.add_theme_constant_override("outline_size", 6)
+		badge.add_theme_font_size_override("font_size", 16)
+		badge.rotation = -poly.rotation
+		badge.position = Vector2(18, 0)  # below BuffBadge (-18) / DefendBadge (-34)
 		badge.size = Vector2(16, 16)
 		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		poly.add_child(badge)

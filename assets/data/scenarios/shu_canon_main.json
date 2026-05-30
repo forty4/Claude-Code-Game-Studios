@@ -1566,7 +1566,7 @@
         "shu_002_guan_yu": ["fire_scroll", "strength_scroll", ""],
         "shu_005_zhao_yun": ["march_scroll", "fire_scroll", ""],
         "shu_004_huang_zhong": ["strength_scroll", "march_scroll", ""],
-        "shu_006_zhuge_liang": ["heal_potion", "march_scroll", "rally_scroll"]
+        "shu_006_zhuge_liang": ["heal_potion", "intimidate_scroll", "rally_scroll"]
       },
       "enemy_unit_ids": [
         2,
@@ -1718,7 +1718,7 @@
         "shu_002_guan_yu": ["fire_scroll", "march_scroll", ""],
         "shu_005_zhao_yun": ["march_scroll", "fire_scroll", ""],
         "shu_004_huang_zhong": ["march_scroll", "strength_scroll", ""],
-        "shu_006_zhuge_liang": ["march_scroll", "heal_potion", "rally_scroll"]
+        "shu_006_zhuge_liang": ["intimidate_scroll", "heal_potion", "rally_scroll"]
       },
       "enemy_unit_ids": [
         2,
@@ -1883,7 +1883,7 @@
         "shu_002_guan_yu": ["fire_scroll", "strength_scroll", ""],
         "shu_005_zhao_yun": ["march_scroll", "fire_scroll", ""],
         "shu_004_huang_zhong": ["strength_scroll", "heal_potion", ""],
-        "shu_006_zhuge_liang": ["heal_potion", "march_scroll", "rally_scroll"]
+        "shu_006_zhuge_liang": ["heal_potion", "intimidate_scroll", "rally_scroll"]
       },
       "enemy_unit_ids": [
         2,
@@ -2035,7 +2035,7 @@
         "shu_002_guan_yu": ["fire_scroll", "strength_scroll", ""],
         "shu_005_zhao_yun": ["march_scroll", "fire_scroll", ""],
         "shu_004_huang_zhong": ["strength_scroll", "march_scroll", ""],
-        "shu_006_zhuge_liang": ["heal_potion", "march_scroll", "rally_scroll"],
+        "shu_006_zhuge_liang": ["heal_potion", "intimidate_scroll", "rally_scroll"],
         "shu_009_wei_yan": ["strength_scroll", "fire_scroll", ""]
       },
       "enemy_unit_ids": [
@@ -2264,8 +2264,8 @@
         "shu_002_guan_yu": ["fire_scroll", "march_scroll", ""],
         "shu_005_zhao_yun": ["march_scroll", "fire_scroll", ""],
         "shu_004_huang_zhong": ["march_scroll", "strength_scroll", ""],
-        "shu_006_zhuge_liang": ["heal_potion", "march_scroll", "rally_scroll"],
-        "shu_007_pang_tong": ["heal_potion", "march_scroll", ""],
+        "shu_006_zhuge_liang": ["heal_potion", "intimidate_scroll", "rally_scroll"],
+        "shu_007_pang_tong": ["heal_potion", "march_scroll", "intimidate_scroll"],
         "shu_009_wei_yan": ["fire_scroll", "march_scroll", ""]
       },
       "enemy_unit_ids": [
@@ -2511,8 +2511,8 @@
         "shu_002_guan_yu": ["fire_scroll", "strength_scroll", ""],
         "shu_005_zhao_yun": ["march_scroll", "fire_scroll", ""],
         "shu_004_huang_zhong": ["strength_scroll", "heal_potion", ""],
-        "shu_006_zhuge_liang": ["heal_potion", "march_scroll", "rally_scroll"],
-        "shu_007_pang_tong": ["heal_potion", "march_scroll", ""],
+        "shu_006_zhuge_liang": ["heal_potion", "intimidate_scroll", "rally_scroll"],
+        "shu_007_pang_tong": ["heal_potion", "march_scroll", "intimidate_scroll"],
         "shu_009_wei_yan": ["fire_scroll", "strength_scroll", ""]
       },
       "enemy_unit_ids": [

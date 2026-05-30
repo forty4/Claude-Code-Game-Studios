@@ -274,6 +274,15 @@ msgstr "Ally's next attack x1.3 damage"
 msgid "item.rally_scroll.restriction_label"
 msgstr ""
 
+msgid "item.intimidate_scroll.name"
+msgstr "Intimidation Scroll"
+
+msgid "item.intimidate_scroll.effect"
+msgstr "Enemy's next attack x0.7 weakened"
+
+msgid "item.intimidate_scroll.restriction_label"
+msgstr ""
+
 msgid "item.reject.action_spent"
 msgstr "Action already used"
 

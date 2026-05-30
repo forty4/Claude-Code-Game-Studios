@@ -236,6 +236,7 @@ const _ITEM_TARGET_TYPE: Dictionary[StringName, StringName] = {
 	&"fire_scroll": &"GROUND",
 	&"aid_potion": &"ALLY",
 	&"rally_scroll": &"ALLY",
+	&"intimidate_scroll": &"ENEMY",
 }
 ## S86 — prominent active-turn banner at top-center. Surfaces hero name + skill
 ## name + key hints (S/D/Tab) so players don't need to read the bottom hint label
@@ -2406,6 +2407,7 @@ func _glyph_only_for_item(item_id: StringName) -> String:
 		&"march_scroll": return "→"
 		&"aid_potion": return "✚"
 		&"rally_scroll": return "⚑"
+		&"intimidate_scroll": return "⚔"
 		_: return "?"
 
 

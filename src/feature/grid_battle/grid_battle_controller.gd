@@ -251,6 +251,14 @@ signal unit_item_used(unit_id: int, item_id: StringName, slot_idx: int, actual_e
 ## to toggle the glyph visibility.
 signal unit_pending_buff_changed(unit_id: int, has_buff: bool)
 
+## S97: emitted when a unit's pending_buff transitions for a DEBUFF (kind
+## "intimidate" — magnitude < 1.0, set via intimidate_scroll on an ENEMY).
+## Distinct from unit_pending_buff_changed so the view shows a RED ▼ DebuffBadge
+## (a positive ▶ BuffBadge on an enemy would misread as "enemy got stronger").
+## The debuff reuses the pending_buff carry + _resolve_pending_buff_magnitude
+## (no separate field / damage-calc change); only the signal routes by kind.
+signal unit_pending_debuff_changed(unit_id: int, has_debuff: bool)
+
 ## S91 Phase B step 9: emitted by GridBattleController.begin_item_target_selection /
 ## clear_item_target_selection so UI-GB-17 (per-tile tint overlay) can render
 ## valid item-target tiles. `palette` carries the target_type category
@@ -2283,9 +2291,10 @@ func use_item(unit_id: int, slot_idx: int, target_pos: Vector2i = Vector2i(-1, -
 	# Item dispatch — Phase B 4 MVP items (heal_potion / strength_scroll /
 	# march_scroll / fire_scroll) + 2 cross-hero ALLY-target items (aid_potion /
 	# rally_scroll — strategy-systems §3.2.1/§3.2.2, the Pillar #5 "다른 장수를
-	# 도와주거나" axis). Remaining authored items (command_scroll, Phase 4+ deferred
-	# per strategy-systems.md v0.2 user adjudication; sky_book Phase C+ candidate)
-	# fall through the default arm.
+	# 도와주거나" axis) + 1 ENEMY-target debuff (intimidate_scroll — §3.2.3, the
+	# "적을 교란" axis, S97). Remaining authored items (command_scroll, Phase 4+
+	# deferred per strategy-systems.md v0.2 user adjudication; sky_book Phase C+
+	# candidate) fall through the default arm.
 	var fired: bool = false
 	var actual_effect: int = 0
 	match item_id:
@@ -2306,6 +2315,9 @@ func use_item(unit_id: int, slot_idx: int, target_pos: Vector2i = Vector2i(-1, -
 			fired = actual_effect > 0
 		&"rally_scroll":
 			actual_effect = _use_item_rally_scroll(unit, target_pos)
+			fired = actual_effect > 0
+		&"intimidate_scroll":
+			actual_effect = _use_item_intimidate_scroll(unit, target_pos)
 			fired = actual_effect > 0
 		_:
 			push_warning("GridBattleController.use_item: unwired item_id '%s' on unit %d slot %d — no-op"
@@ -2510,6 +2522,23 @@ func get_item_target_tiles(unit_id: int, item_id: StringName) -> PackedVector2Ar
 			if adx + ady > ALLY_SUPPORT_RANGE:
 				continue  # out of reach
 			tiles.append(Vector2(ally.position.x, ally.position.y))
+	elif item_id == &"intimidate_scroll":
+		# ENEMY target overlay (UI-GB-17 황토 #C8874A 50% palette) — tiles occupied
+		# by an alive, OPPOSITE-side unit within Manhattan ENEMY_DISRUPT_RANGE.
+		# Mirror of the ALLY arm with the side test inverted; self is implicitly
+		# excluded (always same-side). Empty = no reachable enemy → overlay empty.
+		if _hp_controller == null:
+			return tiles
+		for foe: BattleUnit in _units.values():
+			if foe.side == caster.side:
+				continue  # ally / self — intimidate targets enemies only
+			if not _hp_controller.is_alive(foe.unit_id):
+				continue  # dead enemy
+			var fdx: int = absi(foe.position.x - caster.position.x)
+			var fdy: int = absi(foe.position.y - caster.position.y)
+			if fdx + fdy > ENEMY_DISRUPT_RANGE:
+				continue  # out of reach
+			tiles.append(Vector2(foe.position.x, foe.position.y))
 	return tiles
 
 
@@ -2519,7 +2548,8 @@ func get_item_target_tiles(unit_id: int, item_id: StringName) -> PackedVector2Ar
 ## UI-GB-15; clear_item_target_selection() on cancel OR after use_item() commits.
 ##
 ## `palette` must match an item's target_type: `&"ALLY"` / `&"ENEMY"` / `&"GROUND"`.
-## fire_scroll = `&"GROUND"`; aid_potion / rally_scroll = `&"ALLY"`.
+## fire_scroll = `&"GROUND"`; aid_potion / rally_scroll = `&"ALLY"`;
+## intimidate_scroll = `&"ENEMY"`.
 func begin_item_target_selection(unit_id: int, item_id: StringName, palette: StringName) -> void:
 	var tiles: PackedVector2Array = get_item_target_tiles(unit_id, item_id)
 	item_target_selection_updated.emit(tiles, palette)
@@ -2618,6 +2648,11 @@ func _use_item_march_scroll(unit: BattleUnit) -> int:
 ## across the map). Tuning knob: strategy-systems §7 (ALLY_SUPPORT_RANGE).
 const ALLY_SUPPORT_RANGE: int = 3
 const AID_POTION_AMOUNT: int = 20
+## S97 — intimidate_scroll (ENEMY disrupt axis). Manhattan range to a targetable
+## enemy + the multiplier applied to that enemy's NEXT attack (< 1.0 = weaken).
+## Tuning knobs: strategy-systems §7 (ENEMY_DISRUPT_RANGE / INTIMIDATE_MULT).
+const ENEMY_DISRUPT_RANGE: int = 3
+const INTIMIDATE_MULT: float = 0.70
 const RALLY_SCROLL_MULT: float = 1.30
 
 ## Resolve the ALLY-target unit at target_pos for cross-hero support items.
@@ -2696,6 +2731,58 @@ func _use_item_rally_scroll(unit: BattleUnit, target_pos: Vector2i) -> int:
 	return 1
 
 
+## intimidate_scroll handler — strategy-systems §3.2.3 ENEMY-disrupt axis (S97,
+## the Pillar #5 "적을 교란" lever). Sets a NEGATIVE pending_buff carry on a chosen
+## ENEMY within ENEMY_DISRUPT_RANGE: that enemy's next attack deals × INTIMIDATE_MULT
+## (0.70 = -30%). Reuses the same pending_buff field + _resolve_pending_buff_magnitude
+## consumption path as strength/rally (no separate field, no damage-calc change —
+## _passive_multiplier has no lower clamp, so magnitude < 1.0 weakens correctly).
+## kind = "intimidate" routes the cleared signal to unit_pending_debuff_changed
+## (red ▼ DebuffBadge, not the gold ▶ buff glyph). Overwrites any existing carry
+## on the target (no stacking — EC-SS-2). Returns 1 on success; 0 on reject (no
+## valid enemy at tile / out of range / dead caster).
+func _use_item_intimidate_scroll(unit: BattleUnit, target_pos: Vector2i) -> int:
+	if _hp_controller == null:
+		return 0
+	if not _hp_controller.is_alive(unit.unit_id):
+		return 0  # dead caster cannot intimidate
+	var target: BattleUnit = _find_enemy_target_at(unit, target_pos)
+	if target == null:
+		return 0  # no valid enemy at target tile (or out of range / dead)
+	var current_round: int = _turn_runner.get_current_round_number() if _turn_runner != null else 1
+	target.pending_buff = {
+		&"kind": &"intimidate",
+		&"magnitude": INTIMIDATE_MULT,
+		&"expires_at_turn": current_round + 1,
+	}
+	# Surface the RED ▼ DebuffBadge on the TARGET enemy (distinct from the gold
+	# ▶ buff glyph — an enemy showing the buff glyph would misread as "stronger").
+	unit_pending_debuff_changed.emit(target.unit_id, true)
+	return 1
+
+
+## Returns the alive ENEMY (opposite side) BattleUnit standing at target_pos,
+## within Manhattan ENEMY_DISRUPT_RANGE of the caster, or null if no such unit
+## (default sentinel / out of range / ally tile / dead). Mirror of
+## _find_ally_target_at with the side test inverted. S97.
+func _find_enemy_target_at(caster: BattleUnit, target_pos: Vector2i) -> BattleUnit:
+	if target_pos == Vector2i(-1, -1):
+		return null  # default sentinel — ENEMY items require an explicit target
+	var dx: int = absi(target_pos.x - caster.position.x)
+	var dy: int = absi(target_pos.y - caster.position.y)
+	if dx + dy > ENEMY_DISRUPT_RANGE:
+		return null  # out of reach
+	for foe: BattleUnit in _units.values():
+		if foe.side == caster.side:
+			continue  # ally / self — intimidate targets enemies only
+		if foe.position != target_pos:
+			continue
+		if not _hp_controller.is_alive(foe.unit_id):
+			continue  # dead enemy
+		return foe
+	return null
+
+
 ## S90 Phase B step 5 — buff consumption helper. Called by _resolve_attack
 ## immediately before ResolveModifiers.make() to read the attacker's
 ## pending_buff magnitude (default 1.0 if no buff), clear the buff on
@@ -2722,14 +2809,27 @@ func _resolve_pending_buff_magnitude(attacker_id: int) -> float:
 	if expires_at_turn < current_round:
 		# Stale buff — clear without consumption (e.g. user used buff in round 3
 		# but didn't attack until round 5+; buff expired).
+		var stale_kind: StringName = attacker.pending_buff.get(&"kind", &"") as StringName
 		attacker.pending_buff = {}
-		unit_pending_buff_changed.emit(attacker_id, false)
+		_emit_pending_carry_cleared(attacker_id, stale_kind)
 		return 1.0
-	# Fresh buff — read magnitude, clear (consumed), return for ResolveModifiers.
+	# Fresh buff — read magnitude + kind, clear (consumed), return for ResolveModifiers.
 	var magnitude: float = attacker.pending_buff.get(&"magnitude", 1.0) as float
+	var kind: StringName = attacker.pending_buff.get(&"kind", &"") as StringName
 	attacker.pending_buff = {}
-	unit_pending_buff_changed.emit(attacker_id, false)
+	_emit_pending_carry_cleared(attacker_id, kind)
 	return magnitude
+
+
+## S97 — routes the pending_buff "cleared" signal by kind so the view removes
+## the correct badge. "intimidate" debuffs (magnitude < 1.0, set on an enemy)
+## use unit_pending_debuff_changed (red ▼); all positive buffs (strength /
+## rally) use unit_pending_buff_changed (gold ▶).
+func _emit_pending_carry_cleared(unit_id: int, kind: StringName) -> void:
+	if kind == &"intimidate":
+		unit_pending_debuff_changed.emit(unit_id, false)
+	else:
+		unit_pending_buff_changed.emit(unit_id, false)
 
 
 ## Public skill-firing API. Returns true on success, false when the skill is
