@@ -467,6 +467,26 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Layered UX gap diagnosis**: "재미없음" 같은 단일 사용자 보고가 actually 여러 layer 의 root cause 조합. 진단 시 surface-level fix 만 시도하면 underlying issue 누락 위험. mechanical + discoverability + visual + balance 의 4 layer 모두 inspect 필요.
 - **Selection-less fallback pattern**: 사용자 UX flow 가 "click then key" 이 아닌 "key directly" 일 수도. controller handler 들에 active turn unit fallback 추가 = UX simplification + felt 향상 — 다른 systems 도 같은 pattern 가능 (예: 미리보기 dismiss, 카메라 control).
 
+### S96 — 후반 6v4 로스터 비대칭 정면 대응: ch11-14 적 1명 추가 → 6v5 (S95 한계 #2 해소) (2026-05-30 session 96)
+
+> **Driver**: S95 머지 후 사용자 방향 선택 = "후반 비대칭 정면 대응" (S95 가 진단했으나 mult 로 못 고친 한계 #2). S95 발견: flat/ramp 어느 mult 로도 후반 DEFEAT_ALL(ch11-14) margin 이 +1.3 으로 player 압승 — 6 player 영웅 vs 4 static 적의 **수적 비대칭**이 근본 원인. mult(per-hit 데미지)는 6v4 비대칭을 못 넘음.
+
+**상태: headless 2086/2086 PASS (0 errors / 0 failures / 298 orphans baseline 유지, +3 from S95 신규 sentinel). production .gd code 변경 0건 (scenario 데이터 + 신규 sentinel 테스트 + 하니스 주석/신규 what-if 하니스).**
+
+**1. telemetry 모델링 신설** (`tools/ci/balance/whatif_late_roster.gd`, 실제 `DamageCalc.resolve` 재사용): ch11-14 의 margin(=wipeRnd−clearRnd, >0 = 소모전 압승)이 두 레버 — (A)적 수 (B)적 HP — 에 어떻게 반응하는지 정량화. 결과: **+5번째 적 = 가장 깨끗한 레버** (margin +1.3 → −0.24~−0.47, 초반 "전략 필수" 존 안착). HP×1.5 는 겨우 ~0 도달 + 새 필드(substrate) 필요 → 열등. +6번째는 −1.3 으로 과함.
+
+**2. 적용: ch11-14 각 적 1명 추가** (사용자 승인, `author_s96_late_roster.py` span-scoped addition-only, JSON valid, round-trip 회피로 깨끗한 diff): ch11/12/14 → `wei_001_cao_cao`(조조, COMMANDER 탱키 — 유일 미사용 wei), ch13 → `wei_008_xu_chu`(서황, 이미 조조 보유). 각 챕터 3필드 동기화: `enemy_roster` += {unit_id:8} / `enemy_unit_ids` += 8 / `deployment_positions_default` += "8":[평지 타일]. 배치는 적 클러스터 인접 미점유 평지(type 0) 자동 선정.
+
+**3. 라이브 검증** (`ttk_matrix.gd` 재실행): ch11-14 이제 **6/5**, margin ch11 −0.24 / ch12 −0.25 / ch13 −0.47 / ch14 −0.25 — 예측 일치, 초반 DEFEAT_ALL 존(ch01 −0.43, ch03 −0.32)에 안착. atk_mult 램프는 그대로 유지(직교 레버).
+
+**4. 회귀 sentinel** (`s96_late_roster_balance_sentinel_test.gd`, +3): ch11-14 roster size==5 + uid8 hero/archetype + enemy_unit_ids/deployment 일관성 lock. (주의: `JSON.parse_string` 는 정수를 float 로 → `Array.has(int)` false, `int()` 비교 필요 — G-23 류 API 함정.)
+
+**5. G-30 windowed verify** (`tools/ci/g30/g30_enemy_spawn_smoke.{gd,tscn}` 신설): headless sentinel 은 JSON 만 검사 — windowed lifecycle(battle_scene `_build_battle_units_from_chapter` → roster 스폰 → MapGrid 배치)은 미검증(G-30). 하니스가 4챕터 각각 windowed 부팅 → dev_jump → battle build → `controller._units` 조회: **ch11-14 전부 적 5명 스폰 확인** + uid8 = 조조/조조/서황/조조, side=enemy, position = authored 타일 정확 일치. 스크린샷 시각 확인(ch13: "허저"·"우금" 필드 라벨 렌더). 증거 영구 보존: `production/qa/evidence/s96_late_roster/s96_ch{11..14}_enemies.png`.
+
+**한계 (정직히)**: ① 모델은 방어태세·지형·반격·command_aura·아이템·AI불완전성 제외한 **최악 하한** — 실난이도는 더 관대(margin 음수에 여유). ② archetype=coordinator(조조)의 command_aura 는 모델 미반영 → 실제론 적 더 강함(= fix 가 모델보다 강함, 안전 방향). ③ windowed 실플레이 telemetry 미수집 (골드 스탠다드 잔존).
+
+**S96 → S97 핸드오프**: S95 한계 #1/#2 모두 해소(램프 + 6v5). 다음 fun 레버 후보 — (a) windowed 실플레이 telemetry (램프+6v5 실전 검증, 골드 스탠다드) (b) 아이템 breadth — ENEMY 디버프 축 (Pillar #5 "적 교란", substrate 작업) (c) fire_scroll AoE tile-click commit windowed 클로즈 (잔존). **커밋 상태**: 미커밋 — user 결정 대기.
+
 ### S95 — 난이도/밸런스 검증 (raw feedback #1) + 챕터별 atk_mult 램프 1.25→1.70 (2026-05-29 session 95)
 
 > **Driver**: S94 머지 후 사용자 방향 선택 = "난이도/밸런스 검증" (raw feedback #1 "전반적으로 난이도가 너무 낮음" = 가장 오래된 미해결 raw feedback, S88 의 atk_mult 1.50 상향이 실플레이/모델 미검증 잔존). North Star 원칙: Pillar #5 *"이런 것들이 조합이 되어서 난이도가 결정된다"* → 난이도 압박이 있어야 전략 아이템이 의미를 가짐.
