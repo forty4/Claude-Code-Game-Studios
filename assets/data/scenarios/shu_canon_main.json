@@ -1572,7 +1572,8 @@
         2,
         3,
         4,
-        5
+        5,
+        8
       ],
       "deployment_positions_default": {
         "0": [
@@ -1614,6 +1615,10 @@
         "5": [
           11,
           4
+        ],
+        "8": [
+          12,
+          3
         ]
       },
       "enemy_roster": [
@@ -1635,6 +1640,11 @@
         {
           "unit_id": 5,
           "hero_id": "wei_008_xu_chu",
+          "archetype": "coordinator"
+        },
+        {
+          "unit_id": 8,
+          "hero_id": "wei_001_cao_cao",
           "archetype": "coordinator"
         }
       ],
@@ -1714,7 +1724,8 @@
         2,
         3,
         4,
-        5
+        5,
+        8
       ],
       "deployment_positions_default": {
         "0": [
@@ -1756,6 +1767,10 @@
         "5": [
           11,
           5
+        ],
+        "8": [
+          12,
+          3
         ]
       },
       "enemy_roster": [
@@ -1777,6 +1792,11 @@
         {
           "unit_id": 5,
           "hero_id": "wei_008_xu_chu",
+          "archetype": "coordinator"
+        },
+        {
+          "unit_id": 8,
+          "hero_id": "wei_001_cao_cao",
           "archetype": "coordinator"
         }
       ],
@@ -1869,7 +1889,8 @@
         2,
         3,
         4,
-        15
+        15,
+        8
       ],
       "deployment_positions_default": {
         "0": [
@@ -1911,6 +1932,10 @@
         "15": [
           11,
           3
+        ],
+        "8": [
+          11,
+          4
         ]
       },
       "enemy_roster": [
@@ -1932,6 +1957,11 @@
         {
           "unit_id": 15,
           "hero_id": "shu_009_wei_yan",
+          "archetype": "aggressor"
+        },
+        {
+          "unit_id": 8,
+          "hero_id": "wei_008_xu_chu",
           "archetype": "aggressor"
         }
       ],
@@ -2012,7 +2042,8 @@
         2,
         3,
         4,
-        5
+        5,
+        8
       ],
       "deployment_positions_default": {
         "0": [
@@ -2054,6 +2085,10 @@
         "5": [
           12,
           4
+        ],
+        "8": [
+          13,
+          3
         ]
       },
       "enemy_roster": [
@@ -2075,6 +2110,11 @@
         {
           "unit_id": 5,
           "hero_id": "wei_008_xu_chu",
+          "archetype": "coordinator"
+        },
+        {
+          "unit_id": 8,
+          "hero_id": "wei_001_cao_cao",
           "archetype": "coordinator"
         }
       ],

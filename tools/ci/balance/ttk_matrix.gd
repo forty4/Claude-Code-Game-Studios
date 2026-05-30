@@ -21,8 +21,11 @@ var _cmd_def_bonus: int = 18
 
 # Proposed S95 difficulty ramp (replaces flat 1.50). 1-indexed by chapter.
 # Rationale: early chapters teach (gentle); late chapters counter roster growth
-# (player reaches 6-7 heroes vs static 4 enemies) by raising per-hit pressure;
-# climax (ch16 낙봉파 signature branch) is hardest.
+# (player reaches 6-7 heroes) by raising per-hit pressure; climax (ch16 낙봉파
+# signature branch) is hardest.
+# S96: ramp (atk_mult) alone could NOT move the late DEFEAT_ALL attrition margin
+# (6v4 was +1.3 = player wins without strategy). Fixed by adding a 5th enemy to
+# ch11-14 (now 6v5) → margin -0.24~-0.47, back in the strategy-required zone.
 const PROPOSED_RAMP: Array[float] = [
 	1.25, # ch01 DEFEAT_ALL  3v4  tutorial (도원결의) — approachable intro
 	1.30, # ch02 SURVIVE_5   3v3  early survival
@@ -34,10 +37,10 @@ const PROPOSED_RAMP: Array[float] = [
 	1.50, # ch08 REACH_TILE  5v4  race, combat incidental
 	1.50, # ch09             6v4
 	1.55, # ch10 SURVIVE_5   6v5  적벽
-	1.55, # ch11 DEFEAT_ALL  6v4
-	1.60, # ch12 DEFEAT_ALL  6v4
-	1.60, # ch13 DEFEAT_ALL  6v4
-	1.65, # ch14 DEFEAT_ALL  6v4
+	1.55, # ch11 DEFEAT_ALL  6v5  S96 +조조 (was 6v4)
+	1.60, # ch12 DEFEAT_ALL  6v5  S96 +조조 (was 6v4)
+	1.60, # ch13 DEFEAT_ALL  6v5  S96 +서황 (was 6v4)
+	1.65, # ch14 DEFEAT_ALL  6v5  S96 +조조 (was 6v4)
 	1.65, # ch15 REACH_TILE  7v4
 	1.70, # ch16 SURVIVE_4   7v4  낙봉파 signature climax — hardest
 ]
