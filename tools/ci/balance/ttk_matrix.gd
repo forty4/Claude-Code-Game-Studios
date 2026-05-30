@@ -18,6 +18,12 @@ var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _atk_coeff: float = 1.0
 var _def_coeff: float = 0.20
 var _cmd_def_bonus: int = 18
+var _max_turns: int = 5  # loaded from BalanceConstants in _initialize (S98 lens)
+
+# Effective per-class move range (tiles). HeroData base move_range = 4,
+# + class_move_delta (unit_roles.json), clamped [MOVE_RANGE_MIN=2, MAX=6]:
+#   CAV 4+1=5 / INF 4+0=4 / ARC 4+0=4 / STR 4-1=3 / CMD 4+0=4 / SCT 4+2=6.
+const MOVE_BY_CLASS: Dictionary = {0: 5, 1: 4, 2: 4, 3: 3, 4: 4, 5: 6}
 
 # Proposed S95 difficulty ramp (replaces flat 1.50). 1-indexed by chapter.
 # Rationale: early chapters teach (gentle); late chapters counter roster growth
@@ -50,6 +56,7 @@ func _initialize() -> void:
 	_atk_coeff = BalanceConstants.get_const("HERO_ATK_COEFF") as float
 	_def_coeff = BalanceConstants.get_const("HERO_DEF_COEFF") as float
 	_cmd_def_bonus = BalanceConstants.get_const("HERO_COMMANDER_DEF_BONUS") as int
+	_max_turns = BalanceConstants.get_const("MAX_TURNS_PER_BATTLE") as int
 	_run()
 	quit()
 
@@ -120,6 +127,8 @@ func _run() -> void:
 	print("---+-------------+-----+---------+--------------+--------------+----------")
 	for i: int in range(min(16, chapters.size())):
 		_print_ramp_compare(i + 1, chapters[i] as Dictionary)
+
+	_print_turn_limit_lens(chapters)
 
 
 # ch01 deep dive: full FRONT/REAR matrix + TTK + mult sensitivity.
@@ -283,3 +292,99 @@ func _rosters(ch: Dictionary, want_enemy: bool, mult: float) -> Array:
 			if not row.is_empty():
 				out.append(row)
 	return out
+
+
+# ── 5-ROUND TURN-LIMIT LENS (S98) ────────────────────────────────────────────
+# The model gap the auto-battle telemetry exposed: MAX_TURNS_PER_BATTLE caps the
+# battle, so a DEFEAT_ALL/BOSS chapter is winnable ONLY if every enemy dies within
+# the budget. The attrition margin above assumes run-to-annihilation; this lens
+# re-reads it against the real turn budget + the rounds spent approaching.
+func _print_turn_limit_lens(chapters: Array) -> void:
+	print("")
+	print("=== 5-ROUND TURN-LIMIT LENS (S98) — MAX_TURNS_PER_BATTLE=%d ===" % _max_turns)
+	print(" DEFEAT_ALL/BOSS win ONLY if every enemy dies within the turn budget.")
+	print(" clearRnd = IDEALIZED attrition rounds (enemyHP / full-team FRONT DPS) —")
+	print("            assumes every player attacks from round 1; ignores staggered")
+	print("            arrival + melee adjacency, so it is an OPTIMISTIC lower bound.")
+	print(" apprRnd  = ceil(nearest player<->enemy gap / combined avg move) — rounds")
+	print("            to close distance before melee can even start.")
+	print(" effCmbt  = maxi(1, MAX_TURNS - apprRnd) = rounds actually left to kill in.")
+	print(" reqMult  = clearRnd / effCmbt = DPS boost the STRATEGY LAYER must supply.")
+	print(" verdict: ATTRITION(req<=1) NEEDS-BUFF(<=1.5) NEEDS-BURST(>1.5) UNREACHABLE(appr>=MAX)")
+	print("ch | type        | clearRnd | gap | apprRnd | effCmbt | reqMult | verdict")
+	print("---+-------------+----------+-----+---------+---------+---------+------------")
+	for i: int in range(min(16, chapters.size())):
+		var ch: Dictionary = chapters[i] as Dictionary
+		var vc: Dictionary = ch.get("victory_conditions", {}) as Dictionary
+		var vtype: int = int(vc.get("primary_condition_type", -1))
+		if vtype != 0 and vtype != 2:
+			continue  # only DEFEAT_ALL / DEFEAT_BOSS face the wipe-in-time constraint
+		var mult: float = float(ch.get("enemy_atk_mult", 1.0))
+		var players: Array = _rosters(ch, false, mult)
+		var enemies: Array = _rosters(ch, true, mult)
+		if players.is_empty() or enemies.is_empty():
+			continue
+		var m: Dictionary = _difficulty_metrics(players, enemies)
+		var clear_rounds: float = m["clear_rounds"] as float
+		var gap: int = _chapter_gap(ch)
+		var combined: float = _avg_move(players) + _avg_move(enemies)
+		var appr: int = int(ceil(float(gap) / combined)) if combined > 0.0 else 0
+		var eff: int = maxi(1, _max_turns - appr)
+		var req: float = clear_rounds / float(eff)
+		var verdict: String
+		if appr >= _max_turns:
+			verdict = "UNREACHABLE"
+		elif req <= 1.0:
+			verdict = "ATTRITION"
+		elif req <= 1.5:
+			verdict = "NEEDS-BUFF"
+		else:
+			verdict = "NEEDS-BURST"
+		print("%2d | %-11s | %8.2f | %3d | %7d | %7d | %7.2f | %s"
+			% [i + 1, VTYPE_NAMES.get(vtype, "?"), clear_rounds, gap, appr, eff, req, verdict])
+	print("")
+	print(" BRACKET (model vs reality):")
+	print("   - this lens = OPTIMISTIC floor (full-team DPS, perfect engagement).")
+	print("   - auto-battle (g30_autobattle_telemetry.gd) = naive-melee CEILING: a greedy")
+	print("     melee-only auto-pilot (no skills/items) DRAWS or LOSES every DEFEAT_ALL")
+	print("     chapter (TURN_LIMIT_REACHED).")
+	print(" => truth is between; the realism gap (staggered arrival + adjacency limits)")
+	print("    tips the late chapters over the edge, so the strategy layer (strength 1.5x")
+	print("    / rally 1.3x / flank REAR ~1.7x / burst skills / focus-fire) is")
+	print("    MECHANICALLY REQUIRED for a real player to wipe in time — not optional.")
+	print(" UNREACHABLE => units cannot even meet within %d rounds (map too large)." % _max_turns)
+
+
+# Nearest Manhattan gap between any player and any enemy deployment tile.
+func _chapter_gap(ch: Dictionary) -> int:
+	var dep: Dictionary = ch.get("deployment_positions_default", {}) as Dictionary
+	var phm: Dictionary = ch.get("player_hero_ids", {}) as Dictionary
+	var roster: Array = ch.get("enemy_roster", []) as Array
+	var p_pos: Array = []
+	for k: String in phm:
+		if dep.has(k):
+			var a: Array = dep[k] as Array
+			p_pos.append(Vector2i(int(a[0]), int(a[1])))
+	var e_pos: Array = []
+	for entry: Dictionary in roster:
+		var uid: String = str(int(entry["unit_id"]))
+		if dep.has(uid):
+			var a: Array = dep[uid] as Array
+			e_pos.append(Vector2i(int(a[0]), int(a[1])))
+	var best: int = 1 << 30
+	for p: Vector2i in p_pos:
+		for e: Vector2i in e_pos:
+			var d: int = absi(p.x - e.x) + absi(p.y - e.y)
+			if d < best:
+				best = d
+	return best if best < (1 << 30) else 0
+
+
+# Average effective per-class move range of a roster (MOVE_BY_CLASS).
+func _avg_move(roster: Array) -> float:
+	if roster.is_empty():
+		return 4.0
+	var total: int = 0
+	for u: Dictionary in roster:
+		total += int(MOVE_BY_CLASS.get(u["cls"], 4))
+	return float(total) / float(roster.size())
