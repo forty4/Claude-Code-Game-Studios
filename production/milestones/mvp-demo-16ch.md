@@ -467,6 +467,32 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Layered UX gap diagnosis**: "재미없음" 같은 단일 사용자 보고가 actually 여러 layer 의 root cause 조합. 진단 시 surface-level fix 만 시도하면 underlying issue 누락 위험. mechanical + discoverability + visual + balance 의 4 layer 모두 inspect 필요.
 - **Selection-less fallback pattern**: 사용자 UX flow 가 "click then key" 이 아닌 "key directly" 일 수도. controller handler 들에 active turn unit fallback 추가 = UX simplification + felt 향상 — 다른 systems 도 같은 pattern 가능 (예: 미리보기 dismiss, 카메라 control).
 
+### S98 — windowed 실플레이 telemetry (auto-battle 하니스) → MAX_TURNS=5 모델-갭 발견 + 5라운드 렌즈 (2026-05-30 session 98)
+
+> **Driver**: S97 머지 후 "windowed 실플레이 telemetry" 선택. AISystem 이 player-타겟 하드코딩 → 양측 AI 불가 확인 → telemetry 방식 **"자동 전투 하니스 (B)"** 선택. 발견 후 **"모델에 5라운드 렌즈 추가 (A)"** 선택. commit·merge, MAX_TURNS 재검토는 S99 로.
+
+**상태: headless 2096/2096 PASS 유지. production src/ 변경 0 · 밸런스 변경 0 (분석 툴 + 문서만).**
+
+**1. auto-battle telemetry 하니스 신설** (`tools/ci/balance/g30_autobattle_telemetry.{gd,tscn}`): 실 battle_scene + 적 production AISystem + greedy player auto-pilot(사정거리 적 공격 via `_handle_player_attack` / 최근접 이동 / WAIT) → 자연 루프(TurnOrderRunner + 실 DamageCalc) 완주 + 실엔진 telemetry(per-hit damage/kills/rounds/outcome). `set_ai_thinking_pause_sec_for_test(0.0)`. headless 16챕터.
+
+**2. 핵심 발견 — `MAX_TURNS_PER_BATTLE = 5`**: 전투가 5라운드 TURN_LIMIT_REACHED 종료. **S95/S96 모델은 annihilation 까지 무제한 소모전 가정 → 실게임 5라운드 하드캡과 근본 불일치.** DEFEAT_ALL 은 "5라운드 내 전멸"이 진짜 조건. auto-pilot 실측: naive 근접만으론 ch01 조차 draw, ch04/11 crushed(player 1-2 hit vs enemy 8), 큰 맵(ch09/12-14)은 5R 내 교전조차 못 함.
+
+**3. auto-pilot 한계 (정직)**: greedy 근접 + 스킬/아이템 0 → 비관적 하한(옵션 B caveat 실증). 모델=낙관 ↔ auto-pilot=naive 비관 → bracket.
+
+**4. Option A — ttk_matrix 5라운드 렌즈** (`_print_turn_limit_lens`/`_chapter_gap`/`_avg_move`/MOVE_BY_CLASS): DEFEAT 챕터별 clearRnd(이상적, OPTIMISTIC 하한 명시) / apprRnd / effCmbt(5−appr) / reqMult. 결과: reqMult ch01 0.98 / ch03-04 0.77-0.83 / ch11-12-14 **1.11(NEEDS-BUFF)** / ch13 0.91. 모델상으론 대부분 ATTRITION 이지만 auto-battle(naive 상한)은 전 DEFEAT_ALL draw/loss → 현실 갭(엇갈린 도착+근접 인접)이 모델 낙관성을 무너뜨려 전략 레이어 mechanical 필수. footer = bracket + 전략 레버(flank REAR~1.7×/strength 1.5×/rally 1.3×/burst/focus).
+
+**5. 되돌린 것 (정직)**: 진행 중 turn-budget 변경(MAX_TURNS 5→20 + SURVIVE win_within_turns=10) 과잉 시도 → user 가 "모델링만" 선택 → `git checkout HEAD --` 로 balance_entities.json + scenario 전부 revert. 밸런스 안 건드림.
+
+**S98 → S99 핸드오프 / open question (미해결 설계 질문)**: ① **MAX_TURNS=5 가 의도된 전투 길이인가** (naive 근접이 ch01 도 draw + 큰 맵 교전 불가 → 너무 짧을 가능성; S88 에 user 가 TURN_LIMIT_REACHED DRAW 경험 = 실존 메커니즘; 변경은 S99 user 결정). ② 인간 competent-play telemetry(상한) 미수집. ③ auto-pilot 에 스킬/아이템 추가 시 DEFEAT_ALL 승리 가능 여부(전략 레이어 load-bearing 직접 입증) 미실행.
+
+### S97 — ENEMY 교란 축 신설: intimidate_scroll (협박권) 디버프 + ▼ DebuffBadge (2026-05-30 session 97)
+
+> **Driver**: S96 머지 후 "아이템 breadth — ENEMY 디버프 축" → "공격 약화 (협박권)" lowest-substrate 선택. (밀스톤 기록은 S98 에서 소급 추가.)
+
+**상태: headless 2096/2096 PASS (2086→2096, +10). damage-calc / 새 BattleUnit 필드 변경 0. 머지 완료 (`1560058` feat + `678d48f` docs).**
+
+`intimidate_scroll` (협박권, 적 next attack ×0.70) 1종으로 ENEMY target 축 작동. 적 `pending_buff` 음수 magnitude 재사용(`_resolve_pending_buff_magnitude` side-gate 없음 + `_passive_multiplier` 하한 clamp 없음). kind="intimidate" → cleared 시그널이 `unit_pending_debuff_changed` 로 라우팅 → 빨강 ▼ DebuffBadge(금색 ▶ 오인 방지). 구현: grid_battle_controller(`_use_item_intimidate_scroll`/`_find_enemy_target_at`/get_item_target_tiles ENEMY arm/`_emit_pending_carry_cleared`) + battle_scene(`_on_unit_pending_debuff_changed`) + battle_hud(`_ITEM_TARGET_TYPE` ENEMY + glyph ⚔) + ko/en locale. 분배: 제갈량 ch11-16(march 스왑) + 방통 ch15-16. GDD v0.5. windowed G-30 verify PASS(`g30_intimidate_smoke.gd`). **누적: SELF/ALLY/GROUND/ENEMY 4 target mode 전부 mechanical 작동.**
+
 ### S96 — 후반 6v4 로스터 비대칭 정면 대응: ch11-14 적 1명 추가 → 6v5 (S95 한계 #2 해소) (2026-05-30 session 96)
 
 > **Driver**: S95 머지 후 사용자 방향 선택 = "후반 비대칭 정면 대응" (S95 가 진단했으나 mult 로 못 고친 한계 #2). S95 발견: flat/ramp 어느 mult 로도 후반 DEFEAT_ALL(ch11-14) margin 이 +1.3 으로 player 압승 — 6 player 영웅 vs 4 static 적의 **수적 비대칭**이 근본 원인. mult(per-hit 데미지)는 6v4 비대칭을 못 넘음.
