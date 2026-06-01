@@ -467,6 +467,26 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Layered UX gap diagnosis**: "재미없음" 같은 단일 사용자 보고가 actually 여러 layer 의 root cause 조합. 진단 시 surface-level fix 만 시도하면 underlying issue 누락 위험. mechanical + discoverability + visual + balance 의 4 layer 모두 inspect 필요.
 - **Selection-less fallback pattern**: 사용자 UX flow 가 "click then key" 이 아닌 "key directly" 일 수도. controller handler 들에 active turn unit fallback 추가 = UX simplification + felt 향상 — 다른 systems 도 같은 pattern 가능 (예: 미리보기 dismiss, 카메라 control).
 
+### S99 — 챕터별 turn budget (data-driven) — S98 open question ① 해소 + post-MVP latent 버그 fix (2026-05-31 session 99)
+
+> **Driver**: S98 머지 후 "MAX_TURNS=5 재검토" 선택 → 방향 "챕터별 turn budget (data-driven)" + COMBAT_WINDOW=4 + post-MVP latent 버그 동시 fix 승인.
+
+**상태: headless 2105/2105 PASS (2096→2105, +9). 0 errors · 0 failures · 0 new orphans (298 baseline). damage-calc 변경 0. windowed G-30 verify PASS (`g30_turn_budget_smoke`).**
+
+**1. 핵심 진단**: 단일 글로벌 `MAX_TURNS_PER_BATTLE=5` 가 **두 모순된 역할 겸직** — SURVIVE 챕터엔 정확한 라운드 예산(조화), ANNIHILATION 큰 맵(ch09/11/12/14, gap 9-10 → apprRnd 2)엔 접근에 1라운드 뺏겨 전투창 3(타 챕터 4)으로 줄어드는 **우발적·비설계 난이도 축**. ttk_matrix 가 ch11/12/14 를 NEEDS-BUFF(reqMult 1.11)로 표시한 정확한 원인.
+
+**2. 해소 — `victory_conditions.turn_budget` 신설** (`src/core/payloads/victory_conditions.gd` `@export var turn_budget: int = 0`; 0=글로벌 폴백): scenario_runner 파싱 + `grid_battle_controller.set_victory_conditions()` override + `_ready()` 재적용. 원칙 `budget = apprRnd + COMBAT_WINDOW(=4)` → 맵 크기는 접근 라운드만 사고 전투 라운드는 절대 못 뺏음. authoring: **ch09/11/12/14 = turn_budget 6** (apprRnd 2), 나머지 ANNIHILATION(ch01/03/04/13, apprRnd 1) = 글로벌 5 유지 = **재-소프트닝 0**.
+
+**3. 하니스 입증** (ttk_matrix 렌즈: null-vc=DEFEAT_ALL 포함 + per-chapter budget read): 전 DEFEAT_ALL **effCmbt 4 균일** + reqMult **0.65-0.98 ATTRITION 평탄화** (NEEDS-BUFF 소멸). 의도 난이도 램프는 atk_mult(직교 축)에 잔류.
+
+**4. post-MVP latent 버그 동시 해소**: SURVIVE ch20/22(survive=6)·ch25(survive=8) 가 글로벌 5 < survive_rounds → TURN_LIMIT_REACHED DRAW 가 survive-win 보다 먼저 발화 = **승리 불가**였음 → turn_budget=survive_rounds(6/6/8) authoring. 회귀 가드: SURVIVE invariant 테스트(effective budget ≥ survive_rounds 강제).
+
+**5. G-30 catch (windowed-only 버그)**: 헤드리스 override 테스트는 PASS 였으나 `g30_turn_budget_smoke` 가 windowed 에서 ch11 `_max_turns=5`(≠6) 적발 → `set_victory_conditions`(→budget 적용) 후 `add_child`→`_ready()` 가 글로벌 5 로 **clobber** → `_ready` 에 override 재적용 fix. windowed 재검: ch11=6 / ch01=5 PASS. 헤드리스 mounted 회귀 테스트 추가.
+
+**테스트 +9**: turn_limit(+5: positive/zero/null override + behavioural round6-no-draw + mounted G-30 회귀) + hydration(+4: parse/default + production sentinel + SURVIVE invariant).
+
+**S99 → S100 핸드오프 / 잔존**: ① 인간 competent-play telemetry(상한) 여전히 미수집. ② **REACH_TILE/ESCORT(ch07/08/15) turn budget 미분석** — lens 데이터 없어 글로벌 5 유지(reach 거리 분석 필요 시 후속). ③ auto-pilot 스킬/아이템 추가 시 DEFEAT_ALL 승리 가능 여부 미실행(S98 잔존). **커밋 상태**: 미커밋 — user 결정 대기.
+
 ### S98 — windowed 실플레이 telemetry (auto-battle 하니스) → MAX_TURNS=5 모델-갭 발견 + 5라운드 렌즈 (2026-05-30 session 98)
 
 > **Driver**: S97 머지 후 "windowed 실플레이 telemetry" 선택. AISystem 이 player-타겟 하드코딩 → 양측 AI 불가 확인 → telemetry 방식 **"자동 전투 하니스 (B)"** 선택. 발견 후 **"모델에 5라운드 렌즈 추가 (A)"** 선택. commit·merge, MAX_TURNS 재검토는 S99 로.
