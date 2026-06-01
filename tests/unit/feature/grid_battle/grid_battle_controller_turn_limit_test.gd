@@ -285,3 +285,116 @@ func test_on_round_started_silent_after_battle_over() -> void:
 	controller._on_round_started(7)  # would-be second emit — suppressed
 
 	assert_int(captures.size()).is_equal(1)
+
+
+# ─── S99: per-chapter turn_budget override via set_victory_conditions ─────────
+
+func test_set_victory_conditions_positive_turn_budget_overrides_max_turns() -> void:
+	var u1: BattleUnit = _make_unit(1, Vector2i(0, 0), 0)
+	var enemy: BattleUnit = _make_unit(2, Vector2i(7, 7), 1)
+	var bag: Dictionary = _setup([u1, enemy])
+	var controller: GridBattleController = bag["controller"]
+	# _setup primed _max_turns = 5 (the global-default mirror).
+	var vc: VictoryConditions = VictoryConditions.new()
+	vc.primary_condition_type = int(VictoryConditions.ConditionType.ANNIHILATION)
+	vc.turn_budget = 6
+
+	controller.set_victory_conditions(vc)
+
+	assert_int(controller._max_turns).override_failure_message(
+		"S99: positive turn_budget must override _max_turns (6, not the global 5)"
+	).is_equal(6)
+
+
+func test_set_victory_conditions_zero_turn_budget_keeps_global_default() -> void:
+	var u1: BattleUnit = _make_unit(1, Vector2i(0, 0), 0)
+	var enemy: BattleUnit = _make_unit(2, Vector2i(7, 7), 1)
+	var bag: Dictionary = _setup([u1, enemy])
+	var controller: GridBattleController = bag["controller"]
+	var vc: VictoryConditions = VictoryConditions.new()
+	vc.turn_budget = 0  # sentinel — use global default
+
+	controller.set_victory_conditions(vc)
+
+	assert_int(controller._max_turns).override_failure_message(
+		"S99: turn_budget=0 sentinel must leave the global default (5) intact"
+	).is_equal(5)
+
+
+func test_set_victory_conditions_null_keeps_global_default() -> void:
+	var u1: BattleUnit = _make_unit(1, Vector2i(0, 0), 0)
+	var enemy: BattleUnit = _make_unit(2, Vector2i(7, 7), 1)
+	var bag: Dictionary = _setup([u1, enemy])
+	var controller: GridBattleController = bag["controller"]
+
+	controller.set_victory_conditions(null)
+
+	assert_int(controller._max_turns).override_failure_message(
+		"S99: null victory_conditions must leave the global default (5) intact"
+	).is_equal(5)
+
+
+## Behavioural end-to-end: a turn_budget=6 chapter does NOT draw at round 6
+## (which WAS over the old global 5), and DOES draw at round 7. This is the
+## ch11/12/14 equalization made observable at the outcome layer.
+func test_turn_budget_6_does_not_draw_at_round_6_draws_at_round_7() -> void:
+	var u1: BattleUnit = _make_unit(1, Vector2i(0, 0), 0)
+	var enemy: BattleUnit = _make_unit(2, Vector2i(7, 7), 1)
+	var bag: Dictionary = _setup([u1, enemy])
+	var controller: GridBattleController = bag["controller"]
+	var vc: VictoryConditions = VictoryConditions.new()
+	vc.turn_budget = 6
+	controller.set_victory_conditions(vc)
+	var captures: Array = []
+	controller.battle_outcome_resolved.connect(func(outcome: StringName, _data: Dictionary) -> void:
+		captures.append(outcome)
+	)
+
+	controller._on_round_started(6)  # over-limit at global 5; within budget 6 now
+	assert_int(captures.size()).override_failure_message(
+		"S99: round 6 must NOT draw when turn_budget=6 (it drew at the global 5)"
+	).is_equal(0)
+
+	controller._on_round_started(7)  # over budget 6 → TURN_LIMIT_REACHED
+	assert_int(captures.size()).is_equal(1)
+	assert_str(String(captures[0] as StringName)).is_equal("TURN_LIMIT_REACHED")
+
+
+## G-30 regression — production order is setup → set_victory_conditions →
+## add_child (→ _ready). _ready re-loads the global MAX_TURNS default; without
+## the S99 re-apply it would CLOBBER the chapter budget set before mounting.
+## The bypass-tree tests above never fire _ready (no add_child), so they passed
+## while windowed mode was broken (g30_turn_budget_smoke caught it). This test
+## mounts the controller to reproduce the windowed-only clobber path.
+func test_ready_after_set_victory_conditions_does_not_clobber_turn_budget() -> void:
+	var u1: BattleUnit = _make_unit(1, Vector2i(0, 0), 0)
+	var enemy: BattleUnit = _make_unit(2, Vector2i(7, 7), 1)
+	var map_grid: MapGridStub = MapGridStubScript.new()
+	map_grid.set_dimensions_for_test(Vector2i(8, 8))
+	auto_free(map_grid)
+	var camera: BattleCameraStub = BattleCameraStubScript.new()
+	auto_free(camera)
+	var hero_db: HeroDatabaseStub = HeroDatabaseStubScript.new()
+	var turn_runner: TurnOrderRunnerStub = TurnOrderRunnerStubScript.new()
+	auto_free(turn_runner)
+	var hp: HPStatusController = HPStatusControllerStubScript.new()
+	auto_free(hp)
+	var terrain_effect: TerrainEffectStub = TerrainEffectStubScript.new()
+	var unit_role: UnitRoleStub = UnitRoleStubScript.new()
+	var controller: GridBattleController = GridBattleControllerScript.new()
+	controller.setup([u1, enemy], map_grid, camera, hero_db, turn_runner, hp, terrain_effect, unit_role)
+	var vc: VictoryConditions = VictoryConditions.new()
+	vc.turn_budget = 6
+	controller.set_victory_conditions(vc)  # production order: BEFORE add_child
+
+	# Mount → fires _ready → loads global default (5), then S99 re-applies 6.
+	add_child(controller)
+	await get_tree().process_frame
+
+	assert_int(controller._max_turns).override_failure_message(
+		"S99/G-30: _ready() must NOT clobber the chapter turn_budget (6) set before add_child"
+	).is_equal(6)
+
+	# Explicit in-body teardown per G-6 (orphan detector fires before after_test).
+	remove_child(controller)
+	controller.free()

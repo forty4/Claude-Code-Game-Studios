@@ -1289,6 +1289,10 @@
           4
         ]
       ],
+      "victory_conditions": {
+        "primary_condition_type": 0,
+        "turn_budget": 6
+      },
       "branch_overrides": {
         "WIN_xiakou_united_advance": {
           "player_unit_ids": [
@@ -1660,7 +1664,8 @@
       ],
       "enemy_atk_mult": 1.55,
       "victory_conditions": {
-        "primary_condition_type": 0
+        "primary_condition_type": 0,
+        "turn_budget": 6
       },
       "branch_overrides": {}
     },
@@ -1812,7 +1817,8 @@
       ],
       "enemy_atk_mult": 1.60,
       "victory_conditions": {
-        "primary_condition_type": 0
+        "primary_condition_type": 0,
+        "turn_budget": 6
       },
       "branch_overrides": {}
     },
@@ -2202,7 +2208,8 @@
       },
       "enemy_atk_mult": 1.65,
       "victory_conditions": {
-        "primary_condition_type": 0
+        "primary_condition_type": 0,
+        "turn_budget": 6
       },
       "cascade_join_prose": {
         "WIN_changsha_wei_yan_defects": "ch14.cascade_join.wei_yan"
@@ -3730,7 +3737,8 @@
       "enemy_atk_mult": 1.50,
       "victory_conditions": {
         "primary_condition_type": 1,
-        "survive_rounds": 6
+        "survive_rounds": 6,
+        "turn_budget": 6
       },
       "branch_overrides": {
         "WIN_changsha_wei_yan_defects": {
@@ -4650,7 +4658,8 @@
       "enemy_atk_mult": 1.50,
       "victory_conditions": {
         "primary_condition_type": 1,
-        "survive_rounds": 6
+        "survive_rounds": 6,
+        "turn_budget": 6
       },
       "cascade_join_prose": {
         "WIN_zhangfei_survives": "ch22.cascade_join.zhang_fei"
@@ -6118,7 +6127,8 @@
       "enemy_atk_mult": 1.50,
       "victory_conditions": {
         "primary_condition_type": 1,
-        "survive_rounds": 8
+        "survive_rounds": 8,
+        "turn_budget": 8
       }
     }
   ],

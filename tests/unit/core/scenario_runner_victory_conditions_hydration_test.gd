@@ -103,6 +103,114 @@ func test_hydrate_chapter_target_unit_ids_round_trip() -> void:
 	assert_int(chapter.victory_conditions.target_unit_ids[2]).is_equal(12)
 
 
+# ─── Hydration: turn_budget (S99) ─────────────────────────────────────────────
+
+
+## S99 — per-chapter turn_budget parses from the victory_conditions JSON block.
+func test_hydrate_chapter_turn_budget_parsed() -> void:
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+	var record: Dictionary = _make_minimal_record()
+	record["victory_conditions"] = {
+		"primary_condition_type": 0,
+		"turn_budget": 6,
+	}
+
+	var chapter: ChapterDefinition = runner._hydrate_chapter(record)
+
+	assert_object(chapter.victory_conditions).is_not_null()
+	assert_int(chapter.victory_conditions.turn_budget).override_failure_message(
+		"S99: turn_budget must hydrate from the victory_conditions block"
+	).is_equal(6)
+
+
+## Absent turn_budget → 0 sentinel (controller keeps global MAX_TURNS default).
+func test_hydrate_chapter_omitted_turn_budget_defaults_zero() -> void:
+	var runner: Node = ScenarioRunnerTestSeam.make_isolated_runner()
+	auto_free(runner)
+	var record: Dictionary = _make_minimal_record()
+	record["victory_conditions"] = {
+		"primary_condition_type": 0,
+	}
+
+	var chapter: ChapterDefinition = runner._hydrate_chapter(record)
+
+	assert_object(chapter.victory_conditions).is_not_null()
+	assert_int(chapter.victory_conditions.turn_budget).override_failure_message(
+		"S99: omitted turn_budget must default to 0 (use-global sentinel)"
+	).is_equal(0)
+
+
+# ─── S99 production sentinel — per-chapter turn-budget equalization ───────────
+
+
+## S99 — shu_canon_main carries the per-chapter turn_budget equalization
+## (COMBAT_WINDOW=4): the big-map ANNIHILATION chapters (gap≥9 / apprRnd 2, plus
+## the largest map ch09 / apprRnd 2) get turn_budget=6 so map size only buys
+## approach rounds, never steals fighting rounds; the post-MVP SURVIVE chapters
+## whose survive_rounds exceeds the old global 5 get turn_budget=survive_rounds
+## (else TURN_LIMIT_REACHED would DRAW before the survive-win can fire). The
+## small-map ANNIHILATION chapters (apprRnd 1) keep the global default.
+func test_shu_canon_main_carries_s99_per_chapter_turn_budgets() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/shu_canon_main.json")
+	var data: Dictionary = JSON.parse_string(json_text) as Dictionary
+	var by_id: Dictionary = {}
+	for c: Variant in (data["chapters"] as Array):
+		var d: Dictionary = c as Dictionary
+		by_id[d.get("chapter_id", "") as String] = d
+
+	var expected: Dictionary = {
+		"ch09_chibi_prelude":        6,  # 16-wide, apprRnd 2 → window 4
+		"ch11_jingzhou_pacify":      6,  # gap 9, apprRnd 2
+		"ch12_wuling_marsh":         6,  # gap 9, apprRnd 2
+		"ch14_jingzhou_consolidate": 6,  # gap 10, apprRnd 2
+		"ch20_fancheng_pursuit":     6,  # SURVIVE survive_rounds=6 latent-bug fix
+		"ch22_yiling_burn":          6,  # SURVIVE survive_rounds=6 latent-bug fix
+		"ch25_wuzhang_plains":       8,  # SURVIVE survive_rounds=8 latent-bug fix
+	}
+	for cid: String in expected:
+		var ch: Dictionary = by_id[cid] as Dictionary
+		var vc: Dictionary = ch.get("victory_conditions", {}) as Dictionary
+		assert_int(int(vc.get("turn_budget", 0))).override_failure_message(
+			"S99: %s must declare turn_budget=%d" % [cid, expected[cid]]
+		).is_equal(expected[cid] as int)
+
+	# Regression guard — small-map ANNIHILATION chapters (apprRnd 1) keep the
+	# global default (no turn_budget / 0). They are NOT penalized by map size,
+	# so equalization must leave them untouched (no re-softening).
+	for cid: String in [
+		"ch01_taoyuan_yellow_turban", "ch03_xuzhou_rescue",
+		"ch04_bowang_slope", "ch13_changsha_veteran",
+	]:
+		var ch2: Dictionary = by_id[cid] as Dictionary
+		var vc2: Dictionary = ch2.get("victory_conditions", {}) as Dictionary
+		assert_int(int(vc2.get("turn_budget", 0))).override_failure_message(
+			"S99: %s must keep the global default (turn_budget absent/0) — not map-penalized" % cid
+		).is_equal(0)
+
+
+## S99 forward-looking invariant — EVERY SURVIVE_N_ROUNDS chapter must have an
+## effective turn budget >= survive_rounds (authored turn_budget, else global 5),
+## else the survive-win can never fire before TURN_LIMIT_REACHED draws. This is
+## the exact latent bug ch20/22/25 carried; the guard prevents reintroduction.
+func test_shu_canon_main_survive_chapters_budget_covers_survive_rounds() -> void:
+	var json_text: String = FileAccess.get_file_as_string("res://assets/data/scenarios/shu_canon_main.json")
+	var data: Dictionary = JSON.parse_string(json_text) as Dictionary
+	for c: Variant in (data["chapters"] as Array):
+		var d: Dictionary = c as Dictionary
+		var vc: Dictionary = d.get("victory_conditions", {}) as Dictionary
+		if int(vc.get("primary_condition_type", -1)) != int(VictoryConditions.ConditionType.SURVIVE_N_ROUNDS):
+			continue
+		var sr: int = int(vc.get("survive_rounds", 0))
+		var tb: int = int(vc.get("turn_budget", 0))
+		var effective: int = tb if tb > 0 else 5  # 0 → global MAX_TURNS_PER_BATTLE default
+		assert_bool(effective >= sr).override_failure_message(
+			("S99 invariant: %s SURVIVE survive_rounds=%d but effective turn budget=%d — "
+			+ "TURN_LIMIT_REACHED would DRAW before the survive-win can fire")
+			% [d.get("chapter_id", "") as String, sr, effective]
+		).is_true()
+
+
 # ─── ch10 retrofit verification (smoke) ─────────────────────────────────────
 
 

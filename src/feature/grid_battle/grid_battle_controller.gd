@@ -586,6 +586,15 @@ func _ready() -> void:
 		"GridBattleController.setup() must be called before adding to scene tree — _unit_role is null")
 
 	_max_turns = int(BalanceConstants.get_const("MAX_TURNS_PER_BATTLE"))
+	# S99 — re-apply a per-chapter turn_budget that may have been set via
+	# set_victory_conditions() BEFORE this _ready() ran. BattleScene calls
+	# set_victory_conditions() (which sets _max_turns) and THEN add_child()
+	# (which fires this _ready), so without this re-apply the global default
+	# above would clobber the chapter override. G-30: caught by the windowed
+	# turn_budget smoke (headless override test passes — it never mounts the
+	# node, so _ready never clobbers). Idempotent with the setter's override.
+	if _victory_conditions != null and _victory_conditions.turn_budget > 0:
+		_max_turns = _victory_conditions.turn_budget
 	# Story-005: RNG instance for DamageCalc.resolve evasion roll consumption.
 	# Deterministic seeding deferred to Scenario Progression ADR (sprint-6).
 	_rng = RandomNumberGenerator.new()
@@ -1613,8 +1622,16 @@ func _civilian_recover_on_carrier_death(dead_unit_id: int) -> void:
 ## valid (chapter omitted the resource entirely) and falls through to the
 ## default ANNIHILATION-only dispatcher path. Pure setter — does not
 ## emit signals or trigger snapshot rebuilds.
+##
+## S99 — per-chapter turn-budget override. _max_turns is initialized in
+## _ready() from the global BalanceConstants(MAX_TURNS_PER_BATTLE); a chapter
+## that authors a positive turn_budget overrides it here (called at chapter
+## load, after _ready). turn_budget == 0 (the default sentinel) leaves the
+## global value intact, preserving pre-S99 behaviour for non-opting chapters.
 func set_victory_conditions(vc: VictoryConditions) -> void:
 	_victory_conditions = vc
+	if vc != null and vc.turn_budget > 0:
+		_max_turns = vc.turn_budget
 
 
 ## Subscribed to GameBus.unit_turn_ended via CONNECT_DEFERRED in _ready().

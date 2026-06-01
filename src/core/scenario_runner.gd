@@ -812,6 +812,11 @@ func _hydrate_chapter(record: Dictionary) -> ChapterDefinition:
 			var tile_arr: Array = vc_data["target_tile"] as Array
 			if tile_arr.size() >= 2:
 				vc.target_tile = Vector2i(int(tile_arr[0]), int(tile_arr[1]))
+		# S99 — optional per-chapter turn budget. Absent / 0 → controller keeps
+		# the global BalanceConstants(MAX_TURNS_PER_BATTLE) default. Positive →
+		# overrides _max_turns via set_victory_conditions(). See VictoryConditions
+		# .turn_budget doc + ttk_matrix.gd 5-round lens for the equalization model.
+		vc.turn_budget = (vc_data.get("turn_budget", 0) as int)
 		c.victory_conditions = vc
 	return c
 

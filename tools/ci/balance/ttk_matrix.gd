@@ -301,22 +301,27 @@ func _rosters(ch: Dictionary, want_enemy: bool, mult: float) -> Array:
 # re-reads it against the real turn budget + the rounds spent approaching.
 func _print_turn_limit_lens(chapters: Array) -> void:
 	print("")
-	print("=== 5-ROUND TURN-LIMIT LENS (S98) — MAX_TURNS_PER_BATTLE=%d ===" % _max_turns)
+	print("=== TURN-LIMIT LENS (S98 lens + S99 per-chapter budget) — global default=%d ===" % _max_turns)
 	print(" DEFEAT_ALL/BOSS win ONLY if every enemy dies within the turn budget.")
+	print(" budget   = per-chapter victory_conditions.turn_budget (S99); 0/absent → global default.")
 	print(" clearRnd = IDEALIZED attrition rounds (enemyHP / full-team FRONT DPS) —")
 	print("            assumes every player attacks from round 1; ignores staggered")
 	print("            arrival + melee adjacency, so it is an OPTIMISTIC lower bound.")
 	print(" apprRnd  = ceil(nearest player<->enemy gap / combined avg move) — rounds")
 	print("            to close distance before melee can even start.")
-	print(" effCmbt  = maxi(1, MAX_TURNS - apprRnd) = rounds actually left to kill in.")
+	print(" effCmbt  = maxi(1, budget - apprRnd) = rounds actually left to kill in.")
 	print(" reqMult  = clearRnd / effCmbt = DPS boost the STRATEGY LAYER must supply.")
-	print(" verdict: ATTRITION(req<=1) NEEDS-BUFF(<=1.5) NEEDS-BURST(>1.5) UNREACHABLE(appr>=MAX)")
-	print("ch | type        | clearRnd | gap | apprRnd | effCmbt | reqMult | verdict")
-	print("---+-------------+----------+-----+---------+---------+---------+------------")
+	print(" verdict: ATTRITION(req<=1) NEEDS-BUFF(<=1.5) NEEDS-BURST(>1.5) UNREACHABLE(appr>=budget)")
+	print("ch | type        | budget | clearRnd | gap | apprRnd | effCmbt | reqMult | verdict")
+	print("---+-------------+--------+----------+-----+---------+---------+---------+------------")
 	for i: int in range(min(16, chapters.size())):
 		var ch: Dictionary = chapters[i] as Dictionary
 		var vc: Dictionary = ch.get("victory_conditions", {}) as Dictionary
-		var vtype: int = int(vc.get("primary_condition_type", -1))
+		# S99: null / absent victory_conditions defaults to ANNIHILATION in the
+		# controller, so a -1 (no block) is treated as DEFEAT_ALL here too — this
+		# pulls ch09 (the 16-wide null-vc map) into the wipe-in-time lens.
+		var vtype_raw: int = int(vc.get("primary_condition_type", -1))
+		var vtype: int = 0 if vtype_raw == -1 else vtype_raw
 		if vtype != 0 and vtype != 2:
 			continue  # only DEFEAT_ALL / DEFEAT_BOSS face the wipe-in-time constraint
 		var mult: float = float(ch.get("enemy_atk_mult", 1.0))
@@ -329,10 +334,14 @@ func _print_turn_limit_lens(chapters: Array) -> void:
 		var gap: int = _chapter_gap(ch)
 		var combined: float = _avg_move(players) + _avg_move(enemies)
 		var appr: int = int(ceil(float(gap) / combined)) if combined > 0.0 else 0
-		var eff: int = maxi(1, _max_turns - appr)
+		# S99 per-chapter turn_budget (0/absent → global default _max_turns).
+		var budget: int = int(vc.get("turn_budget", 0))
+		if budget <= 0:
+			budget = _max_turns
+		var eff: int = maxi(1, budget - appr)
 		var req: float = clear_rounds / float(eff)
 		var verdict: String
-		if appr >= _max_turns:
+		if appr >= budget:
 			verdict = "UNREACHABLE"
 		elif req <= 1.0:
 			verdict = "ATTRITION"
@@ -340,8 +349,8 @@ func _print_turn_limit_lens(chapters: Array) -> void:
 			verdict = "NEEDS-BUFF"
 		else:
 			verdict = "NEEDS-BURST"
-		print("%2d | %-11s | %8.2f | %3d | %7d | %7d | %7.2f | %s"
-			% [i + 1, VTYPE_NAMES.get(vtype, "?"), clear_rounds, gap, appr, eff, req, verdict])
+		print("%2d | %-11s | %6d | %8.2f | %3d | %7d | %7d | %7.2f | %s"
+			% [i + 1, VTYPE_NAMES.get(vtype, "?"), budget, clear_rounds, gap, appr, eff, req, verdict])
 	print("")
 	print(" BRACKET (model vs reality):")
 	print("   - this lens = OPTIMISTIC floor (full-team DPS, perfect engagement).")

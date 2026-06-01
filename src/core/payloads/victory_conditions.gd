@@ -83,3 +83,19 @@ enum ConditionType {
 ## "is this tile passable" — chapter authors are responsible for picking
 ## a reachable destination.
 @export var target_tile: Vector2i = Vector2i.ZERO
+
+## S99 — per-chapter turn budget (rounds before TURN_LIMIT_REACHED → DRAW).
+## 0 = sentinel "use the global BalanceConstants(MAX_TURNS_PER_BATTLE) default"
+## (preserves pre-S99 behaviour for every chapter that doesn't opt in). A
+## positive value overrides _max_turns in GridBattleController via
+## set_victory_conditions(). Rationale: MAX_TURNS=5 was a single global
+## constant doing two contradictory jobs — it is the harmonious round budget
+## for SURVIVE_N_ROUNDS chapters, but it silently stole a combat round from
+## ANNIHILATION chapters whose larger maps cost an extra approach round
+## (ch11/12/14, gap 9-10 → apprRnd 2 → effCmbt 3 vs peers' 4). The per-chapter
+## budget equalizes the fighting window (= apprRnd + COMBAT_WINDOW, window=4)
+## so map size only buys approach rounds, never steals fighting rounds. It
+## also unblocks SURVIVE chapters whose survive_rounds exceeds the old global 5
+## (else TURN_LIMIT_REACHED draws before the survive-win can fire). See
+## design/NORTH-STAR.md raw-feedback #1 + tools/ci/balance/ttk_matrix.gd lens.
+@export var turn_budget: int = 0
