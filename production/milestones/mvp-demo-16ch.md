@@ -467,6 +467,29 @@ Test gate: focused suite (story_event + core) 513/513 PASS × 2회 검증 (defau
 - **Layered UX gap diagnosis**: "재미없음" 같은 단일 사용자 보고가 actually 여러 layer 의 root cause 조합. 진단 시 surface-level fix 만 시도하면 underlying issue 누락 위험. mechanical + discoverability + visual + balance 의 4 layer 모두 inspect 필요.
 - **Selection-less fallback pattern**: 사용자 UX flow 가 "click then key" 이 아닌 "key directly" 일 수도. controller handler 들에 active turn unit fallback 추가 = UX simplification + felt 향상 — 다른 systems 도 같은 pattern 가능 (예: 미리보기 dismiss, 카메라 control).
 
+### S100 — competent telemetry tiered ablation (골드 스탠다드 잔존 해소) — Pillar #5 + S99 예산 검증 (2026-05-31 session 100)
+
+> **Driver**: S99 머지 후 "competent telemetry (골드 스탠다드)" 선택 → 스코프 "Tiered ablation" 선택. S95부터 5세션 #1 잔존(인간 competent-play 상한)을 모델링.
+
+**상태: production src/ 변경 0 · 밸런스 변경 0 (분석 하니스 + 문서만). 신규 하니스 `tools/ci/balance/g30_competent_telemetry.{gd,tscn}`.**
+
+**1. 하니스 신설** — 실 battle_scene + TurnOrderRunner + 적 AISystem + 4티어 player auto-pilot로 전략 레이어 per-element 귀속:
+- t0 naive (S98 동일) / t1 +flank(rear 1.5× 위치 = `_attack_angle` 기하 복제, 무변이) / t2 +skill(one-shot, 교전 시) / t3 +item(fire AoE/heal/aid action-item + strength 1.5×/rally 1.3×/intimidate 0.7×/march buff-item, 접근 턴 투자).
+
+**2. 핵심 결과 (budget-6 S99 챕터, 적 5명, 한계 시점 적-잔존)**:
+
+| ch | t0 naive | t1 +flank | t2 +skill | t3 +item |
+|----|----------|-----------|-----------|----------|
+| ch09 | E4 | E2 | E2 | **E1** |
+| ch11 | E4 | E3 | E3 | **E1** |
+| ch14 | E4 | E3 | E3 | **WIN** |
+
+**3. 발견**: **(1) 전략 레이어 mechanical 필수 + 단조증가** — flank(Pillar #1) 1차 레버(E4→E2/E3), **아이템(Pillar #5) 결정 레버**(→E1 / ch14 WIN). 스킬 0 추가 kill(봇 one-shot 타이밍 sub-optimal + utility kit). Pillar #5 + S95 "전략 mechanical 필수" thesis 의 최강 증거. **(2) S99 예산 tight-but-fair** — sub-human 봇 0-1마리 모자람; 숙련 인간이 마지막 갭 닫음 = 의도된 난이도(raw feedback #1 정조준). **(3) bracket 완전 좁힘** — S98 naive 하한(DRAW E4) → competent(DRAW E1 / 간헐 WIN) → 인간 상한(WIN). **S99 검증 완료.**
+
+**4. caveat (정직)**: 봇 = sub-human 하한; flank 티어 일부 챕터 net-negative(lone-unit 과확장, focus-fire 미조율 → ch03 LOSS); 초반 budget-5 챕터(ch01/03/04) t3 에도 E2(소형 로스터+낮은 atk_mult+sub-human 봇, budget-5 결함 아님); 스킬 티어 = 측정상 약함(봇 한계 가능성, 미해결).
+
+**S100 → S101 핸드오프 / 잔존**: ① 인간 실측 competent telemetry (봇은 여전히 하한 — 진짜 상한은 인간 플레이테스트만). ② 스킬 티어 약효 원인 규명(봇 타이밍 vs kit utility 편중). ③ REACH/ESCORT turn budget 분석(S99 잔존). ④ fire_scroll AoE windowed / defense-down 디버프(아이템 breadth). **커밋 상태**: 미커밋 — user 결정 대기.
+
 ### S99 — 챕터별 turn budget (data-driven) — S98 open question ① 해소 + post-MVP latent 버그 fix (2026-05-31 session 99)
 
 > **Driver**: S98 머지 후 "MAX_TURNS=5 재검토" 선택 → 방향 "챕터별 turn budget (data-driven)" + COMBAT_WINDOW=4 + post-MVP latent 버그 동시 fix 승인.
