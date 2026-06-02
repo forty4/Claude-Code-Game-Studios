@@ -298,3 +298,19 @@ msgstr "보관함 꽉 참"
 
 msgid "item.reject.no_active_hero"
 msgstr "활성 영웅 없음"
+
+# S101 — post-battle results panel (UI-GB-09). Pre-S101 these 4 plain-text keys
+# had no locale entry and the panel rendered raw "hud.outcome.victory" /
+# "hud.results.continue" via tr() (no fallback) — debug text on every chapter
+# end. (The %-format stat keys still resolve through battle_hud _format_fallback.)
+msgid "hud.outcome.victory"
+msgstr "승리"
+
+msgid "hud.outcome.defeat"
+msgstr "패배"
+
+msgid "hud.outcome.draw"
+msgstr "무승부"
+
+msgid "hud.results.continue"
+msgstr "계속"

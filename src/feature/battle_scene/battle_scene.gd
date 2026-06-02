@@ -97,6 +97,12 @@ var _slide_tween_keepalive: Tween = null
 ## keyboard handler (R = reload scene, ESC = quit).
 var _battle_resolved: bool = false
 
+## S101 — WIN chapter-end ceremony phase. false while the "▶ 계속" prompt is up
+## (Enter/tap runs the narrative); true once the narrative has played and the
+## chapter-complete buttons are showing (Enter/tap then goes to chapter select).
+## Distinguishes the two WIN-phase meanings of the primary post-battle key.
+var _win_ceremony_shown: bool = false
+
 ## B1.2 — cascade 합류 pulse one-shot flag. `_collect_pre_battle_beats` 가
 ## cascade announcement 를 consume 할 때 true 로 set; `_mount_signature_count_badge`
 ## 가 사용 후 false 로 리셋. consume 이 mount 보다 먼저 실행되므로 peek 의존이
@@ -879,7 +885,7 @@ func _present_story_beats(beats: Array) -> void:
 func _clear_post_battle_ui() -> void:
 	if _hud_layer == null:
 		return
-	for nm: String in ["OutcomeBanner", "PostBattleButtons", "ControlsHint"]:
+	for nm: String in ["OutcomeBanner", "PostBattleButtons", "ControlsHint", "WinContinuePrompt"]:
 		var n: Node = _hud_layer.get_node_or_null(nm)
 		if n != null:
 			n.queue_free()
@@ -2182,8 +2188,13 @@ func _on_battle_outcome_resolved(outcome: StringName, _fate_data: Dictionary) ->
 	set_process(true)
 	set_process_input(true)
 	set_process_unhandled_input(true)
+	# S102 — WIN keeps the battlefield VIVID for the in-battle victory celebration
+	# (the won field is savored, not abandoned); the dim is deferred to the click
+	# (_begin_win_ceremony, as the player leaves into the narrative). LOSS / DRAW
+	# dim immediately as before — the moment is heavy / quiet, not celebratory.
 	var visuals: Node = _find_chapter_visuals()
-	if is_instance_valid(visuals) and visuals is CanvasItem:
+	if _pending_outcome != BattleOutcome.Result.WIN \
+			and is_instance_valid(visuals) and visuals is CanvasItem:
 		# Instant-set the final dim color so the visual change is guaranteed
 		# even if Tween writes don't advance (observed in user windowed env).
 		# (SceneManager may free this node a frame or two later on its own
@@ -2197,7 +2208,17 @@ func _on_battle_outcome_resolved(outcome: StringName, _fate_data: Dictionary) ->
 		var banner: OutcomeBanner = OutcomeBanner.make(outcome)
 		banner.name = "OutcomeBanner"
 		_hud_layer.add_child(banner)
-		_mount_post_battle_buttons(_pending_outcome)
+		# S101 — chapter-end ceremony. On WIN the exit buttons are DEFERRED: the
+		# banner flows into a "▶ 계속" prompt that runs the Beat 8 → Consequence →
+		# Beat 9 narrative, and only THEN shows the chapter-complete buttons — so
+		# the chapter LANDS instead of dumping the player at exit buttons with the
+		# story gated behind a "leave"-reading button (user feedback: "끝 느낌 0").
+		# LOSS / DRAW keep the immediate retry buttons (quick re-fight, no payoff).
+		if _pending_outcome == BattleOutcome.Result.WIN:
+			_win_ceremony_shown = false
+			_mount_win_continue_prompt()
+		else:
+			_mount_post_battle_buttons(_pending_outcome)
 		# Phase 3 Step F — Battle outcome 모먼트. 결과별 결 분리:
 		#   WIN  → 환희 (gold flash + camera slow zoom-out)
 		#   LOSS → 무게 (MUK darken 길게 + 깊은 호흡)
@@ -2205,7 +2226,7 @@ func _on_battle_outcome_resolved(outcome: StringName, _fate_data: Dictionary) ->
 		# 1/battle 발화 — climax 라 강도 가장 높은 family.
 		var result_kind: int = _pending_outcome
 		if result_kind == BattleOutcome.Result.WIN:
-			_trigger_outcome_victory_drama()
+			_trigger_victory_celebration()  # S102 — high-intensity in-battle 환호
 			_fire_player_roster_banter("outcome_win")
 			# S18 — enemy commander's defeat line voices the loser's side of
 			# the same moment. 2.0s start_delay defers enemy voice until after
@@ -2302,6 +2323,50 @@ func _add_post_battle_button(row: HBoxContainer, label: String, on_press: Callab
 	return btn
 
 
+## S101 — WIN "▶ 계속" prompt shown UNDER the victory banner in place of the exit
+## buttons. Tap (touch) or Enter (poll) runs _begin_win_ceremony → the Beat 8 →
+## ConsequenceScreen → Beat 9 narrative. Single button so the moment reads as
+## "continue into the chapter's ending", not "pick where to leave".
+func _mount_win_continue_prompt() -> void:
+	if _hud_layer == null:
+		return
+	var bar: CenterContainer = CenterContainer.new()
+	bar.name = "WinContinuePrompt"
+	bar.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bar.offset_top = 150.0  # below the outcome glyph, same band as the buttons
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var row: HBoxContainer = HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_child(row)
+	var btn: Button = _add_post_battle_button(row, "▶  계속  (Enter)", _begin_win_ceremony)
+	_hud_layer.add_child(bar)
+	btn.grab_focus()
+
+
+## S101 — WIN chapter-complete buttons, shown AFTER the narrative ceremony has
+## played (via _begin_win_ceremony). Primary goes straight to chapter select (no
+## narrative replay — _go_to_chapter_select, not _proceed_scenario). Reuses the
+## "PostBattleButtons" node name so _clear_post_battle_ui + the ending screen
+## find it identically to the LOSS/DRAW cluster.
+func _mount_chapter_complete_buttons() -> void:
+	if _hud_layer == null:
+		return
+	var bar: CenterContainer = CenterContainer.new()
+	bar.name = "PostBattleButtons"
+	bar.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bar.offset_top = 150.0
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var row: HBoxContainer = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 24)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_child(row)
+	var first_btn: Button = _add_post_battle_button(row, "챕터 선택으로 ▶  (Enter)", _go_to_chapter_select)
+	_add_post_battle_button(row, "처음부터", _restart_scenario)
+	_add_post_battle_button(row, "종료 (Esc)", func() -> void: get_tree().quit())
+	_hud_layer.add_child(bar)
+	first_btn.grab_focus()
+
+
 ## Re-fight the current chapter. On LOSS/DRAW the scenario is in BEAT_6_RESULT;
 ## retry_outcome() bounces it back to BEAT_4_PREP (bumping echo_count), then the
 ## scene reload re-runs _ready() → _start_battle() → confirm.
@@ -2322,13 +2387,14 @@ func _restart_scenario() -> void:
 	await _reload_via_scenario()
 
 
-## Accept the outcome and move the scenario forward: BEAT_6 → 7 → 8 → 9 → either
-## the next chapter (reload this scene — _ready picks it up via ScenarioRunner)
-## or SCENARIO_END (show the ending screen, no reload). In windowed runs, the
-## Beat 8 revelation + Beat 9 transition are presented via StoryBeatScreen before
-## the chapter is walked off (BEAT_8 → BEAT_9 advances the chapter index).
-func _proceed_scenario() -> void:
-	_battle_resolved = false  # neutralize the post-battle key poll during the awaits
+## Accept the outcome and advance the scenario through the post-battle narrative:
+## BEAT_6 → 7 → 8 → 9, presenting (windowed) the Beat 8 revelation,
+## ConsequenceScreen, and Beat 9 transition via StoryBeatScreen before the
+## chapter is walked off (BEAT_8 → BEAT_9 advances the chapter index). Leaves
+## ScenarioRunner advanced to the next chapter's BEAT_1_ANCHOR or SCENARIO_END;
+## does NOT itself transition scenes. Shared by the WIN ceremony
+## (_begin_win_ceremony) and the LOSS/DRAW "챕터 선택으로" path (_proceed_scenario).
+func _run_post_battle_narrative() -> void:
 	if not await _wait_for_scenario_state(ScenarioRunner.State.BEAT_6_RESULT):
 		push_warning("BattleScene: proceed — ScenarioRunner never reached BEAT_6_RESULT")
 		return
@@ -2378,17 +2444,59 @@ func _proceed_scenario() -> void:
 	if ScenarioRunner.get_state() == ScenarioRunner.State.BEAT_8_REVEAL:
 		ScenarioRunner.advance_beat()  # -> BEAT_9_TRANSITION -> next chapter BEAT_1_ANCHOR | SCENARIO_END
 	await get_tree().process_frame
+
+
+## S101 — WIN chapter-end ceremony. Triggered by the "▶ 계속" prompt (or the
+## Enter poll) after a victory. Runs the narrative in-place, THEN shows the
+## chapter-complete buttons (instead of dumping the player at exit buttons before
+## the story, which read as "leave" — user feedback: the chapter didn't LAND).
+## On SCENARIO_END (last chapter cleared) routes to the ending screen instead.
+func _begin_win_ceremony() -> void:
+	if _win_ceremony_shown:
+		return  # idempotent — guard against double Enter/tap
+	_win_ceremony_shown = true
+	_battle_resolved = false  # neutralize the post-battle key poll during the awaits
+	# S102 — now that the player is leaving the won field, dim the grid (deferred
+	# from _on_battle_outcome_resolved so the celebration played over a vivid field).
+	var visuals: Node = _find_chapter_visuals()
+	if is_instance_valid(visuals) and visuals is CanvasItem:
+		(visuals as CanvasItem).modulate = OUTCOME_DIM_COLOR
+	_clear_post_battle_ui()  # drop the banner + "▶ 계속" prompt before the story
+	await _run_post_battle_narrative()
 	if ScenarioRunner.get_state() == ScenarioRunner.State.SCENARIO_END:
 		_show_ending_screen()
 		return
-	# S17 macro-loop — instead of auto-reloading the next chapter (pre-S17
-	# behaviour), return to the chapter-selection screen so the player picks
-	# what to play next. The ScenarioRunner state machine has already advanced
-	# to BEAT_1_ANCHOR of the next chapter via BEAT_8 → BEAT_9 → LOADING →
-	# CHAPTER_START; that state is fine to leave because chapter_select's
-	# click handler calls reset_for_tests + jump_to_chapter, which re-seeds
-	# state from scratch. The next chapter "queued" by the state machine is
-	# silently discarded when this scene tears down.
+	# Chapter landed — now offer the explicit "where next?" choice point.
+	_mount_chapter_complete_buttons()
+	# S102-fix — re-arm the _process forward poll, the RELIABLE windowed key path.
+	# _process was disabled when the phase-1 "▶ 계속" Enter fired (line ~2895); the
+	# GUI-focus path alone is unreliable in the windowed env (the very reason the
+	# poll exists — session 4), so without this the chapter-complete
+	# "챕터 선택으로 ▶ (Enter)" button is dead to the keyboard and the player is
+	# stuck on the Enter prompt with no way to end the chapter (user report).
+	set_process(true)
+	_battle_resolved = true  # re-arm Enter for the chapter-complete buttons
+
+
+## LOSS/DRAW "챕터 선택으로" path: run the (loss) narrative then return to chapter
+## select. (WIN no longer routes here — it uses _begin_win_ceremony so the exit
+## buttons appear AFTER the story, not before.)
+func _proceed_scenario() -> void:
+	_battle_resolved = false  # neutralize the post-battle key poll during the awaits
+	await _run_post_battle_narrative()
+	if ScenarioRunner.get_state() == ScenarioRunner.State.SCENARIO_END:
+		_show_ending_screen()
+		return
+	# S17 macro-loop — return to chapter selection so the player picks what to
+	# play next. The ScenarioRunner state machine has already advanced to the next
+	# chapter's BEAT_1_ANCHOR; chapter_select re-seeds state from scratch, so the
+	# queued next chapter is silently discarded when this scene tears down.
+	get_tree().change_scene_to_file(_CHAPTER_SELECT_SCENE_PATH)
+
+
+## Direct return to chapter select (no narrative replay). Used by the WIN
+## chapter-complete buttons, which appear AFTER the narrative has already played.
+func _go_to_chapter_select() -> void:
 	get_tree().change_scene_to_file(_CHAPTER_SELECT_SCENE_PATH)
 
 
@@ -2723,6 +2831,13 @@ var _pending_outcome: int = -1
 var _esc_was_held: bool = false
 ## Edge-detect latch for the H help-toggle.
 var _h_was_held: bool = false
+## S102-fix — edge-detect latch for the post-battle forward key (Enter/R/Space)
+## in the _process poll. Prevents a key still held from the just-finished
+## narrative (the Enter that advanced the last Beat 9 page) from auto-firing the
+## WIN phase-2 chapter-complete action — which would skip the "chapter landed"
+## choice screen. Phase 1 arms with the latch false (first deliberate press
+## fires); the phase-2 re-arm leaves it true so a fresh press is required.
+var _post_battle_fwd_key_held: bool = false
 ## Session-52 — edge-detect latch for right-click cancel. Mirrors ESC's
 ## polling-based bypass when InputRouter's event-driven cancel isn't
 ## reaching the controller (user-reported S51 windowed regression).
@@ -2778,21 +2893,29 @@ func _process(_delta: float) -> void:
 	if not _battle_resolved:
 		return
 	_process_tick += 1
+	var fwd_held: bool = (
+		Input.is_physical_key_pressed(KEY_ENTER) or Input.is_key_pressed(KEY_ENTER)
+		or Input.is_physical_key_pressed(KEY_KP_ENTER)
+		or Input.is_physical_key_pressed(KEY_R) or Input.is_key_pressed(KEY_R)
+		or Input.is_physical_key_pressed(KEY_SPACE) or Input.is_key_pressed(KEY_SPACE)
+	)
 	if _process_tick % 60 == 1:
 		# Once per second while waiting for input — confirms _process is firing.
-		_trace("[POST-BATTLE-WAIT] _process firing; ENTER=%s R=%s SPACE=%s ESC=%s" %
-			[Input.is_physical_key_pressed(KEY_ENTER) or Input.is_physical_key_pressed(KEY_KP_ENTER),
-			Input.is_physical_key_pressed(KEY_R),
-			Input.is_physical_key_pressed(KEY_SPACE),
-			Input.is_physical_key_pressed(KEY_ESCAPE)])
-	if (Input.is_physical_key_pressed(KEY_ENTER) or Input.is_key_pressed(KEY_ENTER)
-			or Input.is_physical_key_pressed(KEY_KP_ENTER)
-			or Input.is_physical_key_pressed(KEY_R) or Input.is_key_pressed(KEY_R)
-			or Input.is_physical_key_pressed(KEY_SPACE) or Input.is_key_pressed(KEY_SPACE)):
+		_trace("[POST-BATTLE-WAIT] _process firing; FWD=%s ESC=%s" %
+			[fwd_held, Input.is_physical_key_pressed(KEY_ESCAPE)])
+	# S102-fix — edge-detected (rising edge only) so a forward key still held from
+	# the just-finished narrative doesn't immediately drive the next phase. The
+	# fire records the held state (latch=true) and disables _process; the WIN
+	# phase-2 re-arm (_begin_win_ceremony) re-enables _process with that latch
+	# still true, so the chapter-complete buttons require a fresh press.
+	if fwd_held and not _post_battle_fwd_key_held:
 		_trace("[BATTLE-END] forward key pressed — invoking primary post-battle action")
+		_post_battle_fwd_key_held = true
 		_battle_resolved = false  # gate further key handling until the next battle
 		set_process(false)
 		_invoke_primary_post_battle_action()
+		return
+	_post_battle_fwd_key_held = fwd_held
 
 
 ## Session-52 / S54 — cancel priority dispatcher shared by ESC + right-click
@@ -2882,11 +3005,15 @@ func _on_help_overlay_closed() -> void:
 		overlay.queue_free()
 
 
-## Runs the same action as the focused post-battle button: on WIN that's
-## _proceed_scenario; on DRAW/LOSS that's _retry_chapter.
+## Runs the same action as the focused post-battle button (Enter poll parity).
+## S101 — WIN has two phases: "▶ 계속" prompt (Enter → run the ceremony) then
+## chapter-complete buttons (Enter → chapter select). DRAW/LOSS → _retry_chapter.
 func _invoke_primary_post_battle_action() -> void:
 	if _pending_outcome == BattleOutcome.Result.WIN:
-		_proceed_scenario()
+		if not _win_ceremony_shown:
+			_begin_win_ceremony()
+		else:
+			_go_to_chapter_select()
 	else:
 		_retry_chapter()
 
@@ -3452,30 +3579,101 @@ func _trigger_low_hp_danger(unit_node: Node2D) -> void:
 		SoundManager.play(SoundManager.SFX_HIT, -3.0)  # 3 semitones lower
 
 
-## Phase 3 Step F — Battle outcome WIN 환희 모먼트. UI_GOLD 화면 wash + camera
-## slow zoom-out (1.0 → 0.92 over 0.6s → 복귀 0.8s). hit-stop 없음 (이미
-## OutcomeBanner 가 정지된 화면이라 freeze 가 redundant). UI_GOLD 선택 —
-## art-bible §1 의 GEUM_SAEK reservation 회피 (legendary 가 아닌 일반 승리는
-## tactical-UI gold tone).
-func _trigger_outcome_victory_drama() -> void:
+## S102 — Battle outcome WIN 환희 (high-intensity in-battle celebration). The won
+## battlefield stays VIVID (the dim is deferred to the exit click); the player's
+## surviving units cheer in a staggered wave (bounce + scale pose + gold glow), a
+## UI_GOLD screen wash pulses over the field, the camera slow zoom-out savors the
+## win, and SFX_VICTORY lands the moment. Per user feedback (S102): the win should
+## be a celebration you SEE on the field, not an instant banner that abandons it.
+## All tweens bind to SceneTree (G-31) so SceneManager.pause_overworld can't stall
+## them. UI_GOLD (not GEUM_SAEK — art-bible §1 reserves 금색 for legendary).
+func _trigger_victory_celebration() -> void:
+	# Audio — victory chord at the win moment. (The chapter_completed SFX_VICTORY
+	# fires LATER during the narrative, separated by the player's continue click.)
+	if SoundManager != null and SoundManager.has_method("play"):
+		SoundManager.play(SoundManager.SFX_VICTORY)
+	# Camera — slower, deeper zoom-out to savor the whole won field, then ease back.
 	if _battle_camera != null:
 		var orig_zoom: Vector2 = _battle_camera.zoom
 		var zoom_tween: Tween = get_tree().create_tween()
-		zoom_tween.tween_property(_battle_camera, "zoom", orig_zoom * 0.92, 0.60) \
+		zoom_tween.tween_property(_battle_camera, "zoom", orig_zoom * 0.88, 1.30) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		zoom_tween.tween_property(_battle_camera, "zoom", orig_zoom, 0.80) \
+		zoom_tween.tween_property(_battle_camera, "zoom", orig_zoom, 0.90) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	# UI_GOLD screen wash — a brighter, longer double-pulse than the pre-S102 flash.
 	if _hud_layer != null:
 		var flash: ColorRect = ColorRect.new()
 		flash.name = "OutcomeVictoryFlash"
-		flash.color = Color(Palette.UI_GOLD.r, Palette.UI_GOLD.g, Palette.UI_GOLD.b, 0.20)
+		flash.color = Color(Palette.UI_GOLD.r, Palette.UI_GOLD.g, Palette.UI_GOLD.b, 0.0)
 		flash.set_anchors_preset(Control.PRESET_FULL_RECT)
 		flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_hud_layer.add_child(flash)
 		var flash_tween: Tween = get_tree().create_tween()
-		flash_tween.tween_property(flash, "color:a", 0.0, 1.00) \
+		flash_tween.tween_property(flash, "color:a", 0.38, 0.28) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		flash_tween.tween_property(flash, "color:a", 0.12, 0.40) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		flash_tween.tween_property(flash, "color:a", 0.0, 1.10) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		flash_tween.tween_callback(flash.queue_free)
+	# The cheering wave across the surviving player units on the field.
+	_celebrate_surviving_player_units()
+
+
+## S102 — staggered victory wave over each surviving player unit polygon. Mirrors
+## the _fire_player_roster_banter enumeration (PlayerUnits children, alive,
+## side 0) so the cheer ripples across the roster left-to-right.
+func _celebrate_surviving_player_units() -> void:
+	var visuals: Node = _find_chapter_visuals()
+	if visuals == null or _grid_controller == null:
+		return
+	var parent: Node = visuals.get_node_or_null("PlayerUnits")
+	if parent == null:
+		return
+	var stagger: float = 0.0
+	for child: Node in parent.get_children():
+		if not (child is Node2D):
+			continue
+		var poly: Node2D = child as Node2D
+		var uid: int = _extract_unit_id_from_polygon_name(poly.name)
+		if uid == -1:
+			continue
+		if _hp_controller != null and not _hp_controller.is_alive(uid):
+			continue
+		var unit: BattleUnit = _grid_controller.get_battle_unit(uid)
+		if unit == null or unit.side != 0:
+			continue
+		_celebrate_one_unit(poly, stagger)
+		stagger += 0.10
+
+
+## A single unit's victory flourish: a two-stage bounce, a scale "pose" pulse,
+## and a gold glow that settles back to its base modulate. `delay` staggers the
+## wave. Three SceneTree-bound (G-31) tweens run concurrently per unit; each
+## restores the polygon's captured base transform so post-win state is clean.
+func _celebrate_one_unit(poly: Node2D, delay: float) -> void:
+	var base_pos: Vector2 = poly.position
+	var base_scale: Vector2 = poly.scale
+	var base_mod: Color = poly.modulate
+	var bounce: Tween = get_tree().create_tween()
+	if delay > 0.0:
+		bounce.tween_interval(delay)
+	bounce.tween_property(poly, "position", base_pos + Vector2(0.0, -20.0), 0.18) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	bounce.tween_property(poly, "position", base_pos, 0.34) \
+		.set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+	var pose: Tween = get_tree().create_tween()
+	if delay > 0.0:
+		pose.tween_interval(delay)
+	pose.tween_property(poly, "scale", base_scale * 1.22, 0.18) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	pose.tween_property(poly, "scale", base_scale, 0.34) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	var glow: Tween = get_tree().create_tween()
+	if delay > 0.0:
+		glow.tween_interval(delay)
+	glow.tween_property(poly, "modulate", Palette.UI_GOLD, 0.18)
+	glow.tween_property(poly, "modulate", base_mod, 0.52)
 
 
 ## Phase 3 Step F — Battle outcome LOSS 상실 모먼트. MUK 화면 darken 깊고

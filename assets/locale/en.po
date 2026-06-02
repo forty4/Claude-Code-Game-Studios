@@ -300,3 +300,16 @@ msgstr "Inventory full"
 
 msgid "item.reject.no_active_hero"
 msgstr "No active hero"
+
+# S101 — post-battle results panel (UI-GB-09). See ko.po note.
+msgid "hud.outcome.victory"
+msgstr "Victory"
+
+msgid "hud.outcome.defeat"
+msgstr "Defeat"
+
+msgid "hud.outcome.draw"
+msgstr "Draw"
+
+msgid "hud.results.continue"
+msgstr "Continue"
